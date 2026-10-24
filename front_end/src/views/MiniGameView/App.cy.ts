@@ -25,7 +25,7 @@ function mountGame() {
                     onClick: () => {
                         emit('reset');
                     } }, 'Restart'),
-                slots['result-actions']?.(),
+                slots.resultActions?.(),
             ]);
         },
     });

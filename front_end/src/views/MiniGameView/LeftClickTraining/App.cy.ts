@@ -1,5 +1,6 @@
 
 import type { BoardBackground, Counter } from '@putianyi888/vue3-minesweeper-board';
+import { defineComponent, h } from 'vue';
 
 import minigameVersion from '../../../../local-minigame/version.json';
 
@@ -13,6 +14,13 @@ import type { TrainingReplay } from '@/utils/minigame/replay';
 import { leftClickDurations, replaySpeeds } from '@/utils/minigame/replayAnalysis';
 import { defaultMinigameSettings, minigameSettings } from '@/utils/minigame/settings';
 import { isolateMinigameHistory, mouseAt, savedMinigameResults } from '@cy/support/minigame';
+
+function mountGame() {
+    return cy.mount(defineComponent({ expose: [], render: () => h(App) }), { global: { plugins: [i18n] } }).then(({ wrapper }) => {
+        const game = wrapper.findComponent(App);
+        return cy.wrap(game).as('vue').then(() => ({ wrapper: game }));
+    });
+}
 
 function cells(board: number[][], value: number) {
     return board.flatMap((row, r) => row.flatMap((cell, c) => (cell === value ? [{ row: r, column: c }] : [])));
@@ -28,14 +36,14 @@ describe('left-click training preview', () => {
     });
 
     it('offers the versioned offline package download', () => {
-        cy.mount(App, { global: { plugins: [i18n] } });
+        mountGame();
         const filename = `OpenMinesweeperMinigames-${minigameVersion.version}.zip`;
         cy.get('[data-cy="training-download"]').should('be.visible').and('have.attr', 'download', filename).
             and('have.attr', 'href', `${import.meta.env.BASE_URL}assets/${filename}`);
     });
 
     it('aligns the remaining and time counters with the board at every cell size', () => {
-        cy.mount(App, { global: { plugins: [i18n] } });
+        mountGame();
         for (const size of [16, 24, 32, 40]) {
             cy.then(() => {
                 minigameSettings.value.cellSize = size;
@@ -67,7 +75,7 @@ describe('left-click training preview', () => {
 
     it('keeps both edges of a wide board reachable in a narrow window', () => {
         cy.viewport(360, 800);
-        cy.mount(App, { global: { plugins: [i18n] } });
+        mountGame();
         cy.get('[data-cy="training-level"] input[value="e"]').parent().click();
         cy.get('.training-scroll').should(($scroll) => {
             const [scroll] = $scroll;
@@ -85,7 +93,7 @@ describe('left-click training preview', () => {
     });
 
     it('starts a new round from either counter or the space between them', () => {
-        cy.mount(App, { global: { plugins: [i18n] } });
+        mountGame();
         for (const target of ['remaining', 'time', 'gap']) {
             cy.get<ComponentWrapper<typeof App>>('@vue').then((wrapper) => {
                 const board = wrapper.findComponent<typeof MiniGameBoard>('[data-cy="minigame-board"]').props('board');
@@ -112,7 +120,7 @@ describe('left-click training preview', () => {
     });
 
     it('waits for release, uses release coordinates, ignores right/chord and cancels on blur', () => {
-        cy.mount(App, { global: { plugins: [i18n] } }).then(({ wrapper }) => {
+        mountGame().then(({ wrapper }) => {
             const board = wrapper.findComponent<typeof MiniGameBoard>('[data-cy="minigame-board"]').props('board');
             const timer = wrapper.findComponent<typeof Counter>('[data-cy="training-time"]');
             expect(timer.props()).to.include({ value: 0, fixed: 3, digits: 3, size: 32 });
@@ -148,7 +156,7 @@ describe('left-click training preview', () => {
     });
 
     it('wins after all safe cells, freezes its result, and generates the selected mode', () => {
-        cy.mount(App, { global: { plugins: [i18n] } });
+        mountGame();
         cy.get('[data-cy="training-density"]').select('87.5');
         cy.get('[data-cy="training-remaining"]').should('have.attr', 'aria-label', '008');
         cy.get('[data-cy="minigame-board"]').then(() => {
@@ -225,7 +233,7 @@ describe('left-click training preview', () => {
     });
 
     it('loses on a mine and blocks subsequent safe clicks', () => {
-        cy.mount(App, { global: { plugins: [i18n] } }).then(({ wrapper }) => {
+        mountGame().then(({ wrapper }) => {
             const board = wrapper.findComponent<typeof MiniGameBoard>('[data-cy="minigame-board"]').props('board');
             const [mine] = cells(board, 16);
             const [safe] = cells(board, 10);

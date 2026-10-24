@@ -1,4 +1,5 @@
 import type { Counter } from '@putianyi888/vue3-minesweeper-board';
+import { defineComponent, h } from 'vue';
 
 import App from './App.vue';
 import type TrainingResults from './Results.vue';
@@ -12,6 +13,13 @@ import { decodeMissingCellRounds } from '@/utils/minigame/recording';
 import { defaultMinigameSettings, minigameSettings } from '@/utils/minigame/settings';
 import { chordAt, isolateMinigameHistory, mouseAt, rightAt, savedMinigameResults } from '@cy/support/minigame';
 
+function mountGame() {
+    return cy.mount(defineComponent({ expose: [], render: () => h(App) }), { global: { plugins: [i18n] } }).then(({ wrapper }) => {
+        const game = wrapper.findComponent(App);
+        return cy.wrap(game).as('vue').then(() => ({ wrapper: game }));
+    });
+}
+
 describe('missing cell training', () => {
     isolateMinigameHistory();
     beforeEach(() => {
@@ -24,7 +32,7 @@ describe('missing cell training', () => {
     it('starts only on release and completes ten boards with a shared timer', () => {
         const snapshots: { board: number[][]; target: { row: number; column: number } }[] = [];
         let times: readonly number[] = [];
-        cy.mount(App, { global: { plugins: [i18n] } });
+        mountGame();
         cy.get('[data-cy="missing-cell-download"]').should('have.attr', 'download', offlineDownloadFilename);
         rightAt(0, 0);
         chordAt(0, 0);
@@ -131,7 +139,7 @@ describe('missing cell training', () => {
     });
 
     it('ignores open cells, right clicks and chords, loses on a mine and restarts from the counter bar', () => {
-        cy.mount(App, { global: { plugins: [i18n] } });
+        mountGame();
         mouseAt(0, 0, 'mousedown');
         mouseAt(0, 0, 'mouseup');
         cy.get<ComponentWrapper<typeof App>>('@vue').then((wrapper) => {
@@ -160,7 +168,7 @@ describe('missing cell training', () => {
     });
 
     it('resets when switching level and uses classic mine counts', () => {
-        cy.mount(App, { global: { plugins: [i18n] } });
+        mountGame();
         for (const [level, columns, mines] of [['i', 16, 40], ['e', 30, 99]] as const) {
             cy.get(`[data-cy="missing-cell-level"] input[value="${level}"]`).parent().click();
             cy.get('[data-cy="missing-cell-game"]').should('have.attr', 'data-phase', 'ready');

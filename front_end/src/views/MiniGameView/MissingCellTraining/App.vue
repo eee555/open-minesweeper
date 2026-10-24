@@ -25,7 +25,7 @@
                 :label="t('local.boardLabel')" @action="onAction"
             />
         </MiniGameFrame>
-        <slot name="result-actions" />
+        <slot name="resultActions" />
         <TrainingResults v-if="phase === 'won'" :times-ms="roundTimes" @hover="hoveredRound = $event" />
         <p class="text text-small">
             {{ t('local.rules') }}
@@ -57,7 +57,7 @@ import { minigameSettings } from '@/utils/minigame/settings';
 
 defineProps({ offline: { type: Boolean, default: false } });
 const emit = defineEmits<{ completed: [rankingKey: string, scoreMs: number, replay: MissingCellRecording]; reset: [] }>();
-defineSlots<{ 'result-actions'?: () => VNode[] }>();
+defineSlots<{ resultActions?: () => VNode[] }>();
 const level = ref<typeof missingCellModes[number]['key']>('b');
 const levelGroupName = useId();
 const mode = computed(() => {

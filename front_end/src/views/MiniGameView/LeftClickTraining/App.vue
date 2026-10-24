@@ -35,7 +35,7 @@
                 </template>
             </MiniGameBoard>
         </MiniGameFrame>
-        <slot name="result-actions" />
+        <slot name="resultActions" />
         <template v-if="replay.data.value && replay.frame.value">
             <ReplayControls :playback="replay.playback" :position-ms="replay.frame.value.timeMs" />
             <ReplayAnalysis :replay="replay.data.value" game="left-click" @preview="replay.hover" />
@@ -71,7 +71,7 @@ import { useTrainingReplay } from '@/utils/minigame/useTrainingReplay';
 
 defineProps({ offline: { type: Boolean, default: false } });
 const emit = defineEmits<{ completed: [rankingKey: string, scoreMs: number, replay: TrainingRecording]; reset: [] }>();
-defineSlots<{ 'result-actions'?: () => VNode[] }>();
+defineSlots<{ resultActions?: () => VNode[] }>();
 const level = ref<typeof trainingLevels[number]['key']>('b');
 const levelGroupName = useId();
 const density = ref<typeof trainingDensities[number]['value']>(50);

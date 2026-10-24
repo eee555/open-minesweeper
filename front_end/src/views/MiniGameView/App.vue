@@ -8,7 +8,7 @@
         </div>
         <RouterView v-slot="{ Component }">
             <component :is="Component" @completed="queueResult" @reset="clearResult">
-                <template #result-actions>
+                <template #resultActions>
                     <div v-if="pendingResult !== null" class="minigame-result-actions">
                         <BaseButton type="primary" :loading="submitting" :disabled="!canUpload || uploaded" :title="uploadHint" data-cy="minigame-upload" @click="submitResult">
                             {{ t(submitting ? 'local.uploading' : uploaded ? 'local.uploaded' : 'local.upload') }}
