@@ -1,11 +1,11 @@
 import logging
 
-from django.db.models.signals import post_save, pre_save
+from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
 from config.text_choices import MS_TextChoices
 from .cache import newest_cache
-from .models import VideoModel
+from .models import ExpandVideoModel, VideoModel
 
 logger = logging.getLogger('videomanager')
 
@@ -105,3 +105,11 @@ def refresh_state_queue_on_video_save(sender, instance: VideoModel, created, upd
     if any(field_changed(instance, field) for field in QUEUE_PAYLOAD_FIELDS):
         remove_from_state_queue(instance, instance.state)
         add_to_state_queue(instance)
+
+
+@receiver(post_delete, sender=VideoModel, dispatch_uid='videomanager.delete_video_expansion')
+def delete_video_expansion(sender, instance: VideoModel, using, origin, **kwargs):
+    # Deleting an expansion already cascades to its video in the same collector.
+    if isinstance(origin, ExpandVideoModel) or getattr(origin, 'model', None) is ExpandVideoModel:
+        return
+    ExpandVideoModel.objects.using(using).filter(pk=instance.video_id).delete()

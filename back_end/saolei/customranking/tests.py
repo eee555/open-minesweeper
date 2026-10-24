@@ -1,8 +1,11 @@
 from datetime import timedelta
 from io import StringIO
 import json
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from django.core.management import call_command
+from django.db import transaction
 from django.test import override_settings, TestCase
 from django.utils import timezone
 
@@ -11,7 +14,7 @@ from userprofile.models import UserProfile
 from videomanager.models import ExpandVideoModel, MAX_TIMEMS, VideoModel
 from .cache import get_player_pluck_records, PLuckRankingCache, record_to_score
 from .models import CustomPluckRecord
-from .services import refresh_all_custom_pluck_ranks, refresh_custom_pluck_rank_range
+from .services import refresh_all_custom_pluck_ranks, refresh_custom_pluck_rank, refresh_custom_pluck_rank_range
 
 
 LEVEL = MS_TextChoices.Level.CUSTOM_8_8_40
@@ -103,6 +106,89 @@ class CustomPluckRecordTests(CustomRankingTestCase):
         self.assertEqual(record.video_id, same_pluck_faster.id)
         self.assertEqual(record.timems, same_pluck_faster.timems)
         self.assertEqual(record.upload_time, same_pluck_faster.upload_time)
+
+
+class PluckVideoDeletionTests(CustomRankingTestCase):
+    def setUp(self):
+        super().setUp()
+        media = TemporaryDirectory()
+        self.addCleanup(media.cleanup)
+        configuration = override_settings(MEDIA_ROOT=media.name)
+        configuration.enable()
+        self.addCleanup(configuration.disable)
+        for target in ['speedranking.services._sync_video', 'effranking.services._sync_video']:
+            replacement = patch(target)
+            replacement.start()
+            self.addCleanup(replacement.stop)
+
+    def candidate(self, pluck):
+        return self.create_video(self.players[0], pluck=pluck, timems=int(pluck * 1000), state=MS_TextChoices.State.OFFICIAL)
+
+    def assert_best(self, video):
+        record = CustomPluckRecord.objects.get(player=self.players[0], level=LEVEL)
+        self.assertEqual(record.video_id, video.pk)
+        self.assertEqual(self.cache.get_rank_range(0, 1)[0]['video_id'], video.pk)
+
+    def test_instance_and_queryset_delete_backfill_then_clear_last_record(self):
+        for queryset in (False, True):
+            with self.subTest(queryset=queryset):
+                best, backup = self.candidate(1), self.candidate(2)
+                refresh_custom_pluck_rank(self.players[0].pk, LEVEL)
+                self.assert_best(best)
+                with self.captureOnCommitCallbacks(execute=True):
+                    if queryset:
+                        VideoModel.objects.filter(pk=best.pk).delete()
+                    else:
+                        best.delete()
+                self.assert_best(backup)
+                with self.captureOnCommitCallbacks(execute=True):
+                    backup.delete()
+                self.assertFalse(CustomPluckRecord.objects.filter(player=self.players[0], level=LEVEL).exists())
+                self.assertEqual(self.cache.get_rank_range(0, 1), [])
+
+    def test_bulk_delete_does_not_select_another_video_in_the_deleted_batch(self):
+        best, second, backup = self.candidate(1), self.candidate(2), self.candidate(3)
+        refresh_custom_pluck_rank(self.players[0].pk, LEVEL)
+        with self.captureOnCommitCallbacks(execute=True):
+            VideoModel.objects.filter(pk__in=[best.pk, second.pk]).delete()
+        self.assert_best(backup)
+
+    def test_deleting_non_best_keeps_current_record(self):
+        best, backup = self.candidate(1), self.candidate(2)
+        refresh_custom_pluck_rank(self.players[0].pk, LEVEL)
+        with self.captureOnCommitCallbacks(execute=True):
+            backup.delete()
+        self.assert_best(best)
+
+    def test_rollback_keeps_the_original_record_and_cache(self):
+        best = self.candidate(1)
+        self.candidate(2)
+        best_id = best.pk
+        refresh_custom_pluck_rank(self.players[0].pk, LEVEL)
+        with self.captureOnCommitCallbacks(execute=True):
+            with self.assertRaisesMessage(RuntimeError, 'rollback'), transaction.atomic():
+                best.delete()
+                raise RuntimeError('rollback')
+        self.assert_best(VideoModel.objects.get(pk=best_id))
+
+    def test_user_cascade_does_not_recreate_deleted_users_records(self):
+        self.candidate(1)
+        self.candidate(2)
+        player_id = self.players[0].pk
+        refresh_custom_pluck_rank(player_id, LEVEL)
+        with self.captureOnCommitCallbacks(execute=True):
+            UserProfile.objects.filter(pk=player_id).delete()
+        self.assertFalse(CustomPluckRecord.objects.filter(player_id=player_id).exists())
+        self.assertEqual(self.cache.get_rank_range(0, 1), [])
+
+    def test_cache_cleanup_preserves_a_record_recreated_in_the_same_transaction(self):
+        self.candidate(1)
+        refresh_custom_pluck_rank(self.players[0].pk, LEVEL)
+        with self.captureOnCommitCallbacks(execute=True):
+            with transaction.atomic():
+                CustomPluckRecord.objects.filter(player=self.players[0], level=LEVEL).delete()
+                record = refresh_custom_pluck_rank(self.players[0].pk, LEVEL)
+        self.assertEqual(self.cache.get_rank_range(0, 1)[0]['video_id'], record.video_id)
 
 
 class PLuckRankingCacheTests(CustomRankingTestCase):

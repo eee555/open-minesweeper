@@ -1,6 +1,6 @@
 # videomanager 事件流说明
 
-本文档记录 `VideoModel` 创建、修改后需要触发的逻辑，以及会互动的 app。当前代码仍处在解耦过程中，后续修改事件逻辑时应先更新本文档。
+本文档记录 `VideoModel` 创建、修改、删除时需要触发的逻辑，以及会互动的 app。当前代码仍处在解耦过程中，后续修改事件逻辑时应先更新本文档。
 
 ## 核心模型
 
@@ -36,6 +36,26 @@
 - `customranking`：自定义 pluck 排行需要录像满足 `OFFICIAL`、非比赛、合法自定义配置、`pluck is not None`。当前通过 `VideoModel` 保存后的信号维护 `CustomPluckRecord`。
 - `utils.parser.MSVideoParser`：标准三等级和当前支持的自定义 `pluck` 场景都会在解析时前台计算，保存 `VideoModel` 后触发 `customranking`。
 - `videomanager.tasks`：`task_video_pluck` 入口保留，供未来重新需要后台计算时复用。
+
+## 删除录像
+
+实例 `delete()`、QuerySet 删除、Admin 和用户级联删除均经过删除信号，不依赖上传或管理接口显式补偿。
+
+站长单个删除入口为 `POST /api/video/admin/delete`，复用 Ninja 的 `django_auth_superuser` 会话认证及 CSRF 校验，仅 `is_staff` 的账号不能调用。JSON 请求体为 `{"id": 123}`，每次只接受一个严格正整数 ID，不再接受 ID 数组。业务服务 `delete_video_by_id` 在共享排行准入和数据库事务内锁定、删除这一条录像，返回 `id`、`deleted` 和 `affected_tournament_ids`；录像不存在时返回 `deleted=false`，便于核对上次结果未知的请求。涉及比赛时记录警告日志，暂不发送私信。排行重建期间，HTTP 准入会在删除前返回既有 503 响应。
+
+固定中文的站长页面位于 `/#/superuser/delete-videos`，没有菜单或管理员标签页入口。页面通过同路径的 `GET /api/video/admin/delete` 向后端验证 superuser 权限，并获取 CSRF cookie 和请求 token；该响应禁止缓存，不修改录像。页面支持粘贴 ID 列表或 JSON 数组，先校验全部输入并去重，再在警告确认后逐条发送独立删除请求。每次等待完整响应后才发下一条；失败、超时或权限失效时停止，保留已确认结果和剩余 ID，不自动重试。手动停止或离开页面不取消正在执行的请求，只阻止后续请求；刷新页面不会保存本次进度。
+
+每个请求都有独立事务，后续请求失败不会恢复此前成功删除的录像。文件清理和排行提交回调仍在该单次请求内同步执行；拆成单个请求降低每次工作量，不保证生产环境每次都能在 Nginx 超时前完成。
+
+- `videomanager.signals.delete_video_expansion` 在录像删除事务内清理对应 `ExpandVideoModel`；事务回滚会一起恢复。若删除源本来就是扩展记录实例或 QuerySet，则交给原有级联处理，避免重复删除。
+- `customranking.signals.refresh_custom_pluck_rank_on_video_delete` 在事务提交后复用 `refresh_custom_pluck_rank`，按玩家和级别从剩余合格录像补选 pluck 最佳纪录，并更新数据库和 Redis。批量待删录像不会被重新选入；没有候选时保留无纪录状态。`CustomPluckRecord` 删除后的缓存同步也延后到提交时，并重读当前纪录，兼容同一事务内删除后重建；删除回滚不发布这两项更新。
+- 文件继续由 `django-cleanup` 在事务提交后删除；计数、竞速与效率榜、外站导入引用沿用各自已有逻辑。
+- **最新录像队列保持现状**：数据库删除不移除 `newest_queue` 快照，最新录像接口仍可能返回已删除的 ID。队列只按既有规则裁剪或由管理员单独移除，不增加删除信号清理或读取时查库过滤。
+- **比赛普通删除不立即重算。** 删除录像会清除比赛的多对多关联，暂时保留已结算成绩、名次、积分和历史最好成绩。显式重算按赛种及成绩来源处理：打卡赛和 GSC 录像来源不再计入已删除录像，GSC 手工来源保留录入成绩但仍参与全场排名及积分更新。新赛种须提供自己的删除及重算规则。站长 API 已提供比赛 ID 和日志警告，隐藏页面已增加删除警告和确认；未来通知主办方的私信尚未实现，详见 [比赛录像删除与成绩一致性](../tournament/VIDEO_DELETION_PLAN.md)。
+
+本次不修改模型字段、不需要数据库迁移，也不自动扫描清理历史孤立扩展行。旧的 pluck 缺失纪录可通过既有 `refresh_all_custom_pluck_ranks` 业务服务重建；仅重建 Redis 缓存不能补回缺失的数据库纪录。
+
+删除源判定和提交后回调沿用 Django 的 [删除信号 `origin`](https://docs.djangoproject.com/en/6.0/ref/signals/#post-delete) 与 [`transaction.on_commit`](https://docs.djangoproject.com/en/6.0/topics/db/transactions/#performing-actions-after-commit)。
 
 ## 修改录像字段
 

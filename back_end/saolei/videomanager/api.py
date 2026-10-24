@@ -1,4 +1,5 @@
 import json
+from typing import Annotated
 from urllib.parse import quote
 
 from django.conf import settings
@@ -6,12 +7,17 @@ from django.core.files.storage import default_storage
 from django.core.paginator import Paginator
 from django.db.models import F, Q
 from django.http import FileResponse, HttpRequest, HttpResponse
+from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
+from django.views.decorators.cache import cache_control
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django_ratelimit.decorators import ratelimit
-from ninja import Form, Query, Router
+from ninja import Field, Form, Query, Router, Schema
 from ninja.decorators import decorate_view
 from ninja.errors import HttpError
 from ninja.orm import create_schema
+from ninja.security import django_auth_superuser
+from pydantic import StrictInt
 
 from config.text_choices import MS_TextChoices
 from userprofile.decorators import staff_required
@@ -19,10 +25,22 @@ from userprofile.models import UserProfile
 from .cache import cache, newest_cache
 from .models import ExpandVideoModel, STNB_COEFFICIENTS, VideoModel
 from .schema import ParsedVideoOut, PUBLIC_VIDEO_METADATA_FIELDS, PublicVideoMetadataOut, VIDEO_INFO_BATCH_LIMIT, VIDEO_METADATA_FIELDS, VideoBaseOut, VideoMetadataOut
+from .services import delete_video_by_id
 from .view_utils import video_all_fields
 
 router = Router()
 VIDEO_ACCEL_REDIRECT_PREFIX = '/internal-media/'
+VideoDeleteIn = create_schema(VideoModel, name='VideoDeleteIn', fields=['id'], custom_fields=[('id', Annotated[StrictInt, Field(gt=0, le=2**63 - 1)], ...)])
+
+
+class VideoDeleteAccessOut(Schema):
+    csrf_token: str
+
+
+class VideoDeleteOut(Schema):
+    id: int
+    deleted: bool
+    affected_tournament_ids: list[int]
 
 
 def _parse_video_ids(ids: str):
@@ -132,6 +150,36 @@ def get_video_admin(request, video_id: int):
     if row is None:
         raise HttpError(404, 'Video not found.')
     return row
+
+
+@router.post('/admin/delete', auth=django_auth_superuser, response=VideoDeleteOut)
+def delete_video_admin(request: HttpRequest, data: VideoDeleteIn):
+    """
+    - auth=django_auth_superuser (Django session, superuser only, CSRF required)
+
+    Delete one video using a JSON object, e.g. {"id": 123}. The ID must be a positive integer.
+    A missing video returns deleted=false, allowing a caller to reconcile a previous uncertain response.
+    Database deletion is atomic. Clients may send multiple requests sequentially and stop on any error.
+    Existing deletion signals clean up expansions, files and rankings. The newest queue retains its snapshots.
+
+    Warning: tournament videos become unavailable, but saved tournament results are not recalculated.
+    Later explicit recalculation follows each tournament type and score source. Affected tournament IDs
+    are returned and logged as a warning; private notifications are not implemented yet.
+    """
+    return delete_video_by_id(data.id, actor_id=request.auth.pk)
+
+
+@router.get('/admin/delete', auth=django_auth_superuser, response=VideoDeleteAccessOut)
+@decorate_view(ensure_csrf_cookie, cache_control(no_store=True))
+def get_video_delete_access(request: HttpRequest):
+    """
+    - auth=django_auth_superuser (Django session, superuser only)
+    - ensure_csrf_cookie
+    - cache_control(no_store=True)
+
+    Check access to the hidden video deletion page and initialize its CSRF cookie and request token.
+    """
+    return {'csrf_token': get_token(request)}
 
 
 @router.get('/query_by_id')

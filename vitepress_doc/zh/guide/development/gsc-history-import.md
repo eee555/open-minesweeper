@@ -155,6 +155,8 @@ python manage.py refresh_tournament_scores <tournament_id>
 
 这里使用管理列表给出的父表比赛 ID，不是 `order`。命令在事务内依次补齐 `TournamentUser`、重算录像来源成绩、刷新全部排名、按新旧 `rank_score` 差额修正积分、重建个人 best 并更新排行缓存。录像计分只接受 `OFFICIAL`、STD（含 NF）、标准三级及对应的 3BV/用时条件；手工来源保留输入的九项成绩，匿名选手占名次但不写账号积分。
 
+GSC 的 `manual_scores` 按参赛者设置，同场可以混合两种来源。普通删除录像不立即重算；后续执行本命令时，录像来源中已删除录像的成绩贡献作废，从剩余合格录像或默认值补位。手工来源保留主办方输入的九项成绩，但名次和积分仍可能随全场重排变化；不能仅因录像缺失自动改为手工来源。
+
 删除后重新添加的记录也要逐届重算，以修正其他选手的排名和积分。删除本人积分时使用原比赛结束时间计算衰减；不能用删除后的新记录覆盖旧 `rank_score` 而省略撤分。普通 finish 任务不是历史维护的替代入口。
 
 相关实现：`tournament/gsc/api.py`、`tournament/gsc/services.py`、`tournament/management/commands/refresh_tournament_scores.py`；前端为 `components/GSCAdmin/HistoryImport.vue`、`HistoryVideos.vue`、`HistoryScores.vue` 和 `history.ts`。

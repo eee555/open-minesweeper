@@ -1,9 +1,28 @@
 from datetime import datetime
+import logging
 
+from django.db import transaction
 from django_apscheduler import util
 
+from utils.ranking_lock import ranking_access
 from .cache import newest_cache
 from .models import VideoModel
+
+logger = logging.getLogger('videomanager')
+
+
+@ranking_access(operation='videomanager.delete_video')
+@transaction.atomic
+def delete_video_by_id(video_id: int, *, actor_id: int):
+    video = VideoModel.objects.select_for_update().filter(pk=video_id).first()
+    if video is None:
+        return {'id': video_id, 'deleted': False, 'affected_tournament_ids': []}
+    tournament_ids = list(video.tournaments.order_by('pk').values_list('pk', flat=True))
+    if tournament_ids:
+        logger.warning('Superuser #%s requested tournament video deletion: video_id=%s tournament_ids=%s; saved results are not recalculated', actor_id, video_id, tournament_ids)
+    video.delete()
+    logger.info('Superuser #%s deleted video #%s', actor_id, video_id)
+    return {'id': video_id, 'deleted': True, 'affected_tournament_ids': tournament_ids}
 
 
 def find_identical_video(file, **filters):

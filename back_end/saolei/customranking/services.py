@@ -19,6 +19,12 @@ def update_custom_pluck_top_cache(record: CustomPluckRecord | None, level: str, 
         ranking_cache.remove_record(player_id)
 
 
+def sync_custom_pluck_top_cache(player_id: int, level: str):
+    """按提交后的当前纪录刷新缓存，兼容同一事务内删除后重建纪录。"""
+    record = CustomPluckRecord.objects.filter(player_id=player_id, level=level).first()
+    update_custom_pluck_top_cache(record, level, player_id)
+
+
 def refresh_custom_pluck_rank(player_id: int, level: str):
     """重新计算单个玩家在某个自定义级别下的最佳 pluck 纪录。"""
     video = (
