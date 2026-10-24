@@ -550,6 +550,27 @@ class TaskDeletionTests(TestCase):
         self.assertTrue(call_mock.call_args.kwargs['skip_checks'])
         self.assertEqual(call_mock.call_args.kwargs['worker_id'], 'testhost-12345-1700000000')
 
+    def test_worker_scan_ignores_the_launcher_that_started_this_process(self):
+        launcher = SimpleNamespace(info={
+            'pid': 10,
+            'cmdline': [r'E:\venv\Scripts\python.exe', 'manage.py', 'db_worker_robust'],
+            'create_time': 1,
+        })
+        other = SimpleNamespace(info={
+            'pid': 99,
+            'cmdline': ['python', 'manage.py', 'db_worker'],
+            'create_time': 2,
+        })
+        with (
+            patch.object(db_worker_robust.os, 'getpid', return_value=20),
+            patch.object(db_worker_robust.psutil, 'process_iter', return_value=[launcher, other]),
+            patch.object(db_worker_robust.psutil, 'Process') as process_cls,
+        ):
+            process_cls.return_value.parents.return_value = [SimpleNamespace(pid=10)]
+            found = [process.info['pid'] for process in db_worker_robust.iter_running_worker_processes()]
+        self.assertEqual(found, [99])
+        process_cls.assert_called_once_with(20)
+
 
 class VideoUploadRankingIntegrationTest(TestCase):
     def setUp(self):

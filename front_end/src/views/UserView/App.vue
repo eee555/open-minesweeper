@@ -39,6 +39,7 @@ const tabItems = computed(() => {
         { name: 'record', label: t('local.record') },
         { name: 'accountlink', label: t('local.accountlink') },
         { name: 'videos', label: t('local.videos') },
+        { name: 'medals', label: t('local.medals') },
     ];
     if (store.isSelf) {
         ret.push({ name: 'upload', label: t('local.upload') });
@@ -69,6 +70,7 @@ const i18nMessages = {
         accountlink: '账号关联',
         record: '纪录',
         videos: '录像',
+        medals: '勋章',
         upload: '上传',
         settings: '设置',
     } },
@@ -76,6 +78,7 @@ const i18nMessages = {
         accountlink: 'Account Link',
         record: 'Record',
         videos: 'Videos',
+        medals: 'Medals',
         upload: 'Upload',
         settings: 'Settings',
     } },

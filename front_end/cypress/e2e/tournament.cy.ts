@@ -126,8 +126,26 @@ function setEndDateTime(dateStr: string, timeStr: string) {
     cy.closeElNotifications();
 }
 
+function readTable(tableElement: HTMLTableElement) {
+    const headers = [...tableElement.querySelectorAll('thead th')].map((cell) => cell.textContent ?? '');
+    const rows = [...tableElement.querySelectorAll('tbody tr')].map((row) => [...row.querySelectorAll('td')].map((cell) => cell.textContent));
+    return rows.map((row) => {
+        const record: Record<string, string | null> = {};
+        row.forEach((cell, index) => {
+            const header = headers[index];
+            if (header !== undefined) record[header] = cell;
+        });
+        return record;
+    });
+}
+
 function assertTableData(expected: Record<string, unknown>[], exact = true) {
-    cy.get('table:visible').getTable().should((tableData) => {
+    // Cypress 会在这条断言失败时重新查询 table:visible，因此切到目标页签后读到的是当前表格。
+    cy.get('table:visible').should(($tables) => {
+        expect($tables, 'visible table').to.have.length(1);
+        const tableElement = $tables.get(0);
+        if (!(tableElement instanceof HTMLTableElement)) throw new Error('expected one visible HTML table');
+        const tableData = readTable(tableElement);
         if (exact) {
             expect(tableData).to.have.length(expected.length);
         }
@@ -158,6 +176,7 @@ function assertVisibleTournamentNames(expectedNames: string[]) {
 
 function selectHomepageListTab(name: string) {
     cy.contains('.el-tabs__item', name).click();
+    cy.contains('.el-tabs__item.is-active', name).should('be.visible');
 }
 
 function registerOnWeeklyTournamentPage(tournamentId: number) {

@@ -2,6 +2,11 @@ import type { RouteRecordRaw } from 'vue-router';
 
 export const staffRoutes: RouteRecordRaw[] = [
     {
+        path: 'medals',
+        name: 'staff-medals',
+        component: () => import('./Medal.vue'),
+    },
+    {
         path: 'userprofile',
         name: 'staff-userprofile',
         component: () => import('./UserProfile.vue'),

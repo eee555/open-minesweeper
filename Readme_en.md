@@ -12,6 +12,8 @@ Deployment：Nginx + uwsgi
 Censorship：百度大脑  
 
 
+To run the local site, start the backend, frontend, and medal worker. Accounts and URLs are in [本地启动.md](本地启动.md).
+
 ## Steps for deployment：
 
 This project can be developed on Windows and deployed on Linux. Install Python, Node.js, MySQL, and Redis, then clone the repository. The development commands below use Windows PowerShell and start at the repository root.

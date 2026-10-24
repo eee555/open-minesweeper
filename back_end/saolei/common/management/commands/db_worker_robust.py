@@ -21,11 +21,20 @@ def _cmdline_runs_worker(cmdline: list[str]) -> bool:
     return any(Path(arg).name in WORKER_COMMANDS for arg in cmdline)
 
 
+def _ancestor_pids(pid: int) -> set[int]:
+    # Windows 的 venv 启动器会留下一个命令行相同的父进程。它不是另一个 worker。
+    try:
+        return {parent.pid for parent in psutil.Process(pid).parents()}
+    except psutil.Error:
+        return set()
+
+
 def iter_running_worker_processes(exclude_pid: int | None = None):
     current_pid = os.getpid() if exclude_pid is None else exclude_pid
+    excluded = {current_pid, *_ancestor_pids(current_pid)}
     for process in psutil.process_iter(['pid', 'cmdline', 'create_time']):
         try:
-            if process.info['pid'] == current_pid:
+            if process.info['pid'] in excluded:
                 continue
             cmdline = process.info.get('cmdline') or []
         except psutil.Error:
