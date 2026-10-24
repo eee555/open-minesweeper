@@ -53,7 +53,9 @@ describe('sequential single-video deletion', () => {
             });
             return Promise.resolve(response);
         };
-        const operation = deleteVideosSequentially([11, 22], 'token', (result) => results.push(result), () => false);
+        const operation = deleteVideosSequentially([11, 22], 'token', (result) => {
+            results.push(result);
+        }, () => false);
         await vi.waitFor(() => {
             expect(requests).toEqual([11]);
         });
@@ -73,7 +75,9 @@ describe('sequential single-video deletion', () => {
             if (id === 22) return Promise.reject(new Error('timeout'));
             return Promise.resolve({ data: { id, deleted: true, affected_tournament_ids: [] }, status: 200, statusText: 'OK', headers: new AxiosHeaders(), config });
         };
-        await expect(deleteVideosSequentially([11, 22, 33], 'token', (result) => results.push(result), () => false)).rejects.toThrow('timeout');
+        await expect(deleteVideosSequentially([11, 22, 33], 'token', (result) => {
+            results.push(result);
+        }, () => false)).rejects.toThrow('timeout');
         expect(requests).toEqual([11, 22]);
         expect(results.map((result) => result.id)).toEqual([11]);
     });
@@ -92,7 +96,9 @@ describe('sequential single-video deletion', () => {
                 };
             });
         };
-        const operation = deleteVideosSequentially([11, 22], 'token', (result) => results.push(result), () => stopped);
+        const operation = deleteVideosSequentially([11, 22], 'token', (result) => {
+            results.push(result);
+        }, () => stopped);
         await vi.waitFor(() => {
             expect(requests).toEqual([11]);
         });
