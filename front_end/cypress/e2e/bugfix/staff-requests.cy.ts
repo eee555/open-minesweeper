@@ -95,6 +95,8 @@ describe('Staff requests against the backend', () => {
         cy.wait('@updateUserMS').its('response.statusCode').should('eq', 200);
         cy.wait('@loadUser').its('response.body.userms_video_num_limit').should('eq', 0);
         cy.get('textarea').eq(1).should('have.value', '{}');
+        // The save creates its notification after reloading the profile.
+        cy.contains('button', 'PATCH UserMS（修改扫雷数据）').should('not.be.disabled');
 
         cy.closeElNotifications();
         cy.visitUser(USER.id, 'pb');

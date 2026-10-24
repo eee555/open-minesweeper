@@ -200,10 +200,13 @@ Cypress.Commands.add('mockLogin', () => {
 });
 
 Cypress.Commands.add('closeElNotifications', () => {
-    cy.get('.el-notification__closeBtn:visible').each(($el) => {
-        cy.wrap($el).click();
+    cy.document().then((doc) => {
+        // Close the stack together before its remaining buttons move during transitions.
+        doc.querySelectorAll<HTMLElement>('.el-notification__closeBtn').forEach((button) => {
+            button.click();
+        });
     });
-    cy.get('.el-notification__closeBtn:visible').should('not.exist');
+    cy.shouldBeAbsentOrHidden('.el-notification');
 });
 
 Cypress.Commands.add('shouldBeAbsentOrHidden', (selector, options) => {

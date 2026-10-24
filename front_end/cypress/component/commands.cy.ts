@@ -1,5 +1,33 @@
 /* eslint-disable vue/one-component-per-file -- Each test mounts its own render-only fixture. */
-import { defineComponent, h, ref } from 'vue';
+import { ElNotification } from 'element-plus';
+import { defineComponent, h, onMounted, ref } from 'vue';
+
+describe('closeElNotifications', () => {
+    afterEach(() => {
+        ElNotification.closeAll();
+    });
+
+    for (const count of [0, 3]) {
+        it(`closes ${count} persistent notifications without requiring a close button to exist`, () => {
+            cy.mount(defineComponent({
+                expose: [],
+                setup() {
+                    onMounted(() => {
+                        for (let index = 0; index < count; index++) {
+                            ElNotification({ title: `Notice ${index + 1}`, duration: 0 });
+                        }
+                    });
+                    return () => h('div');
+                },
+            }));
+
+            cy.get('body').find('.el-notification').should('have.length', count);
+            cy.closeElNotifications();
+            cy.get('.el-notification').should('not.exist');
+            cy.closeElNotifications();
+        });
+    }
+});
 
 describe('shouldBeAbsentOrHidden', () => {
     it('accepts missing elements without waiting for them to exist', () => {
