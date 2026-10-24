@@ -1,16 +1,11 @@
 <template>
-    <ElDialog v-if="progress.total > progress.completed" model-value :title="t('local.title')" width="min(28rem, 90vw)" :show-close="false" :close-on-click-modal="false" :close-on-press-escape="false" append-to-body>
-        <div aria-busy="true" aria-live="polite">
-            <p class="text-regular">
-                {{ t('local.progress', progress) }}
-            </p>
-            <ElProgress :percentage="Math.floor(progress.completed / progress.total * 100)" />
-        </div>
-    </ElDialog>
+    <div v-if="progress.total > progress.completed" class="text-small video-info-progress" role="status">
+        <span>{{ t('local.progress', progress) }}</span>
+        <progress :value="progress.completed" :max="progress.total" :aria-label="t('local.title')" />
+    </div>
 </template>
 
 <script setup lang="ts">
-import { ElDialog, ElProgress } from 'element-plus';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
@@ -29,13 +24,33 @@ const progress = computed(() => {
 
 const i18nMessages = {
     'zh-cn': { local: {
-        title: '正在获取录像信息',
-        progress: '已获取 {completed} / {total}，请稍候。',
+        title: '录像信息下载进度',
+        progress: '正在后台获取录像信息：{completed} / {total}',
     } },
     en: { local: {
-        title: 'Loading video information',
-        progress: '{completed} / {total} loaded. Please wait.',
+        title: 'Video information download progress',
+        progress: 'Loading video information in the background: {completed} / {total}',
     } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>
+
+<style scoped>
+.video-info-progress {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+    margin-bottom: 8px;
+    padding: 4px 0;
+    color: var(--ui-text-color-secondary);
+}
+
+.video-info-progress progress {
+    flex: 0 1 16rem;
+    width: 100%;
+    min-width: 0;
+    height: 8px;
+    accent-color: var(--ui-color-primary);
+}
+</style>
