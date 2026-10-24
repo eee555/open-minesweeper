@@ -63,7 +63,7 @@ let databasePromise: Promise<IDBPDatabase<MinigameHistoryDB>> | undefined;
 async function paintMigrationNotice(keepAlive: () => Promise<unknown>): Promise<void> {
     if (typeof requestAnimationFrame !== 'function') return;
     let painted = false;
-    let frame = 0;
+    let frame: number;
     const timeout = setTimeout(() => {
         painted = true;
     }, 100);

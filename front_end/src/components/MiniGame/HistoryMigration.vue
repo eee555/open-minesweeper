@@ -1,6 +1,6 @@
 <template>
     <Teleport to="body">
-        <dialog v-if="progress !== null" ref="dialog" class="history-migration" :aria-label="t('local.message')" aria-busy="true" data-cy="minigame-history-migration" @cancel.prevent @keydown.stop>
+        <dialog v-if="progress !== null" ref="dialog" class="history-migration" :aria-label="t('local.message')" aria-busy="true" closedby="none" data-cy="minigame-history-migration" @cancel.prevent @keydown.stop>
             <p class="text text-medium" role="status">
                 {{ t('local.message') }}
             </p>
@@ -12,11 +12,12 @@
 
 <script setup lang="ts">
 import { useTemplateRef, watch } from 'vue';
+import type { PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import type { HistoryMigrationProgress } from '@/utils/minigame/history';
 
-defineProps<{ progress: HistoryMigrationProgress | null }>();
+defineProps({ progress: { type: Object as PropType<HistoryMigrationProgress | null>, default: null } });
 const dialog = useTemplateRef('dialog');
 watch(dialog, (element, previous) => {
     previous?.close();

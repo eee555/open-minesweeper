@@ -35,6 +35,7 @@
                 </template>
             </MiniGameBoard>
         </MiniGameFrame>
+        <slot name="result-actions" />
         <template v-if="replay.data.value && replay.frame.value">
             <ReplayControls :playback="replay.playback" :position-ms="replay.frame.value.timeMs" />
             <ReplayAnalysis :replay="replay.data.value" game="left-click" @preview="replay.hover" />
@@ -51,6 +52,7 @@ import '@/components/MiniGame/training.css';
 import { Counter } from '@putianyi888/vue3-minesweeper-board';
 import { useRafFn } from '@vueuse/core';
 import { computed, ref, shallowRef, useId, watch } from 'vue';
+import type { VNode } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import MiniGameBoard from '@/components/MiniGame/Board.vue';
@@ -68,7 +70,8 @@ import { minigameSettings } from '@/utils/minigame/settings';
 import { useTrainingReplay } from '@/utils/minigame/useTrainingReplay';
 
 defineProps({ offline: { type: Boolean, default: false } });
-const emit = defineEmits<{ completed: [rankingKey: string, scoreMs: number, replay: TrainingRecording] }>();
+const emit = defineEmits<{ completed: [rankingKey: string, scoreMs: number, replay: TrainingRecording]; reset: [] }>();
+defineSlots<{ 'result-actions'?: () => VNode[] }>();
 const level = ref<typeof trainingLevels[number]['key']>('b');
 const levelGroupName = useId();
 const density = ref<typeof trainingDensities[number]['value']>(50);
@@ -100,6 +103,7 @@ function restart() {
     elapsed.value = 0;
     recorder = new TrainingReplayRecorder({ game: 'left-click', mode: game.mode }, board.value);
     round.value++;
+    emit('reset');
 }
 
 function onAction(action: ClassicMouseAction, row: number, column: number, now: number) {

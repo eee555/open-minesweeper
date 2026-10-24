@@ -58,7 +58,7 @@ After a successful 10-board missing cell run, the charts show each board's time 
 
 ## Rankings and Local Results
 
-When you are logged in and not banned, successful times and replays are submitted automatically. **No real name, Minesweeper profile or linked account is required.** Each mode keeps your personal best time and its replay. Click a score column to sort the rankings, or hover a score to see when it was achieved. Links at the top connect each game with its rankings.
+After a successful game, click **Upload score and replay** below the board to submit it while logged in and not banned. **No real name, Minesweeper profile or linked account is required.** Each mode keeps your personal best time and its replay. Click a score column to sort the rankings, or hover a score to see when it was achieved. Links at the top connect each game with its rankings.
 
 Successful games are also saved in this browser: left-click and flag-and-chord retain replays; missing cell retains each board, target and time. Failed and unfinished games are not saved. History browsing and replay downloads are not available yet. Restarting clears the current preview while keeping saved successful games; clearing browser site data deletes local records.
 

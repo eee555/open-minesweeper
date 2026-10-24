@@ -1,6 +1,6 @@
 ﻿# 小游戏成绩与排行榜
 
-网站登录且未封禁的玩家成功通关后自动提交用时与回放；离线版只保存本地历史。玩法见[使用指南](../../../vitepress_doc/zh/guide/minigames.md)，前端结构、回放和离线构建见[前端开发文档](../../../front_end/local-minigame/README.md)。
+网站登录且未封禁的玩家成功通关后，可点击按钮提交用时与回放；离线版只保存本地历史。玩法见[使用指南](../../../vitepress_doc/zh/guide/minigames.md)，前端结构、回放和离线构建见[前端开发文档](../../../front_end/local-minigame/README.md)。
 
 ## 约定与取舍
 

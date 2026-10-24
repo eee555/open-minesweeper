@@ -1,6 +1,6 @@
 # 小游戏开发与离线构建
 
-网站和离线版共用三种训练。网站登录且未封禁的玩家成功通关后自动提交用时及回放，各模式保留个人最佳及对应回放，公开排行榜位于 `/#/ranking/minigame`，无需实名；离线版只保留本地历史。在线使用指南见 [VitePress 中文页](../../vitepress_doc/zh/guide/minigames.md)及[英文页](../../vitepress_doc/en/guide/minigames.md)。离线帮助维护在 [README.txt](./README.txt)，版权及灵感来源维护在 [COPYRIGHT.txt](./COPYRIGHT.txt)，两份正文同时用于离线页面和 ZIP。[后端实现](../../back_end/saolei/minigame/README.md) 单独维护成绩与排行方案。
+网站和离线版共用三种训练。网站登录且未封禁的玩家成功通关后，可点击按钮提交用时及回放，各模式保留个人最佳及对应回放，公开排行榜位于 `/#/ranking/minigame`，无需实名；离线版只保留本地历史。在线使用指南见 [VitePress 中文页](../../vitepress_doc/zh/guide/minigames.md)及[英文页](../../vitepress_doc/en/guide/minigames.md)。离线帮助维护在 [README.txt](./README.txt)，版权及灵感来源维护在 [COPYRIGHT.txt](./COPYRIGHT.txt)，两份正文同时用于离线页面和 ZIP。[后端实现](../../back_end/saolei/minigame/README.md) 单独维护成绩与排行方案。
 
 | 游戏 | 网站入口 | 规则与生成器 |
 | --- | --- | --- |
@@ -69,7 +69,7 @@
 - 本地历史独立于可丢弃的 `saolei-cache`，不套用缓存的过期、版本清空或自动字段转换。以后修改结构时显式迁移并保留历史数据。连接在版本升级时释放，避免旧页面阻塞迁移。
 - 数据归属于当前浏览器与来源，在线站点和离线文件不保证共用；清除浏览器站点数据会删除记录。
 
-网站入口通过游戏的 `completed(rankingKey, scoreMs, replay)` 事件提交成绩和 v1 回放，HTTP 和登录状态仅由网站 `MiniGameView/App.vue` 引入。左键及标双提交完整 `TrainingRecording`，漏雷提交 `{version: 1, rounds}`；表单中的 `replay` 为 JSON 字符串。后端压缩为 7z 后用 BinaryField 保存每人每榜最佳成绩对应的回放，回放不进入 Redis。上传失败不会删除本地记录；失败局不发完成事件。离线入口不监听此事件，继续禁止导入网站 HTTP、用户 store 及路由。
+网站入口收到游戏的 `completed(rankingKey, scoreMs, replay)` 事件后暂存本局数据，通过 `result-actions` 插槽在棋盘下方提供上传按钮，仅在点击时提交；重开、修改玩法参数或切换游戏清除待上传状态。HTTP 和登录状态仅由网站 `MiniGameView/App.vue` 引入。左键及标双提交完整 `TrainingRecording`，漏雷提交 `{version: 1, rounds}`；表单中的 `replay` 为 JSON 字符串。后端压缩为 7z 后用 BinaryField 保存每人每榜最佳成绩对应的回放，回放不进入 Redis。上传失败可重试，不影响自动保存的本地记录；失败局不发完成事件。离线入口不监听这些事件，继续禁止导入网站 HTTP、用户 store 及路由。
 
 ## 构建与资源
 

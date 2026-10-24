@@ -7,7 +7,15 @@
             </RouterLink>
         </div>
         <RouterView v-slot="{ Component }">
-            <component :is="Component" @completed="submitResult" />
+            <component :is="Component" @completed="queueResult" @reset="clearResult">
+                <template #result-actions>
+                    <div v-if="pendingResult !== null" class="minigame-result-actions">
+                        <BaseButton type="primary" :loading="submitting" :disabled="!canUpload || uploaded" :title="uploadHint" data-cy="minigame-upload" @click="submitResult">
+                            {{ t(submitting ? 'local.uploading' : uploaded ? 'local.uploaded' : 'local.upload') }}
+                        </BaseButton>
+                    </div>
+                </template>
+            </component>
         </RouterView>
         <GameSettings />
         <HistoryMigration :progress="minigameHistoryMigration" />
@@ -17,10 +25,11 @@
 <script setup lang="ts">
 import '@/styles/link.css';
 
-import { computed } from 'vue';
+import { computed, ref, shallowRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 
+import BaseButton from '@/components/common/BaseButton.vue';
 import GamePicker from '@/components/MiniGame/GamePicker.vue';
 import HistoryMigration from '@/components/MiniGame/HistoryMigration.vue';
 import GameSettings from '@/components/MiniGame/Settings.vue';
@@ -35,12 +44,35 @@ import type { MinigameReplayData } from '@/utils/minigame/history';
 
 const route = useRoute();
 const router = useRouter();
-async function submitResult(rankingKey: string, scoreMs: number, replay: MinigameReplayData) {
-    if (store.login_status !== LoginStatus.IsLogin || store.user.is_banned) return;
+const pendingResult = shallowRef<{ rankingKey: string; scoreMs: number; replay: MinigameReplayData } | null>(null);
+const submitting = ref(false);
+const uploaded = ref(false);
+const canUpload = computed(() => store.login_status === LoginStatus.IsLogin && !store.user.is_banned);
+const uploadHint = computed(() => (store.login_status !== LoginStatus.IsLogin ? t('local.loginRequired') : store.user.is_banned ? t('local.banned') : undefined));
+
+function queueResult(rankingKey: string, scoreMs: number, replay: MinigameReplayData) {
+    pendingResult.value = { rankingKey, scoreMs, replay };
+    uploaded.value = false;
+}
+
+function clearResult() {
+    pendingResult.value = null;
+    uploaded.value = false;
+}
+
+watch(() => route.name, clearResult);
+
+async function submitResult() {
+    const result = pendingResult.value;
+    if (result === null || submitting.value || uploaded.value || !canUpload.value) return;
+    submitting.value = true;
     try {
-        await submitMinigameScore(rankingKey, scoreMs, replay);
+        await submitMinigameScore(result.rankingKey, result.scoreMs, result.replay);
+        if (pendingResult.value === result) uploaded.value = true;
     } catch (error) {
         httpErrorNotification(error);
+    } finally {
+        submitting.value = false;
     }
 }
 
@@ -52,8 +84,22 @@ const selected = computed<TrainingGame>({
 });
 
 const i18nMessages = {
-    'zh-cn': { local: { ranking: '排行榜' } },
-    en: { local: { ranking: 'Rankings' } },
+    'zh-cn': { local: {
+        ranking: '排行榜',
+        upload: '上传成绩与回放',
+        uploading: '正在上传',
+        uploaded: '已上传',
+        loginRequired: '登录后可上传成绩与回放',
+        banned: '封禁账号无法上传',
+    } },
+    en: { local: {
+        ranking: 'Rankings',
+        upload: 'Upload score and replay',
+        uploading: 'Uploading',
+        uploaded: 'Uploaded',
+        loginRequired: 'Log in to upload your score and replay',
+        banned: 'Banned accounts cannot upload',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>
@@ -71,5 +117,10 @@ const { t } = useI18n({ messages: i18nMessages });
     align-items: center;
     justify-content: center;
     gap: 1rem;
+}
+
+.minigame-result-actions {
+    display: flex;
+    justify-content: center;
 }
 </style>
