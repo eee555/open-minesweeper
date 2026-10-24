@@ -9,6 +9,7 @@ describe('closeElNotifications', () => {
 
     for (const count of [0, 3]) {
         it(`closes ${count} persistent notifications without requiring a close button to exist`, () => {
+            // Element Plus removes notifications in Transition hooks, which the default stub skips.
             cy.mount(defineComponent({
                 expose: [],
                 setup() {
@@ -19,9 +20,9 @@ describe('closeElNotifications', () => {
                     });
                     return () => h('div');
                 },
-            }));
+            }), { global: { stubs: { transition: false } } });
 
-            cy.get('body').find('.el-notification').should('have.length', count);
+            cy.get('body').find('.el-notification:visible').should('have.length', count);
             cy.closeElNotifications();
             cy.get('.el-notification').should('not.exist');
             cy.closeElNotifications();
