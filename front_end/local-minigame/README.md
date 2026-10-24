@@ -59,10 +59,10 @@
 
 [history.ts](../src/utils/minigame/history.ts) 使用已有的 `idb`，在每局成功结算时自动保存一条记录；失败、未完成的重开及切换游戏不保存，回放和悬停不重复写入。在线和离线入口共用此逻辑，暂不提供历史列表或历史可视化。
 
-数据库为 `saolei-minigame`，结构版本 3，`results` 表使用自增 `id`，保存游戏类型、完整模式参数、完成时间 `playedAt`（Unix 毫秒）和成绩 `scoreMs`（整数毫秒）。两条非唯一索引分别为 `playedAt` 和 `scoreMs`，支持时间与成绩排序；同一毫秒完成或成绩相同的多局均保留。版本 1 的 v0 和版本 2 的 v1 JSON 旧库均在升级事务中自动转换为 7z，保留主键、时间、成绩、模式和索引；转换失败时回滚整个升级并保留旧库。压缩器在打开升级事务前初始化。
+数据库为 `saolei-minigame`，结构版本 3，`results` 表使用自增 `id`，保存游戏类型、完整模式参数、完成时间 `playedAt`（Unix 毫秒）和成绩 `scoreMs`（整数毫秒）。两条非唯一索引分别为 `playedAt` 和 `scoreMs`，支持时间与成绩排序；同一毫秒完成或成绩相同的多局均保留。版本 1 的 v0 和版本 2 的 v1 JSON 旧库均在升级事务中自动转换为 7z，保留主键、时间、成绩、模式和索引。单条格式转换失败时记录警告，将原回放 JSON 整体压缩后继续迁移，不删除该条目、不强行标记为 v1；后续读取仍按正常规则报告解析错误。压缩或数据库操作失败时回滚整个升级并保留旧库。压缩器在打开升级事务前初始化。
 
 - 有旧记录需要转换时，网站和离线版共用 [HistoryMigration.vue](../src/components/MiniGame/HistoryMigration.vue)，显示“正在优化录像格式，请不要关闭页面”、进度条和已处理／总条数。升级提交或失败回滚后关闭，期间不允许按 Escape 或点击遮罩关闭。压缩前先留出绘制提示的时间，并用轻量数据库请求保持升级事务活跃。
-- 三种游戏统一将 7z `ArrayBuffer` 保存到条目的 `replay`，不转 Base64，也不保存展开的快照和统计。`readMinigameHistoryEntry` 解压并还原供运行时使用的成绩结构。
+- 三种游戏统一将 7z `ArrayBuffer` 保存到条目的 `replay`，不转 Base64；新回放不保存展开的快照和统计，迁移兜底的原 JSON 则完整保留旧字段。`readMinigameHistoryEntry` 解压并还原供运行时使用的成绩结构，无法解析的旧回放仍报告错误。
 - 左键及标双载荷为 `TrainingRecording` 的 `version`、`cellSize`、压缩初始棋盘 `initialBoard`、普通事件 `events` 及特殊事件 `specialEvents`。读取后调用 `rebuildTrainingReplay({game, mode}, recording, scoreMs)`，复用游戏规则一次性重建全部快照、剩余计数及成功标双时间点，再交给现有回放组件；这些派生数据只留在内存中。
 - 漏雷载荷为 `version: 1` 和 10 局的雷位字符串、目标坐标及耗时。解压后由 `decodeMissingCellRounds` 重算数字并还原运行时棋盘，再交给 `reviewMissingCellRound` 逐局回溯。
 - 写入前立即复制数据，异步打开数据库期间重开不会改变待保存内容。`idb.add` 等待事务完成；保存失败记录控制台警告，不中断当前对局，后续成绩仍会尝试写入。

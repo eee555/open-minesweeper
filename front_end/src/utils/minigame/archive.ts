@@ -3,13 +3,12 @@ import type { SevenZipModule } from '7z-wasm';
 import wasmUrl from '7z-wasm/7zz.wasm?url&inline';
 
 import { replayObject, requireReplay } from './boardEncoding';
-import type { MinigameReplayData } from './recording';
 
 const filename = 'replay.json';
 let codec: Promise<ReplayArchiveCodec> | undefined;
 
 export interface ReplayArchiveCodec {
-    pack: (replay: MinigameReplayData) => ArrayBuffer;
+    pack: (replay: unknown) => ArrayBuffer;
     unpack: (archive: ArrayBuffer) => unknown;
 }
 
@@ -19,7 +18,7 @@ export function loadReplayArchiveCodec(): Promise<ReplayArchiveCodec> {
         const binary = Uint8Array.from(atob(wasmUrl.slice(wasmUrl.indexOf(',') + 1)), (char) => char.charCodeAt(0));
         const zip = await SevenZip({ wasmBinary: binary.buffer, print: () => undefined, printErr: () => undefined });
         return {
-            pack(replay: MinigameReplayData): ArrayBuffer {
+            pack(replay: unknown): ArrayBuffer {
                 return withArchiveFiles(zip, () => {
                     zip.FS.writeFile(filename, new TextEncoder().encode(JSON.stringify(replay)));
                     run(zip, ['a', '-t7z', '-m0=LZMA2', '-mx=1', '-md=1m', '-mmt=off', 'replay.7z', filename]);

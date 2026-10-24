@@ -222,11 +222,55 @@ describe('local minigame history', () => {
         expect(await history.saveMinigameResult(leftClickResult())).toBe(44);
     });
 
-    it('aborts an invalid upgrade without deleting or partially converting existing history', async () => {
+    it.each([1, 2])('preserves unconvertible replay JSON as 7z in database v%s and continues saving new results', async (version) => {
         const result = leftClickResult();
         const expanded = rebuildTrainingReplay(result, result.replay, result.scoreMs);
         const valid = { ...result, id: 1, playedAt: 123, replay: { initialBoard: expanded.initialBoard, events: expanded.events } };
-        const invalid = { ...valid, id: 2, replay: { version: 99 } };
+        const snapshotOnly = { ...valid, id: 2, replay: { durationMs: expanded.durationMs, events: expanded.events, snapshots: expanded.snapshots, chords: expanded.chords } };
+        const unknown = { ...valid, id: 3, replay: { version: 99, note: '保留原数据' } };
+        const missing = missingCellResult();
+        const invalidMissing = { id: 4, playedAt: 456, game: missing.game, mode: missing.mode, scoreMs: missing.scoreMs, rounds: [{ board: [[0]], timeMs: 100 }] };
+        const following = { ...valid, id: 5, playedAt: 789 };
+        const originals = [valid, snapshotOnly, unknown, invalidMissing, following];
+        const old = await openDB(databaseName, version, { upgrade(db) {
+            const store = db.createObjectStore('results', { keyPath: 'id', autoIncrement: true });
+            store.createIndex('playedAt', 'playedAt');
+            store.createIndex('scoreMs', 'scoreMs');
+        } });
+        for (const entry of originals) await old.put('results', entry);
+        old.close();
+        const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const history = await import('./history');
+        const progress: ({ completed: number; total: number } | null)[] = [];
+        const stop = watch(history.minigameHistoryMigration, (value) => progress.push(value === null ? null : { ...value }), { flush: 'sync' });
+        const db = await history.getMinigameDatabase();
+        stop();
+        expect(db.version).toBe(history.MINIGAME_DB_VERSION);
+        expect(progress).toEqual([...Array.from({ length: 6 }, (_, completed) => ({ completed, total: 5 })), null]);
+        expect(warning).toHaveBeenCalledTimes(3);
+        const stored = await db.getAll('results');
+        expect(stored.map(({ id, playedAt, scoreMs, game, mode }) => ({ id, playedAt, scoreMs, game, mode }))).toEqual(originals.map(({ id, playedAt, scoreMs, game, mode }) => ({ id, playedAt, scoreMs, game, mode })));
+        expect(stored.every((entry) => entry.replay instanceof ArrayBuffer)).toBe(true);
+        const archive = await loadReplayArchiveCodec();
+        for (const [index, source] of [[1, snapshotOnly.replay], [2, unknown.replay], [3, { rounds: invalidMissing.rounds }]] as const) {
+            expect(archive.unpack(stored[index].replay)).toEqual(source);
+            await expect(history.readMinigameHistoryEntry(stored[index])).rejects.toThrow();
+        }
+        for (const index of [0, 4]) {
+            const entry = await history.readMinigameHistoryEntry(stored[index]);
+            if (entry.game !== 'left-click') throw new Error('Wrong saved game');
+            expect(entry.replay.version).toBe(1);
+            expect(replayFrame(rebuildTrainingReplay(entry, entry.replay, entry.scoreMs), { timeMs: entry.scoreMs }).remaining).toBe(0);
+        }
+        expect(await history.saveMinigameResult(leftClickResult())).toBe(6);
+        expect(await db.count('results')).toBe(6);
+    });
+
+    it('rolls back the whole upgrade if archive compression fails, keeping the original JSON', async () => {
+        const result = leftClickResult();
+        const expanded = rebuildTrainingReplay(result, result.replay, result.scoreMs);
+        const valid = { ...result, id: 1, playedAt: 123, replay: { initialBoard: expanded.initialBoard, events: expanded.events } };
+        const invalid = { ...valid, id: 2, replay: { durationMs: expanded.durationMs, events: expanded.events, snapshots: expanded.snapshots, chords: expanded.chords } };
         const old = await openDB(databaseName, 1, { upgrade(db) {
             const store = db.createObjectStore('results', { keyPath: 'id', autoIncrement: true });
             store.createIndex('playedAt', 'playedAt');
@@ -235,13 +279,14 @@ describe('local minigame history', () => {
         await old.put('results', valid);
         await old.put('results', invalid);
         old.close();
+        const archive = await loadReplayArchiveCodec();
+        vi.spyOn(archive, 'pack').mockImplementationOnce(archive.pack).mockImplementationOnce(() => {
+            throw new Error('Compression failed');
+        });
         vi.spyOn(console, 'warn').mockImplementation(() => undefined);
         const history = await import('./history');
-        const progress: ({ completed: number; total: number } | null)[] = [];
-        const stop = watch(history.minigameHistoryMigration, (value) => progress.push(value === null ? null : { ...value }), { flush: 'sync' });
         await expect(history.getMinigameDatabase()).rejects.toThrow();
-        stop();
-        expect(progress).toEqual([{ completed: 0, total: 2 }, { completed: 1, total: 2 }, null]);
+        expect(history.minigameHistoryMigration.value).toBeNull();
         const retained = await openDB(databaseName, 1);
         expect(await retained.getAll('results')).toEqual([valid, invalid]);
         retained.close();

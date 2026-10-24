@@ -102,7 +102,7 @@ export function getMinigameDatabase(): Promise<IDBPDatabase<MinigameHistoryDB>> 
                     let cursor = await store.openCursor();
                     while (cursor !== null) {
                         const entry = cursor.value as unknown as MinigameHistoryEntry;
-                        await cursor.update(encodeHistoryEntry(entry, archive));
+                        await cursor.update(encodeHistoryEntry(entry, archive, true));
                         completed++;
                         migrationProgress.value = { completed, total };
                         cursor = await cursor.continue();
@@ -133,9 +133,17 @@ export function getMinigameDatabase(): Promise<IDBPDatabase<MinigameHistoryDB>> 
     return opening;
 }
 
-function encodeHistoryEntry(entry: MinigameHistoryEntry, archive: ReplayArchiveCodec): MinigameStoredEntry {
+function encodeHistoryEntry(entry: MinigameHistoryEntry, archive: ReplayArchiveCodec, preserveOriginal = false): MinigameStoredEntry {
     const { id, playedAt, scoreMs, game, mode } = entry;
-    const replay = archive.pack(game === 'missing-cell' ? readMissingCellRecording(mode, entry) : readTrainingRecording(entry, entry.replay));
+    let source: unknown;
+    try {
+        source = game === 'missing-cell' ? readMissingCellRecording(mode, entry) : readTrainingRecording(entry, entry.replay);
+    } catch (error) {
+        if (!preserveOriginal) throw error;
+        source = entry.game === 'missing-cell' ? { version: entry.version, rounds: entry.rounds } : entry.replay;
+        console.warn('Could not migrate minigame history entry; preserving its original replay JSON.', id, error);
+    }
+    const replay = archive.pack(source);
     return { ...id === undefined ? {} : { id }, playedAt, scoreMs, game, mode, replay } as MinigameStoredEntry;
 }
 

@@ -1,5 +1,10 @@
 # 更新记录 / Changelog
 
+## 0.5.1 — 2026-10-24
+
+- 修复旧录像格式转换失败时阻塞新成绩保存的问题：将原 JSON 整体压缩保留，继续升级其他记录；无法解析的回放仍报告损坏。
+- Fixed old replay conversion failures blocking new results: preserve the complete original JSON in 7z and continue upgrading other records. Unreadable replays still report parsing errors.
+
 ## 0.5.0 — 2026-10-24
 
 - 历史录像格式升级时显示优化提示和进度，禁止通过 Escape 或遮罩关闭，完成或失败后自动关闭。
