@@ -36,10 +36,10 @@
                     {{ info.mouse || '--' }}
                 </ElDescriptionsItem>
             </ElDescriptions>
-            <BaseButton size="small" @click="queueVisible = true">
+            <BaseButton v-if="ownsAccount" size="small" @click="queueVisible = true">
                 {{ t('local.videos') }}
             </BaseButton>
-            <ElDialog v-if="queueVisible" v-model="queueVisible" :title="t('local.videos')" width="min(70em, 95vw)" destroy-on-close>
+            <ElDialog v-if="ownsAccount && queueVisible" v-model="queueVisible" :title="t('local.videos')" width="min(70em, 95vw)" destroy-on-close>
                 <MSGamesVideoImportQueue :msgames-id="info.id" :owner="ownsAccount" />
             </ElDialog>
         </template>
