@@ -20,9 +20,9 @@ describe('minigame ranking API', () => {
     });
 
     it.each<[string, MinigameReplayData]>([
-        ['left-click-b-50-v1', { initialBoard: [[10, 16]], events: [] }],
-        ['flag-chord-b-v1', { initialBoard: [[1, 16]], events: [] }],
-        ['missing-cell-b-v1', { rounds: [{ board: [[10, 16]], timeMs: 1234 }] }],
+        ['left-click-b-50-v1', { version: 1, cellSize: 32, initialBoard: 'AAAAAP////8', events: [], specialEvents: [] }],
+        ['flag-chord-b-v1', { version: 1, cellSize: 32, initialBoard: [[1, 1, 0], [1, 5, 2], [5, 1, 5], [5, 5, 7]], events: [], specialEvents: [] }],
+        ['missing-cell-b-v1', { version: 1, rounds: Array.from({ length: 10 }, (_, index) => ({ board: 'gAAAAAAAAAA', target: [7, 7], timeMs: index === 0 ? 1234 : 0 })) }],
     ])('submits score and replay JSON for %s', async (rankingKey, replay) => {
         const response = { improved: true, record: { id: 1, ranking_key: rankingKey, player_id: 42, score: 1234, achieved_at: '2026-10-24T08:00:00Z' } };
         const post = vi.spyOn($axios, 'post').mockResolvedValue({ data: response });

@@ -93,8 +93,8 @@ describe('flag-and-chord training', () => {
             const [entry] = entries;
             if (entry.game !== 'flag-chord') throw new Error('Wrong saved game');
             expect(entry.mode).to.include({ key: 'b', total: 4 });
-            expect(Object.keys(entry.replay).sort()).to.deep.eq(['events', 'initialBoard']);
-            const replay = rebuildTrainingReplay(entry.game, entry.replay, entry.scoreMs);
+            expect(Object.keys(entry.replay).sort()).to.deep.eq(['cellSize', 'events', 'initialBoard', 'specialEvents', 'version']);
+            const replay = rebuildTrainingReplay(entry, entry.replay, entry.scoreMs);
             expect(replay.chords).to.have.length(4);
             expect(replayFrame(replay, { timeMs: entry.scoreMs }).remaining).to.eq(0);
             cy.get<ComponentWrapper<typeof App>>('@vue').should((wrapper) => {

@@ -43,9 +43,13 @@
 
 ## 回放与分析
 
-左键训练和标双训练结束后提供当前局回放；重开或切换游戏清空当前预览，成功局的记录保留在本地数据库。不定义录像文件格式或下载。
+棋盘压缩、事件数组、像素坐标和差分编码使用回放数据格式 v1，见[中文标准](../../vitepress_doc/zh/guide/development/minigame-replay-format.md)及[英文标准](../../vitepress_doc/en/guide/development/minigame-replay-format.md)。新回放统一保存为 v1，读取时兼容无版本字段或显式 `version: 0` 的旧数据。
 
-- [replay.ts](../src/utils/minigame/replay.ts) 集中管理记录与外观：全长轨迹保留至当前位置，遮罩不透明度 0，marker 为 0.25 格；坐标使用格子单位，不受格子大小变化影响。
+左键训练和标双训练结束后提供当前局回放；重开或切换游戏清空当前预览，成功局的记录保留在本地数据库，暂不提供录像文件下载。
+
+- [boardEncoding.ts](../src/utils/minigame/boardEncoding.ts) 编解码 Base64 雷位及标双题目；[recording.ts](../src/utils/minigame/recording.ts) 负责格式读取、v0 转换、差分事件解码，并通过原有自动机推导按键状态和操作意图。
+- [archive.ts](../src/utils/minigame/archive.ts) 复用 [7z-wasm](https://github.com/use-strict/7z-wasm) 将 v1 JSON 压缩为只含 `replay.json` 的独立 7z，使用 LZMA2、级别 1 和 1 MiB 字典。压缩器按需初始化，离线包内联 Wasm；虚拟文件在每次操作后清理。
+- [replay.ts](../src/utils/minigame/replay.ts) 集中管理记录与外观：全长轨迹保留至当前位置，遮罩不透明度 0，marker 为 0.25 格。保存时使用整数像素及开局固定的 `cellSize`，渲染时换算为格子单位，不受显示尺寸变化影响；旧数据迁移为 `cellSize: null`，按固定参考值 32 解码。
 - [useTrainingReplay.ts](../src/utils/minigame/useTrainingReplay.ts) 复用现有 `usePlayback` 时钟。拖动恢复原播放状态，末端停止；图表悬停临时定位，移开恢复。按事件索引区分同一毫秒内的操作。
 - [replayAnalysis.ts](../src/utils/minigame/replayAnalysis.ts) 使用最近 1 秒窗口计算移速／点击速度，开局前补零，每 50ms 及标双触发点采样。左键时长排除首次点击、取消及双键，用 `d3-array` 按固定 10ms 分桶，边界值计入右桶。
 - 成功标双统计该题最后插旗、成功双键前最近左键按下、成功双键触发三个时间点。纠正错旗后使用该题最后一次插旗时间；失败及无效果的双键不计入。底段为插旗至左键按下，顶段为左键按下至双键触发。
@@ -55,15 +59,17 @@
 
 [history.ts](../src/utils/minigame/history.ts) 使用已有的 `idb`，在每局成功结算时自动保存一条记录；失败、未完成的重开及切换游戏不保存，回放和悬停不重复写入。在线和离线入口共用此逻辑，暂不提供历史列表或历史可视化。
 
-数据库为 `saolei-minigame`，结构版本 1，`results` 表使用自增 `id`，保存游戏类型、完整模式参数、完成时间 `playedAt`（Unix 毫秒）和成绩 `scoreMs`（整数毫秒）。两条非唯一索引分别为 `playedAt` 和 `scoreMs`，支持时间与成绩排序；同一毫秒完成或成绩相同的多局均保留。小游戏尚未上线，当前不提供旧结构迁移。
+数据库为 `saolei-minigame`，结构版本 3，`results` 表使用自增 `id`，保存游戏类型、完整模式参数、完成时间 `playedAt`（Unix 毫秒）和成绩 `scoreMs`（整数毫秒）。两条非唯一索引分别为 `playedAt` 和 `scoreMs`，支持时间与成绩排序；同一毫秒完成或成绩相同的多局均保留。版本 1 的 v0 和版本 2 的 v1 JSON 旧库均在升级事务中自动转换为 7z，保留主键、时间、成绩、模式和索引；转换失败时回滚整个升级并保留旧库。压缩器在打开升级事务前初始化。
 
-- 左键及标双训练仅保存 `TrainingRecording` 的初始棋盘 `initialBoard` 和鼠标事件 `events`。读取后调用 `rebuildTrainingReplay(game, recording, scoreMs)`，复用游戏规则一次性重建全部快照、剩余计数及成功标双时间点，再交给现有回放组件；这些派生数据只留在内存中。
-- 漏雷训练保存 10 局的初始棋盘及各局耗时。棋盘用 `16` 表示隐藏雷，唯一的 `10` 表示目标格，无需另存目标坐标；`reviewMissingCellRound` 恢复隐藏雷的显示并定位目标，可逐局回溯。
+- 有旧记录需要转换时，网站和离线版共用 [HistoryMigration.vue](../src/components/MiniGame/HistoryMigration.vue)，显示“正在优化录像格式，请不要关闭页面”、进度条和已处理／总条数。升级提交或失败回滚后关闭，期间不允许按 Escape 或点击遮罩关闭。压缩前先留出绘制提示的时间，并用轻量数据库请求保持升级事务活跃。
+- 三种游戏统一将 7z `ArrayBuffer` 保存到条目的 `replay`，不转 Base64，也不保存展开的快照和统计。`readMinigameHistoryEntry` 解压并还原供运行时使用的成绩结构。
+- 左键及标双载荷为 `TrainingRecording` 的 `version`、`cellSize`、压缩初始棋盘 `initialBoard`、普通事件 `events` 及特殊事件 `specialEvents`。读取后调用 `rebuildTrainingReplay({game, mode}, recording, scoreMs)`，复用游戏规则一次性重建全部快照、剩余计数及成功标双时间点，再交给现有回放组件；这些派生数据只留在内存中。
+- 漏雷载荷为 `version: 1` 和 10 局的雷位字符串、目标坐标及耗时。解压后由 `decodeMissingCellRounds` 重算数字并还原运行时棋盘，再交给 `reviewMissingCellRound` 逐局回溯。
 - 写入前立即复制数据，异步打开数据库期间重开不会改变待保存内容。`idb.add` 等待事务完成；保存失败记录控制台警告，不中断当前对局，后续成绩仍会尝试写入。
 - 本地历史独立于可丢弃的 `saolei-cache`，不套用缓存的过期、版本清空或自动字段转换。以后修改结构时显式迁移并保留历史数据。连接在版本升级时释放，避免旧页面阻塞迁移。
 - 数据归属于当前浏览器与来源，在线站点和离线文件不保证共用；清除浏览器站点数据会删除记录。
 
-网站入口通过游戏的 `completed(rankingKey, scoreMs, replay)` 事件提交成绩和精简回放，HTTP 和登录状态仅由网站 `MiniGameView/App.vue` 引入。左键及标双提交 `{initialBoard, events}`，漏雷提交 `{rounds}`；表单中的 `replay` 为 JSON 字符串。后端用 JSONField 保存每人每榜最佳成绩对应的回放，回放不进入 Redis。上传失败不会删除本地记录；失败局不发完成事件。离线入口不监听此事件，继续禁止导入网站 HTTP、用户 store 及路由。
+网站入口通过游戏的 `completed(rankingKey, scoreMs, replay)` 事件提交成绩和 v1 回放，HTTP 和登录状态仅由网站 `MiniGameView/App.vue` 引入。左键及标双提交完整 `TrainingRecording`，漏雷提交 `{version: 1, rounds}`；表单中的 `replay` 为 JSON 字符串。后端压缩为 7z 后用 BinaryField 保存每人每榜最佳成绩对应的回放，回放不进入 Redis。上传失败不会删除本地记录；失败局不发完成事件。离线入口不监听此事件，继续禁止导入网站 HTTP、用户 store 及路由。
 
 ## 构建与资源
 
@@ -81,7 +87,7 @@ npm.cmd run build:offline:minigame
 
 解压后用 Chrome 或 Edge 直接打开 `index.html`，无需服务或联网缓存。中英文、主题和设置均由离线入口提供。
 
-`vite.minigame.config.ts` 复用现有 Vite、`vite-plugin-singlefile` 及共享的 `scripts/offline-build.ts`，内联脚本、CSS、棋盘 SVG 与 PrimeIcons WOFF2，并在合并前收集依赖许可。构建禁止导入网站 HTTP、用户 store、路由、入口初始化及 `ms-toollib`。打包脚本复用 `scripts/offline-package.mjs`，校验无外部资源及 WASM，附带项目和依赖完整许可。产物由 Git 忽略。
+`vite.minigame.config.ts` 复用现有 Vite、`vite-plugin-singlefile` 及共享的 `scripts/offline-build.ts`，内联脚本、CSS、棋盘 SVG、PrimeIcons WOFF2 及 7z Wasm，并在合并前收集依赖许可。构建禁止导入网站 HTTP、用户 store、路由、入口初始化及 `ms-toollib`。打包脚本复用 `scripts/offline-package.mjs`，校验无外部资源且压缩器已内联，附带项目和依赖完整许可及 7z／unRAR 许可文件。产物由 Git 忽略。
 
 `npm.cmd run build:offline` 同时生成 Analyzer 与小游戏包；现有网站 dev/build 的 pre hook 会先生成两种 ZIP，再将 `public/assets` 复制到网站产物。直接调用 Vite CLI 前应手动生成离线包。Analyzer 版本独立维护；本地构建不创建 Release 或上传文件。
 

@@ -2,8 +2,10 @@
 
 ## 未发布 / Unreleased
 
-- 所有小游戏自动在 IndexedDB 保存成功成绩，按完成时间和用时建立索引；左键与标双仅保存初始棋盘及鼠标事件，读取回放时重建快照和统计；漏雷保留 10 局初始棋盘和用时，目标由棋盘编码还原。暂不提供历史可视化。
-- All minigames now save successful results in IndexedDB, indexed by completion time and score. Left-click and flag-and-chord games store only the initial board and mouse events, rebuilding snapshots and statistics for playback. Missing cell training stores its 10 initial boards and times, with targets encoded in the boards. History visualization is not available yet.
+- 历史录像格式升级时显示优化提示和进度，完成或失败后自动关闭。
+- Historical replay upgrades now show an optimization notice and progress, closing automatically on completion or failure.
+- 所有小游戏自动在 IndexedDB 保存成功成绩，按完成时间和用时建立索引。回放使用 v1 紧凑格式并压缩为 7z 二进制，旧本地记录自动升级；左键与标双保存压缩棋盘和差分鼠标事件，读取时重建快照和统计；漏雷保留 10 局雷位、目标坐标和用时。暂不提供历史可视化。
+- All minigames now save successful results in IndexedDB, indexed by completion time and score. Replays use the compact v1 format stored as 7z binary, with automatic upgrades for older local records. Left-click and flag-and-chord games store compressed boards and delta-encoded mouse events, rebuilding snapshots and statistics for playback. Missing cell training stores its 10 mine layouts, target coordinates and times. History visualization is not available yet.
 - 标双训练固定为初级 8×8、4 题及中级 16×16、15 题，全部使用数字 1；移除高级、题数及数字比例配置。
 - Flag-and-chord training now uses 4 questions on Beginner 8×8 and 15 on Intermediate 16×16, all with the number 1. Removed Expert, custom question counts and number ratios.
 

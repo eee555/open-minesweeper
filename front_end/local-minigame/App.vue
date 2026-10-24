@@ -5,6 +5,7 @@
         <FlagChordTraining v-else-if="game === 'flag-chord'" offline />
         <MissingCellTraining v-else offline />
         <GameSettings />
+        <HistoryMigration :progress="minigameHistoryMigration" />
         <div class="offline-controls">
             <span class="text text-small">{{ t('local.offline') }} · v{{ version.version }}</span>
             <BaseButton size="small" data-cy="offline-language" @click="toggleLanguage">
@@ -40,8 +41,10 @@ import version from './version.json';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import GamePicker from '@/components/MiniGame/GamePicker.vue';
+import HistoryMigration from '@/components/MiniGame/HistoryMigration.vue';
 import GameSettings from '@/components/MiniGame/Settings.vue';
 import type { TrainingGame } from '@/utils/minigame/games';
+import { minigameHistoryMigration } from '@/utils/minigame/history';
 import FlagChordTraining from '@/views/MiniGameView/FlagChordTraining/App.vue';
 import LeftClickTraining from '@/views/MiniGameView/LeftClickTraining/App.vue';
 import MissingCellTraining from '@/views/MiniGameView/MissingCellTraining/App.vue';

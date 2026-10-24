@@ -1,4 +1,4 @@
-import { getMinigameDatabase, MINIGAME_RESULTS_STORE } from '../../src/utils/minigame/history';
+import { getMinigameDatabase, MINIGAME_RESULTS_STORE, readMinigameHistoryEntry } from '../../src/utils/minigame/history';
 import type { MinigameHistoryEntry } from '../../src/utils/minigame/history';
 
 export function isolateMinigameHistory(): void {
@@ -13,7 +13,7 @@ export function isolateMinigameHistory(): void {
 export function savedMinigameResults(): Cypress.Chainable<MinigameHistoryEntry[]> {
     return cy.then(async () => {
         const db = await getMinigameDatabase();
-        return db.getAll(MINIGAME_RESULTS_STORE);
+        return Promise.all((await db.getAll(MINIGAME_RESULTS_STORE)).map(readMinigameHistoryEntry));
     });
 }
 

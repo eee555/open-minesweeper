@@ -135,6 +135,7 @@ export default defineConfig({
                                 { text: '数据爬取指南', link: '/zh/guide/development/data-crawling' },
                                 { text: 'GSC 历史录像补录', link: '/zh/guide/development/gsc-history-import' },
                                 { text: '后端管理命令', link: '/zh/guide/development/management-commands' },
+                                { text: '小游戏回放格式', link: '/zh/guide/development/minigame-replay-format' },
                             ],
                         },
                         {
@@ -201,6 +202,12 @@ export default defineConfig({
                                 { text: 'Terminology', link: '/en/guide/minesweeper/terminology' },
                                 { text: 'Data', link: '/en/guide/minesweeper/stat' },
                                 { text: 'evf Format', link: '/en/guide/minesweeper/evf-standard' },
+                            ],
+                        },
+                        {
+                            text: 'Development',
+                            items: [
+                                { text: 'Minigame Replay Format', link: '/en/guide/development/minigame-replay-format' },
                             ],
                         },
                     ],

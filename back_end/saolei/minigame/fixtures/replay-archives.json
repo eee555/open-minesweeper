@@ -1,0 +1,47 @@
+{
+  "replay": {
+    "version": 1,
+    "cellSize": null,
+    "initialBoard": "AAAAAP////8",
+    "events": [
+      [
+        0,
+        16,
+        16,
+        2
+      ],
+      [
+        10,
+        32,
+        0,
+        1
+      ],
+      [
+        15,
+        -3,
+        2,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        2
+      ]
+    ],
+    "specialEvents": [
+      [
+        25,
+        3,
+        0
+      ],
+      [
+        5,
+        4,
+        0
+      ]
+    ]
+  },
+  "browser": "N3q8ryccAARpUDMcggAAAAAAAABiAAAAAAAAABlnt/DgAJUAel0APYiKxpRTkIamY30lOyjIIxL9O6rCH7bRt6Hylx+YnAof5qc5bRKbeOZD11fa36QJpIivfTgTNlEEMGfF6QRaJf/opocrqIULWRFhB3oo9eIF0YITtEPL9jmtzUBWWoEShVcRsslYyMEYktUpS8VZByKpEwj325Iy0m8AAQQGAAEJgIIABwsBAAEhIQEADICWAAgKAS5MQvEAAAUBGQoAAAAAAAAAAAAAERkAcgBlAHAAbABhAHkALgBqAHMAbwBuAAAAGQIAABQKAQDQtVJkt2PdARUGAQAggLaBAAA=",
+  "python": "N3q8ryccAASq3V5w2wAAAAAAAAAVAAAAAAAAAEjK00ngAJUAel0APYiKxpRTkIamY30lOyjIIxL9O6rCH7bRt6Hylx+YnAof5qc5bRKbeOZD11fa36QJpIivfTgTNlEEMGfF6QRaJf/opocrqIULWRFhB3oo9eIF0YITtEPL9jmtzUBWWoEShVcRsslYyMEYktUpS8VZByKpEwj325Iy0m8AAQBUAQQGAAEJgIIABwsBAAEhIQEQDICWAAgKAS5MQvEAAAUBGQEAERkAcgBlAHAAbABhAHkALgBqAHMAbwBuAAAAFAoBAHBR82S3Y90BFQYBACCAgIEAAAAXBoCCAQlZAAcLAQABISEBGAxVAAA="
+}

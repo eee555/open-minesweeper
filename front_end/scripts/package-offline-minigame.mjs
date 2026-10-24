@@ -16,7 +16,7 @@ const standaloneAssets = (await readdir(output)).filter((name) => !packagedDocum
 if (standaloneAssets.length > 0) throw new Error(`Unbundled assets: ${standaloneAssets.join(', ')}`);
 const resourceUrls = validateInlineHtml(html);
 if (!html.includes('data:image/svg+xml')) throw new Error('Board textures were not inlined');
-if (html.includes('data:application/wasm')) throw new Error('Minigame unexpectedly bundles WASM');
+if (!html.includes('data:application/wasm')) throw new Error('Replay compression WASM was not inlined');
 
 const dependencyLicenses = JSON.parse(await readFile(join(output, 'THIRD_PARTY_LICENSES.json'), 'utf8'));
 if (dependencyLicenses.some((entry) => entry.name === 'ms-toollib')) throw new Error('Minigame unexpectedly bundles ms-toollib');
@@ -28,6 +28,8 @@ await mkdir(join(output, 'licenses'), { recursive: true });
 for (const [path, name] of [
     ['src/styles/theme/LICENSE.element-plus.txt', 'LICENSE.element-plus-theme.txt'],
     ['node_modules/primeicons/LICENSE', 'LICENSE.primeicons.txt'],
+    ['node_modules/7z-wasm/License.txt', 'LICENSE.7z-wasm.txt'],
+    ['node_modules/7z-wasm/unRarLicense.txt', 'LICENSE.unrar.txt'],
 ]) await writeFile(join(output, 'licenses', name), await readFile(join(frontend, path)));
 
 const { zipPath, downloadPath } = await writeOfflineArchive(frontend, output, `OpenMinesweeperMinigames-${version}.zip`);
@@ -35,4 +37,4 @@ console.log(`Offline HTML: ${join(output, 'index.html')} (${html.length} charact
 console.log(`Inlined CSS resource URLs: ${resourceUrls.length}; no external scripts/styles/assets`);
 console.log(`Offline package: ${zipPath}`);
 console.log(`Website download: ${downloadPath}`);
-console.log(`Bundled dependency licenses: ${dependencyLicenses.length}; no ms-toollib or WASM`);
+console.log(`Bundled dependency licenses: ${dependencyLicenses.length}; inline 7z WASM, no ms-toollib`);

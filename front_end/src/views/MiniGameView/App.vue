@@ -10,6 +10,7 @@
             <component :is="Component" @completed="submitResult" />
         </RouterView>
         <GameSettings />
+        <HistoryMigration :progress="minigameHistoryMigration" />
     </div>
 </template>
 
@@ -21,6 +22,7 @@ import { useI18n } from 'vue-i18n';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 
 import GamePicker from '@/components/MiniGame/GamePicker.vue';
+import HistoryMigration from '@/components/MiniGame/HistoryMigration.vue';
 import GameSettings from '@/components/MiniGame/Settings.vue';
 import { httpErrorNotification } from '@/components/Notifications';
 import { submitMinigameScore } from '@/services/minigameRankingService';
@@ -28,6 +30,7 @@ import { store } from '@/store';
 import { LoginStatus } from '@/utils/common/structInterface';
 import { trainingGames } from '@/utils/minigame/games';
 import type { TrainingGame } from '@/utils/minigame/games';
+import { minigameHistoryMigration } from '@/utils/minigame/history';
 import type { MinigameReplayData } from '@/utils/minigame/history';
 
 const route = useRoute();

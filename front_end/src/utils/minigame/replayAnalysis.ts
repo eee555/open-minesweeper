@@ -11,7 +11,8 @@ export interface SpeedSample {
 
 /** A trailing one-second window, including zero activity before timing starts. */
 export function replaySpeeds(replay: TrainingReplay): SpeedSample[] {
-    const { events, durationMs } = replay;
+    const { durationMs } = replay;
+    const events = replay.events.filter((event) => event.positionKnown);
     const times = events.map((event) => event.timeMs);
     const clicks = events.filter((event) => event.trigger === 'left').map((event) => event.timeMs);
     const distances = [0];

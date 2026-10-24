@@ -77,8 +77,7 @@ function step(event: ClassicMouseEvent, position: MouseEvent | PointerEvent) {
         const rect = surface.value.getBoundingClientRect();
         if (rect.width > 0 && rect.height > 0) {
             lastPosition = { row: (position.clientY - rect.top) / rect.height * props.board.length, column: (position.clientX - rect.left) / rect.width * (props.board[0]?.length ?? 0) };
-            const state = mouse.state === 'both-down' ? 'dd' : mouse.state === 'left-down' || mouse.state === 'chord-left-down' ? 'du' : mouse.state === 'right-down' || mouse.state === 'chord-right-down' ? 'ud' : 'uu';
-            emit('record', { ...lastPosition, now, action: event, state, pressed: pressed.value, trigger: cell === null ? null : action });
+            emit('record', { ...lastPosition, now, action: event, cellSize: props.size });
         }
     }
     if (action !== null && cell !== null) emit('action', action, cell.row, cell.column, now);
@@ -88,7 +87,7 @@ function reset() {
     mouse.reset();
     heldButtons = 0;
     pressed.value = null;
-    if (props.recordMouse && lastPosition !== null) emit('record', { ...lastPosition, now: performance.now(), action: null, state: 'uu', pressed: null, trigger: null });
+    if (props.recordMouse && lastPosition !== null) emit('record', { ...lastPosition, now: performance.now(), action: null, cellSize: props.size });
     const id = touchId;
     touchId = null;
     if (id !== null && surface.value?.hasPointerCapture(id) === true) surface.value.releasePointerCapture(id);

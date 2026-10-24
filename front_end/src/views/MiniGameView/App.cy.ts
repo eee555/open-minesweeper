@@ -18,7 +18,7 @@ describe('online minigame score submission', () => {
     });
 
     it('submits completed games for a logged-in player without a real name and skips anonymous or banned players', () => {
-        const replay = { initialBoard: [[1, 16]], events: [] };
+        const replay = { version: 1, cellSize: 32, initialBoard: [[1, 1, 0], [1, 5, 2], [5, 1, 5], [5, 5, 7]], events: [], specialEvents: [] };
         const game = defineComponent({
             emits: ['completed'],
             expose: [],

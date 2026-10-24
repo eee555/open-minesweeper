@@ -8,6 +8,7 @@ import i18n from '@/i18n';
 import { offlineDownloadFilename } from '@/utils/minigame/games';
 import { reviewMissingCellRound } from '@/utils/minigame/missingCellTraining';
 import { missingCellCandidates } from '@/utils/minigame/missingCellTraining.testHelpers';
+import { decodeMissingCellRounds } from '@/utils/minigame/recording';
 import { defaultMinigameSettings, minigameSettings } from '@/utils/minigame/settings';
 import { chordAt, isolateMinigameHistory, mouseAt, rightAt, savedMinigameResults } from '@cy/support/minigame';
 
@@ -115,15 +116,16 @@ describe('missing cell training', () => {
             const [entry] = entries;
             if (entry.game !== 'missing-cell') throw new Error('Wrong saved game');
             expect(entry.mode.key).to.eq('b');
-            expect(entry.rounds.map((result) => {
-                expect(Object.keys(result).sort()).to.deep.eq(['board', 'timeMs']);
+            expect(entry.version).to.eq(1);
+            expect(entry.rounds.every((result) => Object.keys(result).sort().join() === 'board,target,timeMs')).to.eq(true);
+            expect(decodeMissingCellRounds(entry.mode, entry).map((result) => {
                 const { board, target } = reviewMissingCellRound(result);
                 return { board, target };
             })).to.deep.eq(snapshots);
             expect(entry.rounds.map((round) => round.timeMs)).to.deep.eq(times);
             expect(entry.scoreMs).to.eq(times.reduce((total, time) => total + time, 0));
             cy.get<ComponentWrapper<typeof App>>('@vue').should((wrapper) => {
-                expect(wrapper.emitted('completed')).to.deep.eq([['missing-cell-b-v1', entry.scoreMs, { rounds: entry.rounds }]]);
+                expect(wrapper.emitted('completed')).to.deep.eq([['missing-cell-b-v1', entry.scoreMs, { version: 1, rounds: entry.rounds }]]);
             });
         });
     });

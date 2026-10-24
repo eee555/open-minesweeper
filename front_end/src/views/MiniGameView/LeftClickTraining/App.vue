@@ -83,7 +83,7 @@ const phase = ref(game.phase);
 const remaining = ref(game.remainingSafe);
 const elapsed = ref(0);
 const round = ref(0);
-let recorder = new TrainingReplayRecorder('left-click', board.value);
+let recorder = new TrainingReplayRecorder({ game: 'left-click', mode: game.mode }, board.value);
 const replay = useTrainingReplay();
 
 const { pause, resume } = useRafFn(() => {
@@ -98,7 +98,7 @@ function restart() {
     phase.value = game.phase;
     remaining.value = game.remainingSafe;
     elapsed.value = 0;
-    recorder = new TrainingReplayRecorder('left-click', board.value);
+    recorder = new TrainingReplayRecorder({ game: 'left-click', mode: game.mode }, board.value);
     round.value++;
 }
 
@@ -112,8 +112,8 @@ function onAction(action: ClassicMouseAction, row: number, column: number, now: 
     const recording = recorder.update(now, phase.value, elapsed.value);
     replay.finish(recording);
     if (game.phase === 'won' && recording !== null) {
-        void saveMinigameResult({ game: 'left-click', mode: game.mode, scoreMs: elapsed.value, replay: recording });
-        emit('completed', game.mode.rankingKey, elapsed.value, { initialBoard: recording.initialBoard, events: recording.events });
+        void saveMinigameResult({ game: 'left-click', mode: game.mode, scoreMs: elapsed.value, replay: recording.recording });
+        emit('completed', game.mode.rankingKey, elapsed.value, recording.recording);
     }
     if (game.phase === 'playing') resume();
     else pause();

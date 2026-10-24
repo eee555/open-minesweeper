@@ -48,7 +48,7 @@ Redis 分类只读取业务代码直接确定的 DB 0 key，不执行 `SCAN`、`
 
 成绩创建或严格改善后通过 `on_commit` 写 ZSET 和 Hash，删除后移除成员并保留初始化标记。接受并发和重建的偶发覆盖；运行 `manage.py rebuild_minigame_ranks [--ranking-key key]` 可恢复缓存，不改数据库成绩。完整接口与取舍见 `back_end/saolei/minigame/README.md`。
 
-最佳成绩对应的精简回放仅保存在 `MiniGameBestScore.replay` JSONField，不进入 Redis。缓存重建和排行榜数据库回源用 `defer('replay')` 排除回放字段。
+最佳成绩对应的 v1 JSON 回放压缩为 7z，仅保存在 `MiniGameBestScore.replay_archive` BinaryField，不进入 Redis。缓存重建和排行榜数据库回源用 `defer('replay', 'replay_archive')` 排除迁移保留的旧 JSON 及二进制回放字段。
 
 ### 用户姓名与隐私
 

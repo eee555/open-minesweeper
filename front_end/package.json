@@ -37,6 +37,7 @@
     "@vueuse/components": "15.0.0",
     "@vueuse/core": "15.0.0",
     "@wdns/vue-code-block": "2.4.1",
+    "7z-wasm": "1.2.0",
     "axios": "1.20.0",
     "d3-array": "3.2.4",
     "d3-format": "3.1.2",

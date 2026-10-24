@@ -12,6 +12,7 @@ from redis.exceptions import ConnectionError as RedisConnectionError
 
 from config.global_settings import MAX_SAFE_INTEGER
 from userprofile.models import UserProfile
+from .archive import pack_replay, unpack_replay
 from .cache import MiniGameRankingCache
 from .models import MiniGameBestScore
 from .services import get_player_scores, get_ranking, submit_score
@@ -28,7 +29,7 @@ class MiniGameRankingTests(TestCase):
         self.addCleanup(lambda: self.cache.client.delete(*self.cache.keys))
         self.player = self.make_player('minigame')
         self.ranking_key = GAME_RANKINGS['left-click'][0].key
-        self.replay = {'initialBoard': [[10, 16]], 'events': []}
+        self.replay = {'version': 1, 'cellSize': 32, 'initialBoard': 'AAAAAP////8', 'events': [], 'specialEvents': []}
 
     def make_player(self, name):
         return UserProfile.objects.create_user(username=name, email=f'{name}@example.com')
@@ -55,7 +56,7 @@ class MiniGameRankingTests(TestCase):
         self.assertGreater(improved['record'].achieved_at, achieved_at)
         self.assertEqual(self.cache.client.zscore(self.cache.rank_key(self.ranking_key), self.player.id), 1000)
         with transaction.atomic(), self.assertRaises(IntegrityError):
-            MiniGameBestScore.objects.create(player=self.player, ranking_key=self.ranking_key, score=4000, replay=self.replay)
+            MiniGameBestScore.objects.create(player=self.player, ranking_key=self.ranking_key, score=4000, replay_archive=pack_replay(self.replay))
         second_ranking_key = GAME_RANKINGS['left-click'][1].key
         self.submit(5000, second_ranking_key)
         self.assertEqual(MiniGameBestScore.objects.filter(player=self.player).count(), 2)
@@ -72,7 +73,7 @@ class MiniGameRankingTests(TestCase):
         self.assertEqual(response.json()['record']['player_id'], self.player.id)
         self.assertEqual(response.json()['record']['ranking_key'], self.ranking_key)
         self.assertNotIn('replay', response.json()['record'])
-        self.assertEqual(MiniGameBestScore.objects.get(player=self.player, ranking_key=self.ranking_key).replay, self.replay)
+        self.assertEqual(unpack_replay(MiniGameBestScore.objects.get(player=self.player, ranking_key=self.ranking_key).replay_archive), self.replay)
         self.player.is_banned = True
         self.player.save(update_fields=['is_banned'])
         self.assertEqual(self.client.post(url, self.post_data(500)).status_code, 403)
@@ -94,14 +95,15 @@ class MiniGameRankingTests(TestCase):
 
     def test_replay_follows_best_score_and_is_never_cached(self):
         first = self.submit(2000)['record']
-        replacement = {'initialBoard': [[16, 10]], 'events': [{'timeMs': 0, 'action': 'lr', 'row': 0.5, 'column': 1.5}]}
+        replacement = {'version': 1, 'cellSize': 32, 'initialBoard': '/////wAAAAA', 'events': [[0, 16, 144, 2]], 'specialEvents': []}
         for score in (2000, 3000):
             self.assertFalse(self.submit(score, replay=replacement)['improved'])
             first.refresh_from_db()
-            self.assertEqual(first.replay, self.replay)
+            self.assertEqual(unpack_replay(first.replay_archive), self.replay)
         self.assertTrue(self.submit(1000, replay=replacement)['improved'])
         first.refresh_from_db()
-        self.assertEqual(first.replay, replacement)
+        self.assertEqual(unpack_replay(first.replay_archive), replacement)
+        self.assertIsNone(first.replay)
         self.assertEqual(first.score, 1000)
         with CaptureQueriesContext(connection) as queries:
             self.cache.rebuild(self.ranking_key)
@@ -119,15 +121,15 @@ class MiniGameRankingTests(TestCase):
             self.assertEqual(self.client.post(url, {'score': 1000, 'replay': replay}).status_code, 422)
         recordings = {
             'left-click': self.replay,
-            'flag-chord': self.replay,
-            'missing-cell': {'rounds': [{'board': [[10, 16]], 'timeMs': 1000}]},
+            'flag-chord': {'version': 1, 'cellSize': 32, 'initialBoard': [[1, 1, 0], [1, 5, 2], [5, 1, 5], [5, 5, 7]], 'events': [], 'specialEvents': []},
+            'missing-cell': {'version': 1, 'rounds': [{'board': 'gAAAAAAAAAA', 'target': [7, 7], 'timeMs': 100} for _ in range(10)]},
         }
         for game, replay in recordings.items():
             ranking_key = GAME_RANKINGS[game][0].key
             with self.captureOnCommitCallbacks(execute=True):
                 response = self.client.post(f'/api/minigame/{ranking_key}/score', self.post_data(1000, replay))
             self.assertEqual(response.status_code, 200, response.content)
-            self.assertEqual(MiniGameBestScore.objects.get(player=self.player, ranking_key=ranking_key).replay, replay)
+            self.assertEqual(unpack_replay(MiniGameBestScore.objects.get(player=self.player, ranking_key=ranking_key).replay_archive), replay)
 
     def test_groups_sort_columns_nulls_pagination_and_personal(self):
         other = self.make_player('minigame-other')
@@ -163,7 +165,7 @@ class MiniGameRankingTests(TestCase):
                 self.cache.client.delete(*self.cache.keys)
                 if size:
                     players = [self.make_player(f'size-{size}-{index}') for index in range(size)]
-                    MiniGameBestScore.objects.bulk_create([MiniGameBestScore(player=player, ranking_key=self.ranking_key, score=1000, replay=self.replay) for player in players])
+                    MiniGameBestScore.objects.bulk_create([MiniGameBestScore(player=player, ranking_key=self.ranking_key, score=1000, replay_archive=pack_replay(self.replay)) for player in players])
                 count = MiniGameBestScore.objects.filter(ranking_key=self.ranking_key).count()
                 self.assertEqual(get_ranking('left-click', self.ranking_key, 0, 100)['count'], count)
                 with self.assertNumQueries(0):

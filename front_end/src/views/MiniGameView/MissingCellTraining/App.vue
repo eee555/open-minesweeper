@@ -49,10 +49,12 @@ import { offlineDownloadFilename, offlineDownloadUrl } from '@/utils/minigame/ga
 import { saveMinigameResult } from '@/utils/minigame/history';
 import { missingCellModes, missingCellRounds, MissingCellTraining, reviewMissingCellRound } from '@/utils/minigame/missingCellTraining';
 import type { MissingCellRoundResult } from '@/utils/minigame/missingCellTraining';
+import { encodeMissingCellRecording } from '@/utils/minigame/recording';
+import type { MissingCellRecording } from '@/utils/minigame/recording';
 import { minigameSettings } from '@/utils/minigame/settings';
 
 defineProps({ offline: { type: Boolean, default: false } });
-const emit = defineEmits<{ completed: [rankingKey: string, scoreMs: number, replay: { rounds: readonly MissingCellRoundResult[] }] }>();
+const emit = defineEmits<{ completed: [rankingKey: string, scoreMs: number, replay: MissingCellRecording] }>();
 const level = ref<typeof missingCellModes[number]['key']>('b');
 const levelGroupName = useId();
 const mode = computed(() => {
@@ -100,8 +102,9 @@ function onAction(action: ClassicMouseAction, row: number, column: number) {
     elapsed.value = game.elapsedMs(now);
     roundResults.value = game.roundResults;
     if (game.phase === 'won') {
-        void saveMinigameResult({ game: 'missing-cell', mode: game.mode, scoreMs: elapsed.value, rounds: roundResults.value });
-        emit('completed', `missing-cell-${game.mode.key}-v1`, elapsed.value, { rounds: roundResults.value });
+        const recording = encodeMissingCellRecording(game.mode, roundResults.value);
+        void saveMinigameResult({ game: 'missing-cell', mode: game.mode, scoreMs: elapsed.value, ...recording });
+        emit('completed', `missing-cell-${game.mode.key}-v1`, elapsed.value, recording);
     }
     if (game.phase === 'playing') resume();
     else pause();

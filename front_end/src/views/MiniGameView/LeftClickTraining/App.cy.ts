@@ -215,8 +215,8 @@ describe('left-click training preview', () => {
             if (entry.game !== 'left-click') throw new Error('Wrong saved game');
             expect(entry.mode).to.include({ key: 'b', density: 87.5 });
             expect(entry.replay.events).not.to.have.length(0);
-            expect(Object.keys(entry.replay).sort()).to.deep.eq(['events', 'initialBoard']);
-            const replay = rebuildTrainingReplay(entry.game, entry.replay, entry.scoreMs);
+            expect(Object.keys(entry.replay).sort()).to.deep.eq(['cellSize', 'events', 'initialBoard', 'specialEvents', 'version']);
+            const replay = rebuildTrainingReplay(entry, entry.replay, entry.scoreMs);
             expect(replayFrame(replay, { timeMs: entry.scoreMs }).remaining).to.eq(0);
             cy.get<ComponentWrapper<typeof App>>('@vue').should((wrapper) => {
                 expect(wrapper.emitted('completed')).to.deep.eq([[entry.mode.rankingKey, entry.scoreMs, entry.replay]]);
