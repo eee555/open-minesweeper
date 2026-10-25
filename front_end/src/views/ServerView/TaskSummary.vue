@@ -1,5 +1,5 @@
 <template>
-    <RefreshableCard data-statistic="tasks" class="statistics-card" :title="t('local.title')" :loading="loading" @refresh="refresh">
+    <RefreshableCard data-statistic="tasks" class="statistics-card" :title="t('local.title')" :loading="loading" @refresh="emit('refresh')">
         <p v-if="failed" role="alert" class="text-danger">
             {{ t('statistics.requestFailed') }}
             <span v-if="total !== null">{{ t('statistics.previous') }}</span>
@@ -19,6 +19,9 @@
         <p v-else-if="!loading && !failed" role="status">
             {{ t('statistics.unavailable') }}
         </p>
+        <div v-if="data?.sampled_at" class="statistics-time">
+            {{ t('statistics.sampled') }}: <time :datetime="data.sampled_at">{{ new Date(data.sampled_at).toLocaleString(locale) }}</time>
+        </div>
         <p class="statistics-cache-note">
             {{ t('local.cache') }}
         </p>
@@ -34,18 +37,15 @@ import { VueUiDonut } from 'vue-data-ui';
 import { useI18n } from 'vue-i18n';
 
 import { statisticsColors } from './statistics';
-import { useStatistic } from './useStatistic';
+import type { TaskSummary } from './statistics';
 
 import RefreshableCard from '@/components/common/RefreshableCard.vue';
 import { local } from '@/store';
 
+const props = withDefaults(defineProps<{ section?: TaskSummary | null; loading?: boolean; failed?: boolean }>(), { section: null, loading: false, failed: false });
+const emit = defineEmits<{ refresh: [] }>();
 const statuses = ['READY', 'RUNNING', 'SUCCESSFUL', 'FAILED'] as const;
-interface TaskSummary {
-    total: number;
-    status: Record<typeof statuses[number], number>;
-}
-
-const { data, loading, failed, refresh } = useStatistic<TaskSummary>('/api/monitor/tasksummary');
+const data = computed(() => props.section);
 const total = computed(() => data.value?.total ?? null);
 const dataset = computed(() => (data.value === null
     ? []
@@ -77,7 +77,7 @@ const config = computed<VueUiDonutConfig>(() => ({
 
 const i18nMessages = {
     'zh-cn': { local: {
-        cache: '数据缓存 5 分钟，刷新不会跳过缓存。',
+        cache: '每 5 分钟定时采样，刷新读取最近一次结果。',
         title: '后台任务',
         READY: '排队中',
         RUNNING: '运行中',
@@ -85,7 +85,7 @@ const i18nMessages = {
         FAILED: '失败',
     } },
     en: { local: {
-        cache: 'Cached for 5 minutes. Refresh uses the same cache.',
+        cache: 'Sampled every 5 minutes. Refresh loads the latest sample.',
         title: 'Background tasks',
         READY: 'Ready',
         RUNNING: 'Running',

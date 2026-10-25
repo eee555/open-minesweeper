@@ -87,7 +87,7 @@ const config = computed<VueUiDonutConfig>(() => ({
 
 const i18nMessages = {
     'zh-cn': { local: {
-        cache: '数据缓存 5 分钟，刷新不会跳过缓存。',
+        cache: '每 5 分钟定时采样，刷新读取最近一次结果。',
         title: '内存占用',
         uwsgi: 'uWSGI',
         apscheduler: 'APScheduler',
@@ -102,7 +102,7 @@ const i18nMessages = {
         available: '可用内存',
     } },
     en: { local: {
-        cache: 'Cached for 5 minutes. Refresh uses the same cache.',
+        cache: 'Sampled every 5 minutes. Refresh loads the latest sample.',
         title: 'Memory Usage',
         uwsgi: 'uWSGI',
         apscheduler: 'APScheduler',

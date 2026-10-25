@@ -7,7 +7,6 @@ from types import SimpleNamespace
 from unittest.mock import patch
 from urllib.parse import urlencode
 
-from django.core.cache import cache
 from django.core.files import File
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.tasks import TaskResultStatus
@@ -59,8 +58,26 @@ class APSchedulerRegistrationTests(TestCase):
                 'delete_overdue_emailverifyrecord',
                 'delete_overdue_tasks',
                 'refresh_tournament_score_reference',
+                'refresh_monitor_snapshot',
             },
         )
+
+    def test_monitor_snapshot_runs_on_startup_and_every_five_minutes(self):
+        from apscheduler.schedulers.background import BackgroundScheduler
+        from common.apscheduler import refresh_monitor_snapshot, register_jobs
+
+        scheduler = BackgroundScheduler(timezone=datetime_timezone.utc)
+        now = datetime(2026, 10, 25, 12, 1, tzinfo=datetime_timezone.utc)
+        with patch('common.apscheduler.django_timezone.now', return_value=now):
+            register_jobs(scheduler)
+        job = scheduler.get_job('refresh_monitor_snapshot')
+        self.assertEqual(job.func, refresh_monitor_snapshot)
+        self.assertEqual(job.next_run_time, now)
+        self.assertEqual(job.max_instances, 1)
+        self.assertTrue(job.coalesce)
+        first_run = job.trigger.get_next_fire_time(None, now)
+        self.assertEqual(first_run, now.replace(minute=5))
+        self.assertEqual(job.trigger.get_next_fire_time(first_run, first_run), first_run + timedelta(minutes=5))
 
     def test_task_cleanup_runs_weekly_in_scheduler_timezone(self):
         from apscheduler.schedulers.background import BackgroundScheduler
@@ -208,6 +225,26 @@ class TaskDeletionTests(TestCase):
         )
         self.client.force_login(self.staff)
 
+    def test_task_summary_reads_current_database_counts(self):
+        task = self.create_task()
+        first = self.client.get('/api/common/tasks/summary')
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(first.json()['status']['READY'], 1)
+        DBTaskResult.objects.filter(pk=task.pk).update(status=TaskResultStatus.SUCCESSFUL)
+        second = self.client.get('/api/common/tasks/summary')
+        self.assertEqual(second['Cache-Control'], 'no-cache')
+        self.assertEqual(second.json()['status']['READY'], 0)
+        self.assertEqual(second.json()['status']['SUCCESSFUL'], 1)
+        self.assertEqual(second.json()['total'], 1)
+
+    def test_task_summary_requires_staff(self):
+        self.client.logout()
+        self.assertEqual(self.client.get('/api/common/tasks/summary').status_code, 403)
+        self.staff.is_staff = False
+        self.staff.save(update_fields=['is_staff'])
+        self.client.force_login(self.staff)
+        self.assertEqual(self.client.get('/api/common/tasks/summary').status_code, 403)
+
     def create_task(
         self,
         *,
@@ -241,8 +278,6 @@ class TaskDeletionTests(TestCase):
 
     def test_delete_ready_task(self):
         task = self.create_task()
-        cache.set('api:monitor/tasksummary', {'total': 1}, 300)
-        self.addCleanup(cache.delete, 'api:monitor/tasksummary')
 
         response = self.client.post(
             '/api/common/tasks/delete',
@@ -253,7 +288,6 @@ class TaskDeletionTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.json())
         self.assertFalse(DBTaskResult.objects.filter(id=task.id).exists())
-        self.assertIsNone(cache.get('api:monitor/tasksummary'))
 
     def test_delete_running_task_returns_conflict(self):
         task = self.create_task(status=TaskResultStatus.RUNNING)
@@ -399,8 +433,6 @@ class TaskDeletionTests(TestCase):
             ),
         ]
         for old_task, obj, task_field_id in cases:
-            cache.set('api:monitor/tasksummary', {'total': 3}, 300)
-            self.addCleanup(cache.delete, 'api:monitor/tasksummary')
             response = self.client.post(
                 '/api/common/tasks/restart',
                 urlencode({'task_id': str(old_task.id)}),
@@ -408,7 +440,6 @@ class TaskDeletionTests(TestCase):
             )
 
             self.assertEqual(response.status_code, 200, response.content)
-            self.assertIsNone(cache.get('api:monitor/tasksummary'))
             response_data = response.json()
             new_task = DBTaskResult.objects.get(id=response_data['id'])
             self.assertNotEqual(old_task.id, new_task.id)

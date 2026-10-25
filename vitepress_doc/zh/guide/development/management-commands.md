@@ -314,6 +314,18 @@ python manage.py db_worker_robust
 python manage.py db_worker_robust --queue-name default --interval 2
 ```
 
+### `refresh_monitor_snapshot` {#refresh-monitor-snapshot}
+
+位置：`monitor/management/commands/refresh_monitor_snapshot.py`
+
+立即采样录像、任务、磁盘和内存统计，原子发布 `BASE_DIR/runtime/monitor.json`，供 `GET /api/monitor/summary` 读取。首次部署或本地调试时可手动运行；日常更新由下方 APScheduler 任务执行。单项失败保留原样本及时间，其他项继续更新；具体结构见[服务器监控快照](./cache.md#服务器监控快照)。
+
+```bash
+python manage.py refresh_monitor_snapshot
+```
+
+生产环境需部署 `default.conf` 中的精确路径配置，并执行 `nginx -t` 和 reload。默认文件路径为 `/root/saolei/runtime/monitor.json`；更改部署目录时同步调整 Nginx alias。Nginx worker 需要读取文件及遍历父目录的权限。采样或写入失败时检查 `logs/apscheduler.log`；旧文件不会自动过期，应检查各项采样时间。
+
 ### `runapscheduler`
 
 位置：`common/management/commands/runapscheduler.py`
@@ -322,6 +334,7 @@ python manage.py db_worker_robust --queue-name default --interval 2
 
 | 任务 | 频率 | 说明 |
 | --- | --- | --- |
+| `refresh_monitor_snapshot` | 启动时及每 5 分钟 | 生成统一监控 JSON；单实例执行，错过多次调度时合并执行 |
 | `delete_old_job_executions` | 每天 00:03 | 清理超过 7 天的 APScheduler 执行记录 |
 | `delete_newest_queue` | 每天 01:08 | 按上传时间保留最新 1000 条，允许两次清理之间暂时超过上限 |
 | `delete_freezed_video` | 每天 01:28 | 删除 7 天以前冻结状态的录像 |

@@ -1,5 +1,5 @@
 <template>
-    <RefreshableCard data-statistic="videos" class="statistics-card" :title="t('local.title')" :loading="loading" @refresh="refresh">
+    <RefreshableCard data-statistic="videos" class="statistics-card" :title="t('local.title')" :loading="loading" @refresh="emit('refresh')">
         <div class="video-dimensions" role="group" :aria-label="t('local.dimension')">
             <BaseTextButton v-for="key in dimensions" :key="key" size="small" :aria-pressed="dimension === key" @click="dimension = key">
                 {{ t(`common.prop.${key}`) }}
@@ -28,6 +28,9 @@
         <p v-else-if="!loading && !failed" role="status">
             {{ t('statistics.unavailable') }}
         </p>
+        <div v-if="data?.sampled_at" class="statistics-time">
+            {{ t('statistics.sampled') }}: <time :datetime="data.sampled_at">{{ new Date(data.sampled_at).toLocaleString(locale) }}</time>
+        </div>
         <p class="statistics-cache-note">
             {{ t('local.cache') }}
         </p>
@@ -43,16 +46,17 @@ import { VueUiDonut } from 'vue-data-ui';
 import { useI18n } from 'vue-i18n';
 
 import { statisticsColors } from './statistics';
-import { useStatistic } from './useStatistic';
+import type { VideoSummary } from './statistics';
 
 import BaseTextButton from '@/components/common/BaseTextButton.vue';
 import RefreshableCard from '@/components/common/RefreshableCard.vue';
 import { local } from '@/store';
 import { MS_Levels, MS_Mode, MS_ServerStates, MS_Softwares } from '@/utils/ms_const';
 
+const props = withDefaults(defineProps<{ section?: VideoSummary | null; loading?: boolean; failed?: boolean }>(), { section: null, loading: false, failed: false });
+const emit = defineEmits<{ refresh: [] }>();
 const dimensions = ['software', 'level', 'mode', 'state'] as const;
 type Dimension = typeof dimensions[number];
-type VideoSummary = { total: number } & Record<Dimension, Record<string, number>>;
 const dimension = ref<Dimension>('software');
 const orders: Record<Dimension, readonly string[]> = {
     software: MS_Softwares, level: MS_Levels, mode: Object.values(MS_Mode), state: MS_ServerStates,
@@ -61,7 +65,7 @@ const extraModes = ['07', '08', '09'];
 const omittedCategories: Record<Dimension, readonly string[]> = {
     software: [], level: [], mode: ['01', '04', MS_Mode.Recursive], state: ['e'],
 };
-const { data, loading, failed, refresh } = useStatistic<VideoSummary>('/api/monitor/videosummary');
+const data = computed(() => props.section);
 const panels = computed(() => dimensions.map((panelDimension) => {
     const counts: Record<string, number> = data.value?.[panelDimension] ?? {};
     const order = orders[panelDimension];
@@ -110,7 +114,7 @@ const config = computed<VueUiDonutConfig>(() => ({
 
 const i18nMessages = {
     'zh-cn': { local: {
-        cache: '数据缓存 5 分钟，刷新不会跳过缓存。',
+        cache: '每 5 分钟定时采样，刷新读取最近一次结果。',
         title: '录像统计',
         dimension: '统计维度',
         mode07: '弱无猜',
@@ -118,7 +122,7 @@ const i18nMessages = {
         mode09: '强可猜',
     } },
     en: { local: {
-        cache: 'Cached for 5 minutes. Refresh uses the same cache.',
+        cache: 'Sampled every 5 minutes. Refresh loads the latest sample.',
         title: 'Video Statistics',
         dimension: 'Statistics dimension',
         mode07: 'Weak No Guessing',

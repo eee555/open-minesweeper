@@ -10,7 +10,7 @@ interface StatisticState<T> {
     refresh: () => Promise<void>;
 }
 
-export function useStatistic<T>(path: string, validate?: (data: T) => void): StatisticState<T> {
+export function useStatistic<T>(path: string): StatisticState<T> {
     const { proxy } = useCurrentInstance();
     const data = shallowRef<T | null>(null);
     const loading = ref(false);
@@ -25,7 +25,6 @@ export function useStatistic<T>(path: string, validate?: (data: T) => void): Sta
         failed.value = false;
         try {
             const response = await proxy.$axios.get<T>(path, { signal });
-            validate?.(response.data);
             data.value = response.data;
         } catch {
             if (!signal.aborted) failed.value = true;

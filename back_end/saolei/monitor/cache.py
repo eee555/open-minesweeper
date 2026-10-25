@@ -3,7 +3,6 @@ from itertools import islice
 import logging
 import time
 
-from django.core.cache import cache
 from django_redis import get_redis_connection
 
 from config.customranking import CUSTOM_PLUCK_LEVELS
@@ -23,14 +22,6 @@ logger = logging.getLogger(__name__)
 MEMORY_BATCH_SIZE = 100
 MAX_MEMORY_KEYS = 50_000
 MEMORY_SAMPLES = 5
-
-
-def get_cached_statistic(name, create_result):
-    return cache.get_or_set(f'api:monitor/{name}', create_result, 300)
-
-
-def invalidate_task_summary():
-    cache.delete('api:monitor/tasksummary')
 
 
 def _known_memory_keys(ranking, fields, player_ids):

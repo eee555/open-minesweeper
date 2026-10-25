@@ -1,5 +1,10 @@
 <template>
     <ElDescriptions v-loading="summaryLoading" :title="t('local.overview')" border :column="5">
+        <template #extra>
+            <BaseButton :loading="summaryLoading" @click="refreshSummary">
+                {{ t('common.action.refresh') }}
+            </BaseButton>
+        </template>
         <ElDescriptionsItem :label="t('common.score.total')">
             {{ taskSummary.total }}
         </ElDescriptionsItem>
@@ -163,7 +168,7 @@ const filters = ref({
 
 async function refreshSummary() {
     summaryLoading.value = true;
-    await proxy.$axios.get<TaskSummary>('/api/monitor/tasksummary').then((response) => {
+    await proxy.$axios.get<TaskSummary>('/api/common/tasks/summary').then((response) => {
         taskSummary.value = response.data;
     }).catch(httpErrorNotification);
     summaryLoading.value = false;

@@ -1,6 +1,6 @@
 <template>
-    <RefreshableCard data-statistic="disk" class="statistics-card" :title="t('local.title')" :loading="loading" @refresh="refresh">
-        <p v-if="failed" role="alert" class="text-danger">
+    <RefreshableCard data-statistic="disk" class="statistics-card" :title="t('local.title')" :loading="loading" @refresh="emit('refresh')">
+        <p v-if="failed || invalid" role="alert" class="text-danger">
             {{ t('statistics.requestFailed') }}
             <span v-if="total !== null">{{ t('statistics.previous') }}</span>
         </p>
@@ -16,9 +16,12 @@
                 {{ t('statistics.total') }}: {{ formatBytes(total) }}
             </div>
         </template>
-        <p v-else-if="!loading && !failed" role="status">
+        <p v-else-if="!loading && !failed && !invalid" role="status">
             {{ t('statistics.unavailable') }}
         </p>
+        <div v-if="data?.sampled_at" class="statistics-time">
+            {{ t('statistics.sampled') }}: <time :datetime="data.sampled_at">{{ new Date(data.sampled_at).toLocaleString(locale) }}</time>
+        </div>
         <p class="statistics-cache-note">
             {{ t('local.cache') }}
         </p>
@@ -28,32 +31,32 @@
 <script setup lang="ts">
 import 'vue-data-ui/style.css';
 import './statistics.css';
-import { computed } from 'vue';
+import { computed, ref, shallowRef, watch } from 'vue';
 import type { VueUiDonutConfig } from 'vue-data-ui';
 import { VueUiDonut } from 'vue-data-ui';
 import { useI18n } from 'vue-i18n';
 
 import { statisticsColors } from './statistics';
-import { useStatistic } from './useStatistic';
+import type { DiskUsage } from './statistics';
 
 import RefreshableCard from '@/components/common/RefreshableCard.vue';
 import { local } from '@/store';
 import { formatBytes } from '@/utils/strings';
 
-interface DiskUsage {
-    total: number;
-    used: number;
-    free: number;
-    video: number | null;
-    db: number | null;
-}
-
-const { data, loading, failed, refresh } = useStatistic<DiskUsage>('/api/monitor/diskusage', (disk) => {
+const props = withDefaults(defineProps<{ section?: DiskUsage | null; loading?: boolean; failed?: boolean }>(), { section: null, loading: false, failed: false });
+const emit = defineEmits<{ refresh: [] }>();
+const data = shallowRef<DiskUsage | null>(null);
+const invalid = ref(false);
+watch(() => props.section, (disk) => {
+    invalid.value = false;
+    if (!disk) return;
     const values = [disk.total, disk.free, disk.video ?? 0, disk.db ?? 0];
     if (values.some((value) => !Number.isFinite(value) || value < 0) || disk.free + (disk.video ?? 0) + (disk.db ?? 0) > disk.total) {
-        throw new RangeError('Disk categories exceed the reported volume');
+        invalid.value = true;
+        return;
     }
-});
+    data.value = disk;
+}, { immediate: true });
 const total = computed(() => data.value?.total ?? null);
 const dataset = computed(() => {
     if (data.value === null) return [];
@@ -86,7 +89,7 @@ const config = computed<VueUiDonutConfig>(() => ({
 
 const i18nMessages = {
     'zh-cn': { local: {
-        cache: '数据缓存 5 分钟，刷新不会跳过缓存。',
+        cache: '每 5 分钟定时采样，刷新读取最近一次结果。',
         title: '磁盘使用情况',
         video: '录像文件',
         db: '数据库',
@@ -94,7 +97,7 @@ const i18nMessages = {
         free: '可用空间',
     } },
     en: { local: {
-        cache: 'Cached for 5 minutes. Refresh uses the same cache.',
+        cache: 'Sampled every 5 minutes. Refresh loads the latest sample.',
         title: 'Disk Usage',
         video: 'Videos',
         db: 'Database',
@@ -102,5 +105,5 @@ const i18nMessages = {
         free: 'Free',
     } },
 };
-const { t } = useI18n({ messages: i18nMessages });
+const { t, locale } = useI18n({ messages: i18nMessages });
 </script>

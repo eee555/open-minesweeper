@@ -84,7 +84,7 @@ const config = computed<VueUiDonutConfig>(() => ({
 
 const i18nMessages = {
     'zh-cn': { local: {
-        cache: '数据缓存 5 分钟，刷新不会跳过缓存。',
+        cache: '每 5 分钟定时采样，刷新读取最近一次结果。',
         title: 'Redis 内存分布',
         pb_rankings: 'PB 榜',
         other_rankings: '其他排行榜',
@@ -94,7 +94,7 @@ const i18nMessages = {
         explanation: '包括其他数据库和 Redis 自身开销，与进程驻留内存的统计口径不同。',
     } },
     en: { local: {
-        cache: 'Cached for 5 minutes. Refresh uses the same cache.',
+        cache: 'Sampled every 5 minutes. Refresh loads the latest sample.',
         title: 'Redis Memory Distribution',
         pb_rankings: 'PB rankings',
         other_rankings: 'Other rankings',

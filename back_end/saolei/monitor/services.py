@@ -1,4 +1,7 @@
 import logging
+import os
+from pathlib import Path
+import tempfile
 import time
 from urllib.parse import urlsplit
 
@@ -6,8 +9,10 @@ from django.conf import settings
 from django.db import DatabaseError
 from django.db.models import Sum
 from django.tasks import TaskResultStatus
+from django.utils import timezone
 from django_tasks_db.models import DBTaskResult
 import psutil
+from pydantic import ValidationError
 from redis.exceptions import RedisError
 
 from config.text_choices import MS_TextChoices
@@ -15,10 +20,55 @@ from userprofile.models import UserProfile
 from utils.db import get_choice_counts_filtered
 from videomanager.models import VideoModel
 from .cache import collect_redis_memory
+from .schema import DiskUsageOut, MemoryUsageOut, MonitorSnapshotOut, TaskSummaryOut, VideoSummaryOut
 from .server_metrics import check_deadline, collect_process_memory, COLLECTION_SECONDS, CollectionError, process_memory_metric
-from .utils import get_db_size
+from .utils import get_db_size, get_snapshot_path
 
 logger = logging.getLogger(__name__)
+
+
+def publish_monitor_snapshot():
+    path = get_snapshot_path()
+    try:
+        snapshot = MonitorSnapshotOut.model_validate_json(path.read_text(encoding='utf-8'))
+    except FileNotFoundError:
+        snapshot = MonitorSnapshotOut()
+    except ValidationError:
+        logger.warning('Discarding invalid monitor snapshot.')
+        snapshot = MonitorSnapshotOut()
+
+    for name, collector, schema in (
+        ('videosummary', get_video_summary, VideoSummaryOut),
+        ('tasksummary', get_task_summary, TaskSummaryOut),
+        ('diskusage', get_disk_usage, DiskUsageOut),
+        ('memoryusage', get_memory_usage, MemoryUsageOut),
+    ):
+        try:
+            result = collector()
+            if name != 'memoryusage':
+                result['sampled_at'] = timezone.now()
+            value = schema.model_validate(result)
+            previous = getattr(snapshot, name)
+            if name == 'memoryusage' and previous is not None:
+                for section in ('memory', 'redis'):
+                    if getattr(value, section).status != 'ready' and getattr(previous, section).status == 'ready':
+                        setattr(value, section, getattr(previous, section))
+            setattr(snapshot, name, value)
+        except Exception:
+            logger.exception('Monitor sampling failed: section=%s; keeping previous sample.', name)
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = None
+    try:
+        with tempfile.NamedTemporaryFile('w', encoding='utf-8', dir=path.parent, prefix='.monitor-', suffix='.tmp', delete=False) as file:
+            temporary_path = file.name
+            file.write(snapshot.model_dump_json())
+        os.chmod(temporary_path, 0o644)  # Nginx workers need read access to the published file.
+        os.replace(temporary_path, path)
+    finally:
+        if temporary_path is not None:
+            Path(temporary_path).unlink(missing_ok=True)
+    logger.info('Monitor snapshot published.')
 
 
 def get_video_summary():

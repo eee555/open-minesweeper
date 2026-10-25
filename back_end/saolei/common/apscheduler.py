@@ -7,6 +7,7 @@ from django.utils import timezone as django_timezone
 from django_apscheduler import util
 from django_apscheduler.models import DjangoJob, DjangoJobExecution
 
+from monitor.services import publish_monitor_snapshot
 from tournament.cache import TournamentCache
 from userprofile.models import EmailVerifyRecord
 from utils.ranking_lock import ranking_access
@@ -15,6 +16,11 @@ from videomanager.services import delete_newest_queue
 from .services import cleanup_expired_tasks
 
 logger = logging.getLogger(__name__)
+
+
+@util.close_old_connections
+def refresh_monitor_snapshot():
+    publish_monitor_snapshot()
 
 
 @util.close_old_connections
@@ -55,6 +61,18 @@ def refresh_tournament_score_reference():
 def register_jobs(scheduler):
     # Remove the persisted job before the job store restores its deleted callable.
     DjangoJob.objects.filter(id='refresh_state_always').delete()
+
+    scheduler.add_job(
+        refresh_monitor_snapshot,
+        trigger=CronTrigger(minute='*/5', second=0, timezone=scheduler.timezone),
+        id='refresh_monitor_snapshot',
+        next_run_time=django_timezone.now(),
+        misfire_grace_time=300,
+        coalesce=True,
+        max_instances=1,
+        replace_existing=True,
+    )
+    logger.info("Added job 'refresh_monitor_snapshot'.")
 
     scheduler.add_job(
         refresh_tournament_score_reference,

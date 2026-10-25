@@ -9,9 +9,10 @@ const global = {
     plugins: [i18n],
     config: { globalProperties: { $axios } },
 };
-const disk = { total: 8192, used: 6144, free: 2048, video: 3072, db: 1024 };
-const tasks = { total: 1000, status: { READY: 100, RUNNING: 100, SUCCESSFUL: 700, FAILED: 100 } };
+const disk = { sampled_at: '2026-10-25T12:00:00Z', total: 8192, used: 6144, free: 2048, video: 3072, db: 1024 };
+const tasks = { sampled_at: '2026-10-25T12:00:00Z', total: 1000, status: { READY: 100, RUNNING: 100, SUCCESSFUL: 700, FAILED: 100 } };
 const videos = {
+    sampled_at: '2026-10-25T12:00:00Z',
     total: 1000,
     software: { a: 100, e: 200, m: 300, r: 400 },
     level: { b: 200, i: 200, e: 200, c8_8_40: 400 },
@@ -36,9 +37,7 @@ describe('Server statistics cards', () => {
     });
 
     it('uses the same donut layout for disk space and counts free space only once', () => {
-        cy.intercept('GET', '**/api/monitor/diskusage', { body: disk }).as('disk');
-        cy.mount(DiskUsage, { global });
-        cy.wait('@disk');
+        cy.mount(DiskUsage, { global, props: { section: disk } });
         cy.get('.vue-data-ui-legend-item').should('have.length', 4);
         cy.contains('.vue-data-ui-legend-item', 'Videos').should('contain.text', '3.00 KB').and('contain.text', '37.5%');
         cy.contains('.vue-data-ui-legend-item', 'Database').should('contain.text', '1.00 KB').and('contain.text', '12.5%');
@@ -48,23 +47,17 @@ describe('Server statistics cards', () => {
     });
 
     it('handles an empty video database and rejects overlapping disk categories', () => {
-        cy.intercept('GET', '**/api/monitor/diskusage', { body: { ...disk, video: null, db: null } }).as('disk');
-        cy.mount(DiskUsage, { global });
-        cy.wait('@disk');
+        cy.mount(DiskUsage, { global, props: { section: { ...disk, video: null, db: null } } });
         cy.contains('.vue-data-ui-legend-item', 'Videos').should('contain.text', '0 B');
         cy.contains('.vue-data-ui-legend-item', 'Other').should('contain.text', '6.00 KB');
-        cy.intercept('GET', '**/api/monitor/diskusage', { body: { ...disk, video: disk.total } }).as('invalidDisk');
-        cy.contains('button', 'Refresh').click();
-        cy.wait('@invalidDisk');
+        cy.get<ComponentWrapper<typeof DiskUsage>>('@vue').then((wrapper) => wrapper.setProps({ section: { ...disk, video: disk.total } }));
         cy.get('[role="alert"]').should('contain.text', 'last successful result');
         cy.contains('.vue-data-ui-legend-item', 'Other').should('contain.text', '6.00 KB');
         cy.contains('button', 'Refresh').should('not.be.disabled');
     });
 
     it('shows task counts without byte units and updates translated status labels', () => {
-        cy.intercept('GET', '**/api/monitor/tasksummary', { body: tasks }).as('tasks');
-        cy.mount(TaskSummary, { global });
-        cy.wait('@tasks');
+        cy.mount(TaskSummary, { global, props: { section: tasks } });
         cy.get('.statistics-total').should('contain.text', 'Total: 1,000').and('not.contain.text', 'KB');
         cy.contains('.vue-data-ui-legend-item', 'Successful').should('contain.text', '700').invoke('text').should('match', /70(?:\.0)?%/);
         cy.then(() => {
@@ -75,25 +68,15 @@ describe('Server statistics cards', () => {
         cy.contains('.vue-data-ui-legend-item', '失败').should('be.visible');
     });
 
-    it('shows an explicit zero task total and retains it after a failed refresh', () => {
-        cy.intercept('GET', '**/api/monitor/tasksummary', { body: { total: 0, status: { READY: 0, RUNNING: 0, SUCCESSFUL: 0, FAILED: 0 } } }).as('tasks');
-        cy.mount(TaskSummary, { global });
-        cy.wait('@tasks');
+    it('shows an explicit zero task total', () => {
+        cy.mount(TaskSummary, { global, props: { section: { ...tasks, total: 0, status: { READY: 0, RUNNING: 0, SUCCESSFUL: 0, FAILED: 0 } } } });
         cy.get('[role="status"]').should('contain.text', 'zero');
         cy.get('.statistics-total').should('contain.text', 'Total: 0');
         cy.get('.vue-ui-donut').should('not.exist');
-        cy.intercept('GET', '**/api/monitor/tasksummary', { statusCode: 500 }).as('failedTasks');
-        cy.contains('button', 'Refresh').click();
-        cy.wait('@failedTasks');
-        cy.get('[role="alert"]').should('contain.text', 'last successful result');
-        cy.get('.statistics-total').should('contain.text', 'Total: 0');
-        cy.get('[data-statistic="tasks"]').should('have.attr', 'aria-busy', 'false');
     });
 
     it('shows all video dimensions and omits unsupported modes and verification states', () => {
-        cy.intercept('GET', '**/api/monitor/videosummary', { body: videos }).as('videos');
-        cy.mount(VideoSummary, { global });
-        cy.wait('@videos');
+        cy.mount(VideoSummary, { global, props: { section: videos } });
         cy.get('.statistics-total').should('contain.text', 'Total: 1,000');
         const activeLegend = '.video-panel[aria-hidden="false"] .vue-data-ui-legend-item';
         cy.get(activeLegend).should('have.length', 4);
@@ -107,7 +90,6 @@ describe('Server statistics cards', () => {
         cy.contains('.video-dimensions button', 'State').click();
         cy.get(activeLegend).should('have.length', 4);
         cy.contains(activeLegend, '700').should('be.visible');
-        cy.get('@videos.all').should('have.length', 1);
     });
 
     for (const language of ['en', 'zh-cn'] as const) {
@@ -127,9 +109,7 @@ describe('Server statistics cards', () => {
                 cy.then(() => {
                     i18n.global.locale.value = language;
                 });
-                cy.intercept('GET', '**/api/monitor/videosummary', { body: videos }).as('videos');
-                cy.mount(VideoSummary, { global });
-                cy.wait('@videos');
+                cy.mount(VideoSummary, { global, props: { section: videos } });
                 cy.get('.video-panel').should('have.length', 4);
                 cy.get('.video-panel .vue-data-ui-legend').should('have.length', 4);
                 cy.get('h2').should('contain.text', language === 'en' ? 'Video Statistics' : '录像统计');
@@ -157,22 +137,7 @@ describe('Server statistics cards', () => {
                         expect(deferredResizeNotifications, 'resize notifications stop after layout settles').to.equal(settledNotifications);
                     });
                 });
-                cy.get('@videos.all').should('have.length', 1);
             });
         }
     }
-
-    it('finishes the initial loading state after an error and retries from the card', () => {
-        cy.intercept('GET', '**/api/monitor/videosummary', { statusCode: 503 }).as('failedVideos');
-        cy.mount(VideoSummary, { global });
-        cy.wait('@failedVideos');
-        cy.get('[role="alert"]').should('contain.text', 'Could not load');
-        cy.get('.statistics-total').should('not.exist');
-        cy.get('[data-statistic="videos"]').should('have.attr', 'aria-busy', 'false');
-        cy.intercept('GET', '**/api/monitor/videosummary', { body: videos }).as('videos');
-        cy.contains('button', 'Refresh').click();
-        cy.wait('@videos');
-        cy.get('[role="alert"]').should('not.exist');
-        cy.get('.statistics-total').should('contain.text', 'Total: 1,000');
-    });
 });

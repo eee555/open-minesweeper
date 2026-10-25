@@ -21,7 +21,8 @@ from ninja.orm import create_schema
 import psutil
 
 from accountlink.services import restart_accountlink_task
-from monitor.cache import invalidate_task_summary
+from monitor.schema import TaskCountsOut
+from monitor.services import get_task_summary
 from speedranking.top.cache import TopRankingCache
 from tournament.gsc.services import restart_gsc_task
 from userprofile.decorators import staff_required
@@ -198,6 +199,18 @@ def _inspect_worker_id(worker_id: str | None) -> str:
     return WORKER_STATE_ALIVE
 
 
+@router.get('/tasks/summary', response=TaskCountsOut)
+@decorate_view(staff_required, cache_control(no_cache=True))
+def task_summary(request):
+    """
+    - staff_required
+    - cache_control(no_cache=True)
+
+    Return current task counts directly from the database.
+    """
+    return get_task_summary()
+
+
 @router.get('/tasks/detail', response=list[TaskDetailOut])
 @decorate_view(staff_required)
 def task_detail(request):
@@ -253,7 +266,6 @@ def delete_task(request, data: TaskIdIn = Form(...)):  # noqa: B008
             raise HttpError(409, 'Running task cannot be deleted.')
         db_task.delete()
 
-    invalidate_task_summary()
     return
 
 
@@ -294,7 +306,6 @@ def restart_task(request, data: TaskIdIn = Form(...)):  # noqa: B008
     except (ImportError, SuspiciousOperation, TypeError, ValueError):
         raise HttpError(400, 'Invalid task restart request.')
 
-    invalidate_task_summary()
     return new_db_task
 
 

@@ -11,7 +11,7 @@ description: 开源扫雷网Redis/Django缓存结构详解，包括录像队列�
 
 旧竞速排行榜及新闻的读写逻辑已移除，可运行`python manage.py delete_legacy_speedranking_cache`清理旧个人纪录hash、排行zset及`news_queue`。支持`--dry-run`预览，具体范围见[管理命令文档](./management-commands.md#delete-legacy-speedranking-cache)。
 
-旧 World 监控页面及其 CPU/网络 IO 采集已移除，不再读写历史采样。`monitor` APP 现在承载服务器页面的磁盘、任务、录像和内存统计 Ninja API，路径为 `/api/monitor/diskusage`、`/api/monitor/tasksummary`、`/api/monitor/videosummary`、`/api/monitor/memoryusage`；旧 `/monitor/io_cpus/` 和 `/monitor/capacity/` 不恢复。部署并停止旧采集进程后，可按固定名称清理 `saolei_website` Redis DB 中的五个遗留 key，无需遍历其他 key：
+旧 World 监控页面及其 CPU/网络 IO 采集已移除，不再读写历史采样；旧 `/monitor/io_cpus/` 和 `/monitor/capacity/` 不恢复。部署并停止旧采集进程后，可按固定名称清理 `saolei_website` Redis DB 中的五个遗留 key，无需遍历其他 key：
 
 ```bash
 redis-cli -n 0 DEL io_s_old io_r_old io_s_spds io_r_spds cpus
@@ -19,9 +19,17 @@ redis-cli -n 0 DEL io_s_old io_r_old io_s_spds io_r_spds cpus
 
 扫雷网旧站爬取已停用，账号关联和历史数据查询保留。元数据写入和文件导入仍可接收调用方提供的数据；旧爬取任务不会再访问外站或写入业务数据。具体入口见仓库 `back_end/saolei/accountlink/README.md`。
 
-## 服务器内存统计
+## 服务器监控快照
 
-`GET /api/monitor/memoryusage` 同时返回进程内存 `memory` 和 Redis 分配内存 `redis`。`monitor/cache.py` 通过 Django `default` Redis 缓存保存完整返回体，逻辑 key 为 `api:monitor/memoryusage`，TTL 300 秒。命中不重新采集、不读取用户 ID、不续期；到期后的首次请求重新计算。不新增 APScheduler 任务。
+`GET /api/monitor/summary` 一次返回 `{videosummary, tasksummary, diskusage, memoryusage}`，前端服务器页面只请求一次，再分发给各张卡片。APScheduler 的 `refresh_monitor_snapshot` 启动时立即执行，此后每 5 分钟复用 `monitor/services.py` 的采集函数，写入 `BASE_DIR/runtime/monitor.json`。生产 Nginx 直接提供该文件；本地 Ninja 接口也只读文件，不在请求中采集。文件不存在时返回 503。
+
+前三项沿用原有统计字段，增加 UTC `sampled_at`；`memoryusage` 包含 `memory` 和 `redis`，各自保留采样时间。首次采集失败的统计项为 `null`；内存块仍使用下文的 `unavailable` 结构。后续某项采集失败时保留其上次成功结果及原时间，其他项正常更新。内存两块也独立保留旧样本。读取采样时间可以判断调度停止或持续失败导致的数据过期。
+
+发布前按 `monitor/schema.py` 校验，在同目录完整写入临时文件，再用 `os.replace` 原子替换，失败不破坏正式文件。Nginx 对精确路径设置 JSON 类型、`Cache-Control: no-cache` 和 `open_file_cache off`，避免替换后继续使用旧文件描述符；请求限流由 Nginx 执行。目录需可遍历，文件以 0644 权限发布，确保 Nginx worker 可读。部署路径变化时同步修改 `default.conf`；可通过 `MONITOR_SNAPSHOT_PATH` 覆盖采样与本地读取路径。
+
+旧的四个独立监控接口和 Redis 结果缓存已移除，旧结果 key 会按原 300 秒 TTL 自动过期。管理员任务页使用独立的 `GET /api/common/tasks/summary`，仅管理员可访问，每次直接查询数据库，不读取快照；任务删除、重启和清理不触发整份监控数据重算。首次部署或本地调试可执行 [refresh_monitor_snapshot](./management-commands.md#refresh-monitor-snapshot) 手动生成文件，再重启 APScheduler、检查并重载 Nginx。
+
+### 内存采集口径
 
 每块包含 `status`、UTC `sampled_at`、固定错误码 `reason`、非负整数 `total_bytes` 和固定分类 `groups`。进程按 uWSGI（含 master/workers）、本项目 APScheduler、Redis、MySQL、db_worker、其他进程聚合。Linux 统一采集 PSS，其他平台统一 RSS；RSS 可能重复计算共享页。合计仅覆盖进程驻留内存，主机总内存/可用内存单独放在 `memory.host`，不包含在图中合计内。本机 Redis 服务进程按进程名或可执行文件名汇总，Redis/MySQL 连接配置为远程或已知容器隔离时，进程块返回范围不足。
 
@@ -36,7 +44,7 @@ Redis 分类只读取业务代码直接确定的 DB 0 key，不执行 `SCAN`、`
 
 所有已知 key 去重后以 `pipeline(transaction=False)` 每批最多 100 个执行 `MEMORY USAGE ... SAMPLES 5`，不存在的 key 为 0。该结果为估算，`redis.estimated=true`、`redis.samples=5`；总量为实例 `used_memory`，不同于进程 RSS/PSS。分类合计大于实例总量时不发布分布。两块共享 5 秒协作式采集预算，另限制最多 5,000 个进程和 50,000 个 key；阻塞中的 socket/查询仍受各自超时控制，因此 5 秒不是硬中断时限。
 
-进程采集中退出的 PID 跳过；存活进程权限不足时整块不可用，并通过 `memory.unreadable_processes` 记录数量，不能当作零。不可用块的时间、总量和分类为 `null`，另一块可独立成功；完整结果仍缓存 300 秒，避免重复失败采集。缓存后端本身出错则请求失败，不绕过缓存继续采集。日志仅记录安全原因、耗时和数量，不记录 PID、命令行、key 名或业务值。上线需以实际 API 用户验证 Linux `/proc` 权限，并抽查冷缓存耗时、Redis 计量结果及缓存 TTL。前端可保留当前页面上次成功的图，明确标注旧数据及原采集时间。
+进程采集中退出的 PID 跳过；存活进程权限不足时整块不可用，并通过 `memory.unreadable_processes` 记录数量，不能当作零。不可用块的时间、总量和分类为 `null`，另一块可独立成功；已有成功样本时发布器保留旧值和时间。采集器日志仅记录安全原因、耗时和数量，不记录 PID、命令行、key 名或业务值。上线需以实际 APScheduler 用户验证 Linux `/proc` 权限，并抽查采集耗时、Redis 计量结果及文件更新时间。HTTP 请求失败时前端继续显示当前页面的上次成功结果。
 
 ## 总览
 
@@ -119,10 +127,8 @@ digraph cache {
         update_link [label="/accountlink/update/"];
         view_saolei_get_import_list [label="/accountlink/saolei/videolist/get/"];
         view_saolei_get_import_summary [label="/accountlink/saolei/videoimport/stat/"];
-        task_summary [label="/api/monitor/tasksummary"];
-        disk_usage [label="/api/monitor/diskusage"];
-        video_summary [label="/api/monitor/videosummary"];
-        memory_usage [label="/api/monitor/memoryusage"];
+        task_summary [label="/api/common/tasks/summary (staff)"];
+        monitor_summary [label="/api/monitor/summary (Nginx)"];
         video_upload [label="/common/uploadvideo/"];
         pluck_rank [label="/api/customranking/pluck"];
         minigame_score [label="POST /api/minigame/{ranking_key}/score"];
@@ -193,10 +199,6 @@ digraph cache {
 
     subgraph cache_nodes {
         node [shape=box, fillcolor="${#dcfce7|#14532d}"];
-        task_summary_cache [label="api:monitor/tasksummary"];
-        disk_usage_cache [label="api:monitor/diskusage"];
-        video_summary_cache [label="api:monitor/videosummary"];
-        memory_usage_cache [label="api:monitor/memoryusage\nTTL 300s"];
         pluck_rank_cache [label="customranking:pluck:{level}:rank\nzset"];
         pluck_detail_cache [label="customranking:pluck:{level}:detail\nhash"];
         minigame_cache [label="minigame:{rank|detail|ready}:v1:{ranking_key}\nzset / hash / string"];
@@ -205,7 +207,6 @@ digraph cache {
         participant_cache [label="tournament:normal:participants\nhash", width=3.2, height=0.9];
         tournament_user_rank_cache [label="tournament:user:{field}\nzset\nmember = user_id", width=3.4, height=1.0];
         tournament_user_score_time_cache [label="tournament:user:score_current:last_updated\nstring\n年度锚点：1 月 1 日 UTC", width=4.2, height=1.0];
-        monitor_summary_cache [label="api:monitor/*\nTTL 300s"];
     }
 
     minigame_score -> minigame_db [label="保存最佳成绩及回放 JSON"];
@@ -217,7 +218,10 @@ digraph cache {
         node [shape=folder, fillcolor="${#e0f2fe|#0f172a}"];
         video_files [label="video files"];
         avatar_files [label="avatar files"];
+        monitor_snapshot [label="runtime/monitor.json"];
     }
+
+    monitor_sampler [label="APScheduler refresh_monitor_snapshot\nstartup + every 5 minutes"];
 
     subgraph signal_nodes {
         node [
@@ -281,12 +285,12 @@ digraph cache {
     task_db -> view_saolei_get_import_summary;
 
     // monitor API
-    task_db -> task_summary_cache -> task_summary;
-    video_db -> disk_usage_cache -> disk_usage;
-    video_db -> video_summary_cache -> video_summary;
-    userprofile_db -> memory_usage_cache [label="PB user IDs on cache miss"];
-    newest_cache -> memory_usage_cache [label="MEMORY USAGE"];
-    memory_usage_cache -> memory_usage;
+    task_db -> task_summary;
+    task_db -> monitor_sampler;
+    video_db -> monitor_sampler;
+    userprofile_db -> monitor_sampler [label="PB user IDs"];
+    newest_cache -> monitor_sampler [label="MEMORY USAGE"];
+    monitor_sampler -> monitor_snapshot -> monitor_summary;
 
     // common API
     video_upload -> video_db [label="create after is_completed check"];
@@ -636,10 +640,6 @@ digraph cache {
 | `tournament` | `tournament:user:score_current` | zset | `member = user_id`；`score = score_current × tournament_score_decay_factor(last_updated, 缓存时间基准)`；所有成员使用同一时间基准。数据库 `score_current = 0` 时不写入。 |
 | `tournament` | `tournament:user:score_current:last_updated` | string | 带时区的 ISO datetime；当前积分 zset 的年度统一锚点，正常为当年 1 月 1 日 00:00 UTC。由年度 APScheduler 任务更新；普通积分发放不推进。调度任务延迟时继续统一使用旧锚点。 |
 | `tournament` | `tournament:user:score_total` / `gsc_total` / `gsc_best` / `weekly_total` / `weekly_classic_total` / `weekly_classic_best` | zset | `member = user_id`；`score = TournamentUser` 对应字段值。各 total 字段为 `0` 时不写入；`gsc_best`、`weekly_classic_best` 为 `MAX_TOURNAMENT_BEST` 时不写入。 |
-| `monitor` | `api:monitor/videosummary` | Django cache | `video_summary` 返回体，TTL 300 秒。 |
-| `monitor` | `api:monitor/tasksummary` | Django cache | `task_summary` 返回体，TTL 300 秒；管理员删除或重启任务后失效。 |
-| `monitor` | `api:monitor/diskusage` | Django cache | `disk_usage` 返回体，TTL 300 秒。 |
-| `monitor` | `api:monitor/memoryusage` | Django cache | 进程和 Redis 两块内存统计的完整返回体，TTL 300 秒；独立不可用结果也缓存，命中不续期。 |
 | `article` | `articles` | list | 文章目录项字符串，来自 `assets/article` 或静态目录下的文章文件。 |
 
 `TournamentUser` 是比赛积分的持久化汇总表；Redis 中另用 7 个 sorted set 保存排行榜入口。站内用户创建 `TournamentParticipant` / `GSCParticipant` / `WeeklyParticipant` 时，保存信号会在当前数据库事务内立即创建缺失的 `TournamentUser`；删除 participant 不会跟随删除 `TournamentUser`。无站内用户的 participant 在数据库中保留 `user_id = NULL`，但 API 序列化时统一输出 `user_id = 0`，前端只按 `0` 识别非站内用户。GSC / 周赛 finish 任务先调用 `ensure_tournament_users`，为本场所有站内参赛用户补建缺失的默认 `TournamentUser`，然后才调用 `delete_participants_without_videos` 删除无录像站内 participant。排名积分发放和 best 刷新是独立的非关键后台任务，入口同样先执行 `ensure_tournament_users`，支持独立执行或重跑；随后各自从本场剩余站内 participant 出发，通过 `participant.user.tournamentuser` 取得对应的 `TournamentUser`，并使用 `select_related('user__tournamentuser')` 避免 N+1。积分发放任务读取并衰减既有 `TournamentUser.score_current`，再根据本场 participant 的 `rank_score` 增量写回 `TournamentUser` 和 `TournamentParticipant.rank_score`，随后同步刷新 `score_current`、`score_total` 和对应分类 total 的 zset。历史最好成绩在 participant 保存后只读取当前 participant 和对应比赛子表，并与 `TournamentUser.gsc_best` / `weekly_classic_best` 直接比较；只有当前成绩更好时才改变内存值。结算流程使用 `bulk_update` 写入 `rank_score`，不会触发保存信号，因此 best 刷新通过 `refresh_gsc_best_scores` / `refresh_weekly_best_scores` 作为独立后台任务执行，并在写库后刷新对应 best zset；best 与排名积分发放没有顺序依赖。为了简化结算代码，积分发放和 best 刷新都不筛选字段是否发生变化，会统一 `bulk_update` 候选 participant 和对应 `TournamentUser`。结算链路通过 `tournament` logger 写入 `logs/tournament.log`，记录后台任务、删除无录像 participant、读取 `TournamentUser`、成绩/排名刷新、积分发放、best 刷新、状态切换和录像公开等阶段的处理数量。没有有效历史成绩时，best 字段使用 `MAX_TOURNAMENT_BEST` 作为哨兵值，并且不写入 Redis。participant 删除时，GSC / 周赛各自的信号会在当前事务内按需调用 `calculate_gsc_best_score` / `calculate_weekly_classic_best` 重算该类型历史最好成绩，并同步更新对应 best zset。由于 `TournamentUser` 是数据库汇总数据，participant 信号触发的创建和 best 更新必须在当前事务内立即执行，不使用 `transaction.on_commit`。如果需要修复历史汇总数据，尤其是把旧的 `0` best 值迁移到新的最大值哨兵，可以运行 `manage.py refresh_tournament_user_stats`。该命令会先调用 `tournament.services.refresh_tournament_user_total_fields` 重建 `score_total`、`gsc_total`、`weekly_total` 和 `weekly_classic_total`，再执行命令内的 best 重建步骤写回 `gsc_best` 和 `weekly_classic_best`；`score_current` 依赖实时衰减，不由该命令刷新。如果 Redis 排行缓存丢失或需要按当前数据库状态重建，可以运行 `manage.py rebuild_tournament_user_cache`。
