@@ -22,7 +22,8 @@ function replyReplay(game: TrainingGame, key: string, source: unknown) {
     cy.then(loadReplayArchiveCodec).then((codec) => {
         cy.intercept({ method: 'GET', pathname: `/api/minigame/${game}/replay`, query: { player: '42', key } }, {
             headers: { 'Content-Type': 'application/x-7z-compressed', 'X-Minigame-Score': '1234' },
-            body: Cypress.Buffer.from(new Uint8Array(codec.pack(source))),
+            // cy.intercept preserves ArrayBuffer; Buffer bodies are serialized as JSON.
+            body: codec.pack(source),
         }).as('replay');
     });
 }
@@ -122,7 +123,7 @@ describe('online minigame replays', () => {
     it('handles invalid links, missing replays and corrupt archives when navigating within one game', () => {
         const key = 'b-50-v1';
         cy.intercept({ method: 'GET', pathname: '/api/minigame/left-click/replay', query: { player: '42', key } }, { statusCode: 404 }).as('missing');
-        cy.intercept({ method: 'GET', pathname: '/api/minigame/left-click/replay', query: { player: '43', key } }, { headers: { 'X-Minigame-Score': '1000' }, body: Cypress.Buffer.from([1, 2, 3]) }).as('corrupt');
+        cy.intercept({ method: 'GET', pathname: '/api/minigame/left-click/replay', query: { player: '43', key } }, { headers: { 'X-Minigame-Score': '1000' }, body: new Uint8Array([1, 2, 3]).buffer }).as('corrupt');
         const router = mountReplay('/minigame/left-click?player=42');
         cy.get('[data-cy=minigame-replay-error]').should('contain.text', 'Invalid replay link parameters.');
         cy.then(() => router.push({ query: { player: '42', key } }));
