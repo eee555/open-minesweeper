@@ -25,7 +25,9 @@
                 </dd>
             </div>
             <div :class="descriptionLayout ? 'description-item' : 'minigame-settings-row'">
-                <dt :id="mineStateId">{{ t('local.mineState') }}</dt>
+                <dt :id="mineStateId">
+                    {{ t('local.mineState') }}
+                </dt>
                 <dd class="minigame-settings-controls">
                     <div class="checkbox-buttons" role="radiogroup" :aria-labelledby="mineStateId" data-cy="minigame-mine-state">
                         <label v-for="state in ['up', 'down']" :key="state" class="checkbox-button">
