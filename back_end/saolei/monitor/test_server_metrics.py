@@ -1,5 +1,6 @@
 from collections import Counter
 from datetime import datetime, timezone
+from math import ceil
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -10,6 +11,7 @@ from django.test import override_settings, SimpleTestCase, TestCase
 import psutil
 from redis.exceptions import ConnectionError as RedisConnectionError
 
+from minigame.utils import RANKINGS
 from . import cache as monitor_cache, server_metrics, services
 
 
@@ -110,6 +112,8 @@ class ProcessMemoryTests(SimpleTestCase):
 
 
 class RedisMemoryTests(SimpleTestCase):
+    NON_MINIGAME_RANKING_KEYS = 69
+
     def redis_client(self, fields=None, sizes=None, total=1000):
         client = MagicMock()
         client.hkeys.return_value = [b'std:b:4', b'nf:e:381'] if fields is None else fields
@@ -141,15 +145,17 @@ class RedisMemoryTests(SimpleTestCase):
             'effranking:thrp:e': 40, 'effranking:thrp:sum': 50,
             'minigame:rank:v1:left-click-b-50-v1': 11, 'minigame:detail:v1:left-click-b-50-v1': 12,
             'minigame:ready:v1:left-click-b-50-v1': 1,
+            'minigame:rank:v1:multi-touch-e-87.5-v1': 13, 'minigame:detail:v1:multi-touch-e-87.5-v1': 14,
+            'minigame:ready:v1:multi-touch-e-87.5-v1': 1,
         }
         client, pipe = self.redis_client(sizes=sizes)
         result = self.collect(client, players=(7, 8, 7))
         measured = Counter(call.args[0] for call in pipe.memory_usage.call_args_list)
         self.assertTrue(all(count == 1 for count in measured.values()))
-        self.assertEqual(len([key for key in measured if not key.startswith('speedranking:pb:') and key != 'newest_queue']), 111)
+        self.assertEqual(len([key for key in measured if not key.startswith('speedranking:pb:') and key != 'newest_queue']), self.NON_MINIGAME_RANKING_KEYS + 3 * len(RANKINGS))
         self.assertEqual(result['groups']['pb_rankings'], 100)
-        self.assertEqual(result['groups']['other_rankings'], 454)
-        self.assertEqual(len([key for key in measured if key.startswith('minigame:')]), 42)
+        self.assertEqual(result['groups']['other_rankings'], 482)
+        self.assertEqual(len([key for key in measured if key.startswith('minigame:')]), 3 * len(RANKINGS))
         self.assertEqual(result['groups']['latest_videos'], 80)
         self.assertEqual(sum(result['groups'].values()), result['total_bytes'])
         self.assertNotIn('freeze_queue', measured)
@@ -189,9 +195,13 @@ class RedisMemoryTests(SimpleTestCase):
 
     def test_large_user_list_uses_bounded_pipelines(self):
         client, pipe = self.redis_client()
-        self.collect(client, players=range(1, 251))
-        self.assertEqual(pipe.execute.call_count, 4)
-        self.assertEqual(pipe.memory_usage.call_count, 365)
+        players = range(1, 251)
+        self.collect(client, players=players)
+        pb_keys = 1 + len(client.hkeys.return_value) + len(players)
+        other_ranking_keys = self.NON_MINIGAME_RANKING_KEYS + 3 * len(RANKINGS)
+        expected_keys = pb_keys + other_ranking_keys + 1  # Latest-video queue.
+        self.assertEqual(pipe.memory_usage.call_count, expected_keys)
+        self.assertEqual(pipe.execute.call_count, ceil(expected_keys / monitor_cache.MEMORY_BATCH_SIZE))
 
 
 @override_settings(
