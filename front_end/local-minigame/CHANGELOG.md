@@ -1,6 +1,6 @@
 # 更新记录 / Changelog
 
-## Unreleased
+## 0.6.5 — 2026-10-25
 
 - 左键和多指训练可设置雷格按下或弹起，默认弹起；共用本地设置，切换保留当前局，回放按当前设置显示。
 - Left-click and multi-touch training share a local setting for pressed or raised mine cells, defaulting to raised. Changing it keeps the current game; replays use the current display setting.
