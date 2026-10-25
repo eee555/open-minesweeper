@@ -43,6 +43,7 @@ describe('touch-only training', () => {
         mountGame();
         cy.get('[data-cy="training-orientation"]').should('not.exist');
         cy.get('[data-cy="training-level"] input[value="e"]').parent().click();
+        cy.get('[data-cy="training-remaining"]').should('have.attr', 'aria-label', '240');
         cy.get<ComponentWrapper<typeof App>>('@game').then((wrapper) => {
             const board: number[][] = wrapper.findComponent<typeof MiniGameBoard>('[data-cy="minigame-board"]').props('board');
             expect(board).to.have.length(16);
@@ -109,6 +110,7 @@ describe('touch-only training', () => {
         cy.viewport(400, 800);
         mountGame();
         cy.get('[data-cy="training-level"] input[value="e"]').parent().click();
+        cy.get('[data-cy="training-remaining"]').should('have.attr', 'aria-label', '240');
         cy.get('.training-frame').should('have.class', 'outer-border');
         cy.get('.training-frame .inner-border').should('have.length', 2);
         cy.get('[data-cy="training-restart"]').should('not.exist');
@@ -120,9 +122,11 @@ describe('touch-only training', () => {
             cy.get('.training-scroll').scrollTo(safe.column * 32, 0);
             cy.get('[data-cy="minigame-board"]').then(($board) => {
                 const rect = $board[0].getBoundingClientRect();
-                const position = { eventConstructor: 'PointerEvent', pointerId: 1, pointerType: 'touch', clientX: rect.left + (safe.column + 0.5) * 32, clientY: rect.top + (safe.row + 0.5) * 32, scrollBehavior: false as const };
-                cy.wrap($board).trigger('pointerdown', position);
-                cy.wrap($board).trigger('pointerup', position);
+                const x = (safe.column + 0.5) * 32;
+                const y = (safe.row + 0.5) * 32;
+                const position = { eventConstructor: 'PointerEvent', pointerId: 1, pointerType: 'touch', clientX: rect.left + x, clientY: rect.top + y, scrollBehavior: false as const };
+                cy.get('[data-cy="minigame-board"]').trigger('pointerdown', x, y, position);
+                cy.get('[data-cy="minigame-board"]').trigger('pointerup', x, y, position);
             });
             cy.get('[data-cy="training-fullscreen"]').click();
             cy.get('[data-cy="training-cell-size"]').should('have.attr', 'type', 'number').and('have.value', '32');
@@ -229,6 +233,7 @@ describe('touch-only training', () => {
     it('saves a successful replay once and keeps it after seeking and restarting', () => {
         mountGame();
         cy.get('[data-cy="training-density"]').select('87.5');
+        cy.get('[data-cy="training-remaining"]').should('have.attr', 'aria-label', '008');
         cy.get<ComponentWrapper<typeof App>>('@game').then((wrapper) => {
             const safe = cells(wrapper.findComponent<typeof MiniGameBoard>('[data-cy="minigame-board"]').props('board'), 10);
             safe.forEach(({ row, column }, index) => {
