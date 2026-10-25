@@ -1,3 +1,4 @@
+import type { BoardBackground } from '@putianyi888/vue3-minesweeper-board';
 import { defineComponent, h } from 'vue';
 
 import MiniGameSettings from './MiniGame.vue';
@@ -19,12 +20,13 @@ describe('minigame settings section', () => {
         minigameSettings.value = defaultMinigameSettings();
     });
 
-    it('saves shared cell size and mine opacity without restarting an ongoing game', () => {
+    it('saves shared cell size and mine display settings without restarting an ongoing game', () => {
         cy.mount(SettingsAndTraining, { global: { plugins: [i18n] } });
         cy.get('[data-cy="minigame-settings-section"] .card-title').should('have.text', 'Minigames');
         cy.get('[data-cy="minigame-restart-hotkey"]').should('be.visible');
         cy.get('[data-cy="minigame-cell-size"]').should('have.value', '32');
         cy.get('[data-cy="minigame-mine-opacity"]').should('have.value', '0.5');
+        cy.get('[data-cy="minigame-mine-up"]').should('be.checked');
         cy.get('.minigame-board-foreground').should('have.css', 'opacity', '0.5');
         cy.get<ComponentWrapper<typeof SettingsAndTraining>>('@vue').then((wrapper) => {
             const board: number[][] = wrapper.findComponent<typeof MiniGameBoard>('[data-cy="minigame-board"]').props('board');
@@ -51,6 +53,17 @@ describe('minigame settings section', () => {
                 expect(settings.cellSize).to.eq(27);
             });
         }
+        cy.get<ComponentWrapper<typeof SettingsAndTraining>>('@vue').then((wrapper) => {
+            const board: number[][] = wrapper.findComponent<typeof MiniGameBoard>('[data-cy="minigame-board"]').props('board');
+            cy.get('[data-cy="minigame-mine-down"]').parent().click();
+            cy.get('[data-cy="training-game"]').should('have.attr', 'data-phase', 'playing');
+            cy.get('[data-cy="training-remaining"]').should('have.attr', 'aria-label', '031');
+            cy.get<ComponentWrapper<typeof SettingsAndTraining>>('@vue').should((current) => {
+                expect(current.findComponent<typeof MiniGameBoard>('[data-cy="minigame-board"]').props('board')).to.deep.eq(board);
+                const background: boolean[][] | undefined = current.findComponent<typeof BoardBackground>('.minigame-board-background').props('board');
+                expect(background).to.deep.eq(board.map((row) => row.map((cell) => cell === 0 || cell === 16)));
+            });
+        });
         cy.get('[data-cy="minigame-restart-hotkey"]').focus();
         cy.get('[data-cy="minigame-restart-hotkey"]').trigger('keydown', { eventConstructor: 'KeyboardEvent', code: 'F2', key: 'F2' });
         cy.get('[data-cy="minigame-restart-hotkey"]').blur();
@@ -59,6 +72,7 @@ describe('minigame settings section', () => {
             const settings = JSON.parse(value ?? '{}') as Partial<MinigameSettings>;
             expect(settings.leftClickMineOpacity).to.eq(1);
             expect(settings.cellSize).to.eq(27);
+            expect(settings.leftClickMinePressed).to.eq(true);
             expect(settings.restartHotkey?.code).to.eq('F2');
         });
     });

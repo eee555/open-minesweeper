@@ -27,7 +27,7 @@
 
 高级游戏和回放始终使用 16×30 坐标，纵向由 `Board` 复用 `d3-array` 的 `transpose` 转置显示，并把输入坐标交换回游戏坐标；`TouchTrace` 同步交换显示坐标。`multiTouchOrientation` 仅存 localStorage，不写入回放，切换方向保留当前局。全屏复用项目的 VueUse `useFullscreen`，通过 Frame 的 `borderless` 移除内外边框、外框内边距及间隔，同时取消全屏容器留白。全屏顶栏与设置页共用 `InputNumber` 和全局格子大小，直接输入正整数，不按窗口自动缩放；超出可用区域时允许横向和纵向滚动。修改尺寸及进出全屏保留当前局，回放继续使用首个触点的参考格子大小。
 
-[settings.ts](../src/utils/minigame/settings.ts) 集中管理 `minigame-settings` localStorage，兼容旧配置补默认值。所有游戏共用格子大小（数字输入框，正整数，默认 32px）和重开热键（默认未设置），左键雷不透明度默认 50%。网站设置页与小游戏页底部共用设置组件；修改显示参数保留当前局。玩法参数保持在棋盘上方，修改时重开。
+[settings.ts](../src/utils/minigame/settings.ts) 集中管理 `minigame-settings` localStorage，兼容旧配置补默认值。所有游戏共用格子大小（数字输入框，正整数，默认 32px）和重开热键（默认未设置）；左键和多指共用雷不透明度（默认 50%）及雷格状态 `leftClickMinePressed`（默认 `false`，弹起）。雷格状态仅由 `Board` 派生背景矩阵，旗格始终弹起；不修改逻辑棋盘、不进入回放载荷，播放时使用当前本地设置。网站设置页与小游戏页底部共用设置组件；修改显示参数保留当前局。玩法参数保持在棋盘上方，修改时重开。
 
 ## 标双题目排布
 

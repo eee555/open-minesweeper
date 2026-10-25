@@ -22,13 +22,13 @@ Choose Beginner **8×8**, Intermediate **16×16** or Expert **16×30**, each wit
 
 Mouse only. Mines are visible, so you may inspect the board before starting. Each left-button release opens only the selected safe cell, with **no flood opening**. Hitting a mine loses; opening every safe cell stops the timer. Right clicks and chords have no effect.
 
-Mine opacity defaults to 50% and can be adjusted in minigame settings.
+Mine cells default to raised, with 50% mine opacity. Both can be adjusted in minigame settings.
 
 ## Multi-touch Training
 
 Uses the same sizes, mine densities and win/loss rules as left-click training, but **accepts touchscreen input only**. You may inspect the board first. The first touch down starts timing; each finger opens its current cell on touch down. Moving or lifting a finger opens nothing. There is no pressed-cell preview. Contacts act independently, and playing with one finger is allowed.
 
-Mine opacity is shared with left-click training.
+Mine opacity and the pressed or raised mine-cell setting are shared with left-click training.
 
 Drag with one finger to scroll the board and page, without stopping at the board edges. Scrolling stops while two or more contacts are held. Expert offers horizontal **16 rows × 30 columns** or vertical **30 rows × 16 columns**. Orientation is saved locally; changing it keeps the current game and replay.
 
@@ -54,7 +54,7 @@ Click the target to reveal the next board immediately. Complete **10 consecutive
 
 The top-left counter shows clicks or questions remaining; the top-right counter shows seconds with three decimal places. Outside fullscreen, **click anywhere in the counter bar to restart**, or focus it with Tab and press Enter or Space.
 
-Shared cell size and restart hotkey settings are available below the games and in the website's Minigames settings section. Cell size defaults to 32px and accepts a positive integer; the hotkey is unset. Left-click and multi-touch training share a mine opacity setting. Settings are saved in this browser. Changing these display settings keeps the current game; changing level or mode starts a new one.
+Shared cell size and restart hotkey settings are available below the games and in the website's Minigames settings section. Cell size defaults to 32px and accepts a positive integer; the hotkey is unset. Left-click and multi-touch training share mine opacity and pressed or raised mine-cell settings. Preferences are saved in this browser; the mine-cell state is excluded from recordings. Changing these display settings keeps the current game, and replays use the current display settings. Changing level or game parameters starts a new game.
 
 ## Replays and Analysis
 

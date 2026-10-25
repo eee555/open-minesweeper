@@ -41,6 +41,7 @@ const props = defineProps({
     size: { type: Number, required: true },
     disabled: { type: Boolean, default: false },
     foregroundOpacity: { type: Number, default: 1 },
+    minePressed: { type: Boolean, default: false },
     label: { type: String, required: true },
     highlight: { type: Object as PropType<{ row: number; column: number } | null>, default: null },
     cursorPosition: { type: Object as PropType<{ rowIndex: number; columnIndex: number } | undefined>, default: undefined },
@@ -65,8 +66,8 @@ const displayBoard = computed(() => (props.transposed ? transpose(props.board) :
 const displayCursor = computed(() => (props.transposed && props.cursorPosition !== undefined ? { rowIndex: props.cursorPosition.columnIndex, columnIndex: props.cursorPosition.rowIndex } : props.cursorPosition));
 
 const background = computed(() => {
-    if (props.input === 'touch') return undefined;
-    const value = pressedBackground(props.board, props.disabled ? props.replayPress : pressed.value);
+    const press = props.input === 'touch' ? null : props.disabled ? props.replayPress : pressed.value;
+    const value = pressedBackground(props.board, press, props.minePressed);
     return props.transposed && value !== undefined ? transpose(value) : value;
 });
 

@@ -41,7 +41,7 @@
                 </div>
             </template>
             <MiniGameBoard
-                :key="round" :board="replay.frame.value?.board ?? board" :transposed="transposed" :size="cellSize" :foreground-opacity="minigameSettings.leftClickMineOpacity" :disabled="phase === 'won' || phase === 'lost'"
+                :key="round" :board="replay.frame.value?.board ?? board" :transposed="transposed" :size="cellSize" :foreground-opacity="minigameSettings.leftClickMineOpacity" :mine-pressed="minigameSettings.leftClickMinePressed" :disabled="phase === 'won' || phase === 'lost'"
                 :input="gameType === 'multi-touch' ? 'touch' : 'mouse'" :record-mouse="gameType === 'left-click' && replay.data.value === null" :record-touch="gameType === 'multi-touch' && replay.data.value === null"
                 :cursor-position="gameType === 'left-click' ? replay.frame.value?.cursor : undefined" :replay-press="replay.frame.value?.pressed ?? null"
                 :label="t(gameType === 'multi-touch' ? 'local.touchBoardLabel' : 'local.boardLabel')" @action="onAction" @record="onMouseRecord" @touch-record="onTouchRecord"
