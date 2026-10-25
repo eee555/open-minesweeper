@@ -10,6 +10,10 @@ on:
       - '!front_end/cypress/support/component.ts'
       - '.github/workflows/CypressE2E.yml'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   e2e:
     runs-on: ubuntu-latest
@@ -41,14 +45,16 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            back_end/saolei/requirements.txt
+            back_end/saolei/requirements-wheels.txt
 
       - name: Install backend dependencies
         run: |
           cd back_end/saolei
           python -m pip download --no-deps --dest wheels -r requirements-wheels.txt
           pip install --find-links wheels -r requirements.txt
-          pip install cryptography
-          pip install coverage pytest-cov
           
       - name: Create Logs Directory
         run: mkdir -p back_end/saolei/logs
@@ -61,18 +67,15 @@ jobs:
           E2E_TEST=True python manage.py runserver 127.0.0.1:8000 --noreload > backend.log 2>&1 &
           echo "Backend started in background"
 
-      - name: Install frontend dependencies
-        run: |
-          cd front_end
-          npm install
-
       - name: Install Chinese fonts
         run: sudo apt-get install -y fonts-wqy-zenhei fonts-noto-cjk
 
+      # The action installs dependencies once with npm ci and caches npm/Cypress.
+      # Start Vite directly to skip predev's offline-package builds.
       - name: Run Cypress
         uses: cypress-io/github-action@v7
         with:
-          start: npm run dev -- --host 127.0.0.1 --strictPort
+          start: npx vite --host 127.0.0.1 --port 8080 --strictPort
           working-directory: front_end
           browser: chrome
           wait-on: 'http://localhost:8000,http://localhost:8080'
