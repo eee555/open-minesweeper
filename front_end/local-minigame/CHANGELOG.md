@@ -1,11 +1,13 @@
 # 更新记录 / Changelog
 
-## Unreleased
+## 0.6.4 — 2026-10-25
 
 - 多指训练的成功局自动保存本地历史，保留压缩回放，并支持按完成时间和成绩索引读取。
 - Successful multi-touch games now save local history with compressed replays, indexed by completion time and score.
 - 多指训练高级方向保存为本地显示设置，切换时保留当前局及回放；纵向通过交换横纵坐标显示，回放统一使用横向坐标。
 - Expert orientation in multi-touch training is saved as a local display setting. Switching preserves the current game and replay; vertical display swaps the axes while recordings retain horizontal coordinates.
+- 灵感来源补充扫雷联萌（League of Minesweeper）。
+- Added League of Minesweeper to the inspiration credits.
 
 ## 0.6.3 — 2026-10-25
 
