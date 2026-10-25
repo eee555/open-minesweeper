@@ -15,7 +15,6 @@ from userprofile.models import UserProfile
 from .archive import pack_replay, unpack_replay
 from .cache import MiniGameRankingCache
 from .models import MiniGameBestScore
-from .replay import LEVEL_SIZES
 from .services import get_player_scores, get_ranking, submit_score
 from .utils import GAME_RANKINGS, RANKINGS
 
@@ -104,7 +103,6 @@ class MiniGameRankingTests(TestCase):
         self.assertTrue(self.submit(1000, replay=replacement)['improved'])
         first.refresh_from_db()
         self.assertEqual(unpack_replay(first.replay_archive), replacement)
-        self.assertIsNone(first.replay)
         self.assertEqual(first.score, 1000)
         with CaptureQueriesContext(connection) as queries:
             self.cache.rebuild(self.ranking_key)
@@ -142,7 +140,7 @@ class MiniGameRankingTests(TestCase):
         self.assertEqual(len(group['rankings']), 9)
         self.assertTrue(all(ranking['accept_submissions'] for ranking in group['rankings']))
         for ranking in GAME_RANKINGS['multi-touch']:
-            rows, columns = LEVEL_SIZES[ranking.level]
+            rows, columns = {'b': (8, 8), 'i': (16, 16), 'e': (16, 30)}[ranking.level]
             replay = {'version': 1, 'cellSize': 32, 'initialBoard': 'A' * ((rows * columns + 5) // 6), 'events': [[0, 16, 16, 0, 0], [10, 32, 0, 1, 0]]}
             with self.captureOnCommitCallbacks(execute=True):
                 response = self.client.post(f'/api/minigame/{ranking.key}/score', self.post_data(1000, replay))
@@ -150,7 +148,6 @@ class MiniGameRankingTests(TestCase):
             self.assertTrue(response.json()['improved'])
             record = MiniGameBestScore.objects.get(player=self.player, ranking_key=ranking.key)
             self.assertEqual(unpack_replay(record.replay_archive), replay)
-            self.assertIsNone(record.replay)
             detail = json.loads(self.cache.client.hget(self.cache.detail_key(ranking.key), str(self.player.id)))
             self.assertEqual(set(detail), {'score', 'achieved_at'})
             self.assertEqual(self.cache.client.zscore(self.cache.rank_key(ranking.key), self.player.id), 1000)
