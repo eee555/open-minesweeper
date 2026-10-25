@@ -35,12 +35,15 @@
 | --- | --- | --- |
 | `GET /api/minigame/rankings` | 无 | 游戏分组、固定列顺序及榜单配置 |
 | `POST /api/minigame/{ranking_key}/score` | 表单 `score` 和 `replay`（JSON 对象字符串），归属取自登录用户 | `{improved, record}`，不回传回放 |
+| `GET /api/minigame/{game}/replay` | 查询参数 `player=玩家ID, key=模式key`（如 `b-50-v1`） | 对应最佳成绩的原始 7z，`X-Minigame-Score` 为匹配的整数毫秒成绩 |
 | `GET /api/minigame/{game}/rank` | `sort=榜单key, start=0, end=20` | `{count, players}`，每行包含名次与完整成绩列 |
 | `GET /api/minigame/{game}/player/{player_id}` | 路径参数 | 该玩家本组全部成绩及各列名次 |
 
 分页为左闭右开区间，最多 100 人。`sort` 默认使用本组第一列；空榜或空区间返回空列表，现存用户没有成绩时各列为 `null`。
 
 未知游戏、榜单或用户返回 `404`，跨游戏排序或非法输入返回 `422`，关闭提交的榜单返回 `409 ranking_closed`。业务错误为 `{code, detail}`；权限、限流和表单解析沿用项目格式。提交按用户限流 `60/m`，公开查询按 IP 限流 `5/s`。
+
+回放公开读取，`game` 来自路径，查询参数 `key` 只包含模式部分，二者组合为完整的 `ranking_key`；数据库及 Redis 的榜单标识不变。缺失或空回放返回 `404 replay_not_found`。一次数据库查询读取成绩及 7z，不解包、不重新压缩、不访问 Redis。响应类型为 `application/x-7z-compressed`，设置 `Content-Encoding: identity` 跳过默认 GZipMiddleware，`Cache-Control: no-transform` 防止中间层再次转换，并公开 `X-Minigame-Score` 响应头供播放器读取。
 
 ## 持久化与缓存
 

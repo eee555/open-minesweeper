@@ -1,5 +1,5 @@
 <template>
-    <section ref="playArea" class="training-page" :class="{ 'touch-fullscreen': isFullscreen }" :aria-label="t(gameType === 'multi-touch' ? 'local.touchTitle' : 'local.title')" :data-phase="phase" data-cy="training-game">
+    <section ref="playArea" class="training-page" :class="{ 'touch-fullscreen': isFullscreen }" :aria-label="t(gameType === 'multi-touch' ? 'local.touchTitle' : 'local.title')" :data-phase="phase" :data-replay="replayData !== null" data-cy="training-game">
         <div class="training-controls">
             <div class="checkbox-buttons" role="radiogroup" :aria-label="t('local.level')" data-cy="training-level">
                 <label v-for="item in trainingLevels" :key="item.key" class="checkbox-button">
@@ -97,15 +97,19 @@ import { TouchReplayRecorder } from '@/utils/minigame/touchReplay';
 import { useTrainingReplay } from '@/utils/minigame/useTrainingReplay';
 
 // Mouse and touch share the game rules and layout; input and replay streams stay separate.
-const props = defineProps({ offline: { type: Boolean, default: false }, gameType: { type: String as PropType<'left-click' | 'multi-touch'>, default: 'left-click' } });
+const props = defineProps({
+    offline: { type: Boolean, default: false },
+    gameType: { type: String as PropType<'left-click' | 'multi-touch'>, default: 'left-click' },
+    replayData: { type: Object as PropType<Extract<AnyTrainingReplay, { game: 'left-click' | 'multi-touch' }> | null>, default: null },
+});
 const emit = defineEmits<{ completed: [rankingKey: string, scoreMs: number, replay: TrainingRecording | TouchRecording]; reset: [] }>();
 defineSlots<{ resultActions?: () => VNode[] }>();
-const level = ref<typeof trainingLevels[number]['key']>('b');
+const level = ref<typeof trainingLevels[number]['key']>(props.replayData?.mode.key ?? 'b');
 const levelGroupName = useId();
 const touchOrientations = ['horizontal', 'vertical'] as const;
 const orientationGroupName = useId();
 const transposed = computed(() => props.gameType === 'multi-touch' && level.value === 'e' && minigameSettings.value.multiTouchOrientation === 'vertical');
-const density = ref<typeof trainingDensities[number]['value']>(50);
+const density = ref<typeof trainingDensities[number]['value']>(props.replayData?.mode.density ?? 50);
 const mode = computed(() => {
     const selected = (props.gameType === 'multi-touch' ? multiTouchModes : leftClickModes).find((item) => item.key === level.value && item.density === density.value);
     if (selected === undefined) throw new Error('Unknown left-click training mode');
@@ -123,7 +127,7 @@ async function toggleFullscreen() {
         fullscreenFailed.value = true;
     }
 }
-let game = new LeftClickTraining(mode.value);
+let game = new LeftClickTraining(mode.value, undefined, props.replayData?.initialBoard);
 const board = shallowRef(game.board);
 const phase = ref(game.phase);
 const remaining = ref(game.remainingSafe);
@@ -179,6 +183,19 @@ function onTouchRecord(input: TrainingTouchInput) {
 }
 
 watch(mode, restart);
+watch(() => props.replayData, (data, previous) => {
+    if (data === null) {
+        if (previous && replay.data.value === previous) restart();
+        return;
+    }
+    pause();
+    const final = data.snapshots.at(-1);
+    board.value = final?.board ?? data.initialBoard;
+    remaining.value = final?.remaining ?? 0;
+    elapsed.value = data.durationMs;
+    phase.value = 'won';
+    replay.finish(data);
+}, { immediate: true });
 
 const i18nMessages = {
     'zh-cn': { local: {

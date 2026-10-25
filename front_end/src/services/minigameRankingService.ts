@@ -50,6 +50,13 @@ export async function fetchMinigameRanking(game: TrainingGame, sort: string, sta
     return data;
 }
 
+export async function fetchMinigameReplay(game: TrainingGame, key: string, player: number, signal?: AbortSignal): Promise<{ archive: ArrayBuffer; scoreMs: number }> {
+    const { data, headers } = await $axios.get<ArrayBuffer>(`/api/minigame/${game}/replay`, { params: { player, key }, responseType: 'arraybuffer', signal });
+    const scoreMs = Number(headers['x-minigame-score']);
+    if (!Number.isSafeInteger(scoreMs) || scoreMs <= 0) throw new Error('Missing minigame replay score');
+    return { archive: data, scoreMs };
+}
+
 export async function submitMinigameScore(rankingKey: string, score: number, replay: MinigameReplayData): Promise<{ improved: boolean; record: MinigameScore & { id: number; ranking_key: string; player_id: number } }> {
     const { data } = await $axios.post<{ improved: boolean; record: MinigameScore & { id: number; ranking_key: string; player_id: number } }>(`/api/minigame/${rankingKey}/score`, { score, replay: JSON.stringify(replay) });
     return data;

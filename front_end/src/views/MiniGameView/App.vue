@@ -6,17 +6,19 @@
                 {{ t('local.ranking') }}
             </RouterLink>
         </div>
-        <RouterView v-slot="{ Component }">
-            <component :is="Component" :key="selected" @completed="queueResult" @reset="clearResult">
-                <template #resultActions>
-                    <div v-if="pendingResult !== null" class="minigame-result-actions">
-                        <BaseButton type="primary" :loading="submitting" :disabled="!canUpload || uploaded" :title="uploadHint" data-cy="minigame-upload" @click="submitResult">
-                            {{ t(submitting ? 'local.uploading' : uploaded ? 'local.uploaded' : 'local.upload') }}
-                        </BaseButton>
-                    </div>
-                </template>
-            </component>
-        </RouterView>
+        <OnlineReplay v-slot="{ replay }" :enabled="viewingReplay" :game="selected">
+            <RouterView v-slot="{ Component }">
+                <component :is="Component" :key="selected" :replay-data="replay" @completed="queueResult" @reset="resetGame">
+                    <template #resultActions>
+                        <div v-if="pendingResult !== null" class="minigame-result-actions">
+                            <BaseButton type="primary" :loading="submitting" :disabled="!canUpload || uploaded" :title="uploadHint" data-cy="minigame-upload" @click="submitResult">
+                                {{ t(submitting ? 'local.uploading' : uploaded ? 'local.uploaded' : 'local.upload') }}
+                            </BaseButton>
+                        </div>
+                    </template>
+                </component>
+            </RouterView>
+        </OnlineReplay>
         <GameSettings />
         <HistoryMigration :progress="minigameHistoryMigration" />
     </div>
@@ -28,6 +30,8 @@ import '@/styles/link.css';
 import { computed, ref, shallowRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
+
+import OnlineReplay from './OnlineReplay.vue';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import GamePicker from '@/components/MiniGame/GamePicker.vue';
@@ -44,6 +48,7 @@ import type { MinigameReplayData } from '@/utils/minigame/history';
 
 const route = useRoute();
 const router = useRouter();
+const viewingReplay = computed(() => route.query.player !== undefined || route.query.key !== undefined);
 const selected = computed<TrainingGame>({
     get: () => trainingGames.find((game) => route.name === `minigame-${game}`) ?? 'left-click',
     set: (game) => {
@@ -66,7 +71,16 @@ function clearResult() {
     uploaded.value = false;
 }
 
-watch(() => route.name, clearResult);
+function resetGame() {
+    clearResult();
+    if (!viewingReplay.value) return;
+    const query = { ...route.query };
+    delete query.player;
+    delete query.key;
+    void router.replace({ query });
+}
+
+watch([() => route.name, () => route.query.player, () => route.query.key], clearResult);
 
 async function submitResult() {
     const result = pendingResult.value;

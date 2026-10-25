@@ -44,6 +44,13 @@ def submit_score(player, ranking_key, score, replay):
     return {'improved': improved, 'record': record}
 
 
+def get_replay(ranking_key, player_id):
+    record = MiniGameBestScore.objects.filter(ranking_key=ranking_key, player_id=player_id).values_list('score', 'replay_archive').first()
+    if record is None or not record[1]:
+        raise MiniGameError(404, 'replay_not_found', 'Replay not found')
+    return record[0], bytes(record[1])
+
+
 def get_ranking(game, sort, start, end):
     try:
         return MiniGameRankingCache().get_range(game, sort, start, end)

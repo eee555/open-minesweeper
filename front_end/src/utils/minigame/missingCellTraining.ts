@@ -14,10 +14,13 @@ export interface MissingCellRoundResult {
     timeMs: number;
 }
 
-export function reviewMissingCellRound(result: MissingCellRoundResult): { board: number[][]; target: { row: number; column: number } | null; timeMs: number } {
+export function reviewMissingCellRound(result: MissingCellRoundResult, completed = false): { board: number[][]; target: { row: number; column: number } | null; timeMs: number } {
     let target: { row: number; column: number } | null = null;
     const board = result.board.map((row, r) => row.map((value, c) => {
-        if (value === 10) target = { row: r, column: c };
+        if (value === 10) {
+            if (!completed) target = { row: r, column: c };
+            else return neighbors(r * row.length + c, result.board.length, row.length).filter((index) => result.board[Math.floor(index / row.length)][index % row.length] === 16).length;
+        }
         return value === 16 ? 10 : value;
     }));
     return { board, target, timeMs: result.timeMs };
