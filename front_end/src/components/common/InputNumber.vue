@@ -21,6 +21,7 @@ import { clamp } from '@/utils/math';
 const props = defineProps({
     min: { type: Number, default: -Infinity },
     max: { type: Number, default: Infinity },
+    integer: { type: Boolean, default: false },
 });
 
 defineOptions({ inheritAttrs: false });
@@ -48,14 +49,15 @@ function handleInput(event: Event) {
     const parsed = parseInput(target.value);
 
     displayValue.value = target.value;
-    if (parsed !== null && parsed >= props.min && parsed <= props.max) {
+    if (parsed !== null && (!props.integer || Number.isInteger(parsed)) && parsed >= props.min && parsed <= props.max) {
         model.value = parsed;
     }
 }
 
 function commitValue() {
     const parsed = parseInput(displayValue.value);
-    const nextValue = clamp(parsed ?? model.value, props.min, props.max);
+    const value = parsed ?? model.value;
+    const nextValue = clamp(props.integer ? Math.round(value) : value, props.min, props.max);
 
     model.value = nextValue;
     displayValue.value = String(nextValue);

@@ -15,6 +15,7 @@ from userprofile.models import UserProfile
 from .archive import pack_replay, unpack_replay
 from .cache import MiniGameRankingCache
 from .models import MiniGameBestScore
+from .replay import LEVEL_SIZES
 from .services import get_player_scores, get_ranking, submit_score
 from .utils import GAME_RANKINGS, RANKINGS
 
@@ -113,7 +114,7 @@ class MiniGameRankingTests(TestCase):
         self.assertEqual(detail, {'score': 1000, 'achieved_at': first.achieved_at.isoformat()})
         self.assertEqual(self.cache.client.zscore(self.cache.rank_key(self.ranking_key), str(self.player.id)), 1000)
 
-    def test_replay_json_is_required_and_supports_both_recording_shapes(self):
+    def test_replay_json_is_required_and_supports_all_games(self):
         self.client.force_login(self.player)
         url = f'/api/minigame/{self.ranking_key}/score'
         self.assertEqual(self.client.post(url, {'score': 1000}).status_code, 422)
@@ -121,6 +122,7 @@ class MiniGameRankingTests(TestCase):
             self.assertEqual(self.client.post(url, {'score': 1000, 'replay': replay}).status_code, 422)
         recordings = {
             'left-click': self.replay,
+            'multi-touch': {'version': 1, 'cellSize': 32, 'initialBoard': 'AAAAAP////8', 'events': [[0, 16, 16, 0, 0], [10, 32, 0, 1, 0]]},
             'flag-chord': {'version': 1, 'cellSize': 32, 'initialBoard': [[1, 1, 0], [1, 5, 2], [5, 1, 5], [5, 5, 7]], 'events': [], 'specialEvents': []},
             'missing-cell': {'version': 1, 'rounds': [{'board': 'gAAAAAAAAAA', 'target': [7, 7], 'timeMs': 100} for _ in range(10)]},
         }
@@ -131,13 +133,44 @@ class MiniGameRankingTests(TestCase):
             self.assertEqual(response.status_code, 200, response.content)
             self.assertEqual(unpack_replay(MiniGameBestScore.objects.get(player=self.player, ranking_key=ranking_key).replay_archive), replay)
 
+    def test_multi_touch_accepts_all_modes_and_caches_scores_without_replays(self):
+        first_key = GAME_RANKINGS['multi-touch'][0].key
+        self.assertFalse(self.player.has_realname())
+        self.assertEqual(self.client.post(f'/api/minigame/{first_key}/score', self.post_data(1000)).status_code, 403)
+        self.client.force_login(self.player)
+        group = next(group for group in self.client.get('/api/minigame/rankings').json() if group['game'] == 'multi-touch')
+        self.assertEqual(len(group['rankings']), 9)
+        self.assertTrue(all(ranking['accept_submissions'] for ranking in group['rankings']))
+        for ranking in GAME_RANKINGS['multi-touch']:
+            rows, columns = LEVEL_SIZES[ranking.level]
+            replay = {'version': 1, 'cellSize': 32, 'initialBoard': 'A' * ((rows * columns + 5) // 6), 'events': [[0, 16, 16, 0, 0], [10, 32, 0, 1, 0]]}
+            with self.captureOnCommitCallbacks(execute=True):
+                response = self.client.post(f'/api/minigame/{ranking.key}/score', self.post_data(1000, replay))
+            self.assertEqual(response.status_code, 200, response.content)
+            self.assertTrue(response.json()['improved'])
+            record = MiniGameBestScore.objects.get(player=self.player, ranking_key=ranking.key)
+            self.assertEqual(unpack_replay(record.replay_archive), replay)
+            self.assertIsNone(record.replay)
+            detail = json.loads(self.cache.client.hget(self.cache.detail_key(ranking.key), str(self.player.id)))
+            self.assertEqual(set(detail), {'score', 'achieved_at'})
+            self.assertEqual(self.cache.client.zscore(self.cache.rank_key(ranking.key), self.player.id), 1000)
+        response = self.client.get('/api/minigame/multi-touch/rank')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['count'], 1)
+        records = response.json()['players'][0]['records']
+        self.assertEqual(len(records), 9)
+        self.assertTrue(all(record['score'] == 1000 for record in records.values()))
+        self.player.is_banned = True
+        self.player.save(update_fields=['is_banned'])
+        self.assertEqual(self.client.post(f'/api/minigame/{first_key}/score', self.post_data(500)).status_code, 403)
+
     def test_groups_sort_columns_nulls_pagination_and_personal(self):
         other = self.make_player('minigame-other')
         empty_player = self.make_player('minigame-empty')
         for game, rankings in GAME_RANKINGS.items():
             for index, ranking in enumerate(rankings):
-                self.submit(1000 + index, ranking.key)
-            self.submit(500, rankings[-1].key, other)
+                MiniGameBestScore.objects.create(player=self.player, ranking_key=ranking.key, score=1000 + index, replay_archive=pack_replay(self.replay))
+            MiniGameBestScore.objects.create(player=other, ranking_key=rankings[-1].key, score=500, replay_archive=pack_replay(self.replay))
             response = self.client.get(f'/api/minigame/{game}/rank', {'sort': rankings[-1].key})
             self.assertEqual(response.status_code, 200, response.content)
             ranking = response.json()
@@ -157,7 +190,7 @@ class MiniGameRankingTests(TestCase):
                 empty = self.client.get(f'/api/minigame/{game}/rank', {'start': start, 'end': end}).json()
                 self.assertEqual(empty['players'], [])
         definitions = self.client.get('/api/minigame/rankings').json()
-        self.assertEqual([len(group['rankings']) for group in definitions], [9, 2, 3])
+        self.assertEqual([len(group['rankings']) for group in definitions], [9, 9, 2, 3])
 
     def test_empty_and_large_rankings_initialize_once(self):
         for size in (0, 1, 105):

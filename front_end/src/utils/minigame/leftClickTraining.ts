@@ -19,7 +19,8 @@ export const leftClickModes = trainingLevels.flatMap((level) => trainingDensitie
     mines: level.rows * level.columns * density / 100,
     safe: level.rows * level.columns * (100 - density) / 100,
 })));
-export type LeftClickMode = typeof leftClickModes[number];
+export type LeftClickMode = Omit<typeof leftClickModes[number], 'rows' | 'columns'> & { rows: number; columns: number };
+export const multiTouchModes: LeftClickMode[] = leftClickModes.map((mode) => ({ ...mode, rankingKey: mode.rankingKey.replace('left-click-', 'multi-touch-') }));
 
 /** 游戏规则与显示编码分离；时间由触发操作的调用方提供。 */
 export class LeftClickTraining {
@@ -57,7 +58,7 @@ export class LeftClickTraining {
         return this.clock.elapsedMs(now);
     }
 
-    /** 只在自动机产生有效左键操作时调用；按下与预览不进入游戏规则。 */
+    /** 调用方决定触发时机：鼠标左键弹起或触屏按下。 */
     public trigger(row: number, column: number, now: number): boolean {
         if (this.phase === 'won' || this.phase === 'lost') return false;
         if (!Number.isInteger(row) || !Number.isInteger(column) || row < 0 || column < 0 || row >= this.mode.rows || column >= this.mode.columns) return false;

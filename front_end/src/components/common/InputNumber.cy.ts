@@ -24,6 +24,21 @@ function mountInputNumber(modelValue = 5, props: Record<string, unknown> = {}) {
 }
 
 describe('<InputNumber />', () => {
+    it('keeps fractional input pending in integer mode and rounds it when committed', () => {
+        mountInputNumber(5, { min: 1, max: 100, integer: true });
+        cy.get('input').invoke('val', '7.5').trigger('input');
+        expectModelChange(0);
+        cy.get('input').trigger('blur');
+        cy.get('input').should('have.value', '8');
+        expectModelChange(0, 8);
+    });
+
+    it('continues accepting fractional values by default', () => {
+        mountInputNumber(5, { min: 1, max: 10, step: '0.1' });
+        cy.get('input').invoke('val', '7.5').trigger('input');
+        expectModelChange(0, 7.5);
+    });
+
     it('renders a number input and forwards classes/styles', () => {
         mountInputNumber(5, { min: 1, max: 10, title: 'number setting' });
 

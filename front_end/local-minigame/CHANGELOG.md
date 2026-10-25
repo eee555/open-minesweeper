@@ -1,5 +1,38 @@
 # 更新记录 / Changelog
 
+## Unreleased
+
+- 多指训练的成功局自动保存本地历史，保留压缩回放，并支持按完成时间和成绩索引读取。
+- Successful multi-touch games now save local history with compressed replays, indexed by completion time and score.
+- 多指训练高级方向保存为本地显示设置，切换时保留当前局及回放；纵向通过交换横纵坐标显示，回放统一使用横向坐标。
+- Expert orientation in multi-touch training is saved as a local display setting. Switching preserves the current game and replay; vertical display swaps the axes while recordings retain horizontal coordinates.
+
+## 0.6.3 — 2026-10-25
+
+- 多指训练全屏时移除棋盘内外边框及周围留白。
+- Fullscreen multi-touch training removes the inner and outer board frames and surrounding spacing.
+- 多指训练全屏时计数器只作显示，通过顶栏重开按钮开始新一局，避免误触。
+- Fullscreen counters are display-only; a restart button in the toolbar starts a new game to prevent accidental resets.
+- 格子大小改为直接输入正整数，所有小游戏共用并保存；多指训练全屏顶栏也可调整，取消自动缩放，调整尺寸时保留当前局。
+- Cell size accepts a positive integer shared and saved across all games. Multi-touch fullscreen also offers it in the toolbar, with automatic resizing removed; changing the size keeps the current game.
+
+## 0.6.2 — 2026-10-25
+
+- 多指训练取消按下预览，触摸和平移时仅显示实际棋盘状态。
+- Removed pressed-cell previews from multi-touch training; touching and panning display only the actual board state.
+
+## 0.6.1 — 2026-10-25
+
+- 多指训练支持单指滚动，多指按住时停止滚动；高级增加横向和纵向选项。新增全屏自适应棋盘，高级沿短边填满并允许沿长边滚动。
+- Multi-touch training supports one-finger scrolling, suspended while multiple fingers are held, and horizontal/vertical Expert layouts. Fullscreen fits the board automatically; Expert fills its short axis and scrolls along the long axis.
+
+## 0.6.0 — 2026-10-25
+
+- 新增多指训练，仅接受触屏，按下开格并开始计时，支持多个独立触点；沿用左键训练的棋盘参数、胜负规则和雷不透明度设置。左键训练改为仅接受鼠标。
+- 多指训练支持播放、暂停、拖动回放，独立显示各触点轨迹；测试期间仅保留本局回放，不保存本地历史。
+- Added touchscreen-only multi-touch training: touch down opens a cell and starts timing, with independent concurrent contacts. It shares left-click board settings, win/loss rules and mine opacity. Left-click training now accepts mouse input only.
+- Multi-touch games support replay playback, pausing and seeking with separate contact paths. During testing, replays remain in the current session without saving local history.
+
 ## 0.5.1 — 2026-10-24
 
 - 修复旧录像格式转换失败时阻塞新成绩保存的问题：将原 JSON 整体压缩保留，继续升级其他记录；无法解析的回放仍报告损坏。

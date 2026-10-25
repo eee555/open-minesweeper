@@ -15,14 +15,19 @@ describe('offline minigames', () => {
         minigameSettings.value = defaultMinigameSettings();
     });
 
-    it('shares cell size across offline games and applies mine opacity only to left-click training', () => {
+    it('shares cell size across offline games and mine opacity between left-click and multi-touch training', () => {
         const i18n = createI18n({ legacy: false, locale: 'en', messages: {} });
         cy.mount(App, { global: { plugins: [i18n] } });
-        cy.get('[data-cy="minigame-cell-size"]').select('24');
+        cy.get('[data-cy="minigame-cell-size"]').clear();
+        cy.get('[data-cy="minigame-cell-size"]').type('24');
+        cy.get('[data-cy="minigame-cell-size"]').blur();
         cy.get('[data-cy="minigame-board"]').should(($board) => {
             expect($board[0].getBoundingClientRect().width).to.be.closeTo(8 * 24, 0.5);
         });
         cy.get('[data-cy="minigame-mine-opacity"]').invoke('val', '0.25').trigger('input');
+        cy.get('.minigame-board-foreground').should('have.css', 'opacity', '0.25');
+        cy.get('[data-cy="game-multi-touch"]').click();
+        cy.get('[data-cy="training-game"]').should('have.attr', 'aria-label', 'Multi-touch training');
         cy.get('.minigame-board-foreground').should('have.css', 'opacity', '0.25');
         for (const game of ['flag-chord', 'missing-cell']) {
             cy.get(`[data-cy="game-${game}"]`).click();

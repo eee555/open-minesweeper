@@ -7,10 +7,11 @@ export interface MinigameSettings {
     restartHotkey: RestartHotkey | null;
     cellSize: number;
     leftClickMineOpacity: number;
+    multiTouchOrientation: 'horizontal' | 'vertical';
 }
 
 export function defaultMinigameSettings(): MinigameSettings {
-    return { restartHotkey: null, cellSize: 32, leftClickMineOpacity: 0.5 };
+    return { restartHotkey: null, cellSize: 32, leftClickMineOpacity: 0.5, multiTouchOrientation: 'horizontal' };
 }
 
 export const minigameSettings = useLocalStorage<MinigameSettings>('minigame-settings', defaultMinigameSettings(), { mergeDefaults: true });

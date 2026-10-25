@@ -22,7 +22,7 @@
 }
 
 .training-controls select,
-.training-controls input[type='number'] {
+.training-controls input[type='number']:not(.base-input-number) {
     padding: 0.25rem;
     border: 1px solid var(--ui-border-color);
     border-radius: 0;

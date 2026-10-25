@@ -51,6 +51,23 @@ def missing_recording():
 
 
 class MiniGameReplayFormatTests(SimpleTestCase):
+    def test_touch_contacts_interleave_and_validate_independently(self):
+        ranking = RANKINGS['multi-touch-b-50-v1']
+        replay = {
+            'version': 1, 'cellSize': 32, 'initialBoard': 'AAAAAP////8',
+            'events': [[0, 16, 16, 0, 0], [10, 32, 0, 1, 0], [0, -30, -2, 0, 1], [5, 30, 2, 1, 3], [0, -30, -2, 0, 2], [10, 62, 2, 2, 0]],
+        }
+        self.assertEqual(migrate_replay(ranking, replay), replay)
+        self.assertEqual(unpack_replay(pack_replay(replay)), replay)
+        for events in (
+            [[0, 16, 16, 0, 1]], [[0, 16, 16, 1, 0]], [[0, 16, 16, 0, 0], [1, 0, 0, 0, 0]],
+            [[0, 16, 16, 0, 0], [1, 0, 0, 0, 2], [1, 0, 0, 0, 1]], [[-1, 16, 16, 0, 0]], [[0, 16, 16, 0, 4]],
+        ):
+            with self.subTest(events=events), self.assertRaises(ValueError):
+                migrate_replay(ranking, {**replay, 'events': events})
+        with self.assertRaises(ValueError):
+            migrate_replay(ranking, left_recording())
+
     def test_shared_browser_and_python_7z_archives(self):
         fixtures = json.loads((Path(__file__).parent / 'fixtures' / 'replay-archives.json').read_text(encoding='utf-8'))
         for writer in ('browser', 'python'):

@@ -1,7 +1,7 @@
 <template>
     <main class="offline-minigame">
         <GamePicker v-model="game" />
-        <LeftClickTraining v-if="game === 'left-click'" offline />
+        <LeftClickTraining v-if="game === 'left-click' || game === 'multi-touch'" :key="game" :game-type="game" offline />
         <FlagChordTraining v-else-if="game === 'flag-chord'" offline />
         <MissingCellTraining v-else offline />
         <GameSettings />

@@ -4,11 +4,8 @@
             <div :class="descriptionLayout ? 'description-item' : 'minigame-settings-row'">
                 <dt><label :for="cellSizeId">{{ t('local.cellSize') }}</label></dt>
                 <dd class="minigame-settings-controls">
-                    <select :id="cellSizeId" v-model.number="minigameSettings.cellSize" data-cy="minigame-cell-size">
-                        <option v-for="size in [16, 24, 32, 40]" :key="size" :value="size">
-                            {{ size }} px
-                        </option>
-                    </select>
+                    <InputNumber :id="cellSizeId" v-model="minigameSettings.cellSize" :min="1" :max="Number.MAX_SAFE_INTEGER" integer step="1" inputmode="numeric" data-cy="minigame-cell-size" />
+                    <span>px</span>
                 </dd>
             </div>
             <div :class="descriptionLayout ? 'description-item' : 'minigame-settings-row'">
@@ -41,6 +38,7 @@ import { useId } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import BaseButton from '@/components/common/BaseButton.vue';
+import InputNumber from '@/components/common/InputNumber.vue';
 import { formatRestartHotkey, restartHotkeyFromEvent } from '@/utils/minigame/hotkey';
 import { minigameSettings } from '@/utils/minigame/settings';
 
@@ -65,7 +63,7 @@ const i18nMessages = {
         unset: '未设置',
         clear: '清除',
         hint: '点击输入框后按键设置，支持组合键；所有小游戏共用。输入参数时不触发重开。',
-        mineOpacity: '左键训练 · 雷的不透明度',
+        mineOpacity: '左键／多指训练 · 雷的不透明度',
     } },
     en: { local: {
         cellSize: 'Cell size',
@@ -73,7 +71,7 @@ const i18nMessages = {
         unset: 'Not set',
         clear: 'Clear',
         hint: 'Focus the field and press a key or combination. Shared by all games; inactive while editing settings.',
-        mineOpacity: 'Left-click training · Mine opacity',
+        mineOpacity: 'Left-click / multi-touch training · Mine opacity',
     } },
 };
 const { t } = useI18n({ messages: i18nMessages });
@@ -127,8 +125,7 @@ const { t } = useI18n({ messages: i18nMessages });
     text-align: start;
 }
 
-.minigame-settings input[type='text'],
-.minigame-settings select {
+.minigame-settings input[type='text'] {
     max-width: 100%;
     box-sizing: border-box;
     padding: 0.25rem;
@@ -142,6 +139,12 @@ const { t } = useI18n({ messages: i18nMessages });
 
 .minigame-settings input[type='text'] {
     width: 12rem;
+}
+
+.minigame-settings input[type='number'] {
+    width: 5rem;
+    max-width: 100%;
+    text-align: center;
 }
 
 .minigame-settings input[type='range'] {
@@ -158,8 +161,7 @@ const { t } = useI18n({ messages: i18nMessages });
     font-variant-numeric: tabular-nums;
 }
 
-.minigame-settings input:focus-visible,
-.minigame-settings select:focus-visible {
+.minigame-settings input:focus-visible {
     outline: 2px solid var(--ui-color-primary);
     outline-offset: 1px;
 }

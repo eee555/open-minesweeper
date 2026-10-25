@@ -32,9 +32,12 @@ describe('minigame settings section', () => {
             mouseAt(safe.row, safe.column, 'mousedown');
             mouseAt(safe.row, safe.column, 'mouseup');
         });
-        cy.get('[data-cy="minigame-cell-size"]').select('24');
+        cy.get('[data-cy="minigame-cell-size"]').should('have.attr', 'type', 'number');
+        cy.get('[data-cy="minigame-cell-size"]').clear();
+        cy.get('[data-cy="minigame-cell-size"]').type('27');
+        cy.get('[data-cy="minigame-cell-size"]').blur();
         cy.get('[data-cy="minigame-board"]').should(($board) => {
-            expect($board[0].getBoundingClientRect().width).to.be.closeTo(8 * 24, 0.5);
+            expect($board[0].getBoundingClientRect().width).to.be.closeTo(8 * 27, 0.5);
         });
         for (const opacity of [0, 0.25, 1]) {
             cy.get('[data-cy="minigame-mine-opacity"]').invoke('val', String(opacity)).trigger('input');
@@ -45,7 +48,7 @@ describe('minigame settings section', () => {
             cy.window().its('localStorage').invoke('getItem', 'minigame-settings').should((value: string | null) => {
                 const settings = JSON.parse(value ?? '{}') as Partial<MinigameSettings>;
                 expect(settings.leftClickMineOpacity).to.eq(opacity);
-                expect(settings.cellSize).to.eq(24);
+                expect(settings.cellSize).to.eq(27);
             });
         }
         cy.get('[data-cy="minigame-restart-hotkey"]').focus();
@@ -55,7 +58,7 @@ describe('minigame settings section', () => {
         cy.window().its('localStorage').invoke('getItem', 'minigame-settings').should((value: string | null) => {
             const settings = JSON.parse(value ?? '{}') as Partial<MinigameSettings>;
             expect(settings.leftClickMineOpacity).to.eq(1);
-            expect(settings.cellSize).to.eq(24);
+            expect(settings.cellSize).to.eq(27);
             expect(settings.restartHotkey?.code).to.eq('F2');
         });
     });

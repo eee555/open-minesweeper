@@ -7,6 +7,7 @@ https://openms.top
 Inspiration:
 https://mzrg.com/js/mine/square_finder.html
 https://mzrg.com/js/mine/mouse.html
+扫雷联萌（League of Minesweeper）
 
 项目 MIT 声明见 LICENSE。第三方依赖完整许可见 THIRD_PARTY_LICENSES.txt / .json。
 See LICENSE for the project MIT notice and THIRD_PARTY_LICENSES.txt / .json for bundled dependency notices.

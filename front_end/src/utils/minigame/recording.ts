@@ -10,6 +10,7 @@ import type { FlagChordMode } from './flagChordTraining';
 import type { LeftClickMode } from './leftClickTraining';
 import { missingCellRounds } from './missingCellTraining';
 import type { MissingCellRoundResult } from './missingCellTraining';
+import type { TouchContact, TouchRecording } from './touchRecording';
 
 export const defaultReplayCellSize = 32;
 export const recordingActions = ['mv', 'lc', 'lr', 'rc', 'rr'] as const;
@@ -32,6 +33,10 @@ export interface TrainingReplayEvent extends MouseTraceEvent {
     trigger: ClassicMouseAction | null;
     cancelled: boolean;
     positionKnown: boolean;
+
+    /** Present only in multi-touch replays; each contact has an independent path. */
+    touchId?: number;
+    contacts?: TouchContact[];
 }
 
 export interface TrainingRecording {
@@ -47,7 +52,7 @@ export interface MissingCellRecording {
     rounds: { board: string; target: [number, number]; timeMs: number }[];
 }
 
-export type MinigameReplayData = TrainingRecording | MissingCellRecording;
+export type MinigameReplayData = TrainingRecording | TouchRecording | MissingCellRecording;
 
 export function recordingVersion(value: unknown): 0 | 1 {
     const data = replayObject(value);

@@ -7,19 +7,24 @@ import type { BoardPress } from './boardPress';
 import type { TrainingPhase } from './clock';
 import { FlagChordTraining } from './flagChordTraining';
 import { LeftClickTraining } from './leftClickTraining';
+import type { LeftClickMode } from './leftClickTraining';
 import { decodeRecordingEvents, decodeTrainingBoard, encodeTrainingBoard, readTrainingRecording, recordingActions, referenceCellSize } from './recording';
 import type { TrainingContext, TrainingMouseInput, TrainingRecording, TrainingReplayEvent } from './recording';
+import type { TouchContact, TouchRecording } from './touchRecording';
 
 export type { TrainingMouseInput, TrainingRecording, TrainingReplayEvent } from './recording';
 
-export type TrainingReplay = TrainingContext & {
+interface ReplayData {
     durationMs: number;
     initialBoard: number[][];
-    recording: TrainingRecording;
     events: TrainingReplayEvent[];
     snapshots: ReplaySnapshot[];
     chords: FlagChordTiming[];
-};
+}
+
+export type TrainingReplay = TrainingContext & ReplayData & { recording: TrainingRecording };
+export type TouchTrainingReplay = { game: 'multi-touch'; mode: LeftClickMode } & ReplayData & { recording: TouchRecording };
+export type AnyTrainingReplay = TrainingReplay | TouchTrainingReplay;
 
 interface ReplaySnapshot {
     eventIndex: number;
@@ -43,6 +48,7 @@ export interface TrainingReplayFrame extends ReplaySnapshot {
     timeMs: number;
     pressed: BoardPress | null;
     cursor: { rowIndex: number; columnIndex: number } | undefined;
+    contacts: TouchContact[];
 }
 
 export const minigameReplayAppearance = {
@@ -144,7 +150,7 @@ export function rebuildTrainingReplay(context: TrainingContext, source: unknown,
     return { ...context, recording, initialBoard, events, durationMs, snapshots, chords };
 }
 
-export function replayFrame(replay: TrainingReplay, position: ReplayPosition): TrainingReplayFrame {
+export function replayFrame(replay: AnyTrainingReplay, position: ReplayPosition): TrainingReplayFrame {
     const timeMs = Math.max(0, Math.min(replay.durationMs, position.timeMs));
     const eventIndex = position.eventIndex ?? eventTime.right(replay.events, timeMs) - 1;
     const event = replay.events[eventIndex];
@@ -154,6 +160,7 @@ export function replayFrame(replay: TrainingReplay, position: ReplayPosition): T
         timeMs,
         eventIndex,
         pressed: event?.pressed ?? null,
-        cursor: !event?.positionKnown ? undefined : { rowIndex: event.row, columnIndex: event.column },
+        cursor: replay.game === 'multi-touch' || !event?.positionKnown ? undefined : { rowIndex: event.row, columnIndex: event.column },
+        contacts: event?.contacts ?? [],
     };
 }

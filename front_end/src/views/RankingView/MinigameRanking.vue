@@ -52,6 +52,7 @@ const i18nMessages = {
     'zh-cn': { local: {
         game: '小游戏',
         'left-click': '左键训练',
+        'multi-touch': '多指训练',
         'flag-chord': '标双训练',
         'missing-cell': '漏雷训练',
         playGame: '前往小游戏',
@@ -61,6 +62,7 @@ const i18nMessages = {
     en: { local: {
         game: 'Minigame',
         'left-click': 'Left-click training',
+        'multi-touch': 'Multi-touch training',
         'flag-chord': 'Flag-and-chord training',
         'missing-cell': 'Missing cell training',
         playGame: 'Play game',

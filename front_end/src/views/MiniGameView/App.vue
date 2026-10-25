@@ -7,7 +7,7 @@
             </RouterLink>
         </div>
         <RouterView v-slot="{ Component }">
-            <component :is="Component" @completed="queueResult" @reset="clearResult">
+            <component :is="Component" :key="selected" @completed="queueResult" @reset="clearResult">
                 <template #resultActions>
                     <div v-if="pendingResult !== null" class="minigame-result-actions">
                         <BaseButton type="primary" :loading="submitting" :disabled="!canUpload || uploaded" :title="uploadHint" data-cy="minigame-upload" @click="submitResult">
@@ -44,6 +44,12 @@ import type { MinigameReplayData } from '@/utils/minigame/history';
 
 const route = useRoute();
 const router = useRouter();
+const selected = computed<TrainingGame>({
+    get: () => trainingGames.find((game) => route.name === `minigame-${game}`) ?? 'left-click',
+    set: (game) => {
+        void router.push(`/minigame/${game}`);
+    },
+});
 const pendingResult = shallowRef<{ rankingKey: string; scoreMs: number; replay: MinigameReplayData } | null>(null);
 const submitting = ref(false);
 const uploaded = ref(false);
@@ -75,13 +81,6 @@ async function submitResult() {
         submitting.value = false;
     }
 }
-
-const selected = computed<TrainingGame>({
-    get: () => trainingGames.find((game) => route.name === `minigame-${game}`) ?? 'left-click',
-    set: (game) => {
-        void router.push(`/minigame/${game}`);
-    },
-});
 
 const i18nMessages = {
     'zh-cn': { local: {

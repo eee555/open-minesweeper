@@ -8,6 +8,7 @@ from config.global_settings import MAX_SAFE_INTEGER
 LEVEL_SIZES = {'b': (8, 8), 'i': (16, 16), 'e': (16, 30)}
 MINE_DIRECTIONS = ((-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1))
 MOUSE_ACTIONS = ('mv', 'lc', 'lr', 'rc', 'rr')
+TOUCH_ACTIONS = ('down', 'move', 'up', 'cancel')
 
 
 def _require(condition, message):
@@ -119,6 +120,26 @@ def _validate_events(replay):
         previous_index = index
 
 
+def _validate_touch_events(replay):
+    events = replay.get('events')
+    _require(isinstance(events, list), 'Missing replay touch events')
+    active = set()
+    time, x, y, next_id = 0, 0, 0, 0
+    for event in events:
+        _require(isinstance(event, list) and len(event) == 5, 'Invalid replay touch tuple')
+        dt, dx, dy, contact, action = map(_integer, event)
+        _require(dt >= 0 and contact >= 0 and 0 <= action < len(TOUCH_ACTIONS), 'Invalid replay touch event')
+        time, x, y = _integer(time + dt, 0), _integer(x + dx), _integer(y + dy)
+        if action == 0:
+            _require(contact == next_id, 'Invalid replay contact sequence')
+            next_id += 1
+            active.add(contact)
+        else:
+            _require(contact in active, 'Inactive replay contact')
+            if action >= 2:
+                active.remove(contact)
+
+
 def _validate_v1(ranking, replay, rows, columns):
     if ranking.game == 'missing-cell':
         rounds = replay.get('rounds')
@@ -132,11 +153,14 @@ def _validate_v1(ranking, replay, rows, columns):
     _require('cellSize' in replay, 'Missing replay cell size')
     if replay['cellSize'] is not None:
         _integer(replay['cellSize'], 1)
-    if ranking.game == 'left-click':
+    if ranking.game in ('left-click', 'multi-touch'):
         _decode_mines(replay.get('initialBoard'), rows, columns)
     else:
         _decode_questions(replay.get('initialBoard'), rows, columns)
-    _validate_events(replay)
+    if ranking.game == 'multi-touch':
+        _validate_touch_events(replay)
+    else:
+        _validate_events(replay)
 
 
 def _pixel(value):
@@ -151,6 +175,7 @@ def migrate_replay(ranking, replay):
     if version == 1:
         _validate_v1(ranking, replay, rows, columns)
         return replay
+    _require(ranking.game != 'multi-touch', 'Multi-touch replays require version 1')
     if ranking.game == 'missing-cell':
         rounds = replay.get('rounds')
         _require(isinstance(rounds, list) and len(rounds) == 10, 'Invalid replay round count')

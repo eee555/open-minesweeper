@@ -19,12 +19,13 @@
 | 游戏 key | 列数 | 榜单 key |
 | --- | --- | --- |
 | `left-click` | 9 | `left-click-{level}-{density}-v1`；`level=b/i/e`，`density=50/75/87.5` |
+| `multi-touch` | 9 | `multi-touch-{level}-{density}-v1`；参数同左键训练，使用独立榜单 |
 | `flag-chord` | 2 | `flag-chord-b-v1`、`flag-chord-i-v1`；分别为 4 题、15 题，数字均为 1 |
 | `missing-cell` | 3 | `missing-cell-b-v1`、`missing-cell-i-v1`、`missing-cell-e-v1`；连续完成 10 局 |
 
 当前成绩均为整数毫秒，越小越好，范围为 `1..MAX_SAFE_INTEGER`；上限在 [global_settings.py](../config/global_settings.py) 定义为 `2**53 - 1`，兼容 JavaScript Number 和 Redis ZSET 的安全整数范围。配置也支持降序比较与读取。
 
-分类查询按组内任意一列排序，只包含该列有成绩的玩家，始终返回完整的 9／2／3 列，缺项为 `null`。`count` 按排序列统计。
+分类查询按组内任意一列排序，只包含该列有成绩的玩家，始终返回本组全部列：左键和多指各 9 列、标双 2 列、漏雷 3 列，缺项为 `null`。`count` 按排序列统计。
 
 ## API
 
@@ -49,6 +50,8 @@
 
 载荷及迁移规则见回放数据格式 v1 的[中文标准](../../../vitepress_doc/zh/guide/development/minigame-replay-format.md)及[英文标准](../../../vitepress_doc/en/guide/development/minigame-replay-format.md)。[replay.py](./replay.py) 提供格式校验和 v0 转换，供管理命令处理旧 JSON；不增加提交接口的校验或缓存负担。
 
+多指九榜开放提交，沿用相同的登录权限、最佳成绩更新和缓存逻辑。多指方向仅为本地显示设置，高级回放及事件坐标固定为 16×30，格式见上述标准；持久化沿用现有模型，无需结构迁移。
+
 每榜三个固定键，均无 TTL：
 
 | 键 | 类型 | 内容 |
@@ -64,7 +67,7 @@
 - Redis 读取失败时整次请求降级：分类查询按排序列分页，再批量补全其他列；个人成绩批量读取，名次允许为 `null`。
 - 普通读取、提交及重建之间不保证快照一致性。缓存偏差可用重建命令恢复；Admin 提供只读查询与删除。
 
-运维索引：[缓存与内存统计](../../../vitepress_doc/zh/guide/development/cache.md)、[删除信号](../../../vitepress_doc/zh/guide/development/signals.md)、[管理命令](../../../vitepress_doc/zh/guide/development/management-commands.md)。14 榜共 42 个固定键，由 `MiniGameRankingCache.keys` 提供给监控，不扫描 keyspace。
+运维索引：[缓存与内存统计](../../../vitepress_doc/zh/guide/development/cache.md)、[删除信号](../../../vitepress_doc/zh/guide/development/signals.md)、[管理命令](../../../vitepress_doc/zh/guide/development/management-commands.md)。23 榜共 69 个固定键，由 `MiniGameRankingCache.keys` 提供给监控，不扫描 keyspace。
 
 ## 检查与维护
 

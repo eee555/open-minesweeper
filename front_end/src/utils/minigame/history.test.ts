@@ -7,12 +7,14 @@ import { watch } from 'vue';
 import { loadReplayArchiveCodec } from './archive';
 import { flagChordModes, FlagChordTraining } from './flagChordTraining';
 import type { MinigameResult } from './history';
-import { leftClickModes, LeftClickTraining } from './leftClickTraining';
+import { leftClickModes, LeftClickTraining, multiTouchModes } from './leftClickTraining';
 import { missingCellModes, MissingCellTraining, reviewMissingCellRound } from './missingCellTraining';
 import { missingCellCandidates } from './missingCellTraining.testHelpers';
 import { decodeMissingCellRounds, encodeMissingCellRecording } from './recording';
 import { rebuildTrainingReplay, replayFrame, TrainingReplayRecorder } from './replay';
 import type { TrainingMouseInput, TrainingReplay } from './replay';
+import type { TouchRecordingEvent } from './touchRecording';
+import { rebuildTouchReplay } from './touchReplay';
 
 const databaseName = 'saolei-minigame';
 
@@ -68,6 +70,11 @@ function missingCellResult(): Extract<MinigameResult, { game: 'missing-cell' }> 
     return { game: 'missing-cell', mode: game.mode, scoreMs: game.elapsedMs(99999), ...encodeMissingCellRecording(game.mode, game.roundResults) };
 }
 
+function touchResult(): Extract<MinigameResult, { game: 'multi-touch' }> {
+    const [, , mode] = multiTouchModes;
+    return { game: 'multi-touch', mode, scoreMs: 70, replay: { version: 1, cellSize: 32, initialBoard: 'AP////////8', events: Array.from({ length: 8 }, (_item, index): TouchRecordingEvent => [index === 0 ? 0 : 10, index === 0 ? 16 : 32, index === 0 ? 16 : 0, index, 0]) } };
+}
+
 describe('local minigame history', () => {
     beforeEach(async () => {
         vi.resetModules();
@@ -80,10 +87,10 @@ describe('local minigame history', () => {
         await deleteDB(databaseName);
     });
 
-    it('persists all three successful games without overwriting equal times or scores and reopens their review data', async () => {
+    it('persists all four successful games without overwriting equal times or scores and reopens their review data', async () => {
         vi.spyOn(Date, 'now').mockReturnValue(123456789);
         const history = await import('./history');
-        const results = [leftClickResult(), flagChordResult(), missingCellResult(), leftClickResult()];
+        const results = [leftClickResult(), touchResult(), flagChordResult(), missingCellResult(), leftClickResult()];
         const ids = await Promise.all(results.map((result) => history.saveMinigameResult(result)));
         expect(history.minigameHistoryMigration.value).toBeNull();
         expect(new Set(ids).size).toBe(results.length);
@@ -97,7 +104,12 @@ describe('local minigame history', () => {
         const entries = await Promise.all(stored.map(reloaded.readMinigameHistoryEntry));
         expect(entries).toEqual(results.map((result, index) => ({ ...result, id: ids[index], playedAt: 123456789 })));
         for (const entry of entries) {
-            if (entry.game === 'missing-cell') {
+            if (entry.game === 'multi-touch') {
+                expect(Object.keys(entry.replay).sort()).toEqual(['cellSize', 'events', 'initialBoard', 'version']);
+                const replay = rebuildTouchReplay(entry.mode, entry.replay, entry.scoreMs);
+                expect(replayFrame(replay, { timeMs: entry.scoreMs }).remaining).toBe(0);
+                expect(replayFrame(replay, { timeMs: 10 }).contacts).toHaveLength(2);
+            } else if (entry.game === 'missing-cell') {
                 expect(entry.rounds).toHaveLength(10);
                 expect(entry.rounds.reduce((total, round) => total + round.timeMs, 0)).toBe(entry.scoreMs);
                 expect(entry.version).toBe(1);
@@ -136,19 +148,19 @@ describe('local minigame history', () => {
     it('indexes completion time and numeric score independently', async () => {
         const history = await import('./history');
         const timestamp = vi.spyOn(Date, 'now');
-        for (const [result, playedAt] of [[leftClickResult(), 100], [flagChordResult(), 300], [missingCellResult(), 200]] as const) {
+        for (const [result, playedAt] of [[leftClickResult(), 100], [touchResult(), 150], [flagChordResult(), 300], [missingCellResult(), 200]] as const) {
             timestamp.mockReturnValue(playedAt);
             await history.saveMinigameResult(result);
         }
         const db = await history.getMinigameDatabase();
         expect(Array.from(db.transaction(history.MINIGAME_RESULTS_STORE).store.indexNames)).toEqual(['playedAt', 'scoreMs']);
-        expect((await db.getAllFromIndex(history.MINIGAME_RESULTS_STORE, 'playedAt')).map((entry) => entry.game)).toEqual(['left-click', 'missing-cell', 'flag-chord']);
-        expect((await db.getAllFromIndex(history.MINIGAME_RESULTS_STORE, 'scoreMs')).map((entry) => entry.game)).toEqual(['flag-chord', 'left-click', 'missing-cell']);
+        expect((await db.getAllFromIndex(history.MINIGAME_RESULTS_STORE, 'playedAt')).map((entry) => entry.game)).toEqual(['left-click', 'multi-touch', 'missing-cell', 'flag-chord']);
+        expect((await db.getAllFromIndex(history.MINIGAME_RESULTS_STORE, 'scoreMs')).map((entry) => entry.game)).toEqual(['multi-touch', 'flag-chord', 'left-click', 'missing-cell']);
     });
 
-    it('snapshots data before the first database await so a restart cannot alter a pending save', async () => {
+    it.each([{ game: 'left-click', createResult: leftClickResult }, { game: 'multi-touch', createResult: touchResult }])('snapshots $game data before the first database await so a restart cannot alter a pending save', async ({ createResult }) => {
         const history = await import('./history');
-        const result = leftClickResult();
+        const result = createResult();
         const original = structuredClone(result);
         const pending = history.saveMinigameResult(result);
         result.replay.events.length = 0;
@@ -205,6 +217,7 @@ describe('local minigame history', () => {
         const entries = await Promise.all((await db.getAll('results')).map(history.readMinigameHistoryEntry));
         expect(entries.map(({ id, playedAt, scoreMs, mode }) => ({ id, playedAt, scoreMs, mode }))).toEqual(legacy.map(({ id, playedAt, scoreMs, mode }) => ({ id, playedAt, scoreMs, mode })));
         for (const [index, entry] of entries.entries()) {
+            if (entry.game === 'multi-touch') throw new Error('Multi-touch has no legacy recordings');
             if (entry.game === 'missing-cell') {
                 expect(entry.version).toBe(1);
                 const previous = legacy[index];

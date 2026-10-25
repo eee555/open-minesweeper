@@ -21,6 +21,7 @@ describe('minigame ranking API', () => {
 
     it.each<[string, MinigameReplayData]>([
         ['left-click-b-50-v1', { version: 1, cellSize: 32, initialBoard: 'AAAAAP////8', events: [], specialEvents: [] }],
+        ['multi-touch-b-50-v1', { version: 1, cellSize: 32, initialBoard: 'AAAAAP////8', events: [[0, 16, 16, 0, 0], [10, 32, 0, 1, 0]] }],
         ['flag-chord-b-v1', { version: 1, cellSize: 32, initialBoard: [[1, 1, 0], [1, 5, 2], [5, 1, 5], [5, 5, 7]], events: [], specialEvents: [] }],
         ['missing-cell-b-v1', { version: 1, rounds: Array.from({ length: 10 }, (_, index) => ({ board: 'gAAAAAAAAAA', target: [7, 7], timeMs: index === 0 ? 1234 : 0 })) }],
     ])('submits score and replay JSON for %s', async (rankingKey, replay) => {

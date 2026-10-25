@@ -1,11 +1,11 @@
 <template>
     <div class="training-scroll">
-        <div class="training-frame" :class="outerBorderClass">
-            <button type="button" class="training-frame-counters" :class="innerBorderClass" :aria-label="restartLabel" :title="restartLabel" @click="emit('restart')">
+        <div class="training-frame" :class="borderless ? 'training-frame--borderless' : outerBorderClass">
+            <component :is="restartOnCounter ? 'button' : 'div'" :type="restartOnCounter ? 'button' : undefined" class="training-frame-counters" :class="[borderless ? undefined : innerBorderClass, { 'training-frame-counters--static': !restartOnCounter }]" :aria-label="restartOnCounter ? restartLabel : undefined" :title="restartOnCounter ? restartLabel : undefined" @click="restartOnCounter && emit('restart')">
                 <slot name="remaining" />
                 <slot name="time" />
-            </button>
-            <div :class="innerBorderClass">
+            </component>
+            <div :class="borderless ? undefined : innerBorderClass">
                 <slot />
             </div>
         </div>
@@ -19,7 +19,7 @@ import { innerBorderClass, outerBorderClass } from '@putianyi888/vue3-minesweepe
 
 import { useRestartHotkey } from '@/utils/minigame/settings';
 
-defineProps({ restartLabel: { type: String, required: true } });
+defineProps({ restartLabel: { type: String, required: true }, borderless: { type: Boolean, default: false }, restartOnCounter: { type: Boolean, default: true } });
 const emit = defineEmits<{ restart: [] }>();
 useRestartHotkey(() => {
     emit('restart');
@@ -31,3 +31,13 @@ defineSlots<{
     default: () => unknown;
 }>();
 </script>
+
+<style scoped>
+.training-frame--borderless > .training-frame-counters {
+    border: 0;
+}
+
+.training-frame-counters--static {
+    cursor: default;
+}
+</style>

@@ -22,6 +22,8 @@ class Ranking:
 GAME_RANKINGS = {
     'left-click': tuple(Ranking(f'left-click-{level}-{density}-v1', 'left-click', level, density)
                         for level in ('b', 'i', 'e') for density in ('50', '75', '87.5')),
+    'multi-touch': tuple(Ranking(f'multi-touch-{level}-{density}-v1', 'multi-touch', level, density)
+                         for level in ('b', 'i', 'e') for density in ('50', '75', '87.5')),
     'flag-chord': tuple(Ranking(f'flag-chord-{level}-v1', 'flag-chord', level) for level in ('b', 'i')),
     'missing-cell': tuple(Ranking(f'missing-cell-{level}-v1', 'missing-cell', level) for level in ('b', 'i', 'e')),
 }

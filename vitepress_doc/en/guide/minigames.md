@@ -1,6 +1,6 @@
 ---
 title: Minigames - Open Minesweeper
-description: Rules, timing, replays, rankings and offline play for left-click, flag-and-chord and missing cell training.
+description: Rules, timing, replays, rankings and offline play for left-click, multi-touch, flag-and-chord and missing cell training.
 ---
 
 # Minigames
@@ -12,6 +12,7 @@ These games practise clicking, flagging, chording and observation. Each uses its
 | Training | Goal | Timer starts |
 | --- | --- | --- |
 | Left-click | Click every safe cell individually | On the first valid left-button release |
+| Multi-touch | Touch every safe cell | On the first touch down |
 | Flag-and-chord | Flag and chord every question | On the first successful flag placement |
 | Missing cell | Find the missing safe cell on 10 consecutive boards | On the first left-button release, revealing board 1 |
 
@@ -19,9 +20,19 @@ These games practise clicking, flagging, chording and observation. Each uses its
 
 Choose Beginner **8×8**, Intermediate **16×16** or Expert **16×30**, each with a mine density of **1/2, 3/4 or 7/8**, for 9 modes in total.
 
-Mines are visible, so you may inspect the board before starting. Each left-button release opens only the selected safe cell, with **no flood opening**. Hitting a mine loses; opening every safe cell stops the timer. Right clicks and chords have no effect.
+Mouse only. Mines are visible, so you may inspect the board before starting. Each left-button release opens only the selected safe cell, with **no flood opening**. Hitting a mine loses; opening every safe cell stops the timer. Right clicks and chords have no effect.
 
 Mine opacity defaults to 50% and can be adjusted in minigame settings.
+
+## Multi-touch Training
+
+Uses the same sizes, mine densities and win/loss rules as left-click training, but **accepts touchscreen input only**. You may inspect the board first. The first touch down starts timing; each finger opens its current cell on touch down. Moving or lifting a finger opens nothing. There is no pressed-cell preview. Contacts act independently, and playing with one finger is allowed.
+
+Mine opacity is shared with left-click training.
+
+Drag with one finger to scroll the board and page, without stopping at the board edges. Scrolling stops while two or more contacts are held. Expert offers horizontal **16 rows × 30 columns** or vertical **30 rows × 16 columns**. Orientation is saved locally; changing it keeps the current game and replay.
+
+Fullscreen removes the board frames and surrounding spacing. Enter the cell size in its toolbar; it is shared with minigame settings and saved, without automatic resizing. Scroll horizontally and vertically when needed. Fullscreen counters are display-only; use the toolbar restart button for a new game. Changing size or exiting fullscreen keeps the current game and cell size; exiting restores the counter-bar restart action.
 
 ## Flag-and-chord Training
 
@@ -41,13 +52,15 @@ Click the target to reveal the next board immediately. Complete **10 consecutive
 
 ## Restarting and Settings
 
-The top-left counter shows clicks or questions remaining; the top-right counter shows seconds with three decimal places. **Click anywhere in the counter bar to restart**, or focus it with Tab and press Enter or Space.
+The top-left counter shows clicks or questions remaining; the top-right counter shows seconds with three decimal places. Outside fullscreen, **click anywhere in the counter bar to restart**, or focus it with Tab and press Enter or Space.
 
-Shared cell size and restart hotkey settings are available below the games and in the website's Minigames settings section. Cell size defaults to 32px and the hotkey is unset. Left-click training also has a mine opacity setting. Settings are saved in this browser. Changing these display settings keeps the current game; changing level or mode starts a new one.
+Shared cell size and restart hotkey settings are available below the games and in the website's Minigames settings section. Cell size defaults to 32px and accepts a positive integer; the hotkey is unset. Left-click and multi-touch training share a mine opacity setting. Settings are saved in this browser. Changing these display settings keeps the current game; changing level or mode starts a new one.
 
 ## Replays and Analysis
 
 After left-click or flag-and-chord training ends, the replay below the board shows the mouse trace. Play, pause or drag the progress bar; playback stops at the end.
+
+Multi-touch replays use the same playback controls, showing a separate path for each contact and markers for fingers currently held down. Different contacts are never connected into a single path.
 
 - **Left-click:** mouse and click speeds use a trailing one-second window, measured in cells/s and clicks/s. The histogram below shows left-button press-to-release intervals, excluding the first click, in fixed 0.01-second bins.
 - **Flag-and-chord:** the charts show mouse speed over a trailing one-second window and timing breakdowns for successful questions. Each bar's lower segment runs from that question's last flag placement to the left-button press; the upper segment runs from that press to the successful chord. Failed and ineffective chords are excluded.
@@ -60,7 +73,7 @@ After a successful 10-board missing cell run, the charts show each board's time 
 
 After a successful game, click **Upload score and replay** below the board to submit it while logged in and not banned. **No real name, Minesweeper profile or linked account is required.** Each mode keeps your personal best time and its replay. Click a score column to sort the rankings, or hover a score to see when it was achieved. Links at the top connect each game with its rankings.
 
-Successful games are also saved in this browser: left-click and flag-and-chord retain replays; missing cell retains each board, target and time. Failed and unfinished games are not saved. History browsing and replay downloads are not available yet. Restarting clears the current preview while keeping saved successful games; clearing browser site data deletes local records.
+Successful left-click, multi-touch and flag-and-chord games retain replays in this browser; missing cell training retains each board, target and time. Failed and unfinished games are not saved. History browsing and replay downloads are not available yet. Restarting clears the current preview while keeping saved successful games; clearing browser site data deletes local records.
 
 ## Offline Play
 

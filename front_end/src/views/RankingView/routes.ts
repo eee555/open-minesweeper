@@ -1,5 +1,7 @@
 import type { RouteRecordRaw } from 'vue-router';
 
+import { trainingGames } from '@/utils/minigame/games';
+
 export const rankingRoutes: RouteRecordRaw[] = [
     {
         path: 'speed',
@@ -27,7 +29,7 @@ export const rankingRoutes: RouteRecordRaw[] = [
         name: 'ranking_minigame',
         component: () => import('./MinigameRanking.vue'),
         redirect: { name: 'ranking_minigame_left-click' },
-        children: ['left-click', 'flag-chord', 'missing-cell'].map((game) => ({
+        children: trainingGames.map((game) => ({
             path: game,
             name: `ranking_minigame_${game}`,
             component: () => import('./MinigameRankingTable.vue'),

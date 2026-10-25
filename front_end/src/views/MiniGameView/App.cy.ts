@@ -1,5 +1,5 @@
 import { defineComponent, h } from 'vue';
-import { createMemoryHistory, createRouter, RouterView } from 'vue-router';
+import { createMemoryHistory, createRouter, RouterView, useRoute } from 'vue-router';
 
 import App from './App.vue';
 
@@ -10,16 +10,19 @@ import { pinia } from '@/store/create';
 import { trainingGames } from '@/utils/minigame/games';
 
 const replay = { version: 1, cellSize: 32, initialBoard: [[1, 1, 0], [1, 5, 2], [5, 1, 5], [5, 5, 7]], events: [], specialEvents: [] };
+const touchReplay = { version: 1, cellSize: 32, initialBoard: 'AAAAAP////8', events: [[0, 16, 16, 0, 0], [10, 32, 0, 1, 0]] };
 
 function mountGame() {
     const game = defineComponent({
         emits: ['completed', 'reset'],
         expose: [],
         setup(_props, { emit, slots }) {
+            const route = useRoute();
             return () => h('div', [
                 h('button', { 'data-cy': 'complete',
                     onClick: () => {
-                        emit('completed', 'flag-chord-b-v1', 1234, replay);
+                        const touch = route.name === 'minigame-multi-touch';
+                        emit('completed', touch ? 'multi-touch-b-50-v1' : 'flag-chord-b-v1', 1234, touch ? touchReplay : replay);
                     } }, 'Complete'),
                 h('button', { 'data-cy': 'reset',
                     onClick: () => {
@@ -47,6 +50,28 @@ describe('online minigame score submission', () => {
     });
     afterEach(() => {
         store.logout();
+    });
+
+    it('uploads a multi-touch replay only on request after login, without requiring a real name', () => {
+        cy.intercept('POST', '/api/minigame/multi-touch-b-50-v1/score', { improved: true, record: {} }).as('submit');
+        mountGame();
+        cy.get('[data-cy=game-multi-touch]').click();
+        cy.get('[data-cy=complete]').click();
+        cy.get('[data-cy=minigame-upload]').should('be.disabled').and('have.attr', 'title', 'Log in to upload your score and replay');
+        cy.get('[data-cy=minigame-ranking-link]').should('have.attr', 'href', '/ranking/minigame/multi-touch');
+        cy.get('@submit.all').should('have.length', 0);
+        cy.then(() => {
+            store.login({ id: 42, username: 'player', realname: '匿名' });
+        });
+        cy.get('[data-cy=minigame-upload]').should('be.enabled');
+        cy.get('@submit.all').should('have.length', 0);
+        cy.get('[data-cy=minigame-upload]').click();
+        cy.wait('@submit').its('request.body').should((body: string) => {
+            const form = new URLSearchParams(body);
+            expect(form.get('score')).to.eq('1234');
+            expect(JSON.parse(form.get('replay') ?? 'null')).to.deep.eq(touchReplay);
+        });
+        cy.get('[data-cy=minigame-upload]').should('be.disabled').and('have.text', 'Uploaded');
     });
 
     it('uploads only on request, requires login without a real name and clears pending results on restart or game change', () => {

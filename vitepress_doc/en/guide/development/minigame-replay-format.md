@@ -1,6 +1,6 @@
 ---
 title: Minigame Replay Data Format v1 - Open Minesweeper
-description: Board compression, mouse and special event encoding, and frontend and backend migration rules from minigame replay format v0 to v1.
+description: Board compression, mouse, touch and special event encoding, and frontend and backend migration rules from minigame replay format v0 to v1.
 ---
 
 # Minigame Replay Data Format v1
@@ -18,7 +18,7 @@ The enclosing record continues to supply the game, mode, score and completion ti
 | Game and mode | `game`, `mode` | Determined by `ranking_key` |
 | Total duration, integer milliseconds | `scoreMs` | `score` |
 | Completion time | `playedAt`, Unix milliseconds | `achieved_at`, server time |
-| Replay for all three games | `replay`, a 7z `ArrayBuffer` | `replay_archive` BinaryField, 7z bytes |
+| Replay for all games | `replay`, a 7z `ArrayBuffer` | `replay_archive` BinaryField, 7z bytes |
 | Missing cell rounds | `rounds` in the decompressed JSON | `rounds` in the decompressed JSON |
 | Replay format version | `version` in the decompressed JSON | `version` in the decompressed JSON |
 
@@ -67,6 +67,42 @@ interface TrainingRecordingV1 {
 | `specialEvents` | Special events such as focus loss and cancellation, containing a time delta, insertion index and type; store an empty array when there are none; see Section 3.5 |
 
 The format version, IndexedDB database version and rule version in ranking keys are maintained separately. IndexedDB is now version `3`, supporting upgrades from v0 data in database version `1` and v1 JSON in database version `2` to 7z storage. Ranking rules and keys remain unchanged. Future changes to tuple fields, units, encoding or the meaning of existing enum values require a new format version, rather than changing the interpretation of v1.
+
+### Multi-touch Training
+
+The enclosing `game: 'multi-touch'` or `multi-touch-*` ranking selects this structure. It is separate from mouse recordings and does not change the existing v1 four-tuples. Multi-touch training has no v0 format.
+
+Successful multi-touch games are compressed in this format and saved to IndexedDB. Manual uploads submit the same JSON, which the backend compresses into BinaryField. Replays stay out of Redis.
+
+```ts
+interface TouchRecordingV1 {
+    version: 1;
+    cellSize: number | null;
+    initialBoard: string;
+    events: [dt: number, dx: number, dy: number, contact: number, action: number][];
+}
+```
+
+`cellSize` and the Base64 `initialBoard` have the same meaning as in left-click training. All contacts share one ordered event stream. Time and pixel coordinates are deltas from the **previous array entry**, even when it belongs to another contact; the first entry is relative to zero and has absolute coordinates. Keep signed deltas without ZigZag. `contact` is not delta-encoded: assign a new consecutive ID starting at `0` for every touch down, including when the browser reuses a `pointerId`.
+
+| `action` | Meaning |
+| --- | --- |
+| `0` | Down: create the contact and attempt to open its cell |
+| `1` | Move: update that contact's position only |
+| `2` | Up: remove the contact without opening a cell |
+| `3` | Cancel: remove the contact without opening a cell |
+
+Move, up and cancel must reference an active contact. Global cancellation such as blur or hiding the page writes one `3` event per active contact, so no `specialEvents` array is needed. Timing starts on the first down event. Preserve array order for equal timestamps. Recording stops at completion, so contacts may remain active at the end. Rebuild each contact's path and current-position marker independently, applying only down events to the game board. Do not render pressed-cell previews.
+
+Example: two fingers go down, the first moves, then the second lifts:
+
+```json
+[[0,16,16,0,0],[10,32,0,1,0],[5,-30,2,0,1],[5,30,-2,1,2]]
+```
+
+Adding this game does not change the IndexedDB schema or version. Existing mouse and missing cell recordings need no migration.
+
+Expert always uses 16×30 board and event coordinates. Vertical display transposes the board and traces and swaps input coordinates. Orientation is a local user setting, excluded from replays, and does not change the ranking key. Switching orientation preserves the current game and replay contents.
 
 ### Missing Cell Training
 
@@ -325,8 +361,8 @@ If the chord successfully completes a question, its three statistical timestamps
 ## 5. Decoding and Playback
 
 1. Determine the game and mode from the enclosing record. Identify the format by `version`; read an absent property as v0 and convert it using Section 6 before decoding as v1.
-2. Accumulate each array's time deltas independently, restore ordinary event coordinates, then merge using special event insertion indices. Use indices in the merged sequence for runtime snapshots and positions within one millisecond; do not change persisted insertion indices.
-3. Decode `initialBoard` into a two-dimensional matrix using Section 2, then create the game controller. Supply the initial state from Section 3.6, process ordinary inputs and special resets in order, derive operation intents and apply game rules. Reuse the existing automaton and left-click / flag-and-chord rules without introducing `ms-toollib`. For missing cell training, separately decode each round's mines and restore the board using its target coordinates.
+2. For mouse replays, accumulate each array's time deltas independently, restore ordinary event coordinates, then merge using special event insertion indices. For multi-touch replays, accumulate the single event stream and track each contact. Use decoded sequence indices for runtime snapshots and positions within one millisecond; do not change persisted insertion indices.
+3. Decode `initialBoard` into a two-dimensional matrix using Section 2, then create the game controller. For mouse replays, supply the initial state from Section 3.6, process ordinary inputs and special resets in order, derive operation intents and apply game rules. Multi-touch replays attempt to open cells only on down events. Reuse the existing automaton and left-click / flag-and-chord rules without introducing `ms-toollib`. For missing cell training, separately decode each round's mines and restore the board using its target coordinates.
 4. Rebuild all board snapshots, remaining counts and successful chord timings once. Keep this derived data only in memory.
 5. Calculate mouse speed, click speed and press durations from the decoded trace and timestamps. Use the enclosing score as the playback endpoint.
 
@@ -390,16 +426,3 @@ python manage.py migrate_minigame_replays
 The command reports `pending`, `migrated`, `skipped` and `invalid` counts. For corrupt data or unknown versions, it reports the record ID and ranking key, continues with other records, and exits with a nonzero status. Completed conversions are retained, so the command can be rerun after fixing errors.
 
 For deployment, back up the database, update the frontend writer and backend migration tooling, then run the migration. The command only handles data already stored in the database. Unversioned payloads from offline copies or old pages are still recognized as v0 and can use the same converter when read; server migration does not cover every browser.
-
-## 7. Implementation Acceptance Checks
-
-- An absent `version` and explicit integer `0` both read and migrate as v0; integer `1` reads as v1. Unknown versions, `null`, strings and booleans do not fall back to v0.
-- Migrated v0 mouse recordings store `cellSize: null` and convert coordinates using the 32px reference. Decoding matches explicit `cellSize: 32` and is independent of the current displayed cell size. Missing `cellSize` in v1 still produces a format error.
-- Base64 mine bits round-trip for all three sizes, with lengths 11 / 43 / 80. Cover row and character boundaries, first and last cells, all-zero / all-one patterns and trailing zero padding, and cross-check using a standard Base64 codec.
-- Question coordinates and all eight mine directions round-trip, reconstructing complete 3×3 layouts for 4 / 15 questions. Missing cell mines and target coordinates restore the original numbers, hidden mines and unique target.
-- Frontend encoding / decoding and backend migration agree on Section 4's examples, including negative coordinate deltas, stationary input, same-millisecond events, cancellation and input outside the board. Special events cover insertion at the beginning / middle / end, multiple events at one index and independent time deltas.
-- Coordinate flooring does not cross cell boundaries. Cell-size changes before or during play use the fixed reference system. Include coordinate deltas beyond 32 bits but within the safe integer range.
-- Compare ordinary operation paths with old replay results to preserve board changes, remaining counts, all three successful chord timestamps and exclusion of the first click's press duration. Verify that special resets clear button state; reproducing browser occlusion or clipping is not required.
-- IndexedDB upgrades preserve history keys, timestamps, scores, modes and indexes. Replays that fail conversion retain their complete original JSON in 7z without blocking new results; compression or database failures retain the old database. Backend command checks cover dry-run, repeated execution, corrupt data and skipping concurrent new personal bests.
-- Persistence and uploads contain only compact boards, encoded events and necessary metadata; missing cell rounds contain only mines, target coordinates and durations. Snapshots, analysis results and replay data all stay out of Redis.
-- Cross-extract shared archive fixtures with frontend and backend codecs. IndexedDB and BinaryField contain actual 7z bytes that restore the v1 JSON; cover corrupt archives and migration of existing v1 JSON.
