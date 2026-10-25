@@ -1,6 +1,5 @@
 <template>
-    <img v-if="local.tooltip_show" style="width: 16px; height: 16px" :src="iconSrc" :title="t(`common.software.${software}`)">
-    <img v-else style="width: 16px; height: 16px" :src="iconSrc">
+    <img style="width: 16px; height: 16px" :src="iconSrc" :title="t(`common.software.${software}`)">
 </template>
 
 <script setup lang="ts">

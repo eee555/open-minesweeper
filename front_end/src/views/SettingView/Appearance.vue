@@ -46,14 +46,6 @@
                         </BaseTooltip>
                     </dd>
                 </div>
-                <div class="description-item">
-                    <dt>{{ t('local.newUserGuide') }}</dt>
-                    <dd>
-                        <span :title="t('local.newUserGuideTooltip')">
-                            <ElSwitch v-model="local.tooltip_show" />
-                        </span>
-                    </dd>
-                </div>
                 <div class="description-item description-wide">
                     <dt>{{ t('local.experimentalFeature') }}</dt>
                     <dd>
@@ -84,8 +76,6 @@ const i18nMessages = {
         navigationLayout: '导航位置',
         navigationTop: '顶栏',
         navigationSidebar: '侧栏',
-        newUserGuide: '新手引导',
-        newUserGuideTooltip: '鼠标在各种地方悬停时获取帮助。',
         notificationDuration: '通知时长',
         notificationDurationTooltip1: '显示的时间，单位毫秒。',
         notificationDurationTooltip2: '值为0则不会自动关闭。',
@@ -97,8 +87,6 @@ const i18nMessages = {
         navigationLayout: 'Navigation position',
         navigationTop: 'Top bar',
         navigationSidebar: 'Side bar',
-        newUserGuide: 'Get Help',
-        newUserGuideTooltip: 'Get help by hovering over components',
         notificationDuration: 'Notification Duration',
         notificationDurationTooltip1: 'Duration before close. ',
         notificationDurationTooltip2: 'It will not automatically close if set 0. ',

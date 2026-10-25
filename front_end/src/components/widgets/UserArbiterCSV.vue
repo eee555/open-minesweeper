@@ -2,7 +2,7 @@
     <BaseButton :disabled="id == 0" @click="clickExportJSON">
         {{ t('profile.exportJSON') }}&nbsp;
         <ElTooltip :content="t('profile.exportJSONTooltip')" raw-content>
-            <ElIcon v-if="local.tooltip_show">
+            <ElIcon>
                 <QuestionFilled />
             </ElIcon>
         </ElTooltip>
@@ -10,7 +10,7 @@
     <BaseButton :disabled="id == 0" @click="clickExportCSV">
         {{ t('profile.exportArbiterCSV') }}&nbsp;
         <ElTooltip :content="t('profile.exportArbiterCSVTooltip')" raw-content>
-            <ElIcon v-if="local.tooltip_show">
+            <ElIcon>
                 <QuestionFilled />
             </ElIcon>
         </ElTooltip>
@@ -25,7 +25,6 @@ import { useI18n } from 'vue-i18n';
 import { httpErrorNotification } from '../Notifications';
 
 import BaseButton from '@/components/common/BaseButton.vue';
-import { local } from '@/store';
 import { ArrayUtils } from '@/utils/arrays';
 import useCurrentInstance from '@/utils/common/useCurrentInstance';
 

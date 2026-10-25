@@ -7,7 +7,6 @@ const localDefaultSettings = {
     language: navigator.language.toLocaleLowerCase(),
     navigation_layout: 'top' as 'top' | 'sidebar',
     notification_duration: 4500,
-    tooltip_show: true,
     vienna_logo_legacy: false,
     autoUploadAfterParse: false,
     autoRemoveAfterUpload: false,
@@ -20,3 +19,6 @@ const localDefaultSettings = {
 
 export type LocalSettings = typeof localDefaultSettings;
 export const local = useLocalStorage('local', localDefaultSettings, { mergeDefaults: true });
+
+// Remove the retired help toggle from existing browser settings.
+Reflect.deleteProperty(local.value, 'tooltip_show');
