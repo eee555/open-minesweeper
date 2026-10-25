@@ -9,6 +9,7 @@ import type TouchTrace from '@/components/MiniGame/TouchTrace.vue';
 import i18n from '@/i18n';
 import { encodeMines } from '@/utils/minigame/boardEncoding';
 import { multiTouchModes } from '@/utils/minigame/leftClickTraining';
+import type { AnyTrainingReplay } from '@/utils/minigame/replay';
 import { defaultMinigameSettings, minigameSettings } from '@/utils/minigame/settings';
 import { isolateMinigameHistory, mouseAt, savedMinigameResults, touchAt } from '@cy/support/minigame';
 
@@ -66,7 +67,7 @@ describe('touch-only training', () => {
             touchAt(safe.row, safe.column, 'pointerdown', 3);
             cy.get('[data-cy="training-remaining"]').should('have.attr', 'aria-label', '239');
             cy.get<ComponentWrapper<typeof App>>('@game').then((game) => {
-                const replay = game.findComponent<typeof TouchTrace>('.minigame-touch-trace').props('replay');
+                const replay: AnyTrainingReplay = game.findComponent<typeof TouchTrace>('.minigame-touch-trace').props('replay');
                 expect(replay.mode.rows).to.eq(16);
                 expect(replay.mode.columns).to.eq(30);
                 expect(replay.recording.initialBoard).to.eq(encodeMines(multiTouchModes[6], board));
@@ -76,7 +77,8 @@ describe('touch-only training', () => {
                 cy.get('.minigame-touch-trace').should('have.attr', 'width', '512').and('have.attr', 'height', '960');
                 cy.get('.minigame-touch-trace > g').should('have.attr', 'transform', 'matrix(0 1 1 0 0 0)');
                 cy.get<ComponentWrapper<typeof App>>('@game').should((current) => {
-                    expect(current.findComponent<typeof TouchTrace>('.minigame-touch-trace').props('replay').recording).to.deep.eq(recording);
+                    const currentReplay: AnyTrainingReplay = current.findComponent<typeof TouchTrace>('.minigame-touch-trace').props('replay');
+                    expect(currentReplay.recording).to.deep.eq(recording);
                 });
                 cy.get('[data-cy="training-game"]').should('have.attr', 'data-phase', 'lost');
                 cy.window().its('localStorage').invoke('getItem', 'minigame-settings').should((value) => {
@@ -237,8 +239,9 @@ describe('touch-only training', () => {
         cy.get('[data-cy="minigame-replay-controls"]').should('be.visible');
         savedMinigameResults().should((results) => {
             expect(results).to.have.length(1);
-            expect(results[0].game).to.eq('multi-touch');
-            expect(results[0].mode.rankingKey).to.eq('multi-touch-b-87.5-v1');
+            const [saved] = results;
+            if (saved.game !== 'multi-touch') throw new Error('Wrong saved game');
+            expect(saved.mode.rankingKey).to.eq('multi-touch-b-87.5-v1');
         });
         cy.get<ComponentWrapper<typeof App>>('@game').should((wrapper) => {
             const events = wrapper.emitted('completed');

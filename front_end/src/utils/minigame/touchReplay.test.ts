@@ -15,7 +15,7 @@ const board = Array.from({ length: 8 }, (_row, row) => Array.from({ length: 8 },
 
 describe('multi-touch recordings', () => {
     it('keeps canonical Expert coordinates when the displayed cell size changes', () => {
-        const expert = multiTouchModes[8];
+        const [expert] = multiTouchModes.filter(({ key, density }) => key === 'e' && density === 87.5);
         const game = new LeftClickTraining(expert);
         const recorder = new TouchReplayRecorder(expert, game.board);
         const safe = game.board.flatMap((row, r) => row.flatMap((cell, c) => (cell === 10 ? [{ row: r, column: c }] : [])));

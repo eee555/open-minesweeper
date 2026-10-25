@@ -21,7 +21,10 @@ describe('shared minigame press preview', () => {
                 h(Board, { board: Array.from({ length: 30 }, () => Array.from({ length: 30 }, () => 10)), size: 32, label: 'Scrollable board', input: 'touch' }),
             ]) }));
         const pointer = (type: string, pointerId: number, clientX: number, clientY: number) => {
-            cy.get('[data-cy="minigame-board"]').trigger(type, { eventConstructor: 'PointerEvent', pointerId, pointerType: 'touch', clientX, clientY, scrollBehavior: false });
+            cy.get('[data-cy="minigame-board"]').then(($board) => {
+                const rect = $board[0].getBoundingClientRect();
+                cy.wrap($board).trigger(type, clientX - rect.left, clientY - rect.top, { eventConstructor: 'PointerEvent', pointerId, pointerType: 'touch', clientX, clientY, scrollBehavior: false });
+            });
         };
         cy.get('[data-cy="minigame-board"]').then(($board) => {
             const { left, top } = $board[0].getBoundingClientRect();
