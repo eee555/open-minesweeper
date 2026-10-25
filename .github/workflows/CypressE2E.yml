@@ -15,8 +15,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  e2e:
+  e2e-tests:
+    name: Cypress E2E (${{ matrix.shard }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     services:
       mysql:
         image: mysql:8.4
@@ -79,12 +84,16 @@ jobs:
           working-directory: front_end
           browser: chrome
           wait-on: 'http://localhost:8000,http://localhost:8080'
+        env:
+          SPLIT: ${{ strategy.job-total }}
+          SPLIT_INDEX: ${{ strategy.job-index }}
+          SPLIT_RANDOM_SEED: '43'
 
       - name: Upload Cypress screenshots
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: cypress-screenshots
+          name: cypress-screenshots-${{ matrix.shard }}
           path: front_end/cypress/screenshots
           if-no-files-found: ignore
           
@@ -92,8 +101,19 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: backend-logs
+          name: backend-logs-${{ matrix.shard }}
           path: |
             back_end/saolei/backend.log
             back_end/saolei/logs
           if-no-files-found: ignore
+
+  # Keep the existing check name for branch protection; both shards must pass.
+  e2e:
+    needs: e2e-tests
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all E2E shards
+        env:
+          SHARD_RESULT: ${{ needs.e2e-tests.result }}
+        run: test "$SHARD_RESULT" = success
