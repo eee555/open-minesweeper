@@ -83,7 +83,7 @@ const i18nMessages = {
             lsf: 'LSF 榜',
             top: 'Top',
             pb: 'PB 榜',
-            saolei: '@:{\'common.website.saolei\'}规则',
+            saolei: '旧@:{\'common.website.saolei\'}规则',
         },
         tooltip: {
             lsf: '根据 Top 五条成绩与锚点计算三级别、综合软实力及 LSF。',
@@ -108,7 +108,7 @@ const i18nMessages = {
             lsf: 'LSF',
             top: 'Top',
             pb: 'PB',
-            saolei: '@:common.website.saolei Rule',
+            saolei: 'Legacy @:common.website.saolei Rule',
         },
         tooltip: {
             lsf: 'Level strength, overall strength and LSF calculated from the top five records and anchors.',
