@@ -31,6 +31,7 @@
 <script setup lang="ts">
 import 'vue-data-ui/style.css';
 import './statistics.css';
+import type { PropType } from 'vue';
 import { computed, ref, shallowRef, watch } from 'vue';
 import type { VueUiDonutConfig } from 'vue-data-ui';
 import { VueUiDonut } from 'vue-data-ui';
@@ -43,7 +44,11 @@ import RefreshableCard from '@/components/common/RefreshableCard.vue';
 import { local } from '@/store';
 import { formatBytes } from '@/utils/strings';
 
-const props = withDefaults(defineProps<{ section?: DiskUsage | null; loading?: boolean; failed?: boolean }>(), { section: null, loading: false, failed: false });
+const props = defineProps({
+    section: { type: Object as PropType<DiskUsage | null>, default: null },
+    loading: { type: Boolean, default: false },
+    failed: { type: Boolean, default: false },
+});
 const emit = defineEmits<{ refresh: [] }>();
 const data = shallowRef<DiskUsage | null>(null);
 const invalid = ref(false);

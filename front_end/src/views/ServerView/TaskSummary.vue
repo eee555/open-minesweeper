@@ -31,6 +31,7 @@
 <script setup lang="ts">
 import 'vue-data-ui/style.css';
 import './statistics.css';
+import type { PropType } from 'vue';
 import { computed } from 'vue';
 import type { VueUiDonutConfig } from 'vue-data-ui';
 import { VueUiDonut } from 'vue-data-ui';
@@ -42,7 +43,11 @@ import type { TaskSummary } from './statistics';
 import RefreshableCard from '@/components/common/RefreshableCard.vue';
 import { local } from '@/store';
 
-const props = withDefaults(defineProps<{ section?: TaskSummary | null; loading?: boolean; failed?: boolean }>(), { section: null, loading: false, failed: false });
+const props = defineProps({
+    section: { type: Object as PropType<TaskSummary | null>, default: null },
+    loading: { type: Boolean, default: false },
+    failed: { type: Boolean, default: false },
+});
 const emit = defineEmits<{ refresh: [] }>();
 const statuses = ['READY', 'RUNNING', 'SUCCESSFUL', 'FAILED'] as const;
 const data = computed(() => props.section);

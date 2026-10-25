@@ -40,6 +40,7 @@
 <script setup lang="ts">
 import 'vue-data-ui/style.css';
 import './statistics.css';
+import type { PropType } from 'vue';
 import { computed, ref } from 'vue';
 import type { VueUiDonutConfig } from 'vue-data-ui';
 import { VueUiDonut } from 'vue-data-ui';
@@ -53,7 +54,11 @@ import RefreshableCard from '@/components/common/RefreshableCard.vue';
 import { local } from '@/store';
 import { MS_Levels, MS_Mode, MS_ServerStates, MS_Softwares } from '@/utils/ms_const';
 
-const props = withDefaults(defineProps<{ section?: VideoSummary | null; loading?: boolean; failed?: boolean }>(), { section: null, loading: false, failed: false });
+const props = defineProps({
+    section: { type: Object as PropType<VideoSummary | null>, default: null },
+    loading: { type: Boolean, default: false },
+    failed: { type: Boolean, default: false },
+});
 const emit = defineEmits<{ refresh: [] }>();
 const dimensions = ['software', 'level', 'mode', 'state'] as const;
 type Dimension = typeof dimensions[number];

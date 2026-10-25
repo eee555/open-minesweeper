@@ -1,5 +1,5 @@
 import App from './App.vue';
-import { DonutStub } from './memory.test-data';
+import { DonutStub, memoryResponse } from './memory.test-data';
 import { monitorResponse } from './statistics.test-data';
 
 import $axios from '@/http';
@@ -64,8 +64,8 @@ describe('Server snapshot requests', () => {
     });
 
     it('shows Redis even when complete process memory is unavailable', () => {
-        const response = monitorResponse();
-        response.memoryusage!.memory = { ...response.memoryusage!.memory, status: 'unavailable', reason: 'permission_denied', total_bytes: null, groups: null, sampled_at: null, host: null, unreadable_processes: 3 };
+        const response = { ...monitorResponse(), memoryusage: memoryResponse() };
+        response.memoryusage.memory = { ...response.memoryusage.memory, status: 'unavailable', reason: 'permission_denied', total_bytes: null, groups: null, sampled_at: null, host: null, unreadable_processes: 3 };
         cy.intercept('GET', '**/api/monitor/summary', { body: response }).as('memory');
         cy.mount(App, { global });
         cy.wait('@memory');
