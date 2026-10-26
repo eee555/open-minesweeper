@@ -1,5 +1,5 @@
 <template>
-    <PrColumn field="upload_time" :sortable="sortable" :header="t('common.prop.upload_time')" style="min-width: 11em">
+    <PrColumn field="upload_time" :sortable="sortable" :header="t('prop.upload_time')" style="min-width: 11em">
         <template #body="{ data }">
             <span class="text">
                 {{ data.isLocal ? '—' : utc_to_local_format(data.upload_time) }}

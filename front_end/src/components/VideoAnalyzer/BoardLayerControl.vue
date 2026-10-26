@@ -9,7 +9,7 @@
                 <span>{{ t('local.showLayer') }}</span>
             </label>
             <label class="board-layer-control__opacity-setting">
-                <span>{{ t('common.prop.opacity') }}</span>
+                <span>{{ t('prop.opacity') }}</span>
                 <input v-model.number="opacity" class="board-layer-control__opacity" type="range" min="0" max="1" step="0.01">
                 <output>{{ Math.round(opacity * 100) }}%</output>
             </label>

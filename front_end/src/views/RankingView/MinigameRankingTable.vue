@@ -5,24 +5,24 @@
             <tr>
                 <th :rowspan="hasDensities ? 2 : 1" scope="col" class="table-col-rank" />
                 <th :rowspan="hasDensities ? 2 : 1" scope="col" class="table-col-player">
-                    {{ t('common.prop.player') }}
+                    {{ t('prop.player') }}
                 </th>
                 <template v-if="hasDensities">
                     <th v-for="level in ['b', 'i', 'e']" :key="level" scope="colgroup" colspan="3" class="table-col-center">
-                        {{ t(`common.level.${level}`) }}
+                        {{ t(`level.${level}`) }}
                     </th>
                 </template>
                 <template v-else>
                     <th v-for="ranking in rankings" :key="ranking.key" scope="col" class="table-col-number" :aria-sort="sort === ranking.key ? ranking.order === 'asc' ? 'ascending' : 'descending' : 'none'">
                         <button type="button" class="stat-header" :aria-pressed="sort === ranking.key" @click="sort = ranking.key">
-                            {{ t(`common.level.${ranking.level}`) }}
+                            {{ t(`level.${ranking.level}`) }}
                         </button>
                     </th>
                 </template>
             </tr>
             <tr v-if="hasDensities">
                 <th v-for="ranking in rankings" :key="ranking.key" scope="col" class="table-col-number" :aria-sort="sort === ranking.key ? ranking.order === 'asc' ? 'ascending' : 'descending' : 'none'">
-                    <button type="button" class="stat-header" :aria-label="`${t(`common.level.${ranking.level}`)} ${densityLabels[ranking.density ?? '50']}`" :aria-pressed="sort === ranking.key" @click="sort = ranking.key">
+                    <button type="button" class="stat-header" :aria-label="`${t(`level.${ranking.level}`)} ${densityLabels[ranking.density ?? '50']}`" :aria-pressed="sort === ranking.key" @click="sort = ranking.key">
                         {{ densityLabels[ranking.density ?? '50'] }}
                     </button>
                 </th>

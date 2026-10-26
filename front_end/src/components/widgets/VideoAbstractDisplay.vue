@@ -7,77 +7,77 @@
             &nbsp;
             {{ levelLabel }}
             &nbsp;
-            {{ resolvedVideo.mode ? t(`common.mode.code${resolvedVideo.mode}`) : '—' }}
+            {{ resolvedVideo.mode ? t(`mode.code${resolvedVideo.mode}`) : '—' }}
         </span>
     </div>
     <div class="description-layout" style="width: 32em; max-width: 100%;">
         <dl class="descriptions descriptions-bordered descriptions-small">
             <div v-if="uploadTime && state !== MS_State.Local" class="description-item description-wide">
-                <dt>{{ t('common.prop.upload_time') }}</dt>
+                <dt>{{ t('prop.upload_time') }}</dt>
                 <dd>
                     {{ toISODateTimeString(uploadTime) }}
                 </dd>
             </div>
 
             <div v-if="endTime" class="description-item description-wide">
-                <dt>{{ t('common.prop.end_time') }}</dt>
+                <dt>{{ t('prop.end_time') }}</dt>
                 <dd>
                     {{ toISODateTimeString(endTime) }}
                 </dd>
             </div>
 
             <div class="description-item">
-                <dt>{{ t('common.prop.time') }}</dt>
+                <dt>{{ t('prop.time') }}</dt>
                 <dd>
                     {{ displayStat('time') }}
                 </dd>
             </div>
             <div class="description-item">
-                <dt>{{ t('common.prop.bv') }}</dt>
+                <dt>{{ t('prop.bv') }}</dt>
                 <dd>
                     {{ displayStat('bv') }}
                 </dd>
             </div>
             <div class="description-item">
-                <dt>{{ t('common.prop.stnb') }}</dt>
+                <dt>{{ t('prop.stnb') }}</dt>
                 <dd>
                     {{ displayStat('stnb') }}
                 </dd>
             </div>
 
             <div class="description-item">
-                <dt>{{ t('common.prop.bvs') }}</dt>
+                <dt>{{ t('prop.bvs') }}</dt>
                 <dd>
                     {{ displayStat('bvs') }}
                 </dd>
             </div>
             <div class="description-item">
-                <dt>{{ t('common.prop.cl_s') }}</dt>
+                <dt>{{ t('prop.cl_s') }}</dt>
                 <dd>
                     {{ displayStat('cls') }}
                 </dd>
             </div>
             <div class="description-item">
-                <dt>{{ t('common.prop.ce_s') }}</dt>
+                <dt>{{ t('prop.ce_s') }}</dt>
                 <dd>
                     {{ displayStat('ces') }}
                 </dd>
             </div>
 
             <div class="description-item">
-                <dt>{{ t('common.prop.ioe') }}</dt>
+                <dt>{{ t('prop.ioe') }}</dt>
                 <dd>
                     {{ displayStat('ioe') }}
                 </dd>
             </div>
             <div class="description-item">
-                <dt>{{ t('common.prop.thrp') }}</dt>
+                <dt>{{ t('prop.thrp') }}</dt>
                 <dd>
                     {{ displayStat('thrp') }}
                 </dd>
             </div>
             <div class="description-item">
-                <dt>{{ t('common.prop.corr') }}</dt>
+                <dt>{{ t('prop.corr') }}</dt>
                 <dd>
                     {{ displayStat('corr') }}
                 </dd>
@@ -173,13 +173,13 @@ const levelLabel = computed(() => {
     const { level } = statistics.value;
     if (state.value === MS_State.Local && !isStandardLevel(level)) return '—';
     if (level instanceof CustomLevel) {
-        return t('common.level.c', {
+        return t('level.c', {
             column: level.column,
             mine: level.mine,
             row: level.row,
         });
     }
-    return isStandardLevel(level) ? t(`common.level.${level}`) : '—';
+    return isStandardLevel(level) ? t(`level.${level}`) : '—';
 });
 
 const i18nMessages = {

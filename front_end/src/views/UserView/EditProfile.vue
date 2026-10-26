@@ -94,10 +94,10 @@
 
     <div style="margin-top: 1em">
         <BaseButton type="primary" :loading="updating" data-cy="save-profile" @click="updateProfile">
-            {{ t('common.button.save') }}
+            {{ t('button.save') }}
         </BaseButton>
         <BaseButton type="info" :disabled="updating" @click="refresh">
-            {{ t('common.button.cancel') }}
+            {{ t('button.cancel') }}
         </BaseButton>
     </div>
 </template>
@@ -182,7 +182,7 @@ function processUpdateResponse(field: UpdateProfileField, data: UpdateProfileRes
         }
     } else {
         formStatus.value[field].status = 'error';
-        formStatus.value[field].errorMsg = t(data.object === 'name' && data.category === 'reserved' ? 'common.msg.reservedName' : `local.error.${data.object}.${data.category}`);
+        formStatus.value[field].errorMsg = t(data.object === 'name' && data.category === 'reserved' ? 'msg.reservedName' : `local.error.${data.object}.${data.category}`);
     }
 }
 
@@ -192,7 +192,7 @@ async function updateProfile() {
     for (const field of ['realname', 'firstname', 'lastname'] as const) {
         if (formStatus.value[field].new.trim() === HIDDEN_NAME) {
             formStatus.value[field].status = 'error';
-            formStatus.value[field].errorMsg = t('common.msg.reservedName');
+            formStatus.value[field].errorMsg = t('msg.reservedName');
             invalid = true;
         }
     }
@@ -217,7 +217,7 @@ async function updateProfile() {
             for (const field of UpdateProfileFields) {
                 processUpdateResponse(field, data[field]);
             }
-            if (data.hide_realname?.type === 'error') privacyError.value = t(data.hide_realname.object === 'name' && data.hide_realname.category === 'reserved' ? 'common.msg.reservedName' : `local.error.${data.hide_realname.object}.${data.hide_realname.category}`);
+            if (data.hide_realname?.type === 'error') privacyError.value = t(data.hide_realname.object === 'name' && data.hide_realname.category === 'reserved' ? 'msg.reservedName' : `local.error.${data.hide_realname.object}.${data.hide_realname.category}`);
             if (data.hide_realname?.type === 'success') owner.hide_realname = hideRealname.value;
         }).catch(httpErrorNotification);
     }

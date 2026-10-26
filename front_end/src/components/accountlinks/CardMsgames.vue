@@ -4,14 +4,14 @@
             <PrToolbar>
                 <template #start>
                     <span class="text-medium text-regular">
-                        {{ t('common.platform.a') }}&nbsp;#{{ id }}
+                        {{ t('platform.a') }}&nbsp;#{{ id }}
                     </span>
                 </template>
             </PrToolbar>
         </div>
         <template v-if="verified">
             <ElDescriptions border>
-                <ElDescriptionsItem :label="t('common.prop.update_time')" :span="3">
+                <ElDescriptionsItem :label="t('prop.update_time')" :span="3">
                     {{ toISODateTimeString(info.update_time) }}
                 </ElDescriptionsItem>
                 <ElDescriptionsItem :label="t('accountlink.msgamesName')" :span="3">

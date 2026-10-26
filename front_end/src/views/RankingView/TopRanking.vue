@@ -1,7 +1,7 @@
 <template>
     <section class="top-ranking">
         <div class="top-toolbar">
-            <label class="checkbox nf-toggle"><input v-model="nf" class="checkbox-input" type="checkbox"> {{ t('common.nf') }}</label>
+            <label class="checkbox nf-toggle"><input v-model="nf" class="checkbox-input" type="checkbox"> {{ t('nf') }}</label>
         </div>
         <p v-if="failed" role="alert" class="text-danger">
             {{ t('ranking.loadFailed') }}
@@ -13,22 +13,22 @@
                         #
                     </th>
                     <th rowspan="2" scope="col" class="table-col-player">
-                        {{ t('common.prop.player') }}
+                        {{ t('prop.player') }}
                     </th>
                     <th v-for="option in topLevels" :key="option" colspan="3" scope="colgroup" class="table-col-center">
-                        {{ t(`common.level.${option}`) }}
+                        {{ t(`level.${option}`) }}
                     </th>
                     <th colspan="5" scope="colgroup" class="table-col-center top-detail-start" data-cy="top-detail-heading">
-                        {{ t('local.details', { level: t(`common.level.${detailAxis.level}`), stat: t(`common.prop.${topStatNames[detailAxis.stat]}`) }) }}
+                        {{ t('local.details', { level: t(`level.${detailAxis.level}`), stat: t(`prop.${topStatNames[detailAxis.stat]}`) }) }}
                     </th>
                 </tr>
                 <tr>
                     <th v-for="axis in topAxes" :key="`${axis.level}${axis.stat}`" scope="col" class="table-col-number" :aria-sort="level === axis.level && stat === axis.stat ? axis.stat === 't' ? 'ascending' : 'descending' : 'none'">
                         <div class="top-stat-controls">
-                            <BaseTextButton class="top-stat-header" size="small" :type="level === axis.level && stat === axis.stat ? 'primary' : 'default'" :data-field="`${axis.level}${axis.stat}`" :aria-label="`${t(`common.level.${axis.level}`)} ${t(`common.prop.${topStatNames[axis.stat]}`)}`" :aria-pressed="level === axis.level && stat === axis.stat" @click="selectRanking(axis.level, axis.stat)">
-                                {{ t(`common.prop.${topStatNames[axis.stat]}`) }}
+                            <BaseTextButton class="top-stat-header" size="small" :type="level === axis.level && stat === axis.stat ? 'primary' : 'default'" :data-field="`${axis.level}${axis.stat}`" :aria-label="`${t(`level.${axis.level}`)} ${t(`prop.${topStatNames[axis.stat]}`)}`" :aria-pressed="level === axis.level && stat === axis.stat" @click="selectRanking(axis.level, axis.stat)">
+                                {{ t(`prop.${topStatNames[axis.stat]}`) }}
                             </BaseTextButton>
-                            <BaseTextButton class="top-detail-toggle" size="small" :type="detailAxis.level === axis.level && detailAxis.stat === axis.stat ? 'primary' : 'default'" :data-detail-field="`${axis.level}${axis.stat}`" :aria-pressed="detailAxis.level === axis.level && detailAxis.stat === axis.stat" :aria-label="t('local.showDetails', { level: t(`common.level.${axis.level}`), stat: t(`common.prop.${topStatNames[axis.stat]}`) })" :title="t('local.showDetails', { level: t(`common.level.${axis.level}`), stat: t(`common.prop.${topStatNames[axis.stat]}`) })" @click="selectDetails(axis.level, axis.stat)">
+                            <BaseTextButton class="top-detail-toggle" size="small" :type="detailAxis.level === axis.level && detailAxis.stat === axis.stat ? 'primary' : 'default'" :data-detail-field="`${axis.level}${axis.stat}`" :aria-pressed="detailAxis.level === axis.level && detailAxis.stat === axis.stat" :aria-label="t('local.showDetails', { level: t(`level.${axis.level}`), stat: t(`prop.${topStatNames[axis.stat]}`) })" :title="t('local.showDetails', { level: t(`level.${axis.level}`), stat: t(`prop.${topStatNames[axis.stat]}`) })" @click="selectDetails(axis.level, axis.stat)">
                                 <i class="pi pi-eye" aria-hidden="true" />
                             </BaseTextButton>
                         </div>

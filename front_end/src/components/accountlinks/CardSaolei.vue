@@ -4,7 +4,7 @@
             <PrToolbar>
                 <template #start>
                     <span class="text-medium text-regular">
-                        {{ t('common.platform.c') }}&nbsp;#{{ id }}
+                        {{ t('platform.c') }}&nbsp;#{{ id }}
                     </span>
                 </template>
                 <template #end>
@@ -15,7 +15,7 @@
         <ElCarousel v-if="verified" ref="refCarousel" trigger="click" :autoplay="false" indicator-position="none" :loop="false" arrow="never">
             <ElCarouselItem>
                 <ElDescriptions border>
-                    <ElDescriptionsItem :label="t('common.prop.update_time')" :span="3">
+                    <ElDescriptionsItem :label="t('prop.update_time')" :span="3">
                         {{ toISODateTimeString(info.update_time) }}
                     </ElDescriptionsItem>
                     <ElDescriptionsItem :label="t('local.name')" :span="3">
@@ -24,22 +24,22 @@
                     <ElDescriptionsItem :label="t('local.totalViews')" :span="3">
                         {{ info.total_views }}
                     </ElDescriptionsItem>
-                    <ElDescriptionsItem :label="t('common.level.b')" :span="3">
+                    <ElDescriptionsItem :label="t('level.b')" :span="3">
                         {{ cs_to_s(info.b_t_ms! / 10) }}
                         &nbsp;|&nbsp;
                         {{ cs_to_s(info.b_b_cent!) }}
                     </ElDescriptionsItem>
-                    <ElDescriptionsItem :label="t('common.level.i')" :span="3">
+                    <ElDescriptionsItem :label="t('level.i')" :span="3">
                         {{ cs_to_s(info.i_t_ms! / 10) }}
                         &nbsp;|&nbsp;
                         {{ cs_to_s(info.i_b_cent!) }}
                     </ElDescriptionsItem>
-                    <ElDescriptionsItem :label="t('common.level.e')" :span="3">
+                    <ElDescriptionsItem :label="t('level.e')" :span="3">
                         {{ cs_to_s(info.e_t_ms! / 10) }}
                         &nbsp;|&nbsp;
                         {{ cs_to_s(info.e_b_cent!) }}
                     </ElDescriptionsItem>
-                    <ElDescriptionsItem :label="t('common.level.sum')">
+                    <ElDescriptionsItem :label="t('level.sum')">
                         {{ cs_to_s(info.sum_t_ms / 10) }}
                         &nbsp;|&nbsp;
                         {{ cs_to_s(info.sum_b_cent) }}

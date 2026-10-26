@@ -1,6 +1,6 @@
 <template>
     <BaseButton v-bind="$attrs">
-        {{ t('common.button.cancel') }}
+        {{ t('button.cancel') }}
     </BaseButton>
 </template>
 

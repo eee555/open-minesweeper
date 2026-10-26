@@ -15,7 +15,7 @@
                     <dt>{{ t('local.playerNameFormat') }}</dt>
                     <dd class="player-name-settings">
                         <label>
-                            {{ t('common.prop.format') }}
+                            {{ t('prop.format') }}
                             <select v-model="local.playerNameFormat" class="player-name-select" :aria-label="t('local.playerNameFormat')" data-cy="player-name-format">
                                 <option value="name1">name1</option>
                                 <option value="name1 (name2)">name1 (name2)</option>
@@ -24,8 +24,8 @@
                         <label v-for="slot in playerNameSlots" v-show="slot === 'playerName1' || local.playerNameFormat === 'name1 (name2)'" :key="slot">
                             {{ slot === 'playerName1' ? 'name1' : 'name2' }}
                             <select v-model="local[slot]" class="player-name-select" :aria-label="slot === 'playerName1' ? 'name1' : 'name2'" :data-cy="slot === 'playerName1' ? 'player-name-1' : 'player-name-2'">
-                                <option value="realname">{{ t('common.prop.localName') }}</option>
-                                <option value="international">{{ t('common.prop.internationalName') }}</option>
+                                <option value="realname">{{ t('prop.localName') }}</option>
+                                <option value="international">{{ t('prop.internationalName') }}</option>
                                 <option value="username">{{ t('form.username') }}</option>
                             </select>
                         </label>

@@ -1,15 +1,15 @@
 <template>
     <div>
-        {{ t('common.prop.videoId') }}
+        {{ t('prop.videoId') }}
         <ElInputNumber v-model="videoid" :controls="false" :min="0" />
         <BaseButton @click="getVideo">
-            {{ t('common.button.query') }}
+            {{ t('button.query') }}
         </BaseButton>
         <BaseButton @click="previewVideo">
-            {{ t('common.button.play') }}
+            {{ t('button.play') }}
         </BaseButton>
         <BaseButton @click="updateVideo(videoid)">
-            {{ t('common.button.update') }}
+            {{ t('button.update') }}
         </BaseButton>
         <BaseButton @click="removeNewest(videoid)">
             {{ t('local.removeNewest') }}
@@ -17,15 +17,15 @@
     </div>
     <div>
         {{ t('local.field') }}<ElSelect v-model="videofield">
-            <ElOption v-for="field in videofieldlist" :key="field" :label="t(`common.prop.${field}`)" :value="field" />
+            <ElOption v-for="field in videofieldlist" :key="field" :label="t(`prop.${field}`)" :value="field" />
         </ElSelect>
     </div>
     <div>
-        {{ t('common.prop.value') }}<ElInput v-model="videovalue" />
+        {{ t('prop.value') }}<ElInput v-model="videovalue" />
     </div>
     <div>
         <BaseButton @click="setVideo(videoid, videofield, videovalue)">
-            {{ t('common.button.save') }}
+            {{ t('button.save') }}
         </BaseButton>
     </div>
     <ElDescriptions :title="t('local.videoModel')">
@@ -89,7 +89,7 @@ function previewVideo() {
 }
 
 function videoFieldLabel(field: string) {
-    const key = `common.prop.${field}`;
+    const key = `prop.${field}`;
     return globalI18n.te(key, locale.value) || globalI18n.te(key, 'en') || globalI18n.te(key, 'dev') ? t(key) : field;
 }
 

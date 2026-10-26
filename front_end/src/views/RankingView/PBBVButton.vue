@@ -2,12 +2,12 @@
     <Tippy interactive trigger="click" placement="bottom-start" max-width="none" role="dialog" :append-to="appendToBody">
         <template #default="{ state }">
             <BaseButton :type="active ? 'primary' : 'default'" :aria-pressed="active" aria-haspopup="dialog" :aria-expanded="state.isVisible" :data-level="level" class="pb-level-button">
-                {{ t(`common.level.${level}`) }}<span v-if="active">{{ selectedBv }}</span>
+                {{ t(`level.${level}`) }}<span v-if="active">{{ selectedBv }}</span>
                 <i class="pi pi-angle-down" aria-hidden="true" />
             </BaseButton>
         </template>
         <template #content="{ hide }">
-            <div class="pb-bv-grid" :data-level="level" role="group" :aria-label="`${t(`common.level.${level}`)} 3BV`" @keydown.esc.stop="hide">
+            <div class="pb-bv-grid" :data-level="level" role="group" :aria-label="`${t(`level.${level}`)} 3BV`" @keydown.esc.stop="hide">
                 <div class="pb-bv-columns pb-bv-header">
                     <span aria-hidden="true" />
                     <span v-for="digit in digits" :key="digit">{{ digit }}</span>

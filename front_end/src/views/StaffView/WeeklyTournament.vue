@@ -17,16 +17,16 @@
         </ElFormItem>
     </ElForm>
     <ElDescriptions v-if="createdWeekly" :title="t('local.result')" border :column="2">
-        <ElDescriptionsItem :label="t('common.prop.tournamentId')">
+        <ElDescriptionsItem :label="t('prop.tournamentId')">
             {{ createdWeekly.data.id }}
         </ElDescriptionsItem>
         <ElDescriptionsItem :label="t('local.weekly')">
             {{ createdWeekly.data.year }}W{{ createdWeekly.data.week }}
         </ElDescriptionsItem>
-        <ElDescriptionsItem :label="t('common.prop.start_time')">
+        <ElDescriptionsItem :label="t('prop.start_time')">
             {{ formatDateTime(createdWeekly.data.start_time) }}
         </ElDescriptionsItem>
-        <ElDescriptionsItem :label="t('common.prop.end_time')">
+        <ElDescriptionsItem :label="t('prop.end_time')">
             {{ formatDateTime(createdWeekly.data.end_time) }}
         </ElDescriptionsItem>
     </ElDescriptions>

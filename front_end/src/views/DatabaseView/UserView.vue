@@ -5,7 +5,7 @@
                 <span>{{ t('accountlink.platform') }}</span>
                 <select id="user-query-platform" v-model="draft.platform">
                     <option value="">{{ t('local.site') }}</option>
-                    <option v-for="column in accountColumns" :key="column.platform" :value="column.platform">{{ t(`common.platform.${column.platform}`) }}</option>
+                    <option v-for="column in accountColumns" :key="column.platform" :value="column.platform">{{ t(`platform.${column.platform}`) }}</option>
                 </select>
             </label>
             <label class="user-directory-filter">
@@ -22,7 +22,7 @@
         <p v-if="failed" class="text-danger" role="alert">
             {{ t('local.loadFailed') }}
             <BaseButton size="small" @click="load">
-                {{ t('common.button.retry') }}
+                {{ t('button.retry') }}
             </BaseButton>
         </p>
         <BaseTable v-loading="loading" class="user-directory-table" :table-style="{ width: 'auto', marginInline: 'auto' }" :empty="users.length === 0" :column-count="12" :empty-text="t('local.empty')" :aria-busy="loading">
@@ -30,7 +30,7 @@
                 <tr>
                     <th scope="col" rowspan="2" class="table-col-number" :aria-sort="ariaSort('id')">
                         <BaseTextButton :type="sort === 'id' ? 'primary' : 'default'" :aria-pressed="sort === 'id'" data-sort="id" @click="selectSort('id')">
-                            {{ t('common.prop.userId') }} <span v-if="sort === 'id'" aria-hidden="true">{{ reverse ? '↓' : '↑' }}</span>
+                            {{ t('prop.userId') }} <span v-if="sort === 'id'" aria-hidden="true">{{ reverse ? '↓' : '↑' }}</span>
                         </BaseTextButton>
                     </th>
                     <th scope="col" rowspan="2">
@@ -48,7 +48,7 @@
                 </tr>
                 <tr>
                     <th v-for="column in accountColumns" :key="column.platform" scope="col" class="user-directory-account" :class="{ 'user-directory-account-mineracer': column.platform === AccountLinkPlatform.Mineracer }" :style="{ '--account-id-width': column.width }">
-                        <span class="user-directory-account-heading">{{ t(`common.platform.${column.platform}`) }} ID</span>
+                        <span class="user-directory-account-heading">{{ t(`platform.${column.platform}`) }} ID</span>
                     </th>
                     <th v-for="column in statisticsColumns" :key="column.field" scope="col" class="table-col-number" :aria-sort="ariaSort(column.field)">
                         <BaseTextButton :type="sort === column.field ? 'primary' : 'default'" :aria-pressed="sort === column.field" :data-sort="column.field" @click="selectSort(column.field)">
@@ -106,8 +106,8 @@ const accountColumns = [
     { platform: AccountLinkPlatform.WoM, width: '8ch' }, { platform: AccountLinkPlatform.Mineracer, width: '20ch' },
 ] as const;
 const statisticsColumns = [
-    { field: 'video_num_total', label: 'local.ordinary', bytes: false }, { field: 'video_num_tournament', label: 'tournament.tournament', bytes: false }, { field: 'video_num_all', label: 'common.all', bytes: false },
-    { field: 'video_size_total', label: 'local.ordinary', bytes: true }, { field: 'video_size_tournament', label: 'tournament.tournament', bytes: true }, { field: 'video_size_all', label: 'common.all', bytes: true },
+    { field: 'video_num_total', label: 'local.ordinary', bytes: false }, { field: 'video_num_tournament', label: 'tournament.tournament', bytes: false }, { field: 'video_num_all', label: 'all', bytes: false },
+    { field: 'video_size_total', label: 'local.ordinary', bytes: true }, { field: 'video_size_tournament', label: 'tournament.tournament', bytes: true }, { field: 'video_size_all', label: 'all', bytes: true },
 ] as const;
 const emptyFilters: UserDirectoryFilters = { platform: '', id: '' };
 const draft = reactive({ ...emptyFilters });

@@ -8,14 +8,14 @@ import { local } from '@/store/local';
 const { t } = i18n.global;
 
 const notificationMessage: Record<number, string> = {
-    200: 'common.response.OK',
-    400: 'common.response.BadRequest',
-    403: 'common.response.Forbidden',
-    404: 'common.response.NotFound',
-    413: 'common.response.PayloadTooLarge',
-    415: 'common.response.UnsupportedMediaType',
-    429: 'common.response.TooManyRequests',
-    500: 'common.response.InternalServerError',
+    200: 'response.OK',
+    400: 'response.BadRequest',
+    403: 'response.Forbidden',
+    404: 'response.NotFound',
+    413: 'response.PayloadTooLarge',
+    415: 'response.UnsupportedMediaType',
+    429: 'response.TooManyRequests',
+    500: 'response.InternalServerError',
 };
 
 export function baseErrorNotification(title: string, message: string): void {

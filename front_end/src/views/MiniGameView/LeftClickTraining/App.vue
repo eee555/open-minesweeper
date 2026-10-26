@@ -1,10 +1,10 @@
 <template>
-    <section ref="playArea" class="training-page" :class="{ 'touch-fullscreen': isFullscreen }" :aria-label="t(gameType === 'multi-touch' ? 'common.minigame.multi-touch' : 'common.minigame.left-click')" :data-phase="phase" :data-replay="replayData !== null" data-cy="training-game">
+    <section ref="playArea" class="training-page" :class="{ 'touch-fullscreen': isFullscreen }" :aria-label="t(gameType === 'multi-touch' ? 'minigame.multi-touch' : 'minigame.left-click')" :data-phase="phase" :data-replay="replayData !== null" data-cy="training-game">
         <div class="training-controls">
-            <div class="checkbox-buttons" role="radiogroup" :aria-label="t('common.prop.level')" data-cy="training-level">
+            <div class="checkbox-buttons" role="radiogroup" :aria-label="t('prop.level')" data-cy="training-level">
                 <label v-for="item in trainingLevels" :key="item.key" class="checkbox-button">
                     <input v-model="level" class="checkbox-button-input" type="radio" :name="levelGroupName" :value="item.key">
-                    <span class="checkbox-button-content">{{ t(`common.level.${item.key}`) }}</span>
+                    <span class="checkbox-button-content">{{ t(`level.${item.key}`) }}</span>
                 </label>
             </div>
             <label>{{ t('local.density') }}
@@ -18,25 +18,25 @@
                     <span class="checkbox-button-content">{{ t(`local.${direction}`) }}</span>
                 </label>
             </div>
-            <label v-if="isFullscreen">{{ t('common.prop.cellSize') }}
+            <label v-if="isFullscreen">{{ t('prop.cellSize') }}
                 <InputNumber v-model="minigameSettings.cellSize" :min="1" :max="Number.MAX_SAFE_INTEGER" integer step="1" inputmode="numeric" data-cy="training-cell-size" />
             </label>
-            <BaseButton v-if="isFullscreen" class="square-button" :title="t('common.button.newGame')" :aria-label="t('common.button.newGame')" data-cy="training-restart" @click="restart">
+            <BaseButton v-if="isFullscreen" class="square-button" :title="t('button.newGame')" :aria-label="t('button.newGame')" data-cy="training-restart" @click="restart">
                 <i class="pi pi-refresh" aria-hidden="true" />
             </BaseButton>
-            <BaseButton v-if="gameType === 'multi-touch'" class="square-button" :disabled="!isSupported" :title="t(isFullscreen ? 'local.exitFullscreen' : 'common.button.fullscreen')" :aria-label="t(isFullscreen ? 'local.exitFullscreen' : 'common.button.fullscreen')" :aria-pressed="isFullscreen" data-cy="training-fullscreen" @click="toggleFullscreen">
+            <BaseButton v-if="gameType === 'multi-touch'" class="square-button" :disabled="!isSupported" :title="t(isFullscreen ? 'local.exitFullscreen' : 'button.fullscreen')" :aria-label="t(isFullscreen ? 'local.exitFullscreen' : 'button.fullscreen')" :aria-pressed="isFullscreen" data-cy="training-fullscreen" @click="toggleFullscreen">
                 <i class="pi" :class="isFullscreen ? 'pi-window-minimize' : 'pi-expand'" aria-hidden="true" />
             </BaseButton>
-            <a v-if="!offline && !isFullscreen" class="base-button base-button--default base-button--size-default training-download" :href="offlineDownloadUrl" :download="offlineDownloadFilename" data-cy="training-download">{{ t('common.button.downloadOffline') }}</a>
+            <a v-if="!offline && !isFullscreen" class="base-button base-button--default base-button--size-default training-download" :href="offlineDownloadUrl" :download="offlineDownloadFilename" data-cy="training-download">{{ t('button.downloadOffline') }}</a>
         </div>
-        <MiniGameFrame :restart-label="t('common.button.newGame')" :borderless="isFullscreen" :restart-on-counter="!isFullscreen" @restart="restart">
+        <MiniGameFrame :restart-label="t('button.newGame')" :borderless="isFullscreen" :restart-on-counter="!isFullscreen" @restart="restart">
             <template #remaining>
                 <div role="group" :aria-label="t('local.remaining')" :title="t('local.remaining')">
                     <Counter :value="replay.frame.value?.remaining ?? remaining" :fixed="0" :digits="3" :size="cellSize" data-cy="training-remaining" />
                 </div>
             </template>
             <template #time>
-                <div role="group" :aria-label="t('common.timeSeconds')" :title="t('common.timeSeconds')">
+                <div role="group" :aria-label="t('timeSeconds')" :title="t('timeSeconds')">
                     <Counter :value="(replay.frame.value?.timeMs ?? elapsed) / 1000" :fixed="3" :digits="3" :size="cellSize" data-cy="training-time" />
                 </div>
             </template>

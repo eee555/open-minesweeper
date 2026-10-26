@@ -1,7 +1,7 @@
 <template>
     <div class="layout-row mb-4" style="margin-bottom: 10px;">
         <BaseButton v-for="level in MS_Levels" :key="level" type="warning" :plain="levelTagSelected != level" :aria-pressed="levelTagSelected == level" size="small" @click="levelTagSelected = level; request_videos();">
-            {{ t(`common.level.${level}`) }}
+            {{ t(`level.${level}`) }}
         </BaseButton>
     </div>
 
@@ -19,29 +19,29 @@
             v-for="(value, key) in indexTags" :key="key" type="primary" :plain="!value.selected" :aria-pressed="value.selected" size="small"
             @click="indexSelect(key, value)"
         >
-            {{ t(`common.prop.${key}`) }}
+            {{ t(`prop.${key}`) }}
         </BaseButton>
     </div>
 
     <div class="description-layout">
         <h3 class="description-title">
-            {{ t('common.filter') }}
+            {{ t('filter') }}
         </h3>
         <dl class="descriptions">
             <div class="description-item">
-                <dt>{{ t('common.prop.state') }}</dt>
+                <dt>{{ t('prop.state') }}</dt>
                 <dd>
                     <VideoStateFilter v-model="videofilter.filter_state" @change="request_videos" />
                 </dd>
             </div>
             <div class="description-item">
-                <dt>{{ t('common.nf') }}</dt>
+                <dt>{{ t('nf') }}</dt>
                 <dd>
                     <ElSwitch v-model="nfOnly" @change="state.CurrentPage = 1; request_videos();" />
                 </dd>
             </div>
             <div class="description-item">
-                <dt>{{ t('common.prop.bbbv') }}</dt>
+                <dt>{{ t('prop.bbbv') }}</dt>
                 <dd>
                     <BBBVFilter :level="levelTagSelected" @change="request_videos" />
                 </dd>
@@ -55,7 +55,7 @@
             <VideoViewRealname />
             <ElTableColumn
                 v-for="key in selected_index()" :key="key" v-slot="scope" :prop="indexTags[key].key"
-                :label="t(`common.prop.${key}`)" sortable="custom"
+                :label="t(`prop.${key}`)" sortable="custom"
                 :sort-orders="indexTags[key].reverse ? (['descending', 'ascending']) : (['ascending', 'descending'])"
             >
                 <span class="nobr">

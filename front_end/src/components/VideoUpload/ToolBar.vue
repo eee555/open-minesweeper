@@ -4,7 +4,7 @@
             {{ t('local.selected', [selected, total]) }}
         </span>
         <BaseButton :disabled="processing || selectedNone" @click="emit('upload')">
-            <BaseIconUpload />&nbsp;{{ t('common.button.upload') }}
+            <BaseIconUpload />&nbsp;{{ t('button.upload') }}
         </BaseButton>
         <BaseButton :disabled="processing || selectedNone" @click="emit('remove')">
             <BaseIconDelete />&nbsp;{{ t('local.remove') }}

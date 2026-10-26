@@ -20,7 +20,7 @@
                 <template #default="scope">
                     <!-- 添加标识 -->
                     <BaseTextButton
-                        v-if="scope.row.data === ''" underline="never" :aria-label="t('common.action.addIdentifier')"
+                        v-if="scope.row.data === ''" underline="never" :aria-label="t('action.addIdentifier')"
                         @click="addIdentifier(new_identifiers)"
                     >
                         <BaseIconAdd />

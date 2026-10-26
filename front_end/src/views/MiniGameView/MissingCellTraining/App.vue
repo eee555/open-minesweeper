@@ -1,13 +1,13 @@
 <template>
-    <section class="training-page" :aria-label="t('common.minigame.missing-cell')" :data-phase="phase" :data-replay="replayData !== null" data-cy="missing-cell-game">
+    <section class="training-page" :aria-label="t('minigame.missing-cell')" :data-phase="phase" :data-replay="replayData !== null" data-cy="missing-cell-game">
         <div class="training-controls">
-            <div class="checkbox-buttons" role="radiogroup" :aria-label="t('common.prop.level')" data-cy="missing-cell-level">
+            <div class="checkbox-buttons" role="radiogroup" :aria-label="t('prop.level')" data-cy="missing-cell-level">
                 <label v-for="item in missingCellModes" :key="item.key" class="checkbox-button">
                     <input v-model="level" class="checkbox-button-input" type="radio" :name="levelGroupName" :value="item.key">
-                    <span class="checkbox-button-content">{{ t(`common.level.${item.key}`) }}</span>
+                    <span class="checkbox-button-content">{{ t(`level.${item.key}`) }}</span>
                 </label>
             </div>
-            <a v-if="!offline" class="base-button base-button--default base-button--size-default training-download" :href="offlineDownloadUrl" :download="offlineDownloadFilename" data-cy="missing-cell-download">{{ t('common.button.downloadOffline') }}</a>
+            <a v-if="!offline" class="base-button base-button--default base-button--size-default training-download" :href="offlineDownloadUrl" :download="offlineDownloadFilename" data-cy="missing-cell-download">{{ t('button.downloadOffline') }}</a>
         </div>
         <MiniGameFrame :restart-label="t('local.restart')" @restart="restart">
             <template #remaining>
@@ -16,7 +16,7 @@
                 </div>
             </template>
             <template #time>
-                <div role="group" :aria-label="t('common.timeSeconds')" :title="t('common.timeSeconds')">
+                <div role="group" :aria-label="t('timeSeconds')" :title="t('timeSeconds')">
                     <Counter :value="(preview?.timeMs ?? elapsed) / 1000" :fixed="3" :digits="3" :size="minigameSettings.cellSize" data-cy="missing-cell-time" />
                 </div>
             </template>

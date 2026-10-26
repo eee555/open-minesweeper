@@ -2,7 +2,7 @@
     <RefreshableCard data-statistic="videos" class="statistics-card" :title="t('local.title')" :loading="loading" @refresh="emit('refresh')">
         <div class="video-dimensions" role="group" :aria-label="t('local.dimension')">
             <BaseTextButton v-for="key in dimensions" :key="key" size="small" :aria-pressed="dimension === key" @click="dimension = key">
-                {{ t(`common.prop.${key}`) }}
+                {{ t(`prop.${key}`) }}
             </BaseTextButton>
         </div>
         <p v-if="failed" role="alert" class="text-danger">
@@ -86,13 +86,13 @@ const total = computed(() => (data.value === null ? null : currentPanel.value?.t
 function categoryName(key: string, panelDimension: Dimension) {
     if (panelDimension === 'mode') {
         if (extraModes.includes(key)) return t(`local.mode${key}`);
-        return orders.mode.includes(key) ? t(`common.mode.code${key}`) : key;
+        return orders.mode.includes(key) ? t(`mode.code${key}`) : key;
     }
     if (panelDimension === 'level') {
         const custom = (/^c(\d+)_(\d+)_(\d+)$/).exec(key);
-        if (custom) return t('common.level.c', { row: custom[1], column: custom[2], mine: custom[3] });
+        if (custom) return t('level.c', { row: custom[1], column: custom[2], mine: custom[3] });
     }
-    return orders[panelDimension].includes(key) ? t(`common.${panelDimension}.${key}`) : key;
+    return orders[panelDimension].includes(key) ? t(`${panelDimension}.${key}`) : key;
 }
 
 function formatCount(value: number) {

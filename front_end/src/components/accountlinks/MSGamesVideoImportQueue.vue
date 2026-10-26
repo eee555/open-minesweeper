@@ -2,7 +2,7 @@
     <section v-loading="loading">
         <div class="msgames-controls">
             <BaseButton size="small" :disabled="loading || sending" @click="refresh()">
-                {{ t('common.action.refresh') }}
+                {{ t('action.refresh') }}
             </BaseButton>
             <template v-if="owner">
                 <BaseButton size="small" :disabled="loading || sending" @click="sync">
@@ -55,7 +55,7 @@
             <PrColumn field="import_status" :show-filter-menu="false">
                 <template #header>
                     <div class="msgames-filter-header">
-                        <span>{{ t('common.button.import') }}</span>
+                        <span>{{ t('button.import') }}</span>
                         <select v-model="filters.import_status.value" :aria-label="t('local.statusFilter')" class="msgames-status-filter">
                             <option :value="null">
                                 {{ t('local.allStatuses') }}
@@ -72,7 +72,7 @@
                     </VideoPreviewLink>
                     <span v-else-if="data.import_status === 'unsupported'">{{ t('local.unsupported') }}</span>
                     <BaseButton v-else-if="owner" size="small" :disabled="sending" @click="importOne(data)">
-                        {{ data.import_status === 'failed' ? t('common.button.retry') : t('common.button.import') }}
+                        {{ data.import_status === 'failed' ? t('button.retry') : t('button.import') }}
                     </BaseButton>
                     <span v-if="data.import_status === 'importing'">{{ t('local.importing') }}</span>
                     <span v-else-if="data.import_status === 'failed'">{{ t('local.failed') }}: {{ failures[data.id] }}</span>

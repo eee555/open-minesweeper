@@ -6,13 +6,13 @@
                     #
                 </th>
                 <th scope="col" class="table-col-player">
-                    {{ t('common.prop.player') }}
+                    {{ t('prop.player') }}
                 </th>
                 <th v-for="stat in pbStats" :key="stat" scope="col" class="table-col-number">
-                    {{ t(`common.prop.${stat}`) }}
+                    {{ t(`prop.${stat}`) }}
                 </th>
                 <th scope="col" class="table-col-datetime">
-                    {{ t('common.prop.upload_time') }}
+                    {{ t('prop.upload_time') }}
                 </th>
             </tr>
         </template>

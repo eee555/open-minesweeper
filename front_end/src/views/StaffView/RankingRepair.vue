@@ -5,21 +5,21 @@
             <ElSelect v-model="rankingName" :aria-label="t('local.ranking')" :disabled="working">
                 <ElOption :label="t('local.standard')" value="saolei" />
                 <ElOption :label="t('local.nf')" value="saolei_nf" />
-                <ElOption :label="t('common.prop.thrp')" value="thrp" />
+                <ElOption :label="t('prop.thrp')" value="thrp" />
             </ElSelect>
         </label>
         <label>
             {{ t('local.stat') }}
             <ElSelect v-if="rankingName === 'thrp'" v-model="thrpStat" :aria-label="t('local.stat')" :disabled="working">
-                <ElOption v-for="field in thrpStats" :key="field" :label="t(`common.level.${field}`)" :value="field" />
+                <ElOption v-for="field in thrpStats" :key="field" :label="t(`level.${field}`)" :value="field" />
             </ElSelect>
             <ElSelect v-else v-model="stat" :aria-label="t('local.stat')" :disabled="working">
                 <ElOption v-for="field in saoleiFields" :key="field" :label="t(`local.${field}`)" :value="field" />
             </ElSelect>
         </label>
         <label>
-            {{ t('common.prop.userId') }}
-            <ElInputNumber v-model="userId" :aria-label="t('common.prop.userId')" :min="1" :precision="0" :controls="false" :disabled="working" />
+            {{ t('prop.userId') }}
+            <ElInputNumber v-model="userId" :aria-label="t('prop.userId')" :min="1" :precision="0" :controls="false" :disabled="working" />
         </label>
         <BaseButton native-type="submit" :disabled="!canRebuild" :loading="working">
             <template #icon>
@@ -54,7 +54,7 @@ const userId = ref<number>();
 const working = ref(false);
 const result = ref<{ value: string; videoId?: number }>();
 const canRebuild = computed(() => userId.value !== undefined && Number.isSafeInteger(userId.value) && userId.value > 0);
-const selectedLabel = computed(() => (rankingName.value === 'thrp' ? t(`common.level.${thrpStat.value}`) : t(`local.${stat.value}`)));
+const selectedLabel = computed(() => (rankingName.value === 'thrp' ? t(`level.${thrpStat.value}`) : t(`local.${stat.value}`)));
 
 watch([rankingName, stat, thrpStat, userId], () => {
     result.value = undefined;

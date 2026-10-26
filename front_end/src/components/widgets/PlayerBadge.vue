@@ -1,7 +1,7 @@
 <template>
     <UserAvatar v-if="showAvatar" :user-id="userId" style="height: 1em; margin-right: 0.25em" />
     <span v-if="name === ''">
-        {{ t('common.anonymous') }}
+        {{ t('anonymous') }}
     </span>
     <span v-else>
         {{ name }}

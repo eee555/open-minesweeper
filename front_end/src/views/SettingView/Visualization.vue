@@ -13,7 +13,7 @@
                     {{ t('local.level') }}
                 </div>
                 <span v-for="level in ['b', 'i', 'e', 'c']" class="text-regular" style="display: flex; gap: 0.5em">
-                    <span>{{ t(`common.level.${level}`) }}</span>
+                    <span>{{ t(`level.${level}`) }}</span>
                     <ElColorPicker v-model="colorTheme.level[level]" size="small" />
                 </span>
             </div>

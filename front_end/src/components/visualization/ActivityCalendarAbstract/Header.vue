@@ -59,13 +59,13 @@ const levelStats = computed(() => {
 const totalSize = computed(() => levelStats.value.b.size + levelStats.value.i.size + levelStats.value.e.size + levelStats.value.c.size);
 
 const videoCountData = computed(() => levelGroups.map((level) => ({
-    name: t(`common.level.${level}`),
+    name: t(`level.${level}`),
     value: levelStats.value[level].count,
     color: colorTheme.value.level[level],
 })));
 
 const videoFileSizeData = computed(() => levelGroups.map((level) => ({
-    name: t(`common.level.${level}`),
+    name: t(`level.${level}`),
     value: levelStats.value[level].size,
     color: colorTheme.value.level[level],
 })));

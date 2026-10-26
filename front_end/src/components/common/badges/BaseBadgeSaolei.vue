@@ -1,7 +1,7 @@
 <template>
     <img src="http://saolei.wang/favicon.ico" style="height: 16px; vertical-align: middle">
     <span class="text-regular text-small">
-        {{ t('common.website.saolei') }}
+        {{ t('website.saolei') }}
     </span>
 </template>
 

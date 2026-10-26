@@ -7,7 +7,7 @@
             </span>
             <BaseTextButton
                 v-else-if="isActive" underline="never"
-                :disabled="loadingStatus != QueueRefreshStatus.Available" :aria-label="t('common.action.getVideoModel')"
+                :disabled="loadingStatus != QueueRefreshStatus.Available" :aria-label="t('action.getVideoModel')"
                 style="vertical-align: baseline;" @keydown.stop @click="refresh"
             >
                 <BaseIconRefresh />

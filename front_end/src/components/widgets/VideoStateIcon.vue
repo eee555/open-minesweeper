@@ -1,8 +1,8 @@
 <template>
-    <span v-if="state === MS_State.Local" class="text text-info" :title="t('common.state.l')" :aria-label="t('common.state.l')" data-cy="local-video-state">
+    <span v-if="state === MS_State.Local" class="text text-info" :title="t('state.l')" :aria-label="t('state.l')" data-cy="local-video-state">
         <i class="pi pi-desktop" aria-hidden="true" />
     </span>
-    <span v-else-if="state == MS_State.Identifier" :title="t('common.state.d')">
+    <span v-else-if="state == MS_State.Identifier" :title="t('state.d')">
         <ElIcon>
             <BaseIconIdentifier style="color: var(--ui-color-warning)" />
         </ElIcon>

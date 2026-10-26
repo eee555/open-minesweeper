@@ -6,7 +6,7 @@
         </BaseButton>
         <span style="flex: 1" />
         <BaseButton size="small" :loading="loading" data-cy="refresh-videos" @click="refresh">
-            {{ t('common.action.refresh') }}
+            {{ t('action.refresh') }}
         </BaseButton>
         <BaseButton v-if="presentation === 'table'" class="square-button" :type="showSetting ? 'primary' : 'default'" :aria-label="t('local.columns')" :aria-pressed="showSetting" @click="showSetting = !showSetting">
             <BaseIconSetting />
@@ -51,18 +51,18 @@
             </label>
             <SoftwareFilter v-model="filters.software" />
             <VideoStateFilter v-model="filters.state" :include-local="localVideos.length > 0" class="checkbox-buttons--compact" />
-            <label>{{ t('common.prop.level') }}
+            <label>{{ t('prop.level') }}
                 <select v-model="filters.level" data-cy="video-level-filter">
-                    <option value="">{{ t('common.all') }}</option>
-                    <option v-for="level in MS_Levels" :key="level" :value="level">{{ t(`common.level.${level}`) }}</option>
+                    <option value="">{{ t('all') }}</option>
+                    <option v-for="level in MS_Levels" :key="level" :value="level">{{ t(`level.${level}`) }}</option>
                     <option value="custom">{{ t('local.custom') }}</option>
                 </select>
             </label>
-            <ElSelect v-model="filters.mode" multiple collapse-tags clearable size="small" style="width: 10em" :placeholder="t('local.allModes')" :aria-label="t('common.prop.mode')">
-                <ElOption v-for="mode in Object.values(MS_Mode)" :key="mode" :value="mode" :label="t(`common.mode.code${mode}`)" />
+            <ElSelect v-model="filters.mode" multiple collapse-tags clearable size="small" style="width: 10em" :placeholder="t('local.allModes')" :aria-label="t('prop.mode')">
+                <ElOption v-for="mode in Object.values(MS_Mode)" :key="mode" :value="mode" :label="t(`mode.code${mode}`)" />
             </ElSelect>
         </div>
-        <MultiSelector v-if="presentation === 'table' && showSetting" v-model="VideoListConfig.profile" :options="thisColumnChoices" :labels="thisColumnChoices.map((s) => t(`common.prop.${s}`))" />
+        <MultiSelector v-if="presentation === 'table' && showSetting" v-model="VideoListConfig.profile" :options="thisColumnChoices" :labels="thisColumnChoices.map((s) => t(`prop.${s}`))" />
         <VideoList
             v-if="presentation === 'table'"
             v-model:first="first" v-model:rows="rows" v-model:sort-field="sortField" v-model:sort-order="sortOrder"
@@ -85,7 +85,7 @@
         <p>{{ t('local.confirmReveal') }}</p>
         <template #footer>
             <BaseButton :disabled="revealing" @click="dialogVisible = false">
-                {{ t('common.button.cancel') }}
+                {{ t('button.cancel') }}
             </BaseButton>
             <BaseButtonConfirm :loading="revealing" @click="confirmReveal" />
         </template>
@@ -149,7 +149,7 @@ const filteredVideos = computed(() => filterProfileVideos(selectedVideos.value, 
 const rangeLabel = computed(() => {
     const current = selection.value;
     if (current.kind === 'date') return current.dateKey;
-    if (current.kind === 'bv') return `${t(`common.level.${current.level}`)} · BV ${current.bv}`;
+    if (current.kind === 'bv') return `${t(`level.${current.level}`)} · BV ${current.bv}`;
     return t('local.allVideos');
 });
 function selectDate(dateKey: string) {

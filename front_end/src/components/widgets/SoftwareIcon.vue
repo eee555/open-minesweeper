@@ -1,5 +1,5 @@
 <template>
-    <img style="width: 16px; height: 16px" :src="iconSrc" :title="t(`common.software.${software}`)">
+    <img style="width: 16px; height: 16px" :src="iconSrc" :title="t(`software.${software}`)">
 </template>
 
 <script setup lang="ts">

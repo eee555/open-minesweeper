@@ -2,7 +2,7 @@
     <ElDialog v-model="visible" :title="creating ? t('local.add') : `${t('local.edit')}: ${event.key}`" width="min(520px, calc(100vw - 24px))" append-to-body @closed="emit('close')">
         <form id="custom-event-editor-form" class="custom-event-editor" @submit.prevent="save">
             <label><span>key</span><input v-model="draft.key" class="base-input custom-event-editor__key" required @input="validationError = ''"></label>
-            <label><span>{{ t('common.prop.expression') }}</span><textarea v-model="draft.expression" class="base-input custom-event-editor__expression" rows="3" /></label>
+            <label><span>{{ t('prop.expression') }}</span><textarea v-model="draft.expression" class="base-input custom-event-editor__expression" rows="3" /></label>
             <div class="custom-event-editor__field">
                 <span>{{ t('local.type') }}</span>
                 <div class="button-group button-group--joined custom-event-editor__types" role="group" :aria-label="t('local.type')">
@@ -11,16 +11,16 @@
                     </BaseButton>
                 </div>
             </div>
-            <label><span>{{ t('common.prop.color') }}</span><BaseColorPicker v-model="draft.color" class="custom-event-editor__color" /></label>
+            <label><span>{{ t('prop.color') }}</span><BaseColorPicker v-model="draft.color" class="custom-event-editor__color" /></label>
             <template v-if="draft.type === 'pulse'">
                 <label><span>{{ t('local.shape') }}</span><select v-model="draft.marker.shape" class="custom-event-editor__shape"><option v-for="shape in eventMarkerShapes" :key="shape" :value="shape">{{ t(`local.${shape}`) }}</option></select></label>
                 <label><span>{{ t('local.size') }} (px)</span><InputNumber v-model="draft.marker.size" class="custom-event-editor__marker-size" :min="1" :step="1" /></label>
-                <label><span>{{ t('common.prop.opacity') }}</span><InputNumber v-model="draft.marker.opacity" :min="0" :max="1" :step="0.01" /></label>
+                <label><span>{{ t('prop.opacity') }}</span><InputNumber v-model="draft.marker.opacity" :min="0" :max="1" :step="0.01" /></label>
             </template>
             <template v-else>
                 <label><span>{{ t('local.lineStyle') }}</span><select v-model="draft.line.style" class="custom-event-editor__line-style"><option v-for="style in eventLineStyles" :key="style" :value="style">{{ t(`local.${style}`) }}</option></select></label>
                 <label><span>{{ t('local.width') }} (px)</span><InputNumber v-model="draft.line.width" :min="0.1" :step="0.1" /></label>
-                <label><span>{{ t('common.prop.opacity') }}</span><InputNumber v-model="draft.line.opacity" :min="0" :max="1" :step="0.01" /></label>
+                <label><span>{{ t('prop.opacity') }}</span><InputNumber v-model="draft.line.opacity" :min="0" :max="1" :step="0.01" /></label>
             </template>
             <CounterExpressionHelp />
             <output class="contains custom-event-editor__preview" aria-live="polite">{{ t('local.occurrences', { count: draft.type === 'pulse' ? preview.pulses.length : preview.spans.length }) }}</output>
@@ -35,10 +35,10 @@
                 </BaseButton>
                 <div class="button-group button-group--joined">
                     <BaseButton class="custom-event-editor__cancel" @click="visible = false">
-                        {{ t('common.button.cancel') }}
+                        {{ t('button.cancel') }}
                     </BaseButton>
                     <BaseButton class="custom-event-editor__save" type="primary" native-type="submit" form="custom-event-editor-form">
-                        {{ t('common.button.save') }}
+                        {{ t('button.save') }}
                     </BaseButton>
                 </div>
             </div>

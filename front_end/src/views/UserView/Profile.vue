@@ -17,7 +17,7 @@
                     </span>
                 </div>
                 <div class="realname">
-                    {{ user.isAnonymous ? t('common.anonymous') : user.realname }}
+                    {{ user.isAnonymous ? t('anonymous') : user.realname }}
                 </div>
                 <div class="fullname">
                     {{ formatName(user.firstname, user.lastname, local.nameFormat) }}

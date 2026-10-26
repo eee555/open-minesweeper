@@ -1,6 +1,6 @@
 <template>
     <BaseButton v-bind="$attrs" type="primary">
-        {{ t('common.button.confirm') }}
+        {{ t('button.confirm') }}
     </BaseButton>
 </template>
 

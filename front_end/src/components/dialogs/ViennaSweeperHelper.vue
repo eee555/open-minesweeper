@@ -5,7 +5,7 @@
             <br>
             {{ t('local.description2') }}
             <br>
-            {{ t('software.officialSite') }}{{ t('common.punct.colon') }}
+            {{ t('software.officialSite') }}{{ t('punct.colon') }}
             https://sweeper.wien
         </span>
         <div style="height: 1em" />

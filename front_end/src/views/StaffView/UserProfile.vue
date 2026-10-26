@@ -1,9 +1,9 @@
 <template>
     <div>
-        {{ t('common.prop.userId') }}
+        {{ t('prop.userId') }}
         <ElInputNumber v-model="userId" :controls="false" :min="1" />
         <BaseButton :loading="loading" @click="loadUser">
-            {{ t('common.button.query') }}
+            {{ t('button.query') }}
         </BaseButton>
     </div>
 
@@ -83,7 +83,7 @@ async function saveUserProfile() {
         const value = payload[field];
         return typeof value === 'string' && value.trim() === HIDDEN_NAME;
     })) {
-        baseErrorNotification(t('local.jsonError'), t('common.msg.reservedName'));
+        baseErrorNotification(t('local.jsonError'), t('msg.reservedName'));
         return;
     }
     if (profile.value.can_hide_realname === true && payload.can_hide_realname === false && !window.confirm(t('local.revokePrivacy'))) return;

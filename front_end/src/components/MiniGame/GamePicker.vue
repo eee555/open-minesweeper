@@ -1,7 +1,7 @@
 <template>
-    <nav class="minigame-picker" :aria-label="t('common.minigame.title')">
+    <nav class="minigame-picker" :aria-label="t('minigame.title')">
         <BaseButton v-for="game in trainingGames" :key="game" :type="modelValue === game ? 'primary' : 'default'" :aria-pressed="modelValue === game" :data-cy="`game-${game}`" @click="emit('update:modelValue', game)">
-            {{ t(`common.minigame.${game}`) }}
+            {{ t(`minigame.${game}`) }}
         </BaseButton>
     </nav>
 </template>

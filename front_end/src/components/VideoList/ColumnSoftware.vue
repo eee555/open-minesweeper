@@ -22,7 +22,7 @@
         <template #filter="{ filterModel, applyFilter }">
             <PrListbox v-model="filterModel.value" multiple :options="[...MS_Softwares]" @change="applyFilter()">
                 <template #option="slotProps">
-                    {{ t(`common.software.${slotProps.option}`) }}
+                    {{ t(`software.${slotProps.option}`) }}
                 </template>
             </PrListbox>
         </template>

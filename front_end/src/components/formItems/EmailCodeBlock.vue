@@ -25,7 +25,7 @@
                 <VueCountdown v-if="counting" v-slot="{ totalSeconds }" :time="60000" @end="counting = false;">
                     ({{ totalSeconds }})
                 </VueCountdown>
-                <span v-else>{{ t('common.button.send') }}</span>
+                <span v-else>{{ t('button.send') }}</span>
             </BaseButton>
         </div>
     </ElFormItem>

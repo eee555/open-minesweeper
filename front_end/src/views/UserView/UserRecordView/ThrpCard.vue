@@ -1,19 +1,19 @@
 <template>
     <section class="thrp-record" :aria-busy="loading">
         <h3 class="text text-large">
-            {{ t('common.prop.thrp') }}
+            {{ t('prop.thrp') }}
         </h3>
         <p v-if="failed" role="alert" class="text-danger">
             {{ t('local.loadFailed') }}
             <BaseTextButton @click="retry++">
-                <i class="pi pi-refresh" aria-hidden="true" />{{ t('common.action.refresh') }}
+                <i class="pi pi-refresh" aria-hidden="true" />{{ t('action.refresh') }}
             </BaseTextButton>
         </p>
         <BaseTable v-loading="loading" table-class="thrp-record-table">
             <template #head>
                 <tr>
                     <th v-for="stat in thrpStats" :key="stat" scope="col" class="table-col-center">
-                        {{ t(`common.level.${stat}`) }}
+                        {{ t(`level.${stat}`) }}
                     </th>
                 </tr>
             </template>

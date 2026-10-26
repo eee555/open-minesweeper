@@ -2,7 +2,7 @@
     <div class="minigame-settings" :class="{ 'description-layout': descriptionLayout, 'minigame-settings--descriptions': descriptionLayout }">
         <dl :class="descriptionLayout ? 'descriptions' : 'minigame-settings-list'">
             <div :class="descriptionLayout ? 'description-item' : 'minigame-settings-row'">
-                <dt><label :for="cellSizeId">{{ t('common.prop.cellSize') }}</label></dt>
+                <dt><label :for="cellSizeId">{{ t('prop.cellSize') }}</label></dt>
                 <dd class="minigame-settings-controls">
                     <InputNumber :id="cellSizeId" v-model="minigameSettings.cellSize" :min="1" :max="Number.MAX_SAFE_INTEGER" integer step="1" inputmode="numeric" data-cy="minigame-cell-size" />
                     <span>px</span>

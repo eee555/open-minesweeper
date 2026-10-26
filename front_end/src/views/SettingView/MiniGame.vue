@@ -1,7 +1,7 @@
 <template>
     <section class="card" data-cy="minigame-settings-section">
         <h2 class="card-title">
-            {{ t('common.minigame.title') }}
+            {{ t('minigame.title') }}
         </h2>
         <MiniGameSettings description-layout />
     </section>

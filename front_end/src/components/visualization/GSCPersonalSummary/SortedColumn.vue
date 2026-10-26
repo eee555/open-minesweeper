@@ -1,6 +1,6 @@
 <template>
     <div class="cell text-regular">
-        {{ t(`common.prop.${sortBy}`) }}
+        {{ t(`prop.${sortBy}`) }}
     </div>
     <VideoCell v-for="video in sortedVideos" :key="video.id" class="cell" :video="video" :text="video.displayStat(sortBy)" :value="video[sortBy]" :color-theme="colorScheme" />
     <VideoCell v-for="i in count - sortedVideos.length" :key="`default-${i}`" class="cell" :text="defaultStatText" :value="defaultStat" :color-theme="colorScheme" />

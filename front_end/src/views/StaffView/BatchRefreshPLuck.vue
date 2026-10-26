@@ -3,10 +3,10 @@
     {{ t('local.endId') }}<ElInputNumber v-model="endid" />&nbsp;
     {{ t('staff.batch.size') }}<ElInputNumber v-model="batchsize" />&nbsp;
     <BaseButton :disabled="working" @click="startBatchUpdate">
-        {{ t('common.button.start') }}
+        {{ t('button.start') }}
     </BaseButton>
     <BaseButton :disabled="!working" @click="stopBatchUpdate">
-        {{ t('common.button.stop') }}
+        {{ t('button.stop') }}
     </BaseButton><br>
     {{ t('staff.batch.help') }}
     <div v-for="(log, index) in logList" :key="index">

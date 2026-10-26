@@ -1,7 +1,7 @@
 <template>
     <section class="efficiency-ranking">
         <div class="efficiency-toolbar">
-            <strong>{{ t('common.prop.thrp') }}</strong>
+            <strong>{{ t('prop.thrp') }}</strong>
             <Tippy>
                 <BaseIconInfo />
                 <template #content>
@@ -21,10 +21,10 @@
                 </template>
             </Tippy>
             <div class="efficiency-actions">
-                <BaseButton class="square-button" data-cy="ranking-color" :type="local.colored ? 'primary' : 'default'" :aria-label="t('common.prop.color')" :title="t('common.prop.color')" :aria-pressed="local.colored" @click="local.colored = !local.colored">
+                <BaseButton class="square-button" data-cy="ranking-color" :type="local.colored ? 'primary' : 'default'" :aria-label="t('prop.color')" :title="t('prop.color')" :aria-pressed="local.colored" @click="local.colored = !local.colored">
                     <i class="efficiency-color-icon pi pi-palette" aria-hidden="true" />
                 </BaseButton>
-                <BaseButton class="square-button" data-cy="ranking-refresh" :disabled="!ranking" :aria-label="t('common.action.refresh')" :title="t('common.action.refresh')" @click="ranking?.refresh()">
+                <BaseButton class="square-button" data-cy="ranking-refresh" :disabled="!ranking" :aria-label="t('action.refresh')" :title="t('action.refresh')" @click="ranking?.refresh()">
                     <BaseIconRefresh :loading="ranking?.loading ?? false" aria-hidden="true" />
                 </BaseButton>
             </div>

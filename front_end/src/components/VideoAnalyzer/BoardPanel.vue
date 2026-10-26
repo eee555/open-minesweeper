@@ -88,8 +88,8 @@
                                 <span>{{ t('local.showCursor') }}</span>
                             </label>
                             <div class="video-analyzer-board__cursor-setting">
-                                <span>{{ t('common.prop.shape') }}</span>
-                                <div class="button-group button-group--joined video-analyzer-board__cursor-shapes" role="group" :aria-label="t('common.prop.shape')">
+                                <span>{{ t('prop.shape') }}</span>
+                                <div class="button-group button-group--joined video-analyzer-board__cursor-shapes" role="group" :aria-label="t('prop.shape')">
                                     <BaseButton v-for="shape in cursorShapes" :key="shape.value" class="square-button video-analyzer-board__cursor-shape" :class="`video-analyzer-board__cursor-shape--${shape.value}`" size="small" :type="cursorShape === shape.value ? 'primary' : 'default'" :aria-pressed="cursorShape === shape.value" :aria-label="t(`local.cursor-${shape.value}`)" :title="t(`local.cursor-${shape.value}`)" @click="cursorShape = shape.value">
                                         <i class="pi" :class="shape.icon" aria-hidden="true" />
                                     </BaseButton>

@@ -1,6 +1,6 @@
 <template>
     <Tippy interactive animate-fill arrow trigger="click" append-to="parent">
-        <BaseTextButton underline="never" :aria-label="t('common.settings')">
+        <BaseTextButton underline="never" :aria-label="t('settings')">
             <BaseIconSetting />
         </BaseTextButton>
         <template #content>

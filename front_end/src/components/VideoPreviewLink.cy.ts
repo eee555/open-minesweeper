@@ -63,10 +63,10 @@ describe('<VideoPreviewLink />', () => {
     it('loads the software icon and renders a single summary on hover without opening the player', () => {
         mockVideoInfo([{ id: 42, software: 'a', timems: 12345, bv: 4 }]);
         mountLink(42);
-        cy.get('.video-preview-link .video-preview-software').should('be.visible').and('have.attr', 'title', i18n.global.t('common.software.a'));
+        cy.get('.video-preview-link .video-preview-software').should('be.visible').and('have.attr', 'title', i18n.global.t('software.a'));
         cy.get('.descriptions').should('not.exist');
         cy.get('.video-preview-link').trigger('mouseenter');
-        cy.get('[role=tooltip]:visible').should('have.length', 1).and('contain.text', '12.345').and('not.contain.text', i18n.global.t('common.prop.upload_time'));
+        cy.get('[role=tooltip]:visible').should('have.length', 1).and('contain.text', '12.345').and('not.contain.text', i18n.global.t('prop.upload_time'));
         cy.wrap(videoplayerstore).its('visible').should('eq', false);
         cy.get('.video-preview-link').trigger('mouseleave');
         cy.get('[role=tooltip]:visible').should('not.exist');
@@ -78,7 +78,7 @@ describe('<VideoPreviewLink />', () => {
         Reflect.set(local.value, 'tooltip_show', false);
         mountLink(43, 'r');
 
-        cy.get('.video-preview-software').should('have.attr', 'title', i18n.global.t('common.software.r'));
+        cy.get('.video-preview-software').should('have.attr', 'title', i18n.global.t('software.r'));
         cy.get('.video-preview-link').trigger('mouseenter');
         cy.get('[role=tooltip]:visible').should('have.length', 1).and('contain.text', '12.345');
         cy.wrap(videoplayerstore).its('visible').should('eq', false);
@@ -112,7 +112,7 @@ describe('<VideoPreviewLink />', () => {
         });
         cy.get<ComponentWrapper<typeof Link>>('@vue').then((wrapper) => wrapper.setProps({ id: 43 }));
         cy.get('.video-preview-link').should('have.attr', 'href', '#/video/43');
-        cy.get('.video-preview-software').should('have.attr', 'title', i18n.global.t('common.software.r'));
+        cy.get('.video-preview-software').should('have.attr', 'title', i18n.global.t('software.r'));
         cy.get('@videoMetadata.all').should('have.length', 0);
     });
 

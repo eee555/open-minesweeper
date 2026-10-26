@@ -2,13 +2,13 @@
     <section class="pb-summary" :aria-busy="loading" data-cy="pb-summary">
         <div class="pb-controls">
             <label class="checkbox checkbox--small"><input v-model="nf" class="checkbox-input" type="checkbox"> NF</label>
-            <div class="button-group button-group--joined" role="group" :aria-label="t('common.prop.metric')" data-cy="pb-stat">
+            <div class="button-group button-group--joined" role="group" :aria-label="t('prop.metric')" data-cy="pb-stat">
                 <BaseButton v-for="metric in summaryStats" :key="metric" size="small" :type="stat === metric ? 'primary' : 'default'" :aria-pressed="stat === metric" :data-stat="metric" @click="stat = metric">
-                    {{ metric === 'rank' ? t('common.prop.rank') : t(`common.prop.${metric}`) }}
+                    {{ metric === 'rank' ? t('prop.rank') : t(`prop.${metric}`) }}
                 </BaseButton>
             </div>
             <BaseButton size="small" :loading="loading" data-cy="refresh-pb" @click="load(true)">
-                {{ t('common.action.refresh') }}
+                {{ t('action.refresh') }}
             </BaseButton>
         </div>
         <p v-if="loading" role="status">

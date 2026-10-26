@@ -1,5 +1,5 @@
 <template>
-    <slot :open="openDialog" :logout="logout" :labels="{ login: t('local.menu.login'), register: t('common.button.register'), logout: t('local.menu.logout') }" />
+    <slot :open="openDialog" :logout="logout" :labels="{ login: t('local.menu.login'), register: t('button.register'), logout: t('local.menu.logout') }" />
     <!-- 以下的所有表单的输入项都需要@keydown.stop，解决horizontal菜单截留空格操作的问题。 -->
     <!-- https://github.com/element-plus/element-plus/issues/10172#issuecomment-1295794523 -->
     <ElDialog v-if="dialogVisible" v-model="dialogVisible" width="min(28rem, 95vw)" append-to-body :title="t(`local.title.${activeDialog}`)">
@@ -66,15 +66,15 @@ async function logout() {
     logoutPending = true;
     try {
         const confirmed = await ElMessageBox.confirm(t('local.confirmLogout'), t('local.menu.logout'), {
-            confirmButtonText: t('common.button.confirm'),
-            cancelButtonText: t('common.button.cancel'),
+            confirmButtonText: t('button.confirm'),
+            cancelButtonText: t('button.cancel'),
             type: 'warning',
             customStyle: { borderRadius: '0', maxWidth: 'calc(100vw - 24px)' },
         }).then(() => true, () => false);
         if (!confirmed) return;
         await proxy.$axios.post('/userprofile/logout/', {}).then(function () {
             store.logout();
-            ElMessage.success({ message: t('common.msg.logoutSuccess'), offset: 68 });
+            ElMessage.success({ message: t('msg.logoutSuccess'), offset: 68 });
             dialogVisible.value = false;
         }).catch(httpErrorNotification);
     } finally {

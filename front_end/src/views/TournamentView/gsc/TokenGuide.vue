@@ -5,10 +5,10 @@
         </a>
         <div v-if="!participant">
             <BaseButton :disabled="store.isUserAnonymous" :loading="registeringParticipant" @click="registerParticipant">
-                {{ t('common.button.register') }}
+                {{ t('button.register') }}
             </BaseButton>
             <span v-if="store.isUserAnonymous" class="text-danger">
-                {{ t('common.msg.realNameRequired') }}
+                {{ t('msg.realNameRequired') }}
             </span>
         </div>
         <div v-else-if="token === ''">
@@ -19,9 +19,9 @@
             <span class="ttfamily">{{ token }}</span>
             <IconCopy :text="token" />
             <div v-if="identifier === ''">
-                <ElInput v-model="newIdentifier" :placeholder="t('common.prop.identifier')" style="width: 260px" />
+                <ElInput v-model="newIdentifier" :placeholder="t('prop.identifier')" style="width: 260px" />
                 <BaseButton :loading="registeringIdentifier" @click="registerIdentifier">
-                    {{ t('common.button.register') }}
+                    {{ t('button.register') }}
                 </BaseButton>
                 <span v-if="errorText !== ''" class="text-danger">
                     {{ errorText }}

@@ -11,7 +11,7 @@
                 {{ t('local.register') }}
             </BaseButton>
             <span v-if="store.isUserAnonymous" class="text-danger">
-                {{ t('common.msg.realNameRequired') }}
+                {{ t('msg.realNameRequired') }}
             </span>
             <ElDialog v-model="registerDialogVisible">
                 <template #header>
@@ -31,7 +31,7 @@
             <span class="ttfamily">{{ token }}</span>
             <IconCopy :text="token" />
             <div data-cy="weekly-participant-window">
-                {{ t('local.deadline') }}{{ t('common.punct.colon') }}
+                {{ t('local.deadline') }}{{ t('punct.colon') }}
                 {{ displayTime(participant?.start_time) }}
                 &nbsp;~&nbsp;
                 {{ displayTime(participant?.end_time) }}

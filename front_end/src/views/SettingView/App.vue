@@ -20,19 +20,19 @@
             <div class="description-layout">
                 <dl class="descriptions">
                     <div class="description-item">
-                        <dt>{{ t('common.level.b') }}</dt>
+                        <dt>{{ t('level.b') }}</dt>
                         <dd>
                             <ElInputNumber v-model="STNB_const.b" size="small" :controls="false" />
                         </dd>
                     </div>
                     <div class="description-item">
-                        <dt>{{ t('common.level.i') }}</dt>
+                        <dt>{{ t('level.i') }}</dt>
                         <dd>
                             <ElInputNumber v-model="STNB_const.i" size="small" :controls="false" />
                         </dd>
                     </div>
                     <div class="description-item">
-                        <dt>{{ t('common.level.e') }}</dt>
+                        <dt>{{ t('level.e') }}</dt>
                         <dd>
                             <ElInputNumber v-model="STNB_const.e" size="small" :controls="false" />
                         </dd>

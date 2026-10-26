@@ -16,7 +16,7 @@
                 <div class="marker-setting">
                     <div v-if="hasOption('shape')" class="marker-setting__item">
                         <span class="text-regular text-small">
-                            {{ t('common.prop.shape') }}
+                            {{ t('prop.shape') }}
                         </span>
                         <ElSelect v-model="shape">
                             <ElOption label="Circle" value="circle" />

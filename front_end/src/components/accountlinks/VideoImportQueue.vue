@@ -19,7 +19,7 @@
         filter-display="menu"
     >
         <PrColumn field="id" sortable header="ID" />
-        <PrColumn field="upload_time" sortable :header="t('common.prop.upload_time')" style="min-width: 11em">
+        <PrColumn field="upload_time" sortable :header="t('prop.upload_time')" style="min-width: 11em">
             <template #body="{ data }">
                 <span class="text">
                     {{ utc_to_local_format(data.upload_time) }}
@@ -38,7 +38,7 @@
                 </PrListbox>
             </template>
         </PrColumn>
-        <PrColumn field="timems" :header="t('common.prop.time')" sortable>
+        <PrColumn field="timems" :header="t('prop.time')" sortable>
             <template #body="{ data }: { data: SaoleiVideo }">
                 {{ (data.timems / 1000).toFixed(2) }}
                 <span v-if="data.nf" class="text-warning">
@@ -46,8 +46,8 @@
                 </span>
             </template>
         </PrColumn>
-        <PrColumn field="bv" :header="t('common.prop.bv')" sortable />
-        <PrColumn field="import_task__status" :header="t('common.prop.state')" :show-filter-match-modes="false" :show-filter-operator="false" :show-apply-button="false" :show-clear-button="false" :filter-header-style="{ marginInlineStart: '0px' }">
+        <PrColumn field="bv" :header="t('prop.bv')" sortable />
+        <PrColumn field="import_task__status" :header="t('prop.state')" :show-filter-match-modes="false" :show-filter-operator="false" :show-apply-button="false" :show-clear-button="false" :filter-header-style="{ marginInlineStart: '0px' }">
             <template #body="{ data }: { data: SaoleiVideo }">
                 <span v-if="data.import_task__status == 'RUNNING'" class="text-warning">
                     {{ t('accountlink.importStatus.running') }}

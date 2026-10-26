@@ -85,7 +85,7 @@ const sidebar = computed(() => local.value.navigation_layout === 'sidebar');
 const compact = computed(() => sidebar.value && width.value < 760);
 const drawerOpen = ref(false);
 const infoDialog = ref<'team' | 'downloads'>();
-const infoDialogTitle = computed(() => (infoDialog.value === 'team' ? t('local.team') : t('common.software.software_download')));
+const infoDialogTitle = computed(() => (infoDialog.value === 'team' ? t('local.team') : t('software.software_download')));
 const drawerId = `navigation-${useId()}`;
 const route = useRoute();
 const language = useLanguage();
@@ -119,7 +119,7 @@ const mainItems = computed<NavigationItem[]>(() => [
     { id: 'ranking', label: t('local.ranking'), to: '/ranking' },
     { id: 'database', label: t('local.database'), to: '/database' },
     { id: 'tournament', label: t('tournament.tournament'), to: '/tournament' },
-    { id: 'minigame', label: t('common.minigame.title'), to: '/minigame/left-click' },
+    { id: 'minigame', label: t('minigame.title'), to: '/minigame/left-click' },
     { id: 'server', label: t('local.server'), to: '/server' },
 ].map((item) => ({ ...item, primary: true })));
 const drawerItems = computed<NavigationItem[]>(() => [
@@ -156,7 +156,7 @@ function navigationItems(controls: LoginControls): NavigationItem[] {
                 } },
         ];
     items.push(
-        { id: 'settings', label: t('common.settings'), icon: 'pi-cog', iconOnly: true, to: '/settings' },
+        { id: 'settings', label: t('settings'), icon: 'pi-cog', iconOnly: true, to: '/settings' },
         { id: 'docs', label: t('local.docs'), icon: 'pi-question-circle', iconOnly: true, href: getDocsUrl('') },
     );
     items.push({
@@ -200,7 +200,7 @@ function navigationItems(controls: LoginControls): NavigationItem[] {
                     infoDialog.value = 'team';
                 } },
             { id: 'downloads',
-                label: t('common.software.software_download'),
+                label: t('software.software_download'),
                 action: () => {
                     infoDialog.value = 'downloads';
                 } },
@@ -281,8 +281,8 @@ const sectionTitle = computed(() => {
     const section = activeSection.value;
     const item = drawerItems.value.find(({ id }) => id === section);
     if (item) return item.label;
-    if (section === 'player') return t('common.prop.player');
-    if (section === 'settings') return t('common.settings');
+    if (section === 'player') return t('prop.player');
+    if (section === 'settings') return t('settings');
     if (section === 'staff' || section === 'gsc') return t('local.staff');
     return '';
 });

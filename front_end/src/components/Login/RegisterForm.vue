@@ -31,7 +31,7 @@
             <!-- 确认 -->
             <BaseButton type="primary" :disabled="confirm_disabled" style="margin-left: auto" @click="submitForm(ruleFormRef!)">
                 {{
-                    t('common.button.register') }}
+                    t('button.register') }}
             </BaseButton>
         </ElFormItem>
     </ElForm>

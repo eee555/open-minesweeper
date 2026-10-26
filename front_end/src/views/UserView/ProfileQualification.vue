@@ -4,7 +4,7 @@
     </span>
     <span v-else-if="store.qualificationStatus === 'error'" class="text-small text-warning" role="alert">
         {{ t('local.failed') }}
-        <BaseButton size="small" text @click="store.loadQualification()">{{ t('common.button.retry') }}</BaseButton>
+        <BaseButton size="small" text @click="store.loadQualification()">{{ t('button.retry') }}</BaseButton>
     </span>
 </template>
 

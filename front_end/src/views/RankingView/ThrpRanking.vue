@@ -10,11 +10,11 @@
                         #
                     </th>
                     <th scope="col" class="table-col-player">
-                        {{ t('common.prop.player') }}
+                        {{ t('prop.player') }}
                     </th>
                     <th v-for="field in thrpStats" :key="field" scope="col" class="table-col-number" :aria-sort="sort === field ? 'descending' : 'none'">
                         <BaseTextButton :type="sort === field ? 'primary' : 'default'" :data-field="field" :aria-pressed="sort === field" @click="sort = field">
-                            {{ t(`common.level.${field}`) }}
+                            {{ t(`level.${field}`) }}
                         </BaseTextButton>
                     </th>
                 </tr>

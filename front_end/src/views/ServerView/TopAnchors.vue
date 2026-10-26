@@ -8,16 +8,16 @@
         </p>
         <template v-if="data">
             <section v-for="stat in topStats" :key="stat" class="anchor-panel" :data-stat="stat">
-                <h3>{{ t(`common.prop.${topStatNames[stat]}`) }}</h3>
+                <h3>{{ t(`prop.${topStatNames[stat]}`) }}</h3>
                 <VueUiXy :dataset="datasets[stat]" :config="chartConfig" />
             </section>
             <BaseTable class="anchor-values" :column-count="4">
                 <template #head>
                     <tr>
                         <th scope="col">
-                            {{ t('common.prop.level') }}
+                            {{ t('prop.level') }}
                         </th><th scope="col">
-                            {{ t('common.prop.metric') }}
+                            {{ t('prop.metric') }}
                         </th><th scope="col">
                             top
                         </th><th scope="col">
@@ -27,9 +27,9 @@
                 </template>
                 <tr v-for="axis in topAxes" :key="`${axis.level}${axis.stat}`">
                     <th scope="row">
-                        {{ t(`common.level.${axis.level}`) }}
+                        {{ t(`level.${axis.level}`) }}
                     </th>
-                    <td>{{ t(`common.prop.${topStatNames[axis.stat]}`) }}</td>
+                    <td>{{ t(`prop.${topStatNames[axis.stat]}`) }}</td>
                     <td v-for="nf in [false, true]" :key="String(nf)" class="table-col-number" :data-anchor="topField(nf, axis.level, axis.stat)" :title="t('local.samples', { count: data[topField(nf, axis.level, axis.stat)]?.sample_count ?? 0 })">
                         {{ formatTopValue(data[topField(nf, axis.level, axis.stat)]?.value ?? 0, axis.level, axis.stat) }}
                     </td>
@@ -74,7 +74,7 @@ const chartConfig = computed<VueUiXyConfig>(() => ({
     chart: {
         backgroundColor: 'transparent',
         height: 230,
-        grid: { labels: { xAxisLabels: { values: topLevels.map((level) => t(`common.level.${level}`)) }, yAxis: { rounding: 3 } } },
+        grid: { labels: { xAxisLabels: { values: topLevels.map((level) => t(`level.${level}`)) }, yAxis: { rounding: 3 } } },
         legend: { show: true, fontSize: 12 },
         userOptions: { show: false },
         zoom: { show: false },

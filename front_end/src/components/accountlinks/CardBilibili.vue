@@ -4,7 +4,7 @@
             <PrToolbar>
                 <template #start>
                     <span class="text-medium text-regular">
-                        {{ t('common.platform.B') }}&nbsp;#{{ id }}
+                        {{ t('platform.B') }}&nbsp;#{{ id }}
                     </span>
                 </template>
                 <template #end>
@@ -15,7 +15,7 @@
         <ElCarousel v-if="verified" ref="refCarousel" trigger="click" :autoplay="false" indicator-position="none" :loop="false" arrow="never">
             <ElCarouselItem>
                 <ElDescriptions border>
-                    <ElDescriptionsItem :label="t('common.prop.update_time')" :span="3">
+                    <ElDescriptionsItem :label="t('prop.update_time')" :span="3">
                         {{ toISODateTimeString(info.update_time) }}
                     </ElDescriptionsItem>
                     <ElDescriptionsItem :label="t('local.name')" :span="3">
@@ -108,7 +108,7 @@ async function updateLink() {
         errorMsg.value = '';
         taskStatus.value = data.type;
         if (data.type == 'error') {
-            errorMsg.value = t('accountlink.updateError.title') + t('common.punct.colon') + t(getAccountLinkUpdateErrorMessageKey(data.category));
+            errorMsg.value = t('accountlink.updateError.title') + t('punct.colon') + t(getAccountLinkUpdateErrorMessageKey(data.category));
         }
     }).catch(function (error: unknown) {
         errorMsg.value = '';

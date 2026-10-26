@@ -3,7 +3,7 @@
         <span class="text-medium">
             {{ t('local.description') }}
             <br>
-            {{ t('software.repository') }}{{ t('common.punct.colon') }}
+            {{ t('software.repository') }}{{ t('punct.colon') }}
             https://github.com/eee555/Metasweeper
         </span>
         <div style="height: 1em" />

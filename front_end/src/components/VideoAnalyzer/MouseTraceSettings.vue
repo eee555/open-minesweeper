@@ -19,7 +19,7 @@
             </label>
             <fieldset class="mouse-trace-settings__fields" :disabled="!appearance.markers[action].enabled">
                 <label class="mouse-trace-settings__field">
-                    <span>{{ t('common.prop.shape') }}</span>
+                    <span>{{ t('prop.shape') }}</span>
                     <select v-model="appearance.markers[action].shape" class="mouse-trace-settings__shape">
                         <option v-for="shape in mouseTraceMarkerShapes" :key="shape" :value="shape">{{ t(`local.${shape}`) }}</option>
                     </select>
@@ -41,7 +41,7 @@
                     <InputNumber v-model="appearance.markers[action].strokeWidth" class="mouse-trace-settings__stroke-width" :min="0" step="any" />
                 </label>
                 <label class="mouse-trace-settings__field">
-                    <span>{{ t('common.prop.opacity') }}</span>
+                    <span>{{ t('prop.opacity') }}</span>
                     <InputNumber v-model="appearance.markers[action].opacity" class="mouse-trace-settings__opacity" :min="0" :max="1" step="0.01" />
                 </label>
             </fieldset>

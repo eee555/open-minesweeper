@@ -3,7 +3,7 @@
         <div class="website-replay-info__details">
             <div class="website-replay-info__identity website-replay-info__row">
                 <span class="website-replay-info__id">{{ t('local.videoId') }} #{{ id }}</span>
-                <time v-if="info" class="website-replay-info__upload-time" :datetime="info.video.upload_time" :title="t('common.prop.upload_time')">{{ utc_to_local_format(info.video.upload_time) }}</time>
+                <time v-if="info" class="website-replay-info__upload-time" :datetime="info.video.upload_time" :title="t('prop.upload_time')">{{ utc_to_local_format(info.video.upload_time) }}</time>
                 <span v-else>--</span>
             </div>
             <div class="website-replay-info__player website-replay-info__row">
@@ -77,7 +77,7 @@ function rankingLabel(ranking: SiteReplayRanking): string {
     const label = ranking.ranking === 'saolei'
         ? t(ranking.stat.endsWith('t') ? 'local.saoleiTime' : 'local.saoleiBvs')
         : t(ranking.ranking === 'pb' ? 'local.pb' : 'local.pluck');
-    return ranking.nf ? `${label} (${t('common.nf')})` : label;
+    return ranking.nf ? `${label} (${t('nf')})` : label;
 }
 
 const i18nMessages = {

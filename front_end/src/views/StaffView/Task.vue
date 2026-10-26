@@ -2,10 +2,10 @@
     <ElDescriptions v-loading="summaryLoading" :title="t('local.overview')" border :column="5">
         <template #extra>
             <BaseButton :loading="summaryLoading" @click="refreshSummary">
-                {{ t('common.action.refresh') }}
+                {{ t('action.refresh') }}
             </BaseButton>
         </template>
-        <ElDescriptionsItem :label="t('common.score.total')">
+        <ElDescriptionsItem :label="t('score.total')">
             {{ taskSummary.total }}
         </ElDescriptionsItem>
         <ElDescriptionsItem
@@ -42,7 +42,7 @@
     >
         <PrColumn selection-mode="multiple" />
         <PrColumn field="id" :header="t('local.id')" />
-        <PrColumn field="status" :header="t('common.prop.status')">
+        <PrColumn field="status" :header="t('prop.status')">
             <template #body="{ data }">
                 <BaseButton v-if="data.status === 'FAILED'" @click="console.log(data.traceback)">
                     {{ t(`local.status.${data.status}`) }}
@@ -83,7 +83,7 @@
         </PrColumn>
         <PrColumn field="return_value" :header="t('local.returnValue')" />
         <PrColumn field="exception_class_path" :header="t('local.exceptionClass')" />
-        <PrColumn :header="t('common.prop.action')">
+        <PrColumn :header="t('prop.action')">
             <template #body="{ data }">
                 <BaseButton
                     v-if="data.status === 'FAILED'"

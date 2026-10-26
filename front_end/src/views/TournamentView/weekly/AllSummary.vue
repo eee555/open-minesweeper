@@ -1,13 +1,13 @@
 <template>
     <ElTable :data="data" :default-sort="{ prop: 'classic_score', order: 'ascending' }" @row-click="handleRowClick">
         <!-- @vue-generic {WeeklyParticipant} -->
-        <ElTableColumn :label="t('common.prop.realName')" sortable>
+        <ElTableColumn :label="t('prop.realName')" sortable>
             <template #default="{row}">
                 <PlayerName v-if="row.user_id !== 0" :user-id="row.user_id" />
-                <span v-else>{{ t('common.anonymous') }}</span>
+                <span v-else>{{ t('anonymous') }}</span>
             </template>
         </ElTableColumn>
-        <ElTableColumn :label="t('common.level.e')">
+        <ElTableColumn :label="t('level.e')">
             <!-- @vue-generic {WeeklyParticipant} -->
             <ElTableColumn v-for="index in 2" :key="`e-${index}`" :label="`#${index}`" sortable :sort-method="scoreSort(`classic_et`, index - 1)">
                 <template #default="{row}">
@@ -18,13 +18,13 @@
                 </template>
             </ElTableColumn>
             <!-- @vue-generic {WeeklyParticipant} -->
-            <ElTableColumn prop="classic_e_sum" :label="t('common.score.sum')" sortable>
+            <ElTableColumn prop="classic_e_sum" :label="t('score.sum')" sortable>
                 <template #default="{row}">
                     {{ ms_to_s(row.classic_e_sum) }}
                 </template>
             </ElTableColumn>
         </ElTableColumn>
-        <ElTableColumn :label="t('common.level.i')">
+        <ElTableColumn :label="t('level.i')">
             <!-- @vue-generic {WeeklyParticipant} -->
             <ElTableColumn v-for="index in 5" :key="`i-${index}`" :label="`#${index}`" sortable :sort-method="scoreSort(`classic_it`, index - 1)">
                 <template #default="{row}">
@@ -35,14 +35,14 @@
                 </template>
             </ElTableColumn>
             <!-- @vue-generic {WeeklyParticipant} -->
-            <ElTableColumn prop="classic_i_sum" :label="t('common.score.sum')" sortable>
+            <ElTableColumn prop="classic_i_sum" :label="t('score.sum')" sortable>
                 <template #default="{row}">
                     {{ ms_to_s(row.classic_i_sum) }}
                 </template>
             </ElTableColumn>
         </ElTableColumn>
         <!-- @vue-generic {WeeklyParticipant} -->
-        <ElTableColumn prop="classic_score" :label="t('common.level.sum')" sortable>
+        <ElTableColumn prop="classic_score" :label="t('level.sum')" sortable>
             <template #default="{row}">
                 {{ ms_to_s(row.classic_score) }}
             </template>

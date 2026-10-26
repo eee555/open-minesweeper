@@ -26,7 +26,7 @@
                                                     <i class="pi pi-arrows-v" aria-hidden="true" />{{ t('local.move') }}
                                                 </BaseButton>
                                                 <BaseButton class="video-analyzer-counter__edit" @click="hide(); editKey = row.key">
-                                                    <i class="pi pi-pencil" aria-hidden="true" />{{ t('common.button.edit') }}
+                                                    <i class="pi pi-pencil" aria-hidden="true" />{{ t('button.edit') }}
                                                 </BaseButton>
                                             </div>
                                             <label>
@@ -74,7 +74,7 @@
             <template #footer>
                 <div class="button-group button-group--joined video-analyzer-counter__dialog-actions">
                     <BaseButton class="video-analyzer-counter__cancel" @click="dialogVisible = false">
-                        {{ t('common.button.cancel') }}
+                        {{ t('button.cancel') }}
                     </BaseButton>
                     <BaseButton class="video-analyzer-counter__apply" type="primary" native-type="submit" form="counter-config-form">
                         {{ t('local.apply') }}

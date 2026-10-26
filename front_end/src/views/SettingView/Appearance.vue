@@ -10,10 +10,10 @@
                     <dd>
                         <ElSwitch v-model="local.vienna_logo_legacy">
                             <template #active>
-                                <img style="width: 16px; height: 16px" :src="ViennaIconLegacy" :title="t('common.old')">
+                                <img style="width: 16px; height: 16px" :src="ViennaIconLegacy" :title="t('old')">
                             </template>
                             <template #inactive>
-                                <img style="width: 16px; height: 16px" :src="ViennaIconNew" :title="t('common.new')">
+                                <img style="width: 16px; height: 16px" :src="ViennaIconNew" :title="t('new')">
                             </template>
                         </ElSwitch>
                     </dd>

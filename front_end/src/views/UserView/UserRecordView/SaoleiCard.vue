@@ -7,14 +7,14 @@
                         {{ t('ranking.saolei.title') }}
                     </th>
                     <th v-for="level in levels" :key="level" scope="col">
-                        {{ t(`common.level.${level}`) }}
+                        {{ t(`level.${level}`) }}
                     </th>
                 </tr>
             </template>
             <template v-for="rankingName in rankingNames" :key="rankingName">
                 <tr v-for="(label, stat) in SaoleiStat" :key="stat">
                     <th scope="row">
-                        {{ t(`common.prop.${label}`) }}{{ rankingName === 'saolei_nf' ? ' (NF)' : '' }}
+                        {{ t(`prop.${label}`) }}{{ rankingName === 'saolei_nf' ? ' (NF)' : '' }}
                     </th>
                     <td v-for="level in levels" :key="level">
                         <VideoPreviewLink

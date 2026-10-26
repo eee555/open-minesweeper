@@ -4,12 +4,12 @@
             <!-- 选择排序模板 -->
             <div>
                 <ElSelect v-model="BBBvSummaryConfig.template" size="small" style="width: 80px">
-                    <ElOption :label="t('common.prop.bvs')" value="bvs" />
-                    <ElOption :label="t('common.prop.time')" value="time" />
-                    <ElOption :label="t('common.prop.stnb')" value="stnb" />
-                    <ElOption :label="t('common.prop.ioe')" value="ioe" />
-                    <ElOption :label="t('common.prop.thrp')" value="thrp" />
-                    <ElOption :label="t('common.prop.path')" value="path" />
+                    <ElOption :label="t('prop.bvs')" value="bvs" />
+                    <ElOption :label="t('prop.time')" value="time" />
+                    <ElOption :label="t('prop.stnb')" value="stnb" />
+                    <ElOption :label="t('prop.ioe')" value="ioe" />
+                    <ElOption :label="t('prop.thrp')" value="thrp" />
+                    <ElOption :label="t('prop.path')" value="path" />
                     <ElOption :label="t('local.customTemplate')" value="custom" />
                 </ElSelect>
                 <template v-if="BBBvSummaryConfig.template === 'custom'">
@@ -18,28 +18,28 @@
                         {{ BBBvSummaryConfig.sortDesc ? t('local.settingMax') : t('local.settingMin') }}
                     </BaseTextButton>
                     <ElSelect v-model="BBBvSummaryConfig.sortBy" size="small" style="width:65px; margin-left: 0.2em; margin-right: 0.2em">
-                        <ElOption :label="t('common.prop.time')" value="timems" />
-                        <ElOption :label="t('common.prop.ioe')" value="ioe" />
-                        <ElOption :label="t('common.prop.thrp')" value="thrp" />
-                        <ElOption :label="t('common.prop.path')" value="path" />
-                        <ElOption :label="t('common.prop.cls')" value="cls" />
-                        <ElOption :label="t('common.prop.ces')" value="ces" />
-                        <ElOption :label="t('common.prop.iome')" value="iome" />
+                        <ElOption :label="t('prop.time')" value="timems" />
+                        <ElOption :label="t('prop.ioe')" value="ioe" />
+                        <ElOption :label="t('prop.thrp')" value="thrp" />
+                        <ElOption :label="t('prop.path')" value="path" />
+                        <ElOption :label="t('prop.cls')" value="cls" />
+                        <ElOption :label="t('prop.ces')" value="ces" />
+                        <ElOption :label="t('prop.iome')" value="iome" />
                     </ElSelect>
                     <span class="text-regular text-small">
                         {{ t('local.settingDisplayBy') }}
                     </span>
                     <ElSelect v-model="BBBvSummaryConfig.displayBy" size="small" style="width:6em; margin-left: 0.2em">
-                        <ElOption :label="t('common.prop.bvs')" value="bvs" />
-                        <ElOption :label="t('common.prop.time')" value="time" />
-                        <ElOption :label="t('common.prop.stnb')" value="stnb" />
-                        <ElOption :label="t('common.prop.ioe')" value="ioe" />
-                        <ElOption :label="t('common.prop.thrp')" value="thrp" />
-                        <ElOption :label="t('common.prop.cls')" value="cls" />
-                        <ElOption :label="t('common.prop.ces')" value="ces" />
-                        <ElOption :label="t('common.prop.iome')" value="iome" />
-                        <ElOption :label="t('common.prop.path')" value="path" />
-                        <ElOption :label="t('common.prop.file_size')" value="file_size" />
+                        <ElOption :label="t('prop.bvs')" value="bvs" />
+                        <ElOption :label="t('prop.time')" value="time" />
+                        <ElOption :label="t('prop.stnb')" value="stnb" />
+                        <ElOption :label="t('prop.ioe')" value="ioe" />
+                        <ElOption :label="t('prop.thrp')" value="thrp" />
+                        <ElOption :label="t('prop.cls')" value="cls" />
+                        <ElOption :label="t('prop.ces')" value="ces" />
+                        <ElOption :label="t('prop.iome')" value="iome" />
+                        <ElOption :label="t('prop.path')" value="path" />
+                        <ElOption :label="t('prop.file_size')" value="file_size" />
                     </ElSelect>
                 </template>
             </div>
@@ -52,8 +52,8 @@
                 </span>
                 <ElSelect v-model="BBBvSummaryConfig.showIcon" size="small" placeholder="" style="width: 4em">
                     <ElOption :label="t('local.noIcon')" value="" />
-                    <ElOption :label="t('common.prop.software')" value="software" />
-                    <ElOption :label="t('common.prop.state')" value="state" />
+                    <ElOption :label="t('prop.software')" value="software" />
+                    <ElOption :label="t('prop.state')" value="state" />
                 </ElSelect>
             </div>
             <!-- 高亮新录像 -->

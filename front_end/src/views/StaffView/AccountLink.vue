@@ -1,11 +1,11 @@
 <template>
     <ElForm :model="form">
-        <ElFormItem :label="t('common.prop.userId')">
+        <ElFormItem :label="t('prop.userId')">
             <ElInput v-model="form.id" type="number" />
         </ElFormItem>
         <ElFormItem :label="t('accountlink.platform')">
             <ElSelect v-model="form.platform">
-                <ElOption v-for="platform of manualAccountLinkPlatforms" :key="platform" :label="t(`common.platform.${platform}`)" :value="platform" />
+                <ElOption v-for="platform of manualAccountLinkPlatforms" :key="platform" :label="t(`platform.${platform}`)" :value="platform" />
             </ElSelect>
         </ElFormItem>
         <ElFormItem :label="t('local.platformId')">
@@ -13,10 +13,10 @@
         </ElFormItem>
         <ElFormItem>
             <BaseButton @click="verify">
-                {{ t('common.button.link') }}
+                {{ t('button.link') }}
             </BaseButton>
             <BaseButton @click="unverify">
-                {{ t('common.button.unlink') }}
+                {{ t('button.unlink') }}
             </BaseButton>
         </ElFormItem>
     </ElForm>
@@ -30,10 +30,10 @@
         :rows-per-page-options="[10, 25, 50, 100]"
         paginator-template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown JumpToPageInput CurrentPageReport"
     >
-        <PrColumn field="userprofile" :header="t('common.prop.userId')" sortable />
+        <PrColumn field="userprofile" :header="t('prop.userId')" sortable />
         <PrColumn field="platform" :header="t('accountlink.platform')" sortable>
             <template #body="{ data }: { data: AccountLinkQueueItem }">
-                {{ t(`common.platform.${data.platform}`) }}
+                {{ t(`platform.${data.platform}`) }}
             </template>
         </PrColumn>
         <PrColumn field="identifier" :header="t('local.platformId')" sortable />

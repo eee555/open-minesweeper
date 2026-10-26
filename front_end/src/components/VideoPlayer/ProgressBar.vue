@@ -6,8 +6,8 @@
         <button
             type="button"
             class="base-button square-button"
-            :title="isPlaying ? t('common.button.pause') : t('common.button.play')"
-            :aria-label="isPlaying ? t('common.button.pause') : t('common.button.play')"
+            :title="isPlaying ? t('button.pause') : t('button.play')"
+            :aria-label="isPlaying ? t('button.pause') : t('button.play')"
             @click="togglePlay"
         >
             <i v-if="isPlaying" class="pi pi-pause" aria-hidden="true" />

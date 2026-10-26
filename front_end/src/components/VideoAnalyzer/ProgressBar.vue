@@ -22,7 +22,7 @@
                 <BaseButton class="analyzer-progress-bar__previous-keyframe square-button" size="small" :disabled="!hasDuration || !keyframeNavigation" :title="t('local.previousKeyframe')" :aria-label="t('local.previousKeyframe')" @click="keyframeNavigation?.previous()">
                     <i class="pi pi-angle-left" aria-hidden="true" />
                 </BaseButton>
-                <BaseButton class="analyzer-progress-bar__play square-button" size="small" :disabled="!playback.canPlay.value" :title="isPlaying ? t('common.button.pause') : t('common.button.play')" :aria-label="isPlaying ? t('common.button.pause') : t('common.button.play')" @click="isPlaying ? playback.pause() : playback.play()">
+                <BaseButton class="analyzer-progress-bar__play square-button" size="small" :disabled="!playback.canPlay.value" :title="isPlaying ? t('button.pause') : t('button.play')" :aria-label="isPlaying ? t('button.pause') : t('button.play')" @click="isPlaying ? playback.pause() : playback.play()">
                     <i class="pi" :class="[isPlaying ? 'pi-pause' : 'pi-play']" aria-hidden="true" />
                 </BaseButton>
                 <BaseButton class="analyzer-progress-bar__next-keyframe square-button" size="small" :disabled="!hasDuration || !keyframeNavigation" :title="t('local.nextKeyframe')" :aria-label="t('local.nextKeyframe')" @click="keyframeNavigation?.next()">

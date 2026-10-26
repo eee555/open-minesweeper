@@ -4,7 +4,7 @@
             <strong>{{ event.key }}</strong>
             <template v-if="event.type === 'pulse'">
                 <output class="event-tooltip__time">{{ t('local.time') }}: {{ seconds(event.pulse.timeMs) }} s</output>
-                <output v-if="event.pulse.value !== undefined" class="event-tooltip__value">{{ t('common.prop.value') }}: {{ event.pulse.value }}</output>
+                <output v-if="event.pulse.value !== undefined" class="event-tooltip__value">{{ t('prop.value') }}: {{ event.pulse.value }}</output>
             </template>
             <template v-else>
                 <output class="event-tooltip__start">{{ t('local.start') }}: {{ seconds(event.span.startMs) }} s</output>

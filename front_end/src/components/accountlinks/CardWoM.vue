@@ -4,7 +4,7 @@
             <PrToolbar>
                 <template #start>
                     <span class="text-medium text-regular">
-                        {{ t('common.platform.w') }}&nbsp;#{{ id }}
+                        {{ t('platform.w') }}&nbsp;#{{ id }}
                     </span>
                 </template>
                 <template #end>
@@ -15,22 +15,22 @@
         <ElCarousel v-if="verified" ref="refCarousel" trigger="click" :autoplay="false" indicator-position="none" :loop="false" arrow="never">
             <ElCarouselItem>
                 <ElDescriptions border>
-                    <ElDescriptionsItem :label="t('common.prop.update_time')" :span="3">
+                    <ElDescriptionsItem :label="t('prop.update_time')" :span="3">
                         {{ toISODateTimeString(info.update_time) }}
                     </ElDescriptionsItem>
                     <ElDescriptionsItem :label="t('local.trophy')" :span="3">
                         {{ info.trophy }}
                     </ElDescriptionsItem>
-                    <ElDescriptionsItem :label="t('common.prop.time')" :span="3">
+                    <ElDescriptionsItem :label="t('prop.time')" :span="3">
                         {{ ms_to_s(info.b_t_ms) }} | {{ ms_to_s(info.i_t_ms) }} | {{ ms_to_s(info.e_t_ms) }}
                     </ElDescriptionsItem>
-                    <ElDescriptionsItem :label="t('common.prop.ioe')" :span="3">
+                    <ElDescriptionsItem :label="t('prop.ioe')" :span="3">
                         {{ maybeUndefinedToFixed(info.b_ioe, 2) }} | {{ maybeUndefinedToFixed(info.i_ioe, 2) }} | {{ maybeUndefinedToFixed(info.e_ioe, 2) }}
                     </ElDescriptionsItem>
-                    <ElDescriptionsItem :label="t('common.prop.mastery')" :span="3">
+                    <ElDescriptionsItem :label="t('prop.mastery')" :span="3">
                         {{ maybeUndefined(info.b_mastery) }} | {{ maybeUndefined(info.i_mastery) }} | {{ maybeUndefined(info.e_mastery) }}
                     </ElDescriptionsItem>
-                    <ElDescriptionsItem :label="t('common.prop.winstreak')" :span="3">
+                    <ElDescriptionsItem :label="t('prop.winstreak')" :span="3">
                         {{ maybeUndefined(info.b_winstreak) }} | {{ maybeUndefined(info.i_winstreak) }} | {{ maybeUndefined(info.e_winstreak) }}
                     </ElDescriptionsItem>
                     <ElDescriptionsItem :label="t('local.maxDifficulty')" :span="3">
@@ -176,7 +176,7 @@ async function updateLink() {
         errorMsg.value = '';
         taskStatus.value = data.type;
         if (data.type == 'error') {
-            errorMsg.value = t('accountlink.updateError.title') + t('common.punct.colon') + t(getAccountLinkUpdateErrorMessageKey(data.category));
+            errorMsg.value = t('accountlink.updateError.title') + t('punct.colon') + t(getAccountLinkUpdateErrorMessageKey(data.category));
         }
     }).catch(function (error: unknown) {
         errorMsg.value = '';

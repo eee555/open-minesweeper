@@ -9,7 +9,7 @@ describe('<RankingRepair /> Thrp', () => {
         cy.intercept('POST', '/api/effranking/thrp/admin/rebuild_record', record).as('repair');
         cy.mount(RankingRepair, { global: { plugins: [i18n], config: { globalProperties: { $axios } } } });
         cy.get('.ranking-repair .el-select').first().click();
-        cy.get('.el-select-dropdown__item').filter(':visible').contains(i18n.global.t('common.prop.thrp')).click();
+        cy.get('.el-select-dropdown__item').filter(':visible').contains(i18n.global.t('prop.thrp')).click();
         cy.get('.ranking-repair .el-input-number input').type('42');
         cy.get('.ranking-repair .el-select').eq(1).click();
         cy.get('.el-select-dropdown__item').filter(':visible').should('have.length', 4).contains('Sum').click();

@@ -49,7 +49,7 @@
                                     {{ t(`local.groups.${group}.name`) }}
                                 </th>
                                 <td>{{ t(`local.groups.${group}.matches`) }}</td>
-                                <td>{{ t(group === 'exact' ? 'common.ratelimit.requestsPerSecond' : 'common.ratelimit.requestsPerMinute', { count: limitCounts[group] }) }}</td>
+                                <td>{{ t(group === 'exact' ? 'ratelimit.requestsPerSecond' : 'ratelimit.requestsPerMinute', { count: limitCounts[group] }) }}</td>
                             </tr>
                         </BaseTable>
                         <p>{{ t('local.limitHint') }}</p>
@@ -111,10 +111,10 @@
                     {{ data.safe }}
                 </template>
             </PrColumn>
-            <PrColumn v-if="isStaff" :header="t('common.prop.action')">
+            <PrColumn v-if="isStaff" :header="t('prop.action')">
                 <template #body="{ data }: { data: IdentifierResult }">
                     <Tippy interactive trigger="click" placement="bottom-end" :append-to="appendToBody">
-                        <BaseButton size="small" text :disabled="loading || updating" :aria-label="t('common.prop.action')" data-cy="identifier-actions" :data-identifier="data.identifier">
+                        <BaseButton size="small" text :disabled="loading || updating" :aria-label="t('prop.action')" data-cy="identifier-actions" :data-identifier="data.identifier">
                             <i class="pi pi-ellipsis-h" aria-hidden="true" />
                         </BaseButton>
                         <template #content="{ hide }">
@@ -146,7 +146,7 @@
                     {{ t('local.bindHint') }}
                 </p>
                 <BaseButton native-type="submit" :loading="updating" :disabled="!validBindingId">
-                    {{ t('common.button.save') }}
+                    {{ t('button.save') }}
                 </BaseButton>
             </form>
         </ElDialog>

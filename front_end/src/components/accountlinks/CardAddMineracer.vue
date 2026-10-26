@@ -4,7 +4,7 @@
             <PrToolbar>
                 <template #start>
                     <span class="text-medium text-regular">
-                        {{ t('common.platform.m') }}
+                        {{ t('platform.m') }}
                     </span>
                 </template>
                 <template v-if="session" #end>
@@ -16,7 +16,7 @@
 
             <ElSteps :active="activeStep" :finish-status="finishStatus" :process-status="processStatus" align-center>
                 <ElStep :title="t('local.stepCreate')" />
-                <ElStep :title="t('common.button.confirm')" />
+                <ElStep :title="t('button.confirm')" />
                 <ElStep :title="t('local.stepComplete')" />
             </ElSteps>
 
@@ -27,7 +27,7 @@
 
                 <template v-if="session">
                     <ElDescriptions border :column="1" size="small">
-                        <ElDescriptionsItem :label="t('common.prop.status')">
+                        <ElDescriptionsItem :label="t('prop.status')">
                             {{ t(`local.status.${session.status}`) }}
                         </ElDescriptionsItem>
                         <ElDescriptionsItem v-if="session.status == 'pending'" :label="t('local.expiresIn')">

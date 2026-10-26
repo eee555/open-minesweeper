@@ -41,8 +41,8 @@ const tabItems = computed(() => {
         { name: 'videos', label: t('local.videos') },
     ];
     if (store.isSelf) {
-        ret.push({ name: 'upload', label: t('common.button.upload') });
-        ret.push({ name: 'settings', label: t('common.settings') });
+        ret.push({ name: 'upload', label: t('button.upload') });
+        ret.push({ name: 'settings', label: t('settings') });
     }
     return ret;
 });

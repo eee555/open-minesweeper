@@ -49,10 +49,10 @@
             <template #footer>
                 <div class="button-group button-group--joined timeline-slot__dialog-actions">
                     <BaseButton class="timeline-slot__cancel" @click="dialog = null">
-                        {{ t('common.button.cancel') }}
+                        {{ t('button.cancel') }}
                     </BaseButton>
                     <BaseButton class="timeline-slot__confirm" type="primary" @click="confirmDialog">
-                        {{ t('common.button.confirm') }}
+                        {{ t('button.confirm') }}
                     </BaseButton>
                 </div>
             </template>

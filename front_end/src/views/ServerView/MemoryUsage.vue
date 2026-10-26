@@ -64,7 +64,7 @@ watch(() => props.section, (section) => {
 const total = computed(() => lastGood.value?.total_bytes ?? null);
 const dataset = computed(() => {
     const groups = lastGood.value?.groups;
-    return groups ? processMemoryGroups.map((key, index) => ({ key, name: t(key === 'other' ? 'common.other' : `local.${key}`), values: [groups[key]], color: memoryColors[index] })) : [];
+    return groups ? processMemoryGroups.map((key, index) => ({ key, name: t(key === 'other' ? 'other' : `local.${key}`), values: [groups[key]], color: memoryColors[index] })) : [];
 });
 
 const config = computed<VueUiDonutConfig>(() => ({

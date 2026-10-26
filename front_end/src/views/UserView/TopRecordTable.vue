@@ -3,10 +3,10 @@
         <template #head>
             <tr>
                 <th scope="col" style="width: 1%">
-                    {{ t('common.prop.level') }}
+                    {{ t('prop.level') }}
                 </th>
                 <th scope="col" style="width: 1%">
-                    {{ t('common.prop.metric') }}
+                    {{ t('prop.metric') }}
                 </th>
                 <th scope="col" class="table-col-number">
                     {{ t('local.mean') }}
@@ -18,9 +18,9 @@
         </template>
         <tr v-for="axis in rows" :key="`${axis.level}${axis.stat}`" :data-field="`${axis.level}${axis.stat}`">
             <th v-if="axis.stat === 't'" rowspan="3" scope="rowgroup">
-                {{ t(`common.level.${axis.level}`) }}
+                {{ t(`level.${axis.level}`) }}
             </th>
-            <td>{{ t(`common.prop.${topStatNames[axis.stat]}`) }}</td>
+            <td>{{ t(`prop.${topStatNames[axis.stat]}`) }}</td>
             <td class="table-col-number">
                 <strong>{{ formatTopValue(axis.mean, axis.level, axis.stat) }}</strong>
             </td>

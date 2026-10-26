@@ -1,7 +1,7 @@
 <template>
     <section class="pb-records" :data-cy="`pb-grid-${level}`">
         <h3 class="text-regular">
-            {{ t(`common.level.${level}`) }}
+            {{ t(`level.${level}`) }}
         </h3>
         <p v-if="recordsByBV.size === 0" class="text-info" data-cy="pb-empty">
             {{ t('local.empty') }}
@@ -63,8 +63,8 @@ function value(record: PBPlayerRecord) {
 function recordTitle(record: PBPlayerRecord): string {
     return [
         `BV ${record.bv}${record.nf ? ' · NF' : ''}`,
-        ...pbStats.map((metric) => `${t(`common.prop.${metric}`)}: ${formatPBValue(record.timems, record.level, record.bv, metric)}`),
-        `${t('common.prop.rank')}: ${record.rank ?? '--'}`,
+        ...pbStats.map((metric) => `${t(`prop.${metric}`)}: ${formatPBValue(record.timems, record.level, record.bv, metric)}`),
+        `${t('prop.rank')}: ${record.rank ?? '--'}`,
     ].join('\n');
 }
 function cellStyle(record: PBPlayerRecord) {

@@ -25,11 +25,11 @@
             :stat="componentConfig(column).isStat ? column : undefined"
             :show-filter-menu="!externalFiltering"
         />
-        <Column v-if="$slots.rowActions" column-key="rowActions" :header="t('common.prop.action')" style="width: 5rem">
+        <Column v-if="$slots.rowActions" column-key="rowActions" :header="t('prop.action')" style="width: 5rem">
             <template #body="{ data }: { data: VideoAbstract }">
                 <div v-if="!data.isLocal" @click.stop>
                     <Tippy interactive trigger="click" placement="bottom-end" :append-to="appendToBody">
-                        <button type="button" class="base-button square-button" :aria-label="t('common.prop.action')" data-cy="video-row-actions" :data-video-id="data.id">
+                        <button type="button" class="base-button square-button" :aria-label="t('prop.action')" data-cy="video-row-actions" :data-video-id="data.id">
                             <i class="pi pi-ellipsis-h" aria-hidden="true" />
                         </button>
                         <template #content="{ hide }">

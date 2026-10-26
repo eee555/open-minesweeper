@@ -1,7 +1,7 @@
 <template>
     <Tippy class="video-scatter-tippy" :duration="0" sticky follow-cursor>
         <YLabel class="text">
-            {{ t(`common.prop.${VideoScatterConfig.y}`) }}
+            {{ t(`prop.${VideoScatterConfig.y}`) }}
         </YLabel>
         <div ref="plotRef" class="plot-stage">
             <TransformGroup
@@ -33,7 +33,7 @@
         </div>
         <span />
         <XLabel class="text">
-            {{ t(`common.prop.${VideoScatterConfig.x}`) }}
+            {{ t(`prop.${VideoScatterConfig.x}`) }}
         </XLabel>
 
         <template #content>

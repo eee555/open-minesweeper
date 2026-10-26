@@ -1,8 +1,8 @@
 <template>
-    <ElDialog v-model="visible" :title="creating ? t('local.add') : `${t('common.button.edit')}: ${row.key}`" width="min(480px, calc(100vw - 24px))" append-to-body @closed="emit('close')">
+    <ElDialog v-model="visible" :title="creating ? t('local.add') : `${t('button.edit')}: ${row.key}`" width="min(480px, calc(100vw - 24px))" append-to-body @closed="emit('close')">
         <form id="counter-row-editor-form" class="counter-row-editor" @submit.prevent="save">
             <label v-if="creating"><span>key</span><input v-model="draft.key" class="base-input counter-row-editor__key" type="text" required @input="validationError = ''"></label>
-            <label><span>{{ t('common.prop.expression') }}</span><input v-model="draft.expression" class="base-input counter-row-editor__expression" type="text"></label>
+            <label><span>{{ t('prop.expression') }}</span><input v-model="draft.expression" class="base-input counter-row-editor__expression" type="text"></label>
             <label><span>{{ t('local.format') }}</span><input v-model="draft.format" class="base-input counter-row-editor__format" type="text"></label>
             <label><span>{{ t('local.sampling') }}</span><select v-model="draft.samplingMode" class="counter-row-editor__sampling"><option v-for="mode in samplingModes" :key="mode" :value="mode">{{ t(`local.${mode}`) }}</option></select></label>
             <CounterExpressionHelp />
@@ -14,10 +14,10 @@
         <template #footer>
             <div class="button-group button-group--joined counter-row-editor__actions">
                 <BaseButton class="counter-row-editor__cancel" @click="visible = false">
-                    {{ t('common.button.cancel') }}
+                    {{ t('button.cancel') }}
                 </BaseButton>
                 <BaseButton class="counter-row-editor__save" type="primary" native-type="submit" form="counter-row-editor-form">
-                    {{ t('common.button.save') }}
+                    {{ t('button.save') }}
                 </BaseButton>
             </div>
         </template>

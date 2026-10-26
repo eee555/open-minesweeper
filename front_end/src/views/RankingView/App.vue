@@ -45,7 +45,7 @@ const tabItems = computed(() => [
     { name: 'efficiency', label: t('local.efficiency') },
     { name: 'density', label: t('local.density') },
     { name: 'tournament', label: t('tournament.tournament') },
-    { name: 'minigame', label: t('common.minigame.title') },
+    { name: 'minigame', label: t('minigame.title') },
 ]);
 const activeTab = computed(() => {
     return tabItems.value.find((tab) => route.matched.some((record) => record.name === `ranking_${tab.name}`))?.name ?? 'speed';

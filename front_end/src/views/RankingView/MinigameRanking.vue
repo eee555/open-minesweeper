@@ -2,16 +2,16 @@
     <section class="minigame-ranking">
         <div class="ranking-toolbar">
             <ElSelect v-model="selectedGame" class="ranking-selector" :aria-label="t('local.game')">
-                <ElOption v-for="game in trainingGames" :key="game" :value="game" :label="t(`common.minigame.${game}`)" />
+                <ElOption v-for="game in trainingGames" :key="game" :value="game" :label="t(`minigame.${game}`)" />
             </ElSelect>
             <RouterLink class="link text-primary" data-cy="minigame-play-link" :to="{ name: `minigame-${selectedGame}` }">
                 {{ t('local.playGame') }}
             </RouterLink>
             <div class="ranking-actions">
-                <BaseButton class="square-button" data-cy="minigame-ranking-color" disabled :aria-label="t('common.prop.color')" :title="t('local.colorPending')">
+                <BaseButton class="square-button" data-cy="minigame-ranking-color" disabled :aria-label="t('prop.color')" :title="t('local.colorPending')">
                     <i class="pi pi-palette" aria-hidden="true" />
                 </BaseButton>
-                <BaseButton class="square-button" data-cy="minigame-ranking-refresh" :disabled="!ranking" :aria-label="t('common.action.refresh')" :title="t('common.action.refresh')" @click="ranking?.refresh()">
+                <BaseButton class="square-button" data-cy="minigame-ranking-refresh" :disabled="!ranking" :aria-label="t('action.refresh')" :title="t('action.refresh')" @click="ranking?.refresh()">
                     <BaseIconRefresh :loading="ranking?.loading ?? false" aria-hidden="true" />
                 </BaseButton>
             </div>

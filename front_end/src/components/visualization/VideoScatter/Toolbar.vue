@@ -36,8 +36,8 @@
                 <BaseButton
                     class="square-button"
                     type="primary" :plain="!isFullscreen"
-                    :title="t('common.button.fullscreen')"
-                    :aria-label="t('common.button.fullscreen')" :aria-pressed="isFullscreen"
+                    :title="t('button.fullscreen')"
+                    :aria-label="t('button.fullscreen')" :aria-pressed="isFullscreen"
                     @click="emit('toggleFullscreen')"
                 >
                     <i class="pi pi-expand" />

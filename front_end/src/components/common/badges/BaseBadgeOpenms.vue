@@ -1,7 +1,7 @@
 <template>
     <img :src="MetasweeperIcon" style="height: 16px; vertical-align: middle">
     <span class="text-regular text-small">
-        {{ t('common.website.openms') }}
+        {{ t('website.openms') }}
     </span>
 </template>
 

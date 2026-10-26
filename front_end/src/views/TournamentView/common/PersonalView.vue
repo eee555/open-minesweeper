@@ -4,7 +4,7 @@
             <slot name="personalSummary" :videos="videos" :participant="participant" />
         </ElTabPane>
         <ElTabPane :label="t('local.videos')" lazy>
-            <MultiSelector v-model="VideoListConfig.tournament" :options="thisColumnChoices" :labels="thisColumnChoices.map((s) => t(`common.prop.${s}`))" />
+            <MultiSelector v-model="VideoListConfig.tournament" :options="thisColumnChoices" :labels="thisColumnChoices.map((s) => t(`prop.${s}`))" />
             <VideoList :videos="videos" :columns="VideoListConfig.tournament" sortable paginator />
         </ElTabPane>
     </ElTabs>

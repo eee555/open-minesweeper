@@ -13,7 +13,7 @@
                     <template #icon>
                         <i class="pi pi-pause" aria-hidden="true" />
                     </template>
-                    {{ t('common.button.pause') }}
+                    {{ t('button.pause') }}
                 </BaseButton>
                 <BaseButton v-else-if="emitter" size="small" :disabled="!canSelectDirectory || busy" @click="resumeWatching">
                     <template #icon>
@@ -67,7 +67,7 @@
             <template #footer>
                 <div class="auto-uploader__scan-actions">
                     <BaseButton @click="cancelScan">
-                        {{ t('common.button.cancel') }}
+                        {{ t('button.cancel') }}
                     </BaseButton>
                     <template v-if="!fullScanning">
                         <BaseButton @click="beginWatching(false)">

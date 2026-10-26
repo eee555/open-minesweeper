@@ -9,7 +9,7 @@
                 </span>
             </BaseButton>
             <BaseButton class="color-scheme-setting__import-toggle" size="small" :aria-expanded="importVisible" @click="toggleImport">
-                <i class="pi pi-upload" aria-hidden="true" />{{ t('common.button.import') }}
+                <i class="pi pi-upload" aria-hidden="true" />{{ t('button.import') }}
             </BaseButton>
             <BaseButton class="color-scheme-setting__export" size="small" @click="exportScheme">
                 <i class="pi pi-copy" aria-hidden="true" />{{ t('local.export') }}
@@ -52,10 +52,10 @@
             </p>
             <div class="color-scheme-setting__actions">
                 <BaseButton class="color-scheme-setting__apply" size="small" native-type="submit">
-                    {{ t('common.button.import') }}
+                    {{ t('button.import') }}
                 </BaseButton>
                 <BaseButton class="color-scheme-setting__cancel" size="small" @click="importVisible = false">
-                    {{ t('common.button.cancel') }}
+                    {{ t('button.cancel') }}
                 </BaseButton>
             </div>
         </form>

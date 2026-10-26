@@ -3,7 +3,7 @@
         <div class="pb-toolbar">
             <label class="checkbox nf-toggle">
                 <input v-model="nf" class="checkbox-input" type="checkbox">
-                <span>{{ t('common.nf') }}</span>
+                <span>{{ t('nf') }}</span>
             </label>
             <PBBVButton v-for="optionLevel in pbLevels" :key="optionLevel" :level="optionLevel" :selected-level="level" :selected-bv="bv" :nf="nf" :counts="counts" @select="selectBucket(optionLevel, $event)" />
         </div>

@@ -1,5 +1,5 @@
 <template>
-    <div class="board-size-controls button-group button-group--joined" role="group" :aria-label="t('common.prop.cellSize')">
+    <div class="board-size-controls button-group button-group--joined" role="group" :aria-label="t('prop.cellSize')">
         <BoardSettingsControl class="board-size-controls__fixed" :label="t('local.fixed')">
             <template #toggle>
                 <BaseButton class="board-size-controls__fixed-toggle board-size-controls__toggle" size="small" :type="mode === 'fixed' ? 'primary' : 'default'" :aria-label="t('local.fixed')" :title="t('local.fixed')" :aria-pressed="mode === 'fixed'" @click="mode = 'fixed'">

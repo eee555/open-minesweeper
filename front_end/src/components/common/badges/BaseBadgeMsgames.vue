@@ -1,7 +1,7 @@
 <template>
     <img src="https://minesweepergame.com/favicon.ico" style="height: 16px; vertical-align: middle;">
     <span class="text-regular text-small">
-        {{ t('common.website.msgames') }}
+        {{ t('website.msgames') }}
     </span>
 </template>
 
