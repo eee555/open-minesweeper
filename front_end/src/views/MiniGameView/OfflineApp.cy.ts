@@ -4,8 +4,15 @@ import App from '../../../local-minigame/App.vue';
 import version from '../../../local-minigame/version.json';
 
 import type MiniGameBoard from '@/components/MiniGame/Board.vue';
+import en from '@/i18n/locales/en';
+import zhCn from '@/i18n/locales/zh-cn';
 import { defaultMinigameSettings, minigameSettings } from '@/utils/minigame/settings';
 import { mouseAt, rightAt } from '@cy/support/minigame';
+
+function mountOfflineApp() {
+    const i18n = createI18n({ legacy: false, locale: 'en', messages: { en, 'zh-cn': zhCn } });
+    cy.mount(App, { global: { plugins: [i18n] } });
+}
 
 describe('offline minigames', () => {
     beforeEach(() => {
@@ -16,8 +23,7 @@ describe('offline minigames', () => {
     });
 
     it('shares cell size across offline games and mine display settings between left-click and multi-touch training', () => {
-        const i18n = createI18n({ legacy: false, locale: 'en', messages: {} });
-        cy.mount(App, { global: { plugins: [i18n] } });
+        mountOfflineApp();
         cy.get('[data-cy="minigame-cell-size"]').clear();
         cy.get('[data-cy="minigame-cell-size"]').type('24');
         cy.get('[data-cy="minigame-cell-size"]').blur();
@@ -49,8 +55,7 @@ describe('offline minigames', () => {
     });
 
     it('saves one restart hotkey for all games, ignores edits and repeated keys, and allows clearing it', () => {
-        const i18n = createI18n({ legacy: false, locale: 'en', messages: {} });
-        cy.mount(App, { global: { plugins: [i18n] } });
+        mountOfflineApp();
         cy.get('[data-cy="minigame-restart-hotkey"]').should('have.value', '');
         cy.get('[data-cy="minigame-clear-hotkey"]').should('be.disabled');
         cy.get('[data-cy="game-missing-cell"]').click();
@@ -102,8 +107,7 @@ describe('offline minigames', () => {
     });
 
     it('plays the shared game with local language/theme controls and no download link', () => {
-        const i18n = createI18n({ legacy: false, locale: 'en', messages: {} });
-        cy.mount(App, { global: { plugins: [i18n] } });
+        mountOfflineApp();
         cy.contains(`v${version.version}`).should('be.visible');
         cy.get('[data-cy="training-download"]').should('not.exist');
         cy.get('[data-cy="minigame-cell-size"]').should('have.value', '32');
