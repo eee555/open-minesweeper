@@ -17,17 +17,6 @@ python manage.py rebuild_minigame_ranks --ranking-key left-click-b-50-v1
 
 首次部署先运行 `python manage.py migrate`。缓存也可在首次查询时按需初始化；Redis 故障期间查询降级至数据库。
 
-### `migrate_minigame_replays`
-
-部署脚本自动执行 `makemigrations` 和 `migrate`，保留原名 `replay` 的 JSONField 并新增二进制 `replay_archive`，不依赖提交迁移文件或交互确认字段改名。结构迁移完成后，此命令分批读取三种小游戏回放，转换为[回放格式 v1](./minigame-replay-format) 并压缩为 7z 写入 BinaryField；每条写入成功后清空旧 JSON。保留主键、玩家、榜单、成绩和达成时间，不访问或重建 Redis。
-
-```bash
-python manage.py migrate_minigame_replays --dry-run
-python manage.py migrate_minigame_replays
-```
-
-`--dry-run` 只校验并统计。已转换记录跳过；损坏或未知版本数据保留原值，报告记录 ID 和榜单 key，继续处理其他记录，最后以非零退出码结束。输出待转换、成功、跳过、错误数量，允许修复后重复执行。写入前核对成绩和达成时间，跳过期间出现的新最佳成绩。
-
 ## 录像缓存升级
 
 ### `compact_video_cache`

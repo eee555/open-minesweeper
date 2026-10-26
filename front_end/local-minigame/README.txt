@@ -15,12 +15,12 @@ The restart hotkey is shared by all games and is unset by default. Focus its fie
 左键训练 / Left-click training
 仅接受鼠标输入。Mouse input only.
 选择初级 8×8、中级 16×16 或高级 16×30，以及 1/2、3/4 或 7/8 的雷密度。
-雷默认以 50% 不透明度显示，可在小游戏设置中调整为 0%（完全透明）至 100%（不透明），设置自动保存在本地。逐个左键点击安全格，点到雷即失败；不会自动展开，也不显示相邻雷数。
+雷默认以 50% 不透明度显示，可在小游戏设置中调整为 0%（完全透明）至 100%（不透明）；雷格默认弹起，也可设为按下。两项设置与多指训练共用，自动保存在本地，不写入录像，回放按当前设置显示。逐个左键点击安全格，点到雷即失败；不会自动展开，也不显示相邻雷数。
 可以先观察棋盘；首次有效左键弹起时开始计时，最后一个安全格完成时停止。
 右键与双键不执行操作。切换模式或点击上方计数器栏会生成新棋盘。
 
 Choose Beginner 8×8, Intermediate 16×16 or Expert 16×30, and a mine density of 1/2, 3/4 or 7/8.
-Mine opacity defaults to 50%. Adjust it in minigame settings from 0% (transparent) to 100% (opaque); the setting is saved locally. Left-click every safe cell individually. Hitting a mine ends the game.
+Mine opacity defaults to 50%. Adjust it in minigame settings from 0% (transparent) to 100% (opaque). Mine cells default to raised and can also be set to pressed. Both preferences are shared with multi-touch training, saved locally and excluded from recordings; replays use the current display settings. Left-click every safe cell individually. Hitting a mine ends the game.
 There is no flood opening or adjacent mine count. You may inspect the board before playing.
 Timing starts on the first valid left-button release and stops on the final safe cell.
 Right clicks and chords have no effect. Changing mode or clicking the counter bar creates a new board.

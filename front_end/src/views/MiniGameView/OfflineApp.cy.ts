@@ -15,7 +15,7 @@ describe('offline minigames', () => {
         minigameSettings.value = defaultMinigameSettings();
     });
 
-    it('shares cell size across offline games and mine opacity between left-click and multi-touch training', () => {
+    it('shares cell size across offline games and mine display settings between left-click and multi-touch training', () => {
         const i18n = createI18n({ legacy: false, locale: 'en', messages: {} });
         cy.mount(App, { global: { plugins: [i18n] } });
         cy.get('[data-cy="minigame-cell-size"]').clear();
@@ -26,9 +26,13 @@ describe('offline minigames', () => {
         });
         cy.get('[data-cy="minigame-mine-opacity"]').invoke('val', '0.25').trigger('input');
         cy.get('.minigame-board-foreground').should('have.css', 'opacity', '0.25');
+        cy.get('[data-cy="minigame-mine-down"]').parent().click();
         cy.get('[data-cy="game-multi-touch"]').click();
         cy.get('[data-cy="training-game"]').should('have.attr', 'aria-label', 'Multi-touch training');
         cy.get('.minigame-board-foreground').should('have.css', 'opacity', '0.25');
+        cy.get<ComponentWrapper<typeof App>>('@vue').should((wrapper) => {
+            expect(wrapper.findComponent<typeof MiniGameBoard>('[data-cy="minigame-board"]').props('minePressed')).to.eq(true);
+        });
         for (const game of ['flag-chord', 'missing-cell']) {
             cy.get(`[data-cy="game-${game}"]`).click();
             cy.get('[data-cy="minigame-cell-size"]').should('have.value', '24');
@@ -40,6 +44,7 @@ describe('offline minigames', () => {
         cy.get('[data-cy="game-left-click"]').click();
         cy.get('[data-cy="minigame-cell-size"]').should('have.value', '24');
         cy.get('[data-cy="minigame-mine-opacity"]').should('have.value', '0.25');
+        cy.get('[data-cy="minigame-mine-down"]').should('be.checked');
         cy.get('.minigame-board-foreground').should('have.css', 'opacity', '0.25');
     });
 

@@ -22,7 +22,6 @@ import type { TippyComponent } from 'vue-tippy';
 import SoftwareIcon from '@/components/widgets/SoftwareIcon.vue';
 import VideoAbstractDisplay from '@/components/widgets/VideoAbstractDisplay.vue';
 import { fetchVideoInfo } from '@/services/videoInfoService';
-import { local } from '@/store/local';
 import { preview } from '@/utils/common/PlayerDialog';
 import type { MS_Software } from '@/utils/ms_const';
 import type { VideoAbstract } from '@/utils/videoabstract';
@@ -59,7 +58,7 @@ watch(() => [props.id, suppliedSoftware.value, props.showSoftware] as const, ([i
 }, { immediate: true });
 
 function showSummary() {
-    if (!props.showTooltip || !local.value.tooltip_show) return false;
+    if (!props.showTooltip) return false;
     summaryVisible.value = true;
 }
 

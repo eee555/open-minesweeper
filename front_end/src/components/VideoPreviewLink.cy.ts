@@ -4,15 +4,16 @@ import VideoPreviewLink from './VideoPreviewLink.vue';
 
 import i18n from '@/i18n';
 import { videoplayerstore } from '@/store';
+import { local } from '@/store/local';
 import type { MS_Software } from '@/utils/ms_const';
 import { VideoAbstract } from '@/utils/videoabstract';
 import { mockVideoInfo } from '@cy/support/videoInfo';
 
-function mountLink(id: number | null | undefined, software?: MS_Software) {
+function mountLink(id: number | null | undefined, software?: MS_Software, showTooltip = true) {
     const video = software !== undefined && id != null && id > 0 ? new VideoAbstract({ id, software, level: 'b', mode: '00', timems: 12345, bv: 4, state: 'c' }) : undefined;
     cy.mount(defineComponent({
         expose: [],
-        render: () => h(VideoPreviewLink, { id, software, video }, () => '12.345'),
+        render: () => h(VideoPreviewLink, { id, software, video, showTooltip }, () => '12.345'),
     }), { global: { plugins: [i18n] } });
 }
 
@@ -23,6 +24,7 @@ describe('<VideoPreviewLink />', () => {
 
     afterEach(() => {
         videoplayerstore.visible = false;
+        Reflect.deleteProperty(local.value, 'tooltip_show');
     });
 
     it('opens the existing player by keyboard without navigating away', () => {
@@ -70,6 +72,26 @@ describe('<VideoPreviewLink />', () => {
         cy.get('[role=tooltip]:visible').should('not.exist');
         cy.get('@videoMetadata.all').should('have.length', 0);
         cy.get('@parsedVideoInfo.all').should('have.length', 1);
+    });
+
+    it('shows the summary and software name even when a retired help preference is disabled', () => {
+        Reflect.set(local.value, 'tooltip_show', false);
+        mountLink(43, 'r');
+
+        cy.get('.video-preview-software').should('have.attr', 'title', i18n.global.t('common.software.r'));
+        cy.get('.video-preview-link').trigger('mouseenter');
+        cy.get('[role=tooltip]:visible').should('have.length', 1).and('contain.text', '12.345');
+        cy.wrap(videoplayerstore).its('visible').should('eq', false);
+        cy.get('.video-preview-link').trigger('mouseleave');
+        cy.get('[role=tooltip]:visible').should('not.exist');
+    });
+
+    it('keeps the per-link summary opt-out', () => {
+        mountLink(43, 'r', false);
+
+        cy.get('.video-preview-link').trigger('mouseenter');
+        cy.get('[role=tooltip]:visible').should('not.exist');
+        cy.get('.descriptions').should('not.exist');
     });
 
     it('discards late data after the linked video changes', () => {
