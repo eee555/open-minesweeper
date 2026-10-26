@@ -72,8 +72,34 @@ jobs:
           E2E_TEST=True python manage.py runserver 127.0.0.1:8000 --noreload > backend.log 2>&1 &
           echo "Backend started in background"
 
-      - name: Install Chinese fonts
-        run: sudo apt-get install -y fonts-wqy-zenhei fonts-noto-cjk
+      - name: Cache Chinese fonts
+        uses: actions/cache@v6
+        with:
+          path: ~/.local/share/fonts/noto-cjk-sc
+          key: ${{ runner.os }}-noto-cjk-sc-2.004-v1
+
+      # E2E uses Chinese. Keep regular/bold Noto Sans CJK SC without apt mirror downloads.
+      - name: Install and verify Chinese fonts
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          font_dir="$HOME/.local/share/fonts/noto-cjk-sc"
+          mkdir -p "$font_dir"
+          for weight in Regular Bold; do
+            font_file="$font_dir/NotoSansCJKsc-$weight.otf"
+            if [ ! -s "$font_file" ]; then
+              curl --fail --location --silent --show-error --retry 2 --connect-timeout 10 --max-time 60 \
+                "https://raw.githubusercontent.com/notofonts/noto-cjk/523d033d6cb47f4a80c58a35753646f5c3608a78/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-$weight.otf" \
+                --output "$font_file"
+            fi
+          done
+          cd "$font_dir"
+          sha256sum --check <<'SHA256'
+          2c76254f6fc379fddfce0a7e84fb5385bb135d3e399294f6eeb6680d0365b74b  NotoSansCJKsc-Regular.otf
+          b5f0d1a190a7f9b43c310a8850630af12553df32c4c050543f9059732d9b4c0a  NotoSansCJKsc-Bold.otf
+          SHA256
+          fc-cache -f "$font_dir"
+          fc-list ':lang=zh-cn' family | grep -F 'Noto Sans CJK SC'
 
       # The action installs dependencies once with npm ci and caches npm/Cypress.
       # Start Vite directly to skip predev's offline-package builds.
