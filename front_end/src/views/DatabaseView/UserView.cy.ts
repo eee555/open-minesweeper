@@ -10,16 +10,17 @@ import type { DirectoryUser, UserDirectorySort } from '@/services/userDirectoryS
 import { pinia } from '@/store/create';
 import { hashRouter, installHashHistoryCleanup } from '@cy/support/hashHistory';
 
+// Match the Asia/Shanghai test timezone without depending on the host timezone at module load.
 const users: DirectoryUser[] = [
     {
         id: 42,
-        date_joined: new Date(2024, 0, 2, 3, 4, 5).toISOString(),
+        date_joined: '2024-01-02T03:04:05+08:00',
         accounts: { c: '101', a: '201', w: '301', m: 'mr-alpha_01' },
         statistics: { video_num_total: 2, video_num_tournament: 3, video_num_all: 5, video_size_total: 1024, video_size_tournament: 2048, video_size_all: 3072 },
     },
     {
         id: 43,
-        date_joined: new Date(2025, 5, 7, 8, 9, 10).toISOString(),
+        date_joined: '2025-06-07T08:09:10+08:00',
         accounts: { m: 'mr-linked_03' },
         statistics: { video_num_total: -1, video_num_tournament: 0, video_num_all: -1, video_size_total: -1024, video_size_tournament: 0, video_size_all: -1024 },
     },
