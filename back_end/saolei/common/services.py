@@ -1,10 +1,13 @@
 import json
 
 from django.db import transaction
+from django.db.models import BigIntegerField, F
+from django.db.models.functions import Coalesce
 from django.tasks import TaskResultStatus
 from django.utils import timezone as django_timezone
 from django_tasks_db.models import DBTaskResult
 
+from accountlink.models import AccountLinkQueue, Platform
 from config.common import TASK_CLEANUP_CONFIGS
 from config.customranking import CUSTOM_PLUCK_LEVELS
 from config.text_choices import MS_TextChoices
@@ -16,6 +19,8 @@ from speedranking.pb.cache import PBRankingCache
 from speedranking.pb.utils import member, record_field
 from speedranking.saolei.cache import SpeedRankingCache
 from speedranking.saolei.utils import RANKING_NAMES, RULES
+from userprofile.models import UserProfile
+from userprofile.schema import UserDirectoryQuery
 from utils.exceptions import ExceptionToResponse
 from utils.parser import MSVideoParser
 from utils.ranking_lock import ranking_access
@@ -24,6 +29,48 @@ from videomanager.services import find_identical_video
 
 
 TASK_CLEANUP_BATCH_SIZE = 200
+
+
+def query_user_directory_page(filters: UserDirectoryQuery):
+    users = UserProfile.objects.select_related('userms').only(
+        'id', 'date_joined',
+        'userms__id', 'userms__video_num_total', 'userms__video_num_tournament', 'userms__video_num_all',
+        'userms__video_size_total', 'userms__video_size_tournament', 'userms__video_size_all',
+    )
+    links = AccountLinkQueue.objects.filter(verified=True)
+    if filters.id:
+        if filters.platform:
+            users = users.filter(id__in=links.filter(platform=filters.platform, identifier=filters.id).values('userprofile_id'))
+        else:
+            users = users.filter(id=filters.id)
+    if filters.sort == 'id':
+        users = users.order_by('-id' if filters.reverse else 'id')
+    else:
+        # Missing UserMS records display and sort as zero, including pending-recount negatives.
+        users = users.alias(
+            video_num_total=Coalesce('userms__video_num_total', 0, output_field=BigIntegerField()),
+            video_num_tournament=Coalesce('userms__video_num_tournament', 0, output_field=BigIntegerField()),
+            video_num_all=Coalesce('userms__video_num_all', 0, output_field=BigIntegerField()),
+            video_size_total=Coalesce('userms__video_size_total', 0, output_field=BigIntegerField()),
+            video_size_tournament=Coalesce('userms__video_size_tournament', 0, output_field=BigIntegerField()),
+            video_size_all=Coalesce('userms__video_size_all', 0, output_field=BigIntegerField()),
+        )
+        if filters.reverse:
+            users = users.order_by(F(filters.sort).desc(), 'id')
+        else:
+            users = users.order_by(filters.sort, 'id')
+    count = users.count()
+    start = (filters.page - 1) * filters.page_size
+    page = list(users[start:start + filters.page_size])
+    if page:
+        accounts = {user.id: {} for user in page}
+        for user_id, platform, identifier in links.filter(
+            userprofile_id__in=accounts, platform__in=[Platform.SAOLEI, Platform.MSGAMES, Platform.WOM, Platform.MINERACER],
+        ).values_list('userprofile_id', 'platform', 'identifier'):
+            accounts[user_id][platform] = identifier
+        for user in page:
+            user.accounts = accounts[user.id]
+    return {'count': count, 'users': page}
 
 
 @ranking_access(operation='common.upload_video')

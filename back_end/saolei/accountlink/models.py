@@ -28,6 +28,9 @@ class AccountLinkQueue(models.Model):
     userprofile = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
     verified = models.BooleanField(default=False)
 
+    class Meta:
+        indexes = [models.Index(fields=['platform', 'identifier'], name='accountlink_platform_id_idx')]
+
 
 # 扫雷网账号信息
 class AccountSaolei(models.Model):

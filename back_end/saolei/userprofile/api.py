@@ -10,23 +10,37 @@ from django.http import FileResponse, HttpRequest, HttpResponse, HttpResponseFor
 from django.shortcuts import get_object_or_404
 from django.views.decorators.cache import cache_control
 from django_ratelimit.decorators import ratelimit
-from ninja import File, Form, Router, Schema, UploadedFile
+from ninja import File, Form, Query, Router, Schema, UploadedFile
 from ninja.decorators import decorate_view
 from ninja.orm import create_schema
 
+from common.services import query_user_directory_page
 from utils import verify_image
 from utils.exceptions import ExceptionToResponse
 from videomanager.models import VideoModel
 from videomanager.schema import VIDEO_METADATA_FIELDS, VideoMetadataOut
 from .decorators import banned_blocked, login_required_error, staff_required
 from .models import UserProfile
-from .schema import PUBLIC_NAME_FIELDS, RawUserNames, SelfUserInfoOut, UserInfoOut
+from .schema import PUBLIC_NAME_FIELDS, RawUserNames, SelfUserInfoOut, UserDirectoryPageOut, UserDirectoryQuery, UserInfoOut
 from .services import has_sub200_expert_video, refresh_avatar_chance, try_update_user_signature, update_admin_profile, update_user_names
 from .utils import NAME_FIELDS
 
 router = Router()
 logger = logging.getLogger('userprofile')
 AVATAR_ACCEL_REDIRECT_PREFIX = '/internal-media/'
+
+
+@router.get('/query', response=UserDirectoryPageOut)
+@decorate_view(ratelimit(key='ip', rate='60/m', block=True))
+def query_users(request, filters: Query[UserDirectoryQuery]):
+    """
+    - ratelimit(key='ip', rate='60/m', block=True)
+
+    Public user directory. Match one ID exactly; an omitted platform selects the site user ID.
+    Platform codes c/a/w/m select verified public account links. An empty ID lists all users.
+    Ordering is stable by user ID for equal statistics.
+    """
+    return query_user_directory_page(filters)
 
 
 class AdminUserProfileOutBase(RawUserNames):
