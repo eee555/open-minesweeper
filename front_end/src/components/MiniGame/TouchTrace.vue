@@ -1,54 +1,32 @@
 <template>
-    <svg class="minigame-touch-trace" :width="columns * size" :height="rows * size" :viewBox="`0 0 ${columns} ${rows}`" aria-hidden="true">
-        <g :transform="transposed ? 'matrix(0 1 1 0 0 0)' : undefined">
-            <g v-for="trace in traces" :key="trace.id">
-                <polyline :points="trace.events.map((event) => `${event.column},${event.row}`).join(' ')" fill="none" :stroke-width="minigameReplayAppearance.lineWidth" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />
-                <circle v-for="(event, index) in trace.events.filter((item) => item.action === 'lc')" :key="index" :cx="event.column" :cy="event.row" :r="markerRadius" fill="currentColor" opacity="0.6" />
-            </g>
-            <circle v-for="contact in contacts" :key="contact.id" :cx="contact.column" :cy="contact.row" :r="markerRadius" fill="currentColor" stroke="var(--ui-bg-color)" stroke-width="0.035" data-cy="minigame-replay-contact" />
-        </g>
-    </svg>
+    <TouchTraceLayer class="minigame-touch-trace" :events="events" :end-index="eventIndex + 1" :opacity="minigameReplayAppearance.opacity" :line-width="minigameReplayAppearance.lineWidth" :down-marker="downMarker" :active-marker="activeMarker" color="var(--ui-color-primary)" />
 </template>
 
 <script setup lang="ts">
+import { TouchTrace as TouchTraceLayer } from '@putianyi888/vue3-minesweeper-board';
+import type { TouchTraceEvent } from '@putianyi888/vue3-minesweeper-board';
 import { computed } from 'vue';
 import type { PropType } from 'vue';
 
 import { minigameReplayAppearance } from '@/utils/minigame/replay';
-import type { AnyTrainingReplay } from '@/utils/minigame/replay';
+import type { TouchTrainingReplay } from '@/utils/minigame/replay';
 
 const props = defineProps({
-    replay: { type: Object as PropType<AnyTrainingReplay>, required: true },
+    replay: { type: Object as PropType<TouchTrainingReplay>, required: true },
     eventIndex: { type: Number, required: true },
-    size: { type: Number, required: true },
     transposed: { type: Boolean, default: false },
 });
-const rows = computed(() => (props.transposed ? props.replay.mode.columns : props.replay.mode.rows));
-const columns = computed(() => (props.transposed ? props.replay.mode.rows : props.replay.mode.columns));
-const contacts = computed(() => props.replay.events[props.eventIndex]?.contacts ?? []);
 const marker = minigameReplayAppearance.markers.lc;
-const markerRadius = (marker === false ? 0 : marker?.size ?? 0.25) / 2;
-// One SVG for all contacts avoids allocating a board-sized canvas for every tap.
-const traces = computed(() => {
-    const grouped = new Map<number, AnyTrainingReplay['events']>();
-    for (let index = 0; index <= props.eventIndex; index++) {
-        const event = props.replay.events[index];
-        if (event?.touchId === undefined) continue;
-        let events = grouped.get(event.touchId);
-        if (events === undefined) {
-            events = [];
-            grouped.set(event.touchId, events);
-        }
-        events.push(event);
-    }
-    return [...grouped].map(([id, events]) => ({ id, events }));
-});
+const downMarker = marker === false ? false : { size: marker?.size ?? 0.25 };
+const activeMarker = downMarker === false ? false : { ...downMarker, stroke: 'var(--ui-bg-color)' };
+// Convert once per recording/orientation, retaining the 1:1 playback index mapping.
+const events = computed(() => props.replay.events.map((event): TouchTraceEvent => {
+    if (event.touchId === undefined) throw new Error('Missing replay touch ID');
+    return {
+        id: event.touchId,
+        row: props.transposed ? event.column : event.row,
+        column: props.transposed ? event.row : event.column,
+        action: event.cancelled ? 'cancel' : event.action === 'lc' ? 'down' : event.action === 'mv' ? 'move' : 'up',
+    };
+}));
 </script>
-
-<style scoped>
-.minigame-touch-trace {
-    pointer-events: none;
-    color: var(--ui-color-primary);
-    overflow: hidden;
-}
-</style>

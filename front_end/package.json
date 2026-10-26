@@ -31,7 +31,7 @@
     "@intlify/core-base": "11.4.16",
     "@primeuix/themes": "2.0.3",
     "@primevue/core": "4.5.5",
-    "@putianyi888/vue3-minesweeper-board": "0.6.1",
+    "@putianyi888/vue3-minesweeper-board": "0.7.0",
     "@putianyi888/vue3-plots": "0.7.0",
     "@unicode/unicode-16.0.0": "2.0.8",
     "@vueuse/components": "15.0.0",

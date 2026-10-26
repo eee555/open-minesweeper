@@ -48,7 +48,7 @@
             >
                 <template #overlay>
                     <template v-if="replay.data.value && replay.frame.value">
-                        <TouchTrace v-if="replay.data.value.game === 'multi-touch'" :replay="replay.data.value" :event-index="replay.frame.value.eventIndex" :size="cellSize" :transposed="transposed" />
+                        <TouchTrace v-if="replay.data.value.game === 'multi-touch'" :replay="replay.data.value" :event-index="replay.frame.value.eventIndex" :transposed="transposed" />
                         <ReplayTrace v-else :replay="replay.data.value" :event-index="replay.frame.value.eventIndex" />
                     </template>
                 </template>
