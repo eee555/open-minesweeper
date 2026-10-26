@@ -11,7 +11,7 @@ class MiniGameBestScoreAdmin(admin.ModelAdmin):
     readonly_fields = ['player', 'ranking_key', 'score', 'achieved_at', 'replay_archive']
 
     def get_queryset(self, request):
-        return super().get_queryset(request).defer('replay', 'replay_archive')
+        return super().get_queryset(request).defer('replay_archive')
 
     def has_add_permission(self, request):
         return False

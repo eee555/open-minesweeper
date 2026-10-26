@@ -11,6 +11,8 @@
 
 四种训练的成功局均自动保存本地历史。网站登录且未封禁的玩家可手动上传成绩与回放，无需实名；多指训练九个榜单独立于左键训练。
 
+网站回放入口为 `/minigame/{game}?player={player_id}&key={mode_key}`，例如 `/minigame/left-click?player=42&key=b-50-v1`。`OnlineReplay.vue` 通过 `GET /api/minigame/{game}/replay?player=...&key=...` 获取原始 7z 和 `X-Minigame-Score`，解包并组合完整榜单标识后，由 `review.ts` 复用现有解析器重建快照。加载结果通过 `replayData` 传给原游戏组件，共用参数栏、棋盘、计数器、轨迹及分析图，初始停在完成状态；漏雷共用逐局图表悬停回溯。重开或修改玩法参数后清除 `player`、`key`，在同一组件内保留所选模式并开始新局。更换回放参数时取消旧请求，缺失或损坏录像显示错误；观看录像不保存历史或上传成绩。HTTP 加载入口仅在网站引入，不进入离线包。
+
 ## 公共显示与输入
 
 [MiniGame 组件](../src/components/MiniGame/) 复用项目的 `@putianyi888/vue3-minesweeper-board`，不使用 `ms-toollib`。游戏控制器维护规则、状态与整数毫秒成绩；[clock.ts](../src/utils/minigame/clock.ts) 负责计时，依赖库的 `Counter` 仅显示剩余数量和秒数（三位小数）。
@@ -27,7 +29,7 @@
 
 高级游戏和回放始终使用 16×30 坐标，纵向由 `Board` 复用 `d3-array` 的 `transpose` 转置显示，并把输入坐标交换回游戏坐标；`TouchTrace` 同步交换显示坐标。`multiTouchOrientation` 仅存 localStorage，不写入回放，切换方向保留当前局。全屏复用项目的 VueUse `useFullscreen`，通过 Frame 的 `borderless` 移除内外边框、外框内边距及间隔，同时取消全屏容器留白。全屏顶栏与设置页共用 `InputNumber` 和全局格子大小，直接输入正整数，不按窗口自动缩放；超出可用区域时允许横向和纵向滚动。修改尺寸及进出全屏保留当前局，回放继续使用首个触点的参考格子大小。
 
-[settings.ts](../src/utils/minigame/settings.ts) 集中管理 `minigame-settings` localStorage，兼容旧配置补默认值。所有游戏共用格子大小（数字输入框，正整数，默认 32px）和重开热键（默认未设置），左键雷不透明度默认 50%。网站设置页与小游戏页底部共用设置组件；修改显示参数保留当前局。玩法参数保持在棋盘上方，修改时重开。
+[settings.ts](../src/utils/minigame/settings.ts) 集中管理 `minigame-settings` localStorage，兼容旧配置补默认值。所有游戏共用格子大小（数字输入框，正整数，默认 32px）和重开热键（默认未设置）；左键和多指共用雷不透明度（默认 50%）及雷格状态 `leftClickMinePressed`（默认 `false`，弹起）。雷格状态仅由 `Board` 派生背景矩阵，旗格始终弹起；不修改逻辑棋盘、不进入回放载荷，播放时使用当前本地设置。网站设置页与小游戏页底部共用设置组件；修改显示参数保留当前局。玩法参数保持在棋盘上方，修改时重开。
 
 ## 标双题目排布
 
@@ -81,7 +83,7 @@
 - 本地历史独立于可丢弃的 `saolei-cache`，不套用缓存的过期、版本清空或自动字段转换。以后修改结构时显式迁移并保留历史数据。连接在版本升级时释放，避免旧页面阻塞迁移。
 - 数据归属于当前浏览器与来源，在线站点和离线文件不保证共用；清除浏览器站点数据会删除记录。
 
-网站入口收到游戏的 `completed(rankingKey, scoreMs, replay)` 事件后暂存本局数据，通过 `resultActions` 插槽在棋盘下方提供上传按钮，仅在点击时提交；重开、修改玩法参数或切换游戏清除待上传状态。HTTP 和登录状态仅由网站 `MiniGameView/App.vue` 引入。左键及标双提交 `TrainingRecording`，多指提交 `TouchRecording`，漏雷提交 `{version: 1, rounds}`。表单中的 `replay` 为 JSON 字符串。后端压缩为 7z 后用 BinaryField 保存每人每榜最佳成绩对应的回放，回放不进入 Redis。上传失败可重试，不影响自动保存的本地记录；失败局不发完成事件。离线入口不监听这些事件，继续禁止导入网站 HTTP、用户 store 及路由。
+网站入口收到游戏的 `completed(rankingKey, scoreMs, replay)` 事件后暂存本局数据，通过 `resultActions` 插槽在棋盘下方提供上传按钮，仅在点击时提交；重开、修改玩法参数或切换游戏清除待上传状态。HTTP 及登录状态由网站 `MiniGameView/App.vue` 和 `OnlineReplay.vue` 接入。左键及标双提交 `TrainingRecording`，多指提交 `TouchRecording`，漏雷提交 `{version: 1, rounds}`。表单中的 `replay` 为 JSON 字符串。后端压缩为 7z 后用 BinaryField 保存每人每榜最佳成绩对应的回放，回放不进入 Redis。上传失败可重试，不影响自动保存的本地记录；失败局不发完成事件。离线入口不监听这些事件，继续禁止导入网站 HTTP、用户 store 及路由。
 
 ## 构建与资源
 

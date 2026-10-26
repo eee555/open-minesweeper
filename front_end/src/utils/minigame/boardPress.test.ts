@@ -13,6 +13,11 @@ describe('shared board press preview', () => {
         expect(background).toEqual(Array.from({ length: 5 }, (_row, r) => Array.from({ length: 5 }, (_column, c) => r >= 1 && r <= 3 && c >= 1 && c <= 3 && !(r === 2 && c === 1))));
         expect(board).toEqual(original);
         expect(pressedBackground(board, null)).toBeUndefined();
+        expect(pressedBackground(board, null, true)).toEqual([
+            [false, false, false, false, false], [false, true, false, false, false], [false, false, true, false, false], [false, false, false, false, false], [false, false, false, false, false],
+        ]);
+        expect(pressedBackground(board, { row: 2, column: 1, chord: false }, true)?.[2][1]).toBe(false);
+        expect(board).toEqual(original);
     });
 
     it('clips at corners and follows the current cursor cell', () => {

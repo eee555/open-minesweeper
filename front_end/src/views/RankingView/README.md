@@ -32,4 +32,4 @@
 
 缓存但未激活的页面不响应其他大榜的 query。配色仍是全局 localStorage 设置，不放进 URL。
 
-小游戏从 `/api/minigame/rankings` 获取固定列顺序；每页一次请求返回整组全部列。无成绩显示 `--`，点击表头选择排序列。小游戏尚无配色，独立预留 `MinigameColorScheme(ranking, score)` 样式函数和禁用的配色按钮，不套用竞速榜色阶。
+小游戏从 `/api/minigame/rankings` 获取固定列顺序；每页一次请求返回整组全部列。无成绩显示 `--`，点击表头选择排序列。成绩链接前往 `/minigame/{game}?player={player_id}&key={mode_key}`，`key` 去掉游戏前缀，如 `b-50-v1`，播放对应玩家该榜当前最佳录像；日期 title 沿用项目格式。小游戏尚无配色，独立预留 `MinigameColorScheme(ranking, score)` 样式函数和禁用的配色按钮，不套用竞速榜色阶。

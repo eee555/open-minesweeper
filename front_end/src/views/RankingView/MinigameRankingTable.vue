@@ -36,7 +36,12 @@
                 <PlayerName :user-id="row.player_id" />
             </td>
             <td v-for="ranking in rankings" :key="ranking.key" class="table-col-number" :style="cellStyle(row, ranking)" :title="row.records[ranking.key] == null ? undefined : toISODateTimeString(new Date(row.records[ranking.key]!.achieved_at))">
-                {{ row.records[ranking.key] == null ? '--' : ms_to_s(row.records[ranking.key]!.score) }}
+                <RouterLink v-if="row.records[ranking.key] != null" class="link" data-cy="minigame-replay-link" :to="{ name: `minigame-${game}`, query: { player: row.player_id, key: ranking.key.slice(game.length + 1) } }">
+                    {{ ms_to_s(row.records[ranking.key]!.score) }}
+                </RouterLink>
+                <template v-else>
+                    --
+                </template>
             </td>
         </tr>
     </BaseTable>
@@ -46,10 +51,13 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/link.css';
+
 import { ElAlert, ElPagination, vLoading } from 'element-plus';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import type { PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { RouterLink } from 'vue-router';
 
 import { queryChoice, queryInteger, useRankingQuery } from './useRankingQuery';
 

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { fetchMinigameRankings, submitMinigameScore } from './minigameRankingService';
+import { fetchMinigameRankings, fetchMinigameReplay, submitMinigameScore } from './minigameRankingService';
 
 import $axios from '@/http';
 import type { MinigameReplayData } from '@/utils/minigame/history';
@@ -17,6 +17,16 @@ describe('minigame ranking API', () => {
         expect(first).toBe(second);
         expect(get).toHaveBeenCalledTimes(2);
         expect(get).toHaveBeenLastCalledWith('/api/minigame/rankings');
+    });
+
+    it('loads the 7z as binary with its matching score and forwards cancellation', async () => {
+        const archive = new Uint8Array([0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c]).buffer;
+        const get = vi.spyOn($axios, 'get').mockResolvedValue({ data: archive, headers: { 'x-minigame-score': '1234' } });
+        const { signal } = new AbortController();
+        await expect(fetchMinigameReplay('left-click', 'b-50-v1', 42, signal)).resolves.toEqual({ archive, scoreMs: 1234 });
+        expect(get).toHaveBeenCalledWith('/api/minigame/left-click/replay', { params: { player: 42, key: 'b-50-v1' }, responseType: 'arraybuffer', signal });
+        get.mockResolvedValue({ data: archive, headers: {} });
+        await expect(fetchMinigameReplay('left-click', 'b-50-v1', 42)).rejects.toThrow('Missing minigame replay score');
     });
 
     it.each<[string, MinigameReplayData]>([

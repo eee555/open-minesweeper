@@ -48,6 +48,8 @@ describe('minigame rankings', () => {
         cy.get('[data-cy=minigame-play-link]').should('have.attr', 'href', '/minigame/left-click');
         cy.get('.minigame-ranking-table tbody tr td').should('have.length', 11);
         cy.get('.minigame-ranking-table tbody').should('contain.text', '1.234').and('contain.text', '--');
+        cy.get('[data-cy=minigame-replay-link]').first().should('have.attr', 'href', '/minigame/left-click?player=42&key=b-50-v1');
+        cy.get('.minigame-ranking-table tbody tr td').eq(3).find('a').should('not.exist');
         cy.get('.minigame-ranking-table [aria-pressed=true]').should('have.attr', 'aria-label', 'Expert 7/8');
         cy.get('[data-cy=minigame-ranking-color]').should('be.disabled');
         cy.get('.minigame-ranking-table [aria-label="Beginner 3/4"]').click();
@@ -63,6 +65,7 @@ describe('minigame rankings', () => {
             cy.wait('@rank').its('request.query.start').should('equal', '0');
             cy.get('.minigame-ranking-table tbody tr td').should('have.length', columns);
             cy.get('[data-cy=minigame-play-link]').should('have.attr', 'href', `/minigame/${game}`);
+            cy.get('[data-cy=minigame-replay-link]').first().should('have.attr', 'href', `/minigame/${game}?player=42&key=${game === 'multi-touch' ? 'b-50-v1' : 'b-v1'}`);
         }
         cy.get('[data-cy=minigame-play-link]').click();
         cy.wrap(router).its('currentRoute.value.name').should('equal', 'minigame-missing-cell');

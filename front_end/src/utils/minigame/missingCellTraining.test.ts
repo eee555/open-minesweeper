@@ -165,6 +165,13 @@ describe('missing-cell training', () => {
         expect(second.roundTimesMs).toEqual([]);
     });
 
+    it('restores a completed board by revealing its target and keeping mines hidden', () => {
+        const result = { board: [[16, 1, 0], [1, 10, 0], [0, 0, 0]], timeMs: 100 };
+        expect(reviewMissingCellRound(result, true)).toEqual({ board: [[10, 1, 0], [1, 1, 0], [0, 0, 0]], target: null, timeMs: 100 });
+        expect(result.board[1][1]).toBe(10);
+        expect(reviewMissingCellRound(result).target).toEqual({ row: 1, column: 1 });
+    });
+
     it('records differences of rounded cumulative times without changing previous snapshots', () => {
         const game = new MissingCellTraining(missingCellModes[0], randomSource());
         game.trigger(0, 0, 1000);

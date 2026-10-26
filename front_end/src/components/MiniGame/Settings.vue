@@ -24,6 +24,19 @@
                     <output :for="opacityId" data-cy="minigame-mine-opacity-value">{{ Math.round(minigameSettings.leftClickMineOpacity * 100) }}%</output>
                 </dd>
             </div>
+            <div :class="descriptionLayout ? 'description-item' : 'minigame-settings-row'">
+                <dt :id="mineStateId">
+                    {{ t('local.mineState') }}
+                </dt>
+                <dd class="minigame-settings-controls">
+                    <div class="checkbox-buttons" role="radiogroup" :aria-labelledby="mineStateId" data-cy="minigame-mine-state">
+                        <label v-for="state in ['up', 'down']" :key="state" class="checkbox-button">
+                            <input v-model="minigameSettings.leftClickMinePressed" class="checkbox-button-input" type="radio" :name="mineStateId" :value="state === 'down'" :data-cy="`minigame-mine-${state}`">
+                            <span class="checkbox-button-content">{{ t(`local.${state}`) }}</span>
+                        </label>
+                    </div>
+                </dd>
+            </div>
         </dl>
         <p :id="hintId" class="minigame-settings-hint text text-info text-small">
             {{ t('local.hint') }}
@@ -32,6 +45,7 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/checkbox-buttons.css';
 import '@/styles/descriptions.css';
 
 import { useId } from 'vue';
@@ -47,6 +61,7 @@ const hintId = useId();
 const hotkeyId = useId();
 const cellSizeId = useId();
 const opacityId = useId();
+const mineStateId = useId();
 
 function recordHotkey(event: KeyboardEvent) {
     if (event.key === 'Tab') return;
@@ -64,6 +79,9 @@ const i18nMessages = {
         clear: '清除',
         hint: '点击输入框后按键设置，支持组合键；所有小游戏共用。输入参数时不触发重开。',
         mineOpacity: '左键／多指训练 · 雷的不透明度',
+        mineState: '左键／多指训练 · 雷格状态',
+        up: '弹起',
+        down: '按下',
     } },
     en: { local: {
         cellSize: 'Cell size',
@@ -72,6 +90,9 @@ const i18nMessages = {
         clear: 'Clear',
         hint: 'Focus the field and press a key or combination. Shared by all games; inactive while editing settings.',
         mineOpacity: 'Left-click / multi-touch training · Mine opacity',
+        mineState: 'Left-click / multi-touch training · Mine cell state',
+        up: 'Raised',
+        down: 'Pressed',
     } },
 };
 const { t } = useI18n({ messages: i18nMessages });

@@ -5,7 +5,7 @@ description: Board compression, mouse, touch and special event encoding, and fro
 
 # Minigame Replay Data Format v1
 
-Status: implemented. The website and offline edition save new recordings as v1 and can read v0 recordings. IndexedDB upgrades automatically; existing backend data is migrated with a management command.
+Status: implemented. The website and offline edition save new recordings as v1 and can read v0 recordings. IndexedDB upgrades automatically; backend history has completed its compression migration.
 
 This specification defines the v1 JSON payload used for playback and persistence, and its 7z storage container. Standalone replay downloads and file extensions are not defined yet. JSON text uses UTF-8. Object property order and whitespace do not affect meaning; tuple field order and event order must be preserved.
 
@@ -406,23 +406,13 @@ Fresh installations create the new schema directly. If one replay cannot be conv
 
 When old records need conversion, the website and offline edition display “Optimizing replay format. Please do not close this page.” with completed / total progress. The dialog closes after the upgrade transaction commits or rolls back on failure. Allow the browser to paint the notice before compression, keeping database requests active while waiting so the upgrade transaction cannot finish prematurely. Empty or already upgraded databases do not show the notice.
 
-### 6.3 Backend Management Command
+### 6.3 Backend Storage
 
-The model keeps the old `replay` JSONField, allows it to be null, and adds a `replay_archive` BinaryField. Migration files remain ignored by Git; the deployment script generates and applies schema migrations without an interactive field-rename confirmation. The `migrate_minigame_replays` management command determines game and mode from `ranking_key`, converts old JSON to v1 in batches, compresses it into BinaryField, and clears each corresponding old `replay` only after a successful write. For manual deployment, run these commands from `back_end/saolei`:
+Backend history has completed conversion to v1 and 7z compression. Replays are stored only in the `replay_archive` BinaryField. The old `replay` JSONField, one-time migration command and its conversion code have been removed. Migration files remain ignored by Git; the deployment script generates and applies the schema migration that drops the old column, preserving binary replays, players, rankings, scores, achievement times and primary keys. For manual deployment, run these commands from `back_end/saolei`:
 
 ```bash
 python manage.py makemigrations
 python manage.py migrate
-python manage.py migrate_minigame_replays --dry-run
-python manage.py migrate_minigame_replays
 ```
 
-- Preserve the player, ranking, score, achievement time and primary key. Django generates schema migrations while the old JSON column keeps its name and type, avoiding a forced cast or dependency on a particular sequence of migration files.
-- Support repeated execution, skip already converted records, and report counts of pending, successful, skipped and invalid records.
-- `--dry-run` only checks and reports, without writes. Preserve and report corrupt data and unknown versions rather than replacing them with empty recordings.
-- Before updating, verify that score and achievement time still match the values read. Skip records replaced by a new personal best to avoid attaching an old replay to a new score. No locking or overwriting of concurrent new scores is required.
-- Replays stay out of Redis. The command neither reads, writes nor rebuilds ranking caches.
-
-The command reports `pending`, `migrated`, `skipped` and `invalid` counts. For corrupt data or unknown versions, it reports the record ID and ranking key, continues with other records, and exits with a nonzero status. Completed conversions are retained, so the command can be rerun after fixing errors.
-
-For deployment, back up the database, update the frontend writer and backend migration tooling, then run the migration. The command only handles data already stored in the database. Unversioned payloads from offline copies or old pages are still recognized as v0 and can use the same converter when read; server migration does not cover every browser.
+The submission API still accepts a JSON object string and compresses it when creating or improving a score. Replays stay out of Redis; the schema migration does not require rebuilding ranking caches. Old frontend IndexedDB data continues to upgrade as described in Section 6.2, with v0 read compatibility retained.
