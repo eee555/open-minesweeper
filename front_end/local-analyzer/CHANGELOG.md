@@ -1,10 +1,5 @@
 # Analyzer 更新记录 / Analyzer changelog
 
-## 未发布 / Unreleased
-
-- 通过公共语言资源、消息链接和插值复用分析器界面文案，保持现有中英文显示内容。
-- Reuse shared messages, linked translations and interpolation in the analyzer while preserving existing Chinese and English text.
-
 ## 0.2.0 — 2026-10-19
 
 - 升级 ms-toollib 至 1.5.20，包含 RMV race_identifier 解析修复，并核对离线包许可证。
