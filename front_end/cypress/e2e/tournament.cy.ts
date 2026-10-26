@@ -127,6 +127,8 @@ function setEndDateTime(dateStr: string, timeStr: string) {
 }
 
 function assertTableData(expected: Record<string, unknown>[], exact = true) {
+    // getTable() takes a one-time snapshot, so wait for the expected DOM rows first.
+    assertVisibleTournamentNames(expected.map((row) => String(row.比赛)), exact);
     cy.get('table:visible').getTable().should((tableData) => {
         if (exact) {
             expect(tableData).to.have.length(expected.length);
@@ -141,14 +143,14 @@ function assertTableData(expected: Record<string, unknown>[], exact = true) {
     });
 }
 
-function assertVisibleTournamentNames(expectedNames: string[]) {
+function assertVisibleTournamentNames(expectedNames: string[], exact = true) {
     cy.get('.el-table:visible').first().within(() => {
         expectedNames.forEach((name) => {
             cy.contains('.el-table__row', name).should('be.visible');
         });
         cy.get('.el-table__row').should((rows) => {
             const names = [...rows].map((row) => row.textContent ?? '');
-            expect(names).to.have.length(expectedNames.length);
+            if (exact) expect(names).to.have.length(expectedNames.length);
             expectedNames.forEach((name) => {
                 expect(names.some((rowText) => rowText.includes(name))).to.equal(true);
             });
