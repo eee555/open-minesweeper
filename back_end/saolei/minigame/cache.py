@@ -3,7 +3,7 @@ import json
 from django_redis import get_redis_connection
 
 from .models import MiniGameBestScore
-from .utils import GAME_RANKINGS, RANKINGS
+from .utils import RANKINGS
 
 
 def score_detail(record):
@@ -56,8 +56,7 @@ class MiniGameRankingCache:
             pipe.execute()
         return len(records)
 
-    def get_range(self, game, sort, start, end):
-        rankings = GAME_RANKINGS[game]
+    def get_range(self, rankings, sort, start, end):
         with self.client.pipeline(transaction=False) as pipe:
             for ranking in rankings:
                 pipe.get(self.ready_key(ranking.key))
@@ -69,7 +68,7 @@ class MiniGameRankingCache:
         if missing:
             for key in missing:
                 self.rebuild(key)
-            return self.get_range(game, sort, start, end)
+            return self.get_range(rankings, sort, start, end)
         count = result[len(rankings)]
         members = result[-1] if end > start else []
         if not members:
@@ -84,8 +83,7 @@ class MiniGameRankingCache:
             players.append({'player_id': int(member), 'rank': start + index + 1, 'records': records})
         return {'count': count, 'players': players}
 
-    def get_player(self, game, player_id):
-        rankings = GAME_RANKINGS[game]
+    def get_player(self, rankings, player_id):
         with self.client.pipeline(transaction=False) as pipe:
             for ranking in rankings:
                 pipe.get(self.ready_key(ranking.key))

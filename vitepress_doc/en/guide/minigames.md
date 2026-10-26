@@ -71,7 +71,9 @@ After a successful 10-board missing cell run, the charts show each board's time 
 
 ## Rankings and Local Results
 
-After a successful game, click **Upload score and replay** below the board to submit it while logged in and not banned. **No real name, Minesweeper profile or linked account is required.** Each mode keeps your personal best time and its replay. Click a score column to sort the rankings, or hover a score to see when it was achieved. **Click a score to watch its replay**, without logging in. Online replays use the same interface and local display settings as your own completed games, initially paused at the end. Restart or change game parameters to start a new game. Links at the top connect each game with its rankings.
+Click the bookmark button at the top right to open a drawer with the current mode's top 20 and your position when logged in. It opens below the navigation bar and leaves the rest of the page interactive. Changing the level or density selects its ranking; a successful upload refreshes it automatically.
+
+After a successful game, click **Upload score and replay** below the board to submit it while logged in and not banned. **No real name, Minesweeper profile or linked account is required.** Each mode keeps your personal best time and its replay. Choose **Full rankings** at the bottom of the drawer to open this game's ranking page. Click a score column to sort, or hover a score to see when it was achieved. **Click a score to watch its replay**, without logging in. Online replays use the same interface and local display settings as your own completed games, initially paused at the end. Restart or change game parameters to start a new game.
 
 Successful left-click, multi-touch and flag-and-chord games retain replays in this browser; missing cell training retains each board, target and time. Failed and unfinished games are not saved. History browsing and replay downloads are not available yet. Restarting clears the current preview while keeping saved successful games; clearing browser site data deletes local records.
 

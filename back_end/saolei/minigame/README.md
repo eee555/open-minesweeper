@@ -34,6 +34,7 @@
 | 方法与完整路径 | 输入 | 输出 |
 | --- | --- | --- |
 | `GET /api/minigame/rankings` | 无 | 游戏分组、固定列顺序及榜单配置 |
+| `GET /api/minigame/{ranking_key}/summary` | 完整榜单 key，个人位置取自登录用户 | 该榜首页 20 人及登录用户的成绩和名次，只包含这一列；游客的 `player` 为 `null` |
 | `POST /api/minigame/{ranking_key}/score` | 表单 `score` 和 `replay`（JSON 对象字符串），归属取自登录用户 | `{improved, record}`，不回传回放 |
 | `GET /api/minigame/{game}/replay` | 查询参数 `player=玩家ID, key=模式key`（如 `b-50-v1`） | 对应最佳成绩的原始 7z，`X-Minigame-Score` 为匹配的整数毫秒成绩 |
 | `GET /api/minigame/{game}/rank` | `sort=榜单key, start=0, end=20` | `{count, players}`，每行包含名次与完整成绩列 |
@@ -65,6 +66,7 @@
 
 - 缺初始化标记时按榜从数据库加载全部成绩；空榜也设置标记，单条上传不设置。因此空榜及不足 100 人的榜也能完全命中缓存。
 - 分类查询用两轮 pipeline 读取初始化标记、人数、页内玩家及本组全部成绩；已初始化后不查询成绩表。缺失明细直接返回 `null`，不逐项回源。
+- 小游戏页抽屉的单配置查询复用相同缓存，仅读取、初始化所选榜单，返回首页 20 人，并为登录用户读取该列成绩及名次；不预热其他配置。响应包含个人位置，禁止共享缓存。
 - 新建或改善成绩后通过 `on_commit` 更新 ZSET 与 Hash。同分或更差不写缓存；Redis 写入失败记录日志，保留已提交成绩及成功响应。
 - [signals.py](./signals.py) 在删除事务提交后移除成员，覆盖 Admin 删除及用户级联删除；保留初始化标记，使删空的榜继续命中缓存。
 - Redis 读取失败时整次请求降级：分类查询按排序列分页，再批量补全其他列；个人成绩批量读取，名次允许为 `null`。
@@ -83,6 +85,6 @@
 .\.venv\Scripts\python.exe -m flake8 minigame saolei/api.py monitor/cache.py monitor/test_server_metrics.py
 ```
 
-迁移文件按项目约定由 Git 忽略，部署脚本 `start.sh` 自动执行 `makemigrations` 和 `migrate`。历史数据压缩迁移已完成，本次结构迁移仅删除旧 `replay` 列，保留 `replay_archive`、成绩及达成时间。缓存首次查询自动初始化，也可用 `manage.py rebuild_minigame_ranks [--ranking-key key]` 预热或恢复。
+迁移文件按项目约定由 Git 忽略，部署脚本 `start.sh` 自动执行 `makemigrations` 和 `migrate`。缓存首次查询自动初始化，也可用 `manage.py rebuild_minigame_ranks [--ranking-key key]` 预热或恢复。
 
 网站地址、URL 查询参数及配色扩展接口见[排行榜开发说明](../../../front_end/src/views/RankingView/README.md)；前端检查与由用户执行的 Cypress 命令见[前端开发文档](../../../front_end/local-minigame/README.md#验证)。

@@ -51,15 +51,16 @@ def get_replay(ranking_key, player_id):
     return record[0], bytes(record[1])
 
 
-def get_ranking(game, sort, start, end):
+def get_ranking(game, sort, start, end, rankings=None):
+    rankings = GAME_RANKINGS[game] if rankings is None else rankings
     try:
-        return MiniGameRankingCache().get_range(game, sort, start, end)
+        return MiniGameRankingCache().get_range(rankings, sort, start, end)
     except RedisError:
         logger.exception('Falling back to database for minigame ranking')
     ranking = MiniGameBestScore.objects.filter(ranking_key=sort)
     order = 'score' if RANKINGS[sort].order == 'asc' else '-score'
     player_ids = list(ranking.order_by(order, 'id').values_list('player_id', flat=True)[start:end])
-    records = {player_id: dict.fromkeys(ranking.key for ranking in GAME_RANKINGS[game]) for player_id in player_ids}
+    records = {player_id: dict.fromkeys(ranking.key for ranking in rankings) for player_id in player_ids}
     if player_ids:
         for record in MiniGameBestScore.objects.filter(player_id__in=player_ids, ranking_key__in=records[player_ids[0]]).defer('replay_archive'):
             records[record.player_id][record.ranking_key] = score_detail(record)
@@ -70,12 +71,21 @@ def get_ranking(game, sort, start, end):
     return {'count': ranking.count(), 'players': players}
 
 
-def get_player_scores(game, player_id):
+def get_player_scores(game, player_id, rankings=None):
+    rankings = GAME_RANKINGS[game] if rankings is None else rankings
     try:
-        return MiniGameRankingCache().get_player(game, player_id)
+        return MiniGameRankingCache().get_player(rankings, player_id)
     except RedisError:
         logger.exception('Falling back to database for minigame player scores')
-    records = dict.fromkeys(ranking.key for ranking in GAME_RANKINGS[game])
+    records = dict.fromkeys(ranking.key for ranking in rankings)
     for record in MiniGameBestScore.objects.filter(player_id=player_id, ranking_key__in=records).defer('replay_archive'):
         records[record.ranking_key] = {**score_detail(record), 'rank': None}
     return {'player_id': player_id, 'records': records}
+
+
+def get_ranking_summary(ranking_key, player_id=None):
+    ranking = RANKINGS[ranking_key]
+    rankings = (ranking,)
+    result = get_ranking(ranking.game, ranking_key, 0, 20, rankings)
+    result['player'] = get_player_scores(ranking.game, player_id, rankings) if player_id is not None else None
+    return result

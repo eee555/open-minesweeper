@@ -72,6 +72,8 @@ Redis 分类只读取业务代码直接确定的 DB 0 key，不执行 `SCAN`、`
 
 分类请求一次返回左键或多指 9 列、标双 2 列或漏雷 3 列，以组内任一列排序。已初始化时用两轮 pipeline 读取标记、人数、页内玩家和全部列明细，不查询成绩表。空榜也保存初始化标记；单条上传不设置标记。未初始化时从数据库加载完整榜单；Redis 故障时整次请求批量回源数据库。
 
+小游戏页排行榜抽屉仅读取所选配置的首页 20 人及登录用户位置，复用上述键，不初始化同组其他榜单或增加缓存键。含个人位置的响应禁止共享缓存，接口详情见后端 README。
+
 成绩创建或严格改善后通过 `on_commit` 写 ZSET 和 Hash，删除后移除成员并保留初始化标记。接受并发和重建的偶发覆盖；运行 `manage.py rebuild_minigame_ranks [--ranking-key key]` 可恢复缓存，不改数据库成绩。完整接口与取舍见 `back_end/saolei/minigame/README.md`。
 
 最佳成绩对应的 v1 JSON 回放压缩为 7z，仅保存在 `MiniGameBestScore.replay_archive` BinaryField，不进入 Redis。缓存重建和排行榜数据库回源用 `defer('replay_archive')` 排除二进制回放字段。

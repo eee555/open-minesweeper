@@ -93,6 +93,10 @@
 
 ## 网站上传与在线回放
 
+网站页右上角的书签按钮打开右侧 `ElDrawer`，显示当前配置的首页 20 人及登录用户位置。个人在首页内时高亮，否则追加一行；未上传成绩时显示未上榜。抽屉位于顶部菜单下方，启用事件穿透且不锁定页面滚动；底部固定提供“完整排行榜”链接。此入口仅用于网站，不进入离线版。
+
+游戏组件通过 `rankingChange(rankingKey)` 通知当前配置。[RankingPanel.vue](../src/views/MiniGameView/RankingPanel.vue) 使用单配置查询接口，在配置、登录状态或上传结果变化时重新加载，并支持手动刷新。配置切换、关闭或卸载时取消旧请求；仅未取消的请求可更新结果。接口及缓存约定见[后端开发文档](../../back_end/saolei/minigame/README.md)。
+
 [MiniGameView/App.vue](../src/views/MiniGameView/App.vue) 收到游戏的 `completed(rankingKey, scoreMs, replay)` 事件后暂存本局数据，通过 `resultActions` 插槽在棋盘下方提供上传按钮，仅在点击时提交；重开、修改玩法参数或切换游戏清除待上传状态。游客仍可游玩并保存本地历史，上传按钮提示需要登录；封禁账号不能上传。
 
 左键及标双提交 `TrainingRecording`，多指提交 `TouchRecording`，漏雷提交 `{version: 1, rounds}`。表单中的 `replay` 为 JSON 字符串。后端压缩为 7z 后用 BinaryField 保存每人每榜最佳成绩对应的回放，回放不进入 Redis。上传失败可重试，不影响自动保存的本地记录；失败局不发完成事件。

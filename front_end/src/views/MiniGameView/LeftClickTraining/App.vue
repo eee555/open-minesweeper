@@ -102,7 +102,7 @@ const props = defineProps({
     gameType: { type: String as PropType<'left-click' | 'multi-touch'>, default: 'left-click' },
     replayData: { type: Object as PropType<Extract<AnyTrainingReplay, { game: 'left-click' | 'multi-touch' }> | null>, default: null },
 });
-const emit = defineEmits<{ completed: [rankingKey: string, scoreMs: number, replay: TrainingRecording | TouchRecording]; reset: [] }>();
+const emit = defineEmits<{ completed: [rankingKey: string, scoreMs: number, replay: TrainingRecording | TouchRecording]; reset: []; rankingChange: [rankingKey: string] }>();
 defineSlots<{ resultActions?: () => VNode[] }>();
 const level = ref<typeof trainingLevels[number]['key']>(props.replayData?.mode.key ?? 'b');
 const levelGroupName = useId();
@@ -182,7 +182,10 @@ function onTouchRecord(input: TrainingTouchInput) {
     if (recorder instanceof TouchReplayRecorder) recorder.capture(input);
 }
 
-watch(mode, restart);
+watch(mode, (value, previous) => {
+    if (previous !== undefined) restart();
+    emit('rankingChange', value.rankingKey);
+}, { immediate: true });
 watch(() => props.replayData, (data, previous) => {
     if (data === null) {
         if (previous && replay.data.value === previous) restart();

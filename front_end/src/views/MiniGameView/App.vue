@@ -1,14 +1,12 @@
 <template>
     <div class="minigame-view">
-        <div class="minigame-navigation">
-            <GamePicker v-model="selected" />
-            <RouterLink class="link text-primary" data-cy="minigame-ranking-link" :to="{ name: `ranking_minigame_${selected}` }">
-                {{ t('local.ranking') }}
-            </RouterLink>
-        </div>
+        <GamePicker v-model="selected" />
+        <BaseButton v-show="!showRanking" class="minigame-ranking-toggle square-button" :style="{ top: `${drawerTop + 8}px` }" :title="t('local.showRanking')" :aria-label="t('local.showRanking')" :aria-expanded="showRanking" :aria-controls="rankingDrawerId" data-cy="minigame-ranking-toggle" @click="showRanking = true">
+            <i class="pi pi-bookmark" aria-hidden="true" />
+        </BaseButton>
         <OnlineReplay v-slot="{ replay }" :enabled="viewingReplay" :game="selected">
             <RouterView v-slot="{ Component }">
-                <component :is="Component" :key="selected" :replay-data="replay" @completed="queueResult" @reset="resetGame">
+                <component :is="Component" :key="selected" :replay-data="replay" @completed="queueResult" @reset="resetGame" @ranking-change="selectedRankingKey = $event">
                     <template #resultActions>
                         <div v-if="pendingResult !== null" class="minigame-result-actions">
                             <BaseButton type="primary" :loading="submitting" :disabled="!canUpload || uploaded" :title="uploadHint" data-cy="minigame-upload" @click="submitResult">
@@ -19,6 +17,14 @@
                 </component>
             </RouterView>
         </OnlineReplay>
+        <ElDrawer :id="rankingDrawerId" v-model="showRanking" :title="t('local.ranking')" direction="rtl" size="min(100vw, 24rem)" :style="{ top: `${drawerTop}px`, height: `calc(100% - ${drawerTop}px)`, '--el-drawer-padding-primary': '12px' }" :modal="false" modal-penetrable :lock-scroll="false" :close-on-click-modal="false" aria-modal="false" append-to-body destroy-on-close>
+            <RankingPanel v-if="showRanking && currentRankingKey" :game="selected" :ranking-key="currentRankingKey" :revision="rankingRevision" />
+            <template #footer>
+                <RouterLink class="link text-primary" data-cy="minigame-ranking-link" :to="{ name: `ranking_minigame_${selected}` }">
+                    {{ t('local.fullRanking') }}
+                </RouterLink>
+            </template>
+        </ElDrawer>
         <GameSettings />
         <HistoryMigration :progress="minigameHistoryMigration" />
     </div>
@@ -27,11 +33,14 @@
 <script setup lang="ts">
 import '@/styles/link.css';
 
-import { computed, ref, shallowRef, watch } from 'vue';
+import { useElementBounding } from '@vueuse/core';
+import { ElDrawer } from 'element-plus';
+import { computed, onMounted, ref, shallowRef, useId, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 
 import OnlineReplay from './OnlineReplay.vue';
+import RankingPanel from './RankingPanel.vue';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import GamePicker from '@/components/MiniGame/GamePicker.vue';
@@ -58,6 +67,17 @@ const selected = computed<TrainingGame>({
 const pendingResult = shallowRef<{ rankingKey: string; scoreMs: number; replay: MinigameReplayData } | null>(null);
 const submitting = ref(false);
 const uploaded = ref(false);
+const showRanking = ref(false);
+const rankingDrawerId = `minigame-ranking-${useId()}`;
+const header = shallowRef<HTMLElement | null>(null);
+onMounted(() => {
+    header.value = document.querySelector<HTMLElement>('.site-header');
+});
+const { bottom: headerBottom } = useElementBounding(header);
+const drawerTop = computed(() => Math.max(0, headerBottom.value));
+const selectedRankingKey = ref('');
+const currentRankingKey = computed(() => (selectedRankingKey.value.startsWith(`${selected.value}-`) ? selectedRankingKey.value : null));
+const rankingRevision = ref(0);
 const canUpload = computed(() => store.login_status === LoginStatus.IsLogin && !store.user.is_banned);
 const uploadHint = computed(() => (store.login_status !== LoginStatus.IsLogin ? t('local.loginRequired') : store.user.is_banned ? t('local.banned') : undefined));
 
@@ -89,6 +109,7 @@ async function submitResult() {
     try {
         await submitMinigameScore(result.rankingKey, result.scoreMs, result.replay);
         if (pendingResult.value === result) uploaded.value = true;
+        rankingRevision.value++;
     } catch (error) {
         httpErrorNotification(error);
     } finally {
@@ -99,6 +120,8 @@ async function submitResult() {
 const i18nMessages = {
     'zh-cn': { local: {
         ranking: '排行榜',
+        fullRanking: '完整排行榜',
+        showRanking: '显示排行榜',
         upload: '上传成绩与回放',
         uploading: '正在上传',
         uploaded: '已上传',
@@ -107,6 +130,8 @@ const i18nMessages = {
     } },
     en: { local: {
         ranking: 'Rankings',
+        fullRanking: 'Full rankings',
+        showRanking: 'Show ranking',
         upload: 'Upload score and replay',
         uploading: 'Uploading',
         uploaded: 'Uploaded',
@@ -124,12 +149,12 @@ const { t } = useI18n({ messages: i18nMessages });
     min-width: 0;
 }
 
-.minigame-navigation {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 1rem;
+.minigame-ranking-toggle {
+    position: fixed;
+    right: 0;
+    z-index: 1;
+    border-right: 0;
+    color: var(--ui-color-primary);
 }
 
 .minigame-result-actions {
