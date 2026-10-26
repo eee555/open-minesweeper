@@ -133,26 +133,23 @@ class UserMSVideoTests(TestCase):
             cell8=1,
         )
 
-    def test_nf_counts_overlap_modes_and_deletion_reverses_both(self):
-        for mode, field in (
-            (MS_TextChoices.Mode.STD, 'video_num_std'),
-            (MS_TextChoices.Mode.JSW, 'video_num_ng'),
-            (MS_TextChoices.Mode.BZD, 'video_num_dg'),
+    def test_levels_and_modes_with_nf_each_count_once(self):
+        for level, mode in (
+            (MS_TextChoices.Level.BEGINNER, MS_TextChoices.Mode.STD),
+            (MS_TextChoices.Level.INTERMEDIATE, MS_TextChoices.Mode.JSW),
+            (MS_TextChoices.Level.EXPERT, MS_TextChoices.Mode.BZD),
         ):
-            with self.subTest(mode=mode):
-                video = self.create_video(mode=mode, right_ce=0)
+            with self.subTest(level=level, mode=mode):
+                video = self.create_video(level=level, mode=mode, right_ce=0)
                 self.userms.refresh_from_db()
-                self.assertEqual(self.userms.video_num_nf, 1)
-                self.assertEqual(getattr(self.userms, field), 1)
+                self.assertEqual(self.userms.video_num_total, 1)
                 self.assertFalse(video.is_lucky)
                 video.delete()
                 self.userms.refresh_from_db()
                 self.assertEqual(self.userms.video_num_total, 0)
-                self.assertEqual(self.userms.video_num_nf, 0)
-                self.assertEqual(getattr(self.userms, field), 0)
         self.create_video(right_ce=None)
         self.userms.refresh_from_db()
-        self.assertEqual(self.userms.video_num_nf, 0)
+        self.assertEqual(self.userms.video_num_total, 1)
 
     @override_settings(RATELIMIT_ENABLE=False)
     def test_video_apis_return_right_ce_and_filter_nf_independently(self):
@@ -191,16 +188,12 @@ class UserMSVideoTests(TestCase):
 
         self.userms.refresh_from_db()
         self.assertEqual(self.userms.video_num_total, 1)
-        self.assertEqual(self.userms.video_num_beg, 1)
-        self.assertEqual(self.userms.video_num_std, 1)
 
     def test_frozen_video_updates_video_count(self):
         self.create_video(state=MS_TextChoices.State.FROZEN)
 
         self.userms.refresh_from_db()
         self.assertEqual(self.userms.video_num_total, 1)
-        self.assertEqual(self.userms.video_num_beg, 1)
-        self.assertEqual(self.userms.video_num_std, 1)
 
     def test_state_to_official_does_not_update_video_count_again(self):
         video = self.create_video(state=MS_TextChoices.State.FROZEN)
@@ -210,8 +203,6 @@ class UserMSVideoTests(TestCase):
 
         self.userms.refresh_from_db()
         self.assertEqual(self.userms.video_num_total, 1)
-        self.assertEqual(self.userms.video_num_beg, 1)
-        self.assertEqual(self.userms.video_num_std, 1)
 
     def test_delete_video_decrements_video_count(self):
         video = self.create_video()
@@ -220,23 +211,17 @@ class UserMSVideoTests(TestCase):
 
         self.userms.refresh_from_db()
         self.assertEqual(self.userms.video_num_total, 0)
-        self.assertEqual(self.userms.video_num_beg, 0)
-        self.assertEqual(self.userms.video_num_std, 0)
 
     def test_tournament_video_is_not_counted_on_create_or_reveal(self):
         video = self.create_video(ongoing_tournament=True)
         self.userms.refresh_from_db()
         self.assertEqual(self.userms.video_num_total, 0)
-        self.assertEqual(self.userms.video_num_beg, 0)
-        self.assertEqual(self.userms.video_num_std, 0)
 
         video.ongoing_tournament = False
         video.save(update_fields=['ongoing_tournament'])
 
         self.userms.refresh_from_db()
         self.assertEqual(self.userms.video_num_total, 0)
-        self.assertEqual(self.userms.video_num_beg, 0)
-        self.assertEqual(self.userms.video_num_std, 0)
 
     def test_deleting_tournament_videos_does_not_decrement_counts(self):
         tournament = Tournament.objects.create(state=Tournament_TextChoices.State.AWARDED)
@@ -250,11 +235,9 @@ class UserMSVideoTests(TestCase):
 
                 self.userms.refresh_from_db()
                 self.assertEqual(self.userms.video_num_total, 0)
-                self.assertEqual(self.userms.video_num_beg, 0)
-                self.assertEqual(self.userms.video_num_std, 0)
 
     def test_refresh_video_counts_excludes_tournaments_and_resets_empty_users(self):
-        empty_userms = UserMS.objects.create(video_num_total=9, video_num_beg=9)
+        empty_userms = UserMS.objects.create(video_num_total=9)
         UserProfile.objects.create_user(
             username='empty_player', email='empty_player@example.com', userms=empty_userms,
         )
@@ -278,23 +261,16 @@ class UserMSVideoTests(TestCase):
         self.userms.refresh_from_db()
         old_limit = self.userms.video_num_limit
 
-        expected = {
-            'video_num_total': 4, 'video_num_beg': 1, 'video_num_int': 1, 'video_num_exp': 2,
-            'video_num_std': 2, 'video_num_nf': 1, 'video_num_ng': 1, 'video_num_dg': 1,
-        }
-        UserMS.objects.filter(pk=self.userms.pk).update(**dict.fromkeys(expected, 99))
+        UserMS.objects.filter(pk=self.userms.pk).update(video_num_total=99)
         for _ in range(2):
             call_command('refresh_video_counts', batch_size=1, stdout=StringIO())
 
             self.userms.refresh_from_db()
             empty_userms.refresh_from_db()
             other_userms.refresh_from_db()
-            for field, count in expected.items():
-                self.assertEqual(getattr(self.userms, field), count, field)
-                self.assertEqual(getattr(empty_userms, field), 0, field)
+            self.assertEqual(self.userms.video_num_total, 4)
+            self.assertEqual(empty_userms.video_num_total, 0)
             self.assertEqual(other_userms.video_num_total, 1)
-            self.assertEqual(other_userms.video_num_beg, 1)
-            self.assertEqual(other_userms.video_num_std, 1)
             self.assertEqual(self.userms.video_num_limit, old_limit)
 
     def test_expert_std_official_video_expands_video_count_limit(self):
