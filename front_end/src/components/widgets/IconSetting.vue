@@ -1,6 +1,6 @@
 <template>
     <Tippy interactive animate-fill arrow trigger="click" append-to="parent">
-        <BaseTextButton underline="never" :aria-label="t('local.settings')">
+        <BaseTextButton underline="never" :aria-label="t('common.settings')">
             <BaseIconSetting />
         </BaseTextButton>
         <template #content>
@@ -24,10 +24,5 @@ defineSlots<{
     default?: () => unknown;
 }>();
 
-const i18nMessages = {
-    'zh-cn': { local: { settings: '设置' } },
-    en: { local: { settings: 'Settings' } },
-};
-
-const { t } = useI18n({ messages: i18nMessages });
+const { t } = useI18n();
 </script>

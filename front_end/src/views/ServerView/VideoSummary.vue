@@ -32,7 +32,7 @@
             {{ t('statistics.sampled') }}: <time :datetime="data.sampled_at">{{ new Date(data.sampled_at).toLocaleString(locale) }}</time>
         </div>
         <p class="statistics-cache-note">
-            {{ t('local.cache') }}
+            {{ t('statistics.cache', { minutes: 5 }) }}
         </p>
     </RefreshableCard>
 </template>
@@ -119,7 +119,6 @@ const config = computed<VueUiDonutConfig>(() => ({
 
 const i18nMessages = {
     'zh-cn': { local: {
-        cache: '每 5 分钟定时采样，刷新读取最近一次结果。',
         title: '录像统计',
         dimension: '统计维度',
         mode07: '弱无猜',
@@ -127,7 +126,6 @@ const i18nMessages = {
         mode09: '强可猜',
     } },
     en: { local: {
-        cache: 'Sampled every 5 minutes. Refresh loads the latest sample.',
         title: 'Video Statistics',
         dimension: 'Statistics dimension',
         mode07: 'Weak No Guessing',

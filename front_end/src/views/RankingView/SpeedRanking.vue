@@ -27,7 +27,7 @@
                 </Tippy>
             </div>
             <div class="ranking-actions">
-                <BaseButton class="square-button" data-cy="ranking-color" :type="local.colored ? 'primary' : 'default'" :aria-label="t('local.color')" :title="t('local.color')" :aria-pressed="local.colored" @click="local.colored = !local.colored">
+                <BaseButton class="square-button" data-cy="ranking-color" :type="local.colored ? 'primary' : 'default'" :aria-label="t('common.prop.color')" :title="t('common.prop.color')" :aria-pressed="local.colored" @click="local.colored = !local.colored">
                     <i class="pi pi-palette ranking-color-icon" aria-hidden="true" />
                 </BaseButton>
                 <BaseButton class="square-button" data-cy="ranking-refresh" :disabled="!ranking" :aria-label="t('common.action.refresh')" :title="t('common.action.refresh')" @click="ranking?.refresh()">
@@ -69,7 +69,6 @@ const selectedRankingName = computed<typeof rankingNames[number]>({
 const i18nMessages = {
     'zh-cn': { local: {
         rankingName: '大榜',
-        color: '颜色',
         howToImprove: '如何提高成绩',
         improveEligibility: '上传自己的标准模式通关录像，绑定录像内标识并通过审核。比赛隐藏录像需公开后才计入。',
         improveNF: '普通榜包含 NF 录像；若要提高 NF 项目，录像的有效右键次数必须为 0。',
@@ -94,7 +93,6 @@ const i18nMessages = {
     } },
     en: { local: {
         rankingName: 'Ranking',
-        color: 'Color',
         howToImprove: 'How to improve',
         improveEligibility: 'Upload your own completed Standard-mode replays, bind their player identifiers and have them approved. Replays hidden for a tournament count after they are revealed.',
         improveNF: 'Ordinary rankings include NF replays. To improve an NF category, the replay must have zero effective right clicks.',

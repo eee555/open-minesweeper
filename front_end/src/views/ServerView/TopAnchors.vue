@@ -17,7 +17,7 @@
                         <th scope="col">
                             {{ t('common.prop.level') }}
                         </th><th scope="col">
-                            {{ t('local.metric') }}
+                            {{ t('common.prop.metric') }}
                         </th><th scope="col">
                             top
                         </th><th scope="col">
@@ -86,12 +86,10 @@ const chartConfig = computed<VueUiXyConfig>(() => ({
 const i18nMessages = {
     'zh-cn': { local: {
         title: 'top 锚点',
-        metric: '指标',
         samples: '样本人数：{count}',
     } },
     en: { local: {
         title: 'top anchors',
-        metric: 'Metric',
         samples: 'Sample size: {count}',
     } },
 };

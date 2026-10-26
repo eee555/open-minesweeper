@@ -182,7 +182,7 @@ function processUpdateResponse(field: UpdateProfileField, data: UpdateProfileRes
         }
     } else {
         formStatus.value[field].status = 'error';
-        formStatus.value[field].errorMsg = t(`local.error.${data.object}.${data.category}`);
+        formStatus.value[field].errorMsg = t(data.object === 'name' && data.category === 'reserved' ? 'common.msg.reservedName' : `local.error.${data.object}.${data.category}`);
     }
 }
 
@@ -192,7 +192,7 @@ async function updateProfile() {
     for (const field of ['realname', 'firstname', 'lastname'] as const) {
         if (formStatus.value[field].new.trim() === HIDDEN_NAME) {
             formStatus.value[field].status = 'error';
-            formStatus.value[field].errorMsg = t('local.reservedName');
+            formStatus.value[field].errorMsg = t('common.msg.reservedName');
             invalid = true;
         }
     }
@@ -217,7 +217,7 @@ async function updateProfile() {
             for (const field of UpdateProfileFields) {
                 processUpdateResponse(field, data[field]);
             }
-            if (data.hide_realname?.type === 'error') privacyError.value = t(`local.error.${data.hide_realname.object}.${data.hide_realname.category}`);
+            if (data.hide_realname?.type === 'error') privacyError.value = t(data.hide_realname.object === 'name' && data.hide_realname.category === 'reserved' ? 'common.msg.reservedName' : `local.error.${data.hide_realname.object}.${data.hide_realname.category}`);
             if (data.hide_realname?.type === 'success') owner.hide_realname = hideRealname.value;
         }).catch(httpErrorNotification);
     }
@@ -241,7 +241,6 @@ const i18nMessages = {
         hideRealname: '隐藏实名',
         privacyAuthorization: '需要管理员授权或成功绑定 MSGames。已经绑定的用户可联系管理员补发资格。',
         privacyScope: '仅隐藏本站姓名，账号关联姓名和原始录像不受影响。由于缓存的原因，隐藏可能不会立刻生效。',
-        reservedName: '姓名不能为保留值 hidden',
         signatureTooltip: ({ named }: { named: { (key: 'left'): number; (key: 'next'): string } }) => {
             if (named('left') > 0) {
                 return `您每月可获得一次签名修改次数。当前剩余${named('left')}次。`;
@@ -250,7 +249,7 @@ const i18nMessages = {
             }
         },
         error: {
-            name: { reserved: '姓名不能为保留值 hidden', exist: '姓名已经设置，请联系管理员修改' },
+            name: { exist: '姓名已经设置，请联系管理员修改' },
             database: { validation: '姓名格式不符合要求' },
             privacy: { realname_required: '请先填写有效实名', not_authorized: '尚未获得隐藏实名资格' },
             censorship: {
@@ -275,7 +274,6 @@ const i18nMessages = {
         hideRealname: 'Hide my real name',
         privacyAuthorization: 'Requires administrator approval or a successful MSGames binding. If already linked, ask an administrator to grant eligibility.',
         privacyScope: 'Hides site profile names. Linked account names and original replays are unaffected. Due to caching, name hiding may not take effect immediately.',
-        reservedName: 'A name cannot be the reserved value hidden',
         signatureTooltip: ({ named }: { named: { (key: 'left'): number; (key: 'next'): string } }) => {
             if (named('left') > 0) {
                 return `You gain one chance to modify your signature each month. You have ${named('left')} chances remaining.`;
@@ -284,7 +282,7 @@ const i18nMessages = {
             }
         },
         error: {
-            name: { reserved: 'A name cannot be the reserved value hidden', exist: 'This name is already set. Contact an administrator to change it' },
+            name: { exist: 'This name is already set. Contact an administrator to change it' },
             database: { validation: 'Invalid name format' },
             privacy: { realname_required: 'Enter a valid real name first', not_authorized: 'You are not authorized to hide your real name' },
             censorship: {

@@ -16,7 +16,7 @@
                 <div class="marker-setting">
                     <div v-if="hasOption('shape')" class="marker-setting__item">
                         <span class="text-regular text-small">
-                            {{ t('local.shape') }}
+                            {{ t('common.prop.shape') }}
                         </span>
                         <ElSelect v-model="shape">
                             <ElOption label="Circle" value="circle" />
@@ -82,13 +82,11 @@ const i18nMessages = {
     'zh-cn': { local: {
         opacity: '透明度',
         radius: '半径',
-        shape: '形状',
         strokeWidth: '描边宽度',
     } },
     en: { local: {
         opacity: 'Opacity',
         radius: 'Radius',
-        shape: 'Shape',
         strokeWidth: 'Stroke width',
     } },
 };

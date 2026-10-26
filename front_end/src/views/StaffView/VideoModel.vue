@@ -21,7 +21,7 @@
         </ElSelect>
     </div>
     <div>
-        {{ t('local.value') }}<ElInput v-model="videovalue" />
+        {{ t('common.prop.value') }}<ElInput v-model="videovalue" />
     </div>
     <div>
         <BaseButton @click="setVideo(videoid, videofield, videovalue)">
@@ -97,13 +97,11 @@ const i18nMessages = {
     'zh-cn': { local: {
         removeNewest: '从最新录像中移除',
         field: '字段',
-        value: '值',
         videoModel: '录像信息（VideoModel）',
     } },
     en: { local: {
         removeNewest: 'Remove from latest videos',
         field: 'Field',
-        value: 'Value',
         videoModel: 'Video information (VideoModel)',
     } },
 };

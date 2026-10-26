@@ -4,7 +4,7 @@
     </span>
     <span v-else-if="store.qualificationStatus === 'error'" class="text-small text-warning" role="alert">
         {{ t('local.failed') }}
-        <BaseButton size="small" text @click="store.loadQualification()">{{ t('local.retry') }}</BaseButton>
+        <BaseButton size="small" text @click="store.loadQualification()">{{ t('common.button.retry') }}</BaseButton>
     </span>
 </template>
 
@@ -23,12 +23,10 @@ const i18nMessages = {
     'zh-cn': { local: {
         loading: '正在检查头像/签名修改资格…',
         failed: '资格查询失败。',
-        retry: '重试',
     } },
     en: { local: {
         loading: 'Checking avatar/signature eligibility…',
         failed: 'Could not check eligibility.',
-        retry: 'Retry',
     } },
 };
 const { t } = useI18n({ messages: i18nMessages });

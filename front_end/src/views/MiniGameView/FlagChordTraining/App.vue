@@ -1,22 +1,22 @@
 <template>
-    <section class="training-page" :aria-label="t('local.title')" :data-phase="phase" :data-replay="replayData !== null" data-cy="flag-chord-game">
+    <section class="training-page" :aria-label="t('common.minigame.flag-chord')" :data-phase="phase" :data-replay="replayData !== null" data-cy="flag-chord-game">
         <div class="training-controls">
-            <div class="checkbox-buttons" role="radiogroup" :aria-label="t('local.level')" data-cy="flag-chord-level">
+            <div class="checkbox-buttons" role="radiogroup" :aria-label="t('common.prop.level')" data-cy="flag-chord-level">
                 <label v-for="item in flagChordModes" :key="item.key" class="checkbox-button">
                     <input v-model="level" class="checkbox-button-input" type="radio" :name="levelGroupName" :value="item.key">
-                    <span class="checkbox-button-content">{{ t(`local.level_${item.key}`) }}</span>
+                    <span class="checkbox-button-content">{{ t(`common.level.${item.key}`) }}</span>
                 </label>
             </div>
-            <a v-if="!offline" class="base-button base-button--default base-button--size-default training-download" :href="offlineDownloadUrl" :download="offlineDownloadFilename" data-cy="flag-chord-download">{{ t('local.download') }}</a>
+            <a v-if="!offline" class="base-button base-button--default base-button--size-default training-download" :href="offlineDownloadUrl" :download="offlineDownloadFilename" data-cy="flag-chord-download">{{ t('common.button.downloadOffline') }}</a>
         </div>
-        <MiniGameFrame :restart-label="t('local.restart')" @restart="restart">
+        <MiniGameFrame :restart-label="t('common.button.newGame')" @restart="restart">
             <template #remaining>
                 <div role="group" :aria-label="t('local.remaining')" :title="t('local.remaining')">
                     <Counter :value="replay.frame.value?.remaining ?? remaining" :fixed="0" :digits="3" :size="minigameSettings.cellSize" data-cy="flag-chord-remaining" />
                 </div>
             </template>
             <template #time>
-                <div role="group" :aria-label="t('local.time')" :title="t('local.time')">
+                <div role="group" :aria-label="t('common.timeSeconds')" :title="t('common.timeSeconds')">
                     <Counter :value="(replay.frame.value?.timeMs ?? elapsed) / 1000" :fixed="3" :digits="3" :size="minigameSettings.cellSize" data-cy="flag-chord-time" />
                 </div>
             </template>
@@ -132,25 +132,11 @@ watch(() => props.replayData, (data, previous) => {
 
 const i18nMessages = {
     'zh-cn': { local: {
-        title: '标双训练',
-        level: '级别',
-        level_b: '初级',
-        level_i: '中级',
-        restart: '新一局',
-        download: '下载离线版',
-        time: '用时（秒）',
         remaining: '剩余题目',
         boardLabel: '标双训练棋盘，右键标雷后对数字进行左右双键操作',
         rules: '初级 4 题，中级 15 题，数字均为 1。雷始终可见，普通左键无效果。右键插旗或取消；双键在首次弹起时触发。周围恰好一面旗时判题：旗位错误则失败，正确则完成；其余双键无效果。',
     } },
     en: { local: {
-        title: 'Flag-and-chord training',
-        level: 'Level',
-        level_b: 'Beginner',
-        level_i: 'Intermediate',
-        restart: 'New game',
-        download: 'Download offline',
-        time: 'Time (seconds)',
         remaining: 'Questions left',
         boardLabel: 'Flag-and-chord board. Right-click mines, then press both mouse buttons on each number.',
         rules: 'Beginner has 4 questions; Intermediate has 15. Every number is 1 and mines are visible. Single left clicks do nothing. Right-click to toggle flags; a chord triggers on the first button release. With exactly one adjacent flag, a correct flag completes the question and a wrong flag loses. Other chords do nothing.',

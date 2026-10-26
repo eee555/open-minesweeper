@@ -1,6 +1,6 @@
 <template>
     <div class="minigame-replay-controls" data-cy="minigame-replay-controls">
-        <BaseButton class="square-button" size="small" :disabled="!playback.canPlay.value" :title="playback.isPlaying.value ? t('local.pause') : t('local.play')" :aria-label="playback.isPlaying.value ? t('local.pause') : t('local.play')" :aria-pressed="playback.isPlaying.value" data-cy="minigame-replay-play" @click="playback.isPlaying.value ? playback.pause() : playback.play()">
+        <BaseButton class="square-button" size="small" :disabled="!playback.canPlay.value" :title="playback.isPlaying.value ? t('common.button.pause') : t('common.button.play')" :aria-label="playback.isPlaying.value ? t('common.button.pause') : t('common.button.play')" :aria-pressed="playback.isPlaying.value" data-cy="minigame-replay-play" @click="playback.isPlaying.value ? playback.pause() : playback.play()">
             <i class="pi" :class="playback.isPlaying.value ? 'pi-pause' : 'pi-play'" aria-hidden="true" />
         </BaseButton>
         <input type="range" min="0" :max="Math.max(1, playback.durationMs.value)" step="1" :value="positionMs" :disabled="!playback.canPlay.value" :aria-label="t('local.position')" data-cy="minigame-replay-position" @pointerdown="beginSeek" @input="seek" @change="endSeek">
@@ -39,13 +39,9 @@ useEventListener(window, 'blur', endSeek);
 
 const i18nMessages = {
     'zh-cn': { local: {
-        play: '播放',
-        pause: '暂停',
         position: '回放进度',
     } },
     en: { local: {
-        play: 'Play',
-        pause: 'Pause',
         position: 'Replay position',
     } },
 };

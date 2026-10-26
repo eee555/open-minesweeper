@@ -22,7 +22,7 @@
                 <BaseButton class="analyzer-progress-bar__previous-keyframe square-button" size="small" :disabled="!hasDuration || !keyframeNavigation" :title="t('local.previousKeyframe')" :aria-label="t('local.previousKeyframe')" @click="keyframeNavigation?.previous()">
                     <i class="pi pi-angle-left" aria-hidden="true" />
                 </BaseButton>
-                <BaseButton class="analyzer-progress-bar__play square-button" size="small" :disabled="!playback.canPlay.value" :title="isPlaying ? t('local.pause') : t('local.play')" :aria-label="isPlaying ? t('local.pause') : t('local.play')" @click="isPlaying ? playback.pause() : playback.play()">
+                <BaseButton class="analyzer-progress-bar__play square-button" size="small" :disabled="!playback.canPlay.value" :title="isPlaying ? t('common.button.pause') : t('common.button.play')" :aria-label="isPlaying ? t('common.button.pause') : t('common.button.play')" @click="isPlaying ? playback.pause() : playback.play()">
                     <i class="pi" :class="[isPlaying ? 'pi-pause' : 'pi-play']" aria-hidden="true" />
                 </BaseButton>
                 <BaseButton class="analyzer-progress-bar__next-keyframe square-button" size="small" :disabled="!hasDuration || !keyframeNavigation" :title="t('local.nextKeyframe')" :aria-label="t('local.nextKeyframe')" @click="keyframeNavigation?.next()">
@@ -131,8 +131,6 @@ const i18nMessages = {
         end: '跳到结尾',
         previousKeyframe: '上一个关键帧',
         nextKeyframe: '下一个关键帧',
-        play: '播放',
-        pause: '暂停',
         position: '播放进度',
         slower: '减速',
         faster: '加速',
@@ -151,8 +149,6 @@ const i18nMessages = {
         end: 'Go to end',
         previousKeyframe: 'Previous keyframe',
         nextKeyframe: 'Next keyframe',
-        play: 'Play',
-        pause: 'Pause',
         position: 'Playback position',
         slower: 'Slower',
         faster: 'Faster',

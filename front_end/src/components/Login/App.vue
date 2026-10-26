@@ -1,5 +1,5 @@
 <template>
-    <slot :open="openDialog" :logout="logout" :labels="{ login: t('local.menu.login'), register: t('local.menu.register'), logout: t('local.menu.logout') }" />
+    <slot :open="openDialog" :logout="logout" :labels="{ login: t('local.menu.login'), register: t('common.button.register'), logout: t('local.menu.logout') }" />
     <!-- 以下的所有表单的输入项都需要@keydown.stop，解决horizontal菜单截留空格操作的问题。 -->
     <!-- https://github.com/element-plus/element-plus/issues/10172#issuecomment-1295794523 -->
     <ElDialog v-if="dialogVisible" v-model="dialogVisible" width="min(28rem, 95vw)" append-to-body :title="t(`local.title.${activeDialog}`)">
@@ -88,7 +88,6 @@ const i18nMessages = {
         menu: {
             login: '登录',
             logout: '退出',
-            register: '注册',
         },
         title: {
             login: '用户登录',
@@ -101,7 +100,6 @@ const i18nMessages = {
         menu: {
             login: 'Login',
             logout: 'Logout',
-            register: 'Register',
         },
         title: {
             login: 'Login',

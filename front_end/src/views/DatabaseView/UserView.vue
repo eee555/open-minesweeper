@@ -2,7 +2,7 @@
     <section class="user-directory">
         <form class="user-directory-filters" @submit.prevent="applyFilters">
             <label class="user-directory-filter">
-                <span>{{ t('local.platform') }}</span>
+                <span>{{ t('accountlink.platform') }}</span>
                 <select id="user-query-platform" v-model="draft.platform">
                     <option value="">{{ t('local.site') }}</option>
                     <option v-for="column in accountColumns" :key="column.platform" :value="column.platform">{{ t(`common.platform.${column.platform}`) }}</option>
@@ -22,7 +22,7 @@
         <p v-if="failed" class="text-danger" role="alert">
             {{ t('local.loadFailed') }}
             <BaseButton size="small" @click="load">
-                {{ t('local.retry') }}
+                {{ t('common.button.retry') }}
             </BaseButton>
         </p>
         <BaseTable v-loading="loading" class="user-directory-table" :table-style="{ width: 'auto', marginInline: 'auto' }" :empty="users.length === 0" :column-count="12" :empty-text="t('local.empty')" :aria-busy="loading">
@@ -30,7 +30,7 @@
                 <tr>
                     <th scope="col" rowspan="2" class="table-col-number" :aria-sort="ariaSort('id')">
                         <BaseTextButton :type="sort === 'id' ? 'primary' : 'default'" :aria-pressed="sort === 'id'" data-sort="id" @click="selectSort('id')">
-                            {{ t('local.id') }} <span v-if="sort === 'id'" aria-hidden="true">{{ reverse ? '↓' : '↑' }}</span>
+                            {{ t('common.prop.userId') }} <span v-if="sort === 'id'" aria-hidden="true">{{ reverse ? '↓' : '↑' }}</span>
                         </BaseTextButton>
                     </th>
                     <th scope="col" rowspan="2">
@@ -52,7 +52,7 @@
                     </th>
                     <th v-for="column in statisticsColumns" :key="column.field" scope="col" class="table-col-number" :aria-sort="ariaSort(column.field)">
                         <BaseTextButton :type="sort === column.field ? 'primary' : 'default'" :aria-pressed="sort === column.field" :data-sort="column.field" @click="selectSort(column.field)">
-                            {{ t(`local.${column.label}`) }} <span v-if="sort === column.field" aria-hidden="true">{{ reverse ? '↓' : '↑' }}</span>
+                            {{ t(column.label) }} <span v-if="sort === column.field" aria-hidden="true">{{ reverse ? '↓' : '↑' }}</span>
                         </BaseTextButton>
                     </th>
                 </tr>
@@ -106,8 +106,8 @@ const accountColumns = [
     { platform: AccountLinkPlatform.WoM, width: '8ch' }, { platform: AccountLinkPlatform.Mineracer, width: '20ch' },
 ] as const;
 const statisticsColumns = [
-    { field: 'video_num_total', label: 'ordinary', bytes: false }, { field: 'video_num_tournament', label: 'tournament', bytes: false }, { field: 'video_num_all', label: 'all', bytes: false },
-    { field: 'video_size_total', label: 'ordinary', bytes: true }, { field: 'video_size_tournament', label: 'tournament', bytes: true }, { field: 'video_size_all', label: 'all', bytes: true },
+    { field: 'video_num_total', label: 'local.ordinary', bytes: false }, { field: 'video_num_tournament', label: 'tournament.tournament', bytes: false }, { field: 'video_num_all', label: 'common.all', bytes: false },
+    { field: 'video_size_total', label: 'local.ordinary', bytes: true }, { field: 'video_size_tournament', label: 'tournament.tournament', bytes: true }, { field: 'video_size_all', label: 'common.all', bytes: true },
 ] as const;
 const emptyFilters: UserDirectoryFilters = { platform: '', id: '' };
 const draft = reactive({ ...emptyFilters });
@@ -184,36 +184,26 @@ onScopeDispose(() => {
 
 const i18nMessages = {
     'zh-cn': { local: {
-        id: '用户 ID',
-        platform: '平台',
         site: '本站',
         dateJoined: '注册时间',
         accounts: '关联账号',
         videoCount: '录像数量',
         videoSize: '录像占用空间',
         ordinary: '非比赛',
-        tournament: '比赛',
-        all: '全部',
         search: '查询',
         reset: '清空',
-        retry: '重试',
         empty: '没有符合条件的用户',
         loadFailed: '用户列表加载失败',
     } },
     en: { local: {
-        id: 'User ID',
-        platform: 'Platform',
         site: 'This site',
         dateJoined: 'Date joined',
         accounts: 'Linked accounts',
         videoCount: 'Replay count',
         videoSize: 'Replay storage',
         ordinary: 'Non-tournament',
-        tournament: 'Tournament',
-        all: 'All',
         search: 'Search',
         reset: 'Clear',
-        retry: 'Retry',
         empty: 'No matching users',
         loadFailed: 'Unable to load users',
     } },

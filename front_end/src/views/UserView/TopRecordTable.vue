@@ -6,7 +6,7 @@
                     {{ t('common.prop.level') }}
                 </th>
                 <th scope="col" style="width: 1%">
-                    {{ t('local.metric') }}
+                    {{ t('common.prop.metric') }}
                 </th>
                 <th scope="col" class="table-col-number">
                     {{ t('local.mean') }}
@@ -55,11 +55,9 @@ const rows = computed(() => topAxes.map((axis) => {
 
 const i18nMessages = {
     'zh-cn': { local: {
-        metric: '指标',
         mean: '均值',
     } },
     en: { local: {
-        metric: 'Metric',
         mean: 'Mean',
     } },
 };

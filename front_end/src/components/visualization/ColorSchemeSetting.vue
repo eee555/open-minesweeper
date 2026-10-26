@@ -9,7 +9,7 @@
                 </span>
             </BaseButton>
             <BaseButton class="color-scheme-setting__import-toggle" size="small" :aria-expanded="importVisible" @click="toggleImport">
-                <i class="pi pi-upload" aria-hidden="true" />{{ t('local.import') }}
+                <i class="pi pi-upload" aria-hidden="true" />{{ t('common.button.import') }}
             </BaseButton>
             <BaseButton class="color-scheme-setting__export" size="small" @click="exportScheme">
                 <i class="pi pi-copy" aria-hidden="true" />{{ t('local.export') }}
@@ -52,10 +52,10 @@
             </p>
             <div class="color-scheme-setting__actions">
                 <BaseButton class="color-scheme-setting__apply" size="small" native-type="submit">
-                    {{ t('local.import') }}
+                    {{ t('common.button.import') }}
                 </BaseButton>
                 <BaseButton class="color-scheme-setting__cancel" size="small" @click="importVisible = false">
-                    {{ t('local.cancel') }}
+                    {{ t('common.button.cancel') }}
                 </BaseButton>
             </div>
         </form>
@@ -166,9 +166,7 @@ const i18nMessages = {
         color: '区间 {index} 的颜色',
         split: '拆分区间',
         merge: '删除分界点',
-        import: '导入',
         export: '导出',
-        cancel: '取消',
         json: '粘贴色阶 JSON',
         invalidJson: 'JSON 格式错误',
         invalidShape: '需要 thresholds 和 colors 数组，颜色数量必须比分界点多一个。',
@@ -185,9 +183,7 @@ const i18nMessages = {
         color: 'Color for interval {index}',
         split: 'Split interval',
         merge: 'Remove threshold',
-        import: 'Import',
         export: 'Export',
-        cancel: 'Cancel',
         json: 'Paste color scale JSON',
         invalidJson: 'Invalid JSON',
         invalidShape: 'Expected thresholds and colors arrays, with one more color than thresholds.',

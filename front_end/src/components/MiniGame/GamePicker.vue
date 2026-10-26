@@ -1,7 +1,7 @@
 <template>
-    <nav class="minigame-picker" :aria-label="t('local.games')">
+    <nav class="minigame-picker" :aria-label="t('common.minigame.title')">
         <BaseButton v-for="game in trainingGames" :key="game" :type="modelValue === game ? 'primary' : 'default'" :aria-pressed="modelValue === game" :data-cy="`game-${game}`" @click="emit('update:modelValue', game)">
-            {{ t(`local.${game}`) }}
+            {{ t(`common.minigame.${game}`) }}
         </BaseButton>
     </nav>
 </template>
@@ -16,23 +16,7 @@ import type { TrainingGame } from '@/utils/minigame/games';
 
 defineProps({ modelValue: { type: String as PropType<TrainingGame>, required: true } });
 const emit = defineEmits<{ 'update:modelValue': [game: TrainingGame] }>();
-const i18nMessages = {
-    'zh-cn': { local: {
-        games: '小游戏',
-        'left-click': '左键训练',
-        'multi-touch': '多指训练',
-        'flag-chord': '标双训练',
-        'missing-cell': '漏雷训练',
-    } },
-    en: { local: {
-        games: 'Minigames',
-        'left-click': 'Left-click training',
-        'multi-touch': 'Multi-touch training',
-        'flag-chord': 'Flag-and-chord training',
-        'missing-cell': 'Missing cell training',
-    } },
-};
-const { t } = useI18n({ messages: i18nMessages });
+const { t } = useI18n();
 </script>
 
 <style scoped>

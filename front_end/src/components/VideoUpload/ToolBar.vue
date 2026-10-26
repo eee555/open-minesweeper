@@ -4,7 +4,7 @@
             {{ t('local.selected', [selected, total]) }}
         </span>
         <BaseButton :disabled="processing || selectedNone" @click="emit('upload')">
-            <BaseIconUpload />&nbsp;{{ t('local.upload') }}
+            <BaseIconUpload />&nbsp;{{ t('common.button.upload') }}
         </BaseButton>
         <BaseButton :disabled="processing || selectedNone" @click="emit('remove')">
             <BaseIconDelete />&nbsp;{{ t('local.remove') }}
@@ -42,13 +42,11 @@ watch(() => props.processing, (processing) => {
 const i18nMessages = {
     'zh-cn': { local: {
         selected: '已选中：{0} / {1}',
-        upload: '上传',
         remove: '移除',
         stop: '停止上传',
     } },
     en: { local: {
         selected: 'Selected: {0} / {1}',
-        upload: 'Upload',
         remove: 'Remove',
         stop: 'Stop',
     } },

@@ -1,10 +1,10 @@
 <template>
-    <section ref="playArea" class="training-page" :class="{ 'touch-fullscreen': isFullscreen }" :aria-label="t(gameType === 'multi-touch' ? 'local.touchTitle' : 'local.title')" :data-phase="phase" :data-replay="replayData !== null" data-cy="training-game">
+    <section ref="playArea" class="training-page" :class="{ 'touch-fullscreen': isFullscreen }" :aria-label="t(gameType === 'multi-touch' ? 'common.minigame.multi-touch' : 'common.minigame.left-click')" :data-phase="phase" :data-replay="replayData !== null" data-cy="training-game">
         <div class="training-controls">
-            <div class="checkbox-buttons" role="radiogroup" :aria-label="t('local.level')" data-cy="training-level">
+            <div class="checkbox-buttons" role="radiogroup" :aria-label="t('common.prop.level')" data-cy="training-level">
                 <label v-for="item in trainingLevels" :key="item.key" class="checkbox-button">
                     <input v-model="level" class="checkbox-button-input" type="radio" :name="levelGroupName" :value="item.key">
-                    <span class="checkbox-button-content">{{ t(`local.level_${item.key}`) }}</span>
+                    <span class="checkbox-button-content">{{ t(`common.level.${item.key}`) }}</span>
                 </label>
             </div>
             <label>{{ t('local.density') }}
@@ -18,25 +18,25 @@
                     <span class="checkbox-button-content">{{ t(`local.${direction}`) }}</span>
                 </label>
             </div>
-            <label v-if="isFullscreen">{{ t('local.cellSize') }}
+            <label v-if="isFullscreen">{{ t('common.prop.cellSize') }}
                 <InputNumber v-model="minigameSettings.cellSize" :min="1" :max="Number.MAX_SAFE_INTEGER" integer step="1" inputmode="numeric" data-cy="training-cell-size" />
             </label>
-            <BaseButton v-if="isFullscreen" class="square-button" :title="t('local.restart')" :aria-label="t('local.restart')" data-cy="training-restart" @click="restart">
+            <BaseButton v-if="isFullscreen" class="square-button" :title="t('common.button.newGame')" :aria-label="t('common.button.newGame')" data-cy="training-restart" @click="restart">
                 <i class="pi pi-refresh" aria-hidden="true" />
             </BaseButton>
-            <BaseButton v-if="gameType === 'multi-touch'" class="square-button" :disabled="!isSupported" :title="t(isFullscreen ? 'local.exitFullscreen' : 'local.fullscreen')" :aria-label="t(isFullscreen ? 'local.exitFullscreen' : 'local.fullscreen')" :aria-pressed="isFullscreen" data-cy="training-fullscreen" @click="toggleFullscreen">
+            <BaseButton v-if="gameType === 'multi-touch'" class="square-button" :disabled="!isSupported" :title="t(isFullscreen ? 'local.exitFullscreen' : 'common.button.fullscreen')" :aria-label="t(isFullscreen ? 'local.exitFullscreen' : 'common.button.fullscreen')" :aria-pressed="isFullscreen" data-cy="training-fullscreen" @click="toggleFullscreen">
                 <i class="pi" :class="isFullscreen ? 'pi-window-minimize' : 'pi-expand'" aria-hidden="true" />
             </BaseButton>
-            <a v-if="!offline && !isFullscreen" class="base-button base-button--default base-button--size-default training-download" :href="offlineDownloadUrl" :download="offlineDownloadFilename" data-cy="training-download">{{ t('local.download') }}</a>
+            <a v-if="!offline && !isFullscreen" class="base-button base-button--default base-button--size-default training-download" :href="offlineDownloadUrl" :download="offlineDownloadFilename" data-cy="training-download">{{ t('common.button.downloadOffline') }}</a>
         </div>
-        <MiniGameFrame :restart-label="t('local.restart')" :borderless="isFullscreen" :restart-on-counter="!isFullscreen" @restart="restart">
+        <MiniGameFrame :restart-label="t('common.button.newGame')" :borderless="isFullscreen" :restart-on-counter="!isFullscreen" @restart="restart">
             <template #remaining>
                 <div role="group" :aria-label="t('local.remaining')" :title="t('local.remaining')">
                     <Counter :value="replay.frame.value?.remaining ?? remaining" :fixed="0" :digits="3" :size="cellSize" data-cy="training-remaining" />
                 </div>
             </template>
             <template #time>
-                <div role="group" :aria-label="t('local.time')" :title="t('local.time')">
+                <div role="group" :aria-label="t('common.timeSeconds')" :title="t('common.timeSeconds')">
                     <Counter :value="(replay.frame.value?.timeMs ?? elapsed) / 1000" :fixed="3" :digits="3" :size="cellSize" data-cy="training-time" />
                 </div>
             </template>
@@ -199,49 +199,27 @@ watch(() => props.replayData, (data, previous) => {
 
 const i18nMessages = {
     'zh-cn': { local: {
-        title: '左键训练',
-        touchTitle: '多指训练',
         touchBoardLabel: '多指训练棋盘，触摸没有雷的凸起格子',
         touchRules: '仅接受触屏，每根手指独立操作。按下即打开当前安全格，首次按下开始计时；滑动和抬起不开格，触雷即失败。单指滑动可滚动页面，多指按住时不滚动。允许单指完成，雷的不透明度可在小游戏设置中调整。',
         orientation: '棋盘方向',
-        cellSize: '格子大小',
         horizontal: '横向',
         vertical: '纵向',
-        fullscreen: '全屏',
         exitFullscreen: '退出全屏',
         fullscreenFailed: '无法进入全屏，请使用浏览器允许全屏的方式打开页面。',
-        level: '级别',
-        level_b: '初级',
-        level_i: '中级',
-        level_e: '高级',
         density: '雷密度',
-        restart: '新一局',
-        download: '下载离线版',
-        time: '用时（秒）',
         remaining: '剩余点击数',
         boardLabel: '左键训练棋盘，点击没有雷的凸起格子',
         rules: '仅接受鼠标。雷的不透明度可在小游戏设置中调整。每次左键弹起只完成当前一个安全格，不自动展开；点到雷即失败。右键和双键不执行操作。',
     } },
     en: { local: {
-        title: 'Left-click training',
-        touchTitle: 'Multi-touch training',
         touchBoardLabel: 'Multi-touch training board. Touch raised cells without mines.',
         touchRules: 'Touchscreen only; each finger acts independently. Touch down opens one safe cell and starts timing on the first touch; moving and lifting do not open cells. Touching a mine ends the game. Drag with one finger to scroll; holding multiple fingers stops scrolling. One finger is allowed. Adjust mine opacity in minigame settings.',
         orientation: 'Board orientation',
-        cellSize: 'Cell size',
         horizontal: 'Horizontal',
         vertical: 'Vertical',
-        fullscreen: 'Fullscreen',
         exitFullscreen: 'Exit fullscreen',
         fullscreenFailed: 'Cannot enter fullscreen. Open this page in a browser that permits fullscreen.',
-        level: 'Level',
-        level_b: 'Beginner',
-        level_i: 'Intermediate',
-        level_e: 'Expert',
         density: 'Mine density',
-        restart: 'New game',
-        download: 'Download offline',
-        time: 'Time (seconds)',
         remaining: 'Clicks left',
         boardLabel: 'Left-click training board. Click raised cells without mines.',
         rules: 'Mouse only. Adjust mine opacity in minigame settings. Each left-button release opens just one safe cell; hitting a mine ends the game. Right clicks and chords have no effect.',

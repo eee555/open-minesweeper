@@ -6,8 +6,8 @@
         <button
             type="button"
             class="base-button square-button"
-            :title="isPlaying ? t('local.pause') : t('local.play')"
-            :aria-label="isPlaying ? t('local.pause') : t('local.play')"
+            :title="isPlaying ? t('common.button.pause') : t('common.button.play')"
+            :aria-label="isPlaying ? t('common.button.pause') : t('common.button.play')"
             @click="togglePlay"
         >
             <i v-if="isPlaying" class="pi pi-pause" aria-hidden="true" />
@@ -41,15 +41,11 @@ const props = defineProps({
 
 const i18nMessages = {
     'zh-cn': { local: {
-        pause: '暂停',
-        play: '播放',
         restart: '重新开始',
         speed: '播放速度',
         step: '前进 0.1 秒',
     } },
     en: { local: {
-        pause: 'Pause',
-        play: 'Play',
         restart: 'Restart',
         speed: 'Playback speed',
         step: 'Step 0.1 seconds',

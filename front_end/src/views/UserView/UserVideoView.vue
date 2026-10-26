@@ -6,7 +6,7 @@
         </BaseButton>
         <span style="flex: 1" />
         <BaseButton size="small" :loading="loading" data-cy="refresh-videos" @click="refresh">
-            {{ t('local.refresh') }}
+            {{ t('common.action.refresh') }}
         </BaseButton>
         <BaseButton v-if="presentation === 'table'" class="square-button" :type="showSetting ? 'primary' : 'default'" :aria-label="t('local.columns')" :aria-pressed="showSetting" @click="showSetting = !showSetting">
             <BaseIconSetting />
@@ -53,7 +53,7 @@
             <VideoStateFilter v-model="filters.state" :include-local="localVideos.length > 0" class="checkbox-buttons--compact" />
             <label>{{ t('common.prop.level') }}
                 <select v-model="filters.level" data-cy="video-level-filter">
-                    <option value="">{{ t('local.all') }}</option>
+                    <option value="">{{ t('common.all') }}</option>
                     <option v-for="level in MS_Levels" :key="level" :value="level">{{ t(`common.level.${level}`) }}</option>
                     <option value="custom">{{ t('local.custom') }}</option>
                 </select>
@@ -221,7 +221,6 @@ const i18nMessages = {
     'zh-cn': { local: {
         columns: '选择显示列',
         importCsv: '导入CSV',
-        refresh: '刷新',
         loading: '正在加载录像…',
         failed: '录像加载失败，请点击刷新重试。',
         overview: '概览',
@@ -231,7 +230,6 @@ const i18nMessages = {
         presentation: '展示',
         table: '表格',
         scatter: '散点图',
-        all: '全部',
         allVideos: '全部录像',
         includesLocal: '含本地记录',
         allModes: '全部模式',
@@ -244,7 +242,6 @@ const i18nMessages = {
     en: { local: {
         columns: 'Select columns',
         importCsv: 'Import CSV',
-        refresh: 'Refresh',
         loading: 'Loading videos…',
         failed: 'Could not load videos. Refresh to retry.',
         overview: 'Overview',
@@ -254,7 +251,6 @@ const i18nMessages = {
         presentation: 'Display',
         table: 'Table',
         scatter: 'Scatter plot',
-        all: 'All',
         allVideos: 'All videos',
         includesLocal: 'Includes local records',
         allModes: 'All modes',

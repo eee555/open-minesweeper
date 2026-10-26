@@ -26,7 +26,7 @@
             {{ t('statistics.unavailable') }}
         </p>
         <p class="statistics-cache-note">
-            {{ t('local.cache') }}
+            {{ t('statistics.cache', { minutes: 5 }) }}
         </p>
     </RefreshableCard>
 </template>
@@ -61,7 +61,7 @@ watch(() => props.section, (section) => {
 const total = computed(() => lastGood.value?.total_bytes ?? null);
 const dataset = computed(() => {
     const groups = lastGood.value?.groups;
-    return groups ? redisMemoryGroups.map((key, index) => ({ key, name: t(`local.${key}`), values: [groups[key]], color: memoryColors[index] })) : [];
+    return groups ? redisMemoryGroups.map((key, index) => ({ key, name: t(key === 'other' ? 'common.other' : `local.${key}`), values: [groups[key]], color: memoryColors[index] })) : [];
 });
 
 const config = computed<VueUiDonutConfig>(() => ({
@@ -84,22 +84,18 @@ const config = computed<VueUiDonutConfig>(() => ({
 
 const i18nMessages = {
     'zh-cn': { local: {
-        cache: '每 5 分钟定时采样，刷新读取最近一次结果。',
         title: 'Redis 内存分布',
         pb_rankings: 'PB 榜',
         other_rankings: '其他排行榜',
         latest_videos: '最新录像',
-        other: '其他',
         estimated: 'Redis 已分配内存（估算）',
         explanation: '包括其他数据库和 Redis 自身开销，与进程驻留内存的统计口径不同。',
     } },
     en: { local: {
-        cache: 'Sampled every 5 minutes. Refresh loads the latest sample.',
         title: 'Redis Memory Distribution',
         pb_rankings: 'PB rankings',
         other_rankings: 'Other rankings',
         latest_videos: 'Latest videos',
-        other: 'Other',
         estimated: 'Allocated Redis memory (estimated)',
         explanation: 'Includes other databases and Redis overhead. This differs from resident process memory.',
     } },

@@ -1,13 +1,13 @@
 <template>
-    <section class="training-page" :aria-label="t('local.title')" :data-phase="phase" :data-replay="replayData !== null" data-cy="missing-cell-game">
+    <section class="training-page" :aria-label="t('common.minigame.missing-cell')" :data-phase="phase" :data-replay="replayData !== null" data-cy="missing-cell-game">
         <div class="training-controls">
-            <div class="checkbox-buttons" role="radiogroup" :aria-label="t('local.level')" data-cy="missing-cell-level">
+            <div class="checkbox-buttons" role="radiogroup" :aria-label="t('common.prop.level')" data-cy="missing-cell-level">
                 <label v-for="item in missingCellModes" :key="item.key" class="checkbox-button">
                     <input v-model="level" class="checkbox-button-input" type="radio" :name="levelGroupName" :value="item.key">
-                    <span class="checkbox-button-content">{{ t(`local.level_${item.key}`) }}</span>
+                    <span class="checkbox-button-content">{{ t(`common.level.${item.key}`) }}</span>
                 </label>
             </div>
-            <a v-if="!offline" class="base-button base-button--default base-button--size-default training-download" :href="offlineDownloadUrl" :download="offlineDownloadFilename" data-cy="missing-cell-download">{{ t('local.download') }}</a>
+            <a v-if="!offline" class="base-button base-button--default base-button--size-default training-download" :href="offlineDownloadUrl" :download="offlineDownloadFilename" data-cy="missing-cell-download">{{ t('common.button.downloadOffline') }}</a>
         </div>
         <MiniGameFrame :restart-label="t('local.restart')" @restart="restart">
             <template #remaining>
@@ -16,7 +16,7 @@
                 </div>
             </template>
             <template #time>
-                <div role="group" :aria-label="t('local.time')" :title="t('local.time')">
+                <div role="group" :aria-label="t('common.timeSeconds')" :title="t('common.timeSeconds')">
                     <Counter :value="(preview?.timeMs ?? elapsed) / 1000" :fixed="3" :digits="3" :size="minigameSettings.cellSize" data-cy="missing-cell-time" />
                 </div>
             </template>
@@ -134,27 +134,13 @@ watch(() => props.replayData, (data, previous) => {
 
 const i18nMessages = {
     'zh-cn': { local: {
-        title: '漏雷训练',
-        level: '级别',
-        level_b: '初级',
-        level_i: '中级',
-        level_e: '高级',
         restart: '新一轮',
-        download: '下载离线版',
-        time: '用时（秒）',
         remaining: '剩余题目',
         boardLabel: '漏雷训练棋盘，找出唯一未打开的安全格',
         rules: '每局所有安全格均已打开，唯独漏开一格。目标周围不会有 0，目标本身可能是 0。雷保持隐藏，可见数字足以唯一确定目标。点击雷则整轮失败；右键、双键及已打开格无效果。连续完成 10 局，期间计时不停；切换级别会重开。',
     } },
     en: { local: {
-        title: 'Missing cell training',
-        level: 'Level',
-        level_b: 'Beginner',
-        level_i: 'Intermediate',
-        level_e: 'Expert',
         restart: 'New run',
-        download: 'Download offline',
-        time: 'Time (seconds)',
         remaining: 'Boards left',
         boardLabel: 'Missing cell board. Find the only unopened safe cell.',
         rules: 'Every safe cell except one is open. The target has no adjacent zero cells but may itself be zero. Mines stay hidden, and the visible clues uniquely identify the target. Hitting a mine ends the run; right clicks, chords and clicks on open cells do nothing. Complete 10 boards with one continuous timer. Changing level starts a new run.',

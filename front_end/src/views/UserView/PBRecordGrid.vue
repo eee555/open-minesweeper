@@ -64,7 +64,7 @@ function recordTitle(record: PBPlayerRecord): string {
     return [
         `BV ${record.bv}${record.nf ? ' · NF' : ''}`,
         ...pbStats.map((metric) => `${t(`common.prop.${metric}`)}: ${formatPBValue(record.timems, record.level, record.bv, metric)}`),
-        `${t('local.rank')}: ${record.rank ?? '--'}`,
+        `${t('common.prop.rank')}: ${record.rank ?? '--'}`,
     ].join('\n');
 }
 function cellStyle(record: PBPlayerRecord) {
@@ -79,11 +79,9 @@ function cellStyle(record: PBPlayerRecord) {
 const i18nMessages = {
     'zh-cn': { local: {
         empty: '暂无 PB 纪录',
-        rank: '排名',
     } },
     en: { local: {
         empty: 'No PB records',
-        rank: 'Rank',
     } },
 };
 const { t } = useI18n({ messages: i18nMessages });

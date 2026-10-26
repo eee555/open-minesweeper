@@ -36,8 +36,8 @@
                 <BaseButton
                     class="square-button"
                     type="primary" :plain="!isFullscreen"
-                    :title="t('local.fullscreen')"
-                    :aria-label="t('local.fullscreen')" :aria-pressed="isFullscreen"
+                    :title="t('common.button.fullscreen')"
+                    :aria-label="t('common.button.fullscreen')" :aria-pressed="isFullscreen"
                     @click="emit('toggleFullscreen')"
                 >
                     <i class="pi pi-expand" />
@@ -121,7 +121,6 @@ const i18nMessages = {
         colorBy: '颜色',
         cursor: '光标',
         diff: '差集',
-        fullscreen: '全屏',
         hideNonSelected: '隐藏未选中项',
         highlightSelected: '高亮选中项',
         intersect: '交集',
@@ -133,7 +132,6 @@ const i18nMessages = {
         colorBy: 'Color by',
         cursor: 'Cursor',
         diff: 'Difference',
-        fullscreen: 'Fullscreen',
         hideNonSelected: 'Hide non-selected',
         highlightSelected: 'Highlight selected',
         intersect: 'Intersection',

@@ -83,7 +83,7 @@ async function saveUserProfile() {
         const value = payload[field];
         return typeof value === 'string' && value.trim() === HIDDEN_NAME;
     })) {
-        baseErrorNotification(t('local.jsonError'), t('local.reservedName'));
+        baseErrorNotification(t('local.jsonError'), t('common.msg.reservedName'));
         return;
     }
     if (profile.value.can_hide_realname === true && payload.can_hide_realname === false && !window.confirm(t('local.revokePrivacy'))) return;
@@ -129,7 +129,6 @@ const i18nMessages = {
         jsonObjectRequired: '请求体必须是 JSON 对象',
         userMSError: 'UserMS错误',
         missingUserMS: '当前用户没有可用的 userms_id',
-        reservedName: '姓名不能为保留值 hidden',
         revokePrivacy: '撤销隐藏实名资格后，将关闭隐藏，实名会在缓存正常更新后恢复公开。是否继续？',
     } },
     en: { local: {
@@ -141,7 +140,6 @@ const i18nMessages = {
         jsonObjectRequired: 'The request body must be a JSON object',
         userMSError: 'UserMS error',
         missingUserMS: 'This user has no available userms_id',
-        reservedName: 'A name cannot be the reserved value hidden',
         revokePrivacy: 'Revoking eligibility also turns off hiding. Names become public after normal cache updates. Continue?',
     } },
 };

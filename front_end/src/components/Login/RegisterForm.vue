@@ -31,7 +31,7 @@
             <!-- 确认 -->
             <BaseButton type="primary" :disabled="confirm_disabled" style="margin-left: auto" @click="submitForm(ruleFormRef!)">
                 {{
-                    t('local.confirm') }}
+                    t('common.button.register') }}
             </BaseButton>
         </ElFormItem>
     </ElForm>
@@ -145,12 +145,10 @@ const i18nMessages = {
     'zh-cn': { local: {
         agreeTAC1: '已阅读并同意',
         agreeTAC2: '开源扫雷网用户协议',
-        confirm: '注册',
     } },
     en: { local: {
         agreeTAC1: 'Agree to',
         agreeTAC2: 'Terms & Conditions',
-        confirm: 'Register',
     } },
     de: { local: {
         confirm: 'bestätigen',

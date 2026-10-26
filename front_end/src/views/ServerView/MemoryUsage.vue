@@ -29,7 +29,7 @@
             {{ t('statistics.unavailable') }}
         </p>
         <p class="statistics-cache-note">
-            {{ t('local.cache') }}
+            {{ t('statistics.cache', { minutes: 5 }) }}
         </p>
     </RefreshableCard>
 </template>
@@ -64,7 +64,7 @@ watch(() => props.section, (section) => {
 const total = computed(() => lastGood.value?.total_bytes ?? null);
 const dataset = computed(() => {
     const groups = lastGood.value?.groups;
-    return groups ? processMemoryGroups.map((key, index) => ({ key, name: t(`local.${key}`), values: [groups[key]], color: memoryColors[index] })) : [];
+    return groups ? processMemoryGroups.map((key, index) => ({ key, name: t(key === 'other' ? 'common.other' : `local.${key}`), values: [groups[key]], color: memoryColors[index] })) : [];
 });
 
 const config = computed<VueUiDonutConfig>(() => ({
@@ -87,14 +87,12 @@ const config = computed<VueUiDonutConfig>(() => ({
 
 const i18nMessages = {
     'zh-cn': { local: {
-        cache: '每 5 分钟定时采样，刷新读取最近一次结果。',
         title: '内存占用',
         uwsgi: 'uWSGI',
         apscheduler: 'APScheduler',
         redis: 'Redis',
         mysql: 'MySQL',
         db_worker: 'db_worker',
-        other: '其他',
         pss: '进程驻留内存（PSS）',
         rss: '进程驻留内存（RSS，共享内存可能重复计算）',
         scope: '合计为进程内存，不包含内核和未映射的文件缓存。',
@@ -102,14 +100,12 @@ const i18nMessages = {
         available: '可用内存',
     } },
     en: { local: {
-        cache: 'Sampled every 5 minutes. Refresh loads the latest sample.',
         title: 'Memory Usage',
         uwsgi: 'uWSGI',
         apscheduler: 'APScheduler',
         redis: 'Redis',
         mysql: 'MySQL',
         db_worker: 'db_worker',
-        other: 'Other',
         pss: 'Resident process memory (PSS)',
         rss: 'Resident process memory (RSS; shared pages may be counted more than once)',
         scope: 'The total covers processes, excluding kernel memory and unmapped file cache.',

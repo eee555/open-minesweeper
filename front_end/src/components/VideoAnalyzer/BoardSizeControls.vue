@@ -1,5 +1,5 @@
 <template>
-    <div class="board-size-controls button-group button-group--joined" role="group" :aria-label="t('local.cellSize')">
+    <div class="board-size-controls button-group button-group--joined" role="group" :aria-label="t('common.prop.cellSize')">
         <BoardSettingsControl class="board-size-controls__fixed" :label="t('local.fixed')">
             <template #toggle>
                 <BaseButton class="board-size-controls__fixed-toggle board-size-controls__toggle" size="small" :type="mode === 'fixed' ? 'primary' : 'default'" :aria-label="t('local.fixed')" :title="t('local.fixed')" :aria-pressed="mode === 'fixed'" @click="mode = 'fixed'">
@@ -66,7 +66,6 @@ const scalePercent = computed({
 
 const i18nMessages = {
     'zh-cn': { local: {
-        cellSize: '格子大小',
         fixed: '固定数值',
         relative: '相对比例',
         auto: '自适应',
@@ -74,7 +73,6 @@ const i18nMessages = {
         percent: '比例 (%)',
     } },
     en: { local: {
-        cellSize: 'Cell size',
         fixed: 'Fixed size',
         relative: 'Relative scale',
         auto: 'Adaptive size',

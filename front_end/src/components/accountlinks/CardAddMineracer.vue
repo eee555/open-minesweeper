@@ -16,7 +16,7 @@
 
             <ElSteps :active="activeStep" :finish-status="finishStatus" :process-status="processStatus" align-center>
                 <ElStep :title="t('local.stepCreate')" />
-                <ElStep :title="t('local.stepConfirm')" />
+                <ElStep :title="t('common.button.confirm')" />
                 <ElStep :title="t('local.stepComplete')" />
             </ElSteps>
 
@@ -227,7 +227,6 @@ const i18nMessages = {
             pending: '等待 Mineracer 确认',
         },
         stepComplete: '完成',
-        stepConfirm: '确认',
         stepCreate: '链接',
         userId: 'Mineracer 用户 ID',
     } },
@@ -260,7 +259,6 @@ const i18nMessages = {
             pending: 'Waiting for Mineracer',
         },
         stepComplete: 'Linked',
-        stepConfirm: 'Confirm',
         stepCreate: 'Link',
         userId: 'Mineracer User ID',
     } },

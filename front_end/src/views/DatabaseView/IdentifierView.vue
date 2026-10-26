@@ -49,7 +49,7 @@
                                     {{ t(`local.groups.${group}.name`) }}
                                 </th>
                                 <td>{{ t(`local.groups.${group}.matches`) }}</td>
-                                <td>{{ t(`local.limits.${group}`) }}</td>
+                                <td>{{ t(group === 'exact' ? 'common.ratelimit.requestsPerSecond' : 'common.ratelimit.requestsPerMinute', { count: limitCounts[group] }) }}</td>
                             </tr>
                         </BaseTable>
                         <p>{{ t('local.limitHint') }}</p>
@@ -192,6 +192,7 @@ interface OwnerOption {
 
 const matchModes = ['exact', 'contains', 'startswith', 'endswith', 'regex'] as const;
 const limitGroups = ['exact', 'prefix', 'text', 'regex'] as const;
+const limitCounts = { exact: 2, prefix: 10, text: 6, regex: 2 } as const;
 type MatchMode = typeof matchModes[number];
 const insensitiveModes = { exact: 'iexact', contains: 'icontains', startswith: 'istartswith', endswith: 'iendswith', regex: 'regex' } as const;
 const playerId = ref('');
@@ -326,12 +327,6 @@ const i18nMessages = {
         filterOwner: '筛选归属玩家',
         clearFilter: '清空筛选',
         ownerId: '玩家 #{id}',
-        limits: {
-            exact: '每 IP 每秒 2 次',
-            prefix: '每 IP 每分钟 10 次',
-            text: '每 IP 每分钟 6 次',
-            regex: '每 IP 每分钟 2 次',
-        },
         groups: {
             exact: { name: '完整匹配组', matches: '完整匹配，区分大小写' },
             prefix: { name: '前缀匹配组', matches: '前缀匹配，区分大小写' },
@@ -372,12 +367,6 @@ const i18nMessages = {
         filterOwner: 'Filter owner',
         clearFilter: 'Clear',
         ownerId: 'Player #{id}',
-        limits: {
-            exact: '2 requests/second per IP',
-            prefix: '10 requests/minute per IP',
-            text: '6 requests/minute per IP',
-            regex: '2 requests/minute per IP',
-        },
         groups: {
             exact: { name: 'Exact group', matches: 'Exact, case-sensitive' },
             prefix: { name: 'Prefix group', matches: 'Prefix, case-sensitive' },

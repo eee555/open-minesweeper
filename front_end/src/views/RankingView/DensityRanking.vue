@@ -20,7 +20,7 @@
             <template #head>
                 <tr>
                     <th scope="col" class="table-col-rank">
-                        {{ t('local.rank') }}
+                        {{ t('common.prop.rank') }}
                     </th>
                     <th scope="col" class="table-col-player">
                         {{ t('common.prop.realName') }}
@@ -117,12 +117,10 @@ const i18nMessages = {
     'zh-cn': { local: {
         board: '局面',
         empty: '暂无排行数据',
-        rank: '排名',
     } },
     en: { local: {
         board: 'Board',
         empty: 'No ranking data',
-        rank: 'Rank',
     } },
 };
 

@@ -11,7 +11,7 @@
                 <progress class="video-export__progress" :value="progress" max="1" />
                 <output aria-live="polite">{{ Math.round(progress * 100) }}%</output>
                 <BaseButton class="video-export__cancel" :disabled="cancelling" @click="cancel">
-                    <i class="pi pi-times" aria-hidden="true" />{{ t('local.cancel') }}
+                    <i class="pi pi-times" aria-hidden="true" />{{ t('common.button.cancel') }}
                 </BaseButton>
             </template>
             <form v-else class="video-export__form" @submit.prevent="start">
@@ -19,7 +19,7 @@
                     {{ t('local.export') }}
                 </h2>
                 <label><span>{{ t('local.scope') }}</span><select v-model="scope" class="base-input video-export__scope"><option value="all">{{ t('local.all') }}</option><option value="range" :disabled="playback.rangeEndMs.value <= playback.rangeStartMs.value">{{ t('local.range') }}</option></select></label>
-                <label><span>{{ t('local.format') }}</span><select v-model="settings.format" class="base-input video-export__format"><option v-for="format in videoFormats" :key="format" :value="format">{{ format.toUpperCase() }}</option></select></label>
+                <label><span>{{ t('common.prop.format') }}</span><select v-model="settings.format" class="base-input video-export__format"><option v-for="format in videoFormats" :key="format" :value="format">{{ format.toUpperCase() }}</option></select></label>
                 <label><span>{{ t('local.fps') }}</span><input v-model.number="settings.fps" class="base-input video-export__fps" type="number" min="1" max="120" step="1" required></label>
                 <label><span>{{ t('local.quality') }}</span><select v-model="settings.quality" class="base-input video-export__quality"><option v-for="quality in videoQualities" :key="quality" :value="quality">{{ t(`local.${quality}`) }}</option></select></label>
                 <label v-for="edge in edges" :key="edge"><span>{{ t(`local.${edge}`) }}</span><input v-model.number="crop[edge]" class="base-input" :class="`video-export__${edge}`" type="number" min="0" :max="edge === 'top' || edge === 'bottom' ? rows - 1 : columns - 1" step="1" required></label>
@@ -29,7 +29,7 @@
                 </p>
                 <div class="button-group button-group--joined video-export__actions">
                     <BaseButton class="video-export__close" @click="cancel">
-                        {{ t('local.cancel') }}
+                        {{ t('common.button.cancel') }}
                     </BaseButton>
                     <BaseButton class="video-export__start" type="primary" native-type="submit" :disabled="scope === 'range' && playback.rangeEndMs.value <= playback.rangeStartMs.value">
                         <i class="pi pi-download" aria-hidden="true" />{{ t('local.export') }}
@@ -181,11 +181,9 @@ const i18nMessages = {
         exporting: '正在导出视频',
         preparing: '正在准备视频',
         failed: '视频导出失败',
-        cancel: '取消',
         scope: '时间范围',
         all: '全部录像',
         range: '选定区间',
-        format: '格式',
         fps: '帧率',
         quality: '质量',
         top: 'top',
@@ -202,11 +200,9 @@ const i18nMessages = {
         exporting: 'Exporting video',
         preparing: 'Preparing video',
         failed: 'Video export failed',
-        cancel: 'Cancel',
         scope: 'Time range',
         all: 'Whole replay',
         range: 'Selected range',
-        format: 'Format',
         fps: 'Frame rate',
         quality: 'Quality',
         top: 'top',

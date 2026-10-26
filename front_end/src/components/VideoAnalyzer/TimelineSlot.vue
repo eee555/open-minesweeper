@@ -49,10 +49,10 @@
             <template #footer>
                 <div class="button-group button-group--joined timeline-slot__dialog-actions">
                     <BaseButton class="timeline-slot__cancel" @click="dialog = null">
-                        {{ t('local.cancel') }}
+                        {{ t('common.button.cancel') }}
                     </BaseButton>
                     <BaseButton class="timeline-slot__confirm" type="primary" @click="confirmDialog">
-                        {{ t('local.confirm') }}
+                        {{ t('common.button.confirm') }}
                     </BaseButton>
                 </div>
             </template>
@@ -131,8 +131,6 @@ const i18nMessages = {
         rename: '修改 plot 名称',
         deleteSlot: '删除 plot',
         confirmDelete: '确认删除 {name} 及其所有轨道？',
-        cancel: '取消',
-        confirm: '确认',
     } },
     en: { local: {
         addTrack: 'Add track',
@@ -141,8 +139,6 @@ const i18nMessages = {
         rename: 'Rename plot',
         deleteSlot: 'Delete plot',
         confirmDelete: 'Delete {name} and all its tracks?',
-        cancel: 'Cancel',
-        confirm: 'Confirm',
     } },
 };
 const { t } = useI18n({ messages: i18nMessages });

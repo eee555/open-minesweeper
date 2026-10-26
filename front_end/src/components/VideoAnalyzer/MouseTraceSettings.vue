@@ -19,7 +19,7 @@
             </label>
             <fieldset class="mouse-trace-settings__fields" :disabled="!appearance.markers[action].enabled">
                 <label class="mouse-trace-settings__field">
-                    <span>{{ t('local.shape') }}</span>
+                    <span>{{ t('common.prop.shape') }}</span>
                     <select v-model="appearance.markers[action].shape" class="mouse-trace-settings__shape">
                         <option v-for="shape in mouseTraceMarkerShapes" :key="shape" :value="shape">{{ t(`local.${shape}`) }}</option>
                     </select>
@@ -41,7 +41,7 @@
                     <InputNumber v-model="appearance.markers[action].strokeWidth" class="mouse-trace-settings__stroke-width" :min="0" step="any" />
                 </label>
                 <label class="mouse-trace-settings__field">
-                    <span>{{ t('local.opacity') }}</span>
+                    <span>{{ t('common.prop.opacity') }}</span>
                     <InputNumber v-model="appearance.markers[action].opacity" class="mouse-trace-settings__opacity" :min="0" :max="1" step="0.01" />
                 </label>
             </fieldset>
@@ -74,12 +74,10 @@ const i18nMessages = {
         rc: '右键按下标记',
         rr: '右键释放标记',
         showMarker: '显示标记',
-        shape: '形状',
         size: '大小 (格)',
         fill: '填充色',
         stroke: '描边色',
         strokeWidth: '描边宽度 (格)',
-        opacity: '不透明度',
         circle: '圆点',
         ring: '圆环',
         cross: '十字',
@@ -98,12 +96,10 @@ const i18nMessages = {
         rc: 'Right press marker',
         rr: 'Right release marker',
         showMarker: 'Show marker',
-        shape: 'Shape',
         size: 'Size (cells)',
         fill: 'Fill color',
         stroke: 'Stroke color',
         strokeWidth: 'Stroke width (cells)',
-        opacity: 'Opacity',
         circle: 'Circle',
         ring: 'Ring',
         cross: 'Cross',

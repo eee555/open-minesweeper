@@ -2,7 +2,7 @@
     <div class="minigame-settings" :class="{ 'description-layout': descriptionLayout, 'minigame-settings--descriptions': descriptionLayout }">
         <dl :class="descriptionLayout ? 'descriptions' : 'minigame-settings-list'">
             <div :class="descriptionLayout ? 'description-item' : 'minigame-settings-row'">
-                <dt><label :for="cellSizeId">{{ t('local.cellSize') }}</label></dt>
+                <dt><label :for="cellSizeId">{{ t('common.prop.cellSize') }}</label></dt>
                 <dd class="minigame-settings-controls">
                     <InputNumber :id="cellSizeId" v-model="minigameSettings.cellSize" :min="1" :max="Number.MAX_SAFE_INTEGER" integer step="1" inputmode="numeric" data-cy="minigame-cell-size" />
                     <span>px</span>
@@ -73,7 +73,6 @@ function recordHotkey(event: KeyboardEvent) {
 
 const i18nMessages = {
     'zh-cn': { local: {
-        cellSize: '格子大小',
         restartHotkey: '重开热键',
         unset: '未设置',
         clear: '清除',
@@ -84,7 +83,6 @@ const i18nMessages = {
         down: '按下',
     } },
     en: { local: {
-        cellSize: 'Cell size',
         restartHotkey: 'Restart hotkey',
         unset: 'Not set',
         clear: 'Clear',

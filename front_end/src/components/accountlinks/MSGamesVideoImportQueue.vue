@@ -2,7 +2,7 @@
     <section v-loading="loading">
         <div class="msgames-controls">
             <BaseButton size="small" :disabled="loading || sending" @click="refresh()">
-                {{ t('local.refresh') }}
+                {{ t('common.action.refresh') }}
             </BaseButton>
             <template v-if="owner">
                 <BaseButton size="small" :disabled="loading || sending" @click="sync">
@@ -55,13 +55,13 @@
             <PrColumn field="import_status" :show-filter-menu="false">
                 <template #header>
                     <div class="msgames-filter-header">
-                        <span>{{ t('local.import') }}</span>
+                        <span>{{ t('common.button.import') }}</span>
                         <select v-model="filters.import_status.value" :aria-label="t('local.statusFilter')" class="msgames-status-filter">
                             <option :value="null">
                                 {{ t('local.allStatuses') }}
                             </option>
                             <option v-for="status in importStatuses" :key="status" :value="status">
-                                {{ t(`local.${status}`) }}
+                                {{ t(status === 'imported' ? 'accountlink.importStatus.successful' : `local.${status}`) }}
                             </option>
                         </select>
                     </div>
@@ -72,7 +72,7 @@
                     </VideoPreviewLink>
                     <span v-else-if="data.import_status === 'unsupported'">{{ t('local.unsupported') }}</span>
                     <BaseButton v-else-if="owner" size="small" :disabled="sending" @click="importOne(data)">
-                        {{ data.import_status === 'failed' ? t('local.retry') : t('local.import') }}
+                        {{ data.import_status === 'failed' ? t('common.button.retry') : t('common.button.import') }}
                     </BaseButton>
                     <span v-if="data.import_status === 'importing'">{{ t('local.importing') }}</span>
                     <span v-else-if="data.import_status === 'failed'">{{ t('local.failed') }}: {{ failures[data.id] }}</span>
@@ -273,7 +273,6 @@ onBeforeUnmount(() => {
 
 const { t } = useI18n({ messages: {
     'zh-cn': { local: {
-        refresh: '刷新',
         sync: '同步录像列表',
         importAll: '导入未导入录像',
         stop: '停止后续导入',
@@ -285,20 +284,16 @@ const { t } = useI18n({ messages: {
         source: '原始录像',
         category: '分类',
         score: '成绩',
-        import: '导入',
-        retry: '重试',
         unsupported: '暂不支持此配置或格式',
         empty: '暂无已同步录像',
         categoryQuery: '查询分类',
         statusFilter: '筛选导入状态',
         allStatuses: '全部状态',
         pending: '未导入',
-        imported: '已导入',
         summary: '共 {total} 个，已导入 {imported} 个',
         updated: '列表更新时间',
     } },
     en: { local: {
-        refresh: 'Refresh',
         sync: 'Sync video list',
         importAll: 'Import remaining videos',
         stop: 'Stop further imports',
@@ -310,15 +305,12 @@ const { t } = useI18n({ messages: {
         source: 'Original replay',
         category: 'Category',
         score: 'Score',
-        import: 'Import',
-        retry: 'Retry',
         unsupported: 'Unsupported board or format',
         empty: 'No synced videos',
         categoryQuery: 'Search category',
         statusFilter: 'Filter import status',
         allStatuses: 'All statuses',
         pending: 'Not imported',
-        imported: 'Imported',
         summary: '{total} videos, {imported} imported',
         updated: 'List updated',
     } },

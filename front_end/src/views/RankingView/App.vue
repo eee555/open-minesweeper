@@ -28,17 +28,13 @@ const handleTabClick = (tab: TabsPaneContext) => {
 const i18nMessages = {
     'zh-cn': { local: {
         speed: '竞速',
-        minigame: '小游戏',
         efficiency: '效率',
         density: '密度',
-        tournament: '比赛',
     } },
     en: { local: {
         speed: 'Speed',
-        minigame: 'Minigames',
         efficiency: 'Efficiency',
         density: 'Density',
-        tournament: 'Tournament',
     } },
 };
 
@@ -48,8 +44,8 @@ const tabItems = computed(() => [
     { name: 'speed', label: t('local.speed') },
     { name: 'efficiency', label: t('local.efficiency') },
     { name: 'density', label: t('local.density') },
-    { name: 'tournament', label: t('local.tournament') },
-    { name: 'minigame', label: t('local.minigame') },
+    { name: 'tournament', label: t('tournament.tournament') },
+    { name: 'minigame', label: t('common.minigame.title') },
 ]);
 const activeTab = computed(() => {
     return tabItems.value.find((tab) => route.matched.some((record) => record.name === `ranking_${tab.name}`))?.name ?? 'speed';

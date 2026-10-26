@@ -1,8 +1,8 @@
 <template>
-    <ElDialog v-model="visible" :title="creating ? t('local.add') : `${t('local.edit')}: ${row.key}`" width="min(480px, calc(100vw - 24px))" append-to-body @closed="emit('close')">
+    <ElDialog v-model="visible" :title="creating ? t('local.add') : `${t('common.button.edit')}: ${row.key}`" width="min(480px, calc(100vw - 24px))" append-to-body @closed="emit('close')">
         <form id="counter-row-editor-form" class="counter-row-editor" @submit.prevent="save">
             <label v-if="creating"><span>key</span><input v-model="draft.key" class="base-input counter-row-editor__key" type="text" required @input="validationError = ''"></label>
-            <label><span>{{ t('local.expression') }}</span><input v-model="draft.expression" class="base-input counter-row-editor__expression" type="text"></label>
+            <label><span>{{ t('common.prop.expression') }}</span><input v-model="draft.expression" class="base-input counter-row-editor__expression" type="text"></label>
             <label><span>{{ t('local.format') }}</span><input v-model="draft.format" class="base-input counter-row-editor__format" type="text"></label>
             <label><span>{{ t('local.sampling') }}</span><select v-model="draft.samplingMode" class="counter-row-editor__sampling"><option v-for="mode in samplingModes" :key="mode" :value="mode">{{ t(`local.${mode}`) }}</option></select></label>
             <CounterExpressionHelp />
@@ -14,10 +14,10 @@
         <template #footer>
             <div class="button-group button-group--joined counter-row-editor__actions">
                 <BaseButton class="counter-row-editor__cancel" @click="visible = false">
-                    {{ t('local.cancel') }}
+                    {{ t('common.button.cancel') }}
                 </BaseButton>
                 <BaseButton class="counter-row-editor__save" type="primary" native-type="submit" form="counter-row-editor-form">
-                    {{ t('local.save') }}
+                    {{ t('common.button.save') }}
                 </BaseButton>
             </div>
         </template>
@@ -63,30 +63,22 @@ function save() {
 
 const i18nMessages = {
     'zh-cn': { local: {
-        edit: '编辑',
         add: '添加计数器行',
         duplicateKey: '行 key 不能重复',
-        expression: '公式',
         format: '数字格式',
         sampling: '采样模式',
         continuous: '连续采样',
         button: '每个按键事件',
         board: '每次局面变化',
-        cancel: '取消',
-        save: '保存',
     } },
     en: { local: {
-        edit: 'Edit',
         add: 'Add counter row',
         duplicateKey: 'Row keys must be unique',
-        expression: 'Expression',
         format: 'Number format',
         sampling: 'Sampling mode',
         continuous: 'Continuous sampling',
         button: 'Every button event',
         board: 'Every board change',
-        cancel: 'Cancel',
-        save: 'Save',
     } },
 };
 const { t } = useI18n({ messages: i18nMessages });

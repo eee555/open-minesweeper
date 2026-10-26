@@ -2,7 +2,7 @@
     <ElDialog v-model="visible" :title="creating ? t('local.add') : `${t('local.edit')}: ${event.key}`" width="min(520px, calc(100vw - 24px))" append-to-body @closed="emit('close')">
         <form id="custom-event-editor-form" class="custom-event-editor" @submit.prevent="save">
             <label><span>key</span><input v-model="draft.key" class="base-input custom-event-editor__key" required @input="validationError = ''"></label>
-            <label><span>{{ t('local.expression') }}</span><textarea v-model="draft.expression" class="base-input custom-event-editor__expression" rows="3" /></label>
+            <label><span>{{ t('common.prop.expression') }}</span><textarea v-model="draft.expression" class="base-input custom-event-editor__expression" rows="3" /></label>
             <div class="custom-event-editor__field">
                 <span>{{ t('local.type') }}</span>
                 <div class="button-group button-group--joined custom-event-editor__types" role="group" :aria-label="t('local.type')">
@@ -11,16 +11,16 @@
                     </BaseButton>
                 </div>
             </div>
-            <label><span>{{ t('local.color') }}</span><BaseColorPicker v-model="draft.color" class="custom-event-editor__color" /></label>
+            <label><span>{{ t('common.prop.color') }}</span><BaseColorPicker v-model="draft.color" class="custom-event-editor__color" /></label>
             <template v-if="draft.type === 'pulse'">
                 <label><span>{{ t('local.shape') }}</span><select v-model="draft.marker.shape" class="custom-event-editor__shape"><option v-for="shape in eventMarkerShapes" :key="shape" :value="shape">{{ t(`local.${shape}`) }}</option></select></label>
                 <label><span>{{ t('local.size') }} (px)</span><InputNumber v-model="draft.marker.size" class="custom-event-editor__marker-size" :min="1" :step="1" /></label>
-                <label><span>{{ t('local.opacity') }}</span><InputNumber v-model="draft.marker.opacity" :min="0" :max="1" :step="0.01" /></label>
+                <label><span>{{ t('common.prop.opacity') }}</span><InputNumber v-model="draft.marker.opacity" :min="0" :max="1" :step="0.01" /></label>
             </template>
             <template v-else>
                 <label><span>{{ t('local.lineStyle') }}</span><select v-model="draft.line.style" class="custom-event-editor__line-style"><option v-for="style in eventLineStyles" :key="style" :value="style">{{ t(`local.${style}`) }}</option></select></label>
                 <label><span>{{ t('local.width') }} (px)</span><InputNumber v-model="draft.line.width" :min="0.1" :step="0.1" /></label>
-                <label><span>{{ t('local.opacity') }}</span><InputNumber v-model="draft.line.opacity" :min="0" :max="1" :step="0.01" /></label>
+                <label><span>{{ t('common.prop.opacity') }}</span><InputNumber v-model="draft.line.opacity" :min="0" :max="1" :step="0.01" /></label>
             </template>
             <CounterExpressionHelp />
             <output class="contains custom-event-editor__preview" aria-live="polite">{{ t('local.occurrences', { count: draft.type === 'pulse' ? preview.pulses.length : preview.spans.length }) }}</output>
@@ -35,10 +35,10 @@
                 </BaseButton>
                 <div class="button-group button-group--joined">
                     <BaseButton class="custom-event-editor__cancel" @click="visible = false">
-                        {{ t('local.cancel') }}
+                        {{ t('common.button.cancel') }}
                     </BaseButton>
                     <BaseButton class="custom-event-editor__save" type="primary" native-type="submit" form="custom-event-editor-form">
-                        {{ t('local.save') }}
+                        {{ t('common.button.save') }}
                     </BaseButton>
                 </div>
             </div>
@@ -88,14 +88,11 @@ const i18nMessages = {
     'zh-cn': { local: {
         add: '添加自定义事件',
         edit: '编辑自定义事件',
-        expression: '公式',
         type: '类型',
         pulse: '脉冲',
         sustained: '持续',
-        color: '颜色',
         shape: '标记形状',
         size: '棋盘标记大小',
-        opacity: '不透明度',
         lineStyle: '线型',
         width: '线宽',
         solid: '实线',
@@ -110,20 +107,15 @@ const i18nMessages = {
         requiredKey: '事件 key 不能为空',
         duplicateKey: '自定义事件 key 不能重复',
         remove: '删除事件',
-        cancel: '取消',
-        save: '保存',
     } },
     en: { local: {
         add: 'Add custom event',
         edit: 'Edit custom event',
-        expression: 'Expression',
         type: 'Type',
         pulse: 'Pulse',
         sustained: 'Sustained',
-        color: 'Color',
         shape: 'Marker shape',
         size: 'Board marker size',
-        opacity: 'Opacity',
         lineStyle: 'Line style',
         width: 'Line width',
         solid: 'Solid',
@@ -138,8 +130,6 @@ const i18nMessages = {
         requiredKey: 'Event key is required',
         duplicateKey: 'Custom event keys must be unique',
         remove: 'Delete event',
-        cancel: 'Cancel',
-        save: 'Save',
     } },
 };
 const { t } = useI18n({ messages: i18nMessages });

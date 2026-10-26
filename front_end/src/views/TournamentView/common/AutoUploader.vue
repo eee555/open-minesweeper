@@ -13,7 +13,7 @@
                     <template #icon>
                         <i class="pi pi-pause" aria-hidden="true" />
                     </template>
-                    {{ t('local.stop') }}
+                    {{ t('common.button.pause') }}
                 </BaseButton>
                 <BaseButton v-else-if="emitter" size="small" :disabled="!canSelectDirectory || busy" @click="resumeWatching">
                     <template #icon>
@@ -67,7 +67,7 @@
             <template #footer>
                 <div class="auto-uploader__scan-actions">
                     <BaseButton @click="cancelScan">
-                        {{ t('local.cancel') }}
+                        {{ t('common.button.cancel') }}
                     </BaseButton>
                     <template v-if="!fullScanning">
                         <BaseButton @click="beginWatching(false)">
@@ -325,7 +325,6 @@ onBeforeUnmount(() => {
 
 const i18nMessages = {
     'zh-cn': { local: {
-        cancel: '取消',
         existingFiles: '文件夹中有 {count} 个文件',
         scanTitle: '选择上传范围',
         scanAll: '包含已有录像',
@@ -343,12 +342,10 @@ const i18nMessages = {
         selectFailed: '无法读取该文件夹',
         selectFolder: '选择文件夹',
         skipped: '已跳过',
-        stop: '暂停',
         uploaded: '已上传',
         unsupported: '当前浏览器无法访问录像文件夹',
     } },
     en: { local: {
-        cancel: 'Cancel',
         existingFiles: '{count} files in this folder',
         scanTitle: 'Choose upload scope',
         scanAll: 'Include existing replays',
@@ -366,7 +363,6 @@ const i18nMessages = {
         selectFailed: 'Cannot read this folder',
         selectFolder: 'Select folder',
         skipped: 'Skipped',
-        stop: 'Pause',
         uploaded: 'Uploaded',
         unsupported: 'Folder access is unavailable in this browser',
     } },

@@ -118,8 +118,8 @@ function restoreFocus() {
 const mainItems = computed<NavigationItem[]>(() => [
     { id: 'ranking', label: t('local.ranking'), to: '/ranking' },
     { id: 'database', label: t('local.database'), to: '/database' },
-    { id: 'tournament', label: t('local.tournament'), to: '/tournament' },
-    { id: 'minigame', label: t('local.minigame'), to: '/minigame/left-click' },
+    { id: 'tournament', label: t('tournament.tournament'), to: '/tournament' },
+    { id: 'minigame', label: t('common.minigame.title'), to: '/minigame/left-click' },
     { id: 'server', label: t('local.server'), to: '/server' },
 ].map((item) => ({ ...item, primary: true })));
 const drawerItems = computed<NavigationItem[]>(() => [
@@ -156,7 +156,7 @@ function navigationItems(controls: LoginControls): NavigationItem[] {
                 } },
         ];
     items.push(
-        { id: 'settings', label: t('local.setting'), icon: 'pi-cog', iconOnly: true, to: '/settings' },
+        { id: 'settings', label: t('common.settings'), icon: 'pi-cog', iconOnly: true, to: '/settings' },
         { id: 'docs', label: t('local.docs'), icon: 'pi-question-circle', iconOnly: true, href: getDocsUrl('') },
     );
     items.push({
@@ -227,9 +227,6 @@ const i18nMessages = {
         staff: '管理',
         docs: '帮助',
         server: '服务器',
-        setting: '设置',
-        tournament: '比赛',
-        minigame: '小游戏',
         language: '语言',
         theme: '颜色主题',
         about: '关于我们',
@@ -252,9 +249,6 @@ const i18nMessages = {
         staff: 'Moderate',
         docs: 'Help',
         server: 'Server',
-        setting: 'Settings',
-        tournament: 'Tournament',
-        minigame: 'Minigames',
         language: 'Language',
         theme: 'Color theme',
         about: 'About',
@@ -288,7 +282,7 @@ const sectionTitle = computed(() => {
     const item = drawerItems.value.find(({ id }) => id === section);
     if (item) return item.label;
     if (section === 'player') return t('common.prop.player');
-    if (section === 'settings') return t('local.setting');
+    if (section === 'settings') return t('common.settings');
     if (section === 'staff' || section === 'gsc') return t('local.staff');
     return '';
 });

@@ -10,7 +10,7 @@
                 <PlayerName v-if="info" :user-id="info.video.player" />
                 <span v-else>--</span>
                 <span v-if="info && info.tournament_ids.length > 0" class="website-replay-info__tournaments">
-                    {{ t('local.tournament') }}
+                    {{ t('tournament.tournament') }}
                     <RouterLink v-for="tournamentId in info.tournament_ids" :key="tournamentId" class="link" :to="`/tournament/${tournamentId}`">#{{ tournamentId }}</RouterLink>
                 </span>
             </div>
@@ -87,7 +87,6 @@ const i18nMessages = {
         downloadReplay: '下载录像文件',
         downloadOffline: '下载离线包',
         videoId: '录像 ID',
-        tournament: '比赛',
         loading: '正在加载网站信息…',
         loadFailed: '网站信息加载失败',
         unranked: '未入榜',
@@ -102,7 +101,6 @@ const i18nMessages = {
         downloadReplay: 'Download replay file',
         downloadOffline: 'Download offline package',
         videoId: 'Replay ID',
-        tournament: 'Tournament',
         loading: 'Loading website information…',
         loadFailed: 'Website information failed to load',
         unranked: 'Not ranked',

@@ -24,7 +24,7 @@
             </ElOption>
         </ElSelect>
         <BaseButton :disabled="selectedLog === ''" @click="downloadLog(selectedLog)">
-            {{ t('local.download') }}
+            {{ t('software.download') }}
         </BaseButton>
     </div>
     <div class="log-toolbar">
@@ -279,7 +279,6 @@ const i18nMessages = {
     'zh-cn': { local: {
         getDirectory: '获取日志目录',
         selectFile: '选择日志文件',
-        download: '下载',
         startPolling: '开始轮询',
         stopPolling: '停止轮询',
         pollInterval: '轮询间隔',
@@ -298,7 +297,6 @@ const i18nMessages = {
     en: { local: {
         getDirectory: 'Get log directory',
         selectFile: 'Select a log file',
-        download: 'Download',
         startPolling: 'Start polling',
         stopPolling: 'Stop polling',
         pollInterval: 'Poll interval',

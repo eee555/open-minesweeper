@@ -15,7 +15,7 @@
                     <dt>{{ t('local.playerNameFormat') }}</dt>
                     <dd class="player-name-settings">
                         <label>
-                            {{ t('local.format') }}
+                            {{ t('common.prop.format') }}
                             <select v-model="local.playerNameFormat" class="player-name-select" :aria-label="t('local.playerNameFormat')" data-cy="player-name-format">
                                 <option value="name1">name1</option>
                                 <option value="name1 (name2)">name1 (name2)</option>
@@ -26,7 +26,7 @@
                             <select v-model="local[slot]" class="player-name-select" :aria-label="slot === 'playerName1' ? 'name1' : 'name2'" :data-cy="slot === 'playerName1' ? 'player-name-1' : 'player-name-2'">
                                 <option value="realname">{{ t('common.prop.localName') }}</option>
                                 <option value="international">{{ t('common.prop.internationalName') }}</option>
-                                <option value="username">{{ t('local.username') }}</option>
+                                <option value="username">{{ t('form.username') }}</option>
                             </select>
                         </label>
                     </dd>
@@ -67,8 +67,6 @@ const i18nMessages = {
         nameFormatTooltip: '英文名显示格式',
         playerAvatar: '显示玩家头像',
         playerNameFormat: '名字格式化规则',
-        format: '格式',
-        username: '用户名',
     } },
     en: { local: {
         nameFormat: 'International name format',
@@ -77,8 +75,6 @@ const i18nMessages = {
         nameFormatTooltip: 'Display format for international names',
         playerAvatar: 'Show player avatars',
         playerNameFormat: 'Player name format',
-        format: 'Format',
-        username: 'Username',
     } },
 };
 

@@ -26,7 +26,7 @@
                                                     <i class="pi pi-arrows-v" aria-hidden="true" />{{ t('local.move') }}
                                                 </BaseButton>
                                                 <BaseButton class="video-analyzer-counter__edit" @click="hide(); editKey = row.key">
-                                                    <i class="pi pi-pencil" aria-hidden="true" />{{ t('local.edit') }}
+                                                    <i class="pi pi-pencil" aria-hidden="true" />{{ t('common.button.edit') }}
                                                 </BaseButton>
                                             </div>
                                             <label>
@@ -74,7 +74,7 @@
             <template #footer>
                 <div class="button-group button-group--joined video-analyzer-counter__dialog-actions">
                     <BaseButton class="video-analyzer-counter__cancel" @click="dialogVisible = false">
-                        {{ t('local.cancel') }}
+                        {{ t('common.button.cancel') }}
                     </BaseButton>
                     <BaseButton class="video-analyzer-counter__apply" type="primary" native-type="submit" form="counter-config-form">
                         {{ t('local.apply') }}
@@ -213,7 +213,6 @@ const i18nMessages = {
         addAbove: '在上方添加',
         addBelow: '在下方添加',
         move: '移动位置',
-        edit: '编辑',
         sendToSlot: '发送到 plot',
         settings: '通用设置',
         import: '导入配置',
@@ -222,7 +221,6 @@ const i18nMessages = {
         valueWidth: '数值列宽 (px)',
         offset: '偏移量',
         json: 'JSON 配置',
-        cancel: '取消',
         apply: '应用',
         invalidJson: 'JSON 解析失败',
         invalidConfig: '配置结构无效',
@@ -235,7 +233,6 @@ const i18nMessages = {
         addAbove: 'Add above',
         addBelow: 'Add below',
         move: 'Move',
-        edit: 'Edit',
         sendToSlot: 'Send to plot',
         settings: 'General settings',
         import: 'Import config',
@@ -244,7 +241,6 @@ const i18nMessages = {
         valueWidth: 'Value width (px)',
         offset: 'Offset',
         json: 'JSON config',
-        cancel: 'Cancel',
         apply: 'Apply',
         invalidJson: 'Invalid JSON',
         invalidConfig: 'Invalid config structure',

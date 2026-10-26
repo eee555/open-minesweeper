@@ -41,8 +41,8 @@ const tabItems = computed(() => {
         { name: 'videos', label: t('local.videos') },
     ];
     if (store.isSelf) {
-        ret.push({ name: 'upload', label: t('local.upload') });
-        ret.push({ name: 'settings', label: t('local.settings') });
+        ret.push({ name: 'upload', label: t('common.button.upload') });
+        ret.push({ name: 'settings', label: t('common.settings') });
     }
     return ret;
 });
@@ -69,15 +69,11 @@ const i18nMessages = {
         accountlink: '账号关联',
         record: '纪录',
         videos: '录像',
-        upload: '上传',
-        settings: '设置',
     } },
     en: { local: {
         accountlink: 'Account Link',
         record: 'Record',
         videos: 'Videos',
-        upload: 'Upload',
-        settings: 'Settings',
     } },
 };
 
