@@ -139,6 +139,8 @@ GSC 历史补录沿用默认 TournamentUser 创建和 best 保存信号，允许
 
 导入录像在 `create_from_parser` 中提前设置来源 `upload_time` 供 `pre_save` check-in 使用，创建后再次显式保存以覆盖 `auto_now_add`；既有文件仅当本次时间更早时保存。两种保存仍走状态队列和排行信号，不用 `QuerySet.update` 绕过副作用。
 
+仅修改 `upload_time` 也会沿用录像保存信号入队勋章刷新。工人在发布摘要前核验受影响的当前及历史证据，即使成绩和档位未变，也会校正授予日期、证据和阶段日志；上传时间改早或改晚均适用。新手集合与三阶勋章保留完整的分项录像 id，任一分项改时都可重新计算首次完成时间。人工锁定的授予不被覆盖。
+
 | 图中名称 | 函数 |
 | --- | --- |
 | 删除小游戏排行成绩 | `minigame.signals.delete_cached_score` |
@@ -177,3 +179,9 @@ GSC 历史补录沿用默认 TournamentUser 创建和 best 保存信号，允许
 `Tournament` / `GSCTournament` / `WeeklyTournament` 的保存信号分别绑定到同一个 `update_cache_on_tournament_save` 接收器。`TournamentParticipant` / `GSCParticipant` / `WeeklyParticipant` 的保存信号分别绑定到同一个 `update_cache_on_participant_save` 接收器。缓存删除信号只保留父类接收器；多表继承删除子类时会继续触发父表删除。历史最好成绩依赖子类 participant 的成绩字段，因此由 `GSCParticipant` / `WeeklyParticipant` 的保存和删除信号单独处理：保存时只比较当前 participant 与原 best，删除时才重算该用户历史 best。best 信号更新的是 `TournamentUser` 数据库汇总字段，需要和 participant 变更保持事务一致，因此不使用 `transaction.on_commit`。
 
 `revoke_rank_score_on_participant_delete` 仅监听父类 `TournamentParticipant.post_delete`，实例、QuerySet 和比赛级联删除都会执行一次，不重复绑定子类。匿名参赛者和 `rank_score=0` 跳过。其他记录在删除事务内锁定既有 `TournamentUser`，调用 `add_score(-rank_score, tournament.end_time, category=...)` 撤回已发积分；当前积分按比赛结束时间衰减到该用户保留的 `last_updated`，历史总分与 GSC/经典周赛分类总分扣除未衰减原值。数据库扣分不使用 `on_commit`，回滚会连同删除一起撤销；仅 Redis 积分排行在提交后刷新，仍使用既有年度锚点。保留 TournamentUser，不自动重排剩余选手；需要重排并修正其积分时运行 `refresh_tournament_scores`。有已发积分却缺少 TournamentUser 属于数据完整性错误，不静默跳过或补建零分账户。
+
+`medal.signals.invalidate_medal_catalog` 监听 `MedalDefinition` 的保存和删除，删掉图鉴缓存 `medal:catalog:v3`。`medal.signals.enqueue_medal_refresh_on_video` 监听 `VideoModel` 的保存和删除，事务提交后为当前玩家入队 `task_refresh_player_medals`，并记下这次碰到的录像 id。退审、成绩变差、换玩家和删除会带上受影响难度。保存时如果录像上已经记下旧的 `player_id`，旧玩家也入队。`medal.signals.enqueue_medal_refresh_on_profile` 检查实际模型字段 `_realname`，资料保存且实名可能变化时入队全量刷新。`medal.signals.enqueue_medal_refresh_on_saolei_link` 在扫雷网平台绑定保存或删除时入队全量刷新；其他平台不入队。标识批量绑定、解绑同样入队全量刷新。接收器不直接评估勋章，也不在 `userprofile` 或 `accountlink` 里引用勋章。
+
+`medal.signals.invalidate_summary_on_evidence_delete`监听`VideoModel`及`TournamentParticipant`的`pre_delete`。在授予证据外键被`SET_NULL`前查询受影响玩家，按主键顺序取得玩家锁，并在同一删除事务内删除对应`PlayerMedalSummary`。事务提交后再删 `medal:display:v4:{user_id}`；删除回滚时摘要和状态键都还在。下次摘要读取补齐已置空的证据链接。自然进度和授予资格继续由既有后台评估处理；展示键删除不改变 `MedalScan`；下一次录像刷新仍增量处理受影响难度和证据，展示读取缺键时批量查摘要或授予回填，不回扫历史录像。
+
+标识绑定、解绑和比赛录像公开保留 `QuerySet.update()`，它们不会触发 `post_save`。业务入口通过 `videomanager.events.videos_bulk_changed` 发送受影响的 `player_ids`，由勋章接收器去重，并为每名玩家注册独立的 `transaction.on_commit(..., robust=True)` 回调；事务回滚不入队，单名玩家入队失败会记录错误日志，不阻断其他玩家或缓存更新。比赛批量公开的最新队列及各排行也分别使用独立的 robust 提交回调，缓存与勋章入队互不依赖成功；这些回调暂不自动重试。入队函数在同一事务锁定玩家行，并在数据库按任务路径、`READY` 状态和玩家参数判断是否已有任务，不读取全队列 JSON。新插入的 `task_refresh_player_medals` 优先级为 1，3 秒后才可执行；已有 `READY` 任务时合并参数，不推迟原有较早时间；异常过晚时间提前到当前 3 秒延迟上限。合并查询期间若任务已被 worker 领取，另排新任务承接变更。补发任务优先级仍是 0，创建后即可执行。`on_commit()` 回调仍同步执行，不能据此认定请求没有入队开销。

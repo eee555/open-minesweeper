@@ -6,6 +6,20 @@
 python manage.py <command> --help
 ```
 
+## 勋章补发
+
+### `enqueue_medal_backfill`
+
+位置：`medal/management/commands/enqueue_medal_backfill.py`
+
+给还没有 `MedalScan` 的玩家入队 `task_backfill_player_medals`。命令本身不扫描录像，也不写 Redis。任务优先级是 0，低于上传后的刷新。工人跑完现有 `evaluate_player` 后才写 `MedalScan` 和 `medal:state:{user_id}`；一枚都没有也写 `{"grants":[]}`。已经有 `MedalScan` 的玩家不会入队。同一玩家已经有一条 `READY` 的补发任务时不再插入第二条。
+
+打开勋章详情时的补发仍然保留，用来盖住命令还没排到的人。
+
+```bash
+python manage.py enqueue_medal_backfill
+```
+
 ## 小游戏排行榜
 
 `minigame/management/commands/rebuild_minigame_ranks.py` 从数据库最佳成绩重建 ZSET、明细 Hash 和初始化标记；空榜也初始化。不修改数据库，允许与提交并发时产生偶发偏差。
@@ -289,7 +303,7 @@ python manage.py delete_newest_queue
 
 位置：`common/management/commands/db_worker_robust.py`
 
-启动 `django-tasks-db` worker，通过 pidfile 和进程检测避免重复启动。仅在未检测到现有 worker 时，将遗留的 `RUNNING` 任务标记为 `FAILED`，然后启动 worker；不会在运行期间自动恢复任务或重启进程。
+启动 `django-tasks-db` worker，通过 pidfile 和进程检测避免重复启动。本进程以及启动它的父进程不算另一个 worker。仅在未检测到现有 worker 时，将遗留的 `RUNNING` 任务标记为 `FAILED`，然后启动 worker；不会在运行期间自动恢复任务或重启进程。
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |

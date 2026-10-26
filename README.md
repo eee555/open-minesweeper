@@ -21,6 +21,8 @@
 > **内容审核**：百度大脑  
 > **协议**：MIT License
 
+本地要同时开后端、前端和勋章工人，测试账号和地址见 [本地启动.md](本地启动.md)。
+
 ## 项目安装流程：
 
 本项目可在 Windows 上开发，在 Linux 上部署。先安装 Python、Node.js、MySQL 和 Redis，并将项目克隆到本地。以下开发命令使用 Windows PowerShell，起始目录为项目根目录。

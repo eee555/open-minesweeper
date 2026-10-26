@@ -160,6 +160,7 @@ function assertVisibleTournamentNames(expectedNames: string[], exact = true) {
 
 function selectHomepageListTab(name: string) {
     cy.contains('.el-tabs__item', name).click();
+    cy.contains('.el-tabs__item.is-active', name).should('be.visible');
 }
 
 function registerOnWeeklyTournamentPage(tournamentId: number) {

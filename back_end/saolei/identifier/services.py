@@ -9,6 +9,7 @@ from speedranking.services import add_videos_to_speed_ranks, remove_videos_from_
 from utils.exceptions import ExceptionToResponse
 from utils.ranking_lock import ranking_access
 from videomanager.cache import newest_cache
+from videomanager.events import videos_bulk_changed
 from videomanager.models import VideoModel
 from .models import Identifier
 
@@ -39,6 +40,7 @@ def bind_identifier(identifier: Identifier, userms: UserMS):
         if not video_ids:
             return 0
         videoquery.update(state=MS_TextChoices.State.OFFICIAL)
+        videos_bulk_changed.send(sender=VideoModel, player_ids=[userms.parent.pk])
 
         refreshed_videos = VideoModel.objects.filter(id__in=video_ids)
         newest_cache.update_bulk(refreshed_videos)
@@ -81,6 +83,7 @@ def unbind_identifier(identifier: Identifier, userms: UserMS | None = None):
             for video in videos:
                 video.state = MS_TextChoices.State.IDENTIFIER
             videoquery.update(state=MS_TextChoices.State.IDENTIFIER)
+            videos_bulk_changed.send(sender=VideoModel, player_ids=[userms.parent.pk])
             newest_cache.update_bulk(videos)
             remove_videos_from_custom_pluck_ranks(video_ids)
 

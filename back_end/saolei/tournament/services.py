@@ -1,5 +1,6 @@
 import logging
 
+from django.db import transaction
 from django.db.models import Exists, OuterRef, Q, Sum
 from django.utils import timezone
 
@@ -10,6 +11,7 @@ from speedranking.services import add_videos_to_speed_ranks
 from tournament.cache import TournamentCache
 from utils.ranking_lock import ranking_access
 from videomanager.cache import add_videos_to_state_queues_bulk
+from videomanager.events import videos_bulk_changed
 from videomanager.models import VideoModel
 from .models import (
     GSCParticipant,
@@ -238,6 +240,7 @@ def award_tournament_rank_scores(tournament: Tournament, *, batch_size=1000):
 
 
 @ranking_access(operation='tournament.reveal_videos')
+@transaction.atomic
 def reveal_videos_for_tournament(tournament: Tournament):
     """批量恢复已颁奖比赛中不再属于其他未颁奖且未取消比赛的录像。"""
     logger.info(f'比赛#{tournament.id} 录像公开开始，状态 {tournament.state}')
@@ -274,10 +277,14 @@ def reveal_videos_for_tournament(tournament: Tournament):
         .filter(id__in=video_ids)
         .select_related('player', 'player__userms', 'video')
     )
-    add_videos_to_state_queues_bulk(videos)
-    add_videos_to_speed_ranks(videos)
-    add_videos_to_custom_pluck_ranks(videos)
-    add_videos_to_eff_ranks(videos)
+    player_ids = list(videos.order_by().values_list('player_id', flat=True).distinct())
+    videos_bulk_changed.send(sender=VideoModel, player_ids=player_ids)
+    # Redis and custom-ranking save signals must only see committed reveals.
+    # Keep each refresh independent so a failed cache cannot skip the others.
+    transaction.on_commit(lambda: add_videos_to_state_queues_bulk(videos), robust=True)
+    transaction.on_commit(lambda: add_videos_to_speed_ranks(videos), robust=True)
+    transaction.on_commit(lambda: add_videos_to_custom_pluck_ranks(videos), robust=True)
+    transaction.on_commit(lambda: add_videos_to_eff_ranks(videos), robust=True)
 
     logger.info(f'比赛#{tournament.id} 录像公开完成，公开录像 {len(video_ids)} 个')
     return len(video_ids)

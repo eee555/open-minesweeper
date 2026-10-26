@@ -4,6 +4,8 @@
 import ordinal from 'ordinal';
 import type { MessageContext } from 'vue-i18n';
 
+import { MedalSeries } from '@/utils/medal_const';
+
 export default {
     local: 'en',
     name: 'English',
@@ -461,5 +463,55 @@ export default {
         },
         tournament: 'Tournament',
         undecided: 'Undecided',
+    },
+    medal: {
+        series: {
+            [MedalSeries.BREAKTHROUGH]: 'Breakthrough',
+            [MedalSeries.SPEED]: 'Speed',
+            [MedalSeries.MASTERY]: 'Mastery',
+            [MedalSeries.FLAGLESS_BREAKTHROUGH]: 'Flagless Breakthrough',
+            [MedalSeries.FLAGLESS_SPEED]: 'Flagless Speed',
+            [MedalSeries.FLAGLESS_MASTERY]: 'Flagless Mastery',
+            [MedalSeries.FLAGLESS_PRECISION]: 'Flagless Precision',
+            [MedalSeries.FLAGGED_PRECISION]: 'Flagged Precision',
+            [MedalSeries.THREE_FLAGLESS_PRECISION]: 'Three-Tier Flagless Precision',
+            [MedalSeries.THREE_FLAGGED_PRECISION]: 'Three-Tier Flagged Precision',
+            [MedalSeries.REGISTERED]: 'Registered',
+            [MedalSeries.REVIEWED]: 'Reviewed',
+            [MedalSeries.LEVELS]: 'First Glimpse',
+            [MedalSeries.LEVELS_NF]: 'Another Path',
+            [MedalSeries.MODES]: 'Grand Tour',
+            [MedalSeries.SAOLEI]: 'Old Traces',
+            [MedalSeries.SHAREHOLDER]: 'Original Shareholder',
+        },
+        sub: 'Sub',
+        meaning: {
+            [MedalSeries.BREAKTHROUGH]: '{level} best time reached {value}s.',
+            [MedalSeries.FLAGLESS_BREAKTHROUGH]: '{level} no-flag best time reached {value}s.',
+            [MedalSeries.SPEED]: '{level} best 3BV/s reached {value}.',
+            [MedalSeries.FLAGLESS_SPEED]: '{level} no-flag best 3BV/s reached {value}.',
+            [MedalSeries.MASTERY]: '{level} best STNB reached {value}.',
+            [MedalSeries.FLAGLESS_MASTERY]: '{level} no-flag best STNB reached {value}.',
+            [MedalSeries.FLAGLESS_PRECISION]: '{level} no-flag best thrp reached {value}.',
+            [MedalSeries.FLAGGED_PRECISION]: '{level} flagged best thrp reached {value}.',
+            [MedalSeries.THREE_FLAGLESS_PRECISION]: 'no-flag thrp on all 3 levels reached {value}.',
+            [MedalSeries.THREE_FLAGGED_PRECISION]: 'Thrp on all 3 levels reached {value}.',
+            [MedalSeries.REGISTERED]: 'Real-named, not anonymous.',
+            [MedalSeries.REVIEWED]: 'At least one approved replay.',
+            [MedalSeries.LEVELS]: 'Approved replay on each level.',
+            [MedalSeries.LEVELS_NF]: 'Approved no-flag replay on each level.',
+            [MedalSeries.MODES]: 'Approved replay in every open mode.',
+            [MedalSeries.SAOLEI]: 'Imported a Saolei.net replay.',
+            [MedalSeries.SHAREHOLDER]: 'Smallest replay id under {value}.',
+        },
+        flavor: {
+            [MedalSeries.REGISTERED]: 'Your name is...',
+            [MedalSeries.REVIEWED]: 'Talk is cheap, show me the video.',
+            [MedalSeries.LEVELS]: 'Welcome to Open Minesweeper.',
+            [MedalSeries.LEVELS_NF]: 'No flags for me! JOJO!',
+            [MedalSeries.MODES]: 'I want them all!',
+            [MedalSeries.SAOLEI]: 'A boat still carries me in this new age.',
+            [MedalSeries.SHAREHOLDER]: 'Old hand.',
+        },
     },
 };

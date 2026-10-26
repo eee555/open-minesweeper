@@ -659,6 +659,8 @@ GSC 历史补录不新增缓存，管理接口不画入公共 API 图。创建�
 
 participant 删除时，`revoke_rank_score_on_participant_delete` 在删除事务内锁定并更新 TournamentUser，提交后仅刷新受影响的积分 zset；扣至 0 的成员移除，年度锚点不变。数据库回滚时不发布撤分缓存。衰减及分类扣分规则见[信号触发关系](./signals.md#signal-function-map)。
 
+比赛批量公开 `reveal_videos_for_tournament` 先在事务内更新录像公开标记，提交后才按本批固定录像 ID 更新最新队列、竞速榜、custom pluck 纪录及其 Redis 缓存、效率榜。每项更新使用独立的 `transaction.on_commit(..., robust=True)` 回调；事务回滚不发布缓存，提交后的单项失败由 Django 记录错误日志，不撤销公开状态，也不阻断其他缓存或勋章入队回调。勋章批量入队回调同样隔离异常，缓存更新不依赖入队成功。目前不自动重试失败的回调，相关缓存或勋章任务需通过现有重建、重算入口恢复。
+
 当前积分 zset 使用固定年度锚点。`update_tournament_users` 读取缓存锚点，仅换算本批用户，不再根据用户 `last_updated` 推进基准或整体衰减其他成员。空缓存首次写入时初始化为当年 1 月 1 日 00:00 UTC。折算使用 `tournament_score_decay_factor(last_updated, 锚点)`，负时间差通过负指数自动兼容；因此年内新积分折算到年初时会放大，但所有成员共用锚点，排序等价于实时积分。锚点读取和本批写入使用 redis-py `transaction`（`WATCH` / `MULTI` / `EXEC`），年度更新并发发生时重试。数据库仍保留用户各自的 `score_current` / `last_updated`，API 回表输出这些原始值，前端按 `globalNow` 衰减显示；统一锚点只影响 Redis 排序。更新其他 total / best 字段不会改变当前积分基准。
 
 `common.apscheduler.refresh_tournament_score_reference` 在每年 1 月 1 日 00:00 UTC 调用 `TournamentCache.refresh_tournament_score_reference`，使用 `ZUNIONSTORE` 权重将当前积分 zset 整体折算到新锚点，并在同一 Redis 事务中设置锚点；其他排行和数据库不变。同一年重复执行无副作用。调度器启动时也执行一次，补齐跨年停机；尚未补齐时，结算仍沿用旧锚点，不会混用年份。读取旧锚点、整体折算及设置新锚点采用 `WATCH` / `MULTI` / `EXEC`，与结算写入并发时保持一致。
@@ -671,6 +673,51 @@ participant 删除时，`revoke_rank_score_on_participant_delete` 在删除事�
 
 `GSCParticipant.t37` 是数据库持久化 generated field，并建立 `gsc_t37_idx` 索引，服务于 GSC 排名和历史最好成绩查询。保存信号使用当前 participant 实例上的临时 `t37` 值进行 best 增量比较，因此不会为了读取 generated field 再查询一次 participant。
 
+## 勋章图鉴
+
+`medal/cache.py` 把已启用的成就定义放在 Django `default` 缓存，逻辑 key 为 `medal:catalog:v3`，TTL 300 秒。内容是定义字典，不含玩家是否解锁。先检查缓存，命中时不再查询默认定义是否缺失；未命中才补齐并装回图鉴。定义保存或删除时删掉这个 key。
+
+玩家摘要持久化到MySQL的`medal_playermedalsummary`，每名玩家一行，以玩家ID为主键。JSON只含有效授予的公开事实、进度数值、佩戴顺序和首次扫描状态；定义、隐藏条件和计分读取当前共享图鉴。图鉴缓存命中、摘要已建立时，`player_summary()`通过连接玩家表和摘要表的1次查询返回结果。此计数不包含认证、会话、Redis访问和中间件。
+
+后台评估、单项授予、人工决定和佩戴服务在同一玩家锁、同一数据库事务中更新业务记录和摘要；内容相同时不改写摘要。首次读取旧玩家时从现有勋章表补齐，不扫描录像。录像或比赛参加记录删除前，在同一玩家锁和删除事务内移除关联摘要。事务提交后再删掉该玩家的 `medal:display:v4:{user_id}`；删除回滚时摘要和键都还在。下次读取从完成外键置空的记录补齐摘要。维护原始勋章表的脚本必须使用服务入口，或在相同玩家锁和事务中删除受影响摘要；现有管理员重算入口也会同步重建摘要。
+
+录像补传或上传时间修改触发的刷新，在发布摘要前校正授予日期、证据和阶段日志；摘要仍在同一事务更新，状态键在提交后按数据库中的新日期重建。已有勋章也会处理时间变化，不要求成绩改善或档位变化。新手集合及三阶勋章记录完整分项证据，任一分项改时都可以重算完成时间。
+
+前端侧栏与勋章页通过共享服务复用按玩家保存的摘要和进行中的请求。首次扫描未完成时有限轮询；切换玩家或停用页面时取消该组件订阅，旧请求不得覆盖新玩家。保存佩戴后使相关摘要失效并通知活跃订阅者刷新。名字悬停另读 `medal:display:v4:{user_id}`；浏览器里的悬停缓存只活在当前页面会话。
+
+普通录像上传成功后，同一浏览器启动一条共享的有限状态检查。每次等待间隔依次为 1、2、3、5、8、13、20、30 秒，最多 8 次；连续上传合并，不重置次数，慢请求不并发。`GET /api/medal/refresh-status` 只允许登录用户查询本人，使用一次 EXISTS 检查刷新和补发任务是否 READY/RUNNING，不返回任务参数、不入队、不查询录像。每次状态请求超时 5 秒；请求失败或次数耗尽后停止，下一次成功上传可以重新启动。后台队列停止或延迟超过等待上限时，不保证本轮自动同步。
+
+任务不再待执行时，前端使对应玩家的摘要失效，活跃勋章页和佩戴栏共享一次新摘要请求；同时清除名字悬停缓存。已经打开过提示的名字会重新读取，其余名字留到下次显示。上传前仍在进行的旧请求不得写回缓存。没有活跃摘要订阅者时只使摘要失效，下次进入再读取。Redis 展示键仍由后台任务提交后更新，前端不重复计算或强制重建 Redis。该通知只影响发起上传的浏览器页面，其他浏览器没有推送。
+
+管理员人工决定保存在 `medal_medaloverride`，操作记录追加到 `medal_medaloverridelog`。撤销规则只保存在数据库；展示缓存移除被撤销的授予，不保存锁定标记或理由。管理页提交后使同一浏览器内目标玩家的摘要失效，其他玩家缓存不变。恢复自动需要后台任务完成后重新加载；其他浏览器已打开的页面不会收到推送。详细优先规则见 [管理员勋章决定](./medal-overrides.md)。
+
+## 勋章状态
+
+勋章系列、类型、方向、玩法使用 `config.text_choices.Medal_TextChoices` 的短码，前端对应 `utils/medal_const.ts`；名称、说明和寄语以枚举值直接查找前端翻译字典，图片目录和勋章 code 不变。系列值最长 2 字符，其他上述枚举值为单字符。枚举成员直接引用，不在 `medal/utils.py` 另设同值别名。
+
+逻辑 key 为 `medal:display:v4:{user_id}`，TTL 300 秒，只服务 `GET /api/medal/players/state` 展示。Redis 不保存计算状态；原始股东的最小录像 ID、未完成的新手难度和模式集合、能力自然档位、人工覆盖均从本次已读取的数据库状态取得。是否完成初始化只看 `MedalScan`，缺键或 Redis 故障不会触发全量评估。
+
+值只含玩家佩戴的已授予短记录，顺序与佩戴列表一致，时间为 Unix 秒。没佩戴时为 `{"grants":[]}`：
+
+```json
+{"grants":[{"code":"ability.time.b","stage":20000,"timestamp":1761123456,"scope":"","tournament":null,"rank":null}]}
+```
+
+- `code` 为定义，`stage` 为当前档，`timestamp` 为 `granted_at`。
+- `scope` 为 `scope_key`，普通勋章为空；`tournament`、`rank` 来自赛事授予。
+- 不保存 `value`、`levels`、`modes`、`locked`、录像 ID、阈值、分数或人工理由。未入档和已撤销的条目不写入。
+- 扫描后一枚都没有时可以缓存 `{"grants":[]}`；未扫描的玩家不建展示键。
+
+后台计算一次加载有效定义、玩家进度、全部授予和人工覆盖。普通录像按主键批量读取，与数据库自然档位及新手集合比较。同档从 48 秒提升到 46 秒不改授予证据；补传更早录像或修改时间仍按需校正发放日期、证据和阶段日志。证据失效只重算受影响难度；首次扫描、显式完整刷新和既有批量变更入口仍完整评估该玩家。旧数据库进度缺少集合时查询一次历史补齐。
+
+摘要在业务事务内更新。佩戴列表、其中的公开短记录或扫描状态变化才注册提交后发布；内部集合变化或结果完全不变均不发布。发布时重新取得同一玩家锁，连接读取最新摘要，在持锁期间批量写 Redis；旧提交回调和缓存回填也遵守此锁，防止旧快照覆盖新结果。业务回滚不发布。证据删除提交后删键，下次刷新仍根据 `MedalScan` 走增量。
+
+状态接口先批量读 Redis。缺失的 ID 一起在玩家锁内读取摘要：摘要齐全时 1 次 SELECT，部分摘要缺失时再用 1 次批量授予查询补齐展示；不查询历史录像。未扫描或不存在的玩家返回空列表，不在此接口启动扫描，首次补发仍由详情接口和 [enqueue_medal_backfill](./management-commands.md#enqueue-medal-backfill) 入队。命中缓存时没有业务 SQL。
+
+Redis 连接和读写异常记录日志，计算及数据库摘要不回滚，状态接口返回数据库结果。发布失败时尝试删除旧值，下次请求重新回填；如果 Redis 连删除也不可用，旧值最多保留到剩余 TTL 到期。这里的重试依赖下一次缓存未命中的读取，没有新增独立发布队列。
+
+当前浏览器标签页内，管理员授予、撤销或恢复自动的请求成功后，以及保存佩戴或上传同步完成后，共用 `refreshPlayerMedals` 使目标玩家的摘要和名字悬停缓存一起失效。已打开的悬停提示通过版本通知重新批量读取，未打开的留到下次悬停；失败的管理请求不清缓存，也不新增定时轮询。
+
 ## 写入与重建入口
 
 | 缓存 | 主要写入入口 | 重建 / 清理入口 |
@@ -682,6 +729,8 @@ participant 删除时，`revoke_rank_score_on_participant_delete` 在删除事�
 | NORMAL 参赛关系 | `TournamentCache.update_participant` / `remove_participant` | `manage.py rebuild_tournament_cache` 按 `user_id` 分组重建。 |
 | 比赛积分排行 | `TournamentCache.update_tournament_user` / `update_tournament_users`；APScheduler 年度锚点更新 | `manage.py rebuild_tournament_user_cache` 重建全部 7 个 zset；`manage.py rebuild_tournament_current_score_cache` 原子重算当前积分 zset 和年度锚点。 |
 | common 摘要 | 对应 API 内部 `cache.set` | TTL 到期自动失效。 |
+| 勋章图鉴 | `medal.signals.invalidate_medal_catalog` | 定义保存或删除后删除 `medal:catalog:v3`。没有单独的重建命令，下次读取从 `MedalDefinition` 装回。 |
+| 勋章状态 | 佩戴列表、佩戴中的公开授予或扫描状态改变后，提交时读取最新摘要写 `medal:display:v4:{user_id}` | 缺键按需批量回填展示，不扫描录像；摘要删除提交后删键。`manage.py enqueue_medal_backfill` 只给未扫描玩家入队首次评估。 |
 | 文章目录 | `article.views.update_list` | 管理员手动调用 `update_list` 全量刷新。 |
 
 ## 读取约定

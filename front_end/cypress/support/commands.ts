@@ -80,10 +80,12 @@ declare global {
             mockRegister(): void;
 
             /**
-             * 让 PlayerName 始终显示 fallback 名称，避免表格测试触发用户信息批量缓存和战绩弹窗请求。
+             * 让 PlayerName 始终显示 fallback 名称，避免表格测试触发用户信息批量缓存。
+             * 勋章状态接口固定返回空列表，避免名字悬停打到未模拟请求。
              */
             mockPlayerNameFallback(): void;
 
+            /** 每次断言重试重新读取表格，支持异步渲染及整表替换。 */
             extractTableData(): Chainable<string[][]>;
             shouldHaveState(expectedStates: (boolean | null)[]): Chainable<JQuery<HTMLInputElement>>;
         }
@@ -162,6 +164,7 @@ Cypress.Commands.add('mockRegister', () => {
 Cypress.Commands.add('mockPlayerNameFallback', () => {
     cy.intercept('GET', '**/api/userprofile/avatar/**', { statusCode: 404 }).as('playerNameFallbackAvatar');
     cy.intercept('GET', '**/api/userprofile/infobulk*', { body: [] }).as('playerNameFallbackUserInfoBulk');
+    cy.intercept('GET', '**/api/medal/players/state*', { body: [] }).as('playerNameFallbackMedalState');
     cy.then(async () => {
         // Cached names bypass the mocked API and can leak across specs or repeated runs.
         const db = await getDatabase();
@@ -216,7 +219,8 @@ Cypress.Commands.add('shouldBeAbsentOrHidden', (selector, options) => {
     });
 });
 
-Cypress.Commands.add('extractTableData', { prevSubject: 'element' }, (subject) => {
+Cypress.Commands.addQuery('extractTableData', () => (subject: JQuery) => {
+    Cypress.ensure.isElement(subject, 'extractTableData', cy);
     const $table = Cypress.$(subject);
     const $rows = $table.find('> thead > tr, > tbody > tr, > tr');
     const tableData = [] as string[][];
@@ -229,7 +233,7 @@ Cypress.Commands.add('extractTableData', { prevSubject: 'element' }, (subject) =
         });
         tableData.push(rowData);
     });
-    return cy.wrap(tableData);
+    return tableData;
 });
 
 Cypress.Commands.add(

@@ -9,7 +9,6 @@ from django.utils import timezone
 
 from msuser.models import UserMS
 from userprofile.models import UserProfile
-from utils.exceptions import ExceptionToResponse
 from videomanager.models import ExpandVideoModel, VideoModel
 from videomanager.view_utils import generate_file_stream
 
@@ -159,23 +158,19 @@ class UserProfileUpdateApiTests(TestCase):
         self.client.force_login(self.user)
 
     def test_update_profile_keeps_error_when_name_censorship_fails(self):
-        with patch(
-            'userprofile.services.try_update_user_name_fields',
-            side_effect=ExceptionToResponse('censorship', 'unknown'),
-        ):
-            response = self.client.post(
-                '/api/userprofile/update_profile',
-                {'realname': 'Jason Weng'},
-            )
-
-        self.assertEqual(response.status_code, 200, response.content)
-        self.assertEqual(
-            response.json()['realname'],
-            {'type': 'error', 'object': 'censorship', 'category': 'unknown'},
-        )
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.realname, '匿名')
-        self.assertFalse(self.user.has_realname())
+        for result, category in [(False, 'illegal'), (RuntimeError('verification unavailable'), 'unknown')]:
+            with self.subTest(category=category), patch('userprofile.services.verify_text') as verify:
+                if isinstance(result, Exception):
+                    verify.side_effect = result
+                else:
+                    verify.return_value = result
+                response = self.client.post('/api/userprofile/update_profile', {'realname': 'Jason Weng'})
+                verify.assert_called_once()
+            self.assertEqual(response.status_code, 200, response.content)
+            self.assertEqual(response.json()['realname'], {'type': 'error', 'object': 'censorship', 'category': category})
+            self.user.refresh_from_db()
+            self.assertEqual(self.user.realname, '匿名')
+            self.assertFalse(self.user.has_realname())
 
 
 @override_settings(RATELIMIT_ENABLE=False)

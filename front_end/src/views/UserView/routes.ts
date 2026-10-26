@@ -36,6 +36,11 @@ export const userRoutes: RouteRecordRaw[] = [
         component: () => import('./UserVideoView.vue'),
     },
     {
+        path: 'medals',
+        name: 'user-medals',
+        component: () => import('./UserMedalView.vue'),
+    },
+    {
         path: 'upload',
         name: 'user-upload',
         component: () => import('./UserUploadView.vue'),

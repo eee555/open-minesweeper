@@ -1,5 +1,7 @@
 import { isAxiosError } from 'axios';
 
+import { syncMedalsAfterUpload } from './medalService';
+
 import $axios from '@/http';
 import { Dict2FormData } from '@/utils/forms';
 import type { MS_ServerState } from '@/utils/ms_const';
@@ -59,7 +61,9 @@ export function normalizeVideoUploadResponse(response: VideoUploadResponse): Vid
 export async function uploadVideoFile(file: File): Promise<VideoUploadResult> {
     try {
         const { data } = await $axios.post<VideoUploadResponse>('/common/uploadvideo/', Dict2FormData({ file }));
-        return normalizeVideoUploadResponse(data);
+        const result = normalizeVideoUploadResponse(data);
+        if (result.type === 'success') syncMedalsAfterUpload();
+        return result;
     } catch (error) {
         if (isAxiosError(error) && error.response?.status === 402) {
             return { type: 'error', status: 'quota' };

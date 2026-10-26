@@ -59,7 +59,7 @@ describe('Profile tab navigation', () => {
         const router = mountProfile('/player/42');
         cy.wrap(router).its('currentRoute.value.name').should('eq', 'user-top');
         cy.get('[data-cy=profile-tabs] > .el-tabs__header [role=tab]').should(($tabs) => {
-            expect($tabs.toArray().map((tab) => tab.textContent?.trim())).to.deep.equal(['Top', 'PB', 'Record', 'Account Link', 'Videos', 'Upload', 'Settings']);
+            expect($tabs.toArray().map((tab) => tab.textContent?.trim())).to.deep.equal(['Top', 'PB', 'Record', 'Account Link', 'Videos', 'Medals', 'Upload', 'Settings']);
         });
         cy.get('[data-cy=top-content]').should('be.visible');
         cy.get('@pb.all').should('have.length', 0);

@@ -72,14 +72,16 @@ describe('missing cell training', () => {
                 expect(times).to.have.length(10);
                 expect((times.reduce((total, time) => total + time, 0) / 1000).toFixed(3).padStart(7, '0')).to.eq(result);
             });
-            cy.clock();
             for (const index of [0, 9]) {
                 if (index === 0) {
-                    cy.get('[data-cy="missing-cell-round-times"] .plot-bar rect').eq(index).then(($bar) => {
+                    cy.get('[data-cy="missing-cell-round-times"]').scrollIntoView();
+                    cy.get('[data-cy="missing-cell-round-times"] .plot-bar rect').eq(index).should('be.visible').then(($bar) => {
                         const rect = $bar[0].getBoundingClientRect();
-                        cy.get('[data-cy="missing-cell-round-times"]').trigger('pointermove', { clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 });
+                        // Keep viewport coordinates valid after measuring the rendered bar.
+                        cy.get('[data-cy="missing-cell-round-times"]').trigger('pointermove', { clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2, scrollBehavior: false });
                     });
                 } else {
+                    cy.clock();
                     cy.get('[data-cy="missing-cell-time-stack"] [data-cy="Board 10"]').trigger('mouseenter');
                     cy.tick(300);
                     cy.get('[id^="tippy-"]').should('not.exist');

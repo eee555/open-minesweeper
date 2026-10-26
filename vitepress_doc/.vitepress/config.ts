@@ -132,6 +132,7 @@ export default defineConfig({
                             items: [
                                 { text: '信号触发关系', link: '/zh/guide/development/signals' },
                                 { text: '缓存结构', link: '/zh/guide/development/cache' },
+                                { text: '勋章图片', link: '/zh/guide/development/medal-art' },
                                 { text: '数据爬取指南', link: '/zh/guide/development/data-crawling' },
                                 { text: 'GSC 历史录像补录', link: '/zh/guide/development/gsc-history-import' },
                                 { text: '后端管理命令', link: '/zh/guide/development/management-commands' },

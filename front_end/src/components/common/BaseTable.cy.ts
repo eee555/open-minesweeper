@@ -28,7 +28,6 @@ describe('<BaseTable />', () => {
         cy.contains('tbody', 'Player A').should('not.exist');
         cy.then(() => {
             empty.value = false;
-            // extractTableData captures a snapshot, so wait for Vue to restore the rows.
             return nextTick();
         });
         cy.get('[data-cy=display-table] tbody').extractTableData().should('deep.equal', [['Player A', '1.234', '4.567']]);

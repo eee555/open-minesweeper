@@ -3,6 +3,8 @@
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 import type { MessageContext } from 'vue-i18n';
 
+import { MedalSeries } from '@/utils/medal_const';
+
 export default {
     local: 'zh-cn',
     name: '简体中文',
@@ -452,5 +454,55 @@ export default {
         },
         tournament: '比赛',
         undecided: '未定',
+    },
+    medal: {
+        series: {
+            [MedalSeries.BREAKTHROUGH]: '破境',
+            [MedalSeries.SPEED]: '神速',
+            [MedalSeries.MASTERY]: '通明',
+            [MedalSeries.FLAGLESS_BREAKTHROUGH]: '盲扫破境',
+            [MedalSeries.FLAGLESS_SPEED]: '盲扫神速',
+            [MedalSeries.FLAGLESS_MASTERY]: '盲扫通明',
+            [MedalSeries.FLAGLESS_PRECISION]: '盲扫·精工',
+            [MedalSeries.FLAGGED_PRECISION]: '标旗·精工',
+            [MedalSeries.THREE_FLAGLESS_PRECISION]: '三阶盲扫·精工',
+            [MedalSeries.THREE_FLAGGED_PRECISION]: '三阶标旗·精工',
+            [MedalSeries.REGISTERED]: '实名在册',
+            [MedalSeries.REVIEWED]: '录像过审',
+            [MedalSeries.LEVELS]: '扫雷新秀',
+            [MedalSeries.LEVELS_NF]: '盲扫新秀',
+            [MedalSeries.MODES]: '走马观花',
+            [MedalSeries.SAOLEI]: '旧迹新篇',
+            [MedalSeries.SHAREHOLDER]: '原始股东',
+        },
+        sub: 'Sub',
+        meaning: {
+            [MedalSeries.BREAKTHROUGH]: '{level}最快时间达到{value}秒。',
+            [MedalSeries.FLAGLESS_BREAKTHROUGH]: '{level}盲扫最快时间达到{value}秒。',
+            [MedalSeries.SPEED]: '{level}最高3BV/s达到{value}。',
+            [MedalSeries.FLAGLESS_SPEED]: '{level}盲扫最高3BV/s达到{value}。',
+            [MedalSeries.MASTERY]: '{level}最高STNB达到{value}。',
+            [MedalSeries.FLAGLESS_MASTERY]: '{level}盲扫最高STNB达到{value}。',
+            [MedalSeries.FLAGLESS_PRECISION]: '{level}盲扫最高thrp达到{value}。',
+            [MedalSeries.FLAGGED_PRECISION]: '{level}标雷最高thrp达到{value}。',
+            [MedalSeries.THREE_FLAGLESS_PRECISION]: '三级别盲扫thrp达到{value}。',
+            [MedalSeries.THREE_FLAGGED_PRECISION]: '三级别thrp达到{value}。',
+            [MedalSeries.REGISTERED]: '已实名。',
+            [MedalSeries.REVIEWED]: '至少一条录像过审。',
+            [MedalSeries.LEVELS]: '初级、中级、高级各有过审录像。',
+            [MedalSeries.LEVELS_NF]: '三个级别各有过审盲扫。',
+            [MedalSeries.MODES]: '每种开放模式都有过审录像。',
+            [MedalSeries.SAOLEI]: '导入过一条扫雷网录像。',
+            [MedalSeries.SHAREHOLDER]: '名下最小录像编号低于{value}。',
+        },
+        flavor: {
+            [MedalSeries.REGISTERED]: '你的名字是...',
+            [MedalSeries.REVIEWED]: 'Talk is cheap, show me the video.',
+            [MedalSeries.LEVELS]: '欢迎来到，开源扫雷网。',
+            [MedalSeries.LEVELS_NF]: '我不标旗啦！JOJO！',
+            [MedalSeries.MODES]: '我全都要！',
+            [MedalSeries.SAOLEI]: '新时代仍有载我的船。',
+            [MedalSeries.SHAREHOLDER]: '老资历',
+        },
     },
 };

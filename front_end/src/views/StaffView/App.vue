@@ -1,6 +1,6 @@
 <template>
     <ElTabs :model-value="activeTab" @tab-click="handleTabClick">
-        <ElTabPane v-for="tab in tabItems" :key="tab.name" :label="t(`local.${tab.name}`)" :name="tab.name" />
+        <ElTabPane v-for="tab in visibleTabs" :key="tab.name" :label="t(`local.${tab.name}`)" :name="tab.name" />
         <router-view v-slot="{ Component }">
             <keep-alive>
                 <component :is="Component" />
@@ -15,6 +15,8 @@ import { ElTabPane, ElTabs } from 'element-plus';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
+
+import { store } from '@/store';
 
 const route = useRoute();
 const router = useRouter();
@@ -31,8 +33,10 @@ const tabItems = [
     { name: 'batchvideo' },
     { name: 'batchpluck' },
     { name: 'ranking-repair' },
+    { name: 'medals' },
 ] as const;
 const validTabs = tabItems.map((item) => item.name);
+const visibleTabs = computed(() => tabItems.filter((item) => item.name !== 'medals' || store.user.is_staff));
 
 // 根据当前路由路径计算激活的选项卡 name
 const activeTab = computed(() => {
@@ -48,6 +52,7 @@ const handleTabClick = (tab: TabsPaneContext) => {
 
 const i18nMessages = {
     'zh-cn': { local: {
+        medals: '勋章管理',
         userprofile: '用户信息',
         videomodel: '录像信息',
         accountlink: '账号绑定',
@@ -61,6 +66,7 @@ const i18nMessages = {
         'ranking-repair': '排行纪录重建',
     } },
     en: { local: {
+        medals: 'Medal management',
         userprofile: 'User profiles',
         videomodel: 'Video information',
         accountlink: 'Account links',

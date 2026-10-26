@@ -6,9 +6,22 @@ import { normalizeVideoUploadResponse, uploadVideoFile } from './videoUploadServ
 import $axios from '@/http';
 import { MS_State } from '@/utils/ms_const';
 
+const { syncAfterUpload } = vi.hoisted(() => ({ syncAfterUpload: vi.fn() }));
+vi.mock('./medalService', () => ({ syncMedalsAfterUpload: syncAfterUpload }));
+
 describe('uploadVideoFile', () => {
     afterEach(() => {
         vi.restoreAllMocks();
+        syncAfterUpload.mockClear();
+    });
+
+    it('starts medal synchronization only for a successful upload', async () => {
+        vi.spyOn($axios, 'post').mockResolvedValueOnce({ data: { type: 'success', data: { id: 42, state: MS_State.Official } } }).
+            mockResolvedValueOnce({ data: { type: 'error', object: 'file' } });
+        await expect(uploadVideoFile(new File(['video'], 'video.avf'))).resolves.toEqual({ type: 'success', id: 42, state: MS_State.Official });
+        expect(syncAfterUpload).toHaveBeenCalledTimes(1);
+        await uploadVideoFile(new File(['video'], 'duplicate.avf'));
+        expect(syncAfterUpload).toHaveBeenCalledTimes(1);
     });
 
     it.each([402, 403, 500])('handles HTTP %i with an empty response body', async (status) => {

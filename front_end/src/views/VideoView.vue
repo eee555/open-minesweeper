@@ -333,12 +333,6 @@ function indexSelect(key: string | number, value: NameKeyReverse): void {
     text-align: center;
 }
 
-:deep(.name) {
-    width: 16%;
-    display: inline-block;
-    text-align: center;
-}
-
 .bbbv_bbbvs_rtime {
     width: 13%;
     min-width: 100px;

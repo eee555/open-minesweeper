@@ -14,6 +14,7 @@ from msuser.models import UserMS
 from speedranking.pb.cache import PBRankingCache
 from speedranking.saolei.cache import SpeedRankingCache
 from speedranking.saolei.utils import RANK_STATS
+from speedranking.top.cache import TopRankingCache
 from tournament.gsc.utils import gsc_encode_best
 from tournament.utils import MAX_TOURNAMENT_BEST, tournament_score_decay_factor
 from tournament.weekly.utils import weekly_encode_best
@@ -54,6 +55,9 @@ class TournamentTestCaseBase(TestCase):
         pb = PBRankingCache()
         pb.flush()
         self.addCleanup(pb.flush)
+        top = TopRankingCache()
+        top.flush()
+        self.addCleanup(top.flush)
         for ranking_name in ('saolei', 'saolei_nf'):
             ranking = SpeedRankingCache(ranking_name, stats=RANK_STATS)
             ranking.flush()

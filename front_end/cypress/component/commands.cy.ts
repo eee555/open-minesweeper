@@ -30,6 +30,36 @@ describe('closeElNotifications', () => {
     }
 });
 
+describe('extractTableData', () => {
+    for (const target of ['table', 'tbody']) {
+        it(`retries ${target} reads after Vue ${target === 'table' ? 'updates the cells' : 'replaces the table'}`, () => {
+            const score = ref('--');
+            let retried = false;
+            cy.mount(defineComponent({
+                expose: [],
+                render: () => h('table', { key: target === 'tbody' ? score.value : 'stable', 'data-cy': 'async-table' }, [
+                    h('thead', [h('tr', [h('th', 'Score')])]),
+                    h('tbody', [h('tr', [h('td', score.value)])]),
+                ]),
+            }));
+
+            cy.then(() => {
+                // Update only after the first failed read; a frozen snapshot must not pass.
+                cy.once('command:retry', () => {
+                    retried = true;
+                    score.value = '1.500(2)';
+                });
+            });
+            const selector = target === 'table' ? '[data-cy=async-table]' : '[data-cy=async-table] tbody';
+            const expected = target === 'table' ? [['Score'], ['1.500(2)']] : [['1.500(2)']];
+            cy.get(selector).extractTableData().should('deep.equal', expected);
+            cy.then(() => {
+                expect(retried, 'assertion retried after reading the placeholder').to.equal(true);
+            });
+        });
+    }
+});
+
 describe('shouldBeAbsentOrHidden', () => {
     it('accepts missing elements without waiting for them to exist', () => {
         cy.mount(defineComponent({

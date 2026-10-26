@@ -6,6 +6,9 @@ import PlayerName from './PlayerName.vue';
 import $axios from '@/http';
 import i18n from '@/i18n';
 import { getDatabase, USER_INFO_STORE_NAME } from '@/services/database';
+import { syncMedalsAfterUpload } from '@/services/medalService';
+import { setMedalOverride } from '@/services/staffMedalService';
+import { serviceConfig } from '@/services/store';
 import { local } from '@/store/local';
 import { hashRouter, installHashHistoryCleanup } from '@cy/support/hashHistory';
 
@@ -57,6 +60,7 @@ describe('PlayerName', () => {
         cy.intercept('GET', '/api/userprofile/avatar/**', {
             statusCode: 404,
         });
+        cy.intercept('GET', '**/api/medal/players/state*', { body: [] }).as('playerMedalState');
     });
 
     afterEach(() => {
@@ -169,11 +173,18 @@ describe('PlayerName', () => {
     });
 
     it('does not fetch user info when userId is zero', () => {
+        cy.clock();
         cy.intercept('GET', '**/api/userprofile/infobulk?**').as('fetchUser');
 
         mountPlayerName(0);
 
         cy.contains('Anonymous');
+        cy.tick(serviceConfig.value.userInfoBatchDelay + 50);
+        cy.get('@fetchUser.all').should('have.length', 0);
+        cy.get('@playerMedalState.all').should('have.length', 0);
+        cy.clock().then((clock) => {
+            clock.restore();
+        });
     });
 
     it('links directly to the player page', () => {
@@ -196,5 +207,77 @@ describe('PlayerName', () => {
         cy.get('@parentClick').should('have.been.calledOnce');
         cy.get('[id^=tippy-]').should('not.exist');
         cy.get('[data-cy-root] a').should('not.exist');
+    });
+
+    it('shows a granted medal icon when the name is hovered', () => {
+        const player = { ...user, id: 770 + Cypress.currentRetry };
+        cy.intercept('GET', '**/api/userprofile/infobulk*', (request) => {
+            const ids = new URL(request.url).searchParams.get('ids') ?? '';
+            request.reply({ body: ids.split(',').includes(String(player.id)) ? [player] : [] });
+        }).as('fetchMedalUser');
+        cy.intercept('GET', '**/api/medal/players/state*', {
+            body: [{ user_id: player.id, grants: [{ code: 'ability.time.e', stage: 30000, timestamp: 1761123456, scope: '', tournament: null, rank: null }] }],
+        }).as('grantedMedalState');
+        cy.intercept('GET', /\/api\/medal\/players\/\d+/, { statusCode: 500, body: {} }).as('medalDetail');
+        mountPlayerName(player.id);
+
+        cy.get('@grantedMedalState.all').should('have.length', 0);
+        cy.contains('a', player.username).realHover();
+        cy.wait('@grantedMedalState').its('request.url').should((url) => {
+            const ids = new URL(url).searchParams.get('ids') ?? '';
+            expect(ids.split(',')).to.include(String(player.id));
+        });
+        cy.get('[id^=tippy-] img').should('be.visible').and('have.attr', 'src').and('include', 'breakthrough.webp');
+        cy.get('[id^=tippy-] img').realHover();
+        cy.get('[id^=tippy-]').should('contain', 'Expert Breakthrough · Sub30').and('contain', 'Expert best time reached 30s.');
+        cy.get('@medalDetail.all').should('have.length', 0);
+    });
+
+    it('removes a revoked shareholder medal from an already mounted name tooltip', () => {
+        const playerId = 142 + Cypress.currentRetry;
+        let revoked = false;
+        cy.intercept('GET', '**/api/userprofile/infobulk*', { body: [{ ...user, id: playerId }] });
+        cy.intercept('GET', '**/api/medal/players/state*', (request) => {
+            request.reply({ body: [{ user_id: playerId, grants: revoked ? [] : [{ code: 'shareholder.origin', stage: 1000, timestamp: 1, scope: '', tournament: null, rank: null }] }] });
+        }).as('shareholderState');
+        cy.intercept('POST', '**/api/medal/staff/overrides', (request) => {
+            revoked = true;
+            request.reply({ body: { grant_id: 49, mode: 'revoke', enqueued: false } });
+        }).as('revokeShareholder');
+        mountPlayerName(playerId);
+        cy.get('.player-name').realHover();
+        cy.wait('@shareholderState');
+        cy.get('.player-name-medals:visible .medal-hit').should('have.length', 1);
+        cy.then(() => setMedalOverride({ user_id: playerId, code: 'shareholder.origin', scope_key: '', mode: 'revoke', reason: 'Revoke test' }));
+        cy.wait('@revokeShareholder');
+        cy.wait('@shareholderState');
+        cy.get('.player-name-medals:visible').should('not.exist');
+    });
+
+    it('refreshes an already mounted name tooltip when upload processing finishes', () => {
+        const playerId = 790 + Cypress.currentRetry;
+        cy.mockPlayerNameFallback();
+        let stage = 4000;
+        cy.intercept('GET', '**/api/medal/players/state*', {
+            body: [{ user_id: playerId, grants: [{ code: 'ability.time.b', stage, timestamp: 1, scope: '', tournament: null, rank: null }] }],
+        }).as('beforeUploadState');
+        cy.intercept('GET', '**/api/medal/refresh-status', { body: { user_id: playerId, pending: false } }).as('refreshStatus');
+        mountPlayerName(playerId);
+        cy.get('@beforeUploadState.all').should('have.length', 0);
+        cy.get('.player-name').realHover();
+        cy.wait('@beforeUploadState');
+        cy.get('[id^=tippy-]').should('contain', '4');
+        cy.then(() => {
+            stage = 3000;
+        });
+        cy.intercept('GET', '**/api/medal/players/state*', (request) => {
+            request.reply({ body: [{ user_id: playerId, grants: [{ code: 'ability.time.b', stage, timestamp: 1, scope: '', tournament: null, rank: null }] }] });
+        }).as('afterUploadState');
+        cy.then(() => {
+            syncMedalsAfterUpload();
+        });
+        cy.wait('@refreshStatus');
+        cy.wait('@afterUploadState');
+        cy.get('[id^=tippy-]').should('contain', '3').and('not.contain', '4');
     });
 });
