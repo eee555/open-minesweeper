@@ -10,7 +10,7 @@ from .utils import get_video_num_limit
 @receiver(post_save, sender=VideoModel, dispatch_uid='msuser.update_video_count_on_video_save')
 def update_video_count_on_video_save(sender, instance: VideoModel, created: bool, update_fields=None, **kwargs):
     if created and not instance.ongoing_tournament and (userms := instance.player.userms) is not None:
-        increment_video_count(userms, instance.level, instance.mode, instance.right_ce)
+        increment_video_count(userms)
 
 
 @receiver(post_save, sender=VideoModel, dispatch_uid='msuser.update_video_count_limit_on_video_save')
@@ -29,4 +29,4 @@ def update_video_count_on_video_delete(sender, instance: VideoModel, **kwargs):
     if instance.ongoing_tournament or instance.tournaments.exists():
         return
     if (userms := instance.player.userms) is not None:
-        decrement_video_count(userms, instance.level, instance.mode, instance.right_ce)
+        decrement_video_count(userms)

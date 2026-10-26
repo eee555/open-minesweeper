@@ -34,7 +34,7 @@ python manage.py delete_legacy_speedranking_cache
 
 为VideoModel添加一个布尔字段`is_lucky`，默认为False。（未来管理员可以设置，当前暂时不支持）
 
-代码已完成：parser 保留原模式；删除前后端 NF 模式枚举；录像计数、比赛计分和 pluck 准入不再依赖模式 `12`。`VideoAbstract.isNF` 按 `right_ce === 0` 判断，未知值不视为 NF。NF 子计数与原模式子计数可以重叠。
+代码已完成：parser 保留原模式；删除前后端 NF 模式枚举；录像计数、比赛计分和 pluck 准入不再依赖模式 `12`。`VideoAbstract.isNF` 按 `right_ce === 0` 判断，未知值不视为 NF。`UserMS` 的录像计数仅保留 `video_num_total`，删除所有级别、模式及 NF 分类计数；上传额度独立维护。
 
 录像列表、个人录像、比赛录像及录像队列返回 `right_ce`；pluck 缓存 detail 也保存此字段。录像查询迁至 `/api/video/query`，新增独立的 `nf` 筛选参数，返回普通 JSON 对象；个人录像导出迁至 `/api/video/query_by_id`。前端查询和导出已同步调用新入口。
 

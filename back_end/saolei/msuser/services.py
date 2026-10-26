@@ -6,66 +6,16 @@ from videomanager.models import VideoModel
 from .utils import get_video_num_limit
 
 
-def increment_video_count(userms: UserMS, level: MS_TextChoices.Level, mode: MS_TextChoices.Mode, right_ce: int | None):
+def increment_video_count(userms: UserMS):
     """增加用户录像计数。"""
     userms.video_num_total += 1
-    update_fields = ['video_num_total']
-    if right_ce == 0:
-        userms.video_num_nf += 1
-        update_fields.append('video_num_nf')
-
-    if mode == MS_TextChoices.Mode.STD:
-        userms.video_num_std += 1
-        update_fields.append('video_num_std')
-    elif mode == MS_TextChoices.Mode.JSW:
-        userms.video_num_ng += 1
-        update_fields.append('video_num_ng')
-    elif mode == MS_TextChoices.Mode.BZD:
-        userms.video_num_dg += 1
-        update_fields.append('video_num_dg')
-
-    if level == MS_TextChoices.Level.BEGINNER:
-        userms.video_num_beg += 1
-        update_fields.append('video_num_beg')
-    elif level == MS_TextChoices.Level.INTERMEDIATE:
-        userms.video_num_int += 1
-        update_fields.append('video_num_int')
-    elif level == MS_TextChoices.Level.EXPERT:
-        userms.video_num_exp += 1
-        update_fields.append('video_num_exp')
-
-    userms.save(update_fields=update_fields)
+    userms.save(update_fields=['video_num_total'])
 
 
-def decrement_video_count(userms: UserMS, level: MS_TextChoices.Level, mode: MS_TextChoices.Mode, right_ce: int | None):
+def decrement_video_count(userms: UserMS):
     """减少用户录像计数。"""
     userms.video_num_total -= 1
-    update_fields = ['video_num_total']
-    if right_ce == 0:
-        userms.video_num_nf -= 1
-        update_fields.append('video_num_nf')
-
-    if mode == MS_TextChoices.Mode.STD:
-        userms.video_num_std -= 1
-        update_fields.append('video_num_std')
-    elif mode == MS_TextChoices.Mode.JSW:
-        userms.video_num_ng -= 1
-        update_fields.append('video_num_ng')
-    elif mode == MS_TextChoices.Mode.BZD:
-        userms.video_num_dg -= 1
-        update_fields.append('video_num_dg')
-
-    if level == MS_TextChoices.Level.BEGINNER:
-        userms.video_num_beg -= 1
-        update_fields.append('video_num_beg')
-    elif level == MS_TextChoices.Level.INTERMEDIATE:
-        userms.video_num_int -= 1
-        update_fields.append('video_num_int')
-    elif level == MS_TextChoices.Level.EXPERT:
-        userms.video_num_exp -= 1
-        update_fields.append('video_num_exp')
-
-    userms.save(update_fields=update_fields)
+    userms.save(update_fields=['video_num_total'])
 
 
 def update_video_count_limit_from_videos(userms: UserMS, videos: QuerySet[VideoModel]):

@@ -11,6 +11,8 @@ description: 开源扫雷网Redis/Django缓存结构详解，包括录像队列�
 
 旧竞速排行榜及新闻的读写逻辑已移除，可运行`python manage.py delete_legacy_speedranking_cache`清理旧个人纪录hash、排行zset及`news_queue`。支持`--dry-run`预览，具体范围见[管理命令文档](./management-commands.md#delete-legacy-speedranking-cache)。
 
+`UserMS` 的录像计数仅保存在数据库字段 `video_num_total`，不再维护级别、模式或 NF 分类计数。录像增删信号和 `refresh_video_counts` 只更新此总数；上传额度 `video_num_limit` 独立维护，不涉及 Redis 清理。
+
 旧 World 监控页面及其 CPU/网络 IO 采集已移除，不再读写历史采样；旧 `/monitor/io_cpus/` 和 `/monitor/capacity/` 不恢复。部署并停止旧采集进程后，可按固定名称清理 `saolei_website` Redis DB 中的五个遗留 key，无需遍历其他 key：
 
 ```bash

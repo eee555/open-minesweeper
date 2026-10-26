@@ -168,7 +168,7 @@ GSC 历史补录沿用默认 TournamentUser 创建和 best 保存信号，允许
 | 撤回已发比赛积分 | `revoke_rank_score_on_participant_delete` |
 | 补录比赛录像 | `add_existing_videos_to_participant_tournament` |
 
-录像计数排除比赛录像。创建时读取 `ongoing_tournament`；删除时在 `pre_delete` 中检查该标记及 `Tournament.videos` 关联，避免级联删除清除关联后误减计数。比赛公开不增加计数。已有数据可通过 `refresh_video_counts` 命令重算，包括补录到比赛的历史录像；上传数量上限仍由独立的 `update_video_count_limit_on_video_save` 维护。
+录像计数仅维护 `UserMS.video_num_total`，排除比赛录像，不按级别、模式或 NF 分类。创建时读取 `ongoing_tournament`；删除时在 `pre_delete` 中检查该标记及 `Tournament.videos` 关联，避免级联删除清除关联后误减计数。比赛公开不增加计数。已有数据可通过 `refresh_video_counts` 命令重算，包括补录到比赛的历史录像；上传数量上限仍由独立的 `update_video_count_limit_on_video_save` 维护。
 
 `Tournament` / `GSCTournament` / `WeeklyTournament` 的保存信号分别绑定到同一个 `update_cache_on_tournament_save` 接收器。`TournamentParticipant` / `GSCParticipant` / `WeeklyParticipant` 的保存信号分别绑定到同一个 `update_cache_on_participant_save` 接收器。缓存删除信号只保留父类接收器；多表继承删除子类时会继续触发父表删除。历史最好成绩依赖子类 participant 的成绩字段，因此由 `GSCParticipant` / `WeeklyParticipant` 的保存和删除信号单独处理：保存时只比较当前 participant 与原 best，删除时才重算该用户历史 best。best 信号更新的是 `TournamentUser` 数据库汇总字段，需要和 participant 变更保持事务一致，因此不使用 `transaction.on_commit`。
 
