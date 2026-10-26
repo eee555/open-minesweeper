@@ -16,6 +16,7 @@ STATE_QUEUE_NAMES = {
 
 CAPTURE_FIELDS = {
     'state',
+    'file_size',
     'ongoing_tournament',
     'pluck',
     'timems',

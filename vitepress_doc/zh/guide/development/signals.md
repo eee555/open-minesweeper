@@ -5,7 +5,7 @@ description: 开源扫雷网后端Django信号触发关系详解，包括录像�
 
 # 信号触发关系
 
-旧竞速纪录和新闻信号已移除。`msuser` 目前只维护录像计数与上传额度；新竞速榜由 `speedranking` 接收 `VideoModel.post_save/post_delete`，在事务提交后增量更新 Redis 或补位失效纪录。
+旧竞速纪录和新闻信号已移除。`msuser` 维护比赛、非比赛录像数量及文件空间统计与上传额度；新竞速榜由 `speedranking` 接收 `VideoModel.post_save/post_delete`，在事务提交后增量更新 Redis 或补位失效纪录。
 
 `speedranking` 复用 `videomanager` 捕获的旧值。关注 player、level、mode、state、ongoing_tournament、bv、timems、right_ce、upload_time；提高成绩直接比较，变差/失去资格/删除时只重建由该录像保持的单项。类别迁移同时处理原玩家和新玩家，bvs、iqg 使用数据库保存的 GeneratedField；bv 或 timems 变化会触发这些派生指标的判断。标识绑定/解绑与比赛批量公开不触发保存信号，须显式调用 `add_videos_to_speed_ranks` / `remove_videos_from_speed_ranks`。
 
@@ -15,7 +15,7 @@ description: 开源扫雷网后端Django信号触发关系详解，包括录像�
 
 top 原始十八项统一参与用户集合，并以变换后的均值作为降序索引。共同写入后先按已发布锚点局部更新该用户的软实力；实时锚点数值变化时发送 `speedranking.top.events.soft_refresh_requested`，由 `top.signals` 创建 `task_refresh_soft_ranks`。任务执行时有其他同路径 READY 任务就正常跳过，否则取得单机独占准入，九次加权合并后统一发布。相关 HTTP 写入口在事务前取得共享准入并覆盖 on_commit 回调；刷新期间新 HTTP 写请求返回有业务原因的 503，后台业务等待而不拒绝。接口、锁路径和运维限制见 `back_end/saolei/speedranking/README.md`。
 
-NF 是独立维度，由 `VideoModel.right_ce == 0` 判断，不再使用模式 `12`。创建和删除时，NF 子计数与录像原模式的子计数同时增减；`right_ce` 为空不计入 NF。`videomanager` 捕获 `right_ce` 变化并更新队列；`customranking` 不需要 NF 信息，不监听此字段。批量转换旧模式后需显式刷新计数及缓存，步骤见 `back_end/saolei/msuser/refactor.md`。
+NF 是独立维度，由 `VideoModel.right_ce == 0` 判断，不再使用模式 `12`；`right_ce` 为空不视为 NF。`UserMS` 不维护 NF 或原模式的子计数。`videomanager` 捕获 `right_ce` 变化并更新队列；`customranking` 不需要 NF 信息，不监听此字段。批量转换旧模式后需显式刷新统计及缓存，步骤见 `back_end/saolei/msuser/refactor.md`。
 
 效率榜由独立 `effranking.signals` 监听录像保存和删除，复用 `_old_values` 及 `update_fields` 判断影响范围。除资格、玩家、级别及上传时间外，还监控 `bv/left_ce/right_ce/double_ce`，不按 NF 分榜。提交后重读数据库生成的 Thrp，改善直接比较缓存，原纪录失效或变差才查库补位；回滚不更新 Redis。绑定/解绑标识和比赛公开显式调用 `add_videos_to_eff_ranks` / `remove_videos_from_eff_ranks`。异常记录上下文和堆栈后继续抛出，见 `back_end/saolei/effranking/README.md`。
 
@@ -50,8 +50,7 @@ flowchart LR
     checkin_video_before_create --> video_post_save
 
     video_post_save --> refresh_state_queue_on_video_save[刷新状态队列]
-    video_post_save --> update_video_count_on_video_save[更新用户录像计数]
-    video_post_save --> update_video_count_limit_on_video_save[更新用户录像上限]
+    video_post_save --> update_video_count_on_video_save[更新用户录像统计与上传额度]
     video_post_save --> add_created_video_to_checked_tournaments[将比赛录像挂载到比赛]
     video_post_save --> refresh_custom_pluck_rank_on_video_save[刷新pluck纪录]
     video_post_save --> speedranking_save[提交后更新竞速纪录与必要补位]
@@ -61,7 +60,7 @@ flowchart LR
     video_post_delete --> delete_video_expansion[清理录像扩展记录]
     video_post_delete --> refresh_custom_pluck_rank_on_video_delete[提交后补位pluck纪录]
 
-    video_pre_delete --> update_video_count_on_video_delete[更新用户录像计数]
+    video_pre_delete --> update_video_count_on_video_delete[删除用户录像统计]
 
 
 
@@ -112,13 +111,12 @@ flowchart LR
     click capture_video_update "#signal-function-map" "保存前记录录像旧状态，用于保存后判断副作用"
     click checkin_video_before_create "#signal-function-map" "录像创建前，根据用户参赛缓存判断是否属于比赛录像"
     click refresh_state_queue_on_video_save "#signal-function-map" "根据录像状态同步普通录像队列"
-    click update_video_count_on_video_save "#signal-function-map" "录像创建后增加用户录像计数，跳过 ongoing_tournament=True 的录像"
-    click update_video_count_limit_on_video_save "#signal-function-map" "录像保存后同步用户录像数量上限"
+    click update_video_count_on_video_save "#signal-function-map" "一次用户统计 UPDATE 合并数量、空间及需要提升的上传额度，归属转移使用条件 UPDATE"
     click add_created_video_to_checked_tournaments "#signal-function-map" "录像创建后写入命中的比赛录像关系"
     click refresh_custom_pluck_rank_on_video_save "#signal-function-map" "录像保存后刷新自定义 pluck 排行"
     click refresh_custom_pluck_rank_on_video_delete "#signal-function-map" "录像删除提交后从剩余合格录像补位自定义 pluck 纪录"
     click delete_video_expansion "#signal-function-map" "录像删除事务内清理扩展记录，扩展记录源的删除沿用原级联"
-    click update_video_count_on_video_delete "#signal-function-map" "录像删除前减少用户录像计数，跳过 ongoing_tournament=True 或仍关联比赛的录像"
+    click update_video_count_on_video_delete "#signal-function-map" "录像删除前按当前比赛标记及关联减少数量和空间"
     click update_custom_pluck_cache_on_record_save "#signal-function-map" "pluck 纪录保存后同步排行缓存"
     click update_custom_pluck_cache_on_record_delete "#signal-function-map" "pluck 纪录删除提交后按当前数据库纪录同步缓存"
     click update_cache_on_tournament_save "#signal-function-map" "比赛保存后同步 NORMAL 比赛缓存"
@@ -147,8 +145,8 @@ GSC 历史补录沿用默认 TournamentUser 创建和 best 保存信号，允许
 | 捕获字段旧值 | `capture_video_update` |
 | 比赛录像检测 | `checkin_video_before_create` |
 | 刷新状态队列 | `refresh_state_queue_on_video_save` |
-| 更新用户录像计数 | `update_video_count_on_video_save` / `update_video_count_on_video_delete` |
-| 更新用户录像上限 | `update_video_count_limit_on_video_save` |
+| 更新用户录像统计与上传额度 | `update_video_count_on_video_save` |
+| 删除用户录像统计 | `update_video_count_on_video_delete` |
 | 将比赛录像挂载到比赛 | `add_created_video_to_checked_tournaments` |
 | 刷新pluck纪录 | `refresh_custom_pluck_rank_on_video_save` |
 | 提交后补位pluck纪录 | `refresh_custom_pluck_rank_on_video_delete` |
@@ -168,7 +166,13 @@ GSC 历史补录沿用默认 TournamentUser 创建和 best 保存信号，允许
 | 撤回已发比赛积分 | `revoke_rank_score_on_participant_delete` |
 | 补录比赛录像 | `add_existing_videos_to_participant_tournament` |
 
-录像计数仅维护 `UserMS.video_num_total`，排除比赛录像，不按级别、模式或 NF 分类。创建时读取 `ongoing_tournament`；删除时在 `pre_delete` 中检查该标记及 `Tournament.videos` 关联，避免级联删除清除关联后误减计数。比赛公开不增加计数。已有数据可通过 `refresh_video_counts` 命令重算，包括补录到比赛的历史录像；上传数量上限仍由独立的 `update_video_count_limit_on_video_save` 维护。
+录像数量的三个口径为非比赛 `video_num_total`、比赛 `video_num_tournament`、合计 `video_num_all`；文件空间对应 `video_size_total`、`video_size_tournament`、`video_size_all`，按 `file_size` 累计字节。两个合计字段均由数据库 `GeneratedField` 自动求和。
+
+创建时在比赛 `pre_save` 检查完成后按 `ongoing_tournament` 归类。保存时复用 `videomanager` 捕获的旧值，处理 `file_size` 及玩家归属变更，并即时查询该录像当前是否具有比赛标记或比赛关联。后台压缩修改大小时仅按差额更新对应口径，不触发用户全部录像聚合。删除时在 `pre_delete` 中读取当前大小及比赛归属，避免级联删除先清除比赛关联。
+
+统计字段使用硬编码的 `if/else` 分支，通过 `F()` 更新。数量、空间及需要提升的上传额度合并为一次 `UserMS UPDATE`；归属转移用 `CASE WHEN` 在一条 SQL 中同时扣减原玩家、增加新玩家，额度仅允许提升新玩家。不涉及统计或额度变化时不发出用户统计 `UPDATE`。两个合计由数据库同步生成。
+
+补录匹配及关联规则保持不变，比赛关联增删、清空和比赛删除均不立即调整统计；比赛公开也不直接改变统计。此后增删、大小或归属修改按录像当前比赛归属处理，允许统计产生临时偏差，统一由 `refresh_video_counts` 全量重算修复，不保存历史分类标记。重算通过 `EXISTS` 检查比赛关系，将比赛标记及任意比赛关联合并判断，每批事务仅写入用户统计，避免同一录像多比赛关联重复累计。绕过信号的批量导入或更新也通过重算命令补齐。上传额度计算规则保持不变，写入合并到 `update_video_count_on_video_save`。
 
 `Tournament` / `GSCTournament` / `WeeklyTournament` 的保存信号分别绑定到同一个 `update_cache_on_tournament_save` 接收器。`TournamentParticipant` / `GSCParticipant` / `WeeklyParticipant` 的保存信号分别绑定到同一个 `update_cache_on_participant_save` 接收器。缓存删除信号只保留父类接收器；多表继承删除子类时会继续触发父表删除。历史最好成绩依赖子类 participant 的成绩字段，因此由 `GSCParticipant` / `WeeklyParticipant` 的保存和删除信号单独处理：保存时只比较当前 participant 与原 best，删除时才重算该用户历史 best。best 信号更新的是 `TournamentUser` 数据库汇总字段，需要和 participant 变更保持事务一致，因此不使用 `transaction.on_commit`。
 

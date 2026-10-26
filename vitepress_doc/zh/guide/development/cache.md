@@ -11,7 +11,19 @@ description: 开源扫雷网Redis/Django缓存结构详解，包括录像队列�
 
 旧竞速排行榜及新闻的读写逻辑已移除，可运行`python manage.py delete_legacy_speedranking_cache`清理旧个人纪录hash、排行zset及`news_queue`。支持`--dry-run`预览，具体范围见[管理命令文档](./management-commands.md#delete-legacy-speedranking-cache)。
 
-`UserMS` 的录像计数仅保存在数据库字段 `video_num_total`，不再维护级别、模式或 NF 分类计数。录像增删信号和 `refresh_video_counts` 只更新此总数；上传额度 `video_num_limit` 独立维护，不涉及 Redis 清理。
+`UserMS` 的录像数量及文件空间保存在数据库，不按级别、模式或 NF 分类，也不涉及 Redis 清理。创建时按 `ongoing_tournament` 归类；全量重算时，`ongoing_tournament=True` 或关联到任意比赛的录像属于比赛口径，包括已公开、已结束比赛的录像。同一录像关联多个比赛只计算一次。空间按 `VideoModel.file_size` 求和，单位为字节。
+
+| 口径 | 数量字段 | 文件空间字段 |
+| --- | --- | --- |
+| 非比赛录像 | `video_num_total` | `video_size_total` |
+| 比赛录像 | `video_num_tournament` | `video_size_tournament` |
+| 全部录像 | `video_num_all` | `video_size_all` |
+
+两个 `*_all` 字段均为持久化 `GeneratedField`，由数据库计算比赛与非比赛口径之和，不直接写入。上传额度 `video_num_limit` 独立维护，额度检查继续使用非比赛数量 `video_num_total`。
+
+补录逻辑及延迟重算行为保持不变：比赛关联变化不立即调整统计。删除、文件大小及玩家归属变更按该录像当前的比赛标记和关联归类，允许与原先计入的口径存在偏差，统一由 [refresh_video_counts](./management-commands.md#refresh-video-counts) 全量重算修复；不保存历史统计分类字段。迁移后需先运行重算命令补齐历史统计。
+
+保存信号中数量、文件空间及需要提升的上传额度合并到一次 `UserMS UPDATE`；归属变化通过一条 `CASE WHEN UPDATE` 同时处理两位玩家。后台压缩修改 `file_size` 时，只查询该录像是否属于比赛，再按大小差额更新对应口径，不重算该用户的全部录像。所有统计字段使用固定字段名与 `if/else` 分支，不动态拼接。
 
 旧 World 监控页面及其 CPU/网络 IO 采集已移除，不再读写历史采样；旧 `/monitor/io_cpus/` 和 `/monitor/capacity/` 不恢复。部署并停止旧采集进程后，可按固定名称清理 `saolei_website` Redis DB 中的五个遗留 key，无需遍历其他 key：
 
@@ -235,7 +247,6 @@ digraph cache {
         refresh_state_queue_on_video_save [label="refresh_state_queue_on_video_save"];
         delete_video_expansion [label="delete_video_expansion"];
         update_video_count_on_video_save [label="update_video_count_on_video_save"];
-        update_video_count_limit_on_video_save [label="update_video_count_limit_on_video_save"];
         update_video_count_on_video_delete [label="update_video_count_on_video_delete"];
         refresh_custom_pluck_rank_on_video_save [label="refresh_custom_pluck_rank_on_video_save"];
         refresh_custom_pluck_rank_on_video_delete [label="refresh_custom_pluck_rank_on_video_delete"];
@@ -507,14 +518,10 @@ digraph cache {
 
     // msuser signals
     video_db -> update_video_count_on_video_save [label="post_save"];
+    tournament_db -> update_video_count_on_video_save [label="membership read on size/owner change"];
     userprofile_db -> update_video_count_on_video_save [label="FK read"];
     userms_db -> update_video_count_on_video_save [label="O2O read"];
-    update_video_count_on_video_save -> userms_db [label="write"];
-
-    video_db -> update_video_count_limit_on_video_save [label="post_save"];
-    userprofile_db -> update_video_count_limit_on_video_save [label="FK read"];
-    userms_db -> update_video_count_limit_on_video_save [label="O2O read"];
-    update_video_count_limit_on_video_save -> userms_db [label="write"];
+    update_video_count_on_video_save -> userms_db [label="one UPDATE: statistics + limit"];
 
     video_db -> update_video_count_on_video_delete [label="pre_delete"];
     tournament_db -> update_video_count_on_video_delete [label="m2m exists"];

@@ -209,7 +209,11 @@ python manage.py refresh_videos --start 10000 --end 20000 --step 50
 
 位置：`msuser/management/commands/refresh_video_counts.py`
 
-刷新全部 `UserMS` 的录像总数 `video_num_total`，不再维护级别、模式或 NF 分类计数，不修改上传额度、个人纪录或 Redis。排除进行中的比赛录像及关联到任何比赛的录像（包括已结束比赛），其余录像不按审核状态筛选；没有普通录像的用户计数归零。执行期间暂停录像写入，避免计数覆盖。
+刷新全部 `UserMS` 的比赛、非比赛录像数量及文件空间：`video_num_total`、`video_num_tournament`、`video_size_total`、`video_size_tournament`。空间按 `VideoModel.file_size` 求和，单位为字节；合计字段 `video_num_all`、`video_size_all` 由数据库 `GeneratedField` 自动计算。不修改上传额度、个人纪录或 Redis。
+
+进行中的比赛录像及关联到任何比赛的录像（包括已结束比赛）计入比赛口径，其余计入非比赛口径；不按审核状态筛选。通过 `EXISTS` 检查比赛关联，避免同一录像关联多个比赛时重复累计；无录像的用户四个基础统计均归零，包括未关联个人资料的 `UserMS`。
+
+补录关联不立即调整统计，之后的删除、大小或归属修改按录像当前比赛归属增减，允许产生临时偏差，运行此命令统一修正。命令直接聚合当前录像，不维护历史分类标记，也不更新录像行；每批用户统计在同一事务内写入，失败回滚当前批，已完成批不回滚。迁移后先运行此命令回填新增统计。执行期间暂停录像、比赛关联及玩家归属等相关写入，避免统计覆盖。
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |
