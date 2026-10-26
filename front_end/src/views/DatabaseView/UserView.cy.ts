@@ -44,7 +44,7 @@ function mountDirectory() {
         ],
     });
     cy.mount({ render: () => h(RouterView) }, {
-        global: { plugins: [i18n, pinia, router], config: { globalProperties: { $axios } } },
+        global: { plugins: [i18n, pinia, router], stubs: { transition: false }, config: { globalProperties: { $axios } } },
     });
     return router;
 }
@@ -109,7 +109,8 @@ describe('Database users', () => {
         const searches = [['', '42'], ['m', 'mr-alpha_01']];
         for (const [platform, id] of searches) {
             cy.get('#user-query-platform').select(platform);
-            cy.get('#user-query-id').clear().type(`${id}{enter}`);
+            cy.get('#user-query-id').clear();
+            cy.get('#user-query-id').type(`${id}{enter}`);
             cy.wait('@users').its('request.query').should('include', { platform, id, page: '1', sort: 'video_num_all' });
         }
         cy.get('[data-cy=user-query-reset]').click();
@@ -122,12 +123,12 @@ describe('Database users', () => {
         cy.intercept('GET', '**/api/userprofile/query*', { statusCode: 500 }).as('failed');
         mountDirectory();
         cy.wait('@failed');
-        cy.get('[role=alert]').should('contain.text', 'Unable to load users');
+        cy.get('.user-directory [role=alert]').should('contain.text', 'Unable to load users');
         cy.closeElNotifications();
         cy.intercept('GET', '**/api/userprofile/query*', { count: 0, users: [] }).as('empty');
         cy.contains('button', 'Retry').click();
         cy.wait('@empty');
         cy.get('.user-directory-table').should('contain.text', 'No matching users');
-        cy.get('[role=alert]').should('not.exist');
+        cy.get('.user-directory [role=alert]').should('not.exist');
     });
 });

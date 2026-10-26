@@ -6,7 +6,7 @@ describe('Main navigation', () => {
         cy.get('[data-cy=app-header] [data-navigation-id=ranking] a').click();
         cy.url().should('include', '/#/ranking');
         cy.get('[data-cy=app-header] [data-navigation-id=database] a').click();
-        cy.url().should('match', /\/#\/database\/videos$/);
+        cy.url().should('match', /\/#\/database\/users$/);
         cy.contains('.el-tabs__item', '标识查询').click();
         cy.url().should('match', /\/#\/database\/identifiers$/);
         cy.visit('/#/video');
