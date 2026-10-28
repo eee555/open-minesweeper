@@ -15,9 +15,6 @@
         <div data-statistic-item="videos">
             <VideoSummary :section="data?.videosummary" :loading="loading" :failed="failed" @refresh="refresh" />
         </div>
-        <div data-statistic-item="top">
-            <TopAnchors />
-        </div>
     </MasonryLayout>
 </template>
 
@@ -34,7 +31,6 @@ import MasonryLayout from '@/components/common/MasonryLayout.vue';
 const DiskUsage = defineAsyncComponent(() => import('./DiskUsage.vue'));
 const TaskSummary = defineAsyncComponent(() => import('./TaskSummary.vue'));
 const VideoSummary = defineAsyncComponent(() => import('./VideoSummary.vue'));
-const TopAnchors = defineAsyncComponent(() => import('./TopAnchors.vue'));
 
 const { data, loading, failed, refresh } = useStatistic<MonitorSnapshot>('/api/monitor/summary');
 </script>
