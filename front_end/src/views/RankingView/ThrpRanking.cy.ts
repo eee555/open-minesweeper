@@ -33,7 +33,7 @@ describe('Thrp efficiency ranking', () => {
         local.value.colored = true;
         colorTheme.value.ioe = { thresholds: [1], colors: ['#224466', '#ffee00'] };
         cy.mockPlayerNameFallback();
-        const player = { player_id: 42, b: { value: 1.5, video_id: 8001, upload_time: '2026-10-19T12:00:00Z' }, i: null, e: { value: 0.9, video_id: 8002, upload_time: '2026-10-19T12:01:00Z' } };
+        const player = { player_id: 42, b: { value: 1.5, video_id: 8001, upload_time: '2026-10-19T12:00:00Z' }, i: null, e: { value: 0.9, video_id: 8002, upload_time: '2026-10-19T12:01:00Z' }, e_nf: { value: 1, video_ids: [8003, 8004, 8005] } };
         cy.intercept({ method: 'GET', pathname: '/api/effranking/thrp/rank' }, { count: 21, players: [player] }).as('ranking');
         const router = mountRanking();
         cy.wait('@ranking').its('request.query').should('include', { stat: 'sum', start: '0', end: '20' });
@@ -41,7 +41,7 @@ describe('Thrp efficiency ranking', () => {
         cy.get('.el-tabs__item.is-active').should('have.text', 'Efficiency');
         cy.get('.thrp-ranking-table tbody tr').should('have.length', 1);
         cy.get('.thrp-ranking-table tbody').extractTableData().should((rows) => {
-            expect(rows[0]?.slice(2)).to.deep.equal(['1.500', '--', '0.900', '2.400']);
+            expect(rows[0]?.slice(2)).to.deep.equal(['1.500', '--', '0.900', '2.400', '1 x 3']);
         });
         cy.get('.thrp-ranking-table tbody [data-field=b] a').should('have.attr', 'href', '#/video/8001');
         cy.get('.thrp-ranking-table tbody [data-field=sum] a').should('not.exist');
@@ -58,6 +58,9 @@ describe('Thrp efficiency ranking', () => {
         cy.wrap(router).its('currentRoute.value.query').should('deep.equal', { sort: 'e', page: '1', page_size: '20' });
         cy.get('[data-cy=ranking-refresh]').click();
         cy.wait('@ranking');
+        cy.get('.thrp-ranking-table thead [data-field=e_nf]').click();
+        cy.wait('@ranking').its('request.query').should('include', { stat: 'e_nf', start: '0', end: '20' });
+        cy.wrap(router).its('currentRoute.value.query.sort').should('equal', 'e_nf');
     });
 
     it('opens a deep link and retries a failed request before displaying an empty table', () => {
@@ -69,7 +72,7 @@ describe('Thrp efficiency ranking', () => {
         cy.get('[data-cy=ranking-refresh]').click();
         cy.wait('@retry');
         cy.get('[role=alert]').should('not.exist');
-        cy.get('.base-table-empty').should('have.attr', 'colspan', '6');
+        cy.get('.base-table-empty').should('have.attr', 'colspan', '7');
         cy.get('.thrp-ranking-table thead [data-field=i]').should('have.attr', 'aria-pressed', 'true');
     });
 });

@@ -17,7 +17,7 @@ top 原始十八项统一参与用户集合，并以变换后的均值作为降�
 
 NF 是独立维度，由 `VideoModel.right_ce == 0` 判断，不再使用模式 `12`；`right_ce` 为空不视为 NF。`UserMS` 不维护 NF 或原模式的子计数。`videomanager` 捕获 `right_ce` 变化并更新队列；`customranking` 不需要 NF 信息，不监听此字段。批量转换旧模式后需显式刷新统计及缓存，步骤见 `back_end/saolei/msuser/refactor.md`。
 
-效率榜由独立 `effranking.signals` 监听录像保存和删除，复用 `_old_values` 及 `update_fields` 判断影响范围。除资格、玩家、级别及上传时间外，还监控 `bv/left_ce/right_ce/double_ce`，不按 NF 分榜。提交后重读数据库生成的 Thrp，改善直接比较缓存，原纪录失效或变差才查库补位；回滚不更新 Redis。绑定/解绑标识和比赛公开显式调用 `add_videos_to_eff_ranks` / `remove_videos_from_eff_ranks`。异常记录上下文和堆栈后继续抛出，见 `back_end/saolei/effranking/README.md`。
+效率榜由独立 `effranking.signals` 监听录像保存和删除，复用 `_old_values` 及 `update_fields` 判断影响范围。除资格、玩家、级别及上传时间外，还监控 `bv/left_ce/right_ce/double_ce`。提交后重读数据库生成的 Thrp，原有四项改善直接比较缓存，原纪录失效或变差才查库补位。独立的高级 NF 项通过 `right_ce=0` 筛选，对受影响用户重建满分录像 ID 列表或最佳一局，局数取列表长度；回滚不更新 Redis。绑定/解绑标识和比赛公开显式调用 `add_videos_to_eff_ranks` / `remove_videos_from_eff_ranks`。异常记录上下文和堆栈后继续抛出，见 `back_end/saolei/effranking/README.md`。
 
 录像删除时，`videomanager.signals.delete_video_expansion` 在当前事务内清理扩展记录；从扩展记录发起的删除沿用 Django 级联，避免重复处理。`customranking.signals.refresh_custom_pluck_rank_on_video_delete` 在提交后从剩余录像补选数据库纪录并更新 Redis；`CustomPluckRecord` 删除后的缓存同步提交后重读当前纪录，回滚不发布删除或补位结果。
 

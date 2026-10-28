@@ -20,11 +20,17 @@ class VideoRecordOut(Schema):
     upload_time: datetime
 
 
+class ExpertNFRecordOut(Schema):
+    value: float
+    video_ids: list[int]
+
+
 class RecordOut(Schema):
     player_id: int
     b: VideoRecordOut | None
     i: VideoRecordOut | None
     e: VideoRecordOut | None
+    e_nf: ExpertNFRecordOut | None
 
 
 class PlayerRecordOut(RecordOut):

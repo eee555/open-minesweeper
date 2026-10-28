@@ -4,16 +4,22 @@ from typing import Literal
 
 from config.text_choices import MS_TextChoices
 
-RankStat = Literal['b', 'i', 'e', 'sum']
+RankStat = Literal['b', 'i', 'e', 'sum', 'e_nf']
 LEVELS = ('b', 'i', 'e')
-RANK_STATS = (*LEVELS, 'sum')
+NF_STAT = 'e_nf'
+RANK_STATS = (*LEVELS, 'sum', NF_STAT)
 THRP_SCALE = 1_000_000
 SCORE_TIME_FACTOR = 2 ** 29
 EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 
 def empty_record():
-    return dict.fromkeys(LEVELS)
+    return dict.fromkeys((*LEVELS, NF_STAT))
+
+
+def is_expert_nf(video: dict | None):
+    """判断高级 NF 资格，不以某条录像是否保持个人最佳为条件。"""
+    return video is not None and video['level'] == MS_TextChoices.Level.EXPERT and video['right_ce'] == 0 and video['mode'] == MS_TextChoices.Mode.STD and video['state'] == MS_TextChoices.State.OFFICIAL and not video['ongoing_tournament']
 
 
 def candidate_for_video(video: dict | None):
@@ -43,8 +49,10 @@ def encode_score(value: float, upload_time: str):
 
 
 def record_scores(record: dict):
-    """四个小榜共用编码，sum 先求原始总值与最晚达成时间。"""
+    """普通四项按分值和时间编码，高级 NF 独立按成绩或满分局数编码。"""
     scores = {level: encode_score(part['value'], part['upload_time']) if (part := record[level]) is not None else None for level in LEVELS}
-    parts = [part for part in record.values() if part is not None]
+    parts = [part for level in LEVELS if (part := record[level]) is not None]
     scores['sum'] = encode_score(sum(part['value'] for part in parts), max(part['upload_time'] for part in parts)) if parts else None
+    nf = record.get(NF_STAT)
+    scores[NF_STAT] = -(len(nf['video_ids']) if nf['value'] == 1 else nf['value']) if nf else None
     return scores

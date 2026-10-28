@@ -11,7 +11,7 @@
         <label>
             {{ t('local.stat') }}
             <ElSelect v-if="rankingName === 'thrp'" v-model="thrpStat" :aria-label="t('local.stat')" :disabled="working">
-                <ElOption v-for="field in thrpStats" :key="field" :label="t(`level.${field}`)" :value="field" />
+                <ElOption v-for="field in thrpStats" :key="field" :label="field === 'e_nf' ? `${t('level.e')} NF` : t(`level.${field}`)" :value="field" />
             </ElSelect>
             <ElSelect v-else v-model="stat" :aria-label="t('local.stat')" :disabled="working">
                 <ElOption v-for="field in saoleiFields" :key="field" :label="t(`local.${field}`)" :value="field" />
@@ -43,7 +43,7 @@ import BaseButton from '@/components/common/BaseButton.vue';
 import { actionSuccessNotification, httpErrorNotification } from '@/components/Notifications';
 import type { SaoleiField, SaoleiRankingName } from '@/services/saoleiRankingService';
 import { formatSaoleiValue, rebuildSaoleiRecord, saoleiFields, saoleiVideoId } from '@/services/saoleiRankingService';
-import { rebuildThrpRecord, thrpStats, thrpValue, thrpVideoId } from '@/services/thrpRankingService';
+import { formatThrpValue, rebuildThrpRecord, thrpStats, thrpVideoId } from '@/services/thrpRankingService';
 import type { ThrpStat } from '@/services/thrpRankingService';
 import '@/styles/text.css';
 
@@ -54,7 +54,7 @@ const userId = ref<number>();
 const working = ref(false);
 const result = ref<{ value: string; videoId?: number }>();
 const canRebuild = computed(() => userId.value !== undefined && Number.isSafeInteger(userId.value) && userId.value > 0);
-const selectedLabel = computed(() => (rankingName.value === 'thrp' ? t(`level.${thrpStat.value}`) : t(`local.${stat.value}`)));
+const selectedLabel = computed(() => (rankingName.value === 'thrp' ? thrpStat.value === 'e_nf' ? `${t('level.e')} NF` : t(`level.${thrpStat.value}`) : t(`local.${stat.value}`)));
 
 watch([rankingName, stat, thrpStat, userId], () => {
     result.value = undefined;
@@ -67,7 +67,7 @@ async function rebuild() {
     try {
         if (rankingName.value === 'thrp') {
             const record = await rebuildThrpRecord(userId.value, thrpStat.value);
-            result.value = { value: thrpValue(record, thrpStat.value)?.toFixed(3) ?? '--', videoId: thrpVideoId(record, thrpStat.value) };
+            result.value = { value: formatThrpValue(record, thrpStat.value), videoId: thrpVideoId(record, thrpStat.value) };
         } else {
             const record = await rebuildSaoleiRecord(userId.value, rankingName.value, stat.value);
             result.value = { value: formatSaoleiValue(record, stat.value), videoId: saoleiVideoId(record, stat.value) };

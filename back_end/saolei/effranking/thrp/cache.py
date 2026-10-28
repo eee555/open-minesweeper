@@ -24,7 +24,7 @@ class ThrpRankingCache:
         """批量读取原始纪录，未命中使用完整空项，不回源数据库。"""
         player_ids = list(player_ids)
         rows = cache.hmget(self.detail_key, player_ids) if player_ids else []
-        return {player_id: json.loads(raw) if raw else empty_record() for player_id, raw in zip(player_ids, rows)}
+        return {player_id: empty_record() | (json.loads(raw) if raw else {}) for player_id, raw in zip(player_ids, rows)}
 
     def write_record(self, pipe, player_id: int, record: dict):
         if any(part is not None for part in record.values()):
@@ -32,7 +32,7 @@ class ThrpRankingCache:
         else:
             pipe.hdel(self.detail_key, player_id)
 
-    def write_score(self, pipe, player_id: int, stat: str, score: int | None):
+    def write_score(self, pipe, player_id: int, stat: str, score: int | float | None):
         if score is None:
             pipe.zrem(self.rank_key(stat), player_id)
         else:
@@ -56,7 +56,7 @@ class ThrpRankingCache:
             for stat in RANK_STATS:
                 pipe.zrank(self.rank_key(stat), player_id)
             raw, *ranks = pipe.execute()
-        return {'player_id': player_id, **(json.loads(raw) if raw else empty_record()), 'ranks': {stat: rank + 1 if rank is not None else None for stat, rank in zip(RANK_STATS, ranks)}}
+        return {'player_id': player_id, **(empty_record() | (json.loads(raw) if raw else {})), 'ranks': {stat: rank + 1 if rank is not None else None for stat, rank in zip(RANK_STATS, ranks)}}
 
     def flush(self):
         cache.delete(*self.keys)

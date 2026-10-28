@@ -3,7 +3,7 @@
         <p v-if="failed" role="alert" class="text-danger">
             {{ t('ranking.loadFailed') }}
         </p>
-        <BaseTable v-loading="loading" class="thrp-ranking-table" :empty="players.length === 0" :column-count="6" :empty-text="t('ranking.empty')" :table-style="{ width: 'auto', marginInline: 'auto' }">
+        <BaseTable v-loading="loading" class="thrp-ranking-table" :empty="players.length === 0" :column-count="thrpStats.length + 2" :empty-text="t('ranking.empty')" :table-style="{ width: 'auto', marginInline: 'auto' }">
             <template #head>
                 <tr>
                     <th scope="col" class="table-col-rank">
@@ -14,7 +14,7 @@
                     </th>
                     <th v-for="field in thrpStats" :key="field" scope="col" class="table-col-number" :aria-sort="sort === field ? 'descending' : 'none'">
                         <BaseTextButton :type="sort === field ? 'primary' : 'default'" :data-field="field" :aria-pressed="sort === field" @click="sort = field">
-                            {{ t(`level.${field}`) }}
+                            {{ field === 'e_nf' ? `${t('level.e')} NF` : t(`level.${field}`) }}
                         </BaseTextButton>
                     </th>
                 </tr>
@@ -27,12 +27,7 @@
                     <PlayerName :user-id="player.player_id" />
                 </td>
                 <td v-for="field in thrpStats" :key="field" class="table-col-number" :data-field="field" :style="cellStyle(player, field)">
-                    <VideoPreviewLink v-if="thrpVideoId(player, field)" :id="thrpVideoId(player, field)">
-                        {{ formatValue(player, field) }}
-                    </VideoPreviewLink>
-                    <template v-else>
-                        {{ formatValue(player, field) }}
-                    </template>
+                    <ThrpRecordValue :record="player" :stat="field" />
                 </td>
             </tr>
         </BaseTable>
@@ -53,8 +48,8 @@ import { queryChoice, queryInteger, useRankingQuery } from './useRankingQuery';
 import BaseTable from '@/components/common/BaseTable.vue';
 import BaseTextButton from '@/components/common/BaseTextButton.vue';
 import PlayerName from '@/components/PlayerName.vue';
-import VideoPreviewLink from '@/components/VideoPreviewLink.vue';
-import { fetchThrpRanking, thrpStats, thrpValue, thrpVideoId } from '@/services/thrpRankingService';
+import ThrpRecordValue from '@/components/visualization/ThrpRecordValue.vue';
+import { fetchThrpRanking, thrpStats, thrpValue } from '@/services/thrpRankingService';
 import type { ThrpRecord, ThrpStat } from '@/services/thrpRankingService';
 import { colorThemes } from '@/store/color';
 import { getPiecewiseColorSchemeName } from '@/utils/ms_const';
@@ -72,10 +67,6 @@ const loading = ref(false);
 const failed = ref(false);
 let requestId = 0;
 let controller: AbortController | undefined;
-
-function formatValue(player: ThrpRecord, field: ThrpStat) {
-    return thrpValue(player, field)?.toFixed(3) ?? '--';
-}
 
 function cellStyle(player: ThrpRecord, field: ThrpStat) {
     const value = thrpValue(player, field);
