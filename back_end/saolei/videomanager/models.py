@@ -62,6 +62,7 @@ class VideoModel(models.Model):
     file = RestrictedFileField(
         upload_to='videos/%Y%m%d/', max_length=100, max_upload_size=MaxSizes.VIDEOFILE)
     file_size = models.PositiveIntegerField(default=0)
+    original_hash = models.CharField(max_length=24, null=True, blank=True)
     video = models.OneToOneField(
         ExpandVideoModel, on_delete=models.CASCADE, related_name='+')
     # file = models.FileField(upload_to='/assets/videos')
@@ -179,6 +180,7 @@ class VideoModel(models.Model):
             models.Index(fields=['state'], name='state_idx'),
             models.Index(fields=['level', 'mode', 'player', 'pluck'], name='video_lmp_pluck_idx'),
             models.Index(fields=['player', 'state', 'level'], name='video_player_state_level_idx'),
+            models.Index(fields=['original_hash'], name='video_original_hash_idx'),
         ]
 
     @staticmethod

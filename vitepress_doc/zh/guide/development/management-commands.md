@@ -198,6 +198,28 @@ python manage.py rebuild_custom_pluck_cache --level c16_30_150
 
 ## 数据刷新
 
+### `backfill_video_hashes`
+
+位置：`videomanager/management/commands/backfill_video_hashes.py`
+
+部署后先完成数据库迁移，再手动执行本命令，为所有尚无 `original_hash`（NULL 或空字符串）的录像回填原始文件 SHA-256 的前 96 位，保存为 24 个小写十六进制字符。包含所有状态及比赛录像；已有哈希保持不变。逐个读取文件计算，不解析录像，仅通过条件更新写入哈希，不触发保存信号、排行或缓存更新，不修改上传及查重逻辑。
+
+启动时统计待回填数量并固定最大录像 ID；按 ID 分批读取记录，文件分块计算哈希，避免一次加载全部录像或文件内容。输出已处理/总数、百分比、成功、失败、跳过数量及当前 ID，初始和结束时也输出进度。执行期间删除或被其他进程回填的记录，可能使实际处理数量小于初始总数；新上传录像可在下次执行时补齐。
+
+文件缺失时报告录像 ID，保留空哈希并继续；其他文件读写或数据库错误停止命令，之前完成的回填保留，可重新执行。写入时确认文件路径未变化且哈希仍为空，避免覆盖其他进程的结果。当前只处理原始录像文件，不进行压缩或解压。
+
+| 参数 | 默认值 | 说明 |
+| --- | --- | --- |
+| `--start` | `0` | 起始录像 ID，包含，必须非负 |
+| `--end` | 不限制 | 结束录像 ID，不包含，不能小于 `start` |
+| `--batch-size` | `1000` | 每批读取的记录数量，必须为正整数 |
+| `--step` | `100` | 每处理多少条输出一次进度，必须为正整数 |
+
+```bash
+python manage.py backfill_video_hashes
+python manage.py backfill_video_hashes --start 10000 --end 20000 --step 10
+```
+
 ### `refresh_videos`
 
 位置：`videomanager/management/commands/refresh_videos.py`
