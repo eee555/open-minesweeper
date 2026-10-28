@@ -33,7 +33,7 @@
     "@primevue/core": "4.5.5",
     "@putianyi888/vue3-minesweeper-board": "0.7.0",
     "@putianyi888/vue3-plots": "0.7.0",
-    "@unicode/unicode-16.0.0": "2.0.8",
+    "@unicode/unicode-16.0.0": "2.1.0",
     "@vueuse/components": "15.0.0",
     "@vueuse/core": "15.0.0",
     "@wdns/vue-code-block": "2.4.1",
