@@ -10,6 +10,9 @@
             </PrToolbar>
         </div>
         <template v-if="verified">
+            <p v-if="!info.name.trim()" class="text-small text-warning">
+                {{ t('local.profilePending') }}
+            </p>
             <ElDescriptions border>
                 <ElDescriptionsItem :label="t('prop.update_time')" :span="3">
                     {{ toISODateTimeString(info.update_time) }}
@@ -71,7 +74,7 @@ const props = defineProps({
 const queueVisible = ref(false);
 const ownsAccount = computed(() => store.user.id > 0 && store.user.id === props.info.parent);
 const { t } = useI18n({ messages: {
-    'zh-cn': { local: { country: '国家', region: '地区', hand: '惯用手', mouse: '鼠标', videos: '录像列表与导入' } },
-    en: { local: { country: 'Country', region: 'Region', hand: 'Hand', mouse: 'Mouse', videos: 'Videos and import' } },
+    'zh-cn': { local: { country: '国家', region: '地区', hand: '惯用手', mouse: '鼠标', videos: '录像列表与导入', profilePending: '账号已绑定，资料暂缺，可稍后刷新。' } },
+    en: { local: { country: 'Country', region: 'Region', hand: 'Hand', mouse: 'Mouse', videos: 'Videos and import', profilePending: 'Account linked. Profile details are unavailable; try refreshing later.' } },
 } });
 </script>

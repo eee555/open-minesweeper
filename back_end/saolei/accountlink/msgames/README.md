@@ -12,7 +12,9 @@
 
 ## 当前调用和字段覆盖
 
-管理员验证与用户资料刷新路径调用 `services.update_account()` → `services.update_msgames_account()` → `msgames.client.fetch_profile()`，只读一次公开资料页。五类成绩历史由单独的列表同步 API 读取，不在刷新基本资料时抓取。
+管理员验证先通过 `services.verify_account_link()` 提交绑定及隐藏资格，再调用 `update_account()` → `update_msgames_account()` → `msgames.client.fetch_profile()`，只读一次公开资料页。第三方拉取或资料保存失败不影响绑定成功，验证接口仍返回成功并记录同步失败日志；资料暂缺不表示绑定失败。用户可主动刷新资料，管理员也可重试空名绑定的验证以补齐资料，但不会重新授权。独立资料拉取的客户端错误使用 HTTP 503；五类成绩历史由单独的列表同步 API 读取，不在刷新基本资料时抓取。
+
+管理员解绑使用 `POST /api/accountlink/unverify/`，以表单提交 `id`、`platform`、`identifier`；旧 `/accountlink/unverify/` 已移除。关联账号与申请队列行同事务删除，待验证申请也可取消，用户随后可以申请正确的 MSGames ID。已有隐藏资格及选择保留。Mineracer 继续禁止人工解绑。
 
 资料模型为 `AccountMinesweeperGames`，Ninja 输出通过 `create_schema` 自动生成；前端 `AccountMSGames` 和 `CardMsgames.vue` 展示资料，并以按需创建的对话框提供分页录像列表与导入管理。
 

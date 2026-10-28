@@ -88,8 +88,22 @@ describe('EditProfile', () => {
         cy.then(() => {
             expect(user.hide_realname).to.eq(false);
         });
+        cy.get('[data-cy=hide-realname-toggle]').should('not.be.checked');
         cy.contains('button', 'Cancel').click();
         cy.get('[data-cy=hide-realname-toggle]').should('not.be.checked');
+    });
+
+    it('restores the saved privacy checkbox when the save is rate limited', () => {
+        const user = new UserProfile({ realname: 'Real Name', can_hide_realname: true });
+        cy.intercept('POST', '/api/userprofile/update_profile', { statusCode: 429 }).as('updateProfile');
+        cy.mount(EditProfile, mountOptions({ user }));
+        cy.get('[data-cy=hide-realname-toggle]').check();
+        cy.get('[data-cy=save-profile]').click();
+        cy.wait('@updateProfile').its('response.statusCode').should('eq', 429);
+        cy.get('[data-cy=hide-realname-toggle]').should('not.be.checked').and('not.be.disabled');
+        cy.then(() => {
+            expect(user.hide_realname).to.eq(false);
+        });
     });
 
     it('rejects reserved names before posting', () => {

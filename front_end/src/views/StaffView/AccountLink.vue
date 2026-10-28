@@ -99,7 +99,7 @@ function verify() {
 }
 
 function unverify() {
-    proxy.$axios.post('accountlink/unverify/', {
+    proxy.$axios.post('/api/accountlink/unverify/', {
         id: form.id,
         platform: form.platform,
         identifier: form.identifier,

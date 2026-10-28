@@ -22,7 +22,7 @@ from videomanager.services import set_import_upload_time
 from .models import AccountLinkQueue, AccountMinesweeperGames, AccountSaolei, AccountWorldOfMinesweeper, Platform, VideoMSGames, VideoSaolei
 from .msgames.client import download_replay as download_msgames_replay, fetch_profile as fetch_msgames_profile, fetch_replays as fetch_msgames_replays
 from .msgames.utils import upload_date_upper_bound
-from .utils import link_account, update_bilibili_account
+from .utils import delete_account, link_account, update_bilibili_account
 from .wom.client import fetch_wom_profile
 
 logger = logging.getLogger('accountlink')
@@ -55,6 +55,23 @@ def verify_account_link(user_id: int, platform: str, identifier: str, actor_id: 
     if platform == Platform.MSGAMES:
         grant_name_privacy(user, f'Staff #{actor_id}, MSGames #{identifier}')
     return user, True
+
+
+@transaction.atomic
+def unverify_account_link(user_id: int, platform: str, identifier: str):
+    user = UserProfile.objects.select_for_update().filter(pk=user_id).first()
+    if user is None:
+        raise ExceptionToResponse('user', 'not_found', status_code=404)
+    if platform == Platform.MINERACER:
+        raise ExceptionToResponse('mineracer', 'unlink_not_supported', status_code=409)
+    if platform not in Platform.values or not identifier:
+        raise ExceptionToResponse('platform', 'invalid', status_code=400)
+    link = AccountLinkQueue.objects.select_for_update().filter(userprofile=user, platform=platform, identifier=identifier).first()
+    if link is None:
+        raise ExceptionToResponse('accountlink', 'not_found', status_code=404)
+    if link.verified:
+        delete_account(user, platform)
+    link.delete()
 
 
 def update_account(platform: Platform, user: UserProfile):

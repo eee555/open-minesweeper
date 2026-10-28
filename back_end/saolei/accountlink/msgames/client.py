@@ -18,11 +18,11 @@ def msgames_client():
             yield client
     except RequestError as exc:
         category = 'timeout' if isinstance(exc.__cause__, httpx.TimeoutException) else 'requestexception'
-        raise ExceptionToResponse('import', category) from exc
+        raise ExceptionToResponse('import', category, status_code=503) from exc
     except (ParseError, ValueError) as exc:
-        raise ExceptionToResponse('import', 'indexerror') from exc
+        raise ExceptionToResponse('import', 'indexerror', status_code=503) from exc
     except MsgamesError as exc:
-        raise ExceptionToResponse('import', 'requestexception') from exc
+        raise ExceptionToResponse('import', 'requestexception', status_code=503) from exc
 
 
 def fetch_profile(player_id: int) -> dict:

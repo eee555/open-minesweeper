@@ -50,7 +50,9 @@
   - `processUserInfoBatch`职责完成
 
 ## 特殊细节
-- 姓名字段可以缓存精确字符串 `hidden`，不新增缓存列、递增版本或清空旧缓存。后端隐藏偏好与资格变更更新 `date_updated`，继续通过现有 `infoupdated` 流程更新姓名，允许正常缓存延迟。授权与展示规则见 [用户姓名隐藏](../../../back_end/saolei/userprofile/README.md)。
+- 姓名字段可以缓存精确字符串 `hidden`，不新增缓存列或递增数据库版本。后端隐藏偏好与资格变更更新 `date_updated`，其他浏览器仍通过现有 `infoupdated` 流程按正常周期更新姓名。授权与展示规则见 [用户姓名隐藏](../../../back_end/saolei/userprofile/README.md)。
+- 本地资料保存成功后调用 `invalidateUserInfo(id)`，只删除该用户的缓存，并递增响应式 `userInfoRevision(id)`。已挂载的 `PlayerName` 会清除旧展示并通过原有批量接口读取公开姓名；本人编辑模型仍保留原始姓名，不把私有资料写入公开姓名缓存。正常情况下不重置全局检查时间或修改一天的检查间隔，刷新页面也不会恢复被删除的旧缓存。
+- 请求记录保存发起时的用户版本；失效前发出的响应不能写回旧缓存，等待它的调用方会重新读取当前版本。旧批次结束时仅清理自己的请求，避免误删保存后创建的新请求。IndexedDB 失效失败不撤销已经成功的资料保存；当前会话跳过该用户的旧缓存，并将 `userInfoLastUpdate` 置零供后续清理重试。
 - `serviceConfig.userInfoLastUpdate`的初始值是0，此时没有必要请求`infoupdated`，强行请求必然会导致返回所有id，添加不必要的负担。因此实现中直接跳过`infoupdated`，清空整个缓存。这个机制也可以用来在其他需要的时候重置缓存。
 - `infoupdated`响应后才创建删除缓存的IndexedDB事务，避免事务在等待网络期间自动提交。事务成功提交后，将`userInfoLastUpdate`设为本次检查开始时的时间；请求或缓存操作失败时保留旧值，以便下次重试。
 

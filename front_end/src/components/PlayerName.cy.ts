@@ -9,6 +9,7 @@ import { getDatabase, USER_INFO_STORE_NAME } from '@/services/database';
 import { syncMedalsAfterUpload } from '@/services/medalService';
 import { setMedalOverride } from '@/services/staffMedalService';
 import { serviceConfig } from '@/services/store';
+import { invalidateUserInfo } from '@/services/userService';
 import { local } from '@/store/local';
 import { hashRouter, installHashHistoryCleanup } from '@cy/support/hashHistory';
 
@@ -85,6 +86,22 @@ describe('PlayerName', () => {
 
         cy.wait('@fetchUser');
         cy.contains(`User#${user.id}`);
+    });
+
+    it('refreshes an already mounted cached name after a profile save without waiting a day', () => {
+        cy.then(async () => {
+            serviceConfig.value.userInfoLastUpdate = Date.now();
+            serviceConfig.value.userInfoUpdateInterval = 86400000;
+            const db = await getDatabase();
+            await db.put(USER_INFO_STORE_NAME, user);
+            local.value.playerName1 = 'realname';
+        });
+        mockUserInfo({ body: [{ ...user, realname: 'hidden', firstname: 'hidden', lastname: 'hidden' }] });
+        mountPlayerName(user.id);
+        expectName('Alice');
+        cy.then(() => invalidateUserInfo(user.id));
+        cy.wait('@fetchUser');
+        expectName(`User #${user.id}`, `User #${user.id}`);
     });
 
     it('uses the fallback fixture even when the player name was previously cached', () => {

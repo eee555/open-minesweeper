@@ -1,3 +1,5 @@
+import { reactive } from 'vue';
+
 import type { CacheRowSchema } from './database';
 import { getDatabase, getTransaction, registerStoreRowSchema, USER_INFO_STORE_NAME } from './database';
 import { serviceConfig } from './store';
@@ -14,9 +16,43 @@ interface UserInfoRequest {
     resolve: (value: GetUserInfoResponse) => void;
     reject: (reason?: unknown) => void;
     status: RequestStatus;
+    revision: number;
 }
 
 const userInfoRequests = new Map<number, UserInfoRequest>();
+const userInfoRevisions = reactive(new Map<number, number>());
+const userInfoInvalidations = new Map<number, Promise<void>>();
+const invalidatedUsers = new Set<number>();
+
+export function userInfoRevision(userId: number): number {
+    return userInfoRevisions.get(userId) ?? 0;
+}
+
+export function invalidateUserInfo(userId: number): Promise<void> {
+    if (userId <= 0) return Promise.resolve();
+    invalidatedUsers.add(userId);
+    const previous = userInfoInvalidations.get(userId);
+    const invalidation = (async () => {
+        await previous;
+        try {
+            const tx = await getTransaction(USER_INFO_STORE_NAME, 'readwrite');
+            await tx.store.delete(userId);
+            await tx.done;
+        } catch {
+            // A saved profile must not appear to fail because its local cache is unavailable.
+            serviceConfig.value.userInfoLastUpdate = 0;
+        }
+    })().finally(() => {
+        if (userInfoInvalidations.get(userId) === invalidation) userInfoInvalidations.delete(userId);
+    });
+    userInfoInvalidations.set(userId, invalidation);
+    const revision = userInfoRevision(userId) + 1;
+    const pending = userInfoRequests.get(userId);
+    // Unsent requests can use the new revision without abandoning their callers.
+    if (pending?.status === 'pending') pending.revision = revision;
+    userInfoRevisions.set(userId, revision);
+    return invalidation;
+}
 
 registerStoreRowSchema(USER_INFO_STORE_NAME, {
     id: { type: 'number' },
@@ -54,12 +90,12 @@ function scheduleBatchIfNeeded() {
 function enqueueRequest(userId: number): Promise<GetUserInfoResponse> {
     // 检查是否已有该用户的请求。如果存在，直接返回现有请求的Promise
     const existing = userInfoRequests.get(userId);
-    if (existing) return existing.promise;
+    if (existing?.revision === userInfoRevision(userId)) return existing.promise;
 
     // 定义Promise的resolve和reject函数，创建一个新的Promise
     const { promise, resolve, reject } = Promise.withResolvers<GetUserInfoResponse>();
 
-    const request = { promise, resolve, reject, status: 'pending' as const };
+    const request = { promise, resolve, reject, status: 'pending' as const, revision: userInfoRevision(userId) };
     userInfoRequests.set(userId, request);
     scheduleBatchIfNeeded();
 
@@ -70,20 +106,25 @@ function shouldRefreshUpdatedUsers() {
     return Date.now() - serviceConfig.value.userInfoLastUpdate >= serviceConfig.value.userInfoUpdateInterval;
 }
 
-async function writeUserInfoCache(userInfos: GetUserInfoResponse[]) {
+async function writeUserInfoCache(userInfos: GetUserInfoResponse[], revisions: Map<number, number>) {
     const tx = await getTransaction(USER_INFO_STORE_NAME, 'readwrite');
     const { store } = tx;
 
-    await Promise.all(userInfos.map((userInfo) => store.put(userInfo)));
+    const currentInfos = userInfos.filter((info) => revisions.get(info.id) === userInfoRevision(info.id));
+    await Promise.all(currentInfos.map((userInfo) => store.put(userInfo)));
     await tx.done;
+    for (const info of currentInfos) {
+        if (revisions.get(info.id) === userInfoRevision(info.id)) invalidatedUsers.delete(info.id);
+    }
 }
 
 async function fetchUserInfoImmediately(userId: number) {
+    const revision = userInfoRevision(userId);
     const { data } = await $axios.get(`/api/userprofile/info/${userId}`);
     const userInfo = data as GetUserInfoResponse;
 
     try {
-        await writeUserInfoCache([userInfo]);
+        await writeUserInfoCache([userInfo], new Map([[userInfo.id, revision]]));
     } catch {
         // 忽略 IndexedDB 错误（如隐私模式）
     }
@@ -171,7 +212,7 @@ async function processUserInfoBatch() {
 
         // 将所有用户信息存储到数据库
         const infoMap = new Map(userInfos.map((u) => [u.id, u]));
-        await writeUserInfoCache(userInfos);
+        await writeUserInfoCache(userInfos, new Map(entries.map(([id, request]) => [id, request.revision])));
 
         // 遍历所有请求，解决或拒绝相应的Promise
         for (const [userId, { resolve, reject }] of entries) {
@@ -187,8 +228,8 @@ async function processUserInfoBatch() {
         });
     } finally {
         // 清理已处理的请求
-        entries.forEach(([userId]) => {
-            userInfoRequests.delete(userId);
+        entries.forEach(([userId, request]) => {
+            if (userInfoRequests.get(userId) === request) userInfoRequests.delete(userId);
         });
 
         // 如果还有待处理的请求，检查是否需要安排刷新缓冲区
@@ -199,17 +240,23 @@ async function processUserInfoBatch() {
 }
 
 export async function fetchUserInfo(userId: number, immediate = false): Promise<UserProfile> {
-    if (immediate) return new UserProfile(await fetchUserInfoImmediately(userId));
+    const revision = userInfoRevision(userId);
+    await userInfoInvalidations.get(userId);
+    if (immediate) {
+        const info = await fetchUserInfoImmediately(userId);
+        return revision === userInfoRevision(userId) ? new UserProfile(info) : fetchUserInfo(userId, immediate);
+    }
 
     try {
         await refreshUpdatedUsers().catch(() => undefined);
         const db = await getDatabase();
         const cached = await db.get(USER_INFO_STORE_NAME, userId) as GetUserInfoResponse | undefined;
-        if (cached) return new UserProfile(cached);
+        if (cached && !invalidatedUsers.has(userId) && revision === userInfoRevision(userId)) return new UserProfile(cached);
     } catch {
         // 忽略 IndexedDB 错误（如隐私模式）
     }
-    return new UserProfile(await enqueueRequest(userId));
+    const info = await enqueueRequest(userId);
+    return revision === userInfoRevision(userId) ? new UserProfile(info) : fetchUserInfo(userId);
 }
 
 export async function fetchUserIdentifiers(userId: number): Promise<string[]> {

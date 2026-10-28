@@ -1,4 +1,5 @@
 from datetime import datetime
+import logging
 from typing import List
 
 from django.core.exceptions import ObjectDoesNotExist
@@ -13,10 +14,11 @@ from userprofile.models import UserProfile
 from utils.response import HttpResponseConflict
 from .mineracer.sessions import poll_mineracer_account_link_session, start_mineracer_account_link
 from .models import AccountBilibili, AccountLinkQueue, AccountMineracer, AccountMinesweeperGames, AccountQQ, AccountSaolei, AccountWorldOfMinesweeper, Platform, PLATFORM_CONFIG
-from .services import update_account, verify_account_link
+from .services import unverify_account_link, update_account, verify_account_link
 from .utils import private_platforms
 
 router = Router()
+logger = logging.getLogger('accountlink')
 
 
 AccountLinkOut = create_schema(
@@ -63,12 +65,30 @@ def verify_link(request, data: AccountLinkVerifyIn = Form(...)):  # noqa: B008
     """
     - staff_required
 
-    Commit a new binding and its eligibility together; retries never regrant.
-    Remote synchronization runs after the binding transaction has committed.
+    Commit the binding and eligibility together; retries never regrant.
+    Remote profile synchronization runs after commit. Its failure never changes
+    the successful binding response. Retrying an empty MSGames profile resyncs it.
     """
     user, created = verify_account_link(data.id, data.platform, data.identifier, request.user.pk)
-    if created and data.platform != Platform.SAOLEI:
-        update_account(data.platform, user)
+    retry_empty_msgames = data.platform == Platform.MSGAMES and not user.account_msgames.name.strip()
+    if data.platform != Platform.SAOLEI and (created or retry_empty_msgames):
+        try:
+            update_account(data.platform, user)
+        except Exception:
+            logger.exception('Account binding succeeded for user #%s on platform %s; profile synchronization failed', user.pk, data.platform)
+    return HttpResponse()
+
+
+@router.post('/unverify/')
+@decorate_view(staff_required)
+def unverify_link(request, data: AccountLinkVerifyIn = Form(...)):  # noqa: B008
+    """
+    - staff_required
+
+    Remove the account and queue item atomically so a corrected ID can be submitted.
+    Keep existing name privacy eligibility and preferences.
+    """
+    unverify_account_link(data.id, data.platform, data.identifier)
     return HttpResponse()
 
 

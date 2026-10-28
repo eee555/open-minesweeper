@@ -186,6 +186,29 @@ class RealnamePrivacyTests(TestCase):
     def privacy(self, hide):
         return self.client.post('/api/userprofile/update_profile', {'hide_realname': hide})
 
+    def test_privacy_only_save_updates_marker_and_admin_state(self):
+        previous = timezone.now() - timedelta(days=1)
+        UserProfile.objects.filter(pk=self.user.pk).update(hide_realname=False, date_updated=previous)
+        self.client.force_login(self.user)
+        response = self.privacy(True)
+        self.assertEqual(response.json()['hide_realname'], {'type': 'success'})
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.hide_realname)
+        self.assertGreater(self.user.date_updated, previous)
+        updated = self.client.get('/api/userprofile/infoupdated', {'since': int(previous.timestamp() * 1000)})
+        self.assertIn(self.user.pk, updated.json())
+        self.client.force_login(self.staff)
+        self.assertTrue(self.client.get(f'/api/userprofile/admin/detail/{self.user.pk}').json()['hide_realname'])
+
+    def test_rate_limited_privacy_save_does_not_change_saved_setting(self):
+        UserProfile.objects.filter(pk=self.user.pk).update(hide_realname=False)
+        self.client.force_login(self.user)
+        with patch('django_ratelimit.decorators.is_ratelimited', return_value=True):
+            response = self.privacy(True)
+        self.assertEqual(response.status_code, 429)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.hide_realname)
+
     def test_public_and_private_names_have_distinct_contracts(self):
         for viewer in (None, self.user, self.staff):
             with self.subTest(viewer=viewer):

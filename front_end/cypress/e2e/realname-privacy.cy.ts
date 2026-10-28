@@ -175,13 +175,18 @@ describe('Real name privacy against the backend', () => {
         privacy(true).its('body.hide_realname.type').should('eq', 'error');
     });
 
-    it('updates cached names through the existing update process without clearing IndexedDB', () => {
+    it('invalidates the saved user at the normal cache interval and keeps hidden names after reload', () => {
         const user = USERS.cached;
         cy.login(STAFF.username, STAFF.password);
         staffPatch(user.id, { can_hide_realname: true });
         cy.login(user.username, user.password);
         cy.intercept({ method: 'GET', pathname: '/api/video/query' }).as('cachedUserVideos');
-        cy.visit('/#/database/videos');
+        cy.visit('/#/database/videos', {
+            onBeforeLoad(win) {
+                const config = JSON.parse(win.localStorage.getItem('service-config') ?? '{}') as Record<string, number>;
+                win.localStorage.setItem('service-config', JSON.stringify({ ...config, userInfoUpdateInterval: 86400000, userInfoLastUpdate: Date.now() }));
+            },
+        });
         cy.wait('@cachedUserVideos').its('response.body.videos').should((rows: { player__id: number }[]) => {
             expect(rows.some((row) => row.player__id === user.id), 'the cached user has a visible video').to.eq(true);
         });
@@ -189,23 +194,15 @@ describe('Real name privacy against the backend', () => {
         cachedName(user.id).should('eq', user.realname);
         navigate(`#/player/${user.id}/settings`);
         cy.intercept('POST', '**/api/userprofile/update_profile').as('saveProfile');
+        cy.intercept('GET', '**/api/userprofile/infobulk*').as('publicBatch');
         cy.get('[data-cy=hide-realname-toggle]').check();
         cy.get('[data-cy=save-profile]').click();
         cy.wait('@saveProfile').its('response.body.hide_realname.type').should('eq', 'success');
-        cachedName(user.id).should('eq', user.realname);
-        cy.intercept('GET', '**/api/userprofile/infoupdated*').as('updated');
-        cy.intercept('GET', '**/api/userprofile/infobulk*').as('publicBatch');
-        // A document query change forces a reload; a hash-only visit skips onBeforeLoad.
-        cy.visit('/?privacy-cache-refresh=1#/database/videos', {
-            onBeforeLoad(win) {
-                // Set the interval before useLocalStorage initializes its in-memory ref.
-                const config = JSON.parse(win.localStorage.getItem('service-config') ?? '{}') as Record<string, number>;
-                expect(config.userInfoLastUpdate).to.be.greaterThan(0);
-                win.localStorage.setItem('service-config', JSON.stringify({ ...config, userInfoUpdateInterval: 0 }));
-            },
-        });
-        cy.wait('@updated').its('response.body').should('include', user.id);
+        navigate('#/database/videos');
         cy.wait('@publicBatch').its('response.statusCode').should('eq', 200);
+        cy.get(`.player-name a[href="#/player/${user.id}"]`).should('have.text', `用户 #${user.id}`);
+        cachedName(user.id).should('eq', 'hidden');
+        cy.reload();
         cy.get(`.player-name a[href="#/player/${user.id}"]`).should('have.text', `用户 #${user.id}`);
         cachedName(user.id).should('eq', 'hidden');
     });

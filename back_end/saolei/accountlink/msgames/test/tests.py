@@ -60,6 +60,11 @@ class MSGamesMappingTests(SimpleTestCase):
             with self.subTest(player_id=player_id), self.assertRaises(ValueError):
                 normalize_profile(value, player_id)
 
+    def test_empty_name_is_rejected_before_binding(self):
+        for name in ('', '  '):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                normalize_profile(replace(profile(), name=name), 42)
+
     def test_replays_merge_all_metrics_and_nf_groups_by_original_url(self):
         result = normalize_replays([*records(), *records(RecordMetric.THREE_BVS)], 42)
         self.assertEqual(len(result), 2)
@@ -119,6 +124,7 @@ class MSGamesMappingTests(SimpleTestCase):
                 with self.assertRaises(ExceptionToResponse) as caught:
                     fetch_profile(42)
                 self.assertEqual(caught.exception.category, category)
+                self.assertEqual(caught.exception.status_code, 503)
                 factory.return_value.__exit__.assert_called_once()
 
     @patch('accountlink.msgames.client.Client')

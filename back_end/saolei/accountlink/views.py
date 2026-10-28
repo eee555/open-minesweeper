@@ -3,7 +3,7 @@ from django.tasks import TaskResultStatus
 from django.views.decorators.http import require_GET, require_POST
 from django_ratelimit.decorators import ratelimit
 
-from userprofile.decorators import login_required_error, staff_required
+from userprofile.decorators import login_required_error
 from userprofile.models import UserProfile
 from utils.exceptions import ExceptionToResponse
 from .models import AccountLinkQueue, AccountSaolei, Platform, VideoSaolei
@@ -25,27 +25,6 @@ def delete_link(request):
         accountlink.delete()
         return HttpResponse()
     return HttpResponseNotFound()
-
-
-@require_POST
-@staff_required
-def unverify_link(request):
-    userid = request.GET.get('id') or request.POST.get('id')
-    if not (user := UserProfile.objects.filter(id=userid).first()):
-        return HttpResponseNotFound()
-    if not (platform := request.POST.get('platform')):
-        return HttpResponseBadRequest()
-    if not (identifier := request.POST.get('identifier')):
-        return HttpResponseBadRequest()
-    if platform == Platform.MINERACER:
-        return ExceptionToResponse('mineracer', 'unlink_not_supported', status_code=409).response()
-    accountlink = AccountLinkQueue.objects.filter(userprofile=user, platform=platform, identifier=identifier).first()
-    if not accountlink:
-        return HttpResponseNotFound()
-    delete_account(user, platform)
-    accountlink.verified = False
-    accountlink.save(update_fields=['verified'])
-    return HttpResponse()
 
 
 @require_POST

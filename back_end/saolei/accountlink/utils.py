@@ -30,16 +30,10 @@ def link_account(platform: Platform, linkid, user: UserProfile):
 
 
 def delete_account(user: UserProfile, platform: Platform):
-    if platform == Platform.SAOLEI:
-        user.account_saolei.delete()
-    elif platform == Platform.MSGAMES:
-        user.account_msgames.delete()
-    elif platform == Platform.WOM:
-        user.account_wom.delete()
-    elif platform == Platform.BILIBILI:
-        user.account_bilibili.delete()
-    elif platform == Platform.MINERACER:
+    if platform == Platform.MINERACER:
         raise ExceptionToResponse('mineracer', 'unlink_not_supported', status_code=409)
+    if platform in PLATFORM_CONFIG:
+        PLATFORM_CONFIG[platform]['model'].objects.filter(parent=user).delete()
 
 
 def update_bilibili_account(account: AccountBilibili):

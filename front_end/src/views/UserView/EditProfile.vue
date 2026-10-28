@@ -112,6 +112,7 @@ import { useI18n } from 'vue-i18n';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import { httpErrorNotification } from '@/components/Notifications';
+import { invalidateUserInfo } from '@/services/userService';
 import type { EnumMap } from '@/utils';
 import { createEnumMap } from '@/utils';
 import useCurrentInstance from '@/utils/common/useCurrentInstance';
@@ -197,6 +198,10 @@ async function updateProfile() {
         }
     }
     if (invalid) return;
+    for (const field of UpdateProfileFields) {
+        formStatus.value[field].status = '';
+        formStatus.value[field].errorMsg = '';
+    }
     updating.value = true;
     const owner = user.value;
     const params = new FormData();
@@ -211,15 +216,20 @@ async function updateProfile() {
         await proxy.$axios.post(
             '/api/userprofile/update_profile',
             params,
-        ).then((response) => {
-            if (user.value !== owner) return;
+        ).then(async (response) => {
             const data = response.data as EnumMap<UpdateProfileField, UpdateProfileResponseSingle> & { hide_realname?: UpdateProfileResponseSingle };
+            if ([...UpdateProfileFields, 'hide_realname' as const].some((field) => data[field]?.type === 'success')) await invalidateUserInfo(owner.id);
+            if (user.value !== owner) return;
             for (const field of UpdateProfileFields) {
                 processUpdateResponse(field, data[field]);
             }
             if (data.hide_realname?.type === 'error') privacyError.value = t(data.hide_realname.object === 'name' && data.hide_realname.category === 'reserved' ? 'msg.reservedName' : `local.error.${data.hide_realname.object}.${data.hide_realname.category}`);
             if (data.hide_realname?.type === 'success') owner.hide_realname = hideRealname.value;
-        }).catch(httpErrorNotification);
+            hideRealname.value = !owner.isAnonymous && owner.hide_realname;
+        }).catch((error: unknown) => {
+            if (user.value === owner) hideRealname.value = !owner.isAnonymous && owner.hide_realname;
+            httpErrorNotification(error);
+        });
     }
     updating.value = false;
 }

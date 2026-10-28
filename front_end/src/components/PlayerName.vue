@@ -37,7 +37,7 @@ import BaseTooltip from '@/components/common/BaseTooltip.vue';
 import PlayerBadge from '@/components/widgets/PlayerBadge.vue';
 import type { MedalStateRecord } from '@/services/medalService';
 import { cachedPlayerMedalState, fetchPlayerMedalState, medalCaption, medalSeriesFromCode, medalStateVersions } from '@/services/medalService';
-import { fetchUserInfo } from '@/services/userService';
+import { fetchUserInfo, userInfoRevision } from '@/services/userService';
 import { local } from '@/store/local';
 import { formatName } from '@/utils/strings';
 import { UserProfile } from '@/utils/userprofile';
@@ -168,7 +168,7 @@ async function showMedalsIfHovering() {
     tooltip.value?.show();
 }
 onUnmounted(closeOurMedals);
-watch(() => props.userId, async (newVal, _, onCleanup) => {
+watch(() => [props.userId, userInfoRevision(props.userId)] as const, async ([newVal], _, onCleanup) => {
     let active = true;
     onCleanup(() => {
         active = false;
