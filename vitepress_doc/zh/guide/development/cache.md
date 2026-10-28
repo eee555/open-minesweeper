@@ -21,6 +21,8 @@ description: 开源扫雷网Redis/Django缓存结构详解，包括录像队列�
 
 两个 `*_all` 字段均为持久化 `GeneratedField`，由数据库计算比赛与非比赛口径之和，不直接写入。上传额度 `video_num_limit` 独立维护，额度检查继续使用非比赛数量 `video_num_total`。
 
+删除 `UserProfile` 时，`userprofile.signals.delete_user_ms` 在同一删除事务内按真实 `userms_id` 删除关联 `UserMS`，其 `Identifier` 按外键级联删除。实例和 QuerySet 删除均生效；从 `UserMS` 发起的级联沿用原删除收集器，避免重复清理。历史上没有关联用户的 `UserMS` 可用 [cleanup_orphan_userms](./management-commands.md#cleanup-orphan-userms) 分批清理；该命令不写 Redis，已关联用户的记录保留。
+
 用户数据库页 `/database/users` 通过 `GET /api/userprofile/query` 直接读库，不使用用户资料 IndexedDB 缓存：录像统计变化不会更新 `UserProfile.date_updated`。查询集中在 `common.services`，每个非空页执行计数、用户及统计、当前页已验证关联 ID 三次查询。`AccountLinkQueue(platform, identifier)` 联合索引用于平台 ID 精确查询，用户外键索引用于分页后的批量读取。接口用法见仓库 `back_end/saolei/userprofile/README.md`。
 
 补录逻辑及延迟重算行为保持不变：比赛关联变化不立即调整统计。删除、文件大小及玩家归属变更按该录像当前的比赛标记和关联归类，允许与原先计入的口径存在偏差，统一由 [refresh_video_counts](./management-commands.md#refresh-video-counts) 全量重算修复；不保存历史统计分类字段。迁移后需先运行重算命令补齐历史统计。

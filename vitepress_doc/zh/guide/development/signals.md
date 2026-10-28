@@ -61,6 +61,7 @@ flowchart LR
     video_post_delete --> refresh_custom_pluck_rank_on_video_delete[提交后补位pluck纪录]
 
     video_pre_delete --> update_video_count_on_video_delete[删除用户录像统计]
+    profile_post_delete[UserProfile post_delete] --> delete_user_ms[删除关联扫雷资料]
 
 
 
@@ -117,6 +118,8 @@ flowchart LR
     click refresh_custom_pluck_rank_on_video_delete "#signal-function-map" "录像删除提交后从剩余合格录像补位自定义 pluck 纪录"
     click delete_video_expansion "#signal-function-map" "录像删除事务内清理扩展记录，扩展记录源的删除沿用原级联"
     click update_video_count_on_video_delete "#signal-function-map" "录像删除前按当前比赛标记及关联减少数量和空间"
+    click profile_post_delete "#signal-function-map" "用户删除后触发关联扫雷资料清理"
+    click delete_user_ms "#signal-function-map" "同一事务内按真实外键删除 UserMS，UserMS 发起的级联跳过重复清理"
     click update_custom_pluck_cache_on_record_save "#signal-function-map" "pluck 纪录保存后同步排行缓存"
     click update_custom_pluck_cache_on_record_delete "#signal-function-map" "pluck 纪录删除提交后按当前数据库纪录同步缓存"
     click update_cache_on_tournament_save "#signal-function-map" "比赛保存后同步 NORMAL 比赛缓存"
@@ -132,6 +135,8 @@ flowchart LR
 ```
 
 <a id="signal-function-map"></a>
+
+`UserProfile.post_delete` 调用 `userprofile.signals.delete_user_ms`，在同一删除事务内按 `instance.userms_id` 清理关联 `UserMS`，并由已有外键删除其标识；覆盖实例、QuerySet 及 Admin 删除。`origin` 为 `UserMS` 实例或 QuerySet 时跳过，因为原收集器已经负责删除，避免重复信号。无关联资料时直接跳过，清理失败会回滚用户与资料删除。历史孤立资料使用 [cleanup_orphan_userms](./management-commands.md#cleanup-orphan-userms) 处理。
 
 `MiniGameBestScore.post_delete` 调用 `minigame.signals.delete_cached_score`，在事务提交后从该榜 ZSET 和明细 Hash 移除玩家，保留初始化标记；覆盖 Admin、QuerySet 和用户级联删除，回滚不改缓存。小游戏创建和改善由提交服务直接注册 `on_commit` 更新，不另设保存信号。
 
@@ -149,6 +154,7 @@ GSC 历史补录沿用默认 TournamentUser 创建和 best 保存信号，允许
 | 刷新状态队列 | `refresh_state_queue_on_video_save` |
 | 更新用户录像统计与上传额度 | `update_video_count_on_video_save` |
 | 删除用户录像统计 | `update_video_count_on_video_delete` |
+| 删除关联扫雷资料 | `userprofile.signals.delete_user_ms` |
 | 将比赛录像挂载到比赛 | `add_created_video_to_checked_tournaments` |
 | 刷新pluck纪录 | `refresh_custom_pluck_rank_on_video_save` |
 | 提交后补位pluck纪录 | `refresh_custom_pluck_rank_on_video_delete` |

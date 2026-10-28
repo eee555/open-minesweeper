@@ -294,6 +294,25 @@ python manage.py refresh_tournament_scores 123
 python manage.py refresh_tournament_user_stats
 ```
 
+## 数据清理
+
+### `cleanup_orphan_userms` {#cleanup-orphan-userms}
+
+位置：`msuser/management/commands/cleanup_orphan_userms.py`
+
+删除没有关联 `UserProfile` 的孤立 `UserMS`，并按既有外键级联删除这些资料的标识。通过真实关联判断是否孤立，不比较两张表的主键数值；已经关联用户的资料全部保留，包括停用账号。
+
+```bash
+python manage.py cleanup_orphan_userms --dry-run
+python manage.py cleanup_orphan_userms --batch-size 1000
+```
+
+`--dry-run` 只统计；`--batch-size` 默认 1000，必须为正数；`--database` 默认 `default`，可指定已配置的数据库别名。输出只统计 `UserMS` 数量，不把级联删除的标识计入其中，重复执行没有待清理数据时输出 0。
+
+实际删除按主键分批，每批独立事务：先锁定候选 `UserMS` 行，再重新检查用户关联，保留候选查询之后已关联的资料。失败时回滚当前批，此前完成的批次保留。命令不扫描或改写 Redis，也不重建用户排行。新的账号删除已由 `UserProfile.post_delete` 自动清理其关联 `UserMS`；本命令处理历史遗留或其他来源的孤立资料。
+
+执行期间暂停先创建 `UserMS`、再关联账号的写入流程；尚未完成关联的新资料也符合孤立条件，命令无法将其与历史残留区分。
+
 ## 缓存清理
 
 ### `delete_legacy_speedranking_cache`

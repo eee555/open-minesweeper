@@ -1,5 +1,13 @@
 # 用户姓名隐藏
 
+纪念账号的业务规则、注销 ID 复用与站长代管方案见 [纪念账号方案](./MEMORIAL_ACCOUNT_PLAN.md)（规划中，尚未实现）。
+
+## 账号删除与孤立扫雷资料
+
+`UserProfile.post_delete` 按真实 `userms_id` 在同一数据库事务内删除关联 `UserMS`，其标识通过外键级联删除；覆盖实例和 QuerySet 删除。从 `UserMS` 发起的原有级联跳过重复清理，未关联 `UserMS` 的账号可正常删除。
+
+历史孤立 `UserMS` 使用 `python manage.py cleanup_orphan_userms --dry-run` 预览，去掉 `--dry-run` 执行清理。支持 `--batch-size`（默认 1000）和 `--database`（默认 `default`）；实际删除分批加锁并重新检查用户关联，已关联用户的资料保留。两种用户 ID 无需相等，不使用同值主键推断归属。
+
 ## 授权与设置
 
 - `can_hide_realname` 记录资格，`hide_realname` 记录用户选择，默认均为 False。管理员可授权或撤销；撤销同时关闭隐藏。
