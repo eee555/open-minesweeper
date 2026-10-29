@@ -9,10 +9,12 @@ from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
 from django.db import transaction
 
+from msuser.models import UserMS
 from speedranking.saolei.cache import SpeedRankingCache
 from utils import generate_code, verify_text
 from utils.exceptions import ExceptionToResponse
 from videomanager.models import VideoModel
+from .forms import UserRegisterForm
 from .models import EmailVerifyRecord, UserProfile
 from .utils import count_new_avatar_chance, count_new_signature_chance, NAME_FIELDS, validate_name
 
@@ -24,6 +26,31 @@ NAME_DEFAULT = {
     'firstname': '',
     'lastname': '',
 }
+
+
+def register_user(data: dict[str, str], user_ip: str) -> UserProfile:
+    form = UserRegisterForm(data=data)
+    if not form.is_valid():
+        raise ExceptionToResponse('register', 'validation')
+    if not judge_email_verification(form.cleaned_data['email'], data['email_captcha'], data['email_key']):
+        raise ExceptionToResponse('emailcode', 'invalid')
+
+    user = form.save(commit=False)
+    try:
+        is_valid = verify_text(user.username, 0, user_ip)
+    except Exception:
+        raise ExceptionToResponse('censorship', 'unknown')
+    if not is_valid:
+        raise ExceptionToResponse('censorship', 'illegal')
+
+    user.set_password(form.cleaned_data['password'])
+    user.is_active = True
+    with transaction.atomic():
+        user.userms = UserMS.objects.create()
+        user.save()  # noqa: DJM100 - creating a new user
+        EmailVerifyRecord.objects.filter(hashkey=data['email_key']).delete()
+    logger.info('User %s#%s registered', user.username, user.pk)
+    return user
 
 
 def try_update_user_name_fields(user: UserProfile, field_name: Literal['realname', 'firstname', 'lastname'], field_value: str, user_ip: str):

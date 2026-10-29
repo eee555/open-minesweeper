@@ -9,9 +9,8 @@ from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFou
 from django.views.decorators.http import require_GET, require_POST
 from django_ratelimit.decorators import ratelimit
 
-from msuser.models import UserMS
 from .decorators import staff_required
-from .forms import EmailForm, UserLoginForm, UserRegisterForm, UserRetrieveForm
+from .forms import EmailForm, UserLoginForm, UserRetrieveForm
 from .models import EmailVerifyRecord, UserProfile
 from .services import judge_email_verification, send_email, user_metadata
 from .utils import judge_captcha
@@ -74,45 +73,6 @@ def user_retrieve(request):
     logger.info(f'用户 {user.username}#{user.id} 邮箱找回密码')
     EmailVerifyRecord.objects.filter(hashkey=emailHashkey).delete()
     return JsonResponse({'type': 'success', 'user': user_metadata(user, user)})
-
-
-# 用户注册
-# @method_decorator(ensure_csrf_cookie)
-@ratelimit(key='ip', rate='6/h')
-@require_POST
-def user_register(request):
-    user_register_form = UserRegisterForm(data=request.POST)
-    if user_register_form.is_valid():
-        emailHashkey = request.POST.get('email_key')
-        email_captcha = request.POST.get('email_captcha')
-        email = request.POST.get('email')
-        if judge_email_verification(email, email_captcha, emailHashkey):
-            new_user = user_register_form.save(commit=False)
-            # 设置密码(哈希)
-            new_user.set_password(
-                user_register_form.cleaned_data['password'])
-            new_user.is_active = True  # 自动激活
-            user_ms = UserMS.objects.create()
-            new_user.userms = user_ms
-            user_ms.save()  # noqa: DJM100
-            new_user.save()  # noqa: DJM100
-            # 保存好数据后立即登录
-            login(request, new_user)
-            logger.info(f'用户 {new_user.username}#{new_user.id} 注册')
-            # 顺手把过期的验证码删了
-            EmailVerifyRecord.objects.filter(hashkey=emailHashkey).delete()
-            return JsonResponse({'type': 'success', 'user': user_metadata(new_user, new_user)})
-        else:
-            return JsonResponse({'type': 'error', 'object': 'emailcode'})
-    else:
-        if 'email' not in user_register_form.cleaned_data or 'username' not in user_register_form.cleaned_data:
-            # 可能发生前端验证正确，而后端验证不正确（后端更严格），此时clean会直接删除email字段
-            # 重复的邮箱、用户名也会被删掉
-            errors_dict = json.loads(user_register_form.errors.as_json())
-            errors = list(errors_dict.values())[0]
-            return JsonResponse({'status': 105, 'msg': errors[0]['message']})
-        else:
-            return JsonResponse({'status': 101, 'msg': user_register_form.errors.as_text().split('*')[-1]})
 
 
 @require_GET
