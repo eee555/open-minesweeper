@@ -5,7 +5,7 @@ import os
 from captcha.models import CaptchaStore
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
-from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponseNotFound, JsonResponse
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFound, JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 from django_ratelimit.decorators import ratelimit
 
@@ -127,29 +127,6 @@ def check_collision(request):
     if not user:
         return HttpResponse(False)
     return HttpResponse(True)
-
-
-# 【站长】任命解除管理员
-# http://127.0.0.1:8000/userprofile/set_staff/?id=1&is_staff=True
-@require_GET
-def set_staff(request: HttpRequest):
-    if not request.user.is_superuser:
-        return HttpResponseForbidden()
-    user = UserProfile.objects.get(id=request.GET['id'])
-    user.is_staff = request.GET['is_staff']
-    logger.info(f"{request.user.id} set_staff {request.GET['id']} {request.GET['is_staff']}")
-    if request.GET['is_staff'] == 'True':
-        user.is_staff = True
-        user.save(update_fields=['is_staff', 'date_updated'])
-        logger.info(f'用户 {user.username}#{user.id} 成为管理员')
-        return HttpResponse(f'设置"{user.realname}"为管理员成功！')
-    elif request.GET['is_staff'] == 'False':
-        user.is_staff = False
-        user.save(update_fields=['is_staff', 'date_updated'])
-        logger.info(f'用户 {user.username}#{user.id} 卸任管理员')
-        return HttpResponse(f'解除"{user.realname}"的管理员权限！')
-    else:
-        return HttpResponse('失败！is_staff需要为"True"或"False"（首字母大写）')
 
 
 # 【管理员】删除用户的个人信息，从服务器磁盘上完全删除，但不影响是否封禁

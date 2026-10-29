@@ -58,7 +58,7 @@ class UserDirectoryTests(TestCase):
         self.assertEqual(data['count'], 6)
         self.assertEqual([user['id'] for user in data['users']], [user.id for user in self.members])
         alpha = data['users'][0]
-        self.assertEqual(set(alpha), {'id', 'date_joined', 'statistics', 'accounts'})
+        self.assertEqual(set(alpha), {'id', 'date_joined', 'statistics', 'accounts', 'is_memorial'})
         self.assertEqual(parse_datetime(alpha['date_joined']), self.alpha.date_joined)
         self.assertEqual(alpha['statistics'], {
             'video_num_total': 4, 'video_num_tournament': 1, 'video_num_all': 5,

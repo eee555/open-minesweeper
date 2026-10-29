@@ -27,10 +27,12 @@ from speedranking.top.cache import TopRankingCache
 from tournament.gsc.services import restart_gsc_task
 from userprofile.decorators import staff_required
 from videomanager.models import VideoModel
+from .memorial.api import router as memorial_router
 from .schema import AnalyzerWebsiteInfoOut, AutoLoginOut
 from .services import cleanup_expired_tasks, get_video_rankings
 
 router = Router()
+router.add_router('/admin/memorial', memorial_router)
 
 LOG_DIR = Path('logs')
 DEFAULT_TAIL_BYTES = 64 * 1024

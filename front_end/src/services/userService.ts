@@ -62,6 +62,7 @@ registerStoreRowSchema(USER_INFO_STORE_NAME, {
     realname: { type: 'string', default: '' },
     is_banned: { type: 'boolean', default: false },
     is_staff: { type: 'boolean', default: false },
+    is_memorial: { type: 'boolean', default: false },
     country: { type: 'string', default: '' },
     signature: { type: 'string', default: '' },
     last_change_avatar: { type: 'string', default: '' },

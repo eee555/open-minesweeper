@@ -6,13 +6,16 @@ from urllib.parse import quote
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
+from django.db import transaction
 from django.http import FileResponse, HttpRequest, HttpResponse, HttpResponseForbidden, HttpResponseNotFound
 from django.shortcuts import get_object_or_404
 from django.views.decorators.cache import cache_control
 from django_ratelimit.decorators import ratelimit
 from ninja import File, Form, Query, Router, Schema, UploadedFile
 from ninja.decorators import decorate_view
+from ninja.errors import HttpError
 from ninja.orm import create_schema
+from ninja.security import django_auth_superuser
 
 from common.services import query_user_directory_page
 from utils import verify_image
@@ -28,6 +31,23 @@ from .utils import NAME_FIELDS
 router = Router()
 logger = logging.getLogger('userprofile')
 AVATAR_ACCEL_REDIRECT_PREFIX = '/internal-media/'
+
+
+class StaffAssignmentIn(Schema):
+    user_id: int
+    is_staff: bool
+
+
+@router.post('/admin/staff', auth=django_auth_superuser, response=create_schema(UserProfile, name='StaffAssignmentOut', fields=['id', 'is_staff']))
+def assign_staff(request, data: StaffAssignmentIn):
+    """- auth=django_auth_superuser (session and CSRF)"""
+    user = get_object_or_404(UserProfile, pk=data.user_id)
+    if user.is_memorial:
+        raise HttpError(409, 'Memorial accounts cannot have administrative permissions.')
+    user.is_staff = data.is_staff
+    user.save(update_fields=['is_staff', 'date_updated'])
+    logger.warning('Set user #%s is_staff=%s', user.pk, data.is_staff)
+    return user
 
 
 @router.get('/query', response=UserDirectoryPageOut)
@@ -59,7 +79,7 @@ AdminUserProfileOut = create_schema(
     fields=[
         'id', 'username', 'email',
         'signature', 'country',
-        'is_banned', 'is_staff',
+        'is_banned', 'is_staff', 'is_memorial',
         'left_realname_n', 'left_avatar_n', 'left_signature_n',
         'last_change_avatar', 'last_change_signature',
         'date_updated', 'can_hide_realname', 'hide_realname',
@@ -103,8 +123,11 @@ def update_user_profile_admin(request, user_id: int, data: AdminUserProfileUpdat
     """
     - staff_required
     """
-    get_object_or_404(UserProfile, id=user_id)
-    return update_admin_profile(user_id, data.model_dump(exclude_unset=True), request.user)
+    with transaction.atomic():
+        user = get_object_or_404(UserProfile.objects.select_for_update(), id=user_id)
+        if user.is_staff and user.pk != request.user.pk:
+            raise ExceptionToResponse('user', 'staff', status_code=403)
+        return update_admin_profile(user_id, data.model_dump(exclude_unset=True), request.user)
 
 
 @router.get('/info/0', response=SelfUserInfoOut)

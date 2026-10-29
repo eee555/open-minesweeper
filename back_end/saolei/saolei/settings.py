@@ -239,7 +239,7 @@ CAPTCHA_CHALLENGE_FUNCT = 'captcha.helpers.random_char_challenge'
 if DEBUG:
     CORS_ALLOW_CREDENTIALS = True
     CORS_ALLOW_ALL_ORIGINS = True
-    CORS_ALLOW_HEADERS = ('*')
+    # Use django-cors-headers' defaults, including content-type and x-csrftoken.
     CSRF_TRUSTED_ORIGINS = ['http://localhost:8080']
 
 if DEBUG:

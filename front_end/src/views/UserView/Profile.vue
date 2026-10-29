@@ -24,6 +24,10 @@
                 </div>
             </template>
         </div>
+        <MemorialBadge v-if="user.is_memorial" />
+        <RouterLink v-if="user.is_memorial && store.user.is_superuser" :to="{ path: '/superuser/memorial', query: { id: user.id } }" class="link">
+            {{ t('local.uploadMemorial') }}
+        </RouterLink>
         <ProfilePins class="profile-pins" :user-id="user.id" />
         <BaseButton v-if="store.isSelf" class="edit-button" @click="router.push({ name: 'user-settings', params: { id: user.id } })">
             {{ t('local.editButton') }}
@@ -38,13 +42,14 @@
 <script setup lang="ts">
 import type { PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useRouter } from 'vue-router';
+import { RouterLink, useRouter } from 'vue-router';
 
 import Avatar from './Avatar.vue';
 import ProfilePins from './ProfilePins.vue';
 import ProfileQualification from './ProfileQualification.vue';
 
 import BaseButton from '@/components/common/BaseButton.vue';
+import MemorialBadge from '@/components/widgets/MemorialBadge.vue';
 import { local, store } from '@/store';
 import { formatName } from '@/utils/strings';
 import { UserProfile } from '@/utils/userprofile';
@@ -66,10 +71,12 @@ const i18nMessages = {
     'zh-cn': { local: {
         editButton: '编辑信息',
         hiddenName: '用户 #{id}',
+        uploadMemorial: '补传纪念录像',
     } },
     en: { local: {
         editButton: 'Edit Profile',
         hiddenName: 'User #{id}',
+        uploadMemorial: 'Upload memorial replays',
     } },
 };
 

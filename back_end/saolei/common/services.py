@@ -13,10 +13,11 @@ from config.customranking import CUSTOM_PLUCK_LEVELS
 from config.text_choices import MS_TextChoices
 from customranking.cache import PLuckRankingCache
 from identifier.models import Identifier
+from identifier.services import bind_identifier
 from identifier.utils import verify_identifier
 from msuser.models import UserMS
 from speedranking.pb.cache import PBRankingCache
-from speedranking.pb.utils import member, record_field
+from speedranking.pb.utils import encode_score, member, record_field
 from speedranking.saolei.cache import SpeedRankingCache
 from speedranking.saolei.utils import RANKING_NAMES, RULES
 from userprofile.models import UserProfile
@@ -25,7 +26,7 @@ from utils.exceptions import ExceptionToResponse
 from utils.parser import MSVideoParser
 from utils.ranking_lock import ranking_access
 from videomanager.models import VideoModel
-from videomanager.services import find_identical_video
+from videomanager.services import find_identical_video, set_import_upload_time
 
 
 TASK_CLEANUP_BATCH_SIZE = 200
@@ -33,7 +34,7 @@ TASK_CLEANUP_BATCH_SIZE = 200
 
 def query_user_directory_page(filters: UserDirectoryQuery):
     users = UserProfile.objects.select_related('userms').only(
-        'id', 'date_joined',
+        'id', 'date_joined', 'is_memorial',
         'userms__id', 'userms__video_num_total', 'userms__video_num_tournament', 'userms__video_num_all',
         'userms__video_size_total', 'userms__video_size_tournament', 'userms__video_size_all',
     )
@@ -71,6 +72,55 @@ def query_user_directory_page(filters: UserDirectoryQuery):
         for user in page:
             user.accounts = accounts[user.id]
     return {'count': count, 'users': page}
+
+
+@ranking_access(operation='common.import_identifier')
+@transaction.atomic
+def bind_import_identifier(user: UserProfile, identifier_text: str):
+    if not user.userms_id:
+        user.userms = UserMS.objects.create()
+        user.save(update_fields=['userms'])
+    identifier, _ = Identifier.objects.select_for_update().get_or_create(identifier=identifier_text, defaults={'safe': True})
+    if identifier.userms_id is not None and identifier.userms_id != user.userms_id:
+        return {'identifier': identifier.identifier, 'bound': False}
+    if not identifier.safe:
+        raise ExceptionToResponse('identifier', 'invalid', status_code=400)
+    bind_identifier(identifier, user.userms)
+    return {'identifier': identifier.identifier, 'bound': True}
+
+
+@ranking_access(operation='common.import_video')
+@transaction.atomic
+def import_video_by_file(user: UserProfile, file, upload_time):
+    if django_timezone.is_naive(upload_time):
+        raise ExceptionToResponse('upload_time', 'timezone_required', status_code=422)
+    try:
+        encode_score(0, upload_time)
+    except (ValueError, OverflowError) as error:
+        raise ExceptionToResponse('upload_time', 'invalid', status_code=422) from error
+    try:
+        parser = MSVideoParser(file)
+    except ExceptionToResponse as error:
+        error.status_code = max(error.status_code, 400)
+        raise
+    if not user.userms_id:
+        user.userms = UserMS.objects.create()
+        user.save(update_fields=['userms'])
+    if not verify_identifier(parser.identifier):
+        raise ExceptionToResponse('identifier', 'verify', status_code=400)
+    if not Identifier.verify(parser.identifier, user.userms) and parser.state == MS_TextChoices.State.OFFICIAL:
+        parser.state = MS_TextChoices.State.IDENTIFIER
+    video = find_identical_video(file)
+    if video is not None:
+        if video.player_id != user.pk:
+            raise ExceptionToResponse('file', 'collision', status_code=409)
+        set_import_upload_time(video, upload_time)
+    else:
+        video = VideoModel.create_from_parser(parser, user, upload_time=upload_time)
+        set_import_upload_time(video, upload_time, created=True)
+        video.save(update_fields=['ongoing_tournament'])
+        video.update_redis()
+    return video
 
 
 @ranking_access(operation='common.upload_video')

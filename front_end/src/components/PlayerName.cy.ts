@@ -88,6 +88,13 @@ describe('PlayerName', () => {
         cy.contains(`User#${user.id}`);
     });
 
+    it('shows the memorial identity', () => {
+        mockUserInfo({ body: [{ ...user, is_memorial: true }] });
+        mountPlayerName(user.id);
+        cy.wait('@fetchUser');
+        cy.get('[data-cy=memorial-badge]').should('contain.text', 'Memorial account');
+    });
+
     it('refreshes an already mounted cached name after a profile save without waiting a day', () => {
         cy.then(async () => {
             serviceConfig.value.userInfoLastUpdate = Date.now();

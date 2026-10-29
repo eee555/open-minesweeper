@@ -10,6 +10,11 @@
 ## API
 项目里API分为旧的Django views和新的Ninja API。如需创建API，使用Ninja API。如需修改旧的Django views，直接迁移到Ninja API。
 
+### 权限控制
+权限控制统一在 API 层解决，包括登录状态、管理员或站长角色、本人操作限制及目标资源访问权限。service 层不处理权限控制，不重复校验操作者身份或权限。
+
+service 层负责业务逻辑、业务状态、数据有效性和一致性校验。
+
 ### Ninja API Schema
 输出的Schema如果涉及到模型，优先使用`create_schema`生成。
 

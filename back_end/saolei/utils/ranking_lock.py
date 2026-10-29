@@ -18,6 +18,7 @@ _write_paths = re.compile(
     r'identifier/(?:add/|del/|add/staff/|del/staff/)|'
     r'api/accountlink/msgames/videos/\d+/import/?|api/tournament/video/\d+/reveal/?|'
     r'api/video/admin/delete/?|'
+    r'api/common/admin/memorial/users/\d+/videos/?|'
     r'api/tournament/gsc/history/prepare/?|api/tournament/gsc/history/participants/\d+/(?:identifier|videos)/?|'
     r'api/speedranking/top/admin/rebuild_record/?|'
     r'dangerzone/(?:create_video|bind_identifier|unbind_identifier|delete_identifier|flush_database)/?)$',

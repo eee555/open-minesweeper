@@ -86,6 +86,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('../views/StaffView/DeleteVideos.vue'),
     },
     {
+        path: '/superuser/memorial',
+        name: 'superuser-memorial',
+        component: () => import('../views/StaffView/MemorialAccounts.vue'),
+    },
+    {
         path: '/tournament/:id',
         name: 'tournament_id',
         component: () => import('../views/TournamentView/TournamentView.vue'),

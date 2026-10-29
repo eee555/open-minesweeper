@@ -5,6 +5,7 @@
                 <PlayerBadge :user-id="userId" :name="nameShown" :show-avatar="local.playerNameShowAvatar" />
             </RouterLink>
             <PlayerBadge v-else :user-id="userId" :name="nameShown" :show-avatar="local.playerNameShowAvatar" />
+            <MemorialBadge v-if="user.id === userId && user.is_memorial" />
         </span>
         <template #content>
             <div class="player-name-medals" @pointerleave="activeMedalKey = ''">
@@ -34,6 +35,7 @@ import { useI18n } from 'vue-i18n';
 import { RouterLink } from 'vue-router';
 
 import BaseTooltip from '@/components/common/BaseTooltip.vue';
+import MemorialBadge from '@/components/widgets/MemorialBadge.vue';
 import PlayerBadge from '@/components/widgets/PlayerBadge.vue';
 import type { MedalStateRecord } from '@/services/medalService';
 import { cachedPlayerMedalState, fetchPlayerMedalState, medalCaption, medalSeriesFromCode, medalStateVersions } from '@/services/medalService';

@@ -230,7 +230,7 @@ class TestGscHistory(TournamentTestCaseBase):
         old.save(update_fields=['state'])
         Identifier.objects.create(identifier='existing', safe=True)
         collision = Identifier.objects.create(identifier='taken', safe=True, userms=self.host.userms)
-        with patch('tournament.gsc.services.bind_identifier', wraps=bind_identifier) as bind:
+        with patch('common.services.bind_identifier', wraps=bind_identifier) as bind:
             response = self.prepare()
             self.assertEqual(response.status_code, 200, response.content)
             bind.assert_not_called()

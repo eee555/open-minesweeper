@@ -6,6 +6,22 @@
 python manage.py <command> --help
 ```
 
+## 纪念账号建档
+
+### `create_memorial_account`
+
+位置：`common/management/commands/create_memorial_account.py`。
+
+站长先通过服务器、既有命令和 shell 核实注销及清理旧身份，再显式指定 UserProfile ID、UserMS ID 和用户名。两个编号必须分别未占用且小于各自表当前最大主键；不自动追加、不接管孤立 UserMS，空表拒绝建档。
+
+```bash
+python manage.py create_memorial_account 42 70 legend --realname "传奇玩家" --country CN
+```
+
+ID 和资料仅为示例，须替换为已核实的空缺；另支持 `--firstname`、`--lastname`、`--signature`。命令在事务内锁定两表最大主键行、复核空缺并只执行插入，模型验证或占用冲突回滚。新账号不可登录、无管理员权限、使用不可用密码及独立占位邮箱。
+
+旧数据清理和资料维护由站长使用已有工具完成；录像补传使用 `/superuser/memorial`。业务规则见仓库 `back_end/saolei/userprofile/README.md`。
+
 ## 勋章补发
 
 ### `enqueue_medal_backfill`

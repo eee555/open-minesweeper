@@ -11,7 +11,7 @@ from .models import UserProfile
 USER_INFO_FIELDS = [
     'id', 'username',
     'signature', 'country',
-    'is_banned', 'is_staff',
+    'is_banned', 'is_staff', 'is_memorial',
     'last_change_avatar', 'last_change_signature',
     'left_avatar_n', 'left_signature_n',
 ]
@@ -36,7 +36,7 @@ UserInfoOut = create_schema(
     UserProfile, name='UserInfoOut', fields=USER_INFO_FIELDS, custom_fields=PUBLIC_NAME_FIELDS,
 )
 SelfUserInfoOut = create_schema(
-    UserProfile, name='SelfUserInfoOut', fields=[*USER_INFO_FIELDS, 'can_hide_realname', 'hide_realname'],
+    UserProfile, name='SelfUserInfoOut', fields=[*USER_INFO_FIELDS, 'can_hide_realname', 'hide_realname', 'is_superuser'],
     custom_fields=PUBLIC_NAME_FIELDS, base_class=RawUserNames,
 )
 
@@ -59,7 +59,7 @@ class UserDirectoryOutBase(Schema):
 
 
 UserDirectoryOut = create_schema(
-    UserProfile, name='UserDirectoryOut', fields=['id', 'date_joined'],
+    UserProfile, name='UserDirectoryOut', fields=['id', 'date_joined', 'is_memorial'],
     custom_fields=[('statistics', UserVideoStatisticsOut, ...), ('accounts', dict[Literal['c', 'a', 'w', 'm'], str], ...)],
     base_class=UserDirectoryOutBase,
 )

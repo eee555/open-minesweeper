@@ -102,8 +102,8 @@ def grant_name_privacy(user: UserProfile, actor: str):
 @transaction.atomic
 def update_admin_profile(user_id: int, updates: dict, actor: UserProfile) -> UserProfile:
     user = UserProfile.objects.select_for_update().get(pk=user_id)
-    if user.is_staff and user.pk != actor.pk:
-        raise ExceptionToResponse('user', 'staff', status_code=403)
+    if user.is_memorial and 'email' in updates and updates['email'] != user.email:
+        raise ExceptionToResponse('memorial', 'email_readonly', status_code=400)
     old_privacy = (user.can_hide_realname, user.hide_realname)
     fields = []
     for field, value in updates.items():
@@ -159,6 +159,8 @@ def try_update_user_signature(user: UserProfile, signature: str, user_ip: str):
 
 # 发送邮件，根据send_type不同发送不同的邮件内容
 def send_email(email: str, send_type='register'):
+    if email.lower().endswith('@accounts.invalid'):
+        return None
     email_record = EmailVerifyRecord()
     if settings.E2E_TEST:
         code = 'abcdef'
@@ -222,6 +224,8 @@ def user_metadata(user: UserProfile, client):
         'identifiers': user.userms.identifiers,
         'is_banned': user.is_banned,
         'is_staff': user.is_staff,
+        'is_superuser': user.is_superuser if client == user else False,
+        'is_memorial': user.is_memorial,
         'country': user.country,
         'videos': list(videos),
     }

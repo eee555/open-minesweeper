@@ -16,6 +16,7 @@ export type UserDirectorySort = 'id' | keyof UserVideoStatistics;
 
 export interface DirectoryUser {
     id: number;
+    is_memorial?: boolean;
     date_joined: string;
     accounts: Partial<Record<UserDirectoryPlatform, string>>;
     statistics: UserVideoStatistics;
