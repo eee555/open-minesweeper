@@ -23,7 +23,7 @@ NF 是独立维度，由 `VideoModel.right_ce == 0` 判断，不再使用模式 
 
 最新录像队列明确保留现状：删除录像不清理 `newest_queue` 快照，查询仍可能返回已删除 ID，只由既有裁剪和管理员移除功能维护。
 
-纪念账号补录与 GSC 共用标识绑定、文件导入及 `set_import_upload_time`，沿用原有统计、排行、勋章和比赛标识维护链；`is_memorial`、`is_active=False` 不排除合法录像的计分。
+纪念账号补录与 GSC 分别编排导入流程，复用现有标识绑定、文件比较及 `set_import_upload_time`，沿用原有统计、排行、勋章和比赛标识维护链；`is_memorial`、`is_active=False` 不排除合法录像的计分。
 
 比赛录像普通删除清除录像及比赛关联，暂时保留已结算成绩、名次、积分和历史最好成绩，不在删除信号中自动重算。显式重算按赛种及成绩来源处理：打卡赛和 GSC 录像来源不再计入已删除录像；GSC 参赛者的 `manual_scores=True` 保留录入成绩，但仍参与全场排名及积分更新。各新赛种须提供自己的删除及重算规则。站长 `POST /api/video/admin/delete` 每次接收一个 ID，通过事务内实例 `delete()` 沿用这些信号，返回受影响比赛 ID 并记录日志警告；隐藏中文页面在警告确认后依次请求，遇错即停。未来通知主办方的私信尚未实现，方案见仓库 `back_end/saolei/tournament/VIDEO_DELETION_PLAN.md`。
 

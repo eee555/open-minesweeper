@@ -80,7 +80,7 @@ digraph gsc_history_flow {
 
 ## 上传 API 内部流程
 
-API 在事务内完成权限、比赛状态和录像来源检查，将 participant 对象交给 `tournament.gsc.services.upload_gsc_history_video`。该服务复用 `common.services.import_video_by_file` 完成解析、标识校验、查重和上传时间保存，再显式关联历史比赛。纪念账号补录使用同一导入服务；普通用户本人上传仍沿用自己的资格、配额和查重政策。
+API 在事务内完成权限、比赛状态和录像来源检查，将 participant 对象交给 `tournament.gsc.services.upload_gsc_history_video`。GSC 服务负责解析、标识校验、查重和历史比赛关联，复用现有标识服务、文件比较和 `set_import_upload_time` 工具，不依赖顶层 `common` app。纪念账号补录由 `common` 单独编排，复用相同的基础能力；普通用户本人上传仍沿用自己的资格、配额和查重政策。
 
 ```dot
 digraph gsc_history_upload {
