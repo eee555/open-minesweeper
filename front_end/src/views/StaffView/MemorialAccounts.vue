@@ -21,7 +21,7 @@
             <fieldset :disabled="busy" data-cy="memorial-upload-controls">
                 <legend>选择文件和标识</legend>
                 <input type="file" accept=".avf,.evf,.rmv,.mvf" multiple :disabled="uploads.length > 0" aria-label="选择纪念录像" data-cy="memorial-files" @change="selectFiles">
-                <label>上传时间锚点 <ElDatePicker v-model="anchor" type="datetime" :disabled="uploads.length > 0" data-cy="memorial-upload-anchor" /></label>
+                <label data-cy="memorial-upload-anchor">上传时间锚点 <ElDatePicker v-model="anchor" type="datetime" :disabled="uploads.length > 0" /></label>
                 <p>所有标识默认不选，请逐个勾选。最后一局采用锚点时间，之前各局按耗时倒推。</p>
                 <label v-for="identifier in identifiers" :key="identifier" class="identifier-option">
                     <input v-model="selectedIdentifiers" type="checkbox" :value="identifier" :disabled="uploads.length > 0" data-cy="memorial-identifier">{{ identifier || '（空标识）' }}
