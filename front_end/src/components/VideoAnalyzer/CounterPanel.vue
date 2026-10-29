@@ -86,7 +86,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
 import { useElementSize, useRafFn } from '@vueuse/core';
 import { ElDialog } from 'element-plus';
 import { computed, ref, useTemplateRef, watch } from 'vue';

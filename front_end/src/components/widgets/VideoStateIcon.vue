@@ -4,7 +4,7 @@
     </span>
     <span v-else-if="state == MS_State.Identifier" :title="t('state.d')">
         <ElIcon>
-            <BaseIconIdentifier style="color: var(--ui-color-warning)" />
+            <BaseIconIdentifier class="text-warning" />
         </ElIcon>
     </span>
     <span v-else-if="state == MS_State.Official" class="text text-success">
@@ -25,7 +25,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
 import 'primeicons/primeicons.css';
 import { ElIcon } from 'element-plus';
 import type { PropType } from 'vue';

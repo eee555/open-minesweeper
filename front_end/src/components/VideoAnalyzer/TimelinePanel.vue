@@ -29,7 +29,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
 import { computed, ref, useTemplateRef, watch } from 'vue';
 import type { PropType } from 'vue';
 import { VueDraggable } from 'vue-draggable-plus';

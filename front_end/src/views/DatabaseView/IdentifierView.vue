@@ -154,8 +154,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/checkbox.css';
-import '@/styles/text.css';
 import '@/styles/cards.css';
 import { FilterMatchMode } from '@primevue/core/api';
 import { isAxiosError } from 'axios';

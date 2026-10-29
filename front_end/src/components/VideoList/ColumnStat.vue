@@ -7,7 +7,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
 
 import PrColumn from 'primevue/column';
 import type { PropType } from 'vue';

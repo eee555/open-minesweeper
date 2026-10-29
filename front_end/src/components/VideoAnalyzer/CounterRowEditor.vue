@@ -25,7 +25,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
 import { ElDialog } from 'element-plus';
 import { computed, ref } from 'vue';
 import type { PropType } from 'vue';

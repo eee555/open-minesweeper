@@ -5,6 +5,12 @@
     position: relative;
 }
 
+.layout-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
 .layout-columns {
     display: flex;
     flex-wrap: wrap;

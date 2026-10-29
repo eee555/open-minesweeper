@@ -60,7 +60,6 @@
 <script setup lang="ts">
 import '@/styles/descriptions.css';
 import '@/styles/cards.css';
-import '@/styles/text.css';
 
 import { ElInputNumber, ElSwitch } from 'element-plus';
 import { useI18n } from 'vue-i18n';

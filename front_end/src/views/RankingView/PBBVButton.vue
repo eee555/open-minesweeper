@@ -119,7 +119,6 @@ const rows = computed(() => {
     min-height: 28px;
     margin: 0;
     padding: 1px;
-    font-size: 12px;
     font-variant-numeric: tabular-nums;
     overflow-wrap: anywhere;
 }

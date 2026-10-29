@@ -51,7 +51,6 @@ import type { SaoleiField, SaoleiRankingName } from '@/services/saoleiRankingSer
 import { formatSaoleiValue, rebuildSaoleiRecord, saoleiFields, saoleiVideoId } from '@/services/saoleiRankingService';
 import { formatThrpValue, rebuildThrpRecord, thrpStats, thrpVideoId } from '@/services/thrpRankingService';
 import type { ThrpStat } from '@/services/thrpRankingService';
-import '@/styles/text.css';
 
 const rankingName = ref<SaoleiRankingName | 'thrp' | 'nf_ioe'>('saolei');
 const stat = ref<SaoleiField>('bt');

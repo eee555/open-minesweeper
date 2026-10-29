@@ -1,5 +1,6 @@
 import '../src/styles/theme/index.css';
 import '../src/styles/text.css';
+import '../src/styles/checkbox-buttons.css';
 
 import { createApp } from 'vue';
 

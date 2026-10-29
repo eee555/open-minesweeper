@@ -4,8 +4,3 @@
         Scoreganizer
     </span>
 </template>
-
-<script setup lang="ts">
-import '@/styles/text.css';
-
-</script>

@@ -372,7 +372,6 @@ const { t } = useI18n({ messages: i18nMessages });
 </script>
 
 <style scoped>
-@import '@/styles/text.css';
 
 .auto-uploader {
     margin-bottom: 1rem;

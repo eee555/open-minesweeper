@@ -38,7 +38,6 @@ import { computed, onMounted, ref, watch } from 'vue';
 import BaseButton from '@/components/common/BaseButton.vue';
 import $axios from '@/http';
 import { store } from '@/store';
-import '@/styles/text.css';
 
 interface StaffAssignment {
     id: number;

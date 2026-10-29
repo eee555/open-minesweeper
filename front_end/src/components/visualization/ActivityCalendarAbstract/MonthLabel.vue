@@ -13,7 +13,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
 import { computed } from 'vue';
 
 import { fullWeek, getWeekTime, monthNameShort } from '@/utils/datetime';

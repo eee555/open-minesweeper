@@ -17,7 +17,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
 import { computed } from 'vue';
 
 import Setting from './Setting.vue';

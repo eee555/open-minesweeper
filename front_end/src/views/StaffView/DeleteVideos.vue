@@ -71,7 +71,6 @@ import BaseButton from '@/components/common/BaseButton.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
 import { deleteVideosSequentially, fetchVideoDeletionAccess, parseVideoDeletionIds } from '@/services/videoDeletionService';
 import type { VideoDeletionResult } from '@/services/videoDeletionService';
-import '@/styles/text.css';
 
 const checking = ref(true);
 const authorized = ref(false);

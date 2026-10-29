@@ -20,7 +20,6 @@
 <script setup lang="ts">
 import '@/styles/button.css';
 import '@/styles/cards.css';
-import '@/styles/text.css';
 import 'primeicons/primeicons.css';
 import { ref, useTemplateRef } from 'vue';
 import { useI18n } from 'vue-i18n';

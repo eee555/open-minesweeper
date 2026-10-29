@@ -6,7 +6,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/checkbox.css';
 import { useI18n } from 'vue-i18n';
 
 import { showInvisibleIdentifiers } from './identifierDisplay';

@@ -53,7 +53,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
 import '@/styles/cards.css';
 
 import type { FormInstance, FormRules } from 'element-plus';

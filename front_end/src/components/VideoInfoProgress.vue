@@ -1,11 +1,12 @@
 <template>
-    <div v-if="progress.total > progress.completed" class="text-small video-info-progress" role="status">
+    <div v-if="progress.total > progress.completed" class="text-secondary text-small video-info-progress" role="status">
         <span>{{ t('local.progress', progress) }}</span>
         <progress :value="progress.completed" :max="progress.total" :aria-label="t('local.title')" />
     </div>
 </template>
 
 <script setup lang="ts">
+
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
@@ -43,7 +44,6 @@ const { t } = useI18n({ messages: i18nMessages });
     gap: 4px 12px;
     margin-bottom: 8px;
     padding: 4px 0;
-    color: var(--ui-text-color-secondary);
 }
 
 .video-info-progress progress {

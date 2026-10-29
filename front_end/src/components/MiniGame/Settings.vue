@@ -45,7 +45,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/checkbox-buttons.css';
 import '@/styles/descriptions.css';
 
 import { useId } from 'vue';

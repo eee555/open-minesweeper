@@ -21,7 +21,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
 
 import { sum } from 'd3-array';
 import { computed } from 'vue';

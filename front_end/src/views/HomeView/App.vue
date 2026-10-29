@@ -18,7 +18,6 @@
 </template>
 
 <script setup lang='ts'>
-import '@/styles/text.css';
 
 import { ElTabPane, ElTabs } from 'element-plus';
 import { ref } from 'vue';

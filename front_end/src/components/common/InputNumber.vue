@@ -12,7 +12,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
 
 import { computed, ref, useAttrs, watch } from 'vue';
 

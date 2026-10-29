@@ -39,7 +39,6 @@
 
 <script setup lang="ts">
 import '@/styles/cards.css';
-import '@/styles/text.css';
 import { ElOption, ElSelect } from 'element-plus';
 import { computed, useTemplateRef } from 'vue';
 import { useI18n } from 'vue-i18n';

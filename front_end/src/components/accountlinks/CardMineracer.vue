@@ -18,7 +18,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
 
 import { ElDescriptions, ElDescriptionsItem } from 'element-plus';
 import PrToolbar from 'primevue/toolbar';
