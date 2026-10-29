@@ -27,7 +27,8 @@ describe('<StaffAssignments />', () => {
         cy.get('[data-cy=staff-assignment-grant]').should('be.disabled');
         cy.get('[data-cy=staff-assignment-user-id]').type('0');
         cy.get('[data-cy=staff-assignment-revoke]').should('be.disabled');
-        cy.get('[data-cy=staff-assignment-user-id]').clear().type('42');
+        cy.get('[data-cy=staff-assignment-user-id]').clear();
+        cy.get('[data-cy=staff-assignment-user-id]').type('42');
         cy.get('[data-cy=staff-assignment-grant]').click();
         cy.wait('@assign').its('request.body').should('deep.equal', { user_id: 42, is_staff: true });
         cy.get('[data-cy=staff-assignment-result]').should('contain.text', '用户 #42：已设为管理员');
