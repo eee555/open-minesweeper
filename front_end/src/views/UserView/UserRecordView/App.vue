@@ -8,7 +8,6 @@
 </template>
 
 <script lang="ts" setup>
-
 import { ElMessage, ElSkeleton } from 'element-plus';
 import { nextTick, ref } from 'vue';
 

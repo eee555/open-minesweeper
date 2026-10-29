@@ -16,7 +16,6 @@
 </template>
 
 <script setup lang="ts">
-
 import PrColumn from 'primevue/column';
 import PrListbox from 'primevue/listbox';
 import { useI18n } from 'vue-i18n';

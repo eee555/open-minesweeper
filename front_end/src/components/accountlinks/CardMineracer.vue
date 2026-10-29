@@ -18,7 +18,6 @@
 </template>
 
 <script setup lang="ts">
-
 import { ElDescriptions, ElDescriptionsItem } from 'element-plus';
 import PrToolbar from 'primevue/toolbar';
 import { useI18n } from 'vue-i18n';

@@ -12,7 +12,6 @@
 </template>
 
 <script setup lang="ts">
-
 import { computed, ref, useAttrs, watch } from 'vue';
 
 import { clamp } from '@/utils/math';
