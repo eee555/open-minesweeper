@@ -111,25 +111,24 @@ describe('online minigame score submission', () => {
     });
 
     it('allows retrying an upload after a failed request', () => {
-        let attempts = 0;
-        cy.intercept('POST', '/api/minigame/flag-chord-b-v1/score', (request) => {
-            attempts++;
-            request.reply(attempts === 1 ? { statusCode: 500 } : { body: { improved: true, record: {} } });
-        }).as('submit');
+        cy.intercept('POST', '/api/minigame/flag-chord-b-v1/score', { statusCode: 500, body: {} }).as('failedSubmit');
         store.login({ id: 42, username: 'player', realname: '匿名' });
         mountGame();
         cy.get('[data-cy=complete]').click();
         cy.get('[data-cy=minigame-upload]').click();
-        cy.wait('@submit').its('response.statusCode').should('equal', 500);
+        cy.wait('@failedSubmit').its('response.statusCode').should('equal', 500);
         cy.get('[data-cy=minigame-upload]').should('be.enabled').and('have.text', 'Upload score and replay');
         cy.closeElNotifications();
+        cy.intercept('POST', '/api/minigame/flag-chord-b-v1/score', { improved: true, record: {} }).as('submit');
         cy.get('[data-cy=minigame-upload]').click();
         cy.wait('@submit').its('response.statusCode').should('equal', 200);
         cy.get('[data-cy=minigame-upload]').should('be.disabled').and('have.text', 'Uploaded');
-        cy.get('@submit.all').should('have.length', 2);
+        cy.get('@failedSubmit.all').should('have.length', 1);
+        cy.get('@submit.all').should('have.length', 1);
     });
 
     it('refreshes the visible ranking after a successful manual upload', () => {
+        cy.viewport(1440, 1000);
         store.login({ id: 42, username: 'player', realname: '匿名' });
         cy.intercept('GET', '/api/minigame/flag-chord-b-v1/summary', { count: 0, players: [], player: { player_id: 42, records: { 'flag-chord-b-v1': null } } }).as('summary');
         cy.intercept('POST', '/api/minigame/flag-chord-b-v1/score', { improved: true, record: {} }).as('submit');
