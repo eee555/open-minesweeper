@@ -134,6 +134,7 @@ class SaoleiCatalogueTests(TestCase):
         self.assertFalse(SaoleiApiVideo.objects.exists())
 
 
+@override_settings(BAIDU_VERIFY_SKIP=True)
 class SaoleiImportTests(TestCase):
     def setUp(self):
         self.user, self.account = bound_account()
