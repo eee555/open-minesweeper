@@ -45,7 +45,7 @@ const fixtures = {
     },
     failed: {
         filename: 'c_10_39.832_24_0.477_Pu Tian Yi(Hu Bei)_fail.evf',
-        tableData: { '': '', Bv: '19', Bvs: '0.477', Status: 'Game not finished', Time: '39.832', Level: '8x8/40', Mode: 'Lucky', 'End Time': '2026-07-01 00:34:41' },
+        tableData: { '': '', Bv: '20', Bvs: '0.502', Status: 'Game not finished', Time: '39.832', Level: '8x8/40', Mode: 'Lucky', 'End Time': '2026-07-01 00:34:41' },
     },
     intRmv: {
         filename: '3819-Time-1616-NF-9469-32-20151031.rmv',
