@@ -117,7 +117,7 @@ python -m dangerzone.init_local_test --no-weekly
 
 位置：`effranking/management/commands/rebuild_eff_ranks.py`
 
-从录像数据库重建效率 Thrp 榜，包括高级 NF 最佳及满分局数。`--ranking-name` 仅支持 `thrp`（默认值）；`--batch-size` 默认 1000，必须为正数。增加高级 NF 后需执行一次，将历史录像纳入新榜，不需要数据库迁移。
+从录像数据库重建效率榜。`--ranking-name` 支持 `thrp`（默认，包含高级 NF 满分列表）和 `nf_ioe`；`--batch-size` 默认 1000，必须为正数。新增大榜后需显式执行，将历史录像纳入缓存，不需要个人纪录数据迁移。
 
 ```bash
 python manage.py rebuild_eff_ranks

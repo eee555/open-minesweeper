@@ -1,8 +1,8 @@
 # 效率排行榜
 
-独立的 Django app `effranking` 承载效率排行榜类别，当前提供 Thrp 榜、个人纪录查询、增量刷新、管理员修复和全量重建。
+独立的 Django app `effranking` 承载 Thrp、NF IOE 两个大榜，提供个人纪录查询、增量刷新、管理员修复和全量重建。
 
-## 规则
+## Thrp 规则
 
 ### 录像准入
 
@@ -42,7 +42,7 @@ thrp = bv / ce
 
 该项只保存 `value` 和 `video_ids`：达到 1 时缓存全部合格满分录像的 id，按 id 升序排列；未满分时只保存最佳一局的 id。局数直接取列表长度，不重复保存计数、代表录像或上传时间。`e_nf` 不参与 sum。
 
-## 缓存结构
+## Thrp 缓存结构
 
 ### 事实来源
 
@@ -117,23 +117,23 @@ zset 仅提供排名和排名段的用户索引；展示、个人比较和求和
 
 在 `effranking.signals` 监听 `VideoModel` 的保存和删除，复用 `videomanager` 的旧值捕获，不在 `VideoModel` 中加入排行业务。
 
-需要关注的字段：
+Thrp 需要关注的字段：
 
 ```text
 player_id, level, mode, state, ongoing_tournament,
 bv, left_ce, right_ce, double_ce, upload_time
 ```
 
-`right_ce` 既是 Thrp 分母的组成项，也是高级 NF 的筛选条件。`timems`、`left/right/double` 本身不影响 Thrp，不因这些字段单独改变而刷新效率榜。
+`right_ce` 既是 Thrp 分母的组成项，也是高级 NF 的筛选条件。`timems`、`left/right/double` 本身不影响 Thrp，不因这些字段单独改变而刷新 Thrp；NF IOE 独立监控实际点击及用时。
 
-`videomanager.signals.CAPTURE_FIELDS` 捕获 `bv`、`left_ce`、`right_ce`、`double_ce` 等字段的旧值。`thrp` 是 GeneratedField，不把模型实例上可能过期的派生值作为更新依据；数据库提交后读取持久化的当前录像。
+`videomanager.signals.CAPTURE_FIELDS` 捕获相关字段旧值。`thrp` 和 `ioe` 均为 GeneratedField，不把模型实例上可能过期的派生值作为更新依据；数据库提交后读取持久化的当前录像。
 
 处理策略：
 
 1. 新增或改善的合格录像直接与缓存中的对应单项比较，必要时替换并重算 sum。
 2. 已持有纪录的录像变差、失去资格或被删除时，只为受影响的用户和级别查询最佳剩余录像。
 3. `player/level` 改变时，旧分类按需补位，新分类尝试加入；`mode/state/ongoing_tournament` 改变时重新判断资格。
-4. 查询补位按 `thrp DESC, upload_time ASC, id ASC`，不逐条加载用户的全部录像到 Python 中筛选。
+4. Thrp 补位按 `thrp DESC, upload_time ASC, id ASC`，NF IOE 按自己的分段 score 选优；不逐条加载用户的全部录像到 Python 中筛选。
 5. 所有缓存副作用在 `transaction.on_commit` 后执行，事务回滚时不发布变更。
 6. 旧/新分类涉及高级 NF 时，独立重查受影响用户的满分列表或最佳一局。任意满分录像变动都能影响排名，不能仅判断其是否保持普通高级纪录。
 
@@ -166,29 +166,37 @@ app 内使用 Ninja router，在项目 API 中挂载 `/api/effranking/`。接口
 - 参数、响应 Schema 和装饰器说明由 Ninja API 文档生成。
 - 分页使用左闭右开的 `start/end`。
 - 所有查询只读取 Redis，不在请求中自动回源或重建。
-- 排行的每个用户均返回完整的 `b/i/e/e_nf` hash 纪录及 `player_id`，不按当前排序列裁剪；sum 由前端计算。
+- 排行的每个用户均返回所选大榜的完整 hash 纪录及 `player_id`，不按当前排序列裁剪；sum 由前端计算。
 - 分页排名由前端使用 `start + index + 1` 显示，不为每行重复查询排名。
-- 个人接口用 pipeline 一次读取 hash 和五个 ZRANK；无纪录时返回完整空项，排名为 `null`。
+- 个人接口用 pipeline 一次读取 hash 和各小榜 ZRANK；无纪录时返回完整空项，排名为 `null`。
 - 管理员重建 `b/i/e` 时查询数据库，重算关联 sum；重建 `sum` 时只根据缓存中的三个单项计算，不回源数据库。
-- 管理员重建 `e_nf` 时独立查询最佳及满分局数，只修复该项，不改动普通高级纪录或 sum。
+- 管理员重建 Thrp 的 `e_nf` 时独立查询最佳及满分局数，只修复该项，不改动普通高级纪录或 sum。
 - 手动修复即使数值未变，也要修复目标排序索引。无录像可补位时清除对应单项。
 
 ## 维护
 
 ```bash
 python manage.py rebuild_eff_ranks
+python manage.py rebuild_eff_ranks --ranking-name nf_ioe
 ```
 
-首次部署和缓存丢失后显式执行。`VideoModel` 使用 `thrp_idx` 索引，先完成数据库迁移，再暂停相关写入并建榜。临时榜全部构建成功后原子替换六个正式 key，失败保留旧榜；不扫描 Redis keyspace。本地快照初始化已调用此命令。
+首次部署和缓存丢失后显式执行。Thrp 使用 `thrp_idx` 索引；NF IOE 按用户、状态和级别缩小候选范围，并在数据库分桶选优，不新增数据库模型或索引迁移。执行时暂停相关写入。临时榜构建成功后原子替换对应大榜的正式 key（Thrp 六个、NF IOE 五个），失败保留旧榜；不扫描 Redis keyspace。本地快照初始化重建两个大榜。
 
 参数及暂停写入范围统一见[管理命令文档](../../../vitepress_doc/zh/guide/development/management-commands.md#rebuild-eff-ranks)。不提供自动回源、在线双写或定时重建。
 
 ## 代码组织
 
-- 根目录 `signals.py` 和 `services.py` 协调录像事件与批量操作，`cache.py` 提供连接，`utils.py` 记录更新异常，`api.py` 聚合大榜路由。
+- 根目录 `signals.py` 和 `services.py` 协调录像事件与批量操作，`cache.py` 提供连接及 hash/zset 基础读写，`utils.py` 记录更新异常，`api.py` 聚合大榜路由。
 - `thrp/` 包含本榜的计算、基础缓存、选优与补位、修复、重建、API 和测试；`nf_services.py` 独立负责高级 NF 最佳及局数查询。
+- `nf_ioe/` 独立处理 NF IOE 选优和 score。两榜按各自字段变化决定是否处理，合并 Redis 读取和写入 pipeline，不合并业务判断；IOE 监控 `left/right/double/timems`，Thrp 监控有效点击及上传时间。
 - 按玩家分段的公共工具为 `utils.querysets.player_batches`，不依赖其他大榜的业务模块。
 
 ## 前端接入
 
-`EfficiencyRanking.vue` 提供工具栏，`ThrpRanking.vue` 与个人纪录共用 `ThrpRecordValue.vue` 展示成绩及满分列表；管理员“排行纪录重建”页支持五个小榜。URL 约定见[排行榜 README](../../../front_end/src/views/RankingView/README.md)，展示、配色与请求职责见[个人主页 README](../../../front_end/src/views/UserView/README.md#thrp-纪录)。
+`EfficiencyRanking.vue` 提供两榜共用工具栏。`ThrpRanking.vue` 与个人纪录共用 `ThrpRecordValue.vue`，`NFIOERanking.vue` 展示四项 NF IOE。管理员修复支持两榜全部小榜。
+
+URL 约定见[排行榜 README](../../../front_end/src/views/RankingView/README.md)，Thrp 个人页职责见[个人主页 README](../../../front_end/src/views/UserView/README.md#thrp-纪录)。NF IOE 暂不增加个人页表格。
+
+## NF IOE
+
+规则、分段 score 和 `{value, video_id, timems}` 缓存结构统一见 [NF IOE README](./nf_ioe/README.md)。查询位于 `/api/effranking/nf_ioe`，首次部署执行指定大榜的重建命令，纳入历史录像。

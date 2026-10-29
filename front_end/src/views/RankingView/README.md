@@ -9,6 +9,7 @@
 | `/ranking/speed/saolei` | `sort`：`bt/bb/it/ib/et/eb/sumt/sumb`；`nf` | `sumt`，普通榜 |
 | `/ranking/speed/pb` | `level`：`b/i/e`；`bv`；`nf` | `b`、`1`，普通榜 |
 | `/ranking/efficiency/thrp` | `sort`：`b/i/e/sum/e_nf` | `sum` |
+| `/ranking/efficiency/nf-ioe` | `sort`：`b/i/e/sum` | `sum` |
 | `/ranking/minigame/left-click` | `sort`：本游戏 9 个榜单 key 之一 | `left-click-b-50-v1` |
 | `/ranking/minigame/multi-touch` | `sort`：本游戏 9 个榜单 key 之一 | `multi-touch-b-50-v1` |
 | `/ranking/minigame/flag-chord` | `sort`：本游戏 2 个榜单 key 之一 | `flag-chord-b-v1` |
@@ -31,5 +32,7 @@
 `useRankingQuery.ts` 统一解析和同步 query，不改变后端 API。控件操作使用 `router.push`，支持复制链接、重载和浏览器前进/后退。筛选、排序或每页条数变化时重置到第一页；恢复历史 URL 时保留其页码。top 单独切换 `detail` 不重置页码、不请求榜单，切换排序时同步明细。
 
 缓存但未激活的页面不响应其他大榜的 query。配色仍是全局 localStorage 设置，不放进 URL。
+
+效率分类使用 select 切换 Thrp/NF IOE，默认 Thrp；两榜共用刷新、配色与随选择切换的帮助提示。NF IOE 显示三位小数，满分时括号显示比较用时（秒），sum 满分只显示高级用时；配色复用 IOE 色阶，sum 按值除以 3 上色。单项可预览录像，sum 不生成链接，不设置 NF 开关。
 
 小游戏从 `/api/minigame/rankings` 获取固定列顺序；每页一次请求返回整组全部列。无成绩显示 `--`，点击表头选择排序列。成绩链接前往 `/minigame/{game}?player={player_id}&key={mode_key}`，`key` 去掉游戏前缀，如 `b-50-v1`，播放对应玩家该榜当前最佳录像；日期 title 沿用项目格式。小游戏尚无配色，独立预留 `MinigameColorScheme(ranking, score)` 样式函数和禁用的配色按钮，不套用竞速榜色阶。
