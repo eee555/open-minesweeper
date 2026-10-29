@@ -27,6 +27,7 @@ from utils.parser import MSVideoParser
 from utils.ranking_lock import ranking_access
 from videomanager.models import VideoModel
 from videomanager.services import find_identical_video, set_import_upload_time
+from videomanager.utils import calculate_original_hash
 
 
 TASK_CLEANUP_BATCH_SIZE = 200
@@ -98,6 +99,13 @@ def import_video_by_file(user: UserProfile, file, upload_time):
         encode_score(0, upload_time)
     except (ValueError, OverflowError) as error:
         raise ExceptionToResponse('upload_time', 'invalid', status_code=422) from error
+    original_hash = calculate_original_hash(file)
+    video = find_identical_video(original_hash)
+    if video is not None:
+        if video.player_id != user.pk:
+            raise ExceptionToResponse('file', 'collision', status_code=409)
+        set_import_upload_time(video, upload_time)
+        return video
     try:
         parser = MSVideoParser(file)
     except ExceptionToResponse as error:
@@ -110,21 +118,18 @@ def import_video_by_file(user: UserProfile, file, upload_time):
         raise ExceptionToResponse('identifier', 'verify', status_code=400)
     if not Identifier.verify(parser.identifier, user.userms) and parser.state == MS_TextChoices.State.OFFICIAL:
         parser.state = MS_TextChoices.State.IDENTIFIER
-    video = find_identical_video(file)
-    if video is not None:
-        if video.player_id != user.pk:
-            raise ExceptionToResponse('file', 'collision', status_code=409)
-        set_import_upload_time(video, upload_time)
-    else:
-        video = VideoModel.create_from_parser(parser, user, upload_time=upload_time)
-        set_import_upload_time(video, upload_time, created=True)
-        video.save(update_fields=['ongoing_tournament'])
-        video.update_redis()
+    video = VideoModel.create_from_parser(parser, user, original_hash=original_hash, upload_time=upload_time)
+    set_import_upload_time(video, upload_time, created=True)
+    video.save(update_fields=['ongoing_tournament'])
+    video.update_redis()
     return video
 
 
 @ranking_access(operation='common.upload_video')
 def new_video_by_file(user, file):
+    original_hash = calculate_original_hash(file)
+    if find_identical_video(original_hash) is not None:
+        raise ExceptionToResponse('file', 'collision')
     parser = MSVideoParser(file)
     if not user.userms_id:
         user.userms = UserMS.objects.create()
@@ -134,10 +139,7 @@ def new_video_by_file(user, file):
     if not Identifier.verify(parser.identifier, user.userms) and parser.state == MS_TextChoices.State.OFFICIAL:
         parser.state = MS_TextChoices.State.IDENTIFIER
 
-    if find_identical_video(file, timems=parser.timems, bv=parser.bv) is not None:
-        raise ExceptionToResponse('file', 'collision')
-
-    video = VideoModel.create_from_parser(parser, user)
+    video = VideoModel.create_from_parser(parser, user, original_hash=original_hash)
     video.save(update_fields=['ongoing_tournament'])
     video.update_redis()
     return video

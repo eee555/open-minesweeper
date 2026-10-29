@@ -270,7 +270,9 @@ class TestGscHistory(TournamentTestCaseBase):
         self.assertFalse(self.user.has_realname())
         for delta in (1, -1, 0):
             requested = timestamp + timedelta(days=delta)
-            response = self.upload(participant_id, requested.isoformat())
+            with patch('tournament.gsc.services.MSVideoParser') as parse:
+                response = self.upload(participant_id, requested.isoformat())
+            parse.assert_not_called()
             self.assertEqual(response.status_code, 200, response.content)
             video.refresh_from_db()
             self.assertEqual(video.upload_time, min(requested, timestamp))
@@ -311,10 +313,17 @@ class TestGscHistory(TournamentTestCaseBase):
 
         identifier.safe = False
         identifier.save(update_fields=['safe'])
+        with patch('tournament.gsc.services.MSVideoParser') as parse:
+            response = self.upload(participant_id, (timestamp - timedelta(days=1)).isoformat())
+        self.assertEqual(response.status_code, 200, response.content)
+        parse.assert_not_called()
+        video.refresh_from_db()
+        self.assertEqual(video.upload_time, timestamp - timedelta(days=1))
+        VideoModel.objects.filter(pk=video.pk).update(original_hash='f' * 24)
         response = self.upload(participant_id, (timestamp - timedelta(days=1)).isoformat())
         self.assertEqual(response.status_code, 400, response.content)
         video.refresh_from_db()
-        self.assertEqual(video.upload_time, timestamp)
+        self.assertEqual(video.upload_time, timestamp - timedelta(days=1))
         self.assertEqual(VideoModel.objects.count(), 1)
 
     def test_upload_rejects_manual_and_anonymous_participants(self):

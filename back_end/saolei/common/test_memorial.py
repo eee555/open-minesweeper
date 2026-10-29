@@ -171,8 +171,10 @@ class MemorialUploadTests(MemorialFixtures, TestCase):
         self.assertEqual((video.player_id, video.state, video.upload_time), (42, MS_TextChoices.State.OFFICIAL, self.when))
         userms = UserMS.objects.get(pk=70)
         self.assertEqual((userms.video_num_total, userms.video_size_total), (1, video.file_size))
-        self.assertEqual(self.upload(self.when + timedelta(days=1)).status_code, 200)
-        self.assertEqual(self.upload(self.when - timedelta(days=1)).status_code, 200)
+        with patch('common.services.MSVideoParser') as parse:
+            self.assertEqual(self.upload(self.when + timedelta(days=1)).status_code, 200)
+            self.assertEqual(self.upload(self.when - timedelta(days=1)).status_code, 200)
+        parse.assert_not_called()
         video.refresh_from_db()
         self.assertEqual(video.upload_time, self.when - timedelta(days=1))
         self.assertEqual(VideoModel.objects.count(), 1)

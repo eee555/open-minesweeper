@@ -13,17 +13,21 @@
 
 主要入口：
 
-- `common.services.new_video_by_file`（普通上传的解析、标识校验、查重和创建）
+- `common.services.new_video_by_file`（普通上传的哈希查重、解析、标识校验和创建）
+- `common.services.import_video_by_file`（历史导入及纪念账号补录）
 - `VideoModel.create_from_parser`
+- `accountlink.services.msgames_video_import_one`
 - `accountlink.services.saolei_video_import_one`
 - `tournament.gsc.services.upload_gsc_history_video`（独立编排历史代传，直接调用 `create_from_parser` 并显式关联历史比赛，不依赖普通上传业务）
 - 管理命令或测试中直接 `VideoModel.objects.create`
 
 创建前通常需要完成：
 
+- `videomanager.utils.calculate_original_hash` 分块计算原始文件 SHA-256 的前 96 位，复位文件流，再由 `find_identical_video` 查询 `original_hash` 索引。仅以哈希相等判断重复，不读取已有文件或比较大小、解析字段。普通上传命中时拒绝；导入命中时复用，不运行 parser。历史及纪念账号补录、GSC 补传仍拒绝其他用户的录像。
 - `utils.parser.MSVideoParser` 解析录像文件，得到基础字段、扩展字段、状态、标识、比赛 token、`pluck`。
 - `identifier` 检查标识安全性和归属。如果录像本身合法但标识不属于用户，状态应降为 `IDENTIFIER`。
-- 文件重复检查。
+
+未命中时只解析一次，向 `create_from_parser(..., original_hash=...)` 传入已算好的摘要，随新录像一起保存。存量由 `backfill_video_hashes` 补齐；部署哈希查重后应再运行一次，覆盖上次回填后旧代码创建的空哈希记录。此改动复用已有字段与普通索引，不新增迁移或唯一约束。
 
 导入传给 `create_from_parser(..., upload_time=...)` 的时间在创建信号中参与 check-in 判断，避免历史文件按当前时间误入正在进行的比赛。由于 `auto_now_add`，创建后仍通过 `videomanager.services.set_import_upload_time` 显式保存来源时间；复用文件只在指定时间更早时保存，继续触发队列和排行信号。
 

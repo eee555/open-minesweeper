@@ -1,3 +1,4 @@
+import hashlib
 import math
 
 from timeout_decorator import timeout
@@ -5,6 +6,15 @@ from timeout_decorator import timeout
 from config.customranking import CUSTOM_PLUCK_LEVELS, CUSTOM_PLUCK_MODES
 from utils.parser import create_video_from_data
 from .config import PLUCK_TIMEOUT_SECONDS
+
+
+def calculate_original_hash(file) -> str:
+    """计算完整原始文件的 96 位摘要，并复位文件流供解析和保存使用。"""
+    file.seek(0)
+    try:
+        return hashlib.file_digest(file, 'sha256').digest()[:12].hex()
+    finally:
+        file.seek(0)
 
 
 class VideoParseError(Exception):

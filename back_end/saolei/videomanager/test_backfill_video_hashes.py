@@ -106,7 +106,7 @@ class BackfillVideoHashesTests(TestCase):
             return digest
 
         output = StringIO()
-        with patch('videomanager.management.commands.backfill_video_hashes.hashlib.file_digest', side_effect=hash_and_replace):
+        with patch('videomanager.utils.hashlib.file_digest', side_effect=hash_and_replace):
             call_command('backfill_video_hashes', stdout=output)
 
         video.refresh_from_db()

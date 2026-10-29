@@ -25,15 +25,8 @@ def delete_video_by_id(video_id: int, *, actor_id: int):
     return {'id': video_id, 'deleted': True, 'affected_tournament_ids': tournament_ids}
 
 
-def find_identical_video(file, **filters):
-    candidates = VideoModel.objects.filter(file_size=file.size, **filters).order_by('pk')
-    data = file.read()
-    file.seek(0)
-    for candidate in candidates:
-        with candidate.file.open('rb') as existing:
-            if existing.read() == data:
-                return candidate
-    return None
+def find_identical_video(original_hash: str):
+    return VideoModel.objects.filter(original_hash=original_hash).first()
 
 
 def set_import_upload_time(video: VideoModel, upload_time: datetime | None, *, created=False):

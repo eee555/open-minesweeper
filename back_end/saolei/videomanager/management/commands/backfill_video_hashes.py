@@ -1,10 +1,9 @@
-import hashlib
-
 from django.core.files.storage import default_storage
 from django.core.management.base import BaseCommand, CommandError
 from django.db.models import Count, Max, Q
 
 from videomanager.models import VideoModel
+from videomanager.utils import calculate_original_hash
 
 
 class Command(BaseCommand):
@@ -49,7 +48,7 @@ class Command(BaseCommand):
                     if not file_name:
                         raise FileNotFoundError
                     with default_storage.open(file_name, 'rb') as replay_file:
-                        original_hash = hashlib.file_digest(replay_file, 'sha256').digest()[:12].hex()
+                        original_hash = calculate_original_hash(replay_file)
                 except FileNotFoundError:
                     failed += 1
                     self.stderr.write(self.style.WARNING(f'录像#{video_id}文件不存在，已跳过，哈希保持为空'))

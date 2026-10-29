@@ -18,7 +18,8 @@ from utils.parser import MSVideoParser
 from utils.ranking_lock import ranking_access
 from utils.saolei import SaoleiVideoInfo
 from videomanager.models import VideoModel
-from videomanager.services import set_import_upload_time
+from videomanager.services import find_identical_video, set_import_upload_time
+from videomanager.utils import calculate_original_hash
 from .models import AccountLinkQueue, AccountMinesweeperGames, AccountSaolei, AccountWorldOfMinesweeper, Platform, VideoMSGames, VideoSaolei
 from .msgames.client import download_replay as download_msgames_replay, fetch_profile as fetch_msgames_profile, fetch_replays as fetch_msgames_replays
 from .msgames.utils import upload_date_upper_bound
@@ -125,7 +126,8 @@ def msgames_video_import_one(source: VideoMSGames):
         raise ExceptionToResponse('file', 'type', status_code=400)
     data = download_msgames_replay(source.url)
     filename = source.filename.rsplit('.', 1)[0] + '.' + source.filename.rsplit('.', 1)[1].lower()
-    parser = MSVideoParser(ContentFile(data, filename))
+    file = ContentFile(data, filename)
+    original_hash = calculate_original_hash(file)
     with transaction.atomic():
         source = VideoMSGames.objects.select_for_update().select_related('user__parent').get(pk=source.pk)
         if source.import_video_id:
@@ -133,24 +135,20 @@ def msgames_video_import_one(source: VideoMSGames):
         if not source.can_import:
             raise ExceptionToResponse('file', 'type', status_code=400)
         source_time = upload_date_upper_bound(source.upload_date) if source.upload_date else None
-        for collision in VideoModel.objects.filter(file_size=len(data)).order_by('id'):
-            try:
-                with collision.file.open('rb') as file:
-                    same_file = file.read() == data
-            except OSError:
-                continue
-            if same_file:
-                set_import_upload_time(collision, source_time)
-                source.import_video = collision
-                source.save(update_fields=['import_video'])
-                return collision
+        collision = find_identical_video(original_hash)
+        if collision is not None:
+            set_import_upload_time(collision, source_time)
+            source.import_video = collision
+            source.save(update_fields=['import_video'])
+            return collision
+        parser = MSVideoParser(file)
         user = source.user.parent
         if not user.userms_id:
             user.userms = UserMS.objects.create()
             user.save(update_fields=['userms'])
         if parser.state == MS_TextChoices.State.OFFICIAL and not Identifier.verify(parser.identifier, user.userms):
             parser.state = MS_TextChoices.State.IDENTIFIER
-        video = VideoModel.create_from_parser(parser, user, upload_time=source_time)
+        video = VideoModel.create_from_parser(parser, user, original_hash=original_hash, upload_time=source_time)
         set_import_upload_time(video, source_time, created=True)
         video.update_redis()
         video.save(update_fields=['upload_time', 'ongoing_tournament'])
@@ -225,19 +223,15 @@ def saolei_video_import_one(saolei_video: VideoSaolei, file: File, state: str):
             logger.warning(f'扫雷网 录像#{saolei_video.id} 不存在，可能已被删除')
             return
 
-        file.seek(0)
-        content = file.read()
-        collisions = VideoModel.objects.filter(file_size=len(content))
-        for collision in collisions:
-            with collision.file.open('rb') as collision_file:
-                same_file = collision_file.read() == content
-            if same_file:
-                set_import_upload_time(collision, saolei_video.upload_time)
-                saolei_video.import_video = collision
-                saolei_video.save(update_fields=['import_video'])
-                return
+        original_hash = calculate_original_hash(file)
+        collision = find_identical_video(original_hash)
+        if collision is not None:
+            set_import_upload_time(collision, saolei_video.upload_time)
+            saolei_video.import_video = collision
+            saolei_video.save(update_fields=['import_video'])
+            return
 
-        parser = MSVideoParser(ContentFile(content, file.name))
+        parser = MSVideoParser(file)
         user = saolei_video.user.parent
 
         if not user.userms:
@@ -245,7 +239,7 @@ def saolei_video_import_one(saolei_video: VideoSaolei, file: File, state: str):
         if not Identifier.verify(parser.identifier, user.userms) and parser.state == MS_TextChoices.State.OFFICIAL:
             parser.state = MS_TextChoices.State.IDENTIFIER
 
-        video = VideoModel.create_from_parser(parser, user, upload_time=saolei_video.upload_time)
+        video = VideoModel.create_from_parser(parser, user, original_hash=original_hash, upload_time=saolei_video.upload_time)
         set_import_upload_time(video, saolei_video.upload_time, created=True)
         video.update_redis()
         video.save(update_fields=['upload_time', 'ongoing_tournament'])

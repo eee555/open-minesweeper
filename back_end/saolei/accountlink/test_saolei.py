@@ -125,7 +125,9 @@ class SaoleiBusinessTests(TestCase):
             earlier = source_time - timedelta(days=1)
             source.upload_time = earlier
             source.save(update_fields=['upload_time'])
-            saolei_video_import_one(source, ContentFile(content, fixture.name), Saolei_TextChoices.SaoleiVideoState.OFFICIAL)
+            with patch('accountlink.services.MSVideoParser') as parse:
+                saolei_video_import_one(source, ContentFile(content, fixture.name), Saolei_TextChoices.SaoleiVideoState.OFFICIAL)
+            parse.assert_not_called()
             source.refresh_from_db()
             video.refresh_from_db()
             self.assertEqual(source.import_video_id, video.pk)

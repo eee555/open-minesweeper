@@ -184,7 +184,7 @@ class VideoModel(models.Model):
         ]
 
     @staticmethod
-    def create_from_parser(parser: MSVideoParser, user: UserProfile, *, upload_time=None):
+    def create_from_parser(parser: MSVideoParser, user: UserProfile, *, original_hash: str, upload_time=None):
         """
         注意：
         - 执行之前：
@@ -202,7 +202,7 @@ class VideoModel(models.Model):
         video = VideoModel(
             player=user,
             upload_time=upload_time,
-            file=parser.file, file_size=parser.file.size,
+            file=parser.file, file_size=parser.file.size, original_hash=original_hash,
             video=e_video,
             end_time=parser.end_time,
             state=parser.state, software=parser.software,

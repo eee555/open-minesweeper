@@ -80,7 +80,7 @@ digraph gsc_history_flow {
 
 ## 上传 API 内部流程
 
-API 在事务内完成权限、比赛状态和录像来源检查，将 participant 对象交给 `tournament.gsc.services.upload_gsc_history_video`。GSC 服务负责解析、标识校验、查重和历史比赛关联，复用现有标识服务、文件比较和 `set_import_upload_time` 工具，不依赖顶层 `common` app。纪念账号补录由 `common` 单独编排，复用相同的基础能力；普通用户本人上传仍沿用自己的资格、配额和查重政策。
+API 在事务内完成权限、比赛状态和录像来源检查，将 participant 对象交给 `tournament.gsc.services.upload_gsc_history_video`。GSC 服务校验上传时间后先按原始文件的 96 位哈希查重，未命中才解析及校验标识，最后关联历史比赛。复用 `calculate_original_hash`、`find_identical_video`、现有标识服务及 `set_import_upload_time` 工具，不依赖顶层 `common` app。纪念账号补录由 `common` 单独编排，复用相同的基础能力；普通用户本人上传仍沿用自己的资格、配额和重复文件拒绝政策。
 
 ```dot
 digraph gsc_history_upload {
@@ -92,18 +92,19 @@ digraph gsc_history_upload {
     guard [label="API 事务内检查比赛权限、状态\n要求站内用户、非手工成绩参赛者", fillcolor="${#dbeafe|#1e3a5f}"];
     parse [label="MSVideoParser\n拒绝未完成录像，保留审核结论"];
     identifier [label="检查标识安全与归属\n合法录像标识不匹配则为 IDENTIFIER"];
-    duplicate [shape=diamond, label="find_identical_video\n是否存在相同文件？"];
+    duplicate [shape=diamond, label="原始文件 96 位哈希\nfind_identical_video 是否命中？"];
     owner [shape=diamond, label="文件是否属于\n目标用户？"];
     conflict [label="409：拒绝归属冲突\n不修改原录像和上传时间", fillcolor="${#fee2e2|#7f1d1d}"];
     reuse [label="复用既有 VideoModel\n仅当请求时间更早时保存", fillcolor="${#dcfce7|#14532d}"];
-    create [label="create_from_parser\n创建录像并传入 upload_time", fillcolor="${#dcfce7|#14532d}"];
+    create [label="create_from_parser\n传入 original_hash、upload_time", fillcolor="${#dcfce7|#14532d}"];
     save_time [label="set_import_upload_time\n创建后覆盖 auto_now_add"];
     link [label="tournament.videos.add(video)\n显式关联历史比赛，M2M 去重", fillcolor="${#dcfce7|#14532d}"];
     response [label="返回 VideoBaseOut\n成功入库不等于 OFFICIAL 或已计分", fillcolor="${#dbeafe|#1e3a5f}"];
 
-    request -> guard -> parse -> identifier -> duplicate;
+    request -> guard -> duplicate;
     duplicate -> owner [label="存在"];
-    duplicate -> create [label="不存在"];
+    duplicate -> parse [label="不存在"];
+    parse -> identifier -> create;
     owner -> conflict [label="否"];
     owner -> reuse [label="是"];
     create -> save_time -> link;
@@ -112,7 +113,7 @@ digraph gsc_history_upload {
 }
 ```
 
-- 文件比较按文件大小筛选，再比较完整内容；同用户重复文件保留 `min(原上传时间, 请求上传时间)`，不会重复创建录像。任何新建或提前保存时间的操作仍走正常保存信号。
+- SHA-256 前 96 位相等即重复，不附加大小、成绩或字节比较。命中时跳过解析及新文件的标识校验，同用户重复文件保留 `min(原上传时间, 请求上传时间)`，其他用户的文件返回 409；不会重复创建录像。任何新建或提前保存时间的操作仍走正常保存信号。
 - 创建前传入来源时间，供 `pre_save` 自动 check-in 使用，避免按当前时间误入其他正在进行的比赛；创建后仍须显式保存，以覆盖 `auto_now_add`。
 - 本届历史关联由上传 service 显式建立，不要求 token、参赛窗口或 participant 的 `arbiter_identifier` 与文件一致。不修改录像内原始完成时间，也不改变文件归属。
 - 完成性、标识不安全等业务错误在 GSC API 层转换为错误 HTTP 状态，不让前端把历史默认的 HTTP 200 错误响应当作上传成功。成功响应的 `state` 仍可能不是 `OFFICIAL`。
@@ -126,7 +127,7 @@ digraph gsc_history_upload {
 | `GET /api/tournament/gsc/admin-info?order=...`（`get_GSC_tournament`） | 按届数取得父表比赛 ID、起止时间和状态；前端使用结束时间作为默认时间锚点，再以比赛 ID 请求成绩，组合成管理列表。 |
 | `POST /api/tournament/gsc/history/prepare`（`create_history_participant`） | 获取或创建录像来源 participant，不接收标识列表、不绑定标识。本届已有非手工记录则原样返回，手工来源仍冲突，不覆盖或切换来源。 |
 | `POST /api/tournament/gsc/history/participants/{participant_id}/identifier`（`bind_history_identifier`） | 每次注册并绑定一个标识，返回 `identifier` 和 `bound`。归属冲突返回 `bound=false`，其他错误使本请求失败；每个请求独立事务，前端顺序执行。 |
-| `POST /api/tournament/gsc/history/participants/{participant_id}/videos`（`upload_history_video`） | 每次处理一个文件：解析、标识校验、查重、创建或复用、保存上传时间、关联比赛；返回录像及审核状态。每个请求一个事务。 |
+| `POST /api/tournament/gsc/history/participants/{participant_id}/videos`（`upload_history_video`） | 每次处理一个文件：哈希查重，命中则复用，未命中才解析、校验标识并创建；保存上传时间、关联比赛，返回录像及审核状态。每个请求一个事务。 |
 | `POST /api/tournament/gsc/history/scores/users`（`import_history_user_scores`） | 为有站内账号但录像缺失的选手录入九项成绩，创建 `manual_scores=true` 的 participant，不从录像计算。 |
 | `POST /api/tournament/gsc/history/scores/anonymous`（`import_history_anonymous_scores`） | 以 Arbiter 标识创建匿名手工成绩选手，不虚构站内用户、不绑定账号；与站内选手一起占用实际名次，但不获得账号积分。 |
 | `DELETE /api/tournament/participant/{participant_id}`（`delete_participant`） | 删除没有任何关联录像的参赛者；有非 OFFICIAL 或不计分录像也拒绝。删除信号撤回本人已发积分并更新 best，但不重排其他人。 |

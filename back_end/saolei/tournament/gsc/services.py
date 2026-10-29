@@ -25,6 +25,7 @@ from utils.parser import MSVideoParser
 from utils.ranking_lock import ranking_access
 from videomanager.models import VideoModel
 from videomanager.services import find_identical_video, set_import_upload_time
+from videomanager.utils import calculate_original_hash
 
 GSC_SCORE_FIELDS = [
     'bt1st', 'bt20th', 'bt20sum',
@@ -233,23 +234,23 @@ def upload_gsc_history_video(participant: GSCParticipant, file, upload_time):
     except (ValueError, OverflowError) as error:
         raise ExceptionToResponse('upload_time', 'invalid', status_code=422) from error
 
-    parser = MSVideoParser(file)
     user = participant.user
-    if not user.userms_id:
-        user.userms = UserMS.objects.create()
-        user.save(update_fields=['userms'])
-    if not verify_identifier(parser.identifier):
-        raise ExceptionToResponse('identifier', 'verify', status_code=400)
-    if not Identifier.verify(parser.identifier, user.userms) and parser.state == MS_TextChoices.State.OFFICIAL:
-        parser.state = MS_TextChoices.State.IDENTIFIER
-
-    video = find_identical_video(file)
+    original_hash = calculate_original_hash(file)
+    video = find_identical_video(original_hash)
     if video is not None:
         if video.player_id != user.pk:
             raise ExceptionToResponse('file', 'collision', status_code=409)
         set_import_upload_time(video, upload_time)
     else:
-        video = VideoModel.create_from_parser(parser, user, upload_time=upload_time)
+        parser = MSVideoParser(file)
+        if not user.userms_id:
+            user.userms = UserMS.objects.create()
+            user.save(update_fields=['userms'])
+        if not verify_identifier(parser.identifier):
+            raise ExceptionToResponse('identifier', 'verify', status_code=400)
+        if not Identifier.verify(parser.identifier, user.userms) and parser.state == MS_TextChoices.State.OFFICIAL:
+            parser.state = MS_TextChoices.State.IDENTIFIER
+        video = VideoModel.create_from_parser(parser, user, original_hash=original_hash, upload_time=upload_time)
         set_import_upload_time(video, upload_time, created=True)
         video.save(update_fields=['ongoing_tournament'])
         video.update_redis()
