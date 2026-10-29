@@ -8,8 +8,10 @@ from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
 from django.db import transaction
 from django.http import FileResponse, HttpRequest, HttpResponse, HttpResponseForbidden, HttpResponseNotFound
+from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
 from django.views.decorators.cache import cache_control
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django_ratelimit.decorators import ratelimit
 from ninja import File, Form, Query, Router, Schema, UploadedFile
 from ninja.decorators import decorate_view
@@ -36,6 +38,21 @@ AVATAR_ACCEL_REDIRECT_PREFIX = '/internal-media/'
 class StaffAssignmentIn(Schema):
     user_id: int
     is_staff: bool
+
+
+class StaffAssignmentAccessOut(Schema):
+    csrf_token: str
+
+
+@router.get('/admin/staff', auth=django_auth_superuser, response=StaffAssignmentAccessOut)
+@decorate_view(ensure_csrf_cookie, cache_control(no_store=True))
+def staff_assignment_access(request):
+    """
+    - auth=django_auth_superuser
+    - ensure_csrf_cookie
+    - cache_control(no_store=True)
+    """
+    return {'csrf_token': get_token(request)}
 
 
 @router.post('/admin/staff', auth=django_auth_superuser, response=create_schema(UserProfile, name='StaffAssignmentOut', fields=['id', 'is_staff']))

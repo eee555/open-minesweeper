@@ -4,7 +4,7 @@ from unittest.mock import patch
 from urllib.parse import urlencode
 
 from django.core.files.base import ContentFile
-from django.test import override_settings, TestCase
+from django.test import Client, override_settings, TestCase
 from django.utils import timezone
 
 from msuser.models import UserMS
@@ -144,6 +144,39 @@ class UserProfileAdminApiTests(TestCase):
 
         self.assertEqual(get_response.status_code, 404)
         self.assertEqual(post_response.status_code, 404)
+
+    def test_staff_assignment_requires_superuser(self):
+        for viewer in (self.staff, self.user, None):
+            with self.subTest(viewer=viewer):
+                if viewer is None:
+                    self.client.logout()
+                else:
+                    self.client.force_login(viewer)
+                self.assertEqual(self.client.get('/api/userprofile/admin/staff').status_code, 401)
+                response = self.client.post('/api/userprofile/admin/staff', {'user_id': self.user.pk, 'is_staff': True}, content_type='application/json')
+                self.assertEqual(response.status_code, 401)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_staff)
+
+    def test_staff_assignment_initializes_csrf_and_does_not_require_staff(self):
+        self.staff.is_superuser = True
+        self.staff.is_staff = False
+        self.staff.save(update_fields=['is_superuser', 'is_staff', 'date_updated'])
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(self.staff)
+        payload = {'user_id': self.user.pk, 'is_staff': True}
+        self.assertEqual(client.post('/api/userprofile/admin/staff', payload, content_type='application/json').status_code, 403)
+        access = client.get('/api/userprofile/admin/staff')
+        self.assertEqual(access.status_code, 200, access.content)
+        self.assertIn('no-store', access['Cache-Control'])
+        for is_staff in (True, False):
+            with self.subTest(is_staff=is_staff):
+                payload['is_staff'] = is_staff
+                response = client.post('/api/userprofile/admin/staff', payload, content_type='application/json', HTTP_X_CSRFTOKEN=access.json()['csrf_token'])
+                self.assertEqual(response.status_code, 200, response.content)
+                self.assertEqual(response.json(), {'id': self.user.pk, 'is_staff': is_staff})
+                self.user.refresh_from_db()
+                self.assertEqual(self.user.is_staff, is_staff)
 
 
 @override_settings(RATELIMIT_ENABLE=False)
