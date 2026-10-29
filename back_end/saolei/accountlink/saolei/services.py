@@ -52,12 +52,13 @@ def update_saolei_account_info(account: AccountSaolei, client: Client):
 
 def save_catalogue_page(account: AccountSaolei, page: VideoListResponse, *, cursor: int, upper_bound: int) -> int:
     ids = [item.id for item in page.items]
-    if page.cursor != cursor or ids != sorted(set(ids)) or any(value < cursor for value in ids):
+    if page.cursor != cursor or ids != sorted(set(ids)) or any(value <= cursor for value in ids):
         raise ResponseError('Invalid video_list ordering or cursor')
-    if page.next_cursor < cursor or ((page.has_more or ids) and page.next_cursor <= max([cursor, *ids])):
-        raise ResponseError('video_list cursor did not advance past its records')
+    if page.next_cursor < max([cursor, *ids]) or (page.has_more and page.next_cursor <= cursor):
+        raise ResponseError('video_list next_cursor precedes its records or does not advance')
     records = [(item.id, video_defaults(item, account.pk)) for item in page.items if item.id <= upper_bound]
-    following = min(page.next_cursor, upper_bound + 1)
+    # cursor 是已处理的 ID，下一页返回 ID > cursor；跨过本轮上界时不能跳过 upper_bound + 1。
+    following = min(page.next_cursor, upper_bound)
     with transaction.atomic():
         current = lock_account(account)
         for remote_id, defaults in records:
@@ -77,7 +78,7 @@ def sync_saolei_catalogue(account: AccountSaolei, client: Client, *, upper_bound
     current = AccountSaolei.objects.get(pk=account.pk)
     check_binding(current, account.parent_id)
     cursor = 0 if full else current.video_sync_cursor
-    while cursor <= upper_bound:
+    while cursor < upper_bound:
         page = client.video_list(player_id=account.pk, cursor=cursor, size=page_size)
         cursor = save_catalogue_page(account, page, cursor=cursor, upper_bound=upper_bound)
         if progress:
