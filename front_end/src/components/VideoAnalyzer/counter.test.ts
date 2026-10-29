@@ -261,7 +261,7 @@ describe('real replay snapshots', () => {
         });
     }
 
-    it('preserves the library failure value in pluck counter samples', () => {
+    it('preserves the library pluck value in incomplete replay counter samples', () => {
         const filename = 'c_10_39.832_24_0.477_Pu Tian Yi(Hu Bei)_fail.evf';
         const bytes = Uint8Array.from(readFileSync(new URL(`../../../cypress/fixtures/${filename}`, import.meta.url))).buffer;
         const video = parseReplay(bytes, filename, 'e', ['pluck']);
@@ -273,27 +273,33 @@ describe('real replay snapshots', () => {
             expect(board).toHaveLength(video.row);
             expect(board.flat().filter((cell) => cell === -1)).toHaveLength(video.mine_num);
             for (const cells of board) expect(cells).toHaveLength(video.column);
+            video.current_time = Infinity;
+            const expectedPluck = video.pluck;
+            expect(expectedPluck).toBeGreaterThan(0);
             const events = readCounterEvents(video);
-            expect(events.at(-1)?.values.pluck).toBe(Number.MAX_VALUE);
-            expect(prepareCounter(row('pluck'), events).samples.at(-1)?.value).toBe(Number.MAX_VALUE);
+            expect(events.at(-1)?.values.pluck).toBe(expectedPluck);
+            expect(prepareCounter(row('pluck'), events).samples.at(-1)?.value).toBe(expectedPluck);
         } finally {
             video.free();
         }
     });
 
-    it('preserves nonfinite static values without replacing or filtering them', () => {
+    it('preserves special library values without replacing or filtering them', () => {
         const bytes = Uint8Array.from(readFileSync(new URL('../../../cypress/fixtures/52200.evf', import.meta.url))).buffer;
         const video = parseReplay(bytes, '52200.evf', 'e');
         try {
             vi.spyOn(video, 'zini', 'get').mockReturnValue(NaN);
             vi.spyOn(video, 'hzini', 'get').mockReturnValue(Infinity);
+            vi.spyOn(KeyDynamicParams.prototype, 'pluck', 'get').mockReturnValue(Number.MAX_VALUE);
             const events = readCounterEvents(video);
             for (const snapshot of events) {
                 expect(snapshot.values.zini).toBeNaN();
                 expect(snapshot.values.hzini).toBe(Infinity);
+                expect(snapshot.values.pluck).toBe(Number.MAX_VALUE);
             }
             expect(prepareCounter(row('zini'), events).samples[0].value).toBeNaN();
             expect(prepareCounter(row('hzini'), events).samples[0].value).toBe(Infinity);
+            expect(prepareCounter(row('pluck'), events).samples.at(-1)?.value).toBe(Number.MAX_VALUE);
         } finally {
             video.free();
         }
