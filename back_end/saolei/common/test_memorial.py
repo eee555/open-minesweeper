@@ -102,6 +102,7 @@ class MemorialCommandTests(MemorialFixtures, TestCase):
 class MemorialUploadTests(MemorialFixtures, TestCase):
     def setUp(self):
         super().setUp()
+        self.enterContext(patch('identifier.utils.verify_text', return_value=True))
         self.create()
         directory = self.enterContext(TemporaryDirectory())
         self.enterContext(override_settings(MEDIA_ROOT=directory))
@@ -157,7 +158,8 @@ class MemorialUploadTests(MemorialFixtures, TestCase):
         self.assertFalse(VideoModel.objects.exists())
         token = client.get(f'{BASE}/users/42/videos').json()['csrf_token']
         data['file'] = self.replay()
-        self.assertEqual(client.post(f'{BASE}/users/42/videos', data, HTTP_X_CSRFTOKEN=token).status_code, 200)
+        response = client.post(f'{BASE}/users/42/videos', data, HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(response.status_code, 200, response.content)
 
     def test_binding_upload_dates_counts_and_deduplication_reuse_gsc_rules(self):
         identifier = MSVideoParser(self.replay()).identifier
