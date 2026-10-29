@@ -53,7 +53,7 @@
     "jtcsv": "5.0.0",
     "lazy.js": "0.5.1",
     "mediabunny": "1.62.1",
-    "ms-toollib": "1.5.20",
+    "ms-toollib": "^1.6.0",
     "ordinal": "1.0.3",
     "papaparse": "5.7.0",
     "pinia": "4.1.0",

@@ -53,7 +53,7 @@ const exporting = ref(false);
 
 - `useReplayPosition` 是可见录像的唯一定位入口，关键帧保留“先时间、后索引、前置局面”的 workaround；上游同步接口修复前，不在图层、计数器或 plot 中另行定位。
 - `usePreparedAnalysis` 只根据对应配置、原生事件和时长更新缓存。无关图层设置使用原地修改，保留 VueUse `toRefs(..., { replaceRef: false })`，避免重新采样。
-- `pluck` 在 `analyse_for_features(['pluck'])` 前为 `NaN`；失败录像可能返回 `Number.MAX_VALUE`，保留原值，不替换成零或无穷。读取事件快照和参数后必须释放 WASM 包装对象，不遍历修改页面索引来提取字段。
+- `pluck` 随录像加载通过 `analyse_for_features(['pluck'])` 分析一次，按库的逐事件返回值采样；不假定未完成录像使用固定失败值，也不把特殊值（如 `NaN`、无穷或 `Number.MAX_VALUE`）归零或替换。读取事件快照和参数后必须释放 WASM 包装对象，不遍历修改页面索引来提取字段。
 - `counterDifference.ts` 适配 `expr-eval@2.0.2` 的内部 `Expression.tokens` 和 `IEXPREVAL` 指令，以保留差分参数及条件分支的惰性求值；其他运算仍交给原库，不另写表达式解析器或使用 eval。公共自定义函数会先求值参数，不能直接替代此适配；升级依赖时复查模块并运行差分测试，若上游提供公开接口则优先替换。[求值源码](https://github.com/silentmatt/expr-eval/blob/v2.0.2/src/evaluate.js)、[Expression 源码](https://github.com/silentmatt/expr-eval/blob/v2.0.2/src/expression.js)。字段、步长及采样语义只在中英文表达式参考中维护。
 - 棋盘绘制使用 minesweeper-board 的公开组件和独立 render，时间轴使用 vue3-plots；通用能力缺口先请求上游，棋盘自定义事件的原生 SVG 是已确认的独立图层。
 

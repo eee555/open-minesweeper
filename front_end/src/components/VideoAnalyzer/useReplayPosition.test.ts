@@ -103,12 +103,15 @@ describe('analyzer replay position', () => {
         expect(openedCells(state.gameBoard.value)).toBe(128);
     });
 
-    it('keeps failure-state cells exactly as returned by game_board', async () => {
-        const video = loadFixture('c_10_39.832_24_0.477_Pu Tian Yi(Hu Bei)_fail.evf');
+    it('keeps special cell states exactly as returned by game_board', async () => {
+        const video = loadFixture();
+        const board = video.game_board as number[][];
+        board[0][0] = 15;
+        vi.spyOn(video, 'game_board', 'get').mockReturnValue(board);
         const state = setup(video);
         state.currentMs.value = video.rtime_ms;
         await nextTick();
-        expect(state.gameBoard.value).toEqual(video.game_board);
+        expect(state.gameBoard.value).toEqual(board);
         expect(state.gameBoard.value?.flat()).toContain(15);
     });
 
