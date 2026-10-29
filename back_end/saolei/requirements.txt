@@ -23,6 +23,7 @@ redis==8.1.0
 requests==2.34.2
 wom-api[system-certs]==0.1.0
 msgames-api==0.1.1
+saolei-api==0.4.0
 cryptography==50.0.2
 timeout-decorator==0.5.0
 dataclasses_json==0.6.7

@@ -1,14 +1,12 @@
-from datetime import datetime, timezone as datetime_timezone
 import logging
 
 from asgiref.sync import async_to_sync
-from django.core.files import File
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.utils import timezone
 from django_tasks_db.models import DBTaskResult
 
-from config.text_choices import MS_TextChoices, Saolei_TextChoices
+from config.text_choices import MS_TextChoices
 from identifier.models import Identifier
 from msuser.models import UserMS
 from userprofile.models import UserProfile
@@ -16,11 +14,10 @@ from userprofile.services import grant_name_privacy
 from utils.exceptions import ExceptionToResponse
 from utils.parser import MSVideoParser
 from utils.ranking_lock import ranking_access
-from utils.saolei import SaoleiVideoInfo
 from videomanager.models import VideoModel
 from videomanager.services import find_identical_video, set_import_upload_time
 from videomanager.utils import calculate_original_hash
-from .models import AccountLinkQueue, AccountMinesweeperGames, AccountSaolei, AccountWorldOfMinesweeper, Platform, VideoMSGames, VideoSaolei
+from .models import AccountLinkQueue, AccountMinesweeperGames, AccountWorldOfMinesweeper, Platform, VideoMSGames
 from .msgames.client import download_replay as download_msgames_replay, fetch_profile as fetch_msgames_profile, fetch_replays as fetch_msgames_replays
 from .msgames.utils import upload_date_upper_bound
 from .utils import delete_account, link_account, update_bilibili_account
@@ -164,87 +161,3 @@ def restart_accountlink_task(db_task: DBTaskResult, args: list, kwargs: dict):
     }:
         raise ExceptionToResponse('saolei', 'crawling_disabled', status_code=410)
     return None
-
-
-def update_saolei_account_info(account: AccountSaolei, profile: dict):
-    """写入已取得的扫雷网资料，不访问外站。"""
-    account.name = profile['name']
-    account.total_views = profile['total_views']
-
-    account.b_t_ms = profile['timems']['b']
-    account.i_t_ms = profile['timems']['i']
-    account.e_t_ms = profile['timems']['e']
-    account.s_t_ms = profile['timems']['s']
-
-    account.b_b_cent = profile['bvs_cent']['b']
-    account.i_b_cent = profile['bvs_cent']['i']
-    account.e_b_cent = profile['bvs_cent']['e']
-    account.s_b_cent = profile['bvs_cent']['s']
-
-    account.beg_count = profile['count']['b']
-    account.int_count = profile['count']['i']
-    account.exp_count = profile['count']['e']
-
-    account.update_time = datetime.now(tz=datetime_timezone.utc)
-
-    account.save(update_fields=[
-        'name', 'total_views',
-        'b_t_ms', 'i_t_ms', 'e_t_ms', 's_t_ms',
-        'b_b_cent', 'i_b_cent', 'e_b_cent', 's_b_cent',
-        'beg_count', 'int_count', 'exp_count',
-        'update_time',
-    ])
-
-
-def update_saolei_user_video_one_page(account: AccountSaolei, video_list: list[SaoleiVideoInfo]):
-    """写入一批已取得的录像元数据，返回新增记录，不抓取页面。"""
-    existing_video_ids = list(VideoSaolei.objects.filter(id__in=[info.id for info in video_list]).values_list('id', flat=True))
-
-    new_video_list: list[VideoSaolei] = []
-    for video_info in video_list:
-        if video_info.id not in existing_video_ids:
-            new_video = VideoSaolei.objects.create(id=video_info.id, user=account, upload_time=video_info.upload_time, level=video_info.level, bv=video_info.bv, timems=video_info.timems, nf=video_info.nf)
-            new_video_list.append(new_video)
-
-    logger.info(f'扫雷网用户#{account.id}的录像元数据入库完成，共{len(video_list)}个录像，其中{len(new_video_list)}个新录像')
-    return new_video_list
-
-
-# 导入一个扫雷网录像
-@ranking_access(operation='accountlink.saolei_import')
-def saolei_video_import_one(saolei_video: VideoSaolei, file: File, state: str):
-    """导入已取得的录像文件及来源状态，保留查重、审核、上传时间和排行更新。"""
-    logger.info(f'开始导入扫雷网录像#{saolei_video.id}')
-    try:
-        saolei_video.state = state
-        saolei_video.save(update_fields=['state'])
-
-        if state == Saolei_TextChoices.SaoleiVideoState.NOTEXIST:
-            logger.warning(f'扫雷网 录像#{saolei_video.id} 不存在，可能已被删除')
-            return
-
-        original_hash = calculate_original_hash(file)
-        collision = find_identical_video(original_hash)
-        if collision is not None:
-            set_import_upload_time(collision, saolei_video.upload_time)
-            saolei_video.import_video = collision
-            saolei_video.save(update_fields=['import_video'])
-            return
-
-        parser = MSVideoParser(file)
-        user = saolei_video.user.parent
-
-        if not user.userms:
-            user.userms = UserMS.objects.create()
-        if not Identifier.verify(parser.identifier, user.userms) and parser.state == MS_TextChoices.State.OFFICIAL:
-            parser.state = MS_TextChoices.State.IDENTIFIER
-
-        video = VideoModel.create_from_parser(parser, user, original_hash=original_hash, upload_time=saolei_video.upload_time)
-        set_import_upload_time(video, saolei_video.upload_time, created=True)
-        video.update_redis()
-        video.save(update_fields=['upload_time', 'ongoing_tournament'])
-        saolei_video.import_video = video
-        saolei_video.save(update_fields=['import_video'])
-    except BaseException:
-        logger.exception(f'扫雷网录像#{saolei_video.id} 导入失败')
-        raise

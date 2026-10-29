@@ -27,7 +27,7 @@
 - `utils.parser.MSVideoParser` 解析录像文件，得到基础字段、扩展字段、状态、标识、比赛 token、`pluck`。
 - `identifier` 检查标识安全性和归属。如果录像本身合法但标识不属于用户，状态应降为 `IDENTIFIER`。
 
-未命中时只解析一次，向 `create_from_parser(..., original_hash=...)` 传入已算好的摘要，随新录像一起保存。存量由 `backfill_video_hashes` 补齐；部署哈希查重后应再运行一次，覆盖上次回填后旧代码创建的空哈希记录。此改动复用已有字段与普通索引，不新增迁移或唯一约束。
+未命中时只解析一次，向 `create_from_parser(..., original_hash=...)` 传入已算好的摘要，随新录像一起保存。`original_hash` 使用 `unique=True`，由数据库阻止重复哈希写入；字段自带唯一索引，已移除原来的 `video_original_hash_idx` 普通索引。保留 `null=True, blank=True`，允许多条未填充的 NULL 记录，但空字符串也是唯一值。部署时需生成并执行结构迁移；不额外扫描历史重复哈希，也不自动删除重复录像。存量由 `backfill_video_hashes` 补齐，覆盖上次回填后旧代码创建的空哈希记录。
 
 导入传给 `create_from_parser(..., upload_time=...)` 的时间在创建信号中参与 check-in 判断，避免历史文件按当前时间误入正在进行的比赛。由于 `auto_now_add`，创建后仍通过 `videomanager.services.set_import_upload_time` 显式保存来源时间；复用文件只在指定时间更早时保存，继续触发队列和排行信号。
 

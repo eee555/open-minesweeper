@@ -37,22 +37,6 @@ class MS_TextChoices:
         RMV = 'r', ('rmv')
 
 
-class Saolei_TextChoices:
-    class SaoleiVideoState(TextChoices):
-        NOTEXIST = 'n', ('不存在')
-        PENDING = 'p', ('未审核')
-        FROZEN = 'f', ('已冻结')
-        OFFICIAL = 'o', ('正常')
-
-    class SaoleiVideoImportState(TextChoices):
-        NOTPLANNED = 'n', ('未计划')
-        READY = 'r', ('准备就绪')
-        QUEUEING = 'q', ('排队中')
-        IMPORTING = 'i', ('导入中')
-        IMPORTED = 'd', ('已导入')
-        FAILED = 'f', ('导入失败')
-
-
 class Medal_TextChoices:
     class Series(TextChoices):
         BREAKTHROUGH = 'b', ('破境')

@@ -1,25 +1,14 @@
-from datetime import timedelta
-from pathlib import Path
-from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from django.core.files.base import ContentFile
 from django.tasks import TaskResultStatus
 from django.test import override_settings, SimpleTestCase, TestCase
 from django.urls import resolve, Resolver404
-from django.utils import timezone
 from django_tasks_db.models import DBTaskResult
 
-from config.text_choices import MS_TextChoices, Saolei_TextChoices
-from identifier.models import Identifier
 from msuser.models import UserMS
 from userprofile.models import UserProfile
 from utils.exceptions import ExceptionToResponse
-from utils.parser import MSVideoParser
-from utils.saolei import SaoleiVideoInfo
-from videomanager.models import VideoModel
-from .models import AccountLinkQueue, AccountSaolei, Platform, VideoSaolei
-from .services import saolei_video_import_one, update_saolei_user_video_one_page
+from .models import AccountLinkQueue, AccountSaolei, Platform
 from .tasks import task_saolei_profile, task_saolei_video_import, task_saolei_video_import_bulk
 
 
@@ -88,49 +77,4 @@ class SaoleiBusinessTests(TestCase):
             self.assertEqual(response.status_code, 410, response.content)
             self.assertEqual(response.json()['category'], 'crawling_disabled')
             self.assertEqual(DBTaskResult.objects.count(), count)
-        remote.assert_not_called()
-
-    def test_supplied_metadata_is_saved_and_historical_read_apis_remain_available(self, remote):
-        account = AccountSaolei.objects.create(pk=101, parent=self.user)
-        info = SaoleiVideoInfo(123, 'b', 1, 1000, False, timezone.now(), True)
-        videos = update_saolei_user_video_one_page(account, [info])
-        self.assertEqual([video.pk for video in videos], [123])
-        self.assertEqual(update_saolei_user_video_one_page(account, [info]), [])
-        self.assertEqual(update_saolei_user_video_one_page(account, []), [])
-        self.assertEqual(VideoSaolei.objects.get(pk=123).upload_time, info.upload_time)
-        response = self.client.get('/accountlink/saolei/videolist/get/', {'saolei_id': 101})
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual([video['id'] for video in response.json()], [123])
-        self.assertEqual(self.client.get('/accountlink/saolei/videoimport/stat/', {'saolei_id': 101}).json()['total'], 1)
-        remote.assert_not_called()
-
-    def test_supplied_file_keeps_identifier_check_duplicate_reuse_and_source_upload_time(self, remote):
-        fixture = Path(__file__).resolve().parents[1] / 'common/test_fixtures/video_upload_ranking/beginner_personal.evf'
-        content = fixture.read_bytes()
-        parser = MSVideoParser(ContentFile(content, fixture.name))
-        Identifier.objects.create(identifier=parser.identifier, userms=None, safe=True)
-        account = AccountSaolei.objects.create(pk=101, parent=self.user)
-        source_time = timezone.now() - timedelta(days=365)
-        source = VideoSaolei.objects.create(pk=123, user=account, upload_time=source_time, level='b', bv=1, timems=1000, nf=False)
-        with TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
-            saolei_video_import_one(source, ContentFile(content, fixture.name), Saolei_TextChoices.SaoleiVideoState.OFFICIAL)
-            source.refresh_from_db()
-            video = source.import_video
-            self.assertIsNotNone(video)
-            self.assertEqual(video.state, MS_TextChoices.State.IDENTIFIER)
-            self.assertEqual(video.upload_time, source_time)
-            self.assertEqual(video.player_id, self.user.pk)
-            with video.file.open('rb') as saved_file:
-                self.assertEqual(saved_file.read(), content)
-            earlier = source_time - timedelta(days=1)
-            source.upload_time = earlier
-            source.save(update_fields=['upload_time'])
-            with patch('accountlink.services.MSVideoParser') as parse:
-                saolei_video_import_one(source, ContentFile(content, fixture.name), Saolei_TextChoices.SaoleiVideoState.OFFICIAL)
-            parse.assert_not_called()
-            source.refresh_from_db()
-            video.refresh_from_db()
-            self.assertEqual(source.import_video_id, video.pk)
-            self.assertEqual(VideoModel.objects.count(), 1)
-            self.assertEqual(video.upload_time, earlier)
         remote.assert_not_called()

@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 from django.db import models
-from django_tasks_db.models import DBTaskResult
 
-from config.text_choices import MS_TextChoices, Saolei_TextChoices
+from config.text_choices import MS_TextChoices
 from userprofile.models import UserProfile
 from videomanager.models import VideoModel
 from .msgames.utils import supports_replay
@@ -38,31 +37,15 @@ class AccountSaolei(models.Model):
     parent = models.OneToOneField(UserProfile, on_delete=models.CASCADE, related_name='account_saolei')
     update_time = models.DateTimeField(auto_now_add=True)
 
-    video_import_task = models.ForeignKey(DBTaskResult, on_delete=models.SET_NULL, null=True)
-
-    name = models.CharField(max_length=10, default='')  # 姓名，10应该够了吧
-    total_views = models.PositiveIntegerField(default=0)  # 综合人气
-
-    beg_count = models.PositiveSmallIntegerField(default=0)  # 初级录像数量
-    int_count = models.PositiveSmallIntegerField(default=0)  # 中级录像数量
-    exp_count = models.PositiveSmallIntegerField(default=0)  # 高级录像数量
-
-    # time纪录，单位毫秒
-    b_t_ms = models.PositiveIntegerField(null=True)
-    i_t_ms = models.PositiveIntegerField(null=True)
-    e_t_ms = models.PositiveIntegerField(null=True)
-    s_t_ms = models.PositiveIntegerField(null=True)
-
-    # bvs纪录，单位0.01。大概不会有人bvs超过300吧？大概吧？
-    b_b_cent = models.PositiveSmallIntegerField(null=True)
-    i_b_cent = models.PositiveSmallIntegerField(null=True)
-    e_b_cent = models.PositiveSmallIntegerField(null=True)
-    s_b_cent = models.PositiveSmallIntegerField(null=True)
+    name = models.CharField(max_length=128, default='')
+    banned = models.BooleanField(default=False)
+    video_sync_cursor = models.PositiveBigIntegerField(default=0)
+    video_update_time = models.DateTimeField(null=True)
 
 
-class VideoSaolei(models.Model):
-    id = models.PositiveIntegerField(primary_key=True)
-    user = models.ForeignKey(AccountSaolei, on_delete=models.DO_NOTHING, related_name='videos')
+class SaoleiApiVideo(models.Model):
+    remote_id = models.PositiveBigIntegerField(unique=True)
+    user = models.ForeignKey(AccountSaolei, on_delete=models.CASCADE, related_name='videos')
     upload_time = models.DateTimeField()
     level = models.CharField(
         max_length=1,
@@ -75,13 +58,10 @@ class VideoSaolei(models.Model):
     bv = models.PositiveSmallIntegerField(default=0)
     timems = models.PositiveIntegerField(default=0)
     nf = models.BooleanField(default=False)
-    state = models.CharField(max_length=1, choices=Saolei_TextChoices.SaoleiVideoState.choices)
+    software = models.TextField()
+    status = models.IntegerField()
+    file_url = models.TextField(null=True, blank=True, help_text='官方录像文件后缀 YYYY/MM/DD/filename，供客户端下载。')
     import_video = models.OneToOneField(VideoModel, on_delete=models.SET_NULL, null=True)
-    import_task = models.ForeignKey(DBTaskResult, on_delete=models.SET_NULL, null=True)
-
-    @property
-    def url(self):
-        return f'http://saolei.wang/Video/Show.asp?Id={self.id}'
 
 
 class AccountMinesweeperGames(models.Model):

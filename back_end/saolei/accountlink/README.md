@@ -8,23 +8,47 @@
 
 ## 扫雷网迁移期间
 
+首批迁移已实现，使用 `saolei-api==0.4.0` 的官方 Release wheel，版本与 SHA256 固定在依赖文件中。完整业务约定及下次更新范围见[扫雷网官方 API 接入方案](SAOLEI_API_IMPORT_PLAN.md)。本次未对现有业务库执行迁移或真实账号导入。
+
+接入分两次更新：首次仅由服务器管理命令完成已绑定账号的同步与录像导入，现有刷新、同步和导入接口继续关闭，旧列表和统计接口也关闭，不开发或改接新 API。前端代码不动；API 相关改动仅限关闭旧查询所需的路由和引用清理。接口关闭情况由站长人工鉴定，不新增自动化测试。同步完成后保持关闭，下次更新再开放新 Ninja API 和前端操作。账号关联申请、审核和已有绑定保留，审核成功不自动触发扫雷网同步。
+
+自动生成的结构迁移删除旧 `VideoSaolei` 来源模型及全部数据，创建独立的 `SaoleiApiVideo` 来源表；不按相同数字对应新旧来源 ID。账号绑定、已导入本站的 `VideoModel`、扩展记录和文件保留。重新取得的原文件按本站哈希查重，同主复用已有录像，异主冲突不关联或修改既有录像。`SaoleiApiVideo.import_video` 使用可空的 `OneToOneField`，同一条本站录像最多关联一条扫雷网来源记录。仓库不跟踪迁移文件，部署时沿用目标服务器的历史迁移自动生成并核对，不依赖开发机的迁移编号。
+
+新旧扫雷网用户 ID 保持一致，沿用现有绑定。新来源录像的 `status` 仅展示，不影响是否导入；上游 `hash` 不采集或保存。取得文件后继续复用本站原有录像解析及查重业务。
+
+`SaoleiApiVideo.file_url` 保存客户端规范化后的录像文件后缀，例如 `2023/04/16/sample.evf`；获取详情时更新并落库，导入从该字段下载文件。目录列表没有文件地址，刷新目录不会清空已保存的后缀；详情明确返回无文件时清空该字段并保留来源供重试。原录像网页链接的 `url` getter 已移除。
+
+账号资料只接入 `id`、`name` 和 `banned`，不使用任何账号成绩数据（`scores`、`scores_nf`）或 `signatures`，不进行账号成绩精度升级。`AccountSaolei` 删除旧成绩、人气、三级录像数量和 `video_import_task` 字段，仅保留账号 ID、用户关联、姓名、封禁状态、资料更新时间及录像目录的游标和完成时间。录像自身的成绩解析和文件内标识校验继续沿用现有业务。
+
+账号新增本地进度字段 `video_sync_cursor`（默认 0），保存上次成功落库的目录页对应的 `next_cursor`，供增量更新和中断续跑使用。目录记录与游标同事务提交，失败不推进；录像文件导入失败单独重试，不回退目录进度。`video_update_time` 仅在目录扫描完成后更新，不代表所有文件均已导入。
+
+新来源录像保存 `software` 原始软件名称，下次开放的目录接口和录像管理列表再使用此字段；本站录像的软件类型仍由实际文件解析确定。已完成[官方 API 软件名称抽样](SAOLEI_SOFTWARE_SURVEY.md)，包含 `Vienna` 和 `元扫雷3.3.4` 等实际取值。
+
+新接入方案按软件白名单导入，仅接受 `software` 原字符串精确匹配的 `Clone`、`Vienna`、`Arbiter`、`元扫雷3.3.4`。`Saolei.wang` 和其他白名单外取值保留来源目录记录，单条、批量、全站重建及重试均跳过导入，不下载文件；跳过与失败分别统计，`status` 仍不作为导入筛选条件。
+
 旧站资料页、录像列表和下载地址的爬取逻辑已删除。账号关联申请、人工审核、绑定关系、已保存资料和历史录像继续保留；审核扫雷网关联时不再自动刷新资料。
 
 - 资料刷新 `/accountlink/update/` 的 `platform=c` 返回 HTTP 410，错误类别为 `saolei/crawling_disabled`；其他平台沿用原流程。
 - 触发爬取的 `/accountlink/saolei_import_video/`、`/accountlink/saolei_import_videos/` 已移除，返回 HTTP 404。
-- 历史列表 `/accountlink/saolei/videolist/get/` 和统计 `/accountlink/saolei/videoimport/stat/` 仍可查询，不访问外站。
+- 历史列表 `/accountlink/saolei/videolist/get/` 和统计 `/accountlink/saolei/videoimport/stat/` 已移除，对应视图及旧模型引用一并清理。
 - 三个旧 Django Task 路径保留为失败入口，处理升级前已入队的任务，并禁止管理员重启这些爬取任务。部署时需要重启 Web 和任务 worker，使它们加载新代码；不清除历史任务或业务数据。
-- 前端保留原有卡片、轮播、同步区域和统计展示，禁用爬取按钮，停止进度轮询；管理按钮仍可查看历史结果。
+- 本轮不修改前端，保留现有禁用的同步操作；旧查询接口已关闭，下次更新再接入新目录与统计。
 
-后续接入新数据来源时复用以下业务入口，不恢复旧站抓取：
+管理命令在同一进程共用客户端，串行完成资料、目录和文件导入，不创建 Django Task。部署后在服务器配置 `secrets.json` 中的 `saolei_api_key`，先核对原文件哈希并运行结构迁移，再小范围联调：
 
-| 入口 | 调用方提供 | 保留的处理 |
-| --- | --- | --- |
-| `update_saolei_account_info(account, profile)` | 结构化资料字典，包含 `name`、`total_views`、`timems`、`bvs_cent`、`count` | 更新资料、纪录、录像数量和更新时间 |
-| `update_saolei_user_video_one_page(account, video_list)` | 一批 `SaoleiVideoInfo`，不再接收页码 | 录像元数据入库、跳过已有 ID、返回新增记录 |
-| `saolei_video_import_one(saolei_video, file, state)` | 已取得的 Django `File` 和来源审核状态 | 文件查重、标识校验、录像创建、来源上传时间、比赛与排行更新 |
+```bash
+python manage.py backfill_video_hashes
+python manage.py makemigrations accountlink --noinput
+python manage.py migrate
+python manage.py sync_saolei_api --account-id 101 --full
+python manage.py sync_saolei_api --all-linked --full
+```
 
-不修改模型字段，不删除已有录像，不需要数据库迁移。
+`--account-id` 是扫雷网账号 ID，可重复指定；只处理已验证且与 `AccountSaolei.parent` 一致的绑定，不自动修复绑定。命令发现存量录像缺少哈希时拒绝同步。旧任务指针随结构迁移删除，不另设清理接口。
+
+中断续跑或以后增量更新使用 `python manage.py sync_saolei_api --all-linked`，去掉 `--full`。每次运行还会扫描本地白名单内、尚未关联本站录像的记录，补导已入库但未完成的录像。`--full` 从 0 重新对账目录，不清空新表，也不回退已保存的成功游标。
+
+资料或单条录像失败不撤销绑定和既有成功结果；失败会汇总并返回非零退出码。鉴权失败或限流立即停止，不自动重试。来源缺少详情或文件保留重试机会；执行期间请勿并行运行多个使用同一 key 的同步命令。同步完成后接口和前端操作继续保持关闭。
 
 ## Mineracer 接入现状
 

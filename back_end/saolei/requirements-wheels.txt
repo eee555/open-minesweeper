@@ -1,3 +1,4 @@
 # Download release wheels on the developer machine or CI runner, then upload wheels/.
 wom-api[system-certs] @ https://github.com/putianyi889/wom-api/releases/download/v0.1.0/wom_api-0.1.0-py3-none-any.whl#sha256=dfdf16a53c9a2933ff10069b7d81323cc6ac3436b7eaa12acf9cb9350aa911f8
 msgames-api @ https://github.com/putianyi889/msgames-api/releases/download/v0.1.1/msgames_api-0.1.1-py3-none-any.whl#sha256=e4727ce3cbdf11426c30ac00b974618acdad7525165019d6e0922a5caf4d1fe2
+saolei-api @ https://github.com/putianyi889/saolei-api/releases/download/v0.4.0/saolei_api-0.4.0-py3-none-any.whl#sha256=6fecfd78d7d21678b00d87130415ece4dc4f92544c3c80b239fa25892bc52ea2

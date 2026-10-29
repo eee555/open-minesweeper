@@ -17,8 +17,7 @@ from .api import MineracerAccountLinkSessionOut
 from .mineracer.client import poll_mineracer_account_link, request_mineracer_account_link
 from .mineracer.dtos import MINERACER_ERROR_ACCOUNT_NOT_FOUND, MINERACER_ERROR_INVALID_DEVICE_CODE, MINERACER_ERROR_LINK_SUPERSEDED, MINERACER_STATUS_CONFIRMED, MINERACER_STATUS_EXPIRED, MINERACER_STATUS_FAILED, MINERACER_STATUS_PENDING, MineracerAccountLinkPollResponse, MineracerAccountLinkSession, MineracerAccountLinkStartResponse
 from .mineracer.sessions import _get_mineracer_session, _save_mineracer_session, _save_user_pending_mineracer_session
-from .models import AccountBilibili, AccountLinkQueue, AccountMineracer, AccountMinesweeperGames, AccountSaolei, Platform
-from .services import update_saolei_account_info
+from .models import AccountBilibili, AccountLinkQueue, AccountMineracer, AccountMinesweeperGames, Platform
 from .utils import isPrivate, private_platforms, update_bilibili_account
 
 
@@ -199,31 +198,7 @@ class AccountLinkTestCase(TestCase):
     def setUp(self):
         user = UserProfile.objects.create(
             username='setUp', email='setUp@test.com')
-        AccountSaolei.objects.create(id=1, parent=user)
         AccountBilibili.objects.create(id=208259, parent=user)
-
-    def test_update_saolei(self):
-        account = AccountSaolei.objects.filter(id=1).first()
-        update_saolei_account_info(account, {
-            'name': '张砷镓', 'total_views': 100,
-            'timems': {'b': 980, 'i': 10310, 'e': 37820, 's': 49110},
-            'bvs_cent': {'b': 729, 'i': 530, 'e': 423, 's': 1681},
-            'count': {'b': 12, 'i': 33, 'e': 50},
-        })
-        account = AccountSaolei.objects.filter(id=1).first()
-        self.assertEqual(account.id, 1)
-        self.assertEqual(account.name, '张砷镓')
-        self.assertEqual(account.beg_count, 12)
-        self.assertEqual(account.int_count, 33)
-        self.assertEqual(account.exp_count, 50)
-        self.assertEqual(account.b_t_ms, 980)
-        self.assertEqual(account.i_t_ms, 10310)
-        self.assertEqual(account.e_t_ms, 37820)
-        self.assertEqual(account.s_t_ms, 49110)
-        self.assertEqual(account.b_b_cent, 729)
-        self.assertEqual(account.i_b_cent, 530)
-        self.assertEqual(account.e_b_cent, 423)
-        self.assertEqual(account.s_b_cent, 1681)
 
     def test_update_bilibili(self):
         account = AccountBilibili.objects.filter(id=208259).first()

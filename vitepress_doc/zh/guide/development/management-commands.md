@@ -22,6 +22,26 @@ ID 和资料仅为示例，须替换为已核实的空缺；另支持 `--firstna
 
 旧数据清理和资料维护由站长使用已有工具完成；录像补传使用 `/superuser/memorial`。业务规则见仓库 `back_end/saolei/userprofile/README.md`。
 
+## 扫雷网首次迁移与增量同步
+
+### `sync_saolei_api`
+
+位置：`accountlink/management/commands/sync_saolei_api.py`。使用服务器 `secrets.json` 的 `saolei_api_key`，只处理已验证且关联一致的扫雷网账号。首批仅提供此管理命令，旧查询关闭，不开放新的 Web API，前端代码不动。
+
+部署时先使用已有 `backfill_video_hashes` 补齐存量原文件哈希，再运行 `makemigrations accountlink --noinput` 并核对生成结果，最后运行 `migrate`。迁移文件按仓库惯例不跟踪，编号取决于服务器已有历史；应生成删除旧 `VideoSaolei`、创建独立 `SaoleiApiVideo` 及账号字段变更的结构迁移，保留账号绑定、本站录像、扩展记录及文件。首次运行可先指定一个扫雷网账号 ID 核对结果，再处理全部绑定：
+
+```bash
+python manage.py sync_saolei_api --account-id 101 --full
+python manage.py sync_saolei_api --all-linked --full
+python manage.py sync_saolei_api --all-linked
+```
+
+`--account-id` 可重复指定；`--all-linked` 表示全部已验证绑定，两者必须选择其一。`--full` 从 0 重新扫描目录，不清空数据、不回退账号成功游标；去掉此选项用于增量和中断续跑。`--page-size` 默认为 200，取值 1 至 1000。命令发现任何存量录像缺少原文件哈希时拒绝同步。
+
+整个命令串行共用一个客户端，数据请求间隔 2.1 秒，文件请求间隔 0.4 秒；不要并行启动多个同步命令。目录页和 `AccountSaolei.video_sync_cursor` 同事务提交，失败不推进；目录同步后还会补导本地白名单内未完成的录像，避免游标已推进但文件未导入时漏导。软件精确白名单为 `Clone`、`Vienna`、`Arbiter`、`元扫雷3.3.4`，其他名称只保存目录并跳过；上游 `status` 不限制导入。
+
+同主文件哈希命中时复用既有本站录像，异主冲突不改归属或上传时间。单项失败保留成功进度并汇总，退出码非零；鉴权失败和限流立即停止，不自动重试。进度见命令输出和 `accountlink` 日志，接口关闭由站长人工鉴定，同步完成不自动开放接口。账号资料仅采用 ID、姓名和外站封禁状态，不同步成绩或标识列表。
+
 ## 勋章补发
 
 ### `enqueue_medal_backfill`
