@@ -1,6 +1,5 @@
 import logging
 
-from asgiref.sync import async_to_sync
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.utils import timezone
@@ -86,7 +85,7 @@ def update_account(platform: Platform, user: UserProfile):
 
 
 def update_wom_account(account: AccountWorldOfMinesweeper):
-    data = async_to_sync(fetch_wom_profile)(account.id)
+    data = fetch_wom_profile(account.id)
     for field, value in data.items():
         setattr(account, field, value)
     account.save(update_fields=[*data, 'update_time'])

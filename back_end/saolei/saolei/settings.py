@@ -327,6 +327,11 @@ MINERACER_POLL_URL = os.environ.get('MINERACER_ACCOUNT_LINK_POLL_URL', 'https://
 MINERACER_TIMEOUT = float(os.environ.get('MINERACER_ACCOUNT_LINK_TIMEOUT', '5'))
 MINERACER_POLL_INTERVAL_MS = max(1, int(os.environ.get('MINERACER_ACCOUNT_LINK_POLL_INTERVAL_MS', '2500')))
 
+# WOM（Minesweeper.Online）公开资料。令牌只放服务端环境变量，不写入代码。
+WOM_API_BASE_URL = os.environ.get('WOM_API_BASE_URL', 'https://api.lockhart.ren')
+WOM_API_TOKEN = os.environ.get('WOM_API_TOKEN', '')
+WOM_API_TIMEOUT = float(os.environ.get('WOM_API_TIMEOUT', '6'))
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,

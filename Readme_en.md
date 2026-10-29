@@ -27,7 +27,7 @@ Back end:
    python -m venv .venv
    ```
 
-1. Download the release wheels, then install dependencies. `requirements-wheels.txt` pins the GitHub release URLs and SHA-256 hashes of `wom-api` and `msgames-api`; `requirements.txt` pins the installed versions. The `wheels/` directory is ignored by Git:
+1. Download the release wheels, then install dependencies. `requirements-wheels.txt` pins the GitHub release URL and SHA-256 hash of `msgames-api`; `requirements.txt` pins the installed versions. The `wheels/` directory is ignored by Git:
 
    ```powershell
    .\.venv\Scripts\python.exe -m pip download --no-deps --dest wheels -r requirements-wheels.txt
