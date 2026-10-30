@@ -8,10 +8,10 @@ from ninja.decorators import decorate_view
 from ninja.orm import create_schema
 from pydantic import Json
 
-from userprofile.decorators import banned_blocked, login_required_error
+from userprofile.decorators import banned_blocked, login_required_error, staff_required
 from userprofile.models import UserProfile
 from .models import MiniGameBestScore
-from .services import get_player_scores, get_ranking, get_ranking_summary, get_replay, submit_score
+from .services import delete_score, get_player_scores, get_ranking, get_ranking_summary, get_replay, submit_score
 from .utils import GAME_RANKINGS, MiniGameError, ranking_definitions, RANKINGS
 
 router = Router()
@@ -93,6 +93,19 @@ def post_score(request, ranking_key: str, score: Form[int], replay: Form[Json[di
     """
     require_ranking(ranking_key)
     return submit_score(request.user, ranking_key, score, replay)
+
+
+@router.delete('/admin/{ranking_key}/player/{player_id}', response={204: None})
+@decorate_view(staff_required)
+def delete_player_score(request, ranking_key: str, player_id: int):
+    """
+    - staff_required
+
+    删除玩家在指定榜单的最佳成绩及对应回放。
+    """
+    require_ranking(ranking_key)
+    delete_score(ranking_key, player_id)
+    return 204, None
 
 
 @router.get('/{game}/replay')
