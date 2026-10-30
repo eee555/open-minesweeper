@@ -59,18 +59,43 @@ class ReplayCompressionTests(TestCase):
             self.assertEqual(compress_video_file(video), 'skipped')
         read.assert_not_called()
 
-    def test_new_replay_compression_failure_does_not_store_files_or_create_records(self):
+    def test_new_replay_roundtrip_failure_stores_original_and_allows_manual_retry(self):
         data = (Path(__file__).parents[1] / 'common/test_fixtures/video_upload_ranking/beginner_personal.evf').read_bytes()
         source = ContentFile(data, name='original.evf')
         parser = MSVideoParser(source)
-        with patch('videomanager.models.compress_original', side_effect=ValueError('roundtrip failed')):
-            with self.assertRaises(ValueError), patch.object(default_storage, 'save') as save:
-                VideoModel.create_from_parser(parser, self.user, original_hash=hashlib.sha256(data).hexdigest()[:24])
-        save.assert_not_called()
-        self.assertFalse(VideoModel.objects.exists())
-        self.assertFalse(ExpandVideoModel.objects.exists())
+        original_hash = hashlib.sha256(data).hexdigest()[:24]
+        with patch('videomanager.files.msrc.decompress', return_value=b'corrupt restored bytes'), self.assertLogs('videomanager', level='WARNING'):
+            video = VideoModel.create_from_parser(parser, self.user, original_hash=original_hash)
+        video.refresh_from_db()
+        self.assertEqual((video.compression_format, video.stored_file_size, video.file_size), (0, len(data), len(data)))
+        self.assertEqual((video.original_filename, video.original_hash), ('original.evf', original_hash))
+        self.assertTrue(video.compression_failed)
         self.assertEqual(source.tell(), 0)
-        self.assertFalse([path for path in Path(default_storage.location).rglob('*') if path.is_file()])
+        self.assertEqual(Path(video.file.path).read_bytes(), data)
+        self.assertFalse(list(Path(default_storage.location).rglob('*.msrc')))
+        response = self.client.get(f'/api/video/download/{video.pk}')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['X-Replay-Container-Version'], '0')
+        self.assertIn('original.evf', response['Content-Disposition'])
+        self.assertEqual(b''.join(response.streaming_content), data)
+        self.assertEqual(compress_video_file(video), 'skipped')
+        with self.captureOnCommitCallbacks(execute=True):
+            call_command('compress_video_files', retry_failed=True, stdout=StringIO())
+        video.refresh_from_db()
+        self.assertEqual(video.compression_format, pack_compression_format(1, 1, 2))
+        self.assertFalse(video.compression_failed)
+        with original_file(video.file.name, video.compression_format, video.original_filename) as restored:
+            self.assertEqual(restored.read(), data)
+
+    def test_new_replay_format_mismatch_stores_original(self):
+        data = (Path(__file__).parents[1] / 'common/test_fixtures/video_upload_ranking/beginner_personal.evf').read_bytes()
+        parser = MSVideoParser(ContentFile(data, name='original.evf'))
+        wrong_format = msrc.compress(data, algorithm_version=1)
+        with patch('videomanager.files.msrc.compress', return_value=wrong_format), self.assertLogs('videomanager', level='WARNING'):
+            video = VideoModel.create_from_parser(parser, self.user, original_hash=hashlib.sha256(data).hexdigest()[:24])
+        self.assertEqual(video.compression_format, 0)
+        self.assertTrue(video.compression_failed)
+        self.assertEqual(Path(video.file.path).read_bytes(), data)
 
     def test_switch_roundtrip_cleanup_and_file_responses_without_save_signals(self):
         video = self.video()

@@ -243,7 +243,7 @@ python manage.py rebuild_custom_pluck_cache --level c16_30_150
 
 位置：`videomanager/management/commands/compress_video_files.py`
 
-手动将历史录像或旧格式文件转换为 `videomanager.config.TARGET_COMPRESSION_FORMAT` 指定的 MSRC 格式，当前为 `(1, 1, 2)`。新上传和导入直接保存压缩文件，符合目标格式的录像会跳过；不启用定期压缩任务。只在前后端均已支持 MSRC 后执行本命令。
+手动将历史录像或旧格式文件转换为 `videomanager.config.TARGET_COMPRESSION_FORMAT` 指定的 MSRC 格式，当前为 `(1, 1, 2)`。新上传和导入优先保存压缩文件，校验失败时保存源文件并标记失败，可用 `--retry-failed` 重试。符合目标格式的录像会跳过，不启用定期压缩任务。只在前后端均已支持 MSRC 后执行本命令。
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |

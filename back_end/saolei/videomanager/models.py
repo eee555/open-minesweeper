@@ -13,7 +13,7 @@ from userprofile.models import UserProfile
 from utils.parser import MSVideoParser
 from .config import TARGET_COMPRESSION_FORMAT
 from .fields import RestrictedFileField
-from .files import compress_original
+from .files import compress_original, CompressionConfigurationError
 from .utils import replay_filename
 
 logger = logging.getLogger('videomanager')
@@ -212,7 +212,16 @@ class VideoModel(models.Model):
             data = source.read()
         finally:
             source.seek(0)
-        archive, compression_format = compress_original(data, TARGET_COMPRESSION_FORMAT)
+        original_filename = replay_filename(source.name)
+        compression_failed = False
+        try:
+            stored_data, compression_format = compress_original(data, TARGET_COMPRESSION_FORMAT)
+        except (ValueError, EOFError, CompressionConfigurationError) as error:
+            stored_data, compression_format, stored_name = data, 0, original_filename
+            compression_failed = True
+            logger.warning('Replay compression failed; storing original: filename=%s target=%s error=%s', original_filename, TARGET_COMPRESSION_FORMAT, error)
+        else:
+            stored_name = f'{uuid4().hex}.msrc'
         e_video = ExpandVideoModel.objects.create(
             identifier=parser.identifier,
             tournament_identifier=parser.tournament_identifier,
@@ -220,8 +229,8 @@ class VideoModel(models.Model):
         video = VideoModel(
             player=user,
             upload_time=upload_time,
-            file=ContentFile(archive, name=f'{uuid4().hex}.msrc'), file_size=len(data), original_hash=original_hash,
-            original_filename=replay_filename(source.name), stored_file_size=len(archive), compression_format=compression_format,
+            file=ContentFile(stored_data, name=stored_name), file_size=len(data), original_hash=original_hash,
+            original_filename=original_filename, stored_file_size=len(stored_data), compression_format=compression_format, compression_failed=compression_failed,
             video=e_video,
             end_time=parser.end_time,
             state=parser.state, software=parser.software,
