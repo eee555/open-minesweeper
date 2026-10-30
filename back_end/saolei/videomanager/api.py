@@ -16,8 +16,8 @@ from ninja import Field, Form, Query, Router, Schema
 from ninja.decorators import decorate_view
 from ninja.errors import HttpError
 from ninja.orm import create_schema
-from ninja.security import django_auth_superuser
-from pydantic import StrictInt
+from ninja.security import django_auth, django_auth_superuser
+from pydantic import StrictInt, StringConstraints
 
 from config.text_choices import MS_TextChoices
 from userprofile.decorators import staff_required
@@ -25,15 +25,20 @@ from userprofile.models import UserProfile
 from .cache import cache, newest_cache
 from .models import ExpandVideoModel, STNB_COEFFICIENTS, VideoModel
 from .schema import ParsedVideoOut, PUBLIC_VIDEO_METADATA_FIELDS, PublicVideoMetadataOut, VIDEO_INFO_BATCH_LIMIT, VIDEO_METADATA_FIELDS, VideoBaseOut, VideoMetadataOut
-from .services import delete_video_by_id
+from .services import delete_video_by_id, freeze_video_by_id
 from .view_utils import video_all_fields
 
 router = Router()
 VIDEO_ACCEL_REDIRECT_PREFIX = '/internal-media/'
 VideoDeleteIn = create_schema(VideoModel, name='VideoDeleteIn', fields=['id'], custom_fields=[('id', Annotated[StrictInt, Field(gt=0, le=2**63 - 1)], ...)])
+VideoFreezeIn = create_schema(
+    VideoModel, name='VideoFreezeIn', fields=['id'],
+    custom_fields=[('id', Annotated[StrictInt, Field(gt=0, le=2**63 - 1)], ...), ('freeze_reason', Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, strict=True)], ...)],
+)
+VideoFreezeOut = create_schema(VideoModel, name='VideoFreezeOut', fields=['id', 'state'], custom_fields=[('freeze_reason', str, ...)])
 
 
-class VideoDeleteAccessOut(Schema):
+class VideoAdminAccessOut(Schema):
     csrf_token: str
 
 
@@ -144,12 +149,42 @@ def get_video_admin(request, video_id: int):
     """
     - staff_required
     """
-    fields = ['player', 'upload_time', 'state', 'software', 'level', 'mode', 'right_ce', 'timems', 'bv', 'bvs', 'ongoing_tournament']
+    fields = ['id', 'player', 'upload_time', 'state', 'software', 'level', 'mode', 'right_ce', 'timems', 'bv', 'bvs', 'ongoing_tournament']
     fields.extend('video__' + field.name for field in ExpandVideoModel._meta.get_fields())
     row = VideoModel.objects.filter(pk=video_id).values(*fields, player__realname=F('player___realname')).first()
     if row is None:
         raise HttpError(404, 'Video not found.')
     return row
+
+
+@router.get('/admin/freeze', auth=django_auth, response=VideoAdminAccessOut)
+@decorate_view(staff_required, ensure_csrf_cookie, cache_control(no_store=True))
+def get_video_freeze_access(request: HttpRequest):
+    """
+    - auth=django_auth (Django session)
+    - staff_required
+    - ensure_csrf_cookie
+    - cache_control(no_store=True)
+
+    Check staff access and initialize the CSRF cookie and request token for freezing a video.
+    """
+    return {'csrf_token': get_token(request)}
+
+
+@router.post('/admin/freeze', auth=django_auth, response=VideoFreezeOut)
+@decorate_view(staff_required)
+def freeze_video_admin(request: HttpRequest, data: VideoFreezeIn):
+    """
+    - auth=django_auth (Django session, CSRF required)
+    - staff_required
+
+    Freeze one video and save a nonblank reason. Repeating the request updates the reason.
+    State-change signals update queues and rankings; the file and upload time are preserved.
+    """
+    try:
+        return freeze_video_by_id(data.id, data.freeze_reason, actor_id=request.user.pk)
+    except VideoModel.DoesNotExist:
+        raise HttpError(404, 'Video not found.')
 
 
 @router.post('/admin/delete', auth=django_auth_superuser, response=VideoDeleteOut)
@@ -169,7 +204,7 @@ def delete_video_admin(request: HttpRequest, data: VideoDeleteIn):
     return delete_video_by_id(data.id, actor_id=request.auth.pk)
 
 
-@router.get('/admin/delete', auth=django_auth_superuser, response=VideoDeleteAccessOut)
+@router.get('/admin/delete', auth=django_auth_superuser, response=VideoAdminAccessOut)
 @decorate_view(ensure_csrf_cookie, cache_control(no_store=True))
 def get_video_delete_access(request: HttpRequest):
     """

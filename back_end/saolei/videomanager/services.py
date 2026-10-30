@@ -4,11 +4,30 @@ import logging
 from django.db import transaction
 from django_apscheduler import util
 
+from config.text_choices import MS_TextChoices
 from utils.ranking_lock import ranking_access
 from .cache import newest_cache
-from .models import VideoModel
+from .models import ExpandVideoModel, VideoModel
 
 logger = logging.getLogger('videomanager')
+
+
+@ranking_access(operation='videomanager.freeze_video')
+@transaction.atomic
+def freeze_video_by_id(video_id: int, freeze_reason: str, *, actor_id: int):
+    reason = freeze_reason.strip()
+    if not reason:
+        raise ValueError('Freeze reason is required.')
+    video = VideoModel.objects.select_for_update().get(pk=video_id)
+    expansion = ExpandVideoModel.objects.select_for_update().get(pk=video.video_id)
+    expansion.freeze_reason = reason
+    expansion.save(update_fields=['freeze_reason'])
+    previous_state = video.state
+    if video.state != MS_TextChoices.State.FROZEN:
+        video.state = MS_TextChoices.State.FROZEN
+        video.save(update_fields=['state'])
+    logger.info('Staff #%s froze video #%s (previous_state=%s)', actor_id, video_id, previous_state)
+    return {'id': video.pk, 'state': video.state, 'freeze_reason': expansion.freeze_reason}
 
 
 @ranking_access(operation='videomanager.delete_video')

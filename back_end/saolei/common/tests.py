@@ -52,7 +52,6 @@ class APSchedulerRegistrationTests(TestCase):
         self.assertEqual(
             {job.id for job in scheduler.get_jobs()},
             {
-                'delete_freezed_video',
                 'delete_newest_queue',
                 'delete_old_job_executions',
                 'delete_overdue_captcha',
@@ -110,16 +109,18 @@ class APSchedulerRegistrationTests(TestCase):
         self.assertEqual(first_run, now.replace(minute=8))
         self.assertEqual(job.trigger.get_next_fire_time(first_run, first_run), first_run + timedelta(days=1))
 
-    def test_registration_removes_only_retired_monitor_job(self):
+    def test_registration_removes_retired_jobs(self):
         from apscheduler.schedulers.background import BackgroundScheduler
         from common.apscheduler import register_jobs
 
         DjangoJob.objects.create(id='refresh_state_always', job_state=b'old monitor job')
+        DjangoJob.objects.create(id='delete_freezed_video', job_state=b'old frozen video cleanup job')
         DjangoJob.objects.create(id='delete_newest_queue', job_state=b'existing cleanup job')
 
         register_jobs(BackgroundScheduler())
 
         self.assertFalse(DjangoJob.objects.filter(id='refresh_state_always').exists())
+        self.assertFalse(DjangoJob.objects.filter(id='delete_freezed_video').exists())
         self.assertTrue(DjangoJob.objects.filter(id='delete_newest_queue').exists())
 
     def test_score_reference_job_runs_annually_in_utc_and_checks_on_startup(self):

@@ -424,13 +424,14 @@ python manage.py refresh_monitor_snapshot
 | `refresh_monitor_snapshot` | 启动时及每 5 分钟 | 生成统一监控 JSON；单实例执行，错过多次调度时合并执行 |
 | `delete_old_job_executions` | 每天 00:03 | 清理超过 7 天的 APScheduler 执行记录 |
 | `delete_newest_queue` | 每天 01:08 | 按上传时间保留最新 1000 条，允许两次清理之间暂时超过上限 |
-| `delete_freezed_video` | 每天 01:28 | 删除 7 天以前冻结状态的录像 |
 | `delete_overdue_emailverifyrecord` | 每周一 01:03 | 清理 1 小时以前的邮箱验证码 |
 | `delete_overdue_captcha` | 每周一 01:05 | 清理过期图形验证码 |
 | `delete_overdue_tasks` | 每周一 01:10（`settings.TIME_ZONE`，当前为 UTC） | 按 `config/common.py` 的保留期限分批清理成功的后台任务，删除总量不限 |
 | `refresh_tournament_score_reference` | 每年 1 月 1 日 00:00 UTC | 将当前积分 zset 整体折算到新年年初，并原子更新锚点；数据库不变 |
 
 年度锚点任务在调度器启动时也会执行一次幂等检查，补上跨年停机或错过的更新；同一年不会重复衰减。
+
+冻结录像不再按时间自动删除。调度器启动时会移除数据库中遗留的 `delete_freezed_video` 任务；更新代码后需重启调度器，使旧进程停止执行该任务。
 
 后台任务清理与管理员接口 `POST /api/common/tasks/cleanup` 共用服务；接口每类任务每次最多删除 200 条，定时任务则以每批 200 条循环删除所有符合条件的记录。失败、待执行、执行中和未配置的任务均保留。
 
