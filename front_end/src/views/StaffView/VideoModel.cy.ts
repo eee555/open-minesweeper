@@ -6,7 +6,8 @@ import i18n from '@/i18n';
 function loadVideo(reason = '') {
     cy.intercept('GET', '/api/video/admin/detail/12', { id: 12, state: reason ? 'b' : 'c', video__freeze_reason: reason }).as('detail');
     cy.mount(VideoModel, { global: { plugins: [i18n], config: { globalProperties: { $axios } } } });
-    cy.get('[data-cy=video-id] input').clear().type('12');
+    cy.get('[data-cy=video-id] input').clear();
+    cy.get('[data-cy=video-id] input').type('12');
     cy.get('[data-cy=video-query]').click();
     cy.wait('@detail');
 }
@@ -30,14 +31,16 @@ describe('staff video freezing', () => {
         cy.closeElNotifications();
         cy.get('[data-cy=video-detail]').should('contain.text', reason);
         cy.get('[data-cy=freeze-reason]').should('have.value', reason);
-        cy.get('[data-cy=video-id] input').clear().type('13');
+        cy.get('[data-cy=video-id] input').clear();
+        cy.get('[data-cy=video-id] input').type('13');
         cy.get('[data-cy=freeze-video]').should('be.disabled');
     });
 
     it('loads and lets staff edit the saved reason', () => {
         loadVideo('Original reason');
         cy.get('[data-cy=freeze-reason]').should('have.value', 'Original reason');
-        cy.get('[data-cy=freeze-reason]').clear().type('Updated reason');
+        cy.get('[data-cy=freeze-reason]').clear();
+        cy.get('[data-cy=freeze-reason]').type('Updated reason');
         cy.get('[data-cy=freeze-video]').should('not.be.disabled');
     });
 
