@@ -25,7 +25,7 @@ function fixture() {
 }
 
 function response<T>(data: T): AxiosResponse<T> {
-    return { data, status: 200, statusText: 'OK', headers: {}, config: { headers: new AxiosHeaders() } };
+    return { data, status: 200, statusText: 'OK', headers: { 'x-replay-container-version': '0' }, config: { headers: new AxiosHeaders() } };
 }
 
 function setup() {

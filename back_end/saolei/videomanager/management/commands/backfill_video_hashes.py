@@ -2,6 +2,7 @@ from django.core.files.storage import default_storage
 from django.core.management.base import BaseCommand, CommandError
 from django.db.models import Count, Max, Q
 
+from videomanager.files import original_file
 from videomanager.models import VideoModel
 from videomanager.utils import calculate_original_hash
 
@@ -42,12 +43,13 @@ class Command(BaseCommand):
             self.stdout.flush()
 
         report_progress()
-        while batch := list(videos.filter(pk__gt=last_id).values_list('pk', 'file')[:batch_size]):
-            for video_id, file_name in batch:
+        while batch := list(videos.filter(pk__gt=last_id).values_list('pk', 'file', 'compression_format', 'original_filename')[:batch_size]):
+            for video_id, file_name, compression_format, original_filename in batch:
                 try:
                     if not file_name:
                         raise FileNotFoundError
-                    with default_storage.open(file_name, 'rb') as replay_file:
+                    replay_file = original_file(file_name, compression_format, original_filename) if compression_format else default_storage.open(file_name, 'rb')
+                    with replay_file:
                         original_hash = calculate_original_hash(replay_file)
                 except FileNotFoundError:
                     failed += 1

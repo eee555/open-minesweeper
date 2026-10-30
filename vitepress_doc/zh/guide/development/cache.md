@@ -175,8 +175,6 @@ digraph cache {
         get_participant_videos [label="/api/tournament/get_videos/participant"];
         reveal_video [label="POST /api/tournament/video/{video_id}/reveal"];
         get_tournament_news [label="/api/tournament/get_news"];
-        download_all_videos [label="/api/tournament/download"];
-        download_videos_participant [label="/api/tournament/download/participant"];
         get_gsc_results [label="/api/tournament/gsc/results"];
         create_gsc_participant [label="/api/tournament/gsc/participant"];
         register_gsc_participant_identifier [label="/api/tournament/gsc/participant/identifier"];
@@ -369,13 +367,6 @@ digraph cache {
     video_db -> reveal_video [label="read / lock / owner check"];
     reveal_video -> video_db [label="save ongoing_tournament=False"];
     tournament_cache -> get_tournament_news;
-    tournament_db -> download_all_videos;
-    video_db -> download_all_videos;
-    video_files -> download_all_videos;
-    tournament_db -> download_videos_participant;
-    userprofile_db -> download_videos_participant;
-    video_db -> download_videos_participant;
-    video_files -> download_videos_participant;
 
     // tournament gsc API
     tournament_db -> get_gsc_results;
@@ -755,3 +746,9 @@ Redis 连接和读写异常记录日志，计算及数据库摘要不回滚，�
 - 录像队列缓存不保存比赛录像，`VideoQueueCache.add` / `add_bulk` 会跳过 `ongoing_tournament=True` 的录像。
 - 参赛 checkin 先读 `tournament:normal:participants`，命中后再按 tournament id 查询数据库对象，用于写入录像的多对多关系。
 - `customranking:pluck:{level}:rank` 只保存排序所需数据，展示字段来自同级 `detail` hash。
+
+## 录像物理存储
+
+录像压缩仅改变 `file`、`original_filename`、`stored_file_size`、`compression_format`、`compression_failed` 等存储字段。原始 `file_size`、`original_hash` 和解析结果保持不变，不升级前端录像缓存版本，也不将压缩容器写入 IndexedDB。
+
+服务器磁盘摘要汇总 `stored_file_size`；尚未补齐的原始录像回退到 `file_size`。新上传和导入在创建录像前完成压缩校验，直接保存压缩文件并走原有创建信号；历史文件由管理员运行 `compress_video_files` 手动转换，不注册 APScheduler 压缩任务。

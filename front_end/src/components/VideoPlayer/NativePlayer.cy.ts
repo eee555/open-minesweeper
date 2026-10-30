@@ -27,7 +27,7 @@ function mountOptions(src: string) {
 function mockVideoFixture(headers: Record<string, string> = {}, filename = fixture.filename) {
     cy.intercept('GET', '**/api/video/preview**', {
         statusCode: 200,
-        headers: { 'content-type': 'application/octet-stream', ...headers },
+        headers: { 'content-type': 'application/octet-stream', 'x-replay-container-version': '0', ...headers },
         // Load raw bytes on the Cypress server instead of sending an ArrayBuffer through request.reply().
         fixture: `${filename},null`,
     }).as('getVideo');
@@ -44,6 +44,14 @@ function waitForLoadedPlayer() {
 }
 
 describe('<NativePlayer />', () => {
+    it('decodes a Python-generated MSRC replay using the local fallback', () => {
+        cy.intercept('GET', 'https://cdn.jsdelivr.net/npm/@putianyi888/msrc@0.2.0/**', { forceNetworkError: true });
+        mockVideoFixture({ 'x-replay-container-version': '1', 'content-disposition': 'attachment; filename="52200.evf.msrc"' }, '52200.evf.msrc');
+        cy.mount(NativePlayer, mountOptions('/api/video/preview?id=52200.evf'));
+        waitForLoadedPlayer();
+        cy.get('.native-player__content').should('be.visible');
+    });
+
     beforeEach(() => {
         cy.clearLocalStorage('custom-counter-config');
         cy.clearLocalStorage('video-player-config');
@@ -54,14 +62,12 @@ describe('<NativePlayer />', () => {
             fontSize: 12,
         };
         videoPlayerConfig.value = {
-            backend: 'native',
             cellSize: 16,
             showProbability: true,
             probabilityColorScheme: {
                 colors: ['#15803d', '#0f766e', '#2563eb', '#b45309', '#dc2626', '#7f1d1d'],
                 thresholds: [10, 25, 50, 75, 90],
             },
-            strangeDustTrust: false,
         };
     });
 

@@ -27,6 +27,7 @@ from speedranking.top.cache import TopRankingCache
 from tournament.gsc.services import restart_gsc_task
 from userprofile.decorators import staff_required
 from videomanager.models import VideoModel
+from videomanager.utils import replay_filename
 from .memorial.api import router as memorial_router
 from .schema import AnalyzerWebsiteInfoOut, AutoLoginOut
 from .services import cleanup_expired_tasks, get_video_rankings
@@ -74,7 +75,7 @@ def video_analyzer_info(request, video_id: int):
     return {
         'video': video,
         'tournament_ids': list(video.tournaments.order_by('id').values_list('id', flat=True)),
-        'filename': video.file.name.replace('\\', '/').rsplit('/', 1)[-1],
+        'filename': replay_filename(video.file.name, video.original_filename),
         'rankings': get_video_rankings(video),
     }
 

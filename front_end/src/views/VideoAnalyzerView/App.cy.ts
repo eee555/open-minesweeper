@@ -29,7 +29,7 @@ function mountAnalyzer(width = 1100, fixture: { filename: string; durationMs: nu
     const metadata = mockVideoInfo([{ id: 123, software: fixture.software ?? 'e', upload_time: '2026-10-12T10:00:00Z' }], 'getSoftware');
     cy.intercept('GET', '**/api/common/video/123/analyzer-info', { body: { video: metadata[0], tournament_ids: [], filename: fixture.filename, rankings: [] } }).as('getWebsiteInfo');
     cy.intercept('GET', '**/api/video/preview**', {
-        headers: { 'content-type': 'application/octet-stream' },
+        headers: { 'content-type': 'application/octet-stream', 'x-replay-container-version': '0' },
         fixture: `${fixture.filename},null`,
     }).as('getReplay');
     cy.mount(defineComponent({

@@ -26,6 +26,7 @@ from .cache import cache, newest_cache
 from .models import ExpandVideoModel, STNB_COEFFICIENTS, VideoModel
 from .schema import ParsedVideoOut, PUBLIC_VIDEO_METADATA_FIELDS, PublicVideoMetadataOut, VIDEO_INFO_BATCH_LIMIT, VIDEO_METADATA_FIELDS, VideoBaseOut, VideoMetadataOut
 from .services import delete_video_by_id, freeze_video_by_id
+from .utils import replay_filename, unpack_compression_format
 from .view_utils import video_all_fields
 
 router = Router()
@@ -256,8 +257,13 @@ def _video_file_response(request: HttpRequest, video_id: int):
         response = HttpResponse()
         response['X-Accel-Redirect'] = f'{VIDEO_ACCEL_REDIRECT_PREFIX}{quote(file_name, safe="/")}'
     response['Content-Type'] = 'application/octet-stream'
-    file_name_uri = quote(file_name.split('/')[-1])
+    filename = replay_filename(file_name, video.original_filename)
+    if video.compression_format:
+        filename += '.msrc'
+    file_name_uri = quote(filename)
     response['Content-Disposition'] = f'attachment; filename="{file_name_uri}"'
+    response['X-Replay-Container-Version'] = str(unpack_compression_format(video.compression_format)[0])
+    response['Access-Control-Expose-Headers'] = 'Content-Disposition, X-Replay-Container-Version'
     return response
 
 
@@ -291,7 +297,6 @@ def video_preview(request: HttpRequest, video_id_with_extension: str = Query(...
     except ValueError:
         raise HttpError(400, 'Invalid video id.')
     response = _video_file_response(request, video_id)
-    response['Access-Control-Expose-Headers'] = 'Content-Disposition'
     return response
 
 

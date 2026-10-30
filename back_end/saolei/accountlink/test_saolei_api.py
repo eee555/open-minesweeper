@@ -21,6 +21,7 @@ from identifier.models import Identifier
 from userprofile.models import UserProfile
 from utils.exceptions import ExceptionToResponse
 from utils.parser import MSVideoParser
+from videomanager.files import original_file
 from videomanager.models import VideoModel
 from .models import AccountLinkQueue, AccountSaolei, Platform, SaoleiApiVideo
 from .saolei.services import import_saolei_video, save_catalogue_page, sync_saolei_catalogue, update_saolei_account_info
@@ -202,7 +203,8 @@ class SaoleiImportTests(TestCase):
         self.user.refresh_from_db()
         self.assertIsNotNone(self.user.userms_id)
         self.assertEqual(VideoModel.objects.count(), 1)
-        with VideoModel.objects.get().file.open('rb') as recording:
+        video = VideoModel.objects.get()
+        with original_file(video.file.name, video.compression_format, video.original_filename) as recording:
             self.assertEqual(recording.read(), self.content)
 
     def test_whitelist_is_exact_and_latest_detail_is_checked_before_download(self):

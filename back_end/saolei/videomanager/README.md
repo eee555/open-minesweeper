@@ -264,3 +264,11 @@ video.save(update_fields=['pluck'])
 自定义级别没有 `stnb` 定义，`VideoModel.stnb` 返回 `None`。
 
 `iqg = bv / (timems / 1000) ^ 1.7` 已作为 `VideoModel` 的 `GeneratedField` 保存，`ExpandVideoModel.stnb` 已删除。`stnb` 属性由 `VideoModel.iqg` 派生；旧个人纪录功能已移除。 `stnb` 与 `bvs`、`ioe` 一样属于 `VideoModel` 基础字段变化后的派生指标，不再监听 `ExpandVideoModel` 的保存事件。
+
+### 压缩存储
+
+`videomanager.files` 统一压缩并恢复原始录像字节，供录像创建、重解析、后台 pluck 和哈希回填使用。上传和各平台导入共用 `VideoModel.create_from_parser`：解析后在内存中压缩、校验完整往返字节，再创建录像并直接保存 UUID `.msrc` 文件。压缩失败不创建录像记录或文件，新录像没有文件切换过程。
+
+历史文件由转换服务验证原始大小、已存哈希、MSRC 目标格式及完整往返字节，再保存独立归档并短事务切换路径；提交后检查引用并立即删除旧文件。转换不调用录像 parser，也不触发录像保存信号。
+
+`original_hash`、`file_size` 仍描述原始文件；物理大小记录在 `stored_file_size`。失败保留来源文件与实际格式，设置 `compression_failed`；磁盘空间、只读存储及依赖配置错误停止整批。手动重试使用 `compress_video_files --retry-failed`。没有 APScheduler 压缩任务。

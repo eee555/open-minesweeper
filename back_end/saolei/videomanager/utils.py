@@ -1,11 +1,24 @@
 import hashlib
 import math
+from pathlib import PurePosixPath
 
 from timeout_decorator import timeout
 
 from config.customranking import CUSTOM_PLUCK_LEVELS, CUSTOM_PLUCK_MODES
 from utils.parser import create_video_from_data
 from .config import PLUCK_TIMEOUT_SECONDS
+
+
+def pack_compression_format(container_version, algorithm_id, algorithm_version):
+    return (container_version << 24) | (algorithm_id << 16) | algorithm_version
+
+
+def unpack_compression_format(format_code):
+    return ((format_code >> 24) & 0xFF, (format_code >> 16) & 0xFF, format_code & 0xFFFF)
+
+
+def replay_filename(file_name, original_filename=None):
+    return original_filename or PurePosixPath(file_name.replace('\\', '/')).name
 
 
 def calculate_original_hash(file) -> str:
@@ -37,9 +50,10 @@ def normalize_pluck(value) -> float | None:
     return value
 
 
-def _calculate_pluck(file_path: str):
-    with open(file_path, 'rb') as file:
-        data = file.read()
+def _calculate_pluck(file_path: str, data=None):
+    if data is None:
+        with open(file_path, 'rb') as file:
+            data = file.read()
 
     parsed_video, _ = create_video_from_data(file_path, data)
     parsed_video.parse()

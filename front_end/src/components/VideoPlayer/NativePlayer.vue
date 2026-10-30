@@ -75,7 +75,7 @@ import PlayerMainSettings from './PlayerMainSettings.vue';
 import ProgressBar from './ProgressBar.vue';
 import { customCounterConfig } from './store';
 
-import $axios from '@/http';
+import { fetchReplayFile } from '@/services/replayFileService';
 import { videoPlayerConfig } from '@/store';
 import { PiecewiseColorScheme } from '@/utils/colors';
 import type { AnyVideo } from '@/utils/fileIO';
@@ -149,27 +149,26 @@ async function loadVideo(src: string) {
 
     loading.value = true;
     abortController = new AbortController();
+    const controller = abortController;
 
     try {
-        const response = await $axios.get<ArrayBuffer>(src, {
-            responseType: 'arraybuffer',
-            signal: abortController.signal,
-        });
+        const response = await fetchReplayFile(src, { signal: controller.signal, filename: filenameFromSrc(src) });
+        if (controller.signal.aborted) return;
 
-        const parsed = load_video_file(response.data, filenameFromSrc(src));
+        const parsed = load_video_file(response.data, response.filename);
         video.value = parsed;
         durationMs.value = Math.max(0, Math.trunc(parsed.rtime_ms));
         currentMs.value = 0;
         updateVideoState();
-        videoFile.value = new File([response.data], downloadFilename(response.headers['content-disposition'], src), {
+        videoFile.value = new File([response.data], response.filename, {
             type: 'application/octet-stream',
         });
     } catch (error) {
-        if (!isCancel(error)) {
+        if (!controller.signal.aborted && !isCancel(error)) {
             reportLoadError(error);
         }
     } finally {
-        loading.value = false;
+        if (!controller.signal.aborted) loading.value = false;
     }
 }
 
@@ -185,21 +184,6 @@ function updateVideoState() {
 function filenameFromSrc(src: string) {
     const url = new URL(src, window.location.href);
     return url.searchParams.get('id') ?? '';
-}
-
-function downloadFilename(contentDisposition: unknown, src: string): string {
-    if (typeof contentDisposition === 'string') {
-        // The preview API returns a percent-encoded filename in quotes.
-        const filename = (/filename="([^"]+)"/i).exec(contentDisposition)?.[1];
-        if (filename !== undefined) {
-            try {
-                return decodeURIComponent(filename);
-            } catch {
-                return filename;
-            }
-        }
-    }
-    return filenameFromSrc(src);
 }
 
 function reportLoadError(error: unknown) {
