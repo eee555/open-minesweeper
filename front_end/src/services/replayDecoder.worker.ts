@@ -1,8 +1,9 @@
+import type initializeDecoder from '@putianyi888/msrc/web';
+import type { decompress } from '@putianyi888/msrc/web';
 import localWasmUrl from '@putianyi888/msrc/web/msrc_bg.wasm?url';
 import localModuleUrl from '@putianyi888/msrc/web?url';
-import type * as Msrc from '@putianyi888/msrc/web';
 
-type Decoder = typeof Msrc;
+type Decoder = { default: typeof initializeDecoder; decompress: typeof decompress };
 const cdnBase = 'https://cdn.jsdelivr.net/npm/@putianyi888/msrc@0.2.0/web/';
 let initialization: Promise<Decoder> | undefined;
 
