@@ -197,8 +197,8 @@ class UserProfileUpdateApiTests(TestCase):
                     verify.side_effect = result
                 else:
                     verify.return_value = result
-                response = self.client.post('/api/userprofile/update_profile', {'realname': 'Jason Weng'})
-                verify.assert_called_once()
+                response = self.client.post('/api/userprofile/update_profile', {'realname': 'Jason Weng'}, REMOTE_ADDR='203.0.113.7')
+                verify.assert_called_once_with('Jason Weng', self.user.id, '203.0.113.7')
             self.assertEqual(response.status_code, 200, response.content)
             self.assertEqual(response.json()['realname'], {'type': 'error', 'object': 'censorship', 'category': category})
             self.user.refresh_from_db()

@@ -24,6 +24,7 @@ class ExpandVideoModel(models.Model):
     # video = models.OneToOneField(VideoModel, on_delete=models.CASCADE)
     identifier = models.CharField(max_length=MaxSizes.IDENTIFIER, default='')
     tournament_identifier = models.JSONField(default=list)
+    freeze_reason = models.TextField(default='', blank=True, verbose_name='冻结原因')
 
 
 # 其他类：checksum_ok, mode
@@ -66,7 +67,7 @@ class VideoModel(models.Model):
     video = models.OneToOneField(
         ExpandVideoModel, on_delete=models.CASCADE, related_name='+')
     # file = models.FileField(upload_to='/assets/videos')
-    # 上传时间，兼最近状态变化时间、更新时间（冻结后会刷新）
+    # 上传时间
     upload_time = models.DateTimeField(auto_now_add=True, verbose_name='上传时间')
     # 录像自带时间戳，可被用户篡改，用于用户自用。实际上无时区，因为Django限制，固定时区为UTC。
     end_time = models.DateTimeField(null=True, blank=True)

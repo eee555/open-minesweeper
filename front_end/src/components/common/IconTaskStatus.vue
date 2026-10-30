@@ -13,7 +13,6 @@
 <script setup lang="ts">
 import type { PropType } from 'vue';
 
-import '@/styles/text.css';
 import 'primeicons/primeicons.css';
 import type { TaskStatus } from '@/utils/common/structInterface';
 

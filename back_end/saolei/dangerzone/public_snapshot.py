@@ -152,6 +152,7 @@ def initialize_local_data(root, admin_password, user_password, *, stdout, create
     call_command('rebuild_pb_ranks', stdout=stdout)
     call_command('rebuild_top_ranks', stdout=stdout)
     call_command('rebuild_eff_ranks', stdout=stdout)
+    call_command('rebuild_eff_ranks', ranking_name='nf_ioe', stdout=stdout)
     add_videos_to_custom_pluck_ranks(VideoModel.objects.all())
     for rows in snapshot_pages(root, manifest, 'videos'):
         add_videos_to_state_queues_bulk(VideoModel.objects.filter(id__in=[row['id'] for row in rows]).select_related('player', 'video'))

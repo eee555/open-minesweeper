@@ -17,8 +17,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
-
 import { vLoading } from 'element-plus';
 import type { Component } from 'vue';
 import { computed, ref, watch } from 'vue';

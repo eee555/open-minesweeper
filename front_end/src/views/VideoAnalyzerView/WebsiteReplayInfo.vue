@@ -42,7 +42,6 @@
 
 <script setup lang="ts">
 import '@/styles/link.css';
-import '@/styles/text.css';
 import '@/styles/button.css';
 import 'primeicons/primeicons.css';
 import { computed } from 'vue';

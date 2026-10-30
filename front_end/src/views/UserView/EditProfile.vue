@@ -103,8 +103,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
-
 import { ElInput } from 'element-plus';
 import { computed, ref, watch } from 'vue';
 import type { PropType } from 'vue';

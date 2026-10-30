@@ -51,7 +51,6 @@
 
 <script setup lang="ts">
 import '@/styles/layout.css';
-import '@/styles/text.css';
 import type { PropType } from 'vue';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';

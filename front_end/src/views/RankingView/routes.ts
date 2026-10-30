@@ -22,6 +22,7 @@ export const rankingRoutes: RouteRecordRaw[] = [
         redirect: { name: 'ranking_efficiency_thrp' },
         children: [
             { path: 'thrp', name: 'ranking_efficiency_thrp', component: () => import('./ThrpRanking.vue') },
+            { path: 'nf-ioe', name: 'ranking_efficiency_nf_ioe', component: () => import('./NFIOERanking.vue') },
         ],
     },
     {

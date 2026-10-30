@@ -21,6 +21,10 @@ import 'cypress-real-events';
 const BACKEND_URL = 'http://127.0.0.1:8000';
 const DANGERZONE_URL = `${BACKEND_URL}/dangerzone`;
 
+interface AdminRequestOptions extends Partial<Cypress.RequestOptions> {
+    url: string;
+}
+
 interface DangerzoneUser {
     id: number;
     username: string;
@@ -79,6 +83,12 @@ declare global {
              * 调用 dangerzone API。仅在后端 E2E_TEST 模式可用。
              */
             dangerzonePost<T = unknown>(path: string, body?: object): Chainable<Response<T>>;
+
+            /**
+             * 用当前管理员会话获取 CSRF token，再发送管理写请求。
+             * 缺失或错误 CSRF 的拒绝测试仍使用 cy.request。
+             */
+            adminRequest<T = unknown>(options: AdminRequestOptions): Chainable<Response<T>>;
 
             /**
              * 注册测试用户。
@@ -158,6 +168,18 @@ Cypress.Commands.add('dangerzonePost', <T = unknown>(path: string, body: object 
         method: 'POST',
         url: `${DANGERZONE_URL}/${path}`,
         body,
+    });
+});
+
+Cypress.Commands.add('adminRequest', <T = unknown>(options: AdminRequestOptions) => {
+    const url = new URL(options.url, BACKEND_URL);
+    if (url.origin !== BACKEND_URL) throw new Error('adminRequest only accepts the configured backend origin.');
+    // Fetch for each call: cy.session may have just restored a different cookie jar.
+    return cy.request<{ csrf_token: string }>(`${BACKEND_URL}/api/userprofile/admin/csrf`).then(({ body }) => {
+        expect(body.csrf_token, 'administrator CSRF token').to.be.a('string').and.not.equal('');
+        const headers: Record<string, unknown> = { ...options.headers };
+        if (!Object.keys(headers).some((name) => name.toLowerCase() === 'x-csrftoken')) headers['X-CSRFToken'] = body.csrf_token;
+        return cy.request<T>({ ...options, url: url.href, headers });
     });
 });
 

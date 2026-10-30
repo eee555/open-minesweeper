@@ -1,5 +1,5 @@
 <template>
-    <div style="display: flex; flex-direction: column; gap: 1rem;">
+    <div class="layout-stack">
         <Appearance />
         <PlayerBadgeSettings />
         <section class="card">
@@ -52,6 +52,7 @@
 <script lang="ts" setup name="UserSettings">
 import '@/styles/descriptions.css';
 import '@/styles/cards.css';
+import '@/styles/layout.css';
 import { ElInputNumber } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 

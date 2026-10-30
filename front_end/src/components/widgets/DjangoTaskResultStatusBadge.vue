@@ -5,7 +5,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
 import type { PropType } from 'vue';
 
 import type { DjangoTaskResultStatus } from '@/utils/common/structInterface';

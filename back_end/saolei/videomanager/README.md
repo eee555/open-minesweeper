@@ -5,7 +5,7 @@
 ## 核心模型
 
 - `VideoModel`：录像主表，保存玩家、文件、审核状态、级别、模式、成绩、`pluck`、比赛标记等信息。
-- `ExpandVideoModel`：录像扩展信息，目前主要保存录像内标识 `identifier` 和比赛标识列表 `tournament_identifier`。
+- `ExpandVideoModel`：录像扩展信息，保存录像内标识 `identifier`、比赛标识列表 `tournament_identifier` 和冻结原因 `freeze_reason`（不设长度上限的文本，旧记录默认为空字符串）。
 
 `VideoModel` 是多个 app 的事实事件源。任何保存 `VideoModel` 的代码都应尽量使用 `save(update_fields=[...])`，让信号接收器能判断本次修改的影响范围。
 
@@ -41,6 +41,16 @@
 - `utils.parser.MSVideoParser`：标准三等级和当前支持的自定义 `pluck` 场景都会在解析时前台计算，保存 `VideoModel` 后触发 `customranking`。
 - `videomanager.tasks`：`task_video_pluck` 入口保留，供未来重新需要后台计算时复用。
 
+## 冻结录像
+
+管理员页面“录像信息”中查询录像后，可以输入多行冻结原因并冻结录像；已冻结录像可以通过同一按钮更新原因。原因不能为空白，不设固定长度上限。
+
+`POST /api/video/admin/freeze` 接受 JSON `{"id": 123, "freeze_reason": "原因"}`，使用 Django 会话认证、CSRF 和 `staff_required`；权限只在 API 层检查。同路径 GET 验证管理员权限并返回 CSRF token，响应禁止缓存。详情接口返回 `video__freeze_reason`。
+
+`freeze_video_by_id` 在共享排行准入和数据库事务内锁定主记录与扩展记录，一起保存 `FROZEN` 状态和原因。状态变更通过既有信号更新队列、竞速、效率及自定义 pluck 排行；只修改已冻结录像的原因不会重复触发排行更新。冻结保留录像文件、上传时间和比赛关联，比赛已保存的成绩不在此操作中重算。
+
+冻结录像不再自动删除。更新代码、执行数据库迁移并重启 `runapscheduler` 后，调度器会清除旧的 `delete_freezed_video` 持久化任务。
+
 ## 删除录像
 
 实例 `delete()`、QuerySet 删除、Admin 和用户级联删除均经过删除信号，不依赖上传或管理接口显式补偿。
@@ -57,7 +67,7 @@
 - **最新录像队列保持现状**：数据库删除不移除 `newest_queue` 快照，最新录像接口仍可能返回已删除的 ID。队列只按既有规则裁剪或由管理员单独移除，不增加删除信号清理或读取时查库过滤。
 - **比赛普通删除不立即重算。** 删除录像会清除比赛的多对多关联，暂时保留已结算成绩、名次、积分和历史最好成绩。显式重算按赛种及成绩来源处理：打卡赛和 GSC 录像来源不再计入已删除录像，GSC 手工来源保留录入成绩但仍参与全场排名及积分更新。新赛种须提供自己的删除及重算规则。站长 API 已提供比赛 ID 和日志警告，隐藏页面已增加删除警告和确认；未来通知主办方的私信尚未实现，详见 [比赛录像删除与成绩一致性](../tournament/VIDEO_DELETION_PLAN.md)。
 
-本次不修改模型字段、不需要数据库迁移，也不自动扫描清理历史孤立扩展行。旧的 pluck 缺失纪录可通过既有 `refresh_all_custom_pluck_ranks` 业务服务重建；仅重建 Redis 缓存不能补回缺失的数据库纪录。
+删除流程本身不修改模型字段，也不自动扫描清理历史孤立扩展行。旧的 pluck 缺失纪录可通过既有 `refresh_all_custom_pluck_ranks` 业务服务重建；仅重建 Redis 缓存不能补回缺失的数据库纪录。
 
 删除源判定和提交后回调沿用 Django 的 [删除信号 `origin`](https://docs.djangoproject.com/en/6.0/ref/signals/#post-delete) 与 [`transaction.on_commit`](https://docs.djangoproject.com/en/6.0/topics/db/transactions/#performing-actions-after-commit)。
 

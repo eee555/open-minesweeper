@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import timezone
 import logging
 
 from apscheduler.triggers.cron import CronTrigger
@@ -10,8 +10,6 @@ from django_apscheduler.models import DjangoJob, DjangoJobExecution
 from monitor.services import publish_monitor_snapshot
 from tournament.cache import TournamentCache
 from userprofile.models import EmailVerifyRecord
-from utils.ranking_lock import ranking_access
-from videomanager.models import VideoModel
 from videomanager.services import delete_newest_queue
 from .services import cleanup_expired_tasks
 
@@ -35,13 +33,6 @@ def delete_overdue_captcha():
 
 
 @util.close_old_connections
-@ranking_access(operation='scheduler.delete_freezed_video')
-def delete_freezed_video():
-    ddl = datetime.now(timezone.utc) - timedelta(days=7)
-    VideoModel.objects.filter(upload_time__lt=ddl, state='b').delete()
-
-
-@util.close_old_connections
 def delete_old_job_executions(max_age=604_800):
     DjangoJobExecution.objects.delete_old_job_executions(max_age)
 
@@ -60,7 +51,7 @@ def refresh_tournament_score_reference():
 
 def register_jobs(scheduler):
     # Remove the persisted job before the job store restores its deleted callable.
-    DjangoJob.objects.filter(id='refresh_state_always').delete()
+    DjangoJob.objects.filter(id__in=['refresh_state_always', 'delete_freezed_video']).delete()
 
     scheduler.add_job(
         refresh_monitor_snapshot,
@@ -106,16 +97,6 @@ def register_jobs(scheduler):
         replace_existing=True,
     )
     logger.info("Added job 'delete_newest_queue'.")
-
-    scheduler.add_job(
-        delete_freezed_video,
-        trigger=CronTrigger(day_of_week='*', hour='01', minute='28'),
-        id='delete_freezed_video',
-        misfire_grace_time=300,
-        max_instances=1,
-        replace_existing=True,
-    )
-    logger.info("Added job 'delete_freezed_video'.")
 
     scheduler.add_job(
         delete_overdue_emailverifyrecord,

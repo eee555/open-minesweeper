@@ -89,7 +89,6 @@
 <script setup lang="ts">
 import 'primeicons/primeicons.css';
 import '@/styles/button.css';
-import '@/styles/text.css';
 
 import { FilterMatchMode } from '@primevue/core/api';
 import { vLoading } from 'element-plus';

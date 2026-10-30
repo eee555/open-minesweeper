@@ -46,7 +46,6 @@
 
 <script setup lang="ts">
 import '@/styles/cards.css';
-import '@/styles/text.css';
 import '@putianyi888/vue3-plots/style.css';
 
 import { Axis, createLinearScale, Ellipse, getNiceTicks, getPlotArea, Grid, MouseDraw, Rect, Scatter, TransformGroup, XLabel, YLabel } from '@putianyi888/vue3-plots';

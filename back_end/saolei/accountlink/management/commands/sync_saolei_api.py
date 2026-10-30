@@ -73,7 +73,7 @@ class Command(BaseCommand):
         except AuthenticationError as exc:
             raise CommandError('上游鉴权失败，同步停止；请检查服务器 saolei_api_key 配置') from exc
         except SaoleiError as exc:
-            raise CommandError(f'上游请求失败：{type(exc).__name__}，已提交进度保留') from exc
+            raise CommandError(f'上游请求失败：{type(exc).__name__}: {exc}，已提交进度保留') from exc
         except (FileNotFoundError, KeyError, ValueError) as exc:
             raise CommandError(f'配置或数据错误：{type(exc).__name__}') from exc
         self.stdout.write(f"完成：账号 {counts['accounts']}，导入 {counts['imported']}，跳过 {counts['skipped']}，失败 {counts['failed']}")
@@ -104,6 +104,12 @@ class Command(BaseCommand):
 
     def report_failure(self, target, exc, counts):
         counts['failed'] += 1
-        error = f'{exc.obj}/{exc.category}' if isinstance(exc, ExceptionToResponse) else type(exc).__name__
+        if isinstance(exc, ExceptionToResponse):
+            error = f'{exc.obj}/{exc.category}'
+        elif isinstance(exc, SaoleiError):
+            # 客户端异常消息不含认证头或响应体，保留原因以区分响应格式与游标错误。
+            error = f'{type(exc).__name__}: {exc}'
+        else:
+            error = type(exc).__name__
         self.stderr.write(f'{target} 失败：{error}')
         logger.error('扫雷网同步 %s 失败：%s', target, error)

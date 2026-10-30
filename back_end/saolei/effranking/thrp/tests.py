@@ -19,6 +19,7 @@ from .cache import ThrpRankingCache
 from .services import rebuild_player_record
 from .utils import empty_record, encode_score, EPOCH, RANK_STATS, record_scores, SCORE_TIME_FACTOR
 from ..cache import cache
+from ..nf_ioe.cache import NFIOERankingCache
 from ..services import add_videos_to_eff_ranks
 
 
@@ -148,30 +149,38 @@ class ThrpRankingTests(TestCase):
         self.assertIsNone(self.record(other)['e'])
         self.assertIsNone(self.record(other)['e_nf'])
 
-    def test_bulk_identifier_binding_and_tournament_reveal(self):
+    def test_bulk_identifier_and_tournament_update_both_efficiency_ranks(self):
+        ioe_ranking = NFIOERankingCache()
+        ioe_ranking.flush()
+        self.addCleanup(ioe_ranking.flush)
         identifier = Identifier.objects.create(identifier='eff', safe=True)
-        video = self.create_video(state=MS_TextChoices.State.IDENTIFIER)
-        first_nf = self.create_video(level='e', state=MS_TextChoices.State.IDENTIFIER)
-        second_nf = self.create_video(level='e', state=MS_TextChoices.State.IDENTIFIER)
+        clicks = {'left': 2, 'right': 0, 'double': 0}
+        video = self.create_video(state=MS_TextChoices.State.IDENTIFIER, **clicks)
+        first_nf = self.create_video(level='e', state=MS_TextChoices.State.IDENTIFIER, **clicks)
+        second_nf = self.create_video(level='e', state=MS_TextChoices.State.IDENTIFIER, timems=100, **clicks)
         self.assertIsNone(self.record()['b'])
         with self.captureOnCommitCallbacks(execute=True):
             bind_identifier(identifier, self.user.userms)
         self.assertEqual(self.record()['b']['video_id'], video.id)
         self.assertEqual(self.record()['e_nf']['video_ids'], [first_nf.id, second_nf.id])
+        self.assertEqual(ioe_ranking.get_player(self.user.id)['e']['video_id'], second_nf.id)
         with self.captureOnCommitCallbacks(execute=True):
             add_videos_to_eff_ranks(VideoModel.objects.filter(pk__in=[first_nf.pk, second_nf.pk]))
         self.assertEqual(self.record()['e_nf']['video_ids'], [first_nf.id, second_nf.id])
+        self.assertEqual(ioe_ranking.get_player(self.user.id)['e']['video_id'], second_nf.id)
         with self.captureOnCommitCallbacks(execute=True):
             unbind_identifier(identifier)
         self.assertIsNone(self.record()['b'])
         self.assertIsNone(self.record()['e_nf'])
-        hidden = self.create_video(level='e', ongoing_tournament=True)
+        self.assertEqual(ioe_ranking.get_player(self.user.id)['ranks'], dict.fromkeys(('b', 'i', 'e', 'sum')))
+        hidden = self.create_video(level='e', ongoing_tournament=True, **clicks)
         tournament = Tournament.objects.create(state=Tournament_TextChoices.State.AWARDED)
         tournament.videos.add(hidden)
         with self.captureOnCommitCallbacks(execute=True):
             self.assertEqual(reveal_videos_for_tournament(tournament), 1)
         self.assertEqual(self.record()['e']['video_id'], hidden.id)
         self.assertEqual(self.record()['e_nf']['video_ids'], [hidden.id])
+        self.assertEqual(ioe_ranking.get_player(self.user.id)['e']['video_id'], hidden.id)
 
     def test_admin_repairs_only_selected_record_and_sum_uses_cache(self):
         video = self.create_video()

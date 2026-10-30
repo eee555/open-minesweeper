@@ -36,7 +36,7 @@
    python -m venv .venv
    ```
 
-1. 先下载发布 wheel，再安装依赖。`requirements-wheels.txt` 固定 `wom-api` 和 `msgames-api` 的 GitHub 发布地址和 SHA-256；`requirements.txt` 固定安装版本。`wheels/` 不提交到 Git：
+1. 先下载发布 wheel，再安装依赖。`requirements-wheels.txt` 固定 `msgames-api` 的 GitHub 发布地址和 SHA-256；`requirements.txt` 固定安装版本。`wheels/` 不提交到 Git：
 
    ```powershell
    .\.venv\Scripts\python.exe -m pip download --no-deps --dest wheels -r requirements-wheels.txt

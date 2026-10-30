@@ -18,6 +18,7 @@ import { useI18n } from 'vue-i18n';
 import type { LoginControls } from './types';
 
 import { httpErrorNotification } from '@/components/Notifications';
+import { applyLoginSession } from '@/services/loginSession';
 import type { TopAnchors } from '@/services/topRankingService';
 import { store } from '@/store';
 import type { GetUserInfoResponse } from '@/utils/common/structInterface';
@@ -41,22 +42,28 @@ function openDialog(form: 'login' | 'register') {
 }
 
 onMounted(async () => {
+    const revision = store.sessionRevision;
     // 恢复登录状态时绕过 HTTP 缓存，避免实名等资料修改后读到旧数据。
     await proxy.$axios.get<{ user: GetUserInfoResponse | null; top_anchors: TopAnchors }>('/api/common/loginauto', {
         params: { _t: Date.now() },
-    }).then(function (response) {
+    }).then(async function (response) {
         store.topAnchors = response.data.top_anchors;
-        if (response.data.user) store.login(response.data.user);
+        if (revision !== store.sessionRevision) return;
+        if (response.data.user) await applyLoginSession(response.data.user, proxy.$axios);
         else store.logout();
     }).catch((err: unknown) => {
+        if (revision !== store.sessionRevision) return;
         store.logout();
         httpErrorNotification(err);
     });
 });
 
-const login = (user: UserProfileData) => {
-    store.login(user);
-    dialogVisible.value = false;
+const login = async (user: UserProfileData) => {
+    try {
+        if (await applyLoginSession(user, proxy.$axios)) dialogVisible.value = false;
+    } catch (error) {
+        httpErrorNotification(error);
+    }
 };
 
 let logoutPending = false;

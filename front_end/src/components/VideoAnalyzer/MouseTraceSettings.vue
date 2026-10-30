@@ -50,7 +50,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/checkbox.css';
 import { mouseTraceMarkerActions, mouseTraceMarkerShapes, mouseTraceStates } from '@putianyi888/vue3-minesweeper-board';
 import { useI18n } from 'vue-i18n';
 

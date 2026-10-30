@@ -84,8 +84,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
-
 import { ElPagination, vLoading } from 'element-plus';
 import { computed, onScopeDispose, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';

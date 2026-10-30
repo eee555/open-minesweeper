@@ -1,5 +1,5 @@
 <template>
-    <ElForm ref="ruleFormRef" :model="registerForm" status-icon>
+    <ElForm ref="ruleFormRef" :model="registerForm" :disabled="isSubmitting" status-icon>
         <!-- 用户名 -->
         <ElFormItem ref="usernameFormRef" prop="username" data-cy="usernameFormItem">
             <template #label>
@@ -29,7 +29,7 @@
                 <a target="_blank" rel="noopener noreferrer" :href="`${AXIOS_BASE_URL}/agreement.html`">{{ t('local.agreeTAC2') }}</a>
             </div>
             <!-- 确认 -->
-            <BaseButton type="primary" :disabled="confirm_disabled" style="margin-left: auto" @click="submitForm(ruleFormRef!)">
+            <BaseButton type="primary" :disabled="confirm_disabled" :loading="isSubmitting" style="margin-left: auto" @click="submitForm(ruleFormRef!)">
                 {{
                     t('button.register') }}
             </BaseButton>
@@ -48,6 +48,7 @@ import BaseButton from '@/components/common/BaseButton.vue';
 import EmailCodeBlock from '@/components/formItems/EmailCodeBlock.vue';
 import EmailFormItem from '@/components/formItems/EmailFormItem.vue';
 import PasswordConfirmBlock from '@/components/formItems/PasswordConfirmBlock.vue';
+import { baseErrorNotification, httpErrorNotification } from '@/components/Notifications';
 import { local } from '@/store';
 import { validateError, validateSuccess } from '@/utils/common/elFormValidate';
 import useCurrentInstance from '@/utils/common/useCurrentInstance';
@@ -57,6 +58,7 @@ const emit = defineEmits(['login']);
 
 const { proxy } = useCurrentInstance();
 const agree_TAC = ref(false);
+const isSubmitting = ref(false);
 const AXIOS_BASE_URL = import.meta.env.VITE_BASE_API;
 
 // Element Plus 2.8.0
@@ -90,7 +92,7 @@ const email_state = computed(() => {
     else return emailFormRef.value.validateState;
 });
 const confirm_disabled = computed(() => {
-    return !(agree_TAC.value && usernameFormRef.value?.validateState === 'success' && emailFormRef.value?.validateState === 'success' && emailCodeFormRef.value?.validateState === 'success' && passwordFormRef.value?.validateState === 'success');
+    return isSubmitting.value || !(agree_TAC.value && usernameFormRef.value?.validateState === 'success' && emailFormRef.value?.validateState === 'success' && emailCodeFormRef.value?.validateState === 'success' && passwordFormRef.value?.validateState === 'success');
 });
 
 const usernameInputHandler = (value: string) => {
@@ -114,7 +116,8 @@ const usernameChangeHandler = (value: string) => {
 const submitForm = async (formEl?: FormInstance) => {
     if (!formEl) return;
     if (confirm_disabled.value) return;
-    await proxy.$axios.post('userprofile/register/', {
+    isSubmitting.value = true;
+    await proxy.$axios.post('/api/userprofile/register', {
         username: registerForm.username,
         password: registerForm.password,
         email: registerForm.email,
@@ -131,8 +134,14 @@ const submitForm = async (formEl?: FormInstance) => {
         } else if (data.type === 'error') {
             if (data.object === 'emailcode') {
                 emailCodeFormRef.value?.errorCode();
+            } else if (data.object === 'censorship' && data.category === 'illegal') {
+                validateError(usernameFormRef, t('local.usernameRejected'));
+            } else {
+                baseErrorNotification(t('msg.actionFail'), t(data.object === 'censorship' ? 'local.moderationUnavailable' : 'local.invalidRegistration'));
             }
         }
+    }).catch(httpErrorNotification).finally(() => {
+        isSubmitting.value = false;
     });
 };
 
@@ -145,10 +154,16 @@ const i18nMessages = {
     'zh-cn': { local: {
         agreeTAC1: '已阅读并同意',
         agreeTAC2: '开源扫雷网用户协议',
+        usernameRejected: '用户名未通过内容审核，请更换用户名。',
+        moderationUnavailable: '用户名审核暂不可用，请稍后重试。',
+        invalidRegistration: '注册信息无效或已被使用，请检查后重试。',
     } },
     en: { local: {
         agreeTAC1: 'Agree to',
         agreeTAC2: 'Terms & Conditions',
+        usernameRejected: 'This username did not pass content moderation. Please choose another username.',
+        moderationUnavailable: 'Username moderation is temporarily unavailable. Please try again later.',
+        invalidRegistration: 'Registration details are invalid or already in use. Please check and try again.',
     } },
     de: { local: {
         confirm: 'bestätigen',

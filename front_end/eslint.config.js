@@ -305,6 +305,12 @@ export default defineConfig({
         '@typescript-eslint/unified-signatures': 'off', // TODO
     },
 }, {
+    // Node's native config loader requires extensions in this TypeScript import chain.
+    files: ['vite.config.ts', 'scripts/cdn-styles.ts'],
+    rules: {
+        'import-x/extensions': ['error', 'always', { ignorePackages: true }],
+    },
+}, {
     files: ['src/**/*.vue'],
     // Deferred components keep the existing layout, text and card restrictions.
     ignores: [

@@ -15,7 +15,7 @@ from tournament.cache import TOURNAMENT_USER_CACHE_KEYS, TournamentCache
 from tournament.models import GSCTournament, Tournament, TournamentParticipant, TournamentUser
 from tournament.schema import ParticipantOutBase
 from tournament.services import with_participant_video_status
-from userprofile.decorators import login_required_error, staff_required
+from userprofile.decorators import admin_csrf_required, login_required_error, staff_required
 from userprofile.models import UserProfile
 from utils.response import HttpResponseConflict
 from utils.schema import IdIn
@@ -124,10 +124,11 @@ def get_tournament(request: HttpRequest, tournament_id: int):
 
 
 @router.post('/set')
-@decorate_view(login_required_error)
+@decorate_view(login_required_error, admin_csrf_required)
 def set_tournament(request: HttpRequest, data: TournamentSetIn = Form(...)):  # noqa: B008
     """
     - `login_required_error`
+    - `admin_csrf_required`
 
     主办方可修改比赛；GSC 比赛也允许管理员修改。
     """
@@ -196,8 +197,12 @@ def allow_tournament(request: HttpRequest, data: IdIn = Form(...)):  # noqa: B00
 
 
 @router.post('/cancel')
-@decorate_view(login_required_error)
+@decorate_view(login_required_error, admin_csrf_required)
 def cancel_tournament(request: HttpRequest, data: IdIn = Form(...)):  # noqa: B008
+    """
+    - login_required_error
+    - admin_csrf_required
+    """
     tournament = get_object_or_404(Tournament, id=data.id)
     if not request.user.is_staff and tournament.host != request.user:
         return HttpResponseForbidden()
@@ -230,10 +235,11 @@ def get_participant_list(request: HttpRequest, tournament_id: int):
 
 
 @router.delete('/participant/{participant_id}', response={204: None})
-@decorate_view(login_required_error, ratelimit(key='user', rate='30/m', block=True))
+@decorate_view(login_required_error, admin_csrf_required, ratelimit(key='user', rate='30/m', block=True))
 def delete_participant(request: HttpRequest, participant_id: int):
     """
     - `login_required_error`
+    - `admin_csrf_required`
     - `ratelimit(key='user', rate='30/m', block=True)`
 
     Only the tournament host or staff may delete a participant.

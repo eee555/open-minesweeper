@@ -1,6 +1,6 @@
 <template>
     <BaseCardNormal style="overflow: auto;">
-        <div class="layout-row" style="align-items: center; display: flex; margin-bottom: 5px;">
+        <div class="layout-row" style="align-items: center; margin-bottom: 5px;">
             <Header data-cy="header" :video-list="videoList" />
         </div>
         <div class="layout-row">
@@ -66,7 +66,6 @@
 
 <script setup lang="ts">
 import '@/styles/layout.css';
-import '@/styles/text.css';
 
 import { MiniPie } from '@putianyi888/vue3-plots';
 import type { PieDatum } from '@putianyi888/vue3-plots';

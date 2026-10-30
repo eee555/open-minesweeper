@@ -19,7 +19,6 @@ import { ElInputNumber } from 'element-plus';
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
-import '@/styles/text.css';
 import BaseButton from '@/components/common/BaseButton.vue';
 import useCurrentInstance from '@/utils/common/useCurrentInstance';
 

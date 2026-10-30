@@ -25,7 +25,7 @@ def best_candidate(player_id: int, level: str):
     return candidate_for_video(video)
 
 
-def write_records(ranking: ThrpRankingCache, previous: dict, records: dict, force_stats: set[str] | None = None):
+def write_records(ranking: ThrpRankingCache, previous: dict, records: dict, force_stats: set[str] | None = None, pipe=None):
     """先计算变动，再一次写入原始纪录及需要刷新的小榜。"""
     changes = []
     for player_id, record in records.items():
@@ -35,14 +35,7 @@ def write_records(ranking: ThrpRankingCache, previous: dict, records: dict, forc
         scores = record_scores(record)
         changed = {stat: score for stat, score in scores.items() if score != old_scores[stat] or stat in (force_stats or ())}
         changes.append((player_id, record, changed))
-    if not changes:
-        return
-    with ranking.pipeline() as pipe:
-        for player_id, record, scores in changes:
-            ranking.write_record(pipe, player_id, record)
-            for stat, score in scores.items():
-                ranking.write_score(pipe, player_id, stat, score)
-        pipe.execute()
+    ranking.write_changes(changes, pipe)
 
 
 def prepare_video_update(video: dict | None, video_id: int, previous: dict):

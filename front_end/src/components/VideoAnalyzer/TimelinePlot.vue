@@ -50,7 +50,6 @@
 
 <script setup lang="ts">
 import '@/styles/cards.css';
-import '@/styles/text.css';
 import '@putianyi888/vue3-plots/style.css';
 import type { DragEvent, PointerEvent as InteractPointerEvent } from '@interactjs/types';
 import { Axis, createLinearScale, formatTick, getNiceTicks, getPlotArea, Grid, Line, Scatter, TransformGroup } from '@putianyi888/vue3-plots';

@@ -18,7 +18,9 @@
             {{ filename }} · {{ t('local.count', { count }) }}
         </p>
         <details v-if="issues.length" class="csv-issues" data-cy="arbiter-csv-issues">
-            <summary>{{ t('local.issues', { count: issues.length }) }}</summary>
+            <summary class="text-warning">
+                {{ t('local.issues', { count: issues.length }) }}
+            </summary>
             <ul>
                 <li v-for="(issue, index) in issues.slice(0, 100)" :key="index">
                     {{ issueText(issue) }}
@@ -33,7 +35,6 @@
 
 <script setup lang="ts">
 import '@/styles/cards.css';
-import '@/styles/text.css';
 
 import type { PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -130,7 +131,6 @@ const { t } = useI18n({ messages: i18nMessages });
 }
 .csv-issues summary {
     cursor: pointer;
-    color: var(--ui-color-warning);
 }
 .csv-issues ul {
     max-height: 12rem;

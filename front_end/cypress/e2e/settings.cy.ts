@@ -1,3 +1,13 @@
+function expectGlobalTextStyles() {
+    cy.get('body').should(($body) => {
+        expect($body.css('font-size')).to.equal($body.css('--ui-font-size-base')?.trim());
+    });
+    cy.get('.minigame-settings-hint').should(($hint) => {
+        expect($hint.css('font-size')).to.equal($hint.css('--ui-font-size-extra-small')?.trim());
+        expect($hint.css('color')).not.to.equal(Cypress.$('body').css('color'));
+    });
+}
+
 describe('language setting', () => {
     const languages = {
         'zh-CN': '帮助',
@@ -59,11 +69,13 @@ describe('Color Theme', () => {
         cy.get('[data-navigation-id=theme-light] button:visible').click();
         cy.window().its('localStorage').invoke('getItem', 'vueuse-color-scheme').should('eq', 'light');
         cy.get('html').should('not.have.class', 'dark');
+        expectGlobalTextStyles();
         cy.get('[data-cy=themePicker]').click();
         cy.get('[data-navigation-id=theme-dark] button:visible').click();
         cy.window().its('localStorage').invoke('getItem', 'vueuse-color-scheme').should('eq', 'dark');
         cy.reload();
         cy.get('html').should('have.class', 'dark');
+        expectGlobalTextStyles();
         cy.window().its('localStorage').invoke('getItem', 'vueuse-color-scheme').should('eq', 'dark');
         cy.get('[data-cy=themePicker]').click();
         cy.get('[data-navigation-id=theme-auto] button:visible').click();
@@ -112,17 +124,18 @@ describe('General Settings', () => {
     it('persists third-party trust and supports toggling it with Space', () => {
         cy.visit('/#/settings');
         const trustLabel = 'https://strange-dust.github.io/minesweeper-replay-analyzer/';
-        cy.contains('label', trustLabel).find('input').should('not.be.checked');
+        cy.contains('label', trustLabel).closest('.layout-stack').should('have.css', 'display', 'flex').and('have.css', 'flex-direction', 'column');
+        cy.contains('label', trustLabel).find('.checkbox-input').should('not.be.checked').and('have.css', 'appearance', 'none');
         cy.contains('label', trustLabel).click();
-        cy.contains('label', trustLabel).find('input').should('be.checked');
+        cy.contains('label', trustLabel).find('input').should('be.checked').and('not.have.css', 'background-image', 'none');
         cy.window().its('localStorage').invoke('getItem', 'video-player-config').should((value: string | null) => {
             const config = JSON.parse(value ?? '{}') as { strangeDustTrust?: boolean };
             expect(config.strangeDustTrust).to.equal(true);
         });
         cy.reload();
-        cy.contains('label', trustLabel).find('input').should('be.checked').focus();
+        cy.contains('label', trustLabel).find('input').should('be.checked').and('not.have.css', 'background-image', 'none').focus();
         cy.realPress('Space');
-        cy.contains('label', trustLabel).find('input').should('not.be.checked');
+        cy.contains('label', trustLabel).find('input').should('not.be.checked').and('have.css', 'background-image', 'none');
         cy.window().its('localStorage').invoke('getItem', 'video-player-config').should((value: string | null) => {
             const config = JSON.parse(value ?? '{}') as { strangeDustTrust?: boolean };
             expect(config.strangeDustTrust).to.equal(false);

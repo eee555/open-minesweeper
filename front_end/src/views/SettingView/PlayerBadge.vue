@@ -50,7 +50,6 @@
 <script setup lang="ts">
 import '@/styles/descriptions.css';
 import '@/styles/cards.css';
-import '@/styles/checkbox.css';
 
 import { ElRadioButton, ElRadioGroup } from 'element-plus';
 import { useI18n } from 'vue-i18n';

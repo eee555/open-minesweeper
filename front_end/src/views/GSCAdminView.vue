@@ -11,7 +11,6 @@
 import { ElInputNumber } from 'element-plus';
 import { ref } from 'vue';
 
-import '@/styles/text.css';
 import GSCGeneralInfo from '@/components/GSCAdmin/GeneralInfo.vue';
 import HistoryImport from '@/components/GSCAdmin/HistoryImport.vue';
 

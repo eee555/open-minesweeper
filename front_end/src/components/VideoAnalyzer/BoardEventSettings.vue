@@ -33,7 +33,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/checkbox.css';
 import type { PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
 

@@ -64,7 +64,7 @@ Redis 分类只读取业务代码直接确定的 DB 0 key，不执行 `SCAN`、`
 | 分类 | key 来源 |
 | --- | --- |
 | PB 榜 | `PBRankingCache.counts_key`；固定 hash 的 `HKEYS` 经校验后构造小榜 key；从 `UserProfile` 主键顺序每批最多 1,000 个 ID 构造用户 hash key。元数据缺失不发现 key、不触发重建。 |
-| 其他排行榜 | `SpeedRankingCache(name, stats=RANK_STATS).keys`、`TopRankingCache().keys`、`ThrpRankingCache().keys`、`MiniGameRankingCache().keys`、四种自定义 pluck 配置的 rank/detail key、比赛用户榜 key 和积分时间 key；当前共 139 个 key。 |
+| 其他排行榜 | `SpeedRankingCache(name, stats=RANK_STATS).keys`、`TopRankingCache().keys`、`ThrpRankingCache().keys`、`NFIOERankingCache().keys`、`MiniGameRankingCache().keys`、四种自定义 pluck 配置的 rank/detail key、比赛用户榜 key 和积分时间 key；当前共 144 个 key。 |
 | 最新录像 | `newest_cache.key`（`newest_queue`）。 |
 | 其他 | `INFO memory.used_memory` 减去前三类；包含其他业务、会话、同实例 DB 1 通用缓存、孤立/历史/临时 key 和 Redis 开销，不枚举 DB 1。 |
 
@@ -116,7 +116,7 @@ PB 另使用 `speedranking:pb:counts` hash 汇总各小榜人数，可通过 `GE
 
 ### 效率榜 `effranking`
 
-Thrp 的一个个人纪录 hash 和五个排序 zset 见下方数据结构表。高级 NF 独立排序，不参与 sum。编码、选优和事务边界统一见 `back_end/saolei/effranking/README.md`；首次部署及缓存丢失后执行 [rebuild_eff_ranks](./management-commands.md#rebuild-eff-ranks)，查询不自动回源。
+Thrp 使用一个个人纪录 hash 和五个排序 zset，NF IOE 独立使用一个 hash 和四个 zset，见下方数据结构表。编码、选优和事务边界统一见 `back_end/saolei/effranking/README.md`；首次部署及缓存丢失后执行指定大榜的 [rebuild_eff_ranks](./management-commands.md#rebuild-eff-ranks)，查询不自动回源。
 
 ```dot
 digraph cache {
@@ -656,6 +656,8 @@ digraph cache {
 | `videomanager` | `newest_queue` | hash | `field = video_id`；JSON 仅包含 `state`、`time`、`player_id`。最新录像接口直接读取 Hash 快照并转换成元信息数组，不查询数据库；队列只写入公开录像，因此响应的 `ongoing_tournament` 为 `false`。解析字段由浏览器录像缓存补全；后台任务每天 01:08 按 `time` 保留最新 1000 条，时间相同时保留 ID 较大的录像，不再按天数过期。写入时不裁剪，允许暂时超过上限；裁剪使用 Python 排序和普通 Redis 删除操作，管理命令复用同一逻辑。`freeze_queue`、`review_queue` 已停止维护，遗留 key 由升级命令删除。 |
 | `effranking` | `effranking:thrp:records` | hash | `field = player_id`；完整个人纪录 JSON。普通 `b/i/e` 为 `null` 或 `{value, video_id, upload_time}`；`e_nf` 为 `null` 或 `{value, video_ids}`，满分时含全部达成录像，否则只含最佳一局。sum 不重复存储。 |
 | `effranking` | `effranking:thrp:{stat}` | zset | `stat = b/i/e/sum/e_nf`；`member = player_id`。原有四项编码六位小数成绩和分钟级达成时间；高级 NF 使用负 Thrp，满分后使用负达成局数。统一升序读取，不用于恢复成绩。 |
+| `effranking` | `effranking:nf_ioe:records` | hash | `field = player_id`；完整 `b/i/e` 纪录，每项为 `null` 或 `{value, video_id, timems}`；sum 从原始成绩计算，不重复存储。 |
+| `effranking` | `effranking:nf_ioe:{stat}` | zset | `stat = b/i/e/sum`；`member = player_id`；score 取业务分值的负数，满分单项比较用时，满分总和只比较高级用时。 |
 | `customranking` | `customranking:pluck:{level}:rank` | zset | `member = player_id`；`score = pluck`，当 `pluck == 0` 时使用 `timems - MAX_TIMEMS` 降低 0 碰撞风险。 |
 | `customranking` | `customranking:pluck:{level}:detail` | hash | `field = player_id`；JSON 包含 `video_id`、`timems`、`upload_time`。展示用的模式和 3BV 通过录像缓存补全；排序 zset 保持原编码。 |
 | `tournament` | `tournament:normal` | hash | `field = tournament_id`；`value = CachedTournament JSON`，包含 `id`、`state`、`subclass`、`host_id`、`start_time`、`end_time`、`data`。`data` 保存子类独占字段：GSC 为 `order`、`token`；周赛为 `year`、`week`、`tournament_format`。 |
@@ -735,7 +737,7 @@ Redis 连接和读写异常记录日志，计算及数据库摘要不回滚，�
 | 缓存 | 主要写入入口 | 重建 / 清理入口 |
 | --- | --- | --- |
 | 录像状态队列 | `videomanager.signals.refresh_state_queue_on_video_save` | `videomanager.cache.add_videos_to_state_queues_bulk` 可按状态批量恢复普通队列。 |
-| 效率 Thrp 排行 | `effranking.signals` 与批量 services，提交后更新 | `rebuild_eff_ranks` 全量重建；管理员 `/api/effranking/thrp/admin/rebuild_record` 修复单项，sum 仅从个人 hash 重算。 |
+| 效率 Thrp / NF IOE 排行 | `effranking.signals` 与批量 services，提交后更新 | `rebuild_eff_ranks --ranking-name thrp/nf_ioe` 指定大榜重建；管理员对应大榜的 `admin/rebuild_record` 修复单项，sum 仅从个人 hash 重算。 |
 | 自定义 pluck 排行 | 保存时 `update_custom_pluck_top_cache`；录像删除提交后 `refresh_custom_pluck_rank` 补位，纪录删除提交后 `sync_custom_pluck_top_cache` 同步当前状态 | `manage.py rebuild_custom_pluck_cache` 从 `CustomPluckRecord` 全量重建，不补建缺失的数据库纪录。 |
 | NORMAL 比赛 | `TournamentCache.update_tournament` | `manage.py rebuild_tournament_cache` 显式查询 `NORMAL` GSC 与周赛并重建。 |
 | NORMAL 参赛关系 | `TournamentCache.update_participant` / `remove_participant` | `manage.py rebuild_tournament_cache` 按 `user_id` 分组重建。 |

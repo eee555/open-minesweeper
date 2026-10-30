@@ -70,8 +70,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
-
 import { ElButton, ElCarousel, ElCarouselItem, ElDescriptions, ElDescriptionsItem } from 'element-plus';
 import PrToolbar from 'primevue/toolbar';
 import { computed, ref, useTemplateRef } from 'vue';

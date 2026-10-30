@@ -3,20 +3,20 @@
         <BaseTable table-class="saolei-record-table">
             <template #head>
                 <tr>
-                    <th scope="col">
+                    <th scope="col" class="table-col-center text-secondary">
                         {{ t('ranking.saolei.title') }}
                     </th>
-                    <th v-for="level in levels" :key="level" scope="col">
+                    <th v-for="level in levels" :key="level" scope="col" class="table-col-center text-secondary">
                         {{ t(`level.${level}`) }}
                     </th>
                 </tr>
             </template>
             <template v-for="rankingName in rankingNames" :key="rankingName">
                 <tr v-for="(label, stat) in SaoleiStat" :key="stat">
-                    <th scope="row">
+                    <th scope="row" class="table-col-center text-secondary">
                         {{ t(`prop.${label}`) }}{{ rankingName === 'saolei_nf' ? ' (NF)' : '' }}
                     </th>
-                    <td v-for="level in levels" :key="level">
+                    <td v-for="level in levels" :key="level" class="table-col-center">
                         <VideoPreviewLink
                             v-if="saoleiVideoId(records[rankingName], `${level}${stat}`)"
                             :id="saoleiVideoId(records[rankingName], `${level}${stat}`)"
@@ -81,8 +81,6 @@ function formatScore(record: SaoleiPlayerRecord | undefined, stat: SaoleiField):
 }
 
 :deep(.saolei-record-table) {
-    width: 100%;
-    border-collapse: collapse;
     color: var(--ui-text-color-regular);
     background: var(--ui-fill-color-blank);
     font-size: var(--ui-font-size-base);
@@ -92,11 +90,9 @@ function formatScore(record: SaoleiPlayerRecord | undefined, stat: SaoleiField):
 :deep(.saolei-record-table td) {
     border: 1px solid var(--ui-border-color-lighter);
     padding: 8px 12px;
-    text-align: center;
 }
 
 :deep(.saolei-record-table th) {
-    color: var(--ui-text-color-secondary);
     background: var(--ui-fill-color-light);
 }
 

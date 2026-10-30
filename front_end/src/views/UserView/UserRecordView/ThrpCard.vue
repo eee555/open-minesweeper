@@ -40,7 +40,6 @@ import type { ThrpPlayerRecord, ThrpStat } from '@/services/thrpRankingService';
 import { colorThemes } from '@/store/color';
 import { local } from '@/store/local';
 import { getPiecewiseColorSchemeName } from '@/utils/ms_const';
-import '@/styles/text.css';
 
 const props = defineProps({ userId: { type: Number, required: true } });
 const record = ref<ThrpPlayerRecord>();

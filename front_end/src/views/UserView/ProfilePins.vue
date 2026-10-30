@@ -2,9 +2,9 @@
     <div v-show="pins.length" class="pins">
         <div v-for="pin in pins" :key="pin.grant_id ?? pin.code" class="pin" :class="{ 'pin-ring': showRing(pin) }">
             <MedalArt v-if="pin.stage != null" :series="pin.series" :code="pin.code" :stage="pin.stage" :size="48" />
-            <span class="series">{{ seriesLabel(pin.series) }}</span>
+            <span class="series text-secondary text-small">{{ seriesLabel(pin.series) }}</span>
             <span class="stage">{{ stageLabel(pin) }}</span>
-            <span v-if="showRing(pin)" class="count">{{ pin.current_value }}</span>
+            <span v-if="showRing(pin)" class="count text-primary text-small">{{ pin.current_value }}</span>
         </div>
     </div>
 </template>
@@ -98,11 +98,6 @@ onDeactivated(() => {
     white-space: nowrap;
 }
 
-.series {
-    color: var(--ui-text-color-secondary);
-    font-size: var(--ui-font-size-extra-small);
-}
-
 .stage {
     min-height: 1.2em;
     color: var(--ui-text-color-primary);
@@ -113,8 +108,6 @@ onDeactivated(() => {
     position: absolute;
     top: -6px;
     right: -4px;
-    color: var(--ui-color-primary);
-    font-size: var(--ui-font-size-extra-small);
     line-height: 1;
 }
 </style>

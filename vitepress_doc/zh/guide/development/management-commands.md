@@ -38,9 +38,11 @@ python manage.py sync_saolei_api --all-linked
 
 `--account-id` 可重复指定；`--all-linked` 表示全部已验证绑定，两者必须选择其一。`--full` 从 0 重新扫描目录，不清空数据、不回退账号成功游标；去掉此选项用于增量和中断续跑。`--page-size` 默认为 200，取值 1 至 1000。命令发现任何存量录像缺少原文件哈希时拒绝同步。
 
-整个命令串行共用一个客户端，数据请求间隔 2.1 秒，文件请求间隔 0.4 秒；不要并行启动多个同步命令。目录页和 `AccountSaolei.video_sync_cursor` 同事务提交，失败不推进；目录同步后还会补导本地白名单内未完成的录像，避免游标已推进但文件未导入时漏导。软件精确白名单为 `Clone`、`Vienna`、`Arbiter`、`元扫雷3.3.4`，其他名称只保存目录并跳过；上游 `status` 不限制导入。
+整个命令串行共用一个客户端，数据请求间隔 2.1 秒，文件请求间隔 0.4 秒；不要并行启动多个同步命令。目录页和 `AccountSaolei.video_sync_cursor` 同事务提交，失败不推进；目录同步后还会补导本地白名单内未完成的录像，避免游标已推进但文件未导入时漏导。软件精确白名单为 `Clone`、`Vienna`、`Arbiter`、`元扫雷`，其他名称只保存目录并跳过；上游 `status` 不限制导入。
 
-同主文件哈希命中时复用既有本站录像，异主冲突不改归属或上传时间。单项失败保留成功进度并汇总，退出码非零；鉴权失败和限流立即停止，不自动重试。进度见命令输出和 `accountlink` 日志，接口关闭由站长人工鉴定，同步完成不自动开放接口。账号资料仅采用 ID、姓名和外站封禁状态，不同步成绩或标识列表。
+目录按 ID 严格大于已存游标续跑，`next_cursor` 可等于本页最后一条 ID，不自行加 1；跨过本轮 `stats().max_video_id` 时仅提交上界内的记录，游标最多保存到上界，下一轮仍能取得紧随上界的录像。
+
+同主文件哈希命中时复用既有本站录像，异主冲突不改归属或上传时间。单项失败保留成功进度并汇总，退出码非零；鉴权失败和限流立即停止，不自动重试。进度见命令输出和 `accountlink` 日志；客户端错误保留异常类型和具体原因，不输出认证头或响应体。接口关闭由站长人工鉴定，同步完成不自动开放接口。账号资料仅采用 ID、姓名和外站封禁状态，不同步成绩或标识列表。
 
 ## 勋章补发
 
@@ -117,10 +119,11 @@ python -m dangerzone.init_local_test --no-weekly
 
 位置：`effranking/management/commands/rebuild_eff_ranks.py`
 
-从录像数据库重建效率 Thrp 榜，包括高级 NF 最佳及满分局数。`--ranking-name` 仅支持 `thrp`（默认值）；`--batch-size` 默认 1000，必须为正数。增加高级 NF 后需执行一次，将历史录像纳入新榜，不需要数据库迁移。
+从录像数据库重建效率榜。`--ranking-name` 支持 `thrp`（默认，包含高级 NF 满分列表）和 `nf_ioe`；`--batch-size` 默认 1000，必须为正数。新增大榜后需显式执行，将历史录像纳入缓存，不需要个人纪录数据迁移。
 
 ```bash
 python manage.py rebuild_eff_ranks
+python manage.py rebuild_eff_ranks --ranking-name nf_ioe
 ```
 
 首次建榜或缓存丢失后执行，API 不回源数据库。执行前暂停录像上传、审核、修改、删除、标识绑定/解绑和比赛公开等写入。命令先构建临时榜，成功后原子替换，失败保留旧榜。规则见 `back_end/saolei/effranking/README.md`。
@@ -421,13 +424,14 @@ python manage.py refresh_monitor_snapshot
 | `refresh_monitor_snapshot` | 启动时及每 5 分钟 | 生成统一监控 JSON；单实例执行，错过多次调度时合并执行 |
 | `delete_old_job_executions` | 每天 00:03 | 清理超过 7 天的 APScheduler 执行记录 |
 | `delete_newest_queue` | 每天 01:08 | 按上传时间保留最新 1000 条，允许两次清理之间暂时超过上限 |
-| `delete_freezed_video` | 每天 01:28 | 删除 7 天以前冻结状态的录像 |
 | `delete_overdue_emailverifyrecord` | 每周一 01:03 | 清理 1 小时以前的邮箱验证码 |
 | `delete_overdue_captcha` | 每周一 01:05 | 清理过期图形验证码 |
 | `delete_overdue_tasks` | 每周一 01:10（`settings.TIME_ZONE`，当前为 UTC） | 按 `config/common.py` 的保留期限分批清理成功的后台任务，删除总量不限 |
 | `refresh_tournament_score_reference` | 每年 1 月 1 日 00:00 UTC | 将当前积分 zset 整体折算到新年年初，并原子更新锚点；数据库不变 |
 
 年度锚点任务在调度器启动时也会执行一次幂等检查，补上跨年停机或错过的更新；同一年不会重复衰减。
+
+冻结录像不再按时间自动删除。调度器启动时会移除数据库中遗留的 `delete_freezed_video` 任务；更新代码后需重启调度器，使旧进程停止执行该任务。
 
 后台任务清理与管理员接口 `POST /api/common/tasks/cleanup` 共用服务；接口每类任务每次最多删除 200 条，定时任务则以每批 200 条循环删除所有符合条件的记录。失败、待执行、执行中和未配置的任务均保留。
 

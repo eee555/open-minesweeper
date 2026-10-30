@@ -48,7 +48,6 @@
 
 <script setup lang="ts">
 import '@/styles/cards.css';
-import '@/styles/text.css';
 
 import { ElInputNumber, ElOption, ElSelect, ElSlider } from 'element-plus';
 import { computed } from 'vue';

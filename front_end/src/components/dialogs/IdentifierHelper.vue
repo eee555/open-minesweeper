@@ -27,7 +27,6 @@
 </template>
 
 <script lang="ts" setup>
-import '@/styles/text.css';
 import { useI18n } from 'vue-i18n';
 
 import SoftwareIcon from '@/components/widgets/SoftwareIcon.vue';

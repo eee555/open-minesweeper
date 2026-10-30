@@ -2,7 +2,7 @@
 
 Admin: id=2, password=admin123456. Normal user: id=48, password=user123456.
 Usernames come from the snapshot. This script needs no running HTTP server.
-Restores user identifiers and their ownership, then rebuilds Saolei, PB, top and Thrp rankings.
+Restores user identifiers and their ownership, then rebuilds Saolei, PB, top, Thrp and NF IOE rankings.
 Run from back_end/saolei: python -m dangerzone.init_local_test
 """
 import argparse

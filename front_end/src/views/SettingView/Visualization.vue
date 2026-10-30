@@ -3,7 +3,7 @@
         <h2 class="card-title">
             {{ t('local.visualizationColorScheme') }}
         </h2>
-        <div style="display: flex; flex-direction: column; gap: 1rem">
+        <div class="layout-stack">
             <div class="coloring-setting">
                 <span class="text-regular">{{ t('local.colored') }}</span>
                 <ElSwitch v-model="local.colored" :aria-label="t('local.colored')" data-cy="coloring-switch" />
@@ -17,7 +17,7 @@
                     <ElColorPicker v-model="colorTheme.level[level]" size="small" />
                 </span>
             </div>
-            <div v-experimental style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <div v-experimental class="layout-stack" style="gap: 0.5rem;">
                 <div class="text-regular">
                     {{ t('local.piecewise') }}
                 </div>
@@ -43,7 +43,7 @@
 
 <script setup lang="ts">
 import '@/styles/cards.css';
-import '@/styles/text.css';
+import '@/styles/layout.css';
 
 import { ElColorPicker, ElOption, ElSelect, ElSwitch } from 'element-plus';
 import { ref } from 'vue';
@@ -101,10 +101,5 @@ const { t } = useI18n({
 .color-scheme-toolbar > .el-select {
     width: 240px;
     max-width: 100%;
-}
-.card-body {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
 }
 </style>

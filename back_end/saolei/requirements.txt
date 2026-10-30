@@ -14,14 +14,13 @@ django-simple-captcha==0.7.0
 django-tasks-db==0.13.0
 filelock==4.2.4
 lxml==6.1.3
-ms_toollib==1.5.20
+ms_toollib==1.6.0
 mysqlclient==2.3.0
 psutil==7.2.2
 py7zr==1.1.4
 pyo3_runtime==0.0.1
 redis==8.1.0
 requests==2.34.2
-wom-api[system-certs]==0.1.0
 msgames-api==0.1.1
 saolei-api==0.4.0
 cryptography==50.0.2
