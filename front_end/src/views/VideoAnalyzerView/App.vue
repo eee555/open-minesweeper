@@ -2,7 +2,7 @@
     <VideoAnalyzer v-model:config="analyzerConfig" v-model:probability-color-scheme="videoPlayerConfig.probabilityColorScheme" v-model:exporting="exporting" :source="source" :loading="loading" :error-message="errorMessage" :title="`${t('local.title')} #${id}`" :filename="`video-${id}`">
         <template #info>
             <slot name="info">
-                <WebsiteReplayInfo :id="id" :info="info" :loading="infoLoading" :error-message="infoErrorMessage" />
+                <WebsiteReplayInfo :id="id" :info="info" :software="source?.software ?? null" :loading="infoLoading" :error-message="infoErrorMessage" />
             </slot>
         </template>
     </VideoAnalyzer>

@@ -67,7 +67,7 @@ Mediabunny/WebCodecs 按冻结的实际尺寸、区间、倍率、格式、帧�
 
 离线入口将 `#info` 内容换成选择本地录像文件的控件，读取字节后更新 `source`；选择控件沿用 slot 的宽窄容器布局，并在 `exporting` 为 true 时禁用。分析器其余区域及功能直接复用。在 `front_end` 执行 `npm.cmd run build:offline`，生成 `OpenMinesweeperVideoAnalyzer-${version}.zip`，独立版本由 `local-analyzer/version.json` 提供。
 
-站内包装页默认通过 info slot 提供四行网站信息：录像 ID/上传时间、PlayerName/可选比赛 ID、该录像的各榜名次、文件名；右侧按钮列提供原始录像下载和离线包下载。站内 MSRC 文件由网站服务按需解压，公共分析器始终接收原始录像字节。网站信息请求、PlayerName、比赛及下载操作留在包装页目录；信息加载失败不阻塞播放或下载。
+站内包装页默认通过 info slot 提供四行网站信息：录像 ID/上传时间、PlayerName/可选比赛 ID、该录像的各榜名次、文件名；右侧按钮列提供原始录像下载、StrangeDust 分析器外链和离线包下载。StrangeDust 外链通过 `replay` 参数传递本站录像预览 API 地址，录像格式未知时暂时禁用。站内 MSRC 文件由网站服务按需解压，公共分析器始终接收原始录像字节。网站信息请求、PlayerName、比赛及下载操作留在包装页目录；信息加载失败不阻塞播放或下载。
 
 单元测试：`npx.cmd vitest run src/components/VideoAnalyzer src/views/VideoAnalyzerView`。Cypress 由用户运行：
 

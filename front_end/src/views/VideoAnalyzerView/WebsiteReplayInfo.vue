@@ -30,6 +30,9 @@
             <button type="button" class="base-button base-button--size-small website-replay-info__link website-replay-info__replay-download" :disabled="downloading" :title="t('local.downloadReplay')" :aria-label="t('local.downloadReplay')" @click="downloadReplay">
                 <i :class="downloading ? 'pi pi-spin pi-spinner' : 'pi pi-file-export'" aria-hidden="true" />
             </button>
+            <a class="base-button base-button--size-small website-replay-info__link website-replay-info__strange-dust" :href="strangeDustUrl || undefined" role="link" aria-label="StrangeDust Analyzer" title="StrangeDust Analyzer" :aria-disabled="strangeDustUrl ? undefined : true" :tabindex="strangeDustUrl ? undefined : -1" target="_blank" rel="noopener noreferrer">
+                <img :src="strangeDustIcon" alt="" width="16" height="16">
+            </a>
             <a class="base-button base-button--size-small website-replay-info__link website-replay-info__offline-download" :href="offlineDownloadUrl" :download="offlineDownloadFilename" :title="t('local.downloadOffline')" :aria-label="t('local.downloadOffline')">
                 <img :src="analyzerIcon" alt="" width="16" height="16">
             </a>
@@ -42,7 +45,7 @@
 import '@/styles/link.css';
 import '@/styles/button.css';
 import 'primeicons/primeicons.css';
-import { onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import type { PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterLink } from 'vue-router';
@@ -51,11 +54,13 @@ import analyzerVersion from '../../../local-analyzer/version.json';
 
 import type { SiteReplayInfo, SiteReplayRanking } from './useSiteReplayInfo';
 
+import strangeDustIcon from '@/assets/strange-dust.ico';
 import analyzerIcon from '@/assets/video-analyzer.svg';
 import PlayerName from '@/components/PlayerName.vue';
 import { fetchReplayFile } from '@/services/replayFileService';
 import { downloadBlob } from '@/utils/fileIO';
-import { getReplayDownloadUrl } from '@/utils/replayLinks';
+import type { MS_Software } from '@/utils/ms_const';
+import { getReplayDownloadUrl, getReplayPreviewUrl, getStrangeDustAnalyzerUrl } from '@/utils/replayLinks';
 import { utc_to_local_format } from '@/utils/system/tools';
 
 const props = defineProps({
@@ -63,7 +68,9 @@ const props = defineProps({
     info: { type: Object as PropType<SiteReplayInfo | null>, default: null },
     loading: { type: Boolean, default: false },
     errorMessage: { type: String, default: '' },
+    software: { type: String as PropType<MS_Software | null>, default: null },
 });
+const strangeDustUrl = computed(() => (props.software === null ? '' : getStrangeDustAnalyzerUrl(getReplayPreviewUrl(props.id, props.software))));
 const offlineDownloadFilename = `OpenMinesweeperVideoAnalyzer-${analyzerVersion.version}.zip`;
 const offlineDownloadUrl = `${import.meta.env.BASE_URL}assets/${offlineDownloadFilename}`;
 

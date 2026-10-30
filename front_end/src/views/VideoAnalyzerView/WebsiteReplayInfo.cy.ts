@@ -7,6 +7,7 @@ import WebsiteReplayInfo from './WebsiteReplayInfo.vue';
 
 import $axios from '@/http';
 import i18n from '@/i18n';
+import type { MS_Software } from '@/utils/ms_const';
 import { utc_to_local_format } from '@/utils/system/tools';
 import { hashRouter, installHashHistoryCleanup } from '@cy/support/hashHistory';
 
@@ -25,7 +26,7 @@ describe('<WebsiteReplayInfo />', () => {
 
     it('shows four ordered rows with upload time, PlayerName, all tournament links, video ranks and original filename', () => {
         const info = fixture();
-        cy.mount(WebsiteReplayInfo, { props: { id: '42', info }, global: { plugins: [i18n, hashRouter()], config: { globalProperties: { $axios } } } });
+        cy.mount(WebsiteReplayInfo, { props: { id: '42', info, software: 'e' }, global: { plugins: [i18n, hashRouter()], config: { globalProperties: { $axios } } } });
         cy.get('.website-replay-info__row').should('have.length', 4);
         cy.get('.website-replay-info__row').eq(0).should('contain.text', '#42').and('contain.text', utc_to_local_format(info.video.upload_time));
         cy.get('.website-replay-info__row').eq(1).find('a[href="#/player/7"]').should('exist');
@@ -35,10 +36,17 @@ describe('<WebsiteReplayInfo />', () => {
         cy.get('.website-replay-info__row').eq(3).should(($row) => {
             expect($row.text().trim()).to.eq(info.filename);
         });
-        cy.get('.website-replay-info__links a').should('have.length', 1);
+        cy.get('.website-replay-info__links a').should('have.length', 2);
         cy.get('.website-replay-info__links button').should('have.length', 1);
         cy.get('.website-replay-info__replay-download').should('be.visible').and('not.be.disabled').and('have.attr', 'aria-label', 'Download replay file');
         cy.get('.website-replay-info__replay-download .pi-file-export').should('be.visible');
+        cy.get('.website-replay-info__strange-dust').should('be.visible').and('have.attr', 'target', '_blank').and('have.attr', 'rel', 'noopener noreferrer').and(($link) => {
+            const analyzer = new URL($link.attr('href') ?? '');
+            expect(analyzer.origin + analyzer.pathname).to.eq('https://strange-dust.github.io/minesweeper-replay-analyzer/');
+            const replay = new URL(analyzer.searchParams.get('replay') ?? '');
+            expect(replay.searchParams.get('id')).to.eq('42.evf');
+            expect(replay.origin).to.eq(new URL(import.meta.env.VITE_BASE_API).origin);
+        });
         cy.get('.website-replay-info__offline-download').should('be.visible').and('have.attr', 'download', offlineDownloadFilename).and('have.attr', 'href', `${import.meta.env.BASE_URL}assets/${offlineDownloadFilename}`).and('have.attr', 'aria-label', 'Download offline package').and('have.attr', 'title', 'Download offline package');
         cy.get<HTMLImageElement>('.website-replay-info__offline-download img').should('be.visible').and('have.attr', 'alt', '').and(($icon) => {
             expect($icon[0].complete).to.eq(true);
@@ -78,9 +86,27 @@ describe('<WebsiteReplayInfo />', () => {
         });
     });
 
-    it('keeps the replay download available while website information is loading', () => {
-        cy.mount(WebsiteReplayInfo, { props: { id: '42', loading: true }, global: { plugins: [i18n, hashRouter()], config: { globalProperties: { $axios } } } });
+    it('keeps downloads available while loading and updates the external link when the format and replay change', () => {
+        const id = ref('42');
+        const software = ref<MS_Software | null>(null);
+        cy.mount({ render: () => h(WebsiteReplayInfo, { id: id.value, software: software.value, loading: true }) }, { global: { plugins: [i18n, hashRouter()], config: { globalProperties: { $axios } } } });
         cy.get('.website-replay-info__rankings').should('contain.text', 'Loading website information');
         cy.get('.website-replay-info__replay-download').should('be.visible').and('not.be.disabled').and('have.attr', 'aria-label', 'Download replay file');
+        cy.get('.website-replay-info__strange-dust').should('have.attr', 'aria-disabled', 'true').and('have.attr', 'tabindex', '-1').and('not.have.attr', 'href');
+        cy.then(() => {
+            software.value = 'e';
+        });
+        cy.get('.website-replay-info__strange-dust').should('not.have.attr', 'aria-disabled').and(($link) => {
+            const replay = new URL(new URL($link.attr('href') ?? '').searchParams.get('replay') ?? '');
+            expect(replay.searchParams.get('id')).to.eq('42.evf');
+        });
+        cy.then(() => {
+            id.value = '43';
+            software.value = 'r';
+        });
+        cy.get('.website-replay-info__strange-dust').should(($link) => {
+            const replay = new URL(new URL($link.attr('href') ?? '').searchParams.get('replay') ?? '');
+            expect(replay.searchParams.get('id')).to.eq('43.rmv');
+        });
     });
 });
