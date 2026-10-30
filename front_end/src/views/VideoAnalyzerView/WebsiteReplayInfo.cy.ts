@@ -96,7 +96,8 @@ describe('<WebsiteReplayInfo />', () => {
         cy.then(() => {
             software.value = 'e';
         });
-        cy.get('.website-replay-info__strange-dust').should('not.have.attr', 'aria-disabled').and(($link) => {
+        cy.get('.website-replay-info__strange-dust').should(($link) => {
+            expect($link).not.to.have.attr('aria-disabled');
             const replay = new URL(new URL($link.attr('href') ?? '').searchParams.get('replay') ?? '');
             expect(replay.searchParams.get('id')).to.eq('42.evf');
         });

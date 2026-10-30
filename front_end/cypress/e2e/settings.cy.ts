@@ -120,5 +120,4 @@ describe('General Settings', () => {
         cy.get('[data-cy=player-name-format]').select('name1');
         cy.get('[data-cy=player-name-2]').should('not.be.visible');
     });
-
 });

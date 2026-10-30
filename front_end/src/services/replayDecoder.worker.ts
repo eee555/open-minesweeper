@@ -3,7 +3,7 @@ import type { decompress } from '@putianyi888/msrc/web';
 import localWasmUrl from '@putianyi888/msrc/web/msrc_bg.wasm?url';
 import localModuleUrl from '@putianyi888/msrc/web?url';
 
-type Decoder = { default: typeof initializeDecoder; decompress: typeof decompress };
+interface Decoder { default: typeof initializeDecoder; decompress: typeof decompress }
 const cdnBase = 'https://cdn.jsdelivr.net/npm/@putianyi888/msrc@0.2.0/web/';
 let initialization: Promise<Decoder> | undefined;
 
