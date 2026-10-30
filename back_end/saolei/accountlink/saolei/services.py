@@ -109,7 +109,7 @@ def save_video_detail(source: SaoleiApiVideo, detail: VideoInfo) -> SaoleiApiVid
 def import_saolei_video(source: SaoleiApiVideo, client: Client) -> str:
     if source.import_video_id:
         return 'existing'
-    if source.software not in SUPPORTED_SOFTWARE:
+    if source.import_rejected or source.software not in SUPPORTED_SOFTWARE:
         return 'skipped'
     details = [item for item in client.video_info(source.remote_id).items if item.id == source.remote_id]
     if len(details) != 1:
@@ -125,7 +125,13 @@ def import_saolei_video(source: SaoleiApiVideo, client: Client) -> str:
         raise ExceptionToResponse('file', 'size', status_code=400)
     filename = source.file_url.rsplit('/', 1)[-1]
     stem, extension = filename.rsplit('.', 1)
-    saolei_video_import_one(source, ContentFile(data, f'{stem}.{extension.lower()}'))
+    try:
+        saolei_video_import_one(source, ContentFile(data, f'{stem}.{extension.lower()}'))
+    except ExceptionToResponse as exc:
+        if exc.obj == 'file' and exc.category in {'type', 'incomplete', 'level', 'review'}:
+            # 导入事务已回滚；单独保留明确的文件拒收结果，避免下次同步重复下载。
+            SaoleiApiVideo.objects.filter(pk=source.pk, import_video__isnull=True).update(import_rejected=True)
+        raise
     return 'imported'
 
 

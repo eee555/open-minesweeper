@@ -62,6 +62,7 @@ class SaoleiApiVideo(models.Model):
     status = models.IntegerField()
     file_url = models.TextField(null=True, blank=True, help_text='官方录像文件后缀 YYYY/MM/DD/filename，供客户端下载。')
     import_video = models.OneToOneField(VideoModel, on_delete=models.SET_NULL, null=True)
+    import_rejected = models.BooleanField(default=False, help_text='本站文件校验已拒收，后续同步不再下载；人工清除后才重试。')
 
 
 class AccountMinesweeperGames(models.Model):

@@ -42,6 +42,8 @@ python manage.py sync_saolei_api --all-linked
 
 目录按 ID 严格大于已存游标续跑，`next_cursor` 可等于本页最后一条 ID，不自行加 1；跨过本轮 `stats().max_video_id` 时仅提交上界内的记录，游标最多保存到上界，下一轮仍能取得紧随上界的录像。
 
+本站文件校验直接拒收（`file/type`、`file/incomplete`、`file/level`、`file/review`）时，来源保存 `import_rejected=True`。首次拒收计入失败；后续增量及 `--full` 均跳过详情请求和文件下载，计入跳过数量，目录刷新保留标记。需要人工重试时，在 Django shell 中将指定来源的 `import_rejected` 清为 `False` 后重跑。网络、上游、配置、绑定及写入故障仍可重试；冻结或待审核等正常保存的录像不设置拒收标记。部署此字段变更也须先执行 `makemigrations accountlink --noinput` 和 `migrate`。
+
 同主文件哈希命中时复用既有本站录像，异主冲突不改归属或上传时间。单项失败保留成功进度并汇总，退出码非零；鉴权失败和限流立即停止，不自动重试。进度见命令输出和 `accountlink` 日志；客户端错误保留异常类型和具体原因，不输出认证头或响应体。接口关闭由站长人工鉴定，同步完成不自动开放接口。账号资料仅采用 ID、姓名和外站封禁状态，不同步成绩或标识列表。
 
 ## 勋章补发
