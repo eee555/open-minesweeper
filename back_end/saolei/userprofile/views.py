@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 
 from captcha.models import CaptchaStore
 from django.conf import settings
@@ -9,7 +8,6 @@ from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFou
 from django.views.decorators.http import require_GET, require_POST
 from django_ratelimit.decorators import ratelimit
 
-from .decorators import staff_required
 from .forms import EmailForm, UserLoginForm, UserRetrieveForm
 from .models import EmailVerifyRecord, UserProfile
 from .services import judge_email_verification, send_email, user_metadata
@@ -87,23 +85,6 @@ def check_collision(request):
     if not user:
         return HttpResponse(False)
     return HttpResponse(True)
-
-
-# 【管理员】删除用户的个人信息，从服务器磁盘上完全删除，但不影响是否封禁
-# 站长可以删除管理员信息（如果站长也是管理员）。
-# http://127.0.0.1:8000/userprofile/del_user_info/?id=1
-@require_GET
-@staff_required
-def del_user_info(request):
-    user = UserProfile.objects.get(id=request.GET['id'])
-    if user.is_staff and not request.user.is_superuser:
-        return HttpResponse('没有删除管理员信息的权限！')
-    logger.info(f'管理员 {request.user.username}#{request.user.id} 删除用户 {user.username}#{user.id}')
-    user.realname = ''
-    user.signature = ''
-    if user.avatar and os.path.isfile(user.avatar.path):
-        os.remove(user.avatar.path)
-    user.avatar = None
 
 
 # 创建验证码

@@ -18,7 +18,7 @@ from identifier.utils import verify_identifier
 from tournament.gsc.decorators import GSC_admin_required
 from tournament.models import GSCParticipant, GSCTournament
 from tournament.schema import ParticipantOutBase
-from userprofile.decorators import login_required_error
+from userprofile.decorators import admin_csrf_required, login_required_error
 from userprofile.models import UserProfile
 from utils.exceptions import ExceptionToResponse
 from utils.response import HttpResponseConflict, realname_required_response
@@ -136,10 +136,11 @@ def _get_history_video_participant(request: HttpRequest, participant_id: int):
 
 
 @router.post('/history/prepare', response=GSCScoreOut)
-@decorate_view(login_required_error)
+@decorate_view(login_required_error, admin_csrf_required)
 def create_history_participant(request: HttpRequest, data: HistoryPrepareIn):
     """
     - `login_required_error`
+    - `admin_csrf_required`
 
     获取或创建录像来源参赛者，已有非手工记录原样返回，手工来源拒绝。
     """
@@ -150,10 +151,11 @@ def create_history_participant(request: HttpRequest, data: HistoryPrepareIn):
 
 
 @router.post('/history/participants/{participant_id}/identifier', response=IdentifierBindingOut)
-@decorate_view(login_required_error)
+@decorate_view(login_required_error, admin_csrf_required)
 def bind_history_identifier(request: HttpRequest, participant_id: int, data: HistoryIdentifierIn):
     """
     - `login_required_error`
+    - `admin_csrf_required`
     """
     with transaction.atomic():
         participant = _get_history_video_participant(request, participant_id)
@@ -161,10 +163,11 @@ def bind_history_identifier(request: HttpRequest, participant_id: int, data: His
 
 
 @router.post('/history/participants/{participant_id}/videos', response=VideoBaseOut)
-@decorate_view(login_required_error)
+@decorate_view(login_required_error, admin_csrf_required)
 def upload_history_video(request: HttpRequest, participant_id: int, upload_time: datetime = Form(...), file: UploadedFile = File(...)):  # noqa: B008
     """
     - `login_required_error`
+    - `admin_csrf_required`
     """
     try:
         with transaction.atomic():
@@ -176,10 +179,11 @@ def upload_history_video(request: HttpRequest, participant_id: int, upload_time:
 
 
 @router.post('/history/scores/users', response=int)
-@decorate_view(login_required_error)
+@decorate_view(login_required_error, admin_csrf_required)
 def import_history_user_scores(request: HttpRequest, data: HistoryUserBatchIn):
     """
     - `login_required_error`
+    - `admin_csrf_required`
     """
     with transaction.atomic():
         tournament = _get_history_tournament(request, data.order)
@@ -187,10 +191,11 @@ def import_history_user_scores(request: HttpRequest, data: HistoryUserBatchIn):
 
 
 @router.post('/history/scores/anonymous', response=int)
-@decorate_view(login_required_error)
+@decorate_view(login_required_error, admin_csrf_required)
 def import_history_anonymous_scores(request: HttpRequest, data: HistoryAnonymousBatchIn):
     """
     - `login_required_error`
+    - `admin_csrf_required`
     """
     with transaction.atomic():
         tournament = _get_history_tournament(request, data.order)

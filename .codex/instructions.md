@@ -15,6 +15,10 @@
 
 service 层负责业务逻辑、业务状态、数据有效性和一致性校验。
 
+### 管理员 API 的 CSRF 规范
+
+管理员和站长 API 必须遵守 [管理员 API 的 CSRF 规范](../back_end/saolei/ADMIN_API_CSRF.md)。管理员专用接口复用包含 CSRF 校验的 `staff_required`；站长接口使用 Ninja 会话认证自带的 CSRF；与普通主办方共用的接口使用 `admin_csrf_required` 条件校验。普通用户 API 不新增 CSRF，不启用全局中间件，也不修改普通登录权限装饰器。管理写操作不得使用 GET；前端复用统一管理员 CSRF 拦截器，第三方管理员客户端需维护 Cookie 会话并提交 token。
+
 ### Ninja API Schema
 输出的Schema如果涉及到模型，优先使用`create_schema`生成。
 

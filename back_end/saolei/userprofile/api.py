@@ -18,17 +18,18 @@ from ninja import File, Form, Query, Router, Schema, UploadedFile
 from ninja.decorators import decorate_view
 from ninja.errors import HttpError
 from ninja.orm import create_schema
-from ninja.security import django_auth_superuser
+from ninja.security import django_auth, django_auth_superuser
 
 from common.services import query_user_directory_page
 from utils import verify_image
 from utils.exceptions import ExceptionToResponse
+from utils.schema import IdIn
 from videomanager.models import VideoModel
 from videomanager.schema import VIDEO_METADATA_FIELDS, VideoMetadataOut
 from .decorators import banned_blocked, login_required_error, staff_required
 from .models import UserProfile
 from .schema import PUBLIC_NAME_FIELDS, RawUserNames, SelfUserInfoOut, UserDirectoryPageOut, UserDirectoryQuery, UserInfoOut
-from .services import has_sub200_expert_video, refresh_avatar_chance, register_user, try_update_user_signature, update_admin_profile, update_user_names, user_metadata
+from .services import clear_profile_info, has_sub200_expert_video, refresh_avatar_chance, register_user, try_update_user_signature, update_admin_profile, update_user_names, user_metadata
 from .utils import NAME_FIELDS
 
 router = Router()
@@ -72,6 +73,21 @@ class StaffAssignmentAccessOut(Schema):
     csrf_token: str
 
 
+@router.get('/admin/csrf', auth=django_auth, response=StaffAssignmentAccessOut)
+@decorate_view(ensure_csrf_cookie, cache_control(no_store=True))
+def admin_csrf_token(request):
+    """
+    - auth=django_auth
+    - ensure_csrf_cookie
+    - cache_control(no_store=True)
+
+    Initialize a CSRF cookie and masked token for staff and superusers only.
+    """
+    if not (request.user.is_staff or request.user.is_superuser):
+        raise HttpError(403, 'Administrative access required.')
+    return {'csrf_token': get_token(request)}
+
+
 @router.get('/admin/staff', auth=django_auth_superuser, response=StaffAssignmentAccessOut)
 @decorate_view(ensure_csrf_cookie, cache_control(no_store=True))
 def staff_assignment_access(request):
@@ -81,6 +97,20 @@ def staff_assignment_access(request):
     - cache_control(no_store=True)
     """
     return {'csrf_token': get_token(request)}
+
+
+@router.post('/admin/clear-info', response={204: None})
+@decorate_view(staff_required)
+def clear_user_info(request, data: IdIn = Form(...)):  # noqa: B008
+    """
+    - staff_required (staff permission and CSRF)
+    """
+    user = get_object_or_404(UserProfile, pk=data.id)
+    if user.is_staff and not request.user.is_superuser:
+        raise HttpError(403, 'Only a superuser can clear a staff profile.')
+    clear_profile_info(user)
+    logger.info('Staff #%s cleared profile #%s', request.user.pk, user.pk)
+    return 204, None
 
 
 @router.post('/admin/staff', auth=django_auth_superuser, response=create_schema(UserProfile, name='StaffAssignmentOut', fields=['id', 'is_staff']))

@@ -28,6 +28,14 @@ NAME_DEFAULT = {
 }
 
 
+@transaction.atomic
+def clear_profile_info(user: UserProfile):
+    user.realname = ''
+    user.signature = ''
+    user.avatar = None
+    user.save(update_fields=['_realname', 'signature', 'avatar', 'date_updated'])
+
+
 def register_user(data: dict[str, str], user_ip: str) -> UserProfile:
     form = UserRegisterForm(data=data)
     if not form.is_valid():

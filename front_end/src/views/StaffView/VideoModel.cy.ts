@@ -2,6 +2,14 @@ import VideoModel from './VideoModel.vue';
 
 import $axios from '@/http';
 import i18n from '@/i18n';
+import { installAdminCsrfInterceptor } from '@/services/adminCsrf';
+
+let csrfInterceptor: number | undefined;
+
+afterEach(() => {
+    if (csrfInterceptor !== undefined) $axios.interceptors.request.eject(csrfInterceptor);
+    csrfInterceptor = undefined;
+});
 
 function loadVideo(reason = '') {
     cy.intercept('GET', '/api/video/admin/detail/12', { id: 12, state: reason ? 'b' : 'c', video__freeze_reason: reason }).as('detail');
@@ -13,6 +21,21 @@ function loadVideo(reason = '') {
 }
 
 describe('staff video freezing', () => {
+    it('automatically supplies CSRF for an existing staff action through the website interceptor', () => {
+        cy.clearCookie('csrftoken');
+        csrfInterceptor = installAdminCsrfInterceptor($axios, () => true);
+        cy.intercept('GET', '/api/userprofile/admin/csrf', { csrf_token: 'staff-token' }).as('csrf');
+        cy.intercept('POST', '/api/video/newest_queue/remove', (request) => {
+            expect(request.headers['x-csrftoken']).to.equal('staff-token');
+            request.reply({ statusCode: 204, body: '' });
+        }).as('removeNewest');
+        loadVideo();
+        cy.contains('button', 'Remove from latest videos').click();
+        cy.wait('@csrf');
+        cy.wait('@removeNewest');
+        cy.closeElNotifications();
+    });
+
     it('requires a loaded video and a reason, then saves the trimmed multiline reason with CSRF', () => {
         const reason = 'First line\nSecond line';
         cy.intercept('GET', '/api/video/admin/freeze', { csrf_token: 'freeze-token' }).as('access');
