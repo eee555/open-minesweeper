@@ -58,7 +58,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django_apscheduler',
     'django_tasks_db',
-    'corsheaders',
+    *(['corsheaders'] if DEBUG else []),
     'userprofile',
     'videomanager',
     'msuser',
@@ -77,7 +77,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',   # 允许跨域请求
+    *(['corsheaders.middleware.CorsMiddleware'] if DEBUG else []),
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'ninja.compatibility.files.fix_request_files_middleware',  # Parse PATCH/PUT form bodies.
@@ -237,8 +237,10 @@ CAPTCHA_CHALLENGE_FUNCT = 'captcha.helpers.random_char_challenge'
 
 
 if DEBUG:
+    # Development and Cypress access Django directly; production CORS lives in Nginx.
     CORS_ALLOW_CREDENTIALS = True
     CORS_ALLOW_ALL_ORIGINS = True
+    CORS_EXPOSE_HEADERS = ['Content-Disposition', 'X-Replay-Container-Version', 'X-Minigame-Score']
     # Use django-cors-headers' defaults, including content-type and x-csrftoken.
     CSRF_TRUSTED_ORIGINS = ['http://localhost:8080']
 
@@ -254,24 +256,6 @@ else:
     SESSION_COOKIE_SECURE = True  # https时候改成True
     CSRF_COOKIE_SAMESITE = 'Lax'
     CSRF_COOKIE_SECURE = True     # https时候改成True
-
-    # allow CORS for public video and user profile endpoints
-    CORS_ALLOW_ALL_ORIGINS = True
-    CORS_PATHS = [
-        r'api/userprofile/avatar/.*',
-        r'api/userprofile/identifier/?',
-        r'api/userprofile/info/.*',
-        r'api/userprofile/infobulk/?',
-        r'api/userprofile/infoupdated/?',
-        r'api/userprofile/videolist/?',
-        r'api/video/download/[0-9]+/?',
-        r'api/video/preview/?',
-        r'api/video/infobulk/?',
-        r'api/video/detailbulk/?',
-        r'api/video/staticdetailbatch/?',
-        r'api/video/abstractbulk/?',
-    ]
-    CORS_URLS_REGEX = rf'^/({"|".join(CORS_PATHS)})$'
 
 # 发送邮箱验证码
 EMAIL_HOST = 'smtp.88.com'     # 服务器

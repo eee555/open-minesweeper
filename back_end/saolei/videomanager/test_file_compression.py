@@ -112,7 +112,7 @@ class ReplayCompressionTests(TestCase):
         with original_file(video.file.name, video.compression_format, video.original_filename) as source:
             self.assertEqual(source.read(), b'original replay bytes')
         for url in (f'/api/video/download/{video.pk}', f'/api/video/preview?id={video.pk}.evf'):
-            response = self.client.get(url)
+            response = self.client.get(url, HTTP_ORIGIN='http://localhost:8080')
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response['X-Replay-Container-Version'], '1')
             self.assertIn('X-Replay-Container-Version', response['Access-Control-Expose-Headers'])

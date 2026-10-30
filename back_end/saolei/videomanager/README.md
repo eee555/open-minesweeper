@@ -267,8 +267,10 @@ video.save(update_fields=['pluck'])
 
 ### 压缩存储
 
-`videomanager.files` 统一压缩并恢复原始录像字节，供录像创建、重解析、后台 pluck 和哈希回填使用。上传和各平台导入共用 `VideoModel.create_from_parser`：解析后在内存中压缩、校验完整往返字节，再创建录像并直接保存 UUID `.msrc` 文件。压缩失败不创建录像记录或文件，新录像没有文件切换过程。
+`videomanager.files` 统一压缩并恢复原始录像字节，供录像创建、重解析、后台 pluck 和哈希回填使用。上传和各平台导入共用 `VideoModel.create_from_parser`：解析后在内存中压缩、校验完整往返字节，再创建录像并直接保存 UUID `.msrc` 文件。压缩或校验失败时改为保存源文件，`compression_format=0`、`stored_file_size=file_size`，设置 `compression_failed=True` 并记录日志，允许后续 `--retry-failed` 手动重试；新录像没有文件切换过程。
 
 历史文件由转换服务验证原始大小、已存哈希、MSRC 目标格式及完整往返字节，再保存独立归档并短事务切换路径；提交后检查引用并立即删除旧文件。转换不调用录像 parser，也不触发录像保存信号。
+
+生产的公开 API CORS 由 `default.conf` 按原始请求 URI 统一管理，保持既有白名单，仅开放跨域 GET 且不允许跨域凭据；OPTIONS 仅处理 GET 的预检，其他方法不返回允许跨域的响应头。Nginx 同时恢复内部重定向会丢失的录像版本头。DEBUG 开发及 Cypress 直连 Django 时保留原有 CORS 中间件策略。部署时先同步 Nginx 配置并校验、重载，再更新后端；内部媒体 location 依赖 server 层响应头继承，不单独定义 `add_header`。
 
 `original_hash`、`file_size` 仍描述原始文件；物理大小记录在 `stored_file_size`。失败保留来源文件与实际格式，设置 `compression_failed`；磁盘空间、只读存储及依赖配置错误停止整批。手动重试使用 `compress_video_files --retry-failed`。没有 APScheduler 压缩任务。

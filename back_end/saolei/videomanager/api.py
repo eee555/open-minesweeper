@@ -263,7 +263,6 @@ def _video_file_response(request: HttpRequest, video_id: int):
     file_name_uri = quote(filename)
     response['Content-Disposition'] = f'attachment; filename="{file_name_uri}"'
     response['X-Replay-Container-Version'] = str(unpack_compression_format(video.compression_format)[0])
-    response['Access-Control-Expose-Headers'] = 'Content-Disposition, X-Replay-Container-Version'
     return response
 
 

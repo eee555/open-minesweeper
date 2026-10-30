@@ -122,7 +122,6 @@ def player_replay(request, game: str, player: int, key: str):
         # The stored 7z is already compressed; skip GZipMiddleware.
         'Content-Encoding': 'identity', 'Content-Length': str(len(archive)),
         'Cache-Control': 'no-transform', 'X-Minigame-Score': str(score),
-        'Access-Control-Expose-Headers': 'X-Minigame-Score',
     })
 
 

@@ -752,3 +752,5 @@ Redis 连接和读写异常记录日志，计算及数据库摘要不回滚，�
 录像压缩仅改变 `file`、`original_filename`、`stored_file_size`、`compression_format`、`compression_failed` 等存储字段。原始 `file_size`、`original_hash` 和解析结果保持不变，不升级前端录像缓存版本，也不将压缩容器写入 IndexedDB。
 
 服务器磁盘摘要汇总 `stored_file_size`；尚未补齐的原始录像回退到 `file_size`。新上传和导入在创建录像前尝试压缩校验，成功保存压缩文件，失败保存源文件并记录 `compression_format=0`、`stored_file_size=file_size` 及失败标记，两种情况均走原有创建信号；历史文件由管理员运行 `compress_video_files` 手动转换，不注册 APScheduler 压缩任务。
+
+生产的 CORS 白名单、预检及公开响应头统一配置在 `default.conf`，按原始 `$request_uri` 判断，因此 `X-Accel-Redirect` 后仍保持原 API 的跨域范围。内部媒体继承 HTTPS server 的 CORS 头，并从上游变量恢复 `X-Replay-Container-Version`。DEBUG 本地开发和 Cypress 仍由 Django CORS 中间件处理。先校验、重载完整 Nginx 配置，再更新生产后端，避免切换期间缺少跨域头。
