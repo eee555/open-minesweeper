@@ -7,7 +7,7 @@ import viteCompression from 'vite-plugin-compression';
 import wasm from 'vite-plugin-wasm';
 // import vueDevTools from 'vite-plugin-vue-devtools'
 
-import { cdnStyles } from './scripts/cdn-styles';
+import { cdnStyles } from './scripts/cdn-styles.ts';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {

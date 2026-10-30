@@ -2,6 +2,8 @@ import axios from 'axios';
 import type { AxiosInstance } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { applyLoginSession as applyLoginSessionFunction } from './loginSession';
+
 import type { UserProfileData } from '@/utils/userprofile';
 
 const { store, moduleLoads, install } = vi.hoisted(() => ({
@@ -11,7 +13,7 @@ const { store, moduleLoads, install } = vi.hoisted(() => ({
 }));
 vi.mock('@/store', () => ({ store }));
 
-let applyLoginSession: typeof import('./loginSession').applyLoginSession;
+let applyLoginSession: typeof applyLoginSessionFunction;
 let loadGate: Promise<void> | undefined;
 
 function deferred() {

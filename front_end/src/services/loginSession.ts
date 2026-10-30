@@ -9,7 +9,7 @@ let loginVersion = 0;
 export async function applyLoginSession(user: UserProfileData, client: AxiosInstance): Promise<boolean> {
     const version = ++loginVersion;
     const revision = store.sessionRevision;
-    if (user.is_staff || user.is_superuser) {
+    if (user.is_staff === true || user.is_superuser === true) {
         let ready = csrfReady.get(client);
         if (!ready) {
             ready = import('./adminCsrf').then(({ installAdminCsrfInterceptor }) => {

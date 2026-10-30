@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { transform } from 'esbuild';
 import type { Plugin } from 'vite';
 
-import type { CdnStyle } from '../src/startup/cdnStyles';
+import type { CdnStyle } from '../src/startup/cdnStyles.ts';
 
 const require = createRequire(import.meta.url);
 

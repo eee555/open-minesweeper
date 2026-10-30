@@ -1,7 +1,8 @@
 function expectPressedMineControl() {
     cy.get('[data-cy=minigame-mine-down]').should('be.checked');
     cy.get('[data-cy=minigame-mine-down] + .checkbox-button-content').should(($pressed) => {
-        expect($pressed.css('display')).to.equal('inline-flex');
+        // The label is a flex container, so its inline-flex child computes to flex.
+        expect($pressed.css('display')).to.equal('flex');
         expect($pressed.css('background-color')).not.to.equal(Cypress.$('[data-cy=minigame-mine-up] + .checkbox-button-content').css('background-color'));
     });
 }
