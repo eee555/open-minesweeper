@@ -39,6 +39,8 @@ describe('Personal Profile', () => {
 
         cy.get('div.el-tabs__item').contains('纪录').click();
         cy.url().should('eq', `http://localhost:8080/#/player/${USER_ID}/record`);
+        cy.get('.saolei-record-table thead th').first().should('have.css', 'text-align', 'center');
+        cy.get('.saolei-record-table tbody td').first().should('have.css', 'text-align', 'center');
 
         cy.get('div.el-tabs__item').contains('账号关联').click();
         cy.url().should('eq', `http://localhost:8080/#/player/${USER_ID}/accountlink`);
@@ -169,6 +171,7 @@ describe('Personal Profile', () => {
         cy.login(USERNAME, PASSWORD);
         cy.visitUser(USER_ID, 'settings');
 
+        cy.get('.user-settings').should('have.css', 'display', 'flex').and('have.css', 'flex-direction', 'column');
         cy.get('.user-settings table').contains('Pu Tian Yi(Hu Bei)');
     });
 

@@ -12,6 +12,7 @@ import { local, store } from '@/store';
 import { pinia } from '@/store/create';
 
 const user = { id: 42, username: 'tester', realname: 'Tester', is_staff: true };
+const csrfToken = 'menu-csrf-token';
 const PageState = defineComponent({
     setup() {
         const counter = ref(0);
@@ -24,10 +25,13 @@ const PageState = defineComponent({
 
 function mountMenu(width: number, options: { layout?: 'top' | 'sidebar'; settings?: boolean } = {}) {
     cy.viewport(width, 720);
+    cy.clearCookie('csrftoken');
+    cy.intercept({ method: 'GET', pathname: '/api/userprofile/admin/csrf' }, { csrf_token: csrfToken }).as('adminCsrf');
     cy.intercept({ method: 'GET', pathname: '/api/common/loginauto' }, { user, top_anchors: { 'std:et': { value: 30000, sample_count: 20 } } }).as('fetchUser');
     local.value.language = 'en';
     local.value.navigation_layout = options.layout ?? 'top';
     store.login(user);
+    const sessionRevision = store.sessionRevision;
     const router = createRouter({
         history: createMemoryHistory(),
         routes: ['/', '/ranking', '/ranking/pb', '/database', '/database/identifiers', '/video/:id', '/tournament', '/minigame/left-click', '/server', '/player/:id', '/staff', '/settings'].
@@ -47,6 +51,8 @@ function mountMenu(width: number, options: { layout?: 'top' | 'sidebar'; setting
         });
     });
     cy.wait('@fetchUser');
+    // Management sessions are published only after the lazy CSRF interceptor is installed.
+    cy.wrap(store).its('sessionRevision').should('be.greaterThan', sessionRevision);
     return router;
 }
 
@@ -120,10 +126,12 @@ describe('<Menu /> navigation layouts', () => {
         cy.get('body').should('not.have.class', 'el-popup-parent--hidden');
         cy.wrap(store).its('user.id').should('eq', user.id);
         cy.get('@logout.all').should('have.length', 0);
+        cy.get('@adminCsrf.all').should('have.length', 0);
         openMore();
         cy.get('.site-navigation-popper:visible').contains('button', 'Logout').click();
         cy.get('.el-message-box:visible .el-message-box__btns').contains('button', /^Confirm$/).click();
-        cy.wait('@logout');
+        cy.wait('@adminCsrf');
+        cy.wait('@logout').its('request.headers.x-csrftoken').should('eq', csrfToken);
         cy.get('@logout.all').should('have.length', 1);
         openMore();
         cy.get('.site-navigation-popper:visible').contains('button', /^Login$/).click();
@@ -140,6 +148,7 @@ describe('<Menu /> navigation layouts', () => {
         cy.shouldBeAbsentOrHidden('.el-message-box');
         cy.get('.site-menu [data-navigation-id=profile]').should('be.visible');
         cy.get('@logout.all').should('have.length', 0);
+        cy.get('@adminCsrf.all').should('have.length', 0);
     });
 
     it('navigates through the drawer and releases it when the sidebar becomes visible', () => {
