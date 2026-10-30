@@ -31,7 +31,7 @@ function mountMenu(width: number, options: { layout?: 'top' | 'sidebar'; setting
     local.value.language = 'en';
     local.value.navigation_layout = options.layout ?? 'top';
     store.login(user);
-    const sessionRevision = store.sessionRevision;
+    const { sessionRevision } = store;
     const router = createRouter({
         history: createMemoryHistory(),
         routes: ['/', '/ranking', '/ranking/pb', '/database', '/database/identifiers', '/video/:id', '/tournament', '/minigame/left-click', '/server', '/player/:id', '/staff', '/settings'].

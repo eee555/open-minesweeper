@@ -42,3 +42,5 @@
 后端使用 `Client(enforce_csrf_checks=True)` 验证管理员缺 token、错误 token、不可信 Origin 均在业务执行前被拒绝；合法 token 可执行；管理员只读请求无需 token；普通主办方共用接口和普通用户装饰器保持无 CSRF 要求。
 
 前端测试覆盖普通用户跳过模块加载、管理登录等待安装、重复及并发登录、退出时的加载竞态、管理员动态读取 Cookie、跨域 token 获取、并发合并、失败时不发送写请求、显式 token 保留以及第三方地址不自动附带本站 token。单独挂载管理组件不会运行登录入口，组件测试如需验证拦截器，应自行安装它。
+
+Cypress E2E 的 `cy.request()` 不经过页面 Axios 拦截器。成功的管理写请求使用 `cy.adminRequest()`：每次通过当前会话获取 token，再携带 `X-CSRFToken` 发送请求，保留表单格式和已有请求头，适配 `cy.session()` 切换账号后恢复 Cookie 的行为。普通用户请求以及缺失或错误 CSRF 的拒绝测试继续使用 `cy.request()`。

@@ -44,7 +44,7 @@ function publicNames(id: number, name: string) {
 }
 
 function staffPatch(id: number, body: object) {
-    return cy.request<Profile>({ method: 'PATCH', url: `${BACKEND}/api/userprofile/admin/update/${id}`, form: true, body });
+    return cy.adminRequest<Profile>({ method: 'PATCH', url: `${BACKEND}/api/userprofile/admin/update/${id}`, form: true, body });
 }
 
 function editEligibility(id: number, eligible: boolean) {
@@ -229,7 +229,7 @@ describe('Real name privacy against the backend', () => {
         cy.request(`${BACKEND}/api/accountlink/${user.id}`).its('body.a').should('include', { name: 'MSGames Fixture', local_name: '关联姓名' });
         cy.login(STAFF.username, STAFF.password);
         staffPatch(user.id, { can_hide_realname: false });
-        cy.request({ method: 'POST', url: `${BACKEND}/api/accountlink/verify/`, form: true, body: binding });
+        cy.adminRequest({ method: 'POST', url: `${BACKEND}/api/accountlink/verify/`, form: true, body: binding });
         cy.login(user.username, user.password);
         self().its('body').should('include', { can_hide_realname: false, hide_realname: false });
         cy.login(STAFF.username, STAFF.password);
