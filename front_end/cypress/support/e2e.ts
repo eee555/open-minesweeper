@@ -176,7 +176,7 @@ Cypress.Commands.add('adminRequest', <T = unknown>(options: AdminRequestOptions)
     if (url.origin !== BACKEND_URL) throw new Error('adminRequest only accepts the configured backend origin.');
     // Fetch for each call: cy.session may have just restored a different cookie jar.
     return cy.request<{ csrf_token: string }>(`${BACKEND_URL}/api/userprofile/admin/csrf`).then(({ body }) => {
-        expect(body.csrf_token, 'administrator CSRF token').to.be.a('string').and.not.be.empty;
+        expect(body.csrf_token, 'administrator CSRF token').to.be.a('string').and.not.equal('');
         const headers: Record<string, unknown> = { ...options.headers };
         if (!Object.keys(headers).some((name) => name.toLowerCase() === 'x-csrftoken')) headers['X-CSRFToken'] = body.csrf_token;
         return cy.request<T>({ ...options, url: url.href, headers });
