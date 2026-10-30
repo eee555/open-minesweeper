@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from saolei_api import ResponseError, Video
 
-SUPPORTED_SOFTWARE = frozenset({'Clone', 'Vienna', 'Arbiter', '元扫雷3.3.4'})
+SUPPORTED_SOFTWARE = frozenset({'Clone', 'Vienna', 'Arbiter', '元扫雷'})
 LEVELS = {'beg': 'b', 'int': 'i', 'exp': 'e'}
 
 

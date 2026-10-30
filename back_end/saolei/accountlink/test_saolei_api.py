@@ -189,7 +189,7 @@ class SaoleiImportTests(TestCase):
         parser = MSVideoParser(ContentFile(self.content, FIXTURE.name))
         Identifier.objects.create(identifier=parser.identifier, userms=None, safe=True)
         source = self.source()
-        for status, software in zip((0, 10, 20, 99), ('Clone', 'Vienna', 'Arbiter', '元扫雷3.3.4'), strict=True):
+        for status, software in zip((0, 10, 20, 99), ('Clone', 'Vienna', 'Arbiter', '元扫雷'), strict=True):
             # 模拟同一来源在目录重建后重新关联已有本站录像。
             source.status, source.software, source.import_video = status, software, None
             source.save(update_fields=['status', 'software', 'import_video'])
@@ -206,7 +206,7 @@ class SaoleiImportTests(TestCase):
             self.assertEqual(recording.read(), self.content)
 
     def test_whitelist_is_exact_and_latest_detail_is_checked_before_download(self):
-        for number, software in enumerate(('Saolei.wang', 'Other', '', 'clone', '元扫雷3.3.5'), 1):
+        for number, software in enumerate(('Saolei.wang', 'Other', '', 'clone', '元3.3.4', '元扫雷3.3.4', '元扫雷3.3.5'), 1):
             source = self.source(number, software=software)
             client = Mock()
             self.assertEqual(import_saolei_video(source, client), 'skipped')
