@@ -351,7 +351,7 @@ describe('<VideoAnalyzerView />', () => {
         cy.get('.video-analyzer-board__layout-control button').should('be.visible');
         cy.get('.website-replay-info__strange-dust').should('be.visible').and(($link) => {
             const replay = new URL(new URL($link.attr('href') ?? '').searchParams.get('replay') ?? '');
-            expect(replay.searchParams.get('id')).to.eq('123.evf');
+            expect(replay.searchParams.get('id')).to.eq('123');
         });
         cy.get('.video-analyzer-board__settings').should(($settings) => {
             const layout = $settings[0].querySelector('.video-analyzer-board__layout-control')?.getBoundingClientRect();
