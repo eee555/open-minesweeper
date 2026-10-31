@@ -13,7 +13,7 @@
 
 ## 公共显示与输入
 
-[MiniGame 组件](../src/components/MiniGame/) 复用项目的 `@putianyi888/vue3-minesweeper-board`，不使用 `ms-toollib`。游戏控制器维护规则、状态与整数毫秒成绩；[clock.ts](../src/utils/minigame/clock.ts) 负责计时，依赖库的 `Counter` 仅显示剩余数量和秒数（三位小数）。
+[MiniGame 组件](../src/components/MiniGame/) 复用项目的 `@putianyi888/vue3-minesweeper-board`，不使用 `ms-toollib`。游戏控制器维护规则、状态与整数毫秒成绩；[clock.ts](../src/utils/minigame/clock.ts) 负责计时，依赖库的 `Counter` 负责显示。左键／多指训练的本地 `leftClickScoreDisplay` 设置作用于右上角和完整排行榜，[scoreDisplay.ts](../src/utils/minigame/scoreDisplay.ts) 统一换算 Time／CES；回放使用当前帧的剩余数量和时间。抽屉固定显示两列，CES 排序复用反向用时索引；存储及上传仍使用毫秒。
 
 [Frame.vue](../src/components/MiniGame/Frame.vue) 使用依赖库 Example 的外框布局，计数器栏默认可点击或用 Enter／空格重开。多指训练全屏时设置 `restartOnCounter=false`，计数器改为无按钮语义的显示容器，由顶栏按钮重开；全局重开热键继续生效。[Board.vue](../src/components/MiniGame/Board.vue) 通过公开的背景、前景插槽显示按下预览和透明雷，叠加轨迹及目标高亮。前景透明度不影响背景按下状态。
 

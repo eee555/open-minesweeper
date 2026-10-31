@@ -13,10 +13,10 @@ import { rebuildTrainingReplay, replayFrame } from '@/utils/minigame/replay';
 import type { TrainingReplay } from '@/utils/minigame/replay';
 import { leftClickDurations, replaySpeeds } from '@/utils/minigame/replayAnalysis';
 import { defaultMinigameSettings, minigameSettings } from '@/utils/minigame/settings';
-import { isolateMinigameHistory, mouseAt, savedMinigameResults } from '@cy/support/minigame';
+import { isolateMinigameHistory, mouseAt, savedMinigameResults, touchAt } from '@cy/support/minigame';
 
-function mountGame() {
-    return cy.mount(defineComponent({ expose: [], render: () => h(App) }), { global: { plugins: [i18n] } }).then(({ wrapper }) => {
+function mountGame(gameType: 'left-click' | 'multi-touch' = 'left-click') {
+    return cy.mount(defineComponent({ expose: [], render: () => h(App, { gameType }) }), { global: { plugins: [i18n] } }).then(({ wrapper }) => {
         const game = wrapper.findComponent(App);
         return cy.wrap(game).as('vue').then(() => ({ wrapper: game }));
     });
@@ -34,6 +34,56 @@ describe('left-click training preview', () => {
     afterEach(() => {
         minigameSettings.value = defaultMinigameSettings();
     });
+
+    for (const gameType of ['left-click', 'multi-touch'] as const) {
+        it(`shows CES for ${gameType} during play and when seeking the completed replay`, () => {
+            let now = 1000;
+            minigameSettings.value.leftClickScoreDisplay = 'ces';
+            mountGame(gameType);
+            cy.window().then((win) => {
+                cy.stub(win.performance, 'now').callsFake(() => now);
+                if (gameType === 'multi-touch') cy.stub(win.HTMLElement.prototype, 'setPointerCapture');
+            });
+            cy.get('[data-cy="training-time"]').should('have.attr', 'aria-label', '000.000');
+            cy.get<ComponentWrapper<typeof App>>('@vue').then((wrapper) => {
+                const board = wrapper.findComponent<typeof MiniGameBoard>('[data-cy="minigame-board"]').props('board');
+                const [first, second] = cells(board, 10);
+                const [mine] = cells(board, 16);
+                const tap = ({ row, column }: { row: number; column: number }) => {
+                    if (gameType === 'multi-touch') {
+                        touchAt(row, column, 'pointerdown');
+                        touchAt(row, column, 'pointerup');
+                    } else {
+                        mouseAt(row, column, 'mousedown');
+                        mouseAt(row, column, 'mouseup');
+                    }
+                };
+                tap(first);
+                cy.get('[data-cy="training-time"]').should('have.attr', 'aria-label', '000.000');
+                cy.then(() => {
+                    now = 1500;
+                });
+                tap(second);
+                tap(second);
+                cy.get('[data-cy="training-time"]').should('have.attr', 'aria-label', '002.000');
+                cy.then(() => {
+                    now = 1750;
+                });
+                tap(mine);
+            });
+            cy.get('[data-cy="training-game"]').should('have.attr', 'data-phase', 'lost');
+            cy.get('[data-cy="training-time"]').should('have.attr', 'aria-label', '001.333');
+            cy.get('[data-cy="minigame-replay-position"]').invoke('val', '0').trigger('input');
+            cy.get('[data-cy="training-time"]').should('have.attr', 'aria-label', '000.000');
+            cy.get('[data-cy="minigame-replay-position"]').invoke('val', '500').trigger('input');
+            cy.get('[data-cy="training-time"]').should('have.attr', 'aria-label', '002.000');
+            cy.then(() => {
+                minigameSettings.value.leftClickScoreDisplay = 'time';
+            });
+            cy.get('[data-cy="training-time"]').should('have.attr', 'aria-label', '000.500');
+            cy.get('[data-cy="minigame-replay-position"]').should('have.value', '500');
+        });
+    }
 
     it('offers the versioned offline package download', () => {
         mountGame();

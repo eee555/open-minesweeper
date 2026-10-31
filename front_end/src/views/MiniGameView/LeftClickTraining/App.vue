@@ -36,8 +36,8 @@
                 </div>
             </template>
             <template #time>
-                <div role="group" :aria-label="t('timeSeconds')" :title="t('timeSeconds')">
-                    <Counter :value="(replay.frame.value?.timeMs ?? elapsed) / 1000" :fixed="3" :digits="3" :size="cellSize" data-cy="training-time" />
+                <div role="group" :aria-label="t(displayCes ? 'prop.ces' : 'timeSeconds')" :title="t(displayCes ? 'prop.ces' : 'timeSeconds')">
+                    <Counter :value="counterValue" :fixed="3" :digits="3" :size="cellSize" data-cy="training-time" />
                 </div>
             </template>
             <MiniGameBoard
@@ -91,6 +91,7 @@ import { saveMinigameResult } from '@/utils/minigame/history';
 import { leftClickModes, LeftClickTraining, multiTouchModes, trainingDensities, trainingLevels } from '@/utils/minigame/leftClickTraining';
 import { TrainingReplayRecorder } from '@/utils/minigame/replay';
 import type { AnyTrainingReplay, TrainingMouseInput, TrainingRecording } from '@/utils/minigame/replay';
+import { clickCes } from '@/utils/minigame/scoreDisplay';
 import { minigameSettings } from '@/utils/minigame/settings';
 import type { TouchRecording, TrainingTouchInput } from '@/utils/minigame/touchRecording';
 import { TouchReplayRecorder } from '@/utils/minigame/touchReplay';
@@ -138,6 +139,13 @@ function createRecorder() {
 }
 let recorder = createRecorder();
 const replay = useTrainingReplay<AnyTrainingReplay>();
+const displayCes = computed(() => minigameSettings.value.leftClickScoreDisplay === 'ces');
+const counterValue = computed(() => {
+    const frame = replay.frame.value;
+    const timeMs = frame?.timeMs ?? elapsed.value;
+    const successfulClicks = mode.value.safe - (frame?.remaining ?? remaining.value);
+    return displayCes.value ? clickCes(timeMs, successfulClicks) : timeMs / 1000;
+});
 
 const { pause, resume } = useRafFn(() => {
     elapsed.value = game.elapsedMs(performance.now());

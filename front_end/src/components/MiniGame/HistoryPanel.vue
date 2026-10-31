@@ -10,7 +10,7 @@
         <p v-if="failed" role="alert" class="text text-danger text-small">
             {{ t('local.loadFailed') }}
         </p>
-        <BaseTable :empty="entries.length === 0" :column-count="2" :empty-text="t(loading ? 'local.loading' : 'local.empty')">
+        <BaseTable :empty="entries.length === 0" :column-count="scoreDisplays.length + 1" :empty-text="t(loading ? 'local.loading' : 'local.empty')">
             <template #head>
                 <tr>
                     <th scope="col" :aria-sort="sort === 'date' ? 'descending' : 'none'">
@@ -18,18 +18,18 @@
                             {{ t('local.date') }}
                         </button>
                     </th>
-                    <th scope="col" class="table-col-number" :aria-sort="sort === 'score-asc' ? 'ascending' : sort === 'score-desc' ? 'descending' : 'none'">
-                        <button type="button" class="stat-header" data-cy="minigame-history-score-sort" @click="sort = sort === 'score-asc' ? 'score-desc' : 'score-asc'">
-                            {{ t('local.time') }}
-                            <i v-if="sort !== 'date'" class="pi" :class="sort === 'score-asc' ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'" aria-hidden="true" />
+                    <th v-for="metric in scoreDisplays" :key="metric" scope="col" class="table-col-number" :aria-sort="scoreSortDirection(metric)">
+                        <button type="button" class="stat-header" :data-cy="metric === 'time' ? 'minigame-history-score-sort' : 'minigame-history-ces-sort'" @click="toggleScoreSort">
+                            {{ t(metric === 'time' ? 'local.time' : 'prop.ces') }}
+                            <i v-if="sort !== 'date'" class="pi" :class="scoreSortDirection(metric) === 'ascending' ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'" aria-hidden="true" />
                         </button>
                     </th>
                 </tr>
             </template>
             <tr v-for="entry in entries" :key="entry.id" tabindex="0" class="history-row" :data-history-id="entry.id" :aria-label="t('local.play', { date: toISODateTimeString(new Date(entry.playedAt)) })" @click="emit('play', entry.id)" @keydown.enter.prevent="emit('play', entry.id)" @keydown.space.prevent="emit('play', entry.id)">
                 <td>{{ toISODateTimeString(new Date(entry.playedAt)) }}</td>
-                <td class="table-col-number">
-                    {{ ms_to_s(entry.scoreMs) }}
+                <td v-for="metric in scoreDisplays" :key="metric" class="table-col-number">
+                    {{ formatMinigameScore(entry.scoreMs, rankingKey, metric) }}
                 </td>
             </tr>
         </BaseTable>
@@ -39,15 +39,16 @@
 
 <script setup lang="ts">
 import { ElPagination } from 'element-plus';
-import { ref, shallowRef, watch } from 'vue';
+import { computed, ref, shallowRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
-import { ms_to_s } from '@/utils';
 import { toISODateTimeString } from '@/utils/datetime';
 import { minigameHistoryRevision, queryMinigameHistory } from '@/utils/minigame/history';
 import type { MinigameHistoryMetadata, MinigameHistorySort } from '@/utils/minigame/history';
+import { formatMinigameScore } from '@/utils/minigame/scoreDisplay';
+import type { ClickScoreDisplay } from '@/utils/minigame/scoreDisplay';
 
 const props = defineProps({ rankingKey: { type: String, required: true } });
 const emit = defineEmits<{ play: [id: number] }>();
@@ -61,6 +62,17 @@ const entries = shallowRef<MinigameHistoryMetadata[]>([]);
 const loading = ref(false);
 const failed = ref(false);
 const refresh = ref(0);
+const scoreDisplays = computed<ClickScoreDisplay[]>(() => (props.rankingKey.startsWith('left-click-') || props.rankingKey.startsWith('multi-touch-') ? ['time', 'ces'] : ['time']));
+
+function scoreSortDirection(metric: ClickScoreDisplay) {
+    if (sort.value === 'date') return 'none';
+    const ascending = sort.value === (metric === 'time' ? 'score-asc' : 'score-desc');
+    return ascending ? 'ascending' : 'descending';
+}
+
+function toggleScoreSort() {
+    sort.value = sort.value === 'score-asc' ? 'score-desc' : 'score-asc';
+}
 
 function dateBoundary(value: string, nextDay = false): number | undefined {
     if (!value) return undefined;

@@ -3,10 +3,17 @@ import HistoryPanel from './HistoryPanel.vue';
 import i18n from '@/i18n';
 import { getMinigameDatabase, MINIGAME_RESULTS_STORE, saveMinigameResult } from '@/utils/minigame/history';
 import { leftClickModes } from '@/utils/minigame/leftClickTraining';
+import { defaultMinigameSettings, minigameSettings } from '@/utils/minigame/settings';
 import { isolateMinigameHistory } from '@cy/support/minigame';
 
 describe('local minigame history', () => {
     isolateMinigameHistory();
+    beforeEach(() => {
+        minigameSettings.value = defaultMinigameSettings();
+    });
+    afterEach(() => {
+        minigameSettings.value = defaultMinigameSettings();
+    });
 
     it('filters inclusive calendar dates, sorts times, and plays a row with mouse or keyboard', () => {
         const ids: number[] = [];
@@ -25,14 +32,20 @@ describe('local minigame history', () => {
         cy.get('.history-row').should('have.length', 2);
         cy.get('[data-cy=minigame-history-score-sort]').click();
         cy.get('table').extractTableData().should((rows) => {
-            expect(rows.slice(1).map((row) => row[1])).to.deep.equal(['0.200', '0.300']);
+            expect(rows.slice(1).map((row) => row.slice(1))).to.deep.equal([['0.200', '155.000'], ['0.300', '103.333']]);
+        });
+        cy.then(() => {
+            minigameSettings.value.leftClickScoreDisplay = 'ces';
+        });
+        cy.get('table').extractTableData().should((rows) => {
+            expect(rows.slice(1).map((row) => row.slice(1))).to.deep.equal([['0.200', '155.000'], ['0.300', '103.333']]);
         });
         cy.get('.history-row').first().click();
         cy.get('@play').should('have.been.calledOnce');
         cy.then(() => {
             expect(play.firstCall.args).to.deep.equal([ids[2]]);
         });
-        cy.get('[data-cy=minigame-history-score-sort]').click();
+        cy.get('[data-cy=minigame-history-ces-sort]').click();
         cy.get('table').extractTableData().should((rows) => {
             expect(rows.slice(1).map((row) => row[1])).to.deep.equal(['0.300', '0.200']);
         });

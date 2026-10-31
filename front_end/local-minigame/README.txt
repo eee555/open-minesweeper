@@ -3,8 +3,10 @@
 解压 ZIP，用 Chrome 或 Edge 打开 index.html。无需服务器或网络连接。
 Extract the ZIP and open index.html in Chrome or Edge. No server or internet connection is required.
 
-棋盘左上角显示剩余点击数或题数，右上角显示用时（秒，三位小数）。
-The top-left counter shows clicks or questions left. The top-right counter shows elapsed seconds with three decimal places.
+棋盘左上角显示剩余点击数或题数，右上角默认显示用时（秒，三位小数）。
+The top-left counter shows clicks or questions left. The top-right counter defaults to elapsed seconds with three decimal places.
+左键和多指训练可在本地设置中切换 Time／CES。CES = 成功点击数（不含首次）÷ 用时（秒），回放按当前进度计算。本地历史始终同时显示 Time、CES 两列，可点击任一成绩表头排序。
+Left-click and multi-touch training have a local Time / CES setting. CES = successful clicks excluding the first / elapsed seconds, calculated at the current position during replays. Local history always shows both Time and CES; click either score heading to sort.
 非全屏时，点击上方任意计数器或中间空白开始新一局；也可用 Tab 选中该区域后按 Enter 或空格。
 Outside fullscreen, click anywhere in the counter bar to start a new game, or focus it with Tab and press Enter or Space.
 格子大小默认 32px，在小游戏设置中直接输入正整数，所有小游戏共用，自动保存在本地。

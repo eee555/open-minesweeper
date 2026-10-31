@@ -3,7 +3,11 @@
     <BaseTable v-loading="loading" class="minigame-ranking-table" :table-style="{ width: 'auto', marginInline: 'auto' }" :empty="rows.length === 0" :column-count="rankings.length + 2" :empty-text="t('ranking.empty')">
         <template #head>
             <tr>
-                <th :rowspan="hasDensities ? 2 : 1" scope="col" class="table-col-rank" />
+                <th :rowspan="hasDensities ? 2 : 1" scope="col" class="table-col-rank">
+                    <button v-if="hasDensities" type="button" class="stat-header" :title="t('local.switchDisplay', { metric: t(displayCes ? 'prop.time' : 'prop.ces') })" :aria-label="t('local.switchDisplay', { metric: t(displayCes ? 'prop.time' : 'prop.ces') })" data-cy="minigame-ranking-score-display" @click="minigameSettings.leftClickScoreDisplay = displayCes ? 'time' : 'ces'">
+                        {{ t(displayCes ? 'prop.ces' : 'prop.time') }}
+                    </button>
+                </th>
                 <th :rowspan="hasDensities ? 2 : 1" scope="col" class="table-col-player">
                     {{ t('prop.player') }}
                 </th>
@@ -13,7 +17,7 @@
                     </th>
                 </template>
                 <template v-else>
-                    <th v-for="ranking in rankings" :key="ranking.key" scope="col" class="table-col-number" :aria-sort="sort === ranking.key ? ranking.order === 'asc' ? 'ascending' : 'descending' : 'none'">
+                    <th v-for="ranking in rankings" :key="ranking.key" scope="col" class="table-col-number" :aria-sort="sort === ranking.key ? sortDirection(ranking) : 'none'">
                         <button type="button" class="stat-header" :aria-pressed="sort === ranking.key" @click="sort = ranking.key">
                             {{ t(`level.${ranking.level}`) }}
                         </button>
@@ -21,7 +25,7 @@
                 </template>
             </tr>
             <tr v-if="hasDensities">
-                <th v-for="ranking in rankings" :key="ranking.key" scope="col" class="table-col-number" :aria-sort="sort === ranking.key ? ranking.order === 'asc' ? 'ascending' : 'descending' : 'none'">
+                <th v-for="ranking in rankings" :key="ranking.key" scope="col" class="table-col-number" :aria-sort="sort === ranking.key ? sortDirection(ranking) : 'none'">
                     <button type="button" class="stat-header" :aria-label="`${t(`level.${ranking.level}`)} ${densityLabels[ranking.density ?? '50']}`" :aria-pressed="sort === ranking.key" @click="sort = ranking.key">
                         {{ densityLabels[ranking.density ?? '50'] }}
                     </button>
@@ -37,7 +41,7 @@
             </td>
             <td v-for="ranking in rankings" :key="ranking.key" class="table-col-number" :style="cellStyle(row, ranking)" :title="row.records[ranking.key] == null ? undefined : toISODateTimeString(new Date(row.records[ranking.key]!.achieved_at))">
                 <RouterLink v-if="row.records[ranking.key] != null" class="link" data-cy="minigame-replay-link" :to="{ name: `minigame-${game}`, query: { player: row.player_id, key: ranking.key.slice(game.length + 1) } }">
-                    {{ ms_to_s(row.records[ranking.key]!.score) }}
+                    {{ formatMinigameScore(row.records[ranking.key]!.score, ranking.key, minigameSettings.leftClickScoreDisplay) }}
                 </RouterLink>
                 <template v-else>
                     --
@@ -65,9 +69,10 @@ import BaseTable from '@/components/common/BaseTable.vue';
 import PlayerName from '@/components/PlayerName.vue';
 import { fetchMinigameRanking, fetchMinigameRankings } from '@/services/minigameRankingService';
 import type { MinigameColorScheme, MinigameRanking, MinigameRankingRow } from '@/services/minigameRankingService';
-import { ms_to_s } from '@/utils';
 import { toISODateTimeString } from '@/utils/datetime';
 import type { TrainingGame } from '@/utils/minigame/games';
+import { formatMinigameScore } from '@/utils/minigame/scoreDisplay';
+import { minigameSettings } from '@/utils/minigame/settings';
 
 const props = defineProps({
     game: { type: String as PropType<TrainingGame>, required: true },
@@ -75,6 +80,7 @@ const props = defineProps({
 });
 const rankings = ref<MinigameRanking[]>([]);
 const hasDensities = computed(() => props.game === 'left-click' || props.game === 'multi-touch');
+const displayCes = computed(() => hasDensities.value && minigameSettings.value.leftClickScoreDisplay === 'ces');
 const densityLabels = { 50: '1/2', 75: '3/4', 87.5: '7/8' };
 const { fields: { sort, page, page_size: pageSize }, update } = useRankingQuery(
     { sort: '', page: 1, page_size: 20 },
@@ -87,6 +93,11 @@ const total = ref(0);
 const loading = ref(false);
 const failed = ref(false);
 let requestId = 0;
+
+function sortDirection(ranking: MinigameRanking) {
+    if (displayCes.value) return ranking.order === 'asc' ? 'descending' : 'ascending';
+    return ranking.order === 'asc' ? 'ascending' : 'descending';
+}
 
 function cellStyle(row: MinigameRankingRow, ranking: MinigameRanking) {
     const record = row.records[ranking.key];
@@ -129,7 +140,11 @@ onBeforeUnmount(() => {
     requestId++;
 });
 defineExpose({ refresh: load, loading });
-const { t } = useI18n();
+const i18nMessages = {
+    'zh-cn': { local: { switchDisplay: '切换为 {metric}' } },
+    en: { local: { switchDisplay: 'Switch to {metric}' } },
+};
+const { t } = useI18n({ messages: i18nMessages });
 </script>
 
 <style scoped>

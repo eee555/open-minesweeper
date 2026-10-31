@@ -52,7 +52,9 @@ Click the target to reveal the next board immediately. Complete **10 consecutive
 
 ## Restarting and Settings
 
-The top-left counter shows clicks or questions remaining; the top-right counter shows seconds with three decimal places. Outside fullscreen, **click anywhere in the counter bar to restart**, or focus it with Tab and press Enter or Space.
+The top-left counter shows clicks or questions remaining; the top-right counter defaults to seconds with three decimal places. Outside fullscreen, **click anywhere in the counter bar to restart**, or focus it with Tab and press Enter or Space.
+
+Left-click and multi-touch training offer **Time / CES** in local settings and via the text button at the top-left of the full rankings table. `CES = CE / elapsed seconds`, where CE counts successful clicks **excluding the first**. This changes the top-right counter and full rankings; replays use the current playback position. Ranking and local history drawers always show both scores, with either column sortable in local history.
 
 Shared cell size and restart hotkey settings are available below the games and in the website's Minigames settings section. Cell size defaults to 32px and accepts a positive integer; the hotkey is unset. Left-click and multi-touch training share mine opacity and pressed or raised mine-cell settings. Preferences are saved in this browser; the mine-cell state is excluded from recordings. Changing these display settings keeps the current game, and replays use the current display settings. Changing level or game parameters starts a new game.
 

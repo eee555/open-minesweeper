@@ -1,5 +1,10 @@
 # 更新记录 / Changelog
 
+## 0.7.1 — 2026-10-31
+
+- 左键和多指训练的右上角计数器可切换 Time／CES，回放按当前进度计算；本地历史同时显示两项成绩并支持排序。
+- Left-click and multi-touch training can show Time or CES in the top-right counter, including during replays. Local history shows both scores and supports sorting by either.
+
 ## 0.7.0 — 2026-10-31
 
 - 新增本地历史抽屉，按当前游戏和配置展示纪录，支持日期筛选、用时排序及点击回放。
