@@ -1,5 +1,10 @@
 # 更新记录 / Changelog
 
+## 未发布 / Unreleased
+
+- 新增本地历史抽屉，按当前游戏和配置展示纪录，支持日期筛选、用时排序及点击回放。
+- Added a local history drawer for the current game and configuration, with date filters, time sorting and replay playback.
+
 ## 0.6.5 — 2026-10-25
 
 - 左键和多指训练可设置雷格按下或弹起，默认弹起；共用本地设置，切换保留当前局，回放按当前设置显示。

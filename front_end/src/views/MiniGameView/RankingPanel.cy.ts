@@ -10,8 +10,13 @@ import $axios from '@/http';
 import i18n from '@/i18n';
 import { store } from '@/store';
 import { pinia } from '@/store/create';
+import { flagChordModes } from '@/utils/minigame/flagChordTraining';
 import { trainingGames } from '@/utils/minigame/games';
+import { getMinigameDatabase, MINIGAME_RESULTS_STORE } from '@/utils/minigame/history';
+import { leftClickModes, multiTouchModes } from '@/utils/minigame/leftClickTraining';
+import { missingCellModes } from '@/utils/minigame/missingCellTraining';
 import { defaultMinigameSettings, minigameSettings } from '@/utils/minigame/settings';
+import { isolateMinigameHistory } from '@cy/support/minigame';
 
 function mountGame() {
     const router = createRouter({ history: createMemoryHistory(),
@@ -48,6 +53,8 @@ function mountGame() {
 const score = { score: 1234, achieved_at: '2026-10-24T08:00:00Z' };
 
 describe('current minigame ranking', () => {
+    isolateMinigameHistory();
+
     beforeEach(() => {
         cy.viewport(1440, 1000);
         store.logout();
@@ -108,6 +115,70 @@ describe('current minigame ranking', () => {
         cy.get('[data-cy=minigame-ranking-panel]').should('not.exist');
         cy.get('[data-cy=minigame-ranking-toggle]').should('be.visible').and('have.attr', 'aria-expanded', 'false');
         cy.get('@summary.all').should('have.length', 8);
+    });
+
+    it('switches history and rankings in one drawer and restores both bookmarks after closing', () => {
+        cy.intercept('GET', '/api/minigame/*/summary', { count: 0, players: [], player: null }).as('summary');
+        mountGame();
+        cy.get('[data-cy=minigame-ranking-toggle]').then(($ranking) => {
+            cy.get('[data-cy=minigame-history-toggle]').should(($history) => {
+                expect($history[0].getBoundingClientRect().top).to.be.at.least($ranking[0].getBoundingClientRect().bottom);
+            });
+        });
+        cy.get('[data-cy=minigame-history-toggle]').click();
+        cy.get('[data-cy=minigame-history-panel]').should('be.visible');
+        cy.get('[data-cy=minigame-ranking-panel], [data-cy=minigame-ranking-link]').should('not.exist');
+        cy.get('@summary.all').should('have.length', 0);
+        cy.get('[data-cy=minigame-drawer-ranking]').click();
+        cy.wait('@summary');
+        cy.get('.el-drawer.rtl').should('have.length', 1).and('have.attr', 'aria-label', 'Rankings');
+        cy.get('[data-cy=minigame-history-panel]').should('not.exist');
+        cy.get('[data-cy=minigame-ranking-panel]').should('be.visible');
+        cy.get('[data-cy=minigame-drawer-history]').click();
+        cy.get('.el-drawer.rtl').should('have.length', 1).and('have.attr', 'aria-label', 'Local history');
+        cy.get('[data-cy=minigame-ranking-panel]').should('not.exist');
+        cy.get('.el-drawer__close-btn').click();
+        cy.get('[data-cy=minigame-ranking-toggle]').should('be.visible');
+        cy.get('[data-cy=minigame-history-toggle]').should('be.visible');
+    });
+
+    it('filters local history by the selected game, level and density while the drawer stays open', () => {
+        cy.then(async () => {
+            const db = await getMinigameDatabase();
+            const configs = [
+                { game: 'left-click', mode: leftClickModes[0] },
+                { game: 'left-click', mode: leftClickModes[1] },
+                { game: 'left-click', mode: leftClickModes[3] },
+                { game: 'multi-touch', mode: multiTouchModes[0] },
+                { game: 'flag-chord', mode: flagChordModes[0] },
+                { game: 'missing-cell', mode: missingCellModes[0] },
+            ] as const;
+            for (const [index, config] of configs.entries()) {
+                await db.add(MINIGAME_RESULTS_STORE, { ...config, playedAt: Date.now(), scoreMs: (index + 1) * 1000, replay: new ArrayBuffer(0) });
+            }
+        });
+        const expectTime = (time: string) => {
+            cy.get('[data-cy=minigame-history-panel] table').extractTableData().should((rows) => {
+                expect(rows).to.have.length(2);
+                expect(rows[1][2]).to.equal(time);
+            });
+        };
+        mountGame();
+        cy.get('[data-cy=minigame-history-toggle]').click();
+        expectTime('1.000');
+        cy.get('[data-cy=training-density]').select('75');
+        expectTime('2.000');
+        cy.get('[data-cy=training-level] input[value=i]').parent().click();
+        cy.get('[data-cy=minigame-history-panel]').should('contain.text', 'No matching local results');
+        cy.get('.history-row').should('not.exist');
+        cy.get('[data-cy=training-density]').select('50');
+        expectTime('3.000');
+        cy.get('[data-cy=game-multi-touch]').click();
+        expectTime('4.000');
+        cy.get('[data-cy=game-flag-chord]').click();
+        expectTime('5.000');
+        cy.get('[data-cy=game-missing-cell]').click();
+        expectTime('6.000');
     });
 
     it('shows a logged-in player outside the first page, avoids duplicates and reloads after logout', () => {

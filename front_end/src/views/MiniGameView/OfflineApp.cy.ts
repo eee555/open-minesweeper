@@ -6,15 +6,23 @@ import version from '../../../local-minigame/version.json';
 import type MiniGameBoard from '@/components/MiniGame/Board.vue';
 import en from '@/i18n/locales/en';
 import zhCn from '@/i18n/locales/zh-cn';
+import { loadReplayArchiveCodec } from '@/utils/minigame/archive';
+import { flagChordModes } from '@/utils/minigame/flagChordTraining';
+import { getMinigameDatabase, MINIGAME_RESULTS_STORE } from '@/utils/minigame/history';
+import type { MinigameStoredEntry } from '@/utils/minigame/history';
+import { leftClickModes, multiTouchModes } from '@/utils/minigame/leftClickTraining';
+import { missingCellModes } from '@/utils/minigame/missingCellTraining';
 import { defaultMinigameSettings, minigameSettings } from '@/utils/minigame/settings';
-import { mouseAt, rightAt } from '@cy/support/minigame';
+import { isolateMinigameHistory, mouseAt, rightAt, savedMinigameResults } from '@cy/support/minigame';
 
 function mountOfflineApp() {
     const i18n = createI18n({ legacy: false, locale: 'en', messages: { en, 'zh-cn': zhCn } });
-    cy.mount(App, { global: { plugins: [i18n] } });
+    cy.mount(App, { global: { plugins: [i18n], stubs: { transition: false } } });
 }
 
 describe('offline minigames', () => {
+    isolateMinigameHistory();
+
     beforeEach(() => {
         minigameSettings.value = defaultMinigameSettings();
     });
@@ -148,5 +156,72 @@ describe('offline minigames', () => {
         cy.get('[data-cy="missing-cell-game"]').should('have.attr', 'data-phase', 'playing');
         cy.get('[data-cy="game-left-click"]').click();
         cy.get('[data-cy="training-remaining"]').should('have.attr', 'aria-label', '032');
+    });
+
+    it('filters and replays all four games from local history without making API requests or duplicating results', () => {
+        cy.viewport(1440, 1000);
+        const initialBoard = 'AAAAAP////8';
+        const mouse = { version: 1, cellSize: 32, initialBoard, events: [], specialEvents: [] };
+        const recordings = [
+            { game: 'left-click', mode: leftClickModes[0], source: mouse },
+            { game: 'multi-touch', mode: multiTouchModes[0], source: { version: 1, cellSize: 32, initialBoard, events: [[0, 16, 16, 0, 0]] } },
+            { game: 'flag-chord', mode: flagChordModes[0], source: { ...mouse, initialBoard: [[1, 1, 0], [1, 5, 2], [5, 1, 5], [5, 5, 7]] } },
+            { game: 'missing-cell', mode: missingCellModes[0], source: { version: 1, rounds: Array.from({ length: 10 }, () => ({ board: 'gAAAAAAAAAA', target: [7, 7], timeMs: 100 })) } },
+        ] as const;
+        cy.then(async () => {
+            const codec = await loadReplayArchiveCodec();
+            const db = await getMinigameDatabase();
+            for (const recording of recordings) {
+                await db.add(MINIGAME_RESULTS_STORE, { game: recording.game, mode: recording.mode, playedAt: Date.now(), scoreMs: 1234, replay: codec.pack(recording.source) } as MinigameStoredEntry);
+            }
+        });
+        cy.intercept('/api/**', { statusCode: 500 }).as('api');
+        mountOfflineApp();
+        cy.get('[data-cy=minigame-history-toggle]').click();
+        for (const { game } of recordings) {
+            cy.get(`[data-cy=game-${game}]`).click();
+            cy.get('.history-row').should('have.length', 1);
+            cy.get('.history-row').click();
+            cy.get('.training-page').should('have.attr', 'data-replay', 'true').and('have.attr', 'data-phase', 'won');
+            const prefix = game === 'flag-chord' ? 'flag-chord' : game === 'missing-cell' ? 'missing-cell' : 'training';
+            cy.get(`[data-cy=${prefix}-time]`).should('have.attr', 'aria-label', '001.234');
+            if (game === 'missing-cell') cy.get('[data-cy=missing-cell-round-times] .plot-bar rect').should('have.length', 10);
+            else cy.get('[data-cy=minigame-replay-controls]').should('be.visible');
+            cy.get('.training-frame-counters').click();
+            cy.get('.training-page').should('have.attr', 'data-replay', 'false').and('have.attr', 'data-phase', 'ready');
+        }
+        cy.get('[data-cy=game-left-click]').click();
+        cy.get('.history-row').click();
+        cy.get('.training-page').should('have.attr', 'data-replay', 'true');
+        cy.get('[data-cy=training-density]').select('75');
+        cy.get('.training-page').should('have.attr', 'data-replay', 'false').and('have.attr', 'data-phase', 'ready');
+        cy.get('[data-cy=minigame-history-panel]').should('contain.text', 'No matching local results');
+        cy.get('[data-cy=offline-theme]').select('dark');
+        cy.get('[data-cy=offline-language]').click();
+        cy.get('.el-drawer').should('have.attr', 'aria-label', '本地历史');
+        cy.get('.el-drawer__close-btn').click();
+        cy.get('[data-cy=minigame-history-toggle]').should('be.visible');
+        savedMinigameResults().should('have.length', 4);
+        cy.get('@api.all').should('have.length', 0);
+    });
+
+    it('reports a damaged recording and keeps it in local history', () => {
+        cy.viewport(1440, 1000);
+        cy.then(async () => {
+            const db = await getMinigameDatabase();
+            await db.add(MINIGAME_RESULTS_STORE, { game: 'left-click', mode: leftClickModes[0], playedAt: Date.now(), scoreMs: 1234, replay: new ArrayBuffer(0) });
+        });
+        mountOfflineApp();
+        cy.get('[data-cy=minigame-history-toggle]').click();
+        cy.get('.history-row').click();
+        cy.get('[data-cy=minigame-replay-error]').should('contain.text', 'damaged');
+        cy.get('.training-page').should('have.attr', 'data-phase', 'ready');
+        cy.get('.history-row').should('have.length', 1);
+        cy.get('.training-frame-counters').click();
+        cy.get('[data-cy=minigame-replay-error]').should('not.exist');
+        cy.then(async () => {
+            const db = await getMinigameDatabase();
+            expect(await db.count(MINIGAME_RESULTS_STORE)).to.equal(1);
+        });
     });
 });

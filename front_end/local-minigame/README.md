@@ -78,7 +78,7 @@
 
 ## 本地成绩
 
-[history.ts](../src/utils/minigame/history.ts) 使用已有的 `idb`，在每种游戏成功结算时自动保存一条记录。失败、未完成的重开及切换游戏不保存，回放和悬停不重复写入。在线和离线入口共用此逻辑，暂不提供历史列表或历史可视化。
+[history.ts](../src/utils/minigame/history.ts) 使用已有的 `idb`，在每种游戏成功结算时自动保存一条记录。失败、未完成的重开及切换游戏不保存，回放和悬停不重复写入。网站和离线入口共用保存逻辑及历史列表。
 
 数据库为 `saolei-minigame`，结构版本 3，`results` 表使用自增 `id`，保存游戏类型、完整模式参数、完成时间 `playedAt`（Unix 毫秒）和成绩 `scoreMs`（整数毫秒）。两条非唯一索引分别为 `playedAt` 和 `scoreMs`，支持时间与成绩排序；同一毫秒完成或成绩相同的多局均保留。版本 1 的 v0 和版本 2 的 v1 JSON 旧库均在升级事务中自动转换为 7z，保留主键、时间、成绩、模式和索引。单条格式转换失败时记录警告，将原回放 JSON 整体压缩后继续迁移，不删除该条目、不强行标记为 v1；后续读取仍按正常规则报告解析错误。压缩或数据库操作失败时回滚整个升级并保留旧库。压缩器在打开升级事务前初始化。
 
@@ -91,9 +91,13 @@
 - 本地历史独立于可丢弃的 `saolei-cache`，不套用缓存的过期、版本清空或自动字段转换。以后修改结构时显式迁移并保留历史数据。连接在版本升级时释放，避免旧页面阻塞迁移。
 - 数据归属于当前浏览器与来源，在线站点和离线文件不保证共用；清除浏览器站点数据会删除记录。
 
+共用的 [HistoryPanel.vue](../src/components/MiniGame/HistoryPanel.vue) 预筛选当前游戏和配置的本地成功纪录，每页 20 条，默认最新日期在前，可按浏览器本地日期范围进一步筛选及按用时升／降序排列。游戏、级别或密度变化时刷新列表并回到第一页。`queryMinigameHistory(rankingKey, options)` 复用 `playedAt`、`scoreMs` 索引，遍历元数据匹配完整榜单 key 后计算总数和分页，只返回本页元数据；不解压回放，不升级数据库版本。保存事务完成后更新 `minigameHistoryRevision`，刷新已打开的列表。
+
+离线入口右上角提供历史书签，以非模态 `ElDrawer` 显示同一列表。点击行时从 IndexedDB 读取所选 7z，复用 `readMinigameHistoryReplay` 重建回放并传给原游戏的 `replayData`；重开或切换配置后退出回放。读取失败或录像损坏时显示错误，切换游戏后忽略旧加载结果。离线入口单独导入 Drawer、Pagination 和深色主题样式，所有资源随 HTML 内联。
+
 ## 网站上传与在线回放
 
-网站页右上角的书签按钮打开右侧 `ElDrawer`，显示当前配置的首页 20 人及登录用户位置。个人在首页内时高亮，否则追加一行；未上传成绩时显示未上榜。抽屉位于顶部菜单下方，启用事件穿透且不锁定页面滚动；底部固定提供“完整排行榜”链接。此入口仅用于网站，不进入离线版。
+网站页右上角的两个书签分别打开排行榜和本地历史，共用一个 `ElDrawer`，也可从抽屉顶部切换内容。排行榜显示当前配置的首页 20 人及登录用户位置，个人在首页内时高亮，否则追加一行；未上传成绩时显示未上榜。抽屉位于顶部菜单下方，启用事件穿透且不锁定页面滚动；排行榜底部提供“完整排行榜”链接。此入口仅用于网站，不进入离线版。
 
 游戏组件通过 `rankingChange(rankingKey)` 通知当前配置。[RankingPanel.vue](../src/views/MiniGameView/RankingPanel.vue) 使用单配置查询接口，在配置、登录状态或上传结果变化时重新加载，并支持手动刷新。配置切换、关闭或卸载时取消旧请求；仅未取消的请求可更新结果。接口及缓存约定见[后端开发文档](../../back_end/saolei/minigame/README.md)。
 
@@ -103,11 +107,11 @@
 
 排行榜成绩链接使用游戏原路由，并通过 GET 参数指定回放，例如 `/#/minigame/left-click?player=42&key=b-50-v1`。`key` 仅包含模式部分，完整榜单标识为 `left-click-b-50-v1`。
 
-[OnlineReplay.vue](../src/views/MiniGameView/OnlineReplay.vue) 只负责在线加载和错误状态：通过 `GET /api/minigame/{game}/replay?player=...&key=...` 获取原始 7z 和毫秒成绩头 `X-Minigame-Score`。后端直接读取压缩字段，使用 `Content-Encoding: identity` 和 `Cache-Control: no-transform`，避免再次 gzip；前端按 `ArrayBuffer` 接收并解包。[review.ts](../src/utils/minigame/review.ts) 根据游戏与完整榜单标识选择现有解析器，重建运行时回放数据。
+[ReplayLoader.vue](../src/views/MiniGameView/ReplayLoader.vue) 负责本地及在线加载和错误状态。点击本地历史行跳转至对应游戏的 `?history=记录ID`，只从当前来源的 IndexedDB 读取该条 7z 及用时；该参数不能与在线回放的 `player`、`key` 混用，也不具有跨浏览器分享语义。在线回放通过 `GET /api/minigame/{game}/replay?player=...&key=...` 获取原始 7z 和毫秒成绩头 `X-Minigame-Score`。后端直接读取压缩字段，使用 `Content-Encoding: identity` 和 `Cache-Control: no-transform`，避免再次 gzip。两者均按 `ArrayBuffer` 解包，由 [review.ts](../src/utils/minigame/review.ts) 选择现有解析器，重建运行时回放数据。
 
-加载结果通过 `replayData` 和插槽交给原路由的游戏组件，共用参数栏、棋盘、计数器、轨迹及分析图，初始停在完成状态；漏雷共用逐局图表悬停回溯。重开或修改玩法参数后清除 `player`、`key`，在同一组件内保留所选模式并开始新局。更换回放参数时取消旧请求，缺失或损坏录像显示错误；观看录像不保存历史或上传成绩。
+加载结果通过 `replayData` 和插槽交给原路由的游戏组件，共用参数栏、棋盘、计数器、轨迹及分析图，初始停在完成状态；漏雷共用逐局图表悬停回溯。重开或修改玩法参数后清除 `player`、`key`、`history`，在同一组件内保留所选模式并开始新局。更换回放参数时取消旧请求并忽略过期结果，缺失或损坏录像显示错误；观看录像不保存历史或上传成绩。
 
-在线加载、上传和登录状态只由网站入口接入。离线入口不监听完成事件进行上传，也不包含 `OnlineReplay.vue`，继续禁止导入网站 HTTP、用户 store 及路由。
+本地历史浏览及回放由网站和离线入口共同支持。在线加载、上传和登录状态只由网站入口接入。离线入口不监听完成事件进行上传，也不包含 `ReplayLoader.vue`，继续禁止导入网站 HTTP、用户 store 及路由。
 
 ## 构建与资源
 

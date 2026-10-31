@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
+import { loadReplayArchiveCodec } from './archive';
+import { flagChordModes } from './flagChordTraining';
+import type { MinigameStoredEntry } from './history';
 import { leftClickModes, multiTouchModes } from './leftClickTraining';
+import { missingCellModes } from './missingCellTraining';
 import { replayFrame } from './replay';
-import { rebuildMinigameReplay } from './review';
+import { readMinigameHistoryReplay, rebuildMinigameReplay } from './review';
 
 const mouse = { version: 1, cellSize: 32, initialBoard: 'AAAAAP////8', events: [[0, 16, 16, 2], [10, 32, 0, 1], [10, 0, 0, 2]], specialEvents: [] };
 
-describe('opening minigame ranking replays', () => {
+describe('opening minigame replays', () => {
     it('resolves the selected ranking and rebuilds mouse and touch states with the saved score', () => {
         const left = rebuildMinigameReplay('left-click', leftClickModes[0].rankingKey, mouse, 30);
         if (left.game !== 'left-click') throw new Error('Expected a mouse replay');
@@ -37,5 +41,28 @@ describe('opening minigame ranking replays', () => {
         expect(() => rebuildMinigameReplay('left-click', 'multi-touch-b-50-v1', mouse, 1000)).toThrow('Unknown minigame replay ranking');
         expect(() => rebuildMinigameReplay('flag-chord', 'flag-chord-e-v1', mouse, 1000)).toThrow('Unknown minigame replay ranking');
         expect(() => rebuildMinigameReplay('left-click', leftClickModes[0].rankingKey, { ...mouse, initialBoard: 'bad' }, 1000)).toThrow();
+    });
+
+    it('rebuilds all four stored archives without changing their bytes or metadata', async () => {
+        const codec = await loadReplayArchiveCodec();
+        const recordings = [
+            { game: 'left-click', mode: leftClickModes[0], source: mouse },
+            { game: 'multi-touch', mode: multiTouchModes[0], source: { version: 1, cellSize: 32, initialBoard: mouse.initialBoard, events: [[0, 16, 16, 0, 0]] } },
+            { game: 'flag-chord', mode: flagChordModes[0], source: { ...mouse, initialBoard: [[1, 1, 0], [1, 5, 2], [5, 1, 5], [5, 5, 7]], events: [] } },
+            { game: 'missing-cell', mode: missingCellModes[0], source: { version: 1, rounds: Array.from({ length: 10 }, () => ({ board: 'gAAAAAAAAAA', target: [7, 7], timeMs: 100 })) } },
+        ] as const;
+        for (const recording of recordings) {
+            const entry = { game: recording.game, mode: recording.mode, playedAt: 123456, scoreMs: 1234, replay: codec.pack(recording.source) } as MinigameStoredEntry;
+            const original = structuredClone(entry);
+            const replay = await readMinigameHistoryReplay(entry);
+            expect(replay).toMatchObject({ game: entry.game, mode: entry.mode, durationMs: entry.scoreMs });
+            if (replay.game === 'missing-cell') expect(replay.rounds).toHaveLength(10);
+            else expect(replay.snapshots.length).toBeGreaterThan(0);
+            expect(entry).toEqual(original);
+        }
+    });
+
+    it('rejects damaged local archives', async () => {
+        await expect(readMinigameHistoryReplay({ game: 'left-click', mode: leftClickModes[0], playedAt: 123, scoreMs: 1234, replay: new ArrayBuffer(0) })).rejects.toThrow();
     });
 });

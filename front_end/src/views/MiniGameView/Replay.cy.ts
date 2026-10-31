@@ -11,9 +11,13 @@ import i18n from '@/i18n';
 import { pinia } from '@/store/create';
 import { loadReplayArchiveCodec } from '@/utils/minigame/archive';
 import { encodeMines } from '@/utils/minigame/boardEncoding';
+import { flagChordModes } from '@/utils/minigame/flagChordTraining';
 import { trainingGames } from '@/utils/minigame/games';
 import type { TrainingGame } from '@/utils/minigame/games';
-import { leftClickModes, LeftClickTraining as LeftClickGame } from '@/utils/minigame/leftClickTraining';
+import { getMinigameDatabase, MINIGAME_RESULTS_STORE } from '@/utils/minigame/history';
+import type { MinigameStoredEntry } from '@/utils/minigame/history';
+import { leftClickModes, LeftClickTraining as LeftClickGame, multiTouchModes } from '@/utils/minigame/leftClickTraining';
+import { missingCellModes } from '@/utils/minigame/missingCellTraining';
 import { isolateMinigameHistory, savedMinigameResults } from '@cy/support/minigame';
 
 const mouse = { version: 1, cellSize: 32, initialBoard: 'AAAAAP////8', events: [[0, 16, 16, 2], [10, 32, 0, 1], [10, 0, 0, 2]], specialEvents: [] };
@@ -48,7 +52,7 @@ function mountReplay(path: string) {
     return router;
 }
 
-describe('online minigame replays', () => {
+describe('minigame replays', () => {
     isolateMinigameHistory();
 
     for (const [game, key, source, remaining] of [
@@ -133,5 +137,62 @@ describe('online minigame replays', () => {
         cy.wait('@corrupt');
         cy.get('[data-cy=minigame-replay-error]').should('contain.text', 'damaged');
         cy.get('.training-page, [data-cy=minigame-upload]').should('not.exist');
+    });
+
+    it('opens local recordings in the shared game UI, switches games, and leaves history untouched', () => {
+        cy.viewport(1440, 1000);
+        const entries: MinigameStoredEntry[] = [];
+        cy.then(async () => {
+            const codec = await loadReplayArchiveCodec();
+            const db = await getMinigameDatabase();
+            const recordings = [
+                { game: 'left-click', mode: leftClickModes[0], source: mouse },
+                { game: 'multi-touch', mode: multiTouchModes[0], source: { version: 1, cellSize: 32, initialBoard: mouse.initialBoard, events: [[0, 16, 16, 0, 0]] } },
+                { game: 'flag-chord', mode: flagChordModes[0], source: { ...mouse, initialBoard: [[1, 1, 0], [1, 5, 2], [5, 1, 5], [5, 5, 7]], events: [] } },
+                { game: 'missing-cell', mode: missingCellModes[0], source: { version: 1, rounds: Array.from({ length: 10 }, () => ({ board: 'gAAAAAAAAAA', target: [7, 7], timeMs: 100 })) } },
+            ] as const;
+            for (const recording of recordings) {
+                const entry = { game: recording.game, mode: recording.mode, playedAt: Date.now(), scoreMs: 1234, replay: codec.pack(recording.source) } as MinigameStoredEntry;
+                entry.id = await db.add(MINIGAME_RESULTS_STORE, entry);
+                entries.push(entry);
+            }
+        });
+        cy.intercept('GET', '/api/minigame/*/replay*', { statusCode: 500 }).as('onlineReplay');
+        const router = mountReplay('/minigame/left-click');
+        cy.get('[data-cy=minigame-history-toggle]').click();
+        for (const game of trainingGames) {
+            cy.get(`[data-cy=game-${game}]`).click();
+            cy.wrap(router).its('currentRoute.value.name').should('equal', `minigame-${game}`);
+            cy.get('.history-row').should('have.length', 1);
+            cy.then(() => {
+                cy.get(`[data-history-id="${entries.find((entry) => entry.game === game)?.id}"]`).click();
+            });
+            cy.wrap(router).its('currentRoute.value.name').should('equal', `minigame-${game}`);
+            cy.get('.training-page[data-replay=true]').should('be.visible').and('have.attr', 'data-phase', 'won');
+            cy.get(`[data-cy=${game === 'flag-chord' ? 'flag-chord' : game === 'missing-cell' ? 'missing-cell' : 'training'}-time]`).should('have.attr', 'aria-label', '001.234');
+            cy.get('[data-cy=minigame-upload]').should('not.exist');
+        }
+        cy.get('[data-cy=missing-cell-round-times] .plot-bar rect').should('have.length', 10);
+        cy.get('.training-frame-counters').click();
+        cy.wrap(router).its('currentRoute.value.query').should('deep.equal', {});
+        cy.get('.training-page').should('have.attr', 'data-replay', 'false');
+        cy.get('@onlineReplay.all').should('have.length', 0);
+        savedMinigameResults().should('have.length', 4);
+    });
+
+    it('reports missing, mismatched and corrupt local recordings', () => {
+        let id: number;
+        cy.then(async () => {
+            const db = await getMinigameDatabase();
+            id = await db.add(MINIGAME_RESULTS_STORE, { game: 'left-click', mode: leftClickModes[0], playedAt: Date.now(), scoreMs: 1234, replay: new ArrayBuffer(0) });
+        });
+        const router = mountReplay('/minigame/left-click?history=99999999');
+        cy.get('[data-cy=minigame-replay-error]').should('contain.text', 'No local replay found');
+        cy.then(() => router.push({ name: 'minigame-flag-chord', query: { history: id } }));
+        cy.get('[data-cy=minigame-replay-error]').should('contain.text', 'Invalid replay link');
+        cy.then(() => router.push({ name: 'minigame-left-click', query: { history: id } }));
+        cy.get('[data-cy=minigame-replay-error]').should('contain.text', 'damaged');
+        cy.then(() => router.push({ query: { history: id, player: 42, key: 'b-50-v1' } }));
+        cy.get('[data-cy=minigame-replay-error]').should('contain.text', 'Invalid replay link');
     });
 });
