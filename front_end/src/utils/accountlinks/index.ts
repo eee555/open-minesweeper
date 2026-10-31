@@ -1,6 +1,7 @@
 export * from './bilibili';
 export * from './collection';
 export type * from './common';
+export * from './discord';
 export * from './mineracer';
 export * from './msgames';
 export * from './platforms';

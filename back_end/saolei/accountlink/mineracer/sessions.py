@@ -5,14 +5,14 @@ import secrets
 
 from django.conf import settings
 from django.core.cache import caches
-from django.db import transaction
 from django.utils import timezone
 
 from userprofile.models import UserProfile
 from utils.exceptions import ExceptionToResponse
 from .client import poll_mineracer_account_link, request_mineracer_account_link
 from .dtos import MINERACER_STATUS_CONFIRMED, MINERACER_STATUS_EXPIRED, MINERACER_STATUS_FAILED, MINERACER_STATUS_PENDING, MineracerAccountLinkSession
-from ..models import AccountLinkQueue, AccountMineracer, Platform
+from ..models import AccountMineracer, Platform
+from ..services import save_verified_account_link
 
 logger = logging.getLogger('accountlink')
 
@@ -131,26 +131,11 @@ def complete_mineracer_account_link(user: UserProfile, session: MineracerAccount
     if timezone.now() > session.expires_at:
         return _mark_mineracer_session_expired(session)
 
-    identifier_conflict = False
-    with transaction.atomic():
-        collision = AccountLinkQueue.objects.select_for_update().filter(
-            platform=Platform.MINERACER,
-            identifier=userid,
-            verified=True,
-        ).exclude(userprofile=user).first()
-        account_collision = AccountMineracer.objects.select_for_update().filter(id=userid).exclude(parent=user).first()
-        existing_user_account = AccountMineracer.objects.select_for_update().filter(parent=user).exclude(id=userid).first()
-        if collision or account_collision or existing_user_account:
-            identifier_conflict = True
-        else:
-            AccountMineracer.objects.update_or_create(id=userid, defaults={'parent': user})
-            AccountLinkQueue.objects.update_or_create(
-                platform=Platform.MINERACER,
-                userprofile=user,
-                defaults={'identifier': userid, 'verified': True},
-            )
-
-    if identifier_conflict:
+    try:
+        save_verified_account_link(user, Platform.MINERACER, userid)
+    except ExceptionToResponse as exc:
+        if exc.obj != 'accountlink' or exc.category != 'collision':
+            raise
         _mark_mineracer_session_failed(session, 'identifier_conflict', remote_userid=userid)
         raise ExceptionToResponse('mineracer', 'identifier_conflict', status_code=409)
     return _mark_mineracer_session_confirmed(session, userid)

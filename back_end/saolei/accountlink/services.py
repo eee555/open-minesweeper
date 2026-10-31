@@ -1,7 +1,7 @@
 import logging
 
 from django.core.files.base import ContentFile
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 from django_tasks_db.models import DBTaskResult
 
@@ -16,7 +16,7 @@ from utils.ranking_lock import ranking_access
 from videomanager.models import VideoModel
 from videomanager.services import find_identical_video, set_import_upload_time
 from videomanager.utils import calculate_original_hash
-from .models import AccountLinkQueue, AccountMinesweeperGames, AccountWorldOfMinesweeper, Platform, VideoMSGames
+from .models import AccountLinkQueue, AccountMinesweeperGames, AccountWorldOfMinesweeper, Platform, PLATFORM_CONFIG, VideoMSGames
 from .msgames.client import download_replay as download_msgames_replay, fetch_profile as fetch_msgames_profile, fetch_replays as fetch_msgames_replays
 from .msgames.utils import upload_date_upper_bound
 from .utils import delete_account, link_account, update_bilibili_account
@@ -28,6 +28,36 @@ SAOLEI_VIDEO_IMPORT_TASK_PATH = 'accountlink.tasks.task_saolei_video_import'
 SAOLEI_VIDEO_IMPORT_BULK_TASK_PATH = 'accountlink.tasks.task_saolei_video_import_bulk'
 
 
+def save_verified_account_link(user: UserProfile, platform: Platform, identifier: str, profile: dict | None = None):
+    """Commit a provider-verified identity, rejecting reassignment and concurrent conflicts."""
+    model = PLATFORM_CONFIG[platform]['model']
+    try:
+        with transaction.atomic():
+            UserProfile.objects.select_for_update().get(pk=user.pk)
+            collision = AccountLinkQueue.objects.select_for_update().filter(
+                platform=platform, identifier=identifier, verified=True,
+            ).exclude(userprofile=user).exists()
+            account_collision = model.objects.select_for_update().filter(pk=identifier).exclude(parent=user).exists()
+            existing_user_account = model.objects.select_for_update().filter(parent=user).exclude(pk=identifier).exists()
+            existing_user_link = AccountLinkQueue.objects.select_for_update().filter(
+                platform=platform, userprofile=user, verified=True,
+            ).exclude(identifier=identifier).exists()
+            if collision or account_collision or existing_user_account or existing_user_link:
+                raise ExceptionToResponse('accountlink', 'collision', status_code=409)
+            account = link_account(platform, identifier, user)
+            if profile:
+                for field, value in profile.items():
+                    setattr(account, field, value)
+                account.save(update_fields=[*profile, 'update_time'])
+            AccountLinkQueue.objects.update_or_create(
+                platform=platform, userprofile=user,
+                defaults={'identifier': identifier, 'verified': True},
+            )
+            return account
+    except IntegrityError:
+        raise ExceptionToResponse('accountlink', 'collision', status_code=409) from None
+
+
 @transaction.atomic
 def verify_account_link(user_id: int, platform: str, identifier: str, actor_id: int) -> tuple[UserProfile, bool]:
     user = UserProfile.objects.select_for_update().filter(pk=user_id).first()
@@ -35,6 +65,8 @@ def verify_account_link(user_id: int, platform: str, identifier: str, actor_id: 
         raise ExceptionToResponse('user', 'not_found', status_code=404)
     if platform == Platform.MINERACER:
         raise ExceptionToResponse('mineracer', 'manual_link_not_supported', status_code=400)
+    if platform == Platform.DISCORD:
+        raise ExceptionToResponse('discord', 'manual_link_not_supported', status_code=400)
     if platform not in Platform.values:
         raise ExceptionToResponse('platform', 'invalid', status_code=400)
     links = list(AccountLinkQueue.objects.select_for_update().filter(platform=platform, identifier=identifier).order_by('pk'))
@@ -82,6 +114,8 @@ def update_account(platform: Platform, user: UserProfile):
         update_bilibili_account(user.account_bilibili)
     elif platform == Platform.MINERACER:
         raise ExceptionToResponse('mineracer', 'update_not_supported', status_code=400)
+    elif platform == Platform.DISCORD:
+        raise ExceptionToResponse('discord', 'update_not_supported', status_code=400)
 
 
 def update_wom_account(account: AccountWorldOfMinesweeper):

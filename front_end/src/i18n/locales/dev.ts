@@ -2,6 +2,7 @@ export default {
     local: 'dev',
     nf: 'NF',
     platform: {
+        d: 'Discord',
         m: 'Mineracer',
         w: 'Minesweeper.Online',
     },

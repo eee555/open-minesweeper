@@ -45,6 +45,10 @@ redis-cli -n 0 DEL io_s_old io_r_old io_s_spds io_r_spds cpus
 
 扫雷网旧站爬取及旧来源列表、统计查询已关闭，账号关联保留。首批仅由管理命令使用新来源结构同步目录和导入文件；旧爬取任务不会访问外站或写入业务数据。具体入口见仓库 `back_end/saolei/accountlink/README.md`。
 
+## Discord 授权临时状态
+
+Discord 绑定及登录在 `caches['default']` 保存 `accountlink:discord:flow:{state}` 和 `accountlink:discord:used:{state}`，TTL 均为 600 秒。前者保存浏览器及发起用户归属、PKCE verifier、回调配置和登录有效期，在回调时删除；后者通过原子 `cache.add` 防止多个 worker 重复消费同一次授权。Django Session 的 `discord_oauth_browser` 保存浏览器随机标识。缓存不保存 Client Secret 或访问令牌；清除临时状态只会要求用户重新授权，不影响已绑定记录。配置和验证边界见 `back_end/saolei/accountlink/discord/README.md`。
+
 ## 服务器监控快照
 
 `GET /api/monitor/summary` 一次返回 `{videosummary, tasksummary, diskusage, memoryusage}`，前端服务器页面只请求一次，再分发给各张卡片。APScheduler 的 `refresh_monitor_snapshot` 启动时立即执行，此后每 5 分钟复用 `monitor/services.py` 的采集函数，发布监控 JSON。开发环境默认写入 `BASE_DIR/runtime/monitor.json`；生产环境写入与 `STATIC_ROOT` 同级的 `runtime/monitor.json`，与源码目录分离。生产 Nginx 直接提供该文件；本地 Ninja 接口也只读文件，不在请求中采集。文件不存在时返回 503。
