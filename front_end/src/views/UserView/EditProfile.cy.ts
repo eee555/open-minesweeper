@@ -1,3 +1,5 @@
+import type { ComponentProps } from 'vue-component-type-helpers';
+
 import EditProfile from './EditProfile.vue';
 
 import $axios from '@/http';
@@ -5,7 +7,7 @@ import i18n from '@/i18n';
 import { pinia } from '@/store/create';
 import { UserProfile } from '@/utils/userprofile';
 
-function mountOptions(props?: { user?: UserProfile; expTimeMs?: number; qualificationStatus?: 'idle' | 'loading' | 'ready' | 'error' }) {
+function mountOptions(props: ComponentProps<typeof EditProfile> = {}) {
     return {
         props: props,
         global: {
@@ -42,64 +44,94 @@ function mockUpdateResponse(body: unknown) {
     }).as('updateProfile');
 }
 
+function mockPrivacyResponse(hide: boolean) {
+    cy.intercept('POST', '/api/userprofile/name-privacy', { hide_realname: hide }).as('updatePrivacy');
+}
+
 describe('EditProfile', () => {
     beforeEach(() => {
         cy.clock(new Date('2025-01-01T00:00:00Z'));
     });
 
-    it('offers an unchecked hide option only with eligibility and a valid new real name', () => {
-        cy.mount(EditProfile, mountOptions({ user: new UserProfile({ can_hide_realname: true }) }));
-        cy.get('[data-cy=hide-realname-toggle]').should('not.exist');
-        findLocalNameInput().type('Real Name');
-        cy.get('[data-cy=real-name-section] [data-cy=hide-realname-toggle]').should('not.be.checked');
-        findLocalNameInput().clear();
-        cy.get('[data-cy=hide-realname-toggle]').should('not.exist');
-    });
-
     for (const hide of [true, false]) {
-        it(`saves hide_realname=${String(hide)} with the profile Save button`, () => {
+        it(`automatically saves hide_realname=${String(hide)} when toggled`, () => {
             const user = new UserProfile({ realname: 'Real Name', can_hide_realname: true, hide_realname: !hide });
-            mockUpdateResponse({ realname: null, firstname: null, lastname: null, signature: null, hide_realname: { type: 'success' } });
+            mockPrivacyResponse(hide);
             cy.mount(EditProfile, mountOptions({ user }));
+            cy.get('[data-cy=real-name-section] .realname-heading').should('contain.text', 'Real Name').find('label').should('have.attr', 'title').and('contain', 'Changes save automatically.');
             if (hide) cy.get('[data-cy=real-name-section] [data-cy=hide-realname-toggle]').check();
             else cy.get('[data-cy=real-name-section] [data-cy=hide-realname-toggle]').uncheck();
-            cy.get('[data-cy=save-profile]').click();
-            cy.wait('@updateProfile').interceptFormData((data) => {
+            cy.wait('@updatePrivacy').interceptFormData((data) => {
                 expect(data.hide_realname).to.eq(String(hide));
-                expect(data.realname).to.be.undefined;
-                expect(data.firstname).to.be.undefined;
-                expect(data.lastname).to.be.undefined;
-                expect(data.signature).to.be.undefined;
             });
+            cy.get('[data-cy=privacy-save-status]').should('contain.text', 'Name privacy saved');
             cy.then(() => {
                 expect(user.hide_realname).to.eq(hide);
             });
         });
     }
 
-    it('keeps the saved hiding state on failure and resets the draft with Cancel', () => {
+    it('saves a new real name and hiding together only after clicking Save', () => {
+        const user = new UserProfile({ can_hide_realname: true });
+        mockUpdateResponse({ realname: { type: 'success' }, firstname: null, lastname: null, signature: null, hide_realname: { type: 'success' } });
+        cy.mount(EditProfile, mountOptions({ user }));
+        cy.get('[data-cy=hide-realname-toggle]').should('not.exist');
+        findLocalNameInput().type('Real Name');
+        cy.get('[data-cy=hide-realname-toggle]').should('not.be.checked').check();
+        cy.get('[data-cy=hide-realname-toggle]').parent().should('have.attr', 'title').and('contain', 'Click Save to save your real name and privacy setting together.');
+        cy.get('@updateProfile.all').should('have.length', 0);
+        cy.get('[data-cy=save-profile]').click();
+        cy.wait('@updateProfile').interceptFormData((data) => {
+            expect(data.realname).to.equal('Real Name');
+            expect(data.hide_realname).to.equal('true');
+        });
+        cy.get('[data-cy=privacy-save-status]').should('contain.text', 'Name privacy saved');
+        cy.then(() => {
+            expect(user.isNameHidden).to.equal(true);
+        });
+    });
+
+    it('leaves unrelated name and signature drafts unsaved when toggling privacy', () => {
+        const user = new UserProfile({ realname: 'Real Name', can_hide_realname: true, signature: 'Original', left_signature_n: 1 });
+        mockPrivacyResponse(true);
+        mockUpdateResponse({ realname: null, firstname: null, lastname: null, signature: null });
+        cy.mount(EditProfile, mountOptions({ user, expTimeMs: 30000 }));
+        findFirstNameInput().type('Draft');
+        findSignatureInput().clear();
+        findSignatureInput().type('Unsaved signature');
+        cy.get('[data-cy=hide-realname-toggle]').check();
+        cy.wait('@updatePrivacy').interceptFormData((data) => {
+            expect(data).to.deep.equal({ hide_realname: 'true' });
+        });
+        cy.get('[data-cy=privacy-save-status]').should('contain.text', 'Name privacy saved');
+        cy.get('@updateProfile.all').should('have.length', 0);
+        findFirstNameInput().should('have.value', 'Draft');
+        findSignatureInput().should('have.value', 'Unsaved signature');
+        cy.then(() => {
+            expect(user.firstname).to.equal('');
+            expect(user.signature).to.equal('Original');
+        });
+    });
+
+    it('restores the saved hiding state when the privacy API rejects the change', () => {
         const user = new UserProfile({ realname: 'Real Name', can_hide_realname: true });
-        mockUpdateResponse({ realname: null, firstname: null, lastname: null, signature: null, hide_realname: { type: 'error', object: 'privacy', category: 'not_authorized' } });
+        cy.intercept('POST', '/api/userprofile/name-privacy', { statusCode: 403, body: { type: 'error', object: 'privacy', category: 'not_authorized' } }).as('updatePrivacy');
         cy.mount(EditProfile, mountOptions({ user }));
         cy.get('[data-cy=hide-realname-toggle]').check();
-        cy.get('[data-cy=save-profile]').click();
-        cy.wait('@updateProfile');
+        cy.wait('@updatePrivacy');
         cy.contains('You are not authorized to hide your real name');
         cy.then(() => {
             expect(user.hide_realname).to.eq(false);
         });
         cy.get('[data-cy=hide-realname-toggle]').should('not.be.checked');
-        cy.contains('button', 'Cancel').click();
-        cy.get('[data-cy=hide-realname-toggle]').should('not.be.checked');
     });
 
     it('restores the saved privacy checkbox when the save is rate limited', () => {
         const user = new UserProfile({ realname: 'Real Name', can_hide_realname: true });
-        cy.intercept('POST', '/api/userprofile/update_profile', { statusCode: 429 }).as('updateProfile');
+        cy.intercept('POST', '/api/userprofile/name-privacy', { statusCode: 429 }).as('updatePrivacy');
         cy.mount(EditProfile, mountOptions({ user }));
         cy.get('[data-cy=hide-realname-toggle]').check();
-        cy.get('[data-cy=save-profile]').click();
-        cy.wait('@updateProfile').its('response.statusCode').should('eq', 429);
+        cy.wait('@updatePrivacy').its('response.statusCode').should('eq', 429);
         cy.get('[data-cy=hide-realname-toggle]').should('not.be.checked').and('not.be.disabled');
         cy.then(() => {
             expect(user.hide_realname).to.eq(false);

@@ -3,6 +3,8 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 from urllib.parse import urlencode
 
+from django.conf import settings
+from django.core.cache import caches
 from django.core.files.base import ContentFile
 from django.test import Client, override_settings, TestCase
 from django.utils import timezone
@@ -216,30 +218,7 @@ class RealnamePrivacyTests(TestCase):
         self.user.save(update_fields=['can_hide_realname', 'hide_realname'])
 
     def privacy(self, hide):
-        return self.client.post('/api/userprofile/update_profile', {'hide_realname': hide})
-
-    def test_privacy_only_save_updates_marker_and_admin_state(self):
-        previous = timezone.now() - timedelta(days=1)
-        UserProfile.objects.filter(pk=self.user.pk).update(hide_realname=False, date_updated=previous)
-        self.client.force_login(self.user)
-        response = self.privacy(True)
-        self.assertEqual(response.json()['hide_realname'], {'type': 'success'})
-        self.user.refresh_from_db()
-        self.assertTrue(self.user.hide_realname)
-        self.assertGreater(self.user.date_updated, previous)
-        updated = self.client.get('/api/userprofile/infoupdated', {'since': int(previous.timestamp() * 1000)})
-        self.assertIn(self.user.pk, updated.json())
-        self.client.force_login(self.staff)
-        self.assertTrue(self.client.get(f'/api/userprofile/admin/detail/{self.user.pk}').json()['hide_realname'])
-
-    def test_rate_limited_privacy_save_does_not_change_saved_setting(self):
-        UserProfile.objects.filter(pk=self.user.pk).update(hide_realname=False)
-        self.client.force_login(self.user)
-        with patch('django_ratelimit.decorators.is_ratelimited', return_value=True):
-            response = self.privacy(True)
-        self.assertEqual(response.status_code, 429)
-        self.user.refresh_from_db()
-        self.assertFalse(self.user.hide_realname)
+        return self.client.post('/api/userprofile/name-privacy', {'hide_realname': hide})
 
     def test_public_and_private_names_have_distinct_contracts(self):
         for viewer in (None, self.user, self.staff):
@@ -261,10 +240,12 @@ class RealnamePrivacyTests(TestCase):
         self.client.force_login(self.user)
         response = self.client.get('/api/userprofile/info/0')
         self.assertEqual(response.json()['realname'], '旧名')
+        self.assertTrue(response.json()['can_hide_realname'])
         self.assertTrue(response.json()['hide_realname'])
         with patch('common.api.TopRankingCache.get_anchors', return_value={}):
             response = self.client.get('/api/common/loginauto')
         self.assertEqual(response.json()['user']['realname'], '旧名')
+        self.assertTrue(response.json()['user']['can_hide_realname'])
         self.assertTrue(response.json()['user']['hide_realname'])
         self.client.force_login(self.staff)
         response = self.client.get(f'/api/userprofile/admin/detail/{self.user.pk}')
@@ -283,18 +264,20 @@ class RealnamePrivacyTests(TestCase):
 
     def test_private_switch_revoke_and_name_clear(self):
         self.client.force_login(self.user)
-        self.assertEqual(self.privacy(False).json()['hide_realname']['type'], 'success')
+        self.assertEqual(self.privacy(False).json(), {'hide_realname': False})
         self.user.refresh_from_db()
         self.assertFalse(self.user.hide_realname)
-        self.assertEqual(self.privacy(True).json()['hide_realname']['type'], 'success')
+        self.assertEqual(self.privacy(True).json(), {'hide_realname': True})
         self.user.refresh_from_db()
         self.assertTrue(self.user.hide_realname)
         self.client.force_login(self.staff)
         response = self.patch_update(self.user.pk, {'can_hide_realname': False})
         self.assertFalse(response.json()['hide_realname'])
         self.client.force_login(self.user)
-        self.assertEqual(self.privacy(True).json()['hide_realname'], {'type': 'error', 'object': 'privacy', 'category': 'not_authorized'})
-        self.assertEqual(self.privacy(False).json()['hide_realname']['type'], 'success')
+        response = self.privacy(True)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json(), {'type': 'error', 'object': 'privacy', 'category': 'not_authorized'})
+        self.assertEqual(self.privacy(False).json(), {'hide_realname': False})
         self.client.force_login(self.staff)
         self.patch_update(self.user.pk, {'can_hide_realname': True})
         self.client.force_login(self.user)
@@ -304,7 +287,9 @@ class RealnamePrivacyTests(TestCase):
         self.assertTrue(response.json()['can_hide_realname'])
         self.assertFalse(response.json()['hide_realname'])
         self.client.force_login(self.user)
-        self.assertEqual(self.privacy(True).json()['hide_realname'], {'type': 'error', 'object': 'privacy', 'category': 'realname_required'})
+        response = self.privacy(True)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json(), {'type': 'error', 'object': 'privacy', 'category': 'realname_required'})
 
     def test_saving_name_and_hiding_is_atomic(self):
         self.user._realname = '匿名'
@@ -366,3 +351,68 @@ class RealnamePrivacyTests(TestCase):
             response = self.client.get(f'/api/video/admin/detail/{video.pk}')
             self.assertEqual(response.json()['player__realname'], self.user._realname)
             self.assertEqual(self.client.get('/video/get/', {'id': video.pk}).status_code, 404)
+
+    def test_updates_only_the_current_users_privacy_without_censorship_or_csrf(self):
+        self.client = Client(enforce_csrf_checks=True)
+        self.client.force_login(self.user)
+        previous = timezone.now() - timedelta(days=1)
+        UserProfile.objects.filter(pk=self.user.pk).update(date_updated=previous)
+        with patch('userprofile.services.verify_text') as verify_text:
+            response = self.client.post('/api/userprofile/name-privacy', {
+                'hide_realname': False, 'id': self.staff.pk, 'realname': 'Ignored', 'signature': 'Ignored',
+            })
+            self.assertEqual(response.status_code, 200, response.content)
+            self.assertEqual(response.json(), {'hide_realname': False})
+            self.assertEqual(self.privacy(True).json(), {'hide_realname': True})
+        verify_text.assert_not_called()
+        self.user.refresh_from_db()
+        self.staff.refresh_from_db()
+        self.assertEqual(self.user._realname, '旧名')
+        self.assertEqual(self.user.signature, '')
+        self.assertTrue(self.user.hide_realname)
+        self.assertFalse(self.staff.hide_realname)
+        self.assertGreater(self.user.date_updated, previous)
+        updated = self.client.get('/api/userprofile/infoupdated', {'since': int(previous.timestamp() * 1000)})
+        self.assertIn(self.user.pk, updated.json())
+        self.client.force_login(self.staff)
+        self.assertTrue(self.client.get(f'/api/userprofile/admin/detail/{self.user.pk}').json()['hide_realname'])
+
+    def test_rejects_guests_and_banned_users(self):
+        self.client.logout()
+        self.assertEqual(self.privacy(False).status_code, 403)
+        self.client.force_login(self.user)
+        self.user.is_banned = True
+        self.user.save(update_fields=['is_banned'])
+        self.assertEqual(self.privacy(False).status_code, 403)
+
+    def test_rejects_invalid_payloads_and_unsafe_gets(self):
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.get('/api/userprofile/name-privacy').status_code, 405)
+        for body in ({}, {'hide_realname': 'invalid'}):
+            with self.subTest(body=body):
+                response = self.client.post('/api/userprofile/name-privacy', body)
+                self.assertEqual(response.status_code, 422)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.hide_realname)
+
+    def test_has_an_independent_per_user_rate_limit(self):
+        self.client.force_login(self.user)
+        test_caches = {
+            **settings.CACHES,
+            'name-privacy-limits': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache', 'LOCATION': 'name-privacy-rate-tests'},
+        }
+        with self.settings(RATELIMIT_ENABLE=True, RATELIMIT_USE_CACHE='name-privacy-limits', CACHES=test_caches), patch('django_ratelimit.core.time.time', return_value=timezone.now().timestamp()):
+            rate_cache = caches['name-privacy-limits']
+            rate_cache.clear()
+            self.addCleanup(rate_cache.clear)
+            for index in range(30):
+                response = self.privacy(bool(index % 2))
+                self.assertEqual(response.status_code, 200, response.content)
+            self.assertEqual(self.privacy(False).status_code, 429)
+            self.user.refresh_from_db()
+            self.assertTrue(self.user.hide_realname)
+            response = self.client.post('/api/userprofile/update_profile', {'firstname': 'New'})
+            self.assertEqual(response.status_code, 200, response.content)
+            self.assertEqual(self.client.post('/api/userprofile/update_profile', {'firstname': 'New'}).status_code, 429)
+            self.client.force_login(self.staff)
+            self.assertEqual(self.privacy(False).status_code, 200)

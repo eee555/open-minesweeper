@@ -21,7 +21,6 @@ import { httpErrorNotification } from '@/components/Notifications';
 import { applyLoginSession } from '@/services/loginSession';
 import type { TopAnchors } from '@/services/topRankingService';
 import { store } from '@/store';
-import type { GetUserInfoResponse } from '@/utils/common/structInterface';
 import useCurrentInstance from '@/utils/common/useCurrentInstance';
 import type { UserProfileData } from '@/utils/userprofile';
 
@@ -44,7 +43,7 @@ function openDialog(form: 'login' | 'register') {
 onMounted(async () => {
     const revision = store.sessionRevision;
     // 恢复登录状态时绕过 HTTP 缓存，避免实名等资料修改后读到旧数据。
-    await proxy.$axios.get<{ user: GetUserInfoResponse | null; top_anchors: TopAnchors }>('/api/common/loginauto', {
+    await proxy.$axios.get<{ user: UserProfileData | null; top_anchors: TopAnchors }>('/api/common/loginauto', {
         params: { _t: Date.now() },
     }).then(async function (response) {
         store.topAnchors = response.data.top_anchors;

@@ -20,16 +20,12 @@ interface Profile {
     hide_realname: boolean;
 }
 
-interface ProfileUpdate {
-    hide_realname: { type: 'success' | 'error' };
-}
-
 function self() {
     return cy.request<Profile>(`${BACKEND}/api/userprofile/info/0`);
 }
 
-function privacy(hide: boolean) {
-    return cy.request<ProfileUpdate>({ method: 'POST', url: `${BACKEND}/api/userprofile/update_profile`, form: true, body: { hide_realname: hide } });
+function privacy(hide: boolean, failOnStatusCode = true) {
+    return cy.request<Pick<Profile, 'hide_realname'>>({ method: 'POST', url: `${BACKEND}/api/userprofile/name-privacy`, form: true, body: { hide_realname: hide }, failOnStatusCode });
 }
 
 function publicNames(id: number, name: string) {
@@ -155,14 +151,14 @@ describe('Real name privacy against the backend', () => {
         cy.login(user.username, user.password);
         privacy(true);
         cy.visitUser(user.id, 'settings');
-        cy.intercept('POST', '**/api/userprofile/update_profile').as('saveProfile');
+        cy.intercept('POST', '**/api/userprofile/name-privacy').as('savePrivacy');
         cy.get('[data-cy=hide-realname-toggle]').uncheck();
-        cy.get('[data-cy=save-profile]').click();
-        cy.wait('@saveProfile').its('response.body.hide_realname.type').should('eq', 'success');
+        cy.wait('@savePrivacy').its('response.body.hide_realname').should('eq', false);
+        cy.get('[data-cy=privacy-save-status]').should('contain.text', '隐藏设置已保存');
         publicNames(user.id, user.realname);
         cy.get('[data-cy=hide-realname-toggle]').check();
-        cy.get('[data-cy=save-profile]').click();
-        cy.wait('@saveProfile').its('response.body.hide_realname.type').should('eq', 'success');
+        cy.wait('@savePrivacy').its('response.body.hide_realname').should('eq', true);
+        cy.get('[data-cy=privacy-save-status]').should('contain.text', '隐藏设置已保存');
         cy.reload();
         cy.get('[data-cy=hide-realname-toggle]').should('be.checked');
         editEligibility(user.id, false);
@@ -172,7 +168,7 @@ describe('Real name privacy against the backend', () => {
         cy.login(user.username, user.password);
         cy.visitUser(user.id, 'settings');
         cy.get('[data-cy=hide-realname-toggle]').should('not.exist');
-        privacy(true).its('body.hide_realname.type').should('eq', 'error');
+        privacy(true, false).its('status').should('eq', 403);
     });
 
     it('invalidates the saved user at the normal cache interval and keeps hidden names after reload', () => {
@@ -193,11 +189,11 @@ describe('Real name privacy against the backend', () => {
         cy.get(`.player-name a[href="#/player/${user.id}"]`).should('contain.text', user.username);
         cachedName(user.id).should('eq', user.realname);
         navigate(`#/player/${user.id}/settings`);
-        cy.intercept('POST', '**/api/userprofile/update_profile').as('saveProfile');
+        cy.intercept('POST', '**/api/userprofile/name-privacy').as('savePrivacy');
         cy.intercept('GET', '**/api/userprofile/infobulk*').as('publicBatch');
         cy.get('[data-cy=hide-realname-toggle]').check();
-        cy.get('[data-cy=save-profile]').click();
-        cy.wait('@saveProfile').its('response.body.hide_realname.type').should('eq', 'success');
+        cy.wait('@savePrivacy').its('response.body.hide_realname').should('eq', true);
+        cy.get('[data-cy=privacy-save-status]').should('contain.text', '隐藏设置已保存');
         navigate('#/database/videos');
         cy.wait('@publicBatch').its('response.statusCode').should('eq', 200);
         cy.get(`.player-name a[href="#/player/${user.id}"]`).should('have.text', `用户 #${user.id}`);
