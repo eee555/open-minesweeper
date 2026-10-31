@@ -242,8 +242,8 @@ class PLuckRankingCacheTests(CustomRankingTestCase):
         self.assertEqual(rows_by_level[SECOND_LEVEL]['video_id'], second.video_id)
 
 
+@override_settings(RATELIMIT_ENABLE=False)
 class PluckRankingApiTests(CustomRankingTestCase):
-    @override_settings(RATELIMIT_ENABLE=False)
     def test_rank_does_not_return_nf_information(self):
         record = self.create_record(self.players[0], pluck=1, timems=1000)
 

@@ -9,10 +9,12 @@ from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
 from django.db import transaction
 
+from msuser.models import UserMS
 from speedranking.saolei.cache import SpeedRankingCache
 from utils import generate_code, verify_text
 from utils.exceptions import ExceptionToResponse
 from videomanager.models import VideoModel
+from .forms import UserRegisterForm
 from .models import EmailVerifyRecord, UserProfile
 from .utils import count_new_avatar_chance, count_new_signature_chance, NAME_FIELDS, validate_name
 
@@ -24,6 +26,39 @@ NAME_DEFAULT = {
     'firstname': '',
     'lastname': '',
 }
+
+
+@transaction.atomic
+def clear_profile_info(user: UserProfile):
+    user.realname = ''
+    user.signature = ''
+    user.avatar = None
+    user.save(update_fields=['_realname', 'signature', 'avatar', 'date_updated'])
+
+
+def register_user(data: dict[str, str], user_ip: str) -> UserProfile:
+    form = UserRegisterForm(data=data)
+    if not form.is_valid():
+        raise ExceptionToResponse('register', 'validation')
+    if not judge_email_verification(form.cleaned_data['email'], data['email_captcha'], data['email_key']):
+        raise ExceptionToResponse('emailcode', 'invalid')
+
+    user = form.save(commit=False)
+    try:
+        is_valid = verify_text(user.username, 0, user_ip)
+    except Exception:
+        raise ExceptionToResponse('censorship', 'unknown')
+    if not is_valid:
+        raise ExceptionToResponse('censorship', 'illegal')
+
+    user.set_password(form.cleaned_data['password'])
+    user.is_active = True
+    with transaction.atomic():
+        user.userms = UserMS.objects.create()
+        user.save()  # noqa: DJM100 - creating a new user
+        EmailVerifyRecord.objects.filter(hashkey=data['email_key']).delete()
+    logger.info('User %s#%s registered', user.username, user.pk)
+    return user
 
 
 def try_update_user_name_fields(user: UserProfile, field_name: Literal['realname', 'firstname', 'lastname'], field_value: str, user_ip: str):
@@ -102,8 +137,8 @@ def grant_name_privacy(user: UserProfile, actor: str):
 @transaction.atomic
 def update_admin_profile(user_id: int, updates: dict, actor: UserProfile) -> UserProfile:
     user = UserProfile.objects.select_for_update().get(pk=user_id)
-    if user.is_staff and user.pk != actor.pk:
-        raise ExceptionToResponse('user', 'staff', status_code=403)
+    if user.is_memorial and 'email' in updates and updates['email'] != user.email:
+        raise ExceptionToResponse('memorial', 'email_readonly', status_code=400)
     old_privacy = (user.can_hide_realname, user.hide_realname)
     fields = []
     for field, value in updates.items():
@@ -159,6 +194,8 @@ def try_update_user_signature(user: UserProfile, signature: str, user_ip: str):
 
 # 发送邮件，根据send_type不同发送不同的邮件内容
 def send_email(email: str, send_type='register'):
+    if email.lower().endswith('@accounts.invalid'):
+        return None
     email_record = EmailVerifyRecord()
     if settings.E2E_TEST:
         code = 'abcdef'
@@ -222,6 +259,8 @@ def user_metadata(user: UserProfile, client):
         'identifiers': user.userms.identifiers,
         'is_banned': user.is_banned,
         'is_staff': user.is_staff,
+        'is_superuser': user.is_superuser if client == user else False,
+        'is_memorial': user.is_memorial,
         'country': user.country,
         'videos': list(videos),
     }

@@ -7,6 +7,12 @@ description: 开源扫雷网Redis/Django缓存结构详解，包括录像队列�
 
 本文记录项目当前使用的 Redis / Django cache 结构，以及缓存与数据库、API 之间的读写流向。数据库字段结构以各 app 的 `models.py` 为准，这里只记录缓存中实际保存的数据结构。
 
+扫雷网首批迁移由 [sync_saolei_api](./management-commands.md#sync-saolei-api) 串行执行，没有专用 Redis 进度或任务缓存。目录与 `AccountSaolei.video_sync_cursor` 同数据库事务提交，`video_update_time` 标记完整目录扫描完成；游标不等待文件导入，未完成文件通过本地来源表补导。旧账号成绩、人气、三级录像数量及任务指针字段随迁移删除，不再维护对应历史值。创建本站录像和同主重复文件的更早上传时间仍经过既有保存信号及排行缓存更新，不清理本站录像缓存来重建来源目录。
+
+`SaoleiApiVideo.file_url` 将详情返回的文件地址以客户端规范化后缀 `YYYY/MM/DD/filename` 保存到数据库，供文件导入使用，没有单独的 URL 缓存。目录列表不含此字段，目录刷新保留已存后缀；详情明确返回无文件时置空，下载失败仍保留后缀供重试时刷新。
+
+`SaoleiApiVideo.import_rejected` 在数据库中持久化本站文件校验直接拒收的结果，不使用缓存。导入事务回滚后单独写入；后续同步在请求详情和下载文件前跳过，目录刷新及 `--full` 不清除此标记。需人工重试时由站长在 Django shell 清除；网络、上游及其他非文件校验故障不设置标记，仍按本地未完成来源补导。
+
 录像解析字段现在由前端 IndexedDB 按 ID 缓存。普通查询返回 ID 和网站动态字段，再批量补全；字段定义变化时随前端更新递增 `CACHE_STORE_DEFINITIONS['video-info'].version`，加载新前端后清空整张录像表，接口无需携带版本。接口和 Redis 改动前后字段表见仓库 `front_end/src/services/videoService.md`。部署后运行 [compact_video_cache](./management-commands.md#compact-video-cache) 压缩存量载荷。
 
 旧竞速排行榜及新闻的读写逻辑已移除，可运行`python manage.py delete_legacy_speedranking_cache`清理旧个人纪录hash、排行zset及`news_queue`。支持`--dry-run`预览，具体范围见[管理命令文档](./management-commands.md#delete-legacy-speedranking-cache)。
@@ -21,6 +27,12 @@ description: 开源扫雷网Redis/Django缓存结构详解，包括录像队列�
 
 两个 `*_all` 字段均为持久化 `GeneratedField`，由数据库计算比赛与非比赛口径之和，不直接写入。上传额度 `video_num_limit` 独立维护，额度检查继续使用非比赛数量 `video_num_total`。
 
+删除 `UserProfile` 时，`userprofile.signals.delete_user_ms` 在同一删除事务内按真实 `userms_id` 删除关联 `UserMS`，其 `Identifier` 按外键级联删除。实例和 QuerySet 删除均生效；从 `UserMS` 发起的级联沿用原删除收集器，避免重复清理。历史上没有关联用户的 `UserMS` 可用 [cleanup_orphan_userms](./management-commands.md#cleanup-orphan-userms) 分批清理；该命令不写 Redis，已关联用户的记录保留。
+
+纪念账号没有专用缓存，旧身份及 Redis 残留由站长在服务器上使用已有工具清理，尤其不能遗漏普通录像删除后保留的 `newest_queue` 快照。公开姓名与头像沿用现有更新周期，不在网站启动时强制失效；`is_memorial` 行缓存列缺省为 false，其他浏览器可在正常更新前暂时显示旧姓名。建档和补录像规则见 `back_end/saolei/userprofile/README.md`。
+
+用户数据库页 `/database/users` 通过 `GET /api/userprofile/query` 直接读库，不使用用户资料 IndexedDB 缓存：录像统计变化不会更新 `UserProfile.date_updated`。查询集中在 `common.services`，每个非空页执行计数、用户及统计、当前页已验证关联 ID 三次查询。`AccountLinkQueue(platform, identifier)` 联合索引用于平台 ID 精确查询，用户外键索引用于分页后的批量读取。接口用法见仓库 `back_end/saolei/userprofile/README.md`。
+
 补录逻辑及延迟重算行为保持不变：比赛关联变化不立即调整统计。删除、文件大小及玩家归属变更按该录像当前的比赛标记和关联归类，允许与原先计入的口径存在偏差，统一由 [refresh_video_counts](./management-commands.md#refresh-video-counts) 全量重算修复；不保存历史统计分类字段。迁移后需先运行重算命令补齐历史统计。
 
 保存信号中数量、文件空间及需要提升的上传额度合并到一次 `UserMS UPDATE`；归属变化通过一条 `CASE WHEN UPDATE` 同时处理两位玩家。后台压缩修改 `file_size` 时，只查询该录像是否属于比赛，再按大小差额更新对应口径，不重算该用户的全部录像。所有统计字段使用固定字段名与 `if/else` 分支，不动态拼接。
@@ -31,15 +43,21 @@ description: 开源扫雷网Redis/Django缓存结构详解，包括录像队列�
 redis-cli -n 0 DEL io_s_old io_r_old io_s_spds io_r_spds cpus
 ```
 
-扫雷网旧站爬取已停用，账号关联和历史数据查询保留。元数据写入和文件导入仍可接收调用方提供的数据；旧爬取任务不会再访问外站或写入业务数据。具体入口见仓库 `back_end/saolei/accountlink/README.md`。
+扫雷网旧站爬取及旧来源列表、统计查询已关闭，账号关联保留。首批仅由管理命令使用新来源结构同步目录和导入文件；旧爬取任务不会访问外站或写入业务数据。具体入口见仓库 `back_end/saolei/accountlink/README.md`。
+
+## Discord 授权临时状态
+
+Discord 绑定及登录在 `caches['default']` 保存 `accountlink:discord:flow:{state}` 和 `accountlink:discord:used:{state}`，TTL 均为 600 秒。前者保存浏览器及发起用户归属、PKCE verifier、回调配置和登录有效期，在回调时删除；后者通过原子 `cache.add` 防止多个 worker 重复消费同一次授权。Django Session 的 `discord_oauth_browser` 保存浏览器随机标识。缓存不保存 Client Secret 或访问令牌；清除临时状态只会要求用户重新授权，不影响已绑定记录。配置和验证边界见 `back_end/saolei/accountlink/discord/README.md`。
 
 ## 服务器监控快照
 
-`GET /api/monitor/summary` 一次返回 `{videosummary, tasksummary, diskusage, memoryusage}`，前端服务器页面只请求一次，再分发给各张卡片。APScheduler 的 `refresh_monitor_snapshot` 启动时立即执行，此后每 5 分钟复用 `monitor/services.py` 的采集函数，写入 `BASE_DIR/runtime/monitor.json`。生产 Nginx 直接提供该文件；本地 Ninja 接口也只读文件，不在请求中采集。文件不存在时返回 503。
+`GET /api/monitor/summary` 一次返回 `{videosummary, tasksummary, diskusage, memoryusage}`，前端服务器页面只请求一次，再分发给各张卡片。APScheduler 的 `refresh_monitor_snapshot` 启动时立即执行，此后每 5 分钟复用 `monitor/services.py` 的采集函数，发布监控 JSON。开发环境默认写入 `BASE_DIR/runtime/monitor.json`；生产环境写入与 `STATIC_ROOT` 同级的 `runtime/monitor.json`，与源码目录分离。生产 Nginx 直接提供该文件；本地 Ninja 接口也只读文件，不在请求中采集。文件不存在时返回 503。
 
 前三项沿用原有统计字段，增加 UTC `sampled_at`；`memoryusage` 包含 `memory` 和 `redis`，各自保留采样时间。首次采集失败的统计项为 `null`；内存块仍使用下文的 `unavailable` 结构。后续某项采集失败时保留其上次成功结果及原时间，其他项正常更新。内存两块也独立保留旧样本。读取采样时间可以判断调度停止或持续失败导致的数据过期。
 
 发布前按 `monitor/schema.py` 校验，在同目录完整写入临时文件，再用 `os.replace` 原子替换，失败不破坏正式文件。Nginx 对精确路径设置 JSON 类型、`Cache-Control: no-cache` 和 `open_file_cache off`，避免替换后继续使用旧文件描述符；请求限流由 Nginx 执行。目录需可遍历，文件以 0644 权限发布，确保 Nginx worker 可读。部署路径变化时同步修改 `default.conf`；可通过 `MONITOR_SNAPSHOT_PATH` 覆盖采样与本地读取路径。
+
+采样与 Nginx 的 `alias` 必须指向同一文件。若只更新代码而未同步实际 Nginx 配置，或两者使用了不同路径，即使采样日志显示发布成功，请求仍可能返回 503。`start.sh` 会部署 `default.conf` 并重载 Nginx；手动部署时需同步配置，执行 `nginx -t` 检查通过后再重载。
 
 旧的四个独立监控接口和 Redis 结果缓存已移除，旧结果 key 会按原 300 秒 TTL 自动过期。管理员任务页使用独立的 `GET /api/common/tasks/summary`，仅管理员可访问，每次直接查询数据库，不读取快照；任务删除、重启和清理不触发整份监控数据重算。首次部署或本地调试可执行 [refresh_monitor_snapshot](./management-commands.md#refresh-monitor-snapshot) 手动生成文件，再重启 APScheduler、检查并重载 Nginx。
 
@@ -52,7 +70,7 @@ Redis 分类只读取业务代码直接确定的 DB 0 key，不执行 `SCAN`、`
 | 分类 | key 来源 |
 | --- | --- |
 | PB 榜 | `PBRankingCache.counts_key`；固定 hash 的 `HKEYS` 经校验后构造小榜 key；从 `UserProfile` 主键顺序每批最多 1,000 个 ID 构造用户 hash key。元数据缺失不发现 key、不触发重建。 |
-| 其他排行榜 | `SpeedRankingCache(name, stats=RANK_STATS).keys`、`TopRankingCache().keys`、`ThrpRankingCache().keys`、`MiniGameRankingCache().keys`、四种自定义 pluck 配置的 rank/detail key、比赛用户榜 key 和积分时间 key；当前共 138 个 key。 |
+| 其他排行榜 | `SpeedRankingCache(name, stats=RANK_STATS).keys`、`TopRankingCache().keys`、`ThrpRankingCache().keys`、`NFIOERankingCache().keys`、`MiniGameRankingCache().keys`、四种自定义 pluck 配置的 rank/detail key、比赛用户榜 key 和积分时间 key；当前共 144 个 key。 |
 | 最新录像 | `newest_cache.key`（`newest_queue`）。 |
 | 其他 | `INFO memory.used_memory` 减去前三类；包含其他业务、会话、同实例 DB 1 通用缓存、孤立/历史/临时 key 和 Redis 开销，不枚举 DB 1。 |
 
@@ -68,13 +86,15 @@ Redis 分类只读取业务代码直接确定的 DB 0 key，不执行 `SCAN`、`
 
 分类请求一次返回左键或多指 9 列、标双 2 列或漏雷 3 列，以组内任一列排序。已初始化时用两轮 pipeline 读取标记、人数、页内玩家和全部列明细，不查询成绩表。空榜也保存初始化标记；单条上传不设置标记。未初始化时从数据库加载完整榜单；Redis 故障时整次请求批量回源数据库。
 
-成绩创建或严格改善后通过 `on_commit` 写 ZSET 和 Hash，删除后移除成员并保留初始化标记。接受并发和重建的偶发覆盖；运行 `manage.py rebuild_minigame_ranks [--ranking-key key]` 可恢复缓存，不改数据库成绩。完整接口与取舍见 `back_end/saolei/minigame/README.md`。
+小游戏页排行榜抽屉仅读取所选配置的首页 20 人及登录用户位置，复用上述键，不初始化同组其他榜单或增加缓存键。含个人位置的响应禁止共享缓存，接口详情见后端 README。
+
+成绩创建或严格改善后通过 `on_commit` 写 ZSET 和 Hash，删除后移除成员并保留初始化标记。管理员在「小游戏纪录」删除单项成绩及回放时也复用该信号，不影响其他配置的缓存。接受并发和重建的偶发覆盖；运行 `manage.py rebuild_minigame_ranks [--ranking-key key]` 可恢复缓存，不改数据库成绩。完整接口与取舍见 `back_end/saolei/minigame/README.md`。
 
 最佳成绩对应的 v1 JSON 回放压缩为 7z，仅保存在 `MiniGameBestScore.replay_archive` BinaryField，不进入 Redis。缓存重建和排行榜数据库回源用 `defer('replay_archive')` 排除二进制回放字段。
 
 ### 用户姓名与隐私
 
-前端 `user-info` 的姓名列直接兼容隐藏标记 `hidden`，无需清空缓存或调整版本与检查间隔。资格及隐藏状态变更更新 `date_updated`，现有 `infoupdated` 流程按正常周期更新对应记录，允许旧姓名延迟变化。Redis 排行继续只引用用户 ID。缓存流程见仓库 `front_end/src/services/userService.md`；授权、展示与迁移约定见 `back_end/saolei/userprofile/README.md`。
+前端 `user-info` 的姓名列直接兼容隐藏标记 `hidden`，无需调整数据库版本或检查间隔。资料保存成功后，`invalidateUserInfo(id)` 删除该用户的本地缓存并通知已挂载的 `PlayerName` 重新读取公开姓名；失效前发出的响应不会写回旧值。缓存删除失败时不影响已保存的设置，跳过该用户的旧缓存并重置检查时间以便重试。资格及隐藏状态变更更新 `date_updated`，其他浏览器仍由现有 `infoupdated` 流程按正常周期更新。Redis 排行继续只引用用户 ID。缓存流程见仓库 `front_end/src/services/userService.md`；授权、展示与迁移约定见 `back_end/saolei/userprofile/README.md`。
 
 独立的本地初始化脚本 `dangerzone/init_local_test.py` 会清空本地 `saolei_website` Redis 数据库（包含会话），然后根据导入的公开录像重建竞速榜（扫雷网普通/NF、PB 普通/NF、top 十八项及锚点）、效率 Thrp 榜、pluck 纪录缓存和录像状态队列。在 `back_end/saolei` 目录使用 `python -m dangerzone.init_local_test` 启动。只允许本地测试配置，并拒绝存在 `.production` 标记的环境；不注册 `import_public_data` 管理命令。详情及数据缺失限制见[本地公开数据快照](./management-commands.md#本地公开数据快照)。
 
@@ -102,7 +122,7 @@ PB 另使用 `speedranking:pb:counts` hash 汇总各小榜人数，可通过 `GE
 
 ### 效率榜 `effranking`
 
-Thrp 的一个个人纪录 hash 和四个排序 zset 见下方数据结构表。编码、选优和事务边界统一见 `back_end/saolei/effranking/README.md`；首次部署及缓存丢失后执行 [rebuild_eff_ranks](./management-commands.md#rebuild-eff-ranks)，查询不自动回源。
+Thrp 使用一个个人纪录 hash 和五个排序 zset，NF IOE 独立使用一个 hash 和四个 zset，见下方数据结构表。编码、选优和事务边界统一见 `back_end/saolei/effranking/README.md`；首次部署及缓存丢失后执行指定大榜的 [rebuild_eff_ranks](./management-commands.md#rebuild-eff-ranks)，查询不自动回源。
 
 ```dot
 digraph cache {
@@ -159,8 +179,6 @@ digraph cache {
         get_participant_videos [label="/api/tournament/get_videos/participant"];
         reveal_video [label="POST /api/tournament/video/{video_id}/reveal"];
         get_tournament_news [label="/api/tournament/get_news"];
-        download_all_videos [label="/api/tournament/download"];
-        download_videos_participant [label="/api/tournament/download/participant"];
         get_gsc_results [label="/api/tournament/gsc/results"];
         create_gsc_participant [label="/api/tournament/gsc/participant"];
         register_gsc_participant_identifier [label="/api/tournament/gsc/participant/identifier"];
@@ -353,13 +371,6 @@ digraph cache {
     video_db -> reveal_video [label="read / lock / owner check"];
     reveal_video -> video_db [label="save ongoing_tournament=False"];
     tournament_cache -> get_tournament_news;
-    tournament_db -> download_all_videos;
-    video_db -> download_all_videos;
-    video_files -> download_all_videos;
-    tournament_db -> download_videos_participant;
-    userprofile_db -> download_videos_participant;
-    video_db -> download_videos_participant;
-    video_files -> download_videos_participant;
 
     // tournament gsc API
     tournament_db -> get_gsc_results;
@@ -640,8 +651,10 @@ digraph cache {
 | `minigame` | `minigame:detail:v1:{ranking_key}` | hash | `field = player_id`，value 为 `{score, achieved_at}` JSON。 |
 | `minigame` | `minigame:ready:v1:{ranking_key}` | string | `1` 表示整榜已初始化；空榜也保留，无 TTL。 |
 | `videomanager` | `newest_queue` | hash | `field = video_id`；JSON 仅包含 `state`、`time`、`player_id`。最新录像接口直接读取 Hash 快照并转换成元信息数组，不查询数据库；队列只写入公开录像，因此响应的 `ongoing_tournament` 为 `false`。解析字段由浏览器录像缓存补全；后台任务每天 01:08 按 `time` 保留最新 1000 条，时间相同时保留 ID 较大的录像，不再按天数过期。写入时不裁剪，允许暂时超过上限；裁剪使用 Python 排序和普通 Redis 删除操作，管理命令复用同一逻辑。`freeze_queue`、`review_queue` 已停止维护，遗留 key 由升级命令删除。 |
-| `effranking` | `effranking:thrp:records` | hash | `field = player_id`；完整 `b/i/e` 原始纪录 JSON，每项为 `null` 或包含 `value`、`video_id`、`upload_time` 的对象。sum 不重复存储。 |
-| `effranking` | `effranking:thrp:{stat}` | zset | `stat = b/i/e/sum`；`member = player_id`，score 为六位小数成绩和分钟级达成时间的排序编码，升序读取，不用于恢复成绩。 |
+| `effranking` | `effranking:thrp:records` | hash | `field = player_id`；完整个人纪录 JSON。普通 `b/i/e` 为 `null` 或 `{value, video_id, upload_time}`；`e_nf` 为 `null` 或 `{value, video_ids}`，满分时含全部达成录像，否则只含最佳一局。sum 不重复存储。 |
+| `effranking` | `effranking:thrp:{stat}` | zset | `stat = b/i/e/sum/e_nf`；`member = player_id`。原有四项编码六位小数成绩和分钟级达成时间；高级 NF 使用负 Thrp，满分后使用负达成局数。统一升序读取，不用于恢复成绩。 |
+| `effranking` | `effranking:nf_ioe:records` | hash | `field = player_id`；完整 `b/i/e` 纪录，每项为 `null` 或 `{value, video_id, timems}`；sum 从原始成绩计算，不重复存储。 |
+| `effranking` | `effranking:nf_ioe:{stat}` | zset | `stat = b/i/e/sum`；`member = player_id`；score 取业务分值的负数，满分单项比较用时，满分总和只比较高级用时。 |
 | `customranking` | `customranking:pluck:{level}:rank` | zset | `member = player_id`；`score = pluck`，当 `pluck == 0` 时使用 `timems - MAX_TIMEMS` 降低 0 碰撞风险。 |
 | `customranking` | `customranking:pluck:{level}:detail` | hash | `field = player_id`；JSON 包含 `video_id`、`timems`、`upload_time`。展示用的模式和 3BV 通过录像缓存补全；排序 zset 保持原编码。 |
 | `tournament` | `tournament:normal` | hash | `field = tournament_id`；`value = CachedTournament JSON`，包含 `id`、`state`、`subclass`、`host_id`、`start_time`、`end_time`、`data`。`data` 保存子类独占字段：GSC 为 `order`、`token`；周赛为 `year`、`week`、`tournament_format`。 |
@@ -721,7 +734,7 @@ Redis 连接和读写异常记录日志，计算及数据库摘要不回滚，�
 | 缓存 | 主要写入入口 | 重建 / 清理入口 |
 | --- | --- | --- |
 | 录像状态队列 | `videomanager.signals.refresh_state_queue_on_video_save` | `videomanager.cache.add_videos_to_state_queues_bulk` 可按状态批量恢复普通队列。 |
-| 效率 Thrp 排行 | `effranking.signals` 与批量 services，提交后更新 | `rebuild_eff_ranks` 全量重建；管理员 `/api/effranking/thrp/admin/rebuild_record` 修复单项，sum 仅从个人 hash 重算。 |
+| 效率 Thrp / NF IOE 排行 | `effranking.signals` 与批量 services，提交后更新 | `rebuild_eff_ranks --ranking-name thrp/nf_ioe` 指定大榜重建；管理员对应大榜的 `admin/rebuild_record` 修复单项，sum 仅从个人 hash 重算。 |
 | 自定义 pluck 排行 | 保存时 `update_custom_pluck_top_cache`；录像删除提交后 `refresh_custom_pluck_rank` 补位，纪录删除提交后 `sync_custom_pluck_top_cache` 同步当前状态 | `manage.py rebuild_custom_pluck_cache` 从 `CustomPluckRecord` 全量重建，不补建缺失的数据库纪录。 |
 | NORMAL 比赛 | `TournamentCache.update_tournament` | `manage.py rebuild_tournament_cache` 显式查询 `NORMAL` GSC 与周赛并重建。 |
 | NORMAL 参赛关系 | `TournamentCache.update_participant` / `remove_participant` | `manage.py rebuild_tournament_cache` 按 `user_id` 分组重建。 |
@@ -737,3 +750,13 @@ Redis 连接和读写异常记录日志，计算及数据库摘要不回滚，�
 - 录像队列缓存不保存比赛录像，`VideoQueueCache.add` / `add_bulk` 会跳过 `ongoing_tournament=True` 的录像。
 - 参赛 checkin 先读 `tournament:normal:participants`，命中后再按 tournament id 查询数据库对象，用于写入录像的多对多关系。
 - `customranking:pluck:{level}:rank` 只保存排序所需数据，展示字段来自同级 `detail` hash。
+
+## 录像物理存储
+
+录像压缩仅改变 `file`、`original_filename`、`stored_file_size`、`compression_format`、`compression_failed` 等存储字段。原始 `file_size`、`original_hash` 和解析结果保持不变，不升级前端录像缓存版本，也不将压缩容器写入 IndexedDB。
+
+服务器磁盘摘要汇总 `stored_file_size`；尚未补齐的原始录像回退到 `file_size`。新上传和导入在创建录像前尝试压缩校验，成功保存压缩文件，失败保存源文件并记录 `compression_format=0`、`stored_file_size=file_size` 及失败标记，两种情况均走原有创建信号；历史文件由管理员运行 `compress_video_files` 手动转换，不注册 APScheduler 压缩任务。
+
+preview 仅凭数字 ID 返回当前存储的文件，客户端按容器版本解压；download 在请求中恢复原始录像字节，复用 `original_file` 的输出大小及内存限制，不写临时文件、不缓存解压结果、不改动存储文件。两者每 IP 分别限流 `20/m` 和 `5/m`；生产 preview 及未压缩文件下载继续走 `X-Accel-Redirect`，压缩文件下载由 Django 以内存字节响应发送解压结果。
+
+生产的 CORS 白名单、预检及公开响应头统一配置在 `default.conf`，按原始 `$request_uri` 判断，因此 `X-Accel-Redirect` 后仍保持原 API 的跨域范围。内部媒体继承 HTTPS server 的 CORS 头，并从上游变量恢复 `X-Replay-Container-Version`。DEBUG 本地开发和 Cypress 仍由 Django CORS 中间件处理。先校验、重载完整 Nginx 配置，再更新生产后端，避免切换期间缺少跨域头。

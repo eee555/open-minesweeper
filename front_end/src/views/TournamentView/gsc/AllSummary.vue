@@ -7,69 +7,69 @@
                 <span v-else>{{ row.arbiter_identifier__identifier }}</span>
             </template>
         </ElTableColumn>
-        <ElTableColumn :label="t('common.level.b')">
-            <ElTableColumn prop="bt1st" :label="t('common.score.best')" sortable>
+        <ElTableColumn :label="t('level.b')">
+            <ElTableColumn prop="bt1st" :label="t('score.best')" sortable>
                 <template #default="{row}">
                     {{ ms_to_s(row.bt1st) }}
                 </template>
             </ElTableColumn>
-            <ElTableColumn prop="bt20th" :label="t('common.score.edge')" sortable>
+            <ElTableColumn prop="bt20th" :label="t('score.edge')" sortable>
                 <template #default="{row}">
                     {{ ms_to_s(row.bt20th) }}
                 </template>
             </ElTableColumn>
-            <ElTableColumn prop="bt20sum" :label="t('common.score.sum')" sortable>
+            <ElTableColumn prop="bt20sum" :label="t('score.sum')" sortable>
                 <template #default="{row}">
                     {{ ms_to_s(row.bt20sum) }}
                 </template>
             </ElTableColumn>
         </ElTableColumn>
-        <ElTableColumn :label="t('common.level.i')">
-            <ElTableColumn prop="it1st" :label="t('common.score.best')" sortable>
+        <ElTableColumn :label="t('level.i')">
+            <ElTableColumn prop="it1st" :label="t('score.best')" sortable>
                 <template #default="{row}">
                     {{ ms_to_s(row.it1st) }}
                 </template>
             </ElTableColumn>
-            <ElTableColumn prop="it12th" :label="t('common.score.edge')" sortable>
+            <ElTableColumn prop="it12th" :label="t('score.edge')" sortable>
                 <template #default="{row}">
                     {{ ms_to_s(row.it12th) }}
                 </template>
             </ElTableColumn>
-            <ElTableColumn prop="it12sum" :label="t('common.score.sum')" sortable>
+            <ElTableColumn prop="it12sum" :label="t('score.sum')" sortable>
                 <template #default="{row}">
                     {{ ms_to_s(row.it12sum) }}
                 </template>
             </ElTableColumn>
         </ElTableColumn>
-        <ElTableColumn :label="t('common.level.e')">
-            <ElTableColumn prop="et1st" :label="t('common.score.best')" sortable>
+        <ElTableColumn :label="t('level.e')">
+            <ElTableColumn prop="et1st" :label="t('score.best')" sortable>
                 <template #default="{row}">
                     {{ ms_to_s(row.et1st) }}
                 </template>
             </ElTableColumn>
-            <ElTableColumn prop="et5th" :label="t('common.score.edge')" sortable>
+            <ElTableColumn prop="et5th" :label="t('score.edge')" sortable>
                 <template #default="{row}">
                     {{ ms_to_s(row.et5th) }}
                 </template>
             </ElTableColumn>
-            <ElTableColumn prop="et5sum" :label="t('common.score.sum')" sortable>
+            <ElTableColumn prop="et5sum" :label="t('score.sum')" sortable>
                 <template #default="{row}">
                     {{ ms_to_s(row.et5sum) }}
                 </template>
             </ElTableColumn>
         </ElTableColumn>
-        <ElTableColumn :label="t('common.level.sum')">
-            <ElTableColumn prop="sum_tbest" :label="t('common.score.best')" sortable>
+        <ElTableColumn :label="t('level.sum')">
+            <ElTableColumn prop="sum_tbest" :label="t('score.best')" sortable>
                 <template #default="{row}">
                     {{ ms_to_s(row.sum_tbest) }}
                 </template>
             </ElTableColumn>
-            <ElTableColumn prop="sum_tedge" :label="t('common.score.edge')" sortable>
+            <ElTableColumn prop="sum_tedge" :label="t('score.edge')" sortable>
                 <template #default="{row}">
                     {{ ms_to_s(row.sum_tedge) }}
                 </template>
             </ElTableColumn>
-            <ElTableColumn prop="sum_tsum" :label="t('common.score.sum')" sortable>
+            <ElTableColumn prop="sum_tsum" :label="t('score.sum')" sortable>
                 <template #default="{row}">
                     {{ ms_to_s(row.sum_tsum) }}
                 </template>

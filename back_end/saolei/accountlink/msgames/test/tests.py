@@ -1,5 +1,6 @@
 from dataclasses import replace
 from datetime import date, datetime, timezone as datetime_timezone
+import hashlib
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -60,6 +61,11 @@ class MSGamesMappingTests(SimpleTestCase):
             with self.subTest(player_id=player_id), self.assertRaises(ValueError):
                 normalize_profile(value, player_id)
 
+    def test_empty_name_is_rejected_before_binding(self):
+        for name in ('', '  '):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                normalize_profile(replace(profile(), name=name), 42)
+
     def test_replays_merge_all_metrics_and_nf_groups_by_original_url(self):
         result = normalize_replays([*records(), *records(RecordMetric.THREE_BVS)], 42)
         self.assertEqual(len(result), 2)
@@ -119,6 +125,7 @@ class MSGamesMappingTests(SimpleTestCase):
                 with self.assertRaises(ExceptionToResponse) as caught:
                     fetch_profile(42)
                 self.assertEqual(caught.exception.category, category)
+                self.assertEqual(caught.exception.status_code, 503)
                 factory.return_value.__exit__.assert_called_once()
 
     @patch('accountlink.msgames.client.Client')
@@ -142,7 +149,7 @@ class MSGamesAccountTests(TestCase):
     def stored_video(self, data=b'replay', upload_time=None):
         video = VideoModel.objects.create(
             player=self.owner, video=ExpandVideoModel.objects.create(), file=ContentFile(data, 'test.avf'),
-            file_size=len(data), level=MS_TextChoices.Level.BEGINNER, software=MS_TextChoices.Software.AVF,
+            file_size=len(data), original_hash=hashlib.sha256(data).hexdigest()[:24], level=MS_TextChoices.Level.BEGINNER, software=MS_TextChoices.Software.AVF,
             state=MS_TextChoices.State.OFFICIAL, timems=490, bv=3,
         )
         if upload_time:
@@ -289,6 +296,7 @@ class MSGamesAccountTests(TestCase):
         self.assertEqual(download.call_count, 1)
         summary = self.client.get('/api/accountlink/msgames/summary', {'msgames_id': 42}).json()
         self.assertEqual(summary, {'total': 1, 'imported': 1, 'video_update_time': None})
+        parse.assert_not_called()
 
     @patch('accountlink.services.fetch_msgames_replays', side_effect=ExceptionToResponse('import', 'timeout'))
     def test_api_sync_error_returns_failure_without_changing_catalogue(self, fetch):
@@ -337,25 +345,28 @@ class MSGamesAccountTests(TestCase):
         self.assertEqual(parse.return_value.state, MS_TextChoices.State.IDENTIFIER)
         self.owner.refresh_from_db()
         self.assertIsNotNone(self.owner.userms_id)
+        self.assertEqual(create.call_args.kwargs['original_hash'], hashlib.sha256(b'replay').hexdigest()[:24])
 
     @patch('accountlink.services.download_msgames_replay', return_value=b'replay')
     @patch('accountlink.services.MSVideoParser')
-    def test_exact_file_dedup_keeps_earlier_upload_time(self, parse, download):
+    def test_hash_dedup_keeps_earlier_upload_time_without_parsing(self, parse, download):
         earlier = datetime(2019, 1, 1, tzinfo=datetime_timezone.utc)
         video = self.stored_video(upload_time=earlier)
         with patch('accountlink.services.VideoModel.create_from_parser') as create:
             self.assertEqual(msgames_video_import_one(self.source), video)
         create.assert_not_called()
+        parse.assert_not_called()
         video.refresh_from_db()
         self.assertEqual(video.upload_time, earlier)
 
     @patch('accountlink.services.download_msgames_replay', return_value=b'replay')
     @patch('accountlink.services.MSVideoParser')
-    def test_exact_file_dedup_backfills_later_existing_timestamp(self, parse, download):
+    def test_hash_dedup_backfills_later_existing_timestamp_without_parsing(self, parse, download):
         video = self.stored_video(upload_time=datetime(2021, 1, 1, tzinfo=datetime_timezone.utc))
         self.assertEqual(msgames_video_import_one(self.source), video)
         video.refresh_from_db()
         self.assertEqual(video.upload_time, datetime(2020, 3, 1, tzinfo=datetime_timezone.utc))
+        parse.assert_not_called()
 
     @patch('accountlink.services.download_msgames_replay', return_value=b'replay')
     @patch('accountlink.services.MSVideoParser')

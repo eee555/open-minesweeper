@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 from django.db import models
-from django_tasks_db.models import DBTaskResult
 
-from config.text_choices import MS_TextChoices, Saolei_TextChoices
+from config.text_choices import MS_TextChoices
 from userprofile.models import UserProfile
 from videomanager.models import VideoModel
 from .msgames.utils import supports_replay
@@ -11,6 +10,7 @@ from .wom.utils import ENDURANCE_BASE_MS
 
 class Platform(models.TextChoices):
     BILIBILI = 'B', ('Bilibili')
+    DISCORD = 'd', ('Discord')
     MSGAMES = 'a', ('Authoritative Minesweeper')
     MINERACER = 'm', ('Mineracer')
     QQ = 'q', ('腾讯QQ')
@@ -28,6 +28,9 @@ class AccountLinkQueue(models.Model):
     userprofile = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
     verified = models.BooleanField(default=False)
 
+    class Meta:
+        indexes = [models.Index(fields=['platform', 'identifier'], name='accountlink_platform_id_idx')]
+
 
 # 扫雷网账号信息
 class AccountSaolei(models.Model):
@@ -35,31 +38,15 @@ class AccountSaolei(models.Model):
     parent = models.OneToOneField(UserProfile, on_delete=models.CASCADE, related_name='account_saolei')
     update_time = models.DateTimeField(auto_now_add=True)
 
-    video_import_task = models.ForeignKey(DBTaskResult, on_delete=models.SET_NULL, null=True)
-
-    name = models.CharField(max_length=10, default='')  # 姓名，10应该够了吧
-    total_views = models.PositiveIntegerField(default=0)  # 综合人气
-
-    beg_count = models.PositiveSmallIntegerField(default=0)  # 初级录像数量
-    int_count = models.PositiveSmallIntegerField(default=0)  # 中级录像数量
-    exp_count = models.PositiveSmallIntegerField(default=0)  # 高级录像数量
-
-    # time纪录，单位毫秒
-    b_t_ms = models.PositiveIntegerField(null=True)
-    i_t_ms = models.PositiveIntegerField(null=True)
-    e_t_ms = models.PositiveIntegerField(null=True)
-    s_t_ms = models.PositiveIntegerField(null=True)
-
-    # bvs纪录，单位0.01。大概不会有人bvs超过300吧？大概吧？
-    b_b_cent = models.PositiveSmallIntegerField(null=True)
-    i_b_cent = models.PositiveSmallIntegerField(null=True)
-    e_b_cent = models.PositiveSmallIntegerField(null=True)
-    s_b_cent = models.PositiveSmallIntegerField(null=True)
+    name = models.CharField(max_length=128, default='')
+    banned = models.BooleanField(default=False)
+    video_sync_cursor = models.PositiveBigIntegerField(default=0)
+    video_update_time = models.DateTimeField(null=True)
 
 
-class VideoSaolei(models.Model):
-    id = models.PositiveIntegerField(primary_key=True)
-    user = models.ForeignKey(AccountSaolei, on_delete=models.DO_NOTHING, related_name='videos')
+class SaoleiApiVideo(models.Model):
+    remote_id = models.PositiveBigIntegerField(unique=True)
+    user = models.ForeignKey(AccountSaolei, on_delete=models.CASCADE, related_name='videos')
     upload_time = models.DateTimeField()
     level = models.CharField(
         max_length=1,
@@ -72,13 +59,11 @@ class VideoSaolei(models.Model):
     bv = models.PositiveSmallIntegerField(default=0)
     timems = models.PositiveIntegerField(default=0)
     nf = models.BooleanField(default=False)
-    state = models.CharField(max_length=1, choices=Saolei_TextChoices.SaoleiVideoState.choices)
+    software = models.TextField()
+    status = models.IntegerField()
+    file_url = models.TextField(null=True, blank=True, help_text='官方录像文件后缀 YYYY/MM/DD/filename，供客户端下载。')
     import_video = models.OneToOneField(VideoModel, on_delete=models.SET_NULL, null=True)
-    import_task = models.ForeignKey(DBTaskResult, on_delete=models.SET_NULL, null=True)
-
-    @property
-    def url(self):
-        return f'http://saolei.wang/Video/Show.asp?Id={self.id}'
+    import_rejected = models.BooleanField(default=False, help_text='本站文件校验已拒收，后续同步不再下载；人工清除后才重试。')
 
 
 class AccountMinesweeperGames(models.Model):
@@ -188,6 +173,18 @@ class AccountWorldOfMinesweeper(models.Model):
     season_count = models.PositiveSmallIntegerField(null=True, help_text='Number of seasons played (seasons), with one season per month.')
 
 
+class AccountDiscord(models.Model):
+    id = models.CharField(max_length=20, primary_key=True, help_text='Discord snowflake, serialized as a string without JavaScript precision loss.')
+    parent = models.OneToOneField(UserProfile, on_delete=models.CASCADE, related_name='account_discord')
+    username = models.CharField(max_length=32)
+    global_name = models.CharField(max_length=32, blank=True, default='')
+    avatar = models.CharField(max_length=34, blank=True, default='', help_text='Discord avatar hash, empty when unavailable.')
+    banner = models.CharField(max_length=34, blank=True, default='', help_text='Discord banner hash, empty when unavailable.')
+    accent_color = models.PositiveIntegerField(null=True, blank=True, default=None)
+    public_flags = models.PositiveBigIntegerField(null=True, blank=True, default=None)
+    update_time = models.DateTimeField(auto_now=True)
+
+
 class AccountMineracer(models.Model):
     id = models.CharField(max_length=MINERACER_USERID_MAX_LENGTH, primary_key=True, verbose_name='Mineracer Userid', help_text='Up to 64-character Mineracer Userid.')
     parent = models.OneToOneField(UserProfile, on_delete=models.CASCADE, related_name='account_mineracer', verbose_name='OpenMS user', help_text='OpenMS user linked to this Mineracer account.')
@@ -201,6 +198,10 @@ class AccountQQ(models.Model):
 
 
 PLATFORM_CONFIG = {
+    Platform.DISCORD: {
+        'model': AccountDiscord,
+        'related_name': 'account_discord',
+    },
     Platform.BILIBILI: {
         'model': AccountBilibili,
         'related_name': 'account_bilibili',

@@ -11,7 +11,7 @@
                     :aria-pressed="selectedLevel.code === option.code"
                     @click="selectLevel(option)"
                 >
-                    {{ t('common.level.c', { row: option.row, column: option.column, mine: option.mine }) }}
+                    {{ t('level.c', { row: option.row, column: option.column, mine: option.mine }) }}
                 </BaseButton>
             </div>
         </div>
@@ -20,25 +20,25 @@
             <template #head>
                 <tr>
                     <th scope="col" class="table-col-rank">
-                        {{ t('local.rank') }}
+                        {{ t('prop.rank') }}
                     </th>
                     <th scope="col" class="table-col-player">
-                        {{ t('common.prop.realName') }}
+                        {{ t('prop.realName') }}
                     </th>
                     <th scope="col" class="table-col-number">
-                        {{ t('common.prop.pluck') }}
+                        {{ t('prop.pluck') }}
                     </th>
                     <th scope="col" class="table-col-mode">
-                        {{ t('common.prop.mode') }}
+                        {{ t('prop.mode') }}
                     </th>
                     <th scope="col" class="table-col-number">
-                        {{ t('common.prop.time') }}
+                        {{ t('prop.time') }}
                     </th>
                     <th scope="col" class="table-col-bv">
-                        {{ t('common.prop.bv') }}
+                        {{ t('prop.bv') }}
                     </th>
                     <th scope="col" class="table-col-datetime">
-                        {{ t('common.prop.upload_time') }}
+                        {{ t('prop.upload_time') }}
                     </th>
                 </tr>
             </template>
@@ -55,7 +55,7 @@
                     </VideoPreviewLink>
                 </td>
                 <td class="table-col-mode">
-                    {{ t(`common.mode.code${row.mode}`) }}
+                    {{ t(`mode.code${row.mode}`) }}
                 </td>
                 <td class="table-col-number">
                     {{ ms_to_s(row.timems) }}
@@ -117,12 +117,10 @@ const i18nMessages = {
     'zh-cn': { local: {
         board: '局面',
         empty: '暂无排行数据',
-        rank: '排名',
     } },
     en: { local: {
         board: 'Board',
         empty: 'No ranking data',
-        rank: 'Rank',
     } },
 };
 

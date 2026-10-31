@@ -27,10 +27,10 @@
                 </Tippy>
             </div>
             <div class="ranking-actions">
-                <BaseButton class="square-button" data-cy="ranking-color" :type="local.colored ? 'primary' : 'default'" :aria-label="t('local.color')" :title="t('local.color')" :aria-pressed="local.colored" @click="local.colored = !local.colored">
+                <BaseButton class="square-button" data-cy="ranking-color" :type="local.colored ? 'primary' : 'default'" :aria-label="t('prop.color')" :title="t('prop.color')" :aria-pressed="local.colored" @click="local.colored = !local.colored">
                     <i class="pi pi-palette ranking-color-icon" aria-hidden="true" />
                 </BaseButton>
-                <BaseButton class="square-button" data-cy="ranking-refresh" :disabled="!ranking" :aria-label="t('common.action.refresh')" :title="t('common.action.refresh')" @click="ranking?.refresh()">
+                <BaseButton class="square-button" data-cy="ranking-refresh" :disabled="!ranking" :aria-label="t('action.refresh')" :title="t('action.refresh')" @click="ranking?.refresh()">
                     <BaseIconRefresh :loading="ranking?.loading ?? false" aria-hidden="true" />
                 </BaseButton>
             </div>
@@ -69,7 +69,6 @@ const selectedRankingName = computed<typeof rankingNames[number]>({
 const i18nMessages = {
     'zh-cn': { local: {
         rankingName: '大榜',
-        color: '颜色',
         howToImprove: '如何提高成绩',
         improveEligibility: '上传自己的标准模式通关录像，绑定录像内标识并通过审核。比赛隐藏录像需公开后才计入。',
         improveNF: '普通榜包含 NF 录像；若要提高 NF 项目，录像的有效右键次数必须为 0。',
@@ -83,18 +82,17 @@ const i18nMessages = {
             lsf: 'LSF 榜',
             top: 'Top',
             pb: 'PB 榜',
-            saolei: '旧@:{\'common.website.saolei\'}规则',
+            saolei: '旧@:{\'website.saolei\'}规则',
         },
         tooltip: {
             lsf: '根据 Top 五条成绩与锚点计算三级别、综合软实力及 LSF。',
             top: '标准模式、已审核且非隐藏比赛录像，取每项最佳五条的均值。初级 3BV ≥ 10，中级 ≥ 30，高级 ≥ 100；缺项用时按 999.999 秒补齐，其他指标补 0。',
-            pb: '仅限@:{\'common.mode.std\'}@:{\'common.prop.mode\'}，按@:{\'common.prop.level\'}和@:{\'common.prop.bv\'}分榜',
-            saolei: '仅限@:{\'common.mode.std\'}@:{\'common.prop.mode\'}。@:{\'common.level.b\'}@:{\'common.prop.time\'}要求@:{\'common.prop.bv\'} ≥ 2，@:{\'common.level.b\'}@:{\'common.prop.bvs\'}要求@:{\'common.prop.bv\'} ≥ 4，@:{\'common.level.i\'}要求@:{\'common.prop.bv\'} ≥ 30，@:{\'common.level.e\'}要求@:{\'common.prop.bv\'} ≥ 100',
+            pb: '仅限@:{\'mode.std\'}@:{\'prop.mode\'}，按@:{\'prop.level\'}和@:{\'prop.bv\'}分榜',
+            saolei: '仅限@:{\'mode.std\'}@:{\'prop.mode\'}。@:{\'level.b\'}@:{\'prop.time\'}要求@:{\'prop.bv\'} ≥ 2，@:{\'level.b\'}@:{\'prop.bvs\'}要求@:{\'prop.bv\'} ≥ 4，@:{\'level.i\'}要求@:{\'prop.bv\'} ≥ 30，@:{\'level.e\'}要求@:{\'prop.bv\'} ≥ 100',
         },
     } },
     en: { local: {
         rankingName: 'Ranking',
-        color: 'Color',
         howToImprove: 'How to improve',
         improveEligibility: 'Upload your own completed Standard-mode replays, bind their player identifiers and have them approved. Replays hidden for a tournament count after they are revealed.',
         improveNF: 'Ordinary rankings include NF replays. To improve an NF category, the replay must have zero effective right clicks.',
@@ -108,13 +106,13 @@ const i18nMessages = {
             lsf: 'LSF',
             top: 'Top',
             pb: 'PB',
-            saolei: 'Legacy @:common.website.saolei Rule',
+            saolei: 'Legacy @:website.saolei Rule',
         },
         tooltip: {
             lsf: 'Level strength, overall strength and LSF calculated from the top five records and anchors.',
             top: 'Mean of the best five official, public Standard replays. Minimum 3BV: Beginner 10, Intermediate 30, Expert 100. Missing times count as 999.999 seconds; other missing values count as zero.',
             pb: 'Standard mode, grouped by level and 3BV. NF additionally requires zero effective right clicks.',
-            saolei: '@:common.mode.std mode only. @:common.level.b @:common.prop.time requires @:common.prop.bv ≥ 2. @:common.level.b @:common.prop.bvs requires @:common.prop.bv ≥ 4. @:common.level.i requires @:common.prop.bv ≥ 30. @:common.level.e requires @:common.prop.bv ≥ 100.',
+            saolei: '@:mode.std mode only. @:level.b @:prop.time requires @:prop.bv ≥ 2. @:level.b @:prop.bvs requires @:prop.bv ≥ 4. @:level.i requires @:prop.bv ≥ 30. @:level.e requires @:prop.bv ≥ 100.',
         },
     } },
 };

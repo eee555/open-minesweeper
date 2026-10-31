@@ -12,7 +12,9 @@
 
 ## 哪些改动需要记录版本影响
 
-下列改动记录在 `CHANGELOG.md` 的“未发布 / Unreleased”段；未得到用户明确的版本升级指令时，保持当前版本号。
+更新记录只记录用户可感知的功能、行为、界面、性能和兼容性变化。代码整理、内部重构、保持显示内容不变的本地化 key 调整、测试或开发工具维护等纯开发改动，不写入 `CHANGELOG.md`，必要的实现和用法说明放在开发文档中。
+
+下列改动产生用户可感知的变化时，记录在 `CHANGELOG.md` 的“未发布 / Unreleased”段；未得到用户明确的版本升级指令时，保持当前版本号。
 
 - 公共组件 `src/components/VideoAnalyzer/` 的功能、默认配置、布局、表达式/计数器语义、播放或导出行为发生变化。
 - `src/views/LocalVideoAnalyzerView/`、本目录离线入口、离线使用说明/帮助/版权正文，或离线构建及打包逻辑改变交付给用户的内容或行为。
@@ -32,7 +34,7 @@
 
 ## 更新时必须完成的工作
 
-1. 判断实际影响范围并更新 `CHANGELOG.md` 的未发布记录；仅当用户明确要求升级版本号时修改 `version.json`，其余情况保持当前版本。
+1. 判断实际影响范围，有用户可感知的变化时更新 `CHANGELOG.md` 的未发布记录；纯开发改动不新增更新条目。仅当用户明确要求升级版本号时修改 `version.json`，其余情况保持当前版本。
 2. 同步必要的使用说明及中英文界面文本，保持页面、ZIP 内 `version.json` 和变更记录中的版本一致。
 3. 按 [构建与部署说明](./README.md) 在 `front_end` 执行 `npm.cmd run build:offline`，核对 ZIP 的版本文件、页面版本显示及内联资源检查。网站下载内容也需要刷新时使用 `npm.cmd run build:openms`，其 pre hook 会先生成离线包。
 4. 按改动维护相关测试。Cypress 命令留给用户，真实断网 `file://` 打开/解析/导出由用户验收；未运行的验证如实注明。lintfix/typecheck 遵循根目录 [.codex/instructions.md](../../.codex/instructions.md) 的跨轮工作流，不为本约束增加等待或额外审批。

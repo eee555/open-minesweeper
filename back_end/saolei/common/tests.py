@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone as datetime_timezone
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -51,7 +52,6 @@ class APSchedulerRegistrationTests(TestCase):
         self.assertEqual(
             {job.id for job in scheduler.get_jobs()},
             {
-                'delete_freezed_video',
                 'delete_newest_queue',
                 'delete_old_job_executions',
                 'delete_overdue_captcha',
@@ -109,16 +109,18 @@ class APSchedulerRegistrationTests(TestCase):
         self.assertEqual(first_run, now.replace(minute=8))
         self.assertEqual(job.trigger.get_next_fire_time(first_run, first_run), first_run + timedelta(days=1))
 
-    def test_registration_removes_only_retired_monitor_job(self):
+    def test_registration_removes_retired_jobs(self):
         from apscheduler.schedulers.background import BackgroundScheduler
         from common.apscheduler import register_jobs
 
         DjangoJob.objects.create(id='refresh_state_always', job_state=b'old monitor job')
+        DjangoJob.objects.create(id='delete_freezed_video', job_state=b'old frozen video cleanup job')
         DjangoJob.objects.create(id='delete_newest_queue', job_state=b'existing cleanup job')
 
         register_jobs(BackgroundScheduler())
 
         self.assertFalse(DjangoJob.objects.filter(id='refresh_state_always').exists())
+        self.assertFalse(DjangoJob.objects.filter(id='delete_freezed_video').exists())
         self.assertTrue(DjangoJob.objects.filter(id='delete_newest_queue').exists())
 
     def test_score_reference_job_runs_annually_in_utc_and_checks_on_startup(self):
@@ -678,7 +680,27 @@ class VideoUploadRankingIntegrationTest(TestCase):
         self.assertEqual(response.status_code, 200, response.content)
         data = json.loads(response.content)
         video = VideoModel.objects.select_related('video', 'player__userms').get(pk=data['data']['id'])
+        self.assertEqual(video.original_hash, hashlib.sha256(path.read_bytes()).hexdigest()[:24])
         return video, parser
+
+    def test_upload_hash_hit_skips_parser_and_stored_file_reads(self):
+        video, _ = self.upload_fixture('beginner_personal.evf')
+        VideoModel.objects.filter(pk=video.pk).update(file='missing.evf', file_size=video.file_size + 1, timems=video.timems + 1, bv=video.bv + 1)
+        path = self.fixture_path('beginner_personal.evf')
+        with patch('common.services.MSVideoParser') as parse:
+            response = self.client.post('/common/uploadvideo/', {'file': SimpleUploadedFile(path.name, path.read_bytes())})
+        self.assertEqual(response.json(), {'type': 'error', 'object': 'file', 'category': 'collision'})
+        self.assertEqual(VideoModel.objects.count(), 1)
+        parse.assert_not_called()
+
+    def test_upload_hash_miss_does_not_fall_back_to_replay_metadata(self):
+        previous, _ = self.upload_fixture('beginner_personal.evf')
+        VideoModel.objects.filter(pk=previous.pk).update(original_hash='f' * 24)
+        with patch('common.services.MSVideoParser', wraps=MSVideoParser) as parse:
+            video, _ = self.upload_fixture('beginner_personal.evf')
+        self.assertNotEqual(video.pk, previous.pk)
+        self.assertEqual(VideoModel.objects.count(), 2)
+        parse.assert_called_once()
 
     def test_upload_tournament_video_checks_in(self):
         parser = self.parse_fixture(self.fixture_path('standard_gsc.evf'))

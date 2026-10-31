@@ -36,7 +36,7 @@
    python -m venv .venv
    ```
 
-1. 先下载发布 wheel，再安装依赖。`requirements-wheels.txt` 固定 `wom-api` 和 `msgames-api` 的 GitHub 发布地址和 SHA-256；`requirements.txt` 固定安装版本。`wheels/` 不提交到 Git：
+1. 先下载发布 wheel，再安装依赖。`requirements-wheels.txt` 固定 `msgames-api` 的 GitHub 发布地址和 SHA-256；`requirements.txt` 固定安装版本。`wheels/` 不提交到 Git：
 
    ```powershell
    .\.venv\Scripts\python.exe -m pip download --no-deps --dest wheels -r requirements-wheels.txt
@@ -153,6 +153,8 @@ python3 -m pip install --find-links wheels -r requirements.txt
 
 | 赞助人 | 金额 | 时间 | 渠道 | 赞助对象 | 分配情况 |
 | :------: | :-----:  | :----------: | :------: | :------:| :------: |
+| 18875             | ¥63.00 | 2026-10-31 | 支付宝 | 网站 | -- |
+| Vostok             | ¥5.00 | 2026-10-31 | 微信 | 网站 | -- |
 | *树             | ¥200.00 | 2026-10-26 | 微信 | 网站 | -- |
 | 26225             | ¥200.00 | 2026-8-31 | 微信 | 网站 | -- |
 | AUGUSTE             | ¥36.66 | 2026-7-21 | QQ | 网站 | -- |
@@ -185,7 +187,7 @@ python3 -m pip install --find-links wheels -r requirements.txt
 | 域名        | ¥1.00  | 2023-12-11   | 华为云 | fff666.top |
 | 服务器      | ¥89.14 | 2023-12-03   | 华为云 | 华东-上海一 2核 2GiB 系统盘 40GiB 流量包 400GB 峰值带宽 3Mbit/s |
 
-当前账户余额：￥461.18
+当前账户余额：￥529.18
 
 资源到期时间和下期金额：
 

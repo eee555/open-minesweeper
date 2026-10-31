@@ -1,36 +1,36 @@
 <template>
-    {{ t('common.prop.tournamentId') }}
+    {{ t('prop.tournamentId') }}
     &nbsp;
     <ElInputNumber v-model="tournamentId" :min="0" :controls="false" />
     &nbsp;
     <BaseButton @click="refreshTournamentInfo">
-        {{ t('common.button.query') }}
+        {{ t('button.query') }}
     </BaseButton>
     <br>
     <template v-if="tournament">
-        {{ t('common.prop.status') }}
+        {{ t('prop.status') }}
         &nbsp;
         <TournamentStateIcon :state="tournament.getDisplayState(globalNow)" />
         <br>
-        {{ t('common.prop.start_time') }}
+        {{ t('prop.start_time') }}
         &nbsp;
         {{ tournament.startDate }}
         <br>
-        {{ t('common.prop.end_time') }}
+        {{ t('prop.end_time') }}
         &nbsp;
         {{ tournament.endDate }}
         <br>
         {{ t('local.review') }}
-        <BaseButton class="square-button" type="success" size="small" :aria-label="t('common.button.approve')" :disabled="!tournament.canValidate" @click="validateTournament(true)">
+        <BaseButton class="square-button" type="success" size="small" :aria-label="t('button.approve')" :disabled="!tournament.canValidate" @click="validateTournament(true)">
             <BaseIconTick />
         </BaseButton>
-        <BaseButton class="square-button" type="danger" size="small" :aria-label="t('common.button.revokeApproval')" :disabled="!tournament.canInvalidate" @click="validateTournament(false)">
+        <BaseButton class="square-button" type="danger" size="small" :aria-label="t('button.revokeApproval')" :disabled="!tournament.canInvalidate" @click="validateTournament(false)">
             <BaseIconClose />
         </BaseButton>
         <br>
-        {{ t('common.prop.name') }}
+        {{ t('prop.name') }}
         <VCodeBlock v-if="tournament" :code="JSON.stringify(tournament.name)" lang="json" />
-        {{ t('common.prop.description') }}
+        {{ t('prop.description') }}
         <VCodeBlock v-if="tournament.description" :code="JSON.stringify(tournament.description)" lang="json" />
     </template>
 </template>

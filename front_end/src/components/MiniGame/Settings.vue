@@ -2,7 +2,7 @@
     <div class="minigame-settings" :class="{ 'description-layout': descriptionLayout, 'minigame-settings--descriptions': descriptionLayout }">
         <dl :class="descriptionLayout ? 'descriptions' : 'minigame-settings-list'">
             <div :class="descriptionLayout ? 'description-item' : 'minigame-settings-row'">
-                <dt><label :for="cellSizeId">{{ t('local.cellSize') }}</label></dt>
+                <dt><label :for="cellSizeId">{{ t('prop.cellSize') }}</label></dt>
                 <dd class="minigame-settings-controls">
                     <InputNumber :id="cellSizeId" v-model="minigameSettings.cellSize" :min="1" :max="Number.MAX_SAFE_INTEGER" integer step="1" inputmode="numeric" data-cy="minigame-cell-size" />
                     <span>px</span>
@@ -37,6 +37,19 @@
                     </div>
                 </dd>
             </div>
+            <div :class="descriptionLayout ? 'description-item' : 'minigame-settings-row'">
+                <dt :id="scoreDisplayId">
+                    {{ t('local.scoreDisplay') }}
+                </dt>
+                <dd class="minigame-settings-controls">
+                    <div class="checkbox-buttons" role="radiogroup" :aria-labelledby="scoreDisplayId" :title="t('local.cesHint')" data-cy="minigame-score-display">
+                        <label v-for="metric in ['time', 'ces']" :key="metric" class="checkbox-button">
+                            <input v-model="minigameSettings.leftClickScoreDisplay" class="checkbox-button-input" type="radio" :name="scoreDisplayId" :value="metric" :data-cy="`minigame-score-${metric}`">
+                            <span class="checkbox-button-content">{{ t(`prop.${metric}`) }}</span>
+                        </label>
+                    </div>
+                </dd>
+            </div>
         </dl>
         <p :id="hintId" class="minigame-settings-hint text text-info text-small">
             {{ t('local.hint') }}
@@ -45,7 +58,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/checkbox-buttons.css';
 import '@/styles/descriptions.css';
 
 import { useId } from 'vue';
@@ -62,6 +74,7 @@ const hotkeyId = useId();
 const cellSizeId = useId();
 const opacityId = useId();
 const mineStateId = useId();
+const scoreDisplayId = useId();
 
 function recordHotkey(event: KeyboardEvent) {
     if (event.key === 'Tab') return;
@@ -73,24 +86,26 @@ function recordHotkey(event: KeyboardEvent) {
 
 const i18nMessages = {
     'zh-cn': { local: {
-        cellSize: '格子大小',
         restartHotkey: '重开热键',
         unset: '未设置',
         clear: '清除',
         hint: '点击输入框后按键设置，支持组合键；所有小游戏共用。输入参数时不触发重开。',
         mineOpacity: '左键／多指训练 · 雷的不透明度',
         mineState: '左键／多指训练 · 雷格状态',
+        scoreDisplay: '左键／多指训练 · 成绩显示',
+        cesHint: 'CES = 成功点击次数（不含首次）÷ 用时（秒）。影响右上角计数器和完整排行榜。',
         up: '弹起',
         down: '按下',
     } },
     en: { local: {
-        cellSize: 'Cell size',
         restartHotkey: 'Restart hotkey',
         unset: 'Not set',
         clear: 'Clear',
         hint: 'Focus the field and press a key or combination. Shared by all games; inactive while editing settings.',
         mineOpacity: 'Left-click / multi-touch training · Mine opacity',
         mineState: 'Left-click / multi-touch training · Mine cell state',
+        scoreDisplay: 'Left-click / multi-touch training · Score display',
+        cesHint: 'CES = successful clicks (excluding the first) / elapsed seconds. Applies to the top-right counter and full rankings.',
         up: 'Raised',
         down: 'Pressed',
     } },

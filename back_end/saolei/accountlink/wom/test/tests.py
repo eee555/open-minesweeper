@@ -1,18 +1,19 @@
 from copy import deepcopy
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
-import ssl
-from unittest.mock import AsyncMock, MagicMock, patch
+import threading
+import time
+from unittest.mock import Mock, patch
 
-from django.test import SimpleTestCase, TestCase
-from wom_api import AuthorizationError, ConnectionError as WomConnectionError, ProtocolError, RequestTimeout, ServerError
+from django.test import override_settings, SimpleTestCase, TestCase
 
 from accountlink.api import AccountWoMOut
 from accountlink.models import AccountWorldOfMinesweeper
 from accountlink.services import update_wom_account
 from userprofile.models import UserProfile
 from utils.exceptions import ExceptionToResponse
-from ..client import fetch_wom_profile
+from ..client import _RequestError, fetch_wom_profile
 from ..utils import normalize_wom_profile
 
 
@@ -97,44 +98,95 @@ class WomProfileMappingTests(SimpleTestCase):
                 normalize_wom_profile(profile, 1783173)
 
 
-class WomClientTests(SimpleTestCase):
-    async def test_anonymous_client_fetches_once_and_closes(self):
-        client = MagicMock()
-        client.get_user_detail_data = AsyncMock(return_value=public_profile())
-        manager = MagicMock()
-        manager.__aenter__ = AsyncMock(return_value=client)
-        manager.__aexit__ = AsyncMock(return_value=None)
-        with patch('accountlink.wom.client.WomClient', return_value=manager) as constructor:
-            data = await fetch_wom_profile(1783173)
-        constructor.assert_called_once()
-        self.assertEqual(constructor.call_args.kwargs['timeout'], 5)
-        self.assertEqual(constructor.call_args.kwargs['ssl_context'].verify_mode, ssl.CERT_REQUIRED)
-        client.get_user_detail_data.assert_awaited_once_with(userId=1783173, popupRandId=None)
-        manager.__aexit__.assert_awaited_once()
-        self.assertEqual(data['b_ng_t_ms'], 1282)
+@override_settings(WOM_API_BASE_URL='https://api.test', WOM_API_TOKEN='test-token', WOM_API_TIMEOUT=6)
+class WomHttpClientTests(SimpleTestCase):
+    def reply(self, status=200, payload=None, headers=None, raw=None):
+        body = raw if raw is not None else json.dumps(public_profile() if payload is None else payload).encode()
+        return status, {'content-type': 'application/json', **(headers or {})}, body
 
-    async def test_external_errors_are_mapped_and_client_is_closed(self):
-        for exception, category in [(RequestTimeout, 'timeout'), (AuthorizationError, 'requestexception'), (WomConnectionError, 'requestexception'), (ProtocolError, 'requestexception'), (ServerError, 'requestexception')]:
-            client = MagicMock()
-            client.get_user_detail_data = AsyncMock(side_effect=exception('test error'))
-            manager = MagicMock()
-            manager.__aenter__ = AsyncMock(return_value=client)
-            manager.__aexit__ = AsyncMock(return_value=None)
-            with self.subTest(exception=exception), patch('accountlink.wom.client.WomClient', return_value=manager):
-                with self.assertRaises(ExceptionToResponse) as context:
-                    await fetch_wom_profile(1783173)
-            self.assertEqual(context.exception.category, category)
-            manager.__aexit__.assert_awaited_once()
+    def test_request_uses_token_and_normalizes(self):
+        with patch('accountlink.wom.client._request', return_value=self.reply()) as request:
+            data = fetch_wom_profile(1783173)
+        args = request.call_args.args
+        self.assertEqual(args[0], 'https://api.test/profile/1783173')
+        self.assertEqual(args[1], {'X-Api-Token': 'test-token'})
+        self.assertEqual(args[2], 6)
+        self.assertEqual(data['b_t_ms'], 1213)
+        self.assertEqual(data['e_ng_t_ms'], 48877)
 
-    async def test_invalid_response_maps_to_existing_parse_error(self):
-        client = MagicMock()
-        client.get_user_detail_data = AsyncMock(return_value={})
-        manager = MagicMock()
-        manager.__aenter__ = AsyncMock(return_value=client)
-        manager.__aexit__ = AsyncMock(return_value=None)
-        with patch('accountlink.wom.client.WomClient', return_value=manager):
+    @override_settings(WOM_API_TOKEN='')
+    def test_missing_token_fails_without_request(self):
+        with patch('accountlink.wom.client._request') as request:
             with self.assertRaises(ExceptionToResponse) as context:
-                await fetch_wom_profile(1783173)
+                fetch_wom_profile(1783173)
+        request.assert_not_called()
+        self.assertEqual(context.exception.category, 'requestexception')
+
+    def test_unauthorized_is_not_retried(self):
+        with patch('accountlink.wom.client._request', return_value=self.reply(401, {'error': 'unauthorized'})) as request:
+            with self.assertRaises(ExceptionToResponse) as context:
+                fetch_wom_profile(1783173)
+        self.assertEqual(request.call_count, 1)
+        self.assertEqual(context.exception.category, 'requestexception')
+
+    def test_rate_limit_retries_after_retry_after(self):
+        replies = [self.reply(429, headers={'retry-after': '1'}), self.reply()]
+        with patch('accountlink.wom.client._request', side_effect=replies) as request, patch('accountlink.wom.client.time.sleep') as sleep:
+            data = fetch_wom_profile(1783173)
+        self.assertEqual(request.call_count, 2)
+        sleep.assert_called_once_with(1.0)
+        self.assertEqual(data['b_t_ms'], 1213)
+
+    def test_protocol_error_is_not_retried(self):
+        with patch('accountlink.wom.client._request', return_value=self.reply(502, {'error': 'protocol'})) as request:
+            with self.assertRaises(ExceptionToResponse) as context:
+                fetch_wom_profile(1783173)
+        self.assertEqual(request.call_count, 1)
+        self.assertEqual(context.exception.category, 'requestexception')
+
+    def test_connection_error_is_retried_then_mapped(self):
+        with patch('accountlink.wom.client._request', return_value=self.reply(502, {'error': 'connection'})) as request, patch('accountlink.wom.client.time.sleep'):
+            with self.assertRaises(ExceptionToResponse) as context:
+                fetch_wom_profile(1783173)
+        self.assertEqual(request.call_count, 2)
+        self.assertEqual(context.exception.category, 'requestexception')
+
+    def test_timeout_sources_map_to_timeout(self):
+        # 传输层超时、504、502 timeout 三种来源都归为 timeout，且都会重试一次。
+        for source, outcome in [
+            ('transport', _RequestError('timeout')),
+            ('504', self.reply(504, {'error': 'timeout'})),
+            ('502 timeout', self.reply(502, {'error': 'timeout'})),
+        ]:
+            with self.subTest(source=source), patch('accountlink.wom.client._request', side_effect=[outcome, outcome]) as request, patch('accountlink.wom.client.time.sleep'):
+                with self.assertRaises(ExceptionToResponse) as context:
+                    fetch_wom_profile(1783173)
+            self.assertEqual(request.call_count, 2)
+            self.assertEqual(context.exception.category, 'timeout')
+
+    def test_total_budget_stops_retry(self):
+        # 预算只剩 0.5s，退避需要 1s：不再重试，直接按当前分类失败。
+        with patch('accountlink.wom.client._request', return_value=self.reply(429)) as request, \
+                patch('accountlink.wom.client.TOTAL_BUDGET', 0.5), \
+                patch('accountlink.wom.client.time.sleep') as sleep:
+            with self.assertRaises(ExceptionToResponse) as context:
+                fetch_wom_profile(1783173)
+        self.assertEqual(request.call_count, 1)
+        sleep.assert_not_called()
+        self.assertEqual(context.exception.category, 'requestexception')
+
+    def test_non_json_response_maps_to_parse_error(self):
+        with patch('accountlink.wom.client._request', return_value=self.reply(raw=b'not json')) as request:
+            with self.assertRaises(ExceptionToResponse) as context:
+                fetch_wom_profile(1783173)
+        self.assertEqual(request.call_count, 1)
+        self.assertEqual(context.exception.category, 'indexerror')
+
+    def test_identity_mismatch_maps_to_parse_error(self):
+        with patch('accountlink.wom.client._request', return_value=self.reply()) as request:
+            with self.assertRaises(ExceptionToResponse) as context:
+                fetch_wom_profile(1)
+        self.assertEqual(request.call_count, 1)
         self.assertEqual(context.exception.category, 'indexerror')
 
 
@@ -147,7 +199,7 @@ class WomAccountTests(TestCase):
         account = AccountWorldOfMinesweeper.objects.filter(id=1783173).first()
         data = normalize_wom_profile(public_profile(), account.id)
         old_update_time = account.update_time
-        with patch('accountlink.services.fetch_wom_profile', new=AsyncMock(return_value=data)):
+        with patch('accountlink.services.fetch_wom_profile', new=Mock(return_value=data)):
             update_wom_account(account)
         account = AccountWorldOfMinesweeper.objects.filter(id=1783173).first()
         self.assertEqual(account.id, 1783173)
@@ -187,7 +239,7 @@ class WomAccountTests(TestCase):
         profile = public_profile()
         profile['userStat'].update({'end1': 0, 'end2': None, 'end3': 0})
         data = normalize_wom_profile(profile, account.id)
-        with patch('accountlink.services.fetch_wom_profile', new=AsyncMock(return_value=data)):
+        with patch('accountlink.services.fetch_wom_profile', new=Mock(return_value=data)):
             update_wom_account(account)
         account.refresh_from_db()
         output = AccountWoMOut.from_orm(account).model_dump()
@@ -198,7 +250,7 @@ class WomAccountTests(TestCase):
         profile = public_profile()
         profile['userStat'].update({'coinsAll': 2 ** 32 - 1, 'bbbvAll': 2 ** 32 - 1, 'seasons': 2 ** 16 - 1, 'timeAll': 2 ** 40, 'arenaDuration': 2 ** 39})
         data = normalize_wom_profile(profile, account.id)
-        with patch('accountlink.services.fetch_wom_profile', new=AsyncMock(return_value=data)):
+        with patch('accountlink.services.fetch_wom_profile', new=Mock(return_value=data)):
             update_wom_account(account)
         account.refresh_from_db()
         self.assertEqual(account.minecoin_total, 2 ** 32 - 1)
@@ -213,9 +265,100 @@ class WomAccountTests(TestCase):
         account.save(update_fields=['trophy'])
         old_update_time = account.update_time
         error = ExceptionToResponse(obj='import', category='timeout')
-        with patch('accountlink.services.fetch_wom_profile', new=AsyncMock(side_effect=error)):
+        with patch('accountlink.services.fetch_wom_profile', new=Mock(side_effect=error)):
             with self.assertRaises(ExceptionToResponse):
                 update_wom_account(account)
         account.refresh_from_db()
         self.assertEqual(account.trophy, 123)
         self.assertEqual(account.update_time, old_update_time)
+
+
+class WomSlowServerHandler(BaseHTTPRequestHandler):
+    """按 user_id 模拟三种坏上游：2 每 0.2 秒吐一块 body，3 发一半停住，4 每 0.2 秒吐一行响应头。"""
+
+    def log_message(self, *args):
+        pass
+
+    def _dribble_headers(self):
+        try:
+            self.wfile.write(b'HTTP/1.1 200 OK\r\n')
+            self.wfile.flush()
+            for index in range(100):
+                self.wfile.write(f'X-Slow-{index}: 1\r\n'.encode())
+                self.wfile.flush()
+                time.sleep(0.2)
+        except OSError:
+            pass
+        finally:
+            self.close_connection = True
+
+    def do_GET(self):
+        user_id = int(self.path.rsplit('/', 1)[-1])
+        if user_id == 4:
+            self._dribble_headers()
+            return
+        data = json.dumps(public_profile()).encode()
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(data) * 1000 if user_id == 2 else len(data)))
+        self.end_headers()
+        try:
+            if user_id == 2:
+                for _ in range(1000):
+                    self.wfile.write(data[:64])
+                    self.wfile.flush()
+                    time.sleep(0.2)
+            else:
+                self.wfile.write(data[:10])
+                self.wfile.flush()
+                time.sleep(5)
+        except OSError:
+            pass
+        finally:
+            self.close_connection = True
+
+
+class WomSlowServerTests(SimpleTestCase):
+    """真实 HTTP 用例：只有走真实 socket 才能验证超时语义与看门狗能否打断阻塞读。"""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.server = ThreadingHTTPServer(('127.0.0.1', 0), WomSlowServerHandler)
+        cls.base_url = f'http://127.0.0.1:{cls.server.server_address[1]}'
+        threading.Thread(target=cls.server.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server.server_close()
+        super().tearDownClass()
+
+    def test_trickling_headers_abort_at_total_budget(self):
+        # 响应头每 0.2 秒一行：单次读超时拦不住，必须靠看门狗。
+        with self.settings(WOM_API_BASE_URL=self.base_url, WOM_API_TOKEN='test-token', WOM_API_TIMEOUT=0.5), \
+                patch('accountlink.wom.client.TOTAL_BUDGET', 1.0):
+            started = time.monotonic()
+            with self.assertRaises(ExceptionToResponse) as context:
+                fetch_wom_profile(4)
+            elapsed = time.monotonic() - started
+        self.assertEqual(context.exception.category, 'timeout')
+        self.assertLess(elapsed, 3.0)
+
+    def test_trickling_body_aborts_at_total_budget(self):
+        # 上游每 0.2 秒吐一块，单次读不会超时；只有总预算能中止它。
+        with self.settings(WOM_API_BASE_URL=self.base_url, WOM_API_TOKEN='test-token', WOM_API_TIMEOUT=0.5), \
+                patch('accountlink.wom.client.TOTAL_BUDGET', 1.0):
+            started = time.monotonic()
+            with self.assertRaises(ExceptionToResponse) as context:
+                fetch_wom_profile(2)
+            elapsed = time.monotonic() - started
+        self.assertEqual(context.exception.category, 'timeout')
+        self.assertLess(elapsed, 3.0)
+
+    def test_body_read_timeout_maps_to_timeout(self):
+        # 发完响应头和部分 body 后停住：socket 读超时，应归为 timeout。
+        with self.settings(WOM_API_BASE_URL=self.base_url, WOM_API_TOKEN='test-token', WOM_API_TIMEOUT=0.5):
+            with self.assertRaises(ExceptionToResponse) as context:
+                fetch_wom_profile(3)
+        self.assertEqual(context.exception.category, 'timeout')

@@ -9,7 +9,7 @@
                 <span>{{ t('local.showLayer') }}</span>
             </label>
             <label class="board-layer-control__opacity-setting">
-                <span>{{ t('local.opacity') }}</span>
+                <span>{{ t('prop.opacity') }}</span>
                 <input v-model.number="opacity" class="board-layer-control__opacity" type="range" min="0" max="1" step="0.01">
                 <output>{{ Math.round(opacity * 100) }}%</output>
             </label>
@@ -19,7 +19,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/checkbox.css';
 import { useI18n } from 'vue-i18n';
 
 import BoardSettingsControl from './BoardSettingsControl.vue';
@@ -35,11 +34,9 @@ const opacity = defineModel('opacity', { type: Number, required: true });
 const i18nMessages = {
     'zh-cn': { local: {
         showLayer: '显示图层',
-        opacity: '不透明度',
     } },
     en: { local: {
         showLayer: 'Show layer',
-        opacity: 'Opacity',
     } },
 };
 const { t } = useI18n({ messages: i18nMessages });

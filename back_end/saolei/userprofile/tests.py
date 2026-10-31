@@ -4,13 +4,12 @@ from unittest.mock import patch
 from urllib.parse import urlencode
 
 from django.core.files.base import ContentFile
-from django.test import override_settings, TestCase
+from django.test import Client, override_settings, TestCase
 from django.utils import timezone
 
 from msuser.models import UserMS
 from userprofile.models import UserProfile
 from videomanager.models import ExpandVideoModel, VideoModel
-from videomanager.view_utils import generate_file_stream
 
 
 @override_settings(RATELIMIT_ENABLE=False)
@@ -145,6 +144,39 @@ class UserProfileAdminApiTests(TestCase):
         self.assertEqual(get_response.status_code, 404)
         self.assertEqual(post_response.status_code, 404)
 
+    def test_staff_assignment_requires_superuser(self):
+        for viewer in (self.staff, self.user, None):
+            with self.subTest(viewer=viewer):
+                if viewer is None:
+                    self.client.logout()
+                else:
+                    self.client.force_login(viewer)
+                self.assertEqual(self.client.get('/api/userprofile/admin/staff').status_code, 401)
+                response = self.client.post('/api/userprofile/admin/staff', {'user_id': self.user.pk, 'is_staff': True}, content_type='application/json')
+                self.assertEqual(response.status_code, 401)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_staff)
+
+    def test_staff_assignment_initializes_csrf_and_does_not_require_staff(self):
+        self.staff.is_superuser = True
+        self.staff.is_staff = False
+        self.staff.save(update_fields=['is_superuser', 'is_staff', 'date_updated'])
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(self.staff)
+        payload = {'user_id': self.user.pk, 'is_staff': True}
+        self.assertEqual(client.post('/api/userprofile/admin/staff', payload, content_type='application/json').status_code, 403)
+        access = client.get('/api/userprofile/admin/staff')
+        self.assertEqual(access.status_code, 200, access.content)
+        self.assertIn('no-store', access['Cache-Control'])
+        for is_staff in (True, False):
+            with self.subTest(is_staff=is_staff):
+                payload['is_staff'] = is_staff
+                response = client.post('/api/userprofile/admin/staff', payload, content_type='application/json', HTTP_X_CSRFTOKEN=access.json()['csrf_token'])
+                self.assertEqual(response.status_code, 200, response.content)
+                self.assertEqual(response.json(), {'id': self.user.pk, 'is_staff': is_staff})
+                self.user.refresh_from_db()
+                self.assertEqual(self.user.is_staff, is_staff)
+
 
 @override_settings(RATELIMIT_ENABLE=False)
 class UserProfileUpdateApiTests(TestCase):
@@ -164,8 +196,8 @@ class UserProfileUpdateApiTests(TestCase):
                     verify.side_effect = result
                 else:
                     verify.return_value = result
-                response = self.client.post('/api/userprofile/update_profile', {'realname': 'Jason Weng'})
-                verify.assert_called_once()
+                response = self.client.post('/api/userprofile/update_profile', {'realname': 'Jason Weng'}, REMOTE_ADDR='203.0.113.7')
+                verify.assert_called_once_with('Jason Weng', self.user.id, '203.0.113.7')
             self.assertEqual(response.status_code, 200, response.content)
             self.assertEqual(response.json()['realname'], {'type': 'error', 'object': 'censorship', 'category': category})
             self.user.refresh_from_db()
@@ -185,6 +217,29 @@ class RealnamePrivacyTests(TestCase):
 
     def privacy(self, hide):
         return self.client.post('/api/userprofile/update_profile', {'hide_realname': hide})
+
+    def test_privacy_only_save_updates_marker_and_admin_state(self):
+        previous = timezone.now() - timedelta(days=1)
+        UserProfile.objects.filter(pk=self.user.pk).update(hide_realname=False, date_updated=previous)
+        self.client.force_login(self.user)
+        response = self.privacy(True)
+        self.assertEqual(response.json()['hide_realname'], {'type': 'success'})
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.hide_realname)
+        self.assertGreater(self.user.date_updated, previous)
+        updated = self.client.get('/api/userprofile/infoupdated', {'since': int(previous.timestamp() * 1000)})
+        self.assertIn(self.user.pk, updated.json())
+        self.client.force_login(self.staff)
+        self.assertTrue(self.client.get(f'/api/userprofile/admin/detail/{self.user.pk}').json()['hide_realname'])
+
+    def test_rate_limited_privacy_save_does_not_change_saved_setting(self):
+        UserProfile.objects.filter(pk=self.user.pk).update(hide_realname=False)
+        self.client.force_login(self.user)
+        with patch('django_ratelimit.decorators.is_ratelimited', return_value=True):
+            response = self.privacy(True)
+        self.assertEqual(response.status_code, 429)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.hide_realname)
 
     def test_public_and_private_names_have_distinct_contracts(self):
         for viewer in (None, self.user, self.staff):
@@ -293,7 +348,7 @@ class RealnamePrivacyTests(TestCase):
                 self.user.refresh_from_db()
                 self.assertEqual(self.user._realname, '匿名')
 
-    def test_video_queries_and_export_do_not_bypass_name_getters(self):
+    def test_video_queries_do_not_bypass_name_getters(self):
         with TemporaryDirectory() as root, override_settings(MEDIA_ROOT=root):
             video = VideoModel(player=self.user, video=ExpandVideoModel.objects.create(identifier='privacy'), software='e', level='e', bv=100, timems=100000)
             video.file.save('privacy.evf', ContentFile(b'original replay'))  # noqa: DJM100
@@ -311,6 +366,3 @@ class RealnamePrivacyTests(TestCase):
             response = self.client.get(f'/api/video/admin/detail/{video.pk}')
             self.assertEqual(response.json()['player__realname'], self.user._realname)
             self.assertEqual(self.client.get('/video/get/', {'id': video.pk}).status_code, 404)
-            stream = iter(generate_file_stream(VideoModel.objects.filter(pk=video.pk)))
-            next(stream)
-            self.assertEqual(next(stream).decode(), f'{self.user.pk}_hidden/privacy.evf')

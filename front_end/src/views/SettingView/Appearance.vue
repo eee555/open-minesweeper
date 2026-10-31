@@ -10,10 +10,10 @@
                     <dd>
                         <ElSwitch v-model="local.vienna_logo_legacy">
                             <template #active>
-                                <img style="width: 16px; height: 16px" :src="ViennaIconLegacy" :title="t('common.old')">
+                                <img style="width: 16px; height: 16px" :src="ViennaIconLegacy" :title="t('old')">
                             </template>
                             <template #inactive>
-                                <img style="width: 16px; height: 16px" :src="ViennaIconNew" :title="t('common.new')">
+                                <img style="width: 16px; height: 16px" :src="ViennaIconNew" :title="t('new')">
                             </template>
                         </ElSwitch>
                     </dd>
@@ -61,7 +61,6 @@
 <script setup lang="ts">
 import '@/styles/descriptions.css';
 import '@/styles/cards.css';
-import '@/styles/text.css';
 
 import { ElInputNumber, ElSwitch } from 'element-plus';
 import { useI18n } from 'vue-i18n';

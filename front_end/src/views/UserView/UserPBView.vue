@@ -2,13 +2,13 @@
     <section class="pb-summary" :aria-busy="loading" data-cy="pb-summary">
         <div class="pb-controls">
             <label class="checkbox checkbox--small"><input v-model="nf" class="checkbox-input" type="checkbox"> NF</label>
-            <div class="button-group button-group--joined" role="group" :aria-label="t('local.metric')" data-cy="pb-stat">
+            <div class="button-group button-group--joined" role="group" :aria-label="t('prop.metric')" data-cy="pb-stat">
                 <BaseButton v-for="metric in summaryStats" :key="metric" size="small" :type="stat === metric ? 'primary' : 'default'" :aria-pressed="stat === metric" :data-stat="metric" @click="stat = metric">
-                    {{ metric === 'rank' ? t('local.rank') : t(`common.prop.${metric}`) }}
+                    {{ metric === 'rank' ? t('prop.rank') : t(`prop.${metric}`) }}
                 </BaseButton>
             </div>
             <BaseButton size="small" :loading="loading" data-cy="refresh-pb" @click="load(true)">
-                {{ t('local.refresh') }}
+                {{ t('action.refresh') }}
             </BaseButton>
         </div>
         <p v-if="loading" role="status">
@@ -24,8 +24,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
-import '@/styles/checkbox.css';
 import { computed, onActivated, onDeactivated, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
@@ -82,16 +80,10 @@ watch([active, dataKey], () => {
 }, { immediate: true });
 const i18nMessages = {
     'zh-cn': { local: {
-        metric: '指标',
-        rank: '排名',
-        refresh: '刷新',
         loading: '正在加载 PB 纪录…',
         failed: 'PB 纪录加载失败，请点击刷新重试。',
     } },
     en: { local: {
-        metric: 'Metric',
-        rank: 'Rank',
-        refresh: 'Refresh',
         loading: 'Loading PB records…',
         failed: 'Could not load PB records. Refresh to retry.',
     } },

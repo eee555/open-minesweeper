@@ -76,7 +76,7 @@ describe('touch-only training', () => {
                 const recording = structuredClone(replay.recording);
                 cy.get('[data-cy="training-orientation"] input[value="vertical"]').parent().click();
                 cy.get('.minigame-touch-trace').should('have.attr', 'width', '512').and('have.attr', 'height', '960');
-                cy.get('.minigame-touch-trace > g').should('have.attr', 'transform', 'matrix(0 1 1 0 0 0)');
+                cy.get('.minigame-touch-trace [data-touch-down="0"]').should('have.attr', 'transform', `translate(${safe.row + 0.5} ${safe.column + 0.5})`);
                 cy.get<ComponentWrapper<typeof App>>('@game').should((current) => {
                     const currentReplay: AnyTrainingReplay = current.findComponent<typeof TouchTrace>('.minigame-touch-trace').props('replay');
                     expect(currentReplay.recording).to.deep.eq(recording);
@@ -253,12 +253,12 @@ describe('touch-only training', () => {
             expect(events).to.have.length(1);
             expect(events?.[0][0]).to.eq('multi-touch-b-87.5-v1');
         });
-        cy.get('[data-cy="minigame-replay-contact"]').should('have.length', 8);
-        cy.get('.minigame-touch-trace polyline').should('have.length', 8);
+        cy.get('.minigame-touch-trace [data-touch-active]').should('have.length', 8);
+        cy.get('.minigame-touch-trace [data-touch-path]').should('have.length', 8);
         cy.get('[data-cy="minigame-replay-position"]').invoke('val', '0').trigger('input');
         cy.get('[data-cy="minigame-replay-position"]').trigger('change');
         cy.get('[data-cy="training-remaining"]').should('have.attr', 'aria-label', '007');
-        cy.get('[data-cy="minigame-replay-contact"]').should('have.length', 1);
+        cy.get('.minigame-touch-trace [data-touch-active]').should('have.length', 1);
         cy.get('.training-frame-counters').click();
         cy.get('[data-cy="training-game"]').should('have.attr', 'data-phase', 'ready');
         cy.get('[data-cy="minigame-replay-controls"]').should('not.exist');

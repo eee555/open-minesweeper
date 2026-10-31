@@ -1,6 +1,6 @@
 <template>
     <a class="link text" :href="platformlist[platform].url" target="_blank" rel="noopener noreferrer" style="vertical-align: bottom;">
-        {{ t(`common.platform.${platform}`) }}
+        {{ t(`platform.${platform}`) }}
     </a>
 </template>
 

@@ -3,14 +3,14 @@
         <div class="website-replay-info__details">
             <div class="website-replay-info__identity website-replay-info__row">
                 <span class="website-replay-info__id">{{ t('local.videoId') }} #{{ id }}</span>
-                <time v-if="info" class="website-replay-info__upload-time" :datetime="info.video.upload_time" :title="t('common.prop.upload_time')">{{ utc_to_local_format(info.video.upload_time) }}</time>
+                <time v-if="info" class="website-replay-info__upload-time" :datetime="info.video.upload_time" :title="t('prop.upload_time')">{{ utc_to_local_format(info.video.upload_time) }}</time>
                 <span v-else>--</span>
             </div>
             <div class="website-replay-info__player website-replay-info__row">
                 <PlayerName v-if="info" :user-id="info.video.player" />
                 <span v-else>--</span>
                 <span v-if="info && info.tournament_ids.length > 0" class="website-replay-info__tournaments">
-                    {{ t('local.tournament') }}
+                    {{ t('tournament.tournament') }}
                     <RouterLink v-for="tournamentId in info.tournament_ids" :key="tournamentId" class="link" :to="`/tournament/${tournamentId}`">#{{ tournamentId }}</RouterLink>
                 </span>
             </div>
@@ -27,10 +27,10 @@
             </div>
         </div>
         <nav class="website-replay-info__links" :aria-label="t('local.links')">
-            <a class="base-button base-button--size-small website-replay-info__link website-replay-info__replay-download" :href="replayDownloadUrl" :download="info?.filename ?? ''" :title="t('local.downloadReplay')" :aria-label="t('local.downloadReplay')">
+            <button type="button" class="base-button base-button--size-small website-replay-info__link website-replay-info__replay-download" :disabled="source === null" :title="t('local.downloadReplay')" :aria-label="t('local.downloadReplay')" @click="downloadReplay">
                 <i class="pi pi-file-export" aria-hidden="true" />
-            </a>
-            <a class="base-button base-button--size-small website-replay-info__link website-replay-info__strange-dust" :href="strangeDustUrl || undefined" role="link" aria-label="StrangeDust Analyzer" title="StrangeDust Analyzer" :aria-disabled="strangeDustUrl ? undefined : true" :tabindex="strangeDustUrl ? undefined : -1" target="_blank" rel="noopener noreferrer">
+            </button>
+            <a class="base-button base-button--size-small website-replay-info__link website-replay-info__strange-dust" :href="strangeDustUrl" aria-label="StrangeDust Analyzer" title="StrangeDust Analyzer" target="_blank" rel="noopener noreferrer">
                 <img :src="strangeDustIcon" alt="" width="16" height="16">
             </a>
             <a class="base-button base-button--size-small website-replay-info__link website-replay-info__offline-download" :href="offlineDownloadUrl" :download="offlineDownloadFilename" :title="t('local.downloadOffline')" :aria-label="t('local.downloadOffline')">
@@ -42,7 +42,6 @@
 
 <script setup lang="ts">
 import '@/styles/link.css';
-import '@/styles/text.css';
 import '@/styles/button.css';
 import 'primeicons/primeicons.css';
 import { computed } from 'vue';
@@ -57,27 +56,33 @@ import type { SiteReplayInfo, SiteReplayRanking } from './useSiteReplayInfo';
 import strangeDustIcon from '@/assets/strange-dust.ico';
 import analyzerIcon from '@/assets/video-analyzer.svg';
 import PlayerName from '@/components/PlayerName.vue';
-import type { MS_Software } from '@/utils/ms_const';
-import { getReplayDownloadUrl, getReplayPreviewUrl, getStrangeDustAnalyzerUrl } from '@/utils/replayLinks';
+import type { ReplaySource } from '@/components/VideoAnalyzer/replayParser';
+import { downloadBlob } from '@/utils/fileIO';
+import { getReplayPreviewUrl, getStrangeDustAnalyzerUrl } from '@/utils/replayLinks';
 import { utc_to_local_format } from '@/utils/system/tools';
 
 const props = defineProps({
     id: { type: String, required: true },
+    source: { type: Object as PropType<ReplaySource | null>, default: null },
     info: { type: Object as PropType<SiteReplayInfo | null>, default: null },
     loading: { type: Boolean, default: false },
     errorMessage: { type: String, default: '' },
-    software: { type: String as PropType<MS_Software | null>, default: null },
 });
-const strangeDustUrl = computed(() => (props.software === null ? '' : getStrangeDustAnalyzerUrl(getReplayPreviewUrl(props.id, props.software))));
-const replayDownloadUrl = computed(() => getReplayDownloadUrl(props.id));
+const strangeDustUrl = computed(() => getStrangeDustAnalyzerUrl(getReplayPreviewUrl(props.id)));
 const offlineDownloadFilename = `OpenMinesweeperVideoAnalyzer-${analyzerVersion.version}.zip`;
 const offlineDownloadUrl = `${import.meta.env.BASE_URL}assets/${offlineDownloadFilename}`;
+
+function downloadReplay() {
+    const replay = props.source;
+    if (replay === null) return;
+    downloadBlob(new Blob([replay.data], { type: 'application/octet-stream' }), replay.filename);
+}
 
 function rankingLabel(ranking: SiteReplayRanking): string {
     const label = ranking.ranking === 'saolei'
         ? t(ranking.stat.endsWith('t') ? 'local.saoleiTime' : 'local.saoleiBvs')
         : t(ranking.ranking === 'pb' ? 'local.pb' : 'local.pluck');
-    return ranking.nf ? `${label} (${t('common.nf')})` : label;
+    return ranking.nf ? `${label} (${t('nf')})` : label;
 }
 
 const i18nMessages = {
@@ -87,7 +92,6 @@ const i18nMessages = {
         downloadReplay: '下载录像文件',
         downloadOffline: '下载离线包',
         videoId: '录像 ID',
-        tournament: '比赛',
         loading: '正在加载网站信息…',
         loadFailed: '网站信息加载失败',
         unranked: '未入榜',
@@ -102,7 +106,6 @@ const i18nMessages = {
         downloadReplay: 'Download replay file',
         downloadOffline: 'Download offline package',
         videoId: 'Replay ID',
-        tournament: 'Tournament',
         loading: 'Loading website information…',
         loadFailed: 'Website information failed to load',
         unranked: 'Not ranked',

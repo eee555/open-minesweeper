@@ -14,8 +14,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
-
 import { ElInput } from 'element-plus';
 import type { PropType } from 'vue';
 import { ref, watch } from 'vue';

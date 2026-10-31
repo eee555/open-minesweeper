@@ -9,7 +9,7 @@
     </div>
     <div class="summary-heading" data-cy="summary">
         <span class="text-regular">
-            {{ t(`common.level.${level}`) }}
+            {{ t(`level.${level}`) }}
             &nbsp;
             {{ t('BBBvSummary.bbbvInTotal', [groupedVideoAbstract.size]) }}
         </span>
@@ -29,7 +29,7 @@
                 :software-filter="BBBvSummaryConfig.softwareFilter"
                 :selectable="selectable"
                 :selected="selectedBV === bv"
-                :selection-label="`${t(`common.level.${level}`)} BV ${bv}`"
+                :selection-label="`${t(`level.${level}`)} BV ${bv}`"
                 :show-icon="BBBvSummaryConfig.showIcon"
                 :new-thresh="BBBvSummaryConfig.newThresh"
                 :new-date-field="BBBvSummaryConfig.newDateField"
@@ -51,7 +51,6 @@
 
 <script setup lang="ts">
 import '@/styles/layout.css';
-import '@/styles/text.css';
 import type { PropType } from 'vue';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';

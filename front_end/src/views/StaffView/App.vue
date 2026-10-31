@@ -33,6 +33,7 @@ const tabItems = [
     { name: 'batchvideo' },
     { name: 'batchpluck' },
     { name: 'ranking-repair' },
+    { name: 'minigame' },
     { name: 'medals' },
 ] as const;
 const validTabs = tabItems.map((item) => item.name);
@@ -64,6 +65,7 @@ const i18nMessages = {
         batchvideo: '批量刷新录像',
         batchpluck: '批量刷新pLuck纪录',
         'ranking-repair': '排行纪录重建',
+        minigame: '小游戏纪录',
     } },
     en: { local: {
         medals: 'Medal management',
@@ -78,6 +80,7 @@ const i18nMessages = {
         batchvideo: 'Batch refresh videos',
         batchpluck: 'Batch refresh pLuck records',
         'ranking-repair': 'Rebuild ranking records',
+        minigame: 'Minigame records',
     } },
 };
 

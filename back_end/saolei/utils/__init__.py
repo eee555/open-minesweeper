@@ -68,7 +68,7 @@ def get_access_token() -> str:
         SECRET_KEY = input('请输入client_secret：')
     url = 'https://aip.baidubce.com/oauth/2.0/token'
     params = {'grant_type': 'client_credentials', 'client_id': API_KEY, 'client_secret': SECRET_KEY}
-    token = str(requests.post(url, params=params).json().get('access_token'))
+    token = str(requests.post(url, params=params, timeout=5).json().get('access_token'))
     write_secret('token', token)
 
     if token == 'None':
@@ -93,24 +93,31 @@ def get_ACCESS_TOKEN() -> str:
 def verify_text(text: str, user_id: int = 0, user_ip: str = '192.168.0.1') -> bool:
     if settings.BAIDU_VERIFY_SKIP:
         return True
-    if len(text) < 2:
+    if not text:
         return True
     url = 'https://aip.baidubce.com/rest/2.0/solution/v1/text_censor/v2/user_defined?access_token=' + get_ACCESS_TOKEN()
     payload = {
         'text': text,
-        'user_id': user_id,
-        'user_ip': user_ip,
+        'userId': str(user_id),
+        'userIp': user_ip,
     }
     headers = {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Accept': 'application/json',
     }
-    response = requests.request('POST', url, headers=headers, data=payload)
-    if response.json().get('error_code') == 111:
+    response = requests.request('POST', url, headers=headers, data=payload, timeout=5)
+    response.raise_for_status()
+    result = response.json()
+    if result.get('error_code') == 111:
         # token过期了
         url = 'https://aip.baidubce.com/rest/2.0/solution/v1/text_censor/v2/user_defined?access_token=' + get_access_token()
-        response = requests.request('POST', url, headers=headers, data=payload)
-    return response.json().get('conclusion') == '合规'
+        response = requests.request('POST', url, headers=headers, data=payload, timeout=5)
+        response.raise_for_status()
+        result = response.json()
+    conclusion = result.get('conclusion')
+    if result.get('error_code') or conclusion not in ('合规', '不合规', '疑似'):
+        raise ValueError('Text moderation did not return a verdict')
+    return conclusion == '合规'
 
 
 # 百度大脑鉴别图片合规性

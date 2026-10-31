@@ -1,5 +1,5 @@
 <template>
-    <PrColumn :header="t(`common.prop.${ stat}`)" :sortable="sortable" :sort-field="stat">
+    <PrColumn :header="t(`prop.${ stat}`)" :sortable="sortable" :sort-field="stat">
         <template #body="{data}: {data: VideoAbstract}">
             <span class="text">{{ data.displayStat(stat) }}</span>
         </template>
@@ -7,8 +7,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
-
 import PrColumn from 'primevue/column';
 import type { PropType } from 'vue';
 import { useI18n } from 'vue-i18n';

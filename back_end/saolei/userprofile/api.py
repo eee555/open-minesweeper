@@ -4,29 +4,138 @@ from typing import List
 from urllib.parse import quote
 
 from django.conf import settings
+from django.contrib.auth import login
 from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
+from django.db import transaction
 from django.http import FileResponse, HttpRequest, HttpResponse, HttpResponseForbidden, HttpResponseNotFound
+from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
 from django.views.decorators.cache import cache_control
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django_ratelimit.decorators import ratelimit
-from ninja import File, Form, Router, Schema, UploadedFile
+from ninja import File, Form, Query, Router, Schema, UploadedFile
 from ninja.decorators import decorate_view
+from ninja.errors import HttpError
 from ninja.orm import create_schema
+from ninja.security import django_auth, django_auth_superuser
 
+from common.services import query_user_directory_page
 from utils import verify_image
 from utils.exceptions import ExceptionToResponse
+from utils.schema import IdIn
 from videomanager.models import VideoModel
 from videomanager.schema import VIDEO_METADATA_FIELDS, VideoMetadataOut
 from .decorators import banned_blocked, login_required_error, staff_required
 from .models import UserProfile
-from .schema import PUBLIC_NAME_FIELDS, RawUserNames, SelfUserInfoOut, UserInfoOut
-from .services import has_sub200_expert_video, refresh_avatar_chance, try_update_user_signature, update_admin_profile, update_user_names
+from .schema import PUBLIC_NAME_FIELDS, RawUserNames, SelfUserInfoOut, UserDirectoryPageOut, UserDirectoryQuery, UserInfoOut
+from .services import clear_profile_info, has_sub200_expert_video, refresh_avatar_chance, register_user, try_update_user_signature, update_admin_profile, update_user_names, user_metadata
 from .utils import NAME_FIELDS
 
 router = Router()
 logger = logging.getLogger('userprofile')
 AVATAR_ACCEL_REDIRECT_PREFIX = '/internal-media/'
+
+
+class RegisterIn(Schema):
+    username: str
+    password: str
+    email: str
+    email_key: str
+    email_captcha: str
+
+
+@router.post('/register')
+@decorate_view(ratelimit(key='ip', rate='6/h', block=True))
+def register(request: HttpRequest, data: RegisterIn = Form(...)):  # noqa: B008
+    """
+    - ratelimit(key='ip', rate='6/h', block=True)
+
+    Submit the complete registration form. Validate the email code and moderate
+    the cleaned username before creating either the account or its UserMS.
+    Successful registration consumes the email code and signs the user in.
+
+    Business errors use {type: error, object, category}: emailcode/invalid,
+    register/validation, censorship/illegal or censorship/unknown. Moderation
+    rejection or failure leaves the email code available for another attempt.
+    """
+    user = register_user(data.model_dump(), request.META.get('REMOTE_ADDR', ''))
+    login(request, user)
+    return {'type': 'success', 'user': user_metadata(user, user)}
+
+
+class StaffAssignmentIn(Schema):
+    user_id: int
+    is_staff: bool
+
+
+class StaffAssignmentAccessOut(Schema):
+    csrf_token: str
+
+
+@router.get('/admin/csrf', auth=django_auth, response=StaffAssignmentAccessOut)
+@decorate_view(ensure_csrf_cookie, cache_control(no_store=True))
+def admin_csrf_token(request):
+    """
+    - auth=django_auth
+    - ensure_csrf_cookie
+    - cache_control(no_store=True)
+
+    Initialize a CSRF cookie and masked token for staff and superusers only.
+    """
+    if not (request.user.is_staff or request.user.is_superuser):
+        raise HttpError(403, 'Administrative access required.')
+    return {'csrf_token': get_token(request)}
+
+
+@router.get('/admin/staff', auth=django_auth_superuser, response=StaffAssignmentAccessOut)
+@decorate_view(ensure_csrf_cookie, cache_control(no_store=True))
+def staff_assignment_access(request):
+    """
+    - auth=django_auth_superuser
+    - ensure_csrf_cookie
+    - cache_control(no_store=True)
+    """
+    return {'csrf_token': get_token(request)}
+
+
+@router.post('/admin/clear-info', response={204: None})
+@decorate_view(staff_required)
+def clear_user_info(request, data: IdIn = Form(...)):  # noqa: B008
+    """
+    - staff_required (staff permission and CSRF)
+    """
+    user = get_object_or_404(UserProfile, pk=data.id)
+    if user.is_staff and not request.user.is_superuser:
+        raise HttpError(403, 'Only a superuser can clear a staff profile.')
+    clear_profile_info(user)
+    logger.info('Staff #%s cleared profile #%s', request.user.pk, user.pk)
+    return 204, None
+
+
+@router.post('/admin/staff', auth=django_auth_superuser, response=create_schema(UserProfile, name='StaffAssignmentOut', fields=['id', 'is_staff']))
+def assign_staff(request, data: StaffAssignmentIn):
+    """- auth=django_auth_superuser (session and CSRF)"""
+    user = get_object_or_404(UserProfile, pk=data.user_id)
+    if user.is_memorial:
+        raise HttpError(409, 'Memorial accounts cannot have administrative permissions.')
+    user.is_staff = data.is_staff
+    user.save(update_fields=['is_staff', 'date_updated'])
+    logger.warning('Set user #%s is_staff=%s', user.pk, data.is_staff)
+    return user
+
+
+@router.get('/query', response=UserDirectoryPageOut)
+@decorate_view(ratelimit(key='ip', rate='60/m', block=True))
+def query_users(request, filters: Query[UserDirectoryQuery]):
+    """
+    - ratelimit(key='ip', rate='60/m', block=True)
+
+    Public user directory. Match one ID exactly; an omitted platform selects the site user ID.
+    Platform codes c/a/w/m select verified public account links. An empty ID lists all users.
+    Ordering is stable by user ID for equal statistics.
+    """
+    return query_user_directory_page(filters)
 
 
 class AdminUserProfileOutBase(RawUserNames):
@@ -45,7 +154,7 @@ AdminUserProfileOut = create_schema(
     fields=[
         'id', 'username', 'email',
         'signature', 'country',
-        'is_banned', 'is_staff',
+        'is_banned', 'is_staff', 'is_memorial',
         'left_realname_n', 'left_avatar_n', 'left_signature_n',
         'last_change_avatar', 'last_change_signature',
         'date_updated', 'can_hide_realname', 'hide_realname',
@@ -89,8 +198,11 @@ def update_user_profile_admin(request, user_id: int, data: AdminUserProfileUpdat
     """
     - staff_required
     """
-    get_object_or_404(UserProfile, id=user_id)
-    return update_admin_profile(user_id, data.model_dump(exclude_unset=True), request.user)
+    with transaction.atomic():
+        user = get_object_or_404(UserProfile.objects.select_for_update(), id=user_id)
+        if user.is_staff and user.pk != request.user.pk:
+            raise ExceptionToResponse('user', 'staff', status_code=403)
+        return update_admin_profile(user_id, data.model_dump(exclude_unset=True), request.user)
 
 
 @router.get('/info/0', response=SelfUserInfoOut)
@@ -230,7 +342,7 @@ def update_user_profile(request: HttpRequest, data: UpdateUserProfileIn = Form(.
     - The user is banned.
     """
     user: UserProfile = request.user
-    user_ip = request.get_host()
+    user_ip = request.META.get('REMOTE_ADDR', '')
 
     data_out: dict[str, None | dict] = {
         'realname': None,

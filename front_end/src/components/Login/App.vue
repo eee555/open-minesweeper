@@ -1,5 +1,5 @@
 <template>
-    <slot :open="openDialog" :logout="logout" :labels="{ login: t('local.menu.login'), register: t('local.menu.register'), logout: t('local.menu.logout') }" />
+    <slot :open="openDialog" :logout="logout" :labels="{ login: t('local.menu.login'), register: t('button.register'), logout: t('local.menu.logout') }" />
     <!-- 以下的所有表单的输入项都需要@keydown.stop，解决horizontal菜单截留空格操作的问题。 -->
     <!-- https://github.com/element-plus/element-plus/issues/10172#issuecomment-1295794523 -->
     <ElDialog v-if="dialogVisible" v-model="dialogVisible" width="min(28rem, 95vw)" append-to-body :title="t(`local.title.${activeDialog}`)">
@@ -18,6 +18,7 @@ import { useI18n } from 'vue-i18n';
 import type { LoginControls } from './types';
 
 import { httpErrorNotification } from '@/components/Notifications';
+import { applyLoginSession } from '@/services/loginSession';
 import type { TopAnchors } from '@/services/topRankingService';
 import { store } from '@/store';
 import type { GetUserInfoResponse } from '@/utils/common/structInterface';
@@ -41,22 +42,28 @@ function openDialog(form: 'login' | 'register') {
 }
 
 onMounted(async () => {
+    const revision = store.sessionRevision;
     // 恢复登录状态时绕过 HTTP 缓存，避免实名等资料修改后读到旧数据。
     await proxy.$axios.get<{ user: GetUserInfoResponse | null; top_anchors: TopAnchors }>('/api/common/loginauto', {
         params: { _t: Date.now() },
-    }).then(function (response) {
+    }).then(async function (response) {
         store.topAnchors = response.data.top_anchors;
-        if (response.data.user) store.login(response.data.user);
+        if (revision !== store.sessionRevision) return;
+        if (response.data.user) await applyLoginSession(response.data.user, proxy.$axios);
         else store.logout();
     }).catch((err: unknown) => {
+        if (revision !== store.sessionRevision) return;
         store.logout();
         httpErrorNotification(err);
     });
 });
 
-const login = (user: UserProfileData) => {
-    store.login(user);
-    dialogVisible.value = false;
+const login = async (user: UserProfileData) => {
+    try {
+        if (await applyLoginSession(user, proxy.$axios)) dialogVisible.value = false;
+    } catch (error) {
+        httpErrorNotification(error);
+    }
 };
 
 let logoutPending = false;
@@ -66,15 +73,15 @@ async function logout() {
     logoutPending = true;
     try {
         const confirmed = await ElMessageBox.confirm(t('local.confirmLogout'), t('local.menu.logout'), {
-            confirmButtonText: t('common.button.confirm'),
-            cancelButtonText: t('common.button.cancel'),
+            confirmButtonText: t('button.confirm'),
+            cancelButtonText: t('button.cancel'),
             type: 'warning',
             customStyle: { borderRadius: '0', maxWidth: 'calc(100vw - 24px)' },
         }).then(() => true, () => false);
         if (!confirmed) return;
         await proxy.$axios.post('/userprofile/logout/', {}).then(function () {
             store.logout();
-            ElMessage.success({ message: t('common.msg.logoutSuccess'), offset: 68 });
+            ElMessage.success({ message: t('msg.logoutSuccess'), offset: 68 });
             dialogVisible.value = false;
         }).catch(httpErrorNotification);
     } finally {
@@ -88,7 +95,6 @@ const i18nMessages = {
         menu: {
             login: '登录',
             logout: '退出',
-            register: '注册',
         },
         title: {
             login: '用户登录',
@@ -101,7 +107,6 @@ const i18nMessages = {
         menu: {
             login: 'Login',
             logout: 'Logout',
-            register: 'Register',
         },
         title: {
             login: 'Login',

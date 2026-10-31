@@ -145,17 +145,75 @@ describe('local minigame history', () => {
         expect(Object.keys(saved.replay).sort()).toEqual(['cellSize', 'events', 'initialBoard', 'specialEvents', 'version']);
     });
 
-    it('indexes completion time and numeric score independently', async () => {
+    it('queries date ranges and score-sorted pages without unpacking recordings or returning archive bytes', async () => {
         const history = await import('./history');
-        const timestamp = vi.spyOn(Date, 'now');
-        for (const [result, playedAt] of [[leftClickResult(), 100], [touchResult(), 150], [flagChordResult(), 300], [missingCellResult(), 200]] as const) {
-            timestamp.mockReturnValue(playedAt);
-            await history.saveMinigameResult(result);
-        }
+        const [{ rankingKey }] = leftClickModes;
         const db = await history.getMinigameDatabase();
-        expect(Array.from(db.transaction(history.MINIGAME_RESULTS_STORE).store.indexNames)).toEqual(['playedAt', 'scoreMs']);
-        expect((await db.getAllFromIndex(history.MINIGAME_RESULTS_STORE, 'playedAt')).map((entry) => entry.game)).toEqual(['left-click', 'multi-touch', 'missing-cell', 'flag-chord']);
-        expect((await db.getAllFromIndex(history.MINIGAME_RESULTS_STORE, 'scoreMs')).map((entry) => entry.game)).toEqual(['multi-touch', 'flag-chord', 'left-click', 'missing-cell']);
+        const ids: number[] = [];
+        for (const [playedAt, scoreMs] of [[100, 900], [200, 300], [300, 600], [400, 1500], [200, 100]]) {
+            ids.push(await db.add('results', { game: 'left-click', mode: leftClickModes[0], playedAt, scoreMs, replay: new ArrayBuffer(0) }));
+        }
+        const codec = await loadReplayArchiveCodec();
+        const unpack = vi.spyOn(codec, 'unpack');
+        const newest = await history.queryMinigameHistory(rankingKey, { offset: 1, limit: 2 });
+        expect(newest.count).toBe(5);
+        expect(newest.entries.map((entry) => entry.id)).toEqual([ids[2], ids[4]]);
+        const range = await history.queryMinigameHistory(rankingKey, { from: 200, to: 400, sort: 'score-asc', offset: 1, limit: 1 });
+        expect(range.count).toBe(3);
+        expect(range.entries.map((entry) => entry.scoreMs)).toEqual([300]);
+        expect(range.entries.every((entry) => !Object.hasOwn(entry, 'replay'))).toBe(true);
+        expect((await history.queryMinigameHistory(rankingKey, { from: 200, to: 400, sort: 'score-desc' })).entries.map((entry) => entry.scoreMs)).toEqual([600, 300, 100]);
+        expect((await history.queryMinigameHistory(rankingKey, { from: 300 })).count).toBe(2);
+        expect((await history.queryMinigameHistory(rankingKey, { to: 200 })).count).toBe(1);
+        expect(await history.queryMinigameHistory(rankingKey, { from: 400, to: 200 })).toEqual({ count: 0, entries: [] });
+        expect(await history.queryMinigameHistory(rankingKey, { offset: 5 })).toEqual({ count: 5, entries: [] });
+        expect(unpack).not.toHaveBeenCalled();
+    });
+
+    it('retains equal scores across pages and publishes newly committed saves for open history views', async () => {
+        const history = await import('./history');
+        const result = leftClickResult();
+        for (let i = 0; i < 3; i++) await history.saveMinigameResult(result);
+        expect(history.minigameHistoryRevision.value).toBe(3);
+        const ids: number[] = [];
+        for (let offset = 0; offset < 3; offset++) {
+            const page = await history.queryMinigameHistory(result.mode.rankingKey, { sort: 'score-asc', offset, limit: 1 });
+            expect(page.count).toBe(3);
+            ids.push(page.entries[0].id);
+        }
+        expect(new Set(ids).size).toBe(3);
+    });
+
+    it('filters game, level and density before counting, sorting and paginating', async () => {
+        const history = await import('./history');
+        const db = await history.getMinigameDatabase();
+        const configurations = [
+            { game: 'left-click', mode: leftClickModes[0] },
+            { game: 'left-click', mode: leftClickModes[1] },
+            { game: 'left-click', mode: leftClickModes[3] },
+            { game: 'multi-touch', mode: multiTouchModes[0] },
+            { game: 'flag-chord', mode: flagChordModes[0] },
+            { game: 'flag-chord', mode: flagChordModes[1] },
+            { game: 'missing-cell', mode: missingCellModes[0] },
+            { game: 'missing-cell', mode: missingCellModes[1] },
+        ] as const;
+        for (const config of configurations) {
+            await db.add('results', { ...config, playedAt: 100, scoreMs: 900, replay: new ArrayBuffer(0) });
+        }
+        for (const [playedAt, scoreMs] of [[200, 400], [300, 100]]) {
+            await db.add('results', { ...configurations[0], playedAt, scoreMs, replay: new ArrayBuffer(0) });
+        }
+        for (const [index, config] of configurations.entries()) {
+            const key = history.getMinigameHistoryRankingKey(config);
+            const page = await history.queryMinigameHistory(key, { sort: 'score-asc', limit: 1 });
+            expect(page.count).toBe(index === 0 ? 3 : 1);
+            expect(await db.get('results', page.entries[0].id)).toMatchObject(config);
+        }
+        const key = leftClickModes[0].rankingKey;
+        const page = await history.queryMinigameHistory(key, { sort: 'score-asc', offset: 1, limit: 1 });
+        expect(page.entries.map((entry) => entry.scoreMs)).toEqual([400]);
+        expect(await history.queryMinigameHistory(key, { from: 200, to: 300 })).toMatchObject({ count: 1, entries: [{ scoreMs: 400 }] });
+        expect(await history.queryMinigameHistory('left-click-unknown')).toEqual({ count: 0, entries: [] });
     });
 
     it.each([{ game: 'left-click', createResult: leftClickResult }, { game: 'multi-touch', createResult: touchResult }])('snapshots $game data before the first database await so a restart cannot alter a pending save', async ({ createResult }) => {

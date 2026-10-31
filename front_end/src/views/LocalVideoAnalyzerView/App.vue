@@ -19,7 +19,7 @@
                 <div class="local-analyzer__meta">
                     <div class="local-analyzer__identity">
                         <img class="local-analyzer__icon" :src="analyzerIcon" alt="" width="24" height="24">
-                        <span class="local-analyzer__version">{{ t('local.version') }} v{{ analyzerVersion.version }}</span>
+                        <span class="local-analyzer__version">{{ t('software.version') }} v{{ analyzerVersion.version }}</span>
                     </div>
                     <BaseButton class="local-analyzer__language" size="small" :title="t('local.switchLanguage')" :aria-label="t('local.switchLanguage')" @click="toggleLanguage">
                         {{ globalLocale.startsWith('zh') ? 'English' : '中文' }}
@@ -71,7 +71,6 @@ const i18nMessages = {
         choose: '选择或拖入一份录像文件（EVF / AVF / MVF / RMV）',
         readme: '使用说明',
         copyright: '版权声明',
-        version: '版本',
         switchLanguage: '切换到英文',
         oneFileOnly: '每次只能选择一份录像文件',
         unsupportedFormat: '不支持的录像格式，请选择 EVF、AVF、MVF 或 RMV',
@@ -80,7 +79,6 @@ const i18nMessages = {
         choose: 'Choose or drop one replay file (EVF / AVF / MVF / RMV)',
         readme: 'Usage',
         copyright: 'Copyright',
-        version: 'Version',
         switchLanguage: 'Switch to Chinese',
         oneFileOnly: 'Select only one replay file at a time',
         unsupportedFormat: 'Unsupported replay format. Choose EVF, AVF, MVF or RMV',

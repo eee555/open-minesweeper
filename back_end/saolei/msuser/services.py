@@ -7,6 +7,20 @@ from videomanager.models import VideoModel
 from .utils import get_video_num_limit
 
 
+def cleanup_orphan_userms(*, batch_size=1000, using='default'):
+    """分批锁定并重新核实孤立资料，删除数量不包含级联清理的标识。"""
+    users = UserMS.objects.using(using)
+    last_pk = deleted_count = 0
+    while user_ids := list(users.filter(parent__isnull=True, pk__gt=last_pk).order_by('pk').values_list('pk', flat=True)[:batch_size]):
+        with transaction.atomic(using=using):
+            locked_ids = list(users.filter(pk__in=user_ids).order_by('pk').select_for_update().values_list('pk', flat=True))
+            # A profile may have been linked after selecting candidates, before acquiring the locks.
+            _, deleted = users.filter(pk__in=locked_ids, parent__isnull=True).delete()
+            deleted_count += deleted.get(UserMS._meta.label, 0)
+        last_pk = user_ids[-1]
+    return deleted_count
+
+
 def update_video_statistics(userms_id: int | None, *, tournament: bool, count: int, size: int, limit: int | None = None, using='default'):
     """一次 UPDATE 写入分类统计及需要提升的上传额度，不写入生成字段。"""
     if userms_id is None:

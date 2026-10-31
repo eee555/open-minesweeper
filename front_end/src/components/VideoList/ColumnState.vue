@@ -8,7 +8,7 @@
                 <template #option="slotProps">
                     <VideoStateIcon :state="slotProps.option" />
                     &nbsp;
-                    {{ t(`common.state.${slotProps.option}`) }}
+                    {{ t(`state.${slotProps.option}`) }}
                 </template>
             </PrListbox>
         </template>

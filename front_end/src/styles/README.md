@@ -10,6 +10,8 @@ CSS 与 Less 的选型由实施代理自行决定，根据实际重复程度和�
 
 提取后的颜色写入本地色值或引用其他项目变量，不直接读取组件库颜色变量。浅色和深色值一起提取，保留必要的状态、尺寸及局部作用域；新增共享文件通过应用与 Cypress 共用的样式入口接入。
 
+全局样式由入口统一加载，组件和其他 CSS / Less 不再重复导入。网站、Cypress 组件测试与离线 Analyzer 使用 `setup.ts`；离线小游戏在 `local-minigame/main.ts` 加载主题、文字和 Checkbox 按钮样式。卡片、布局、链接、表格及图标等未由所有入口统一加载的样式，仍按组件需要导入；不能仅因其他组件也导入就删除。
+
 正式项目变量位于 `theme/`，通过 `setup.ts` 加载 `theme/index.css`，应用与 Cypress 组件测试共用。`colors.css` 定义文字、背景、边框与禁用色，`accents.css` 定义主色及状态色，`metrics.css` 定义当前字号、圆角与过渡参数。初值沿用 Element Plus 2.14.6，深色主题继续由 `html.dark` 切换；此批只替换变量来源，不调整尺寸和密度。
 
 `--ui-text-color-regular-light` / `--ui-text-color-regular-dark` 分别保存浅色 / 深色模式的默认文字色，`--ui-text-color-regular` 根据页面主题引用对应变量。修改默认文字配色时维护这两项来源。`PiecewiseColorScheme` 的有色单元格按背景明暗选择对应模式的默认文字色，透明单元格继续继承父容器颜色；样式保留 CSS 变量引用，主题色调整无需重新创建色阶对象。
@@ -17,6 +19,8 @@ CSS 与 Less 的选型由实施代理自行决定，根据实际重复程度和�
 项目代码统一使用 `--ui-*`，包括 JavaScript 中的颜色读取。`InputNumber` 的 `--ui-input-*` 与表格的 `--ui-table-*` 支持局部覆盖。组件库要求的 `--el-*` / `--p-*` 声明仅留在 `vendors/` 适配文件，由项目变量向库传值，不反向读取库变量。
 
 `button.css` 保持原有导入路径，按顺序汇总 `buttons/base.css`、`buttons/variants.css`、`buttons/states.css`，分别负责基础布局、类型配色、尺寸与交互状态。
+
+`layout.css` 的 `.layout-row` 用于已有的可换行定位行，`.layout-columns` 用于弹性分栏；`.layout-stack` 提供纵向 flex 布局及默认 1rem 间距，调用方可只覆盖 gap。不要仅因同样使用 flex 就替换专用布局，需保留换行、定位、尺寸及子项约束。样式按组件显式导入，不依赖其他路由先加载。
 
 `vendors/element-plus-tabs.less` 由 setup.ts 加载，统一将顶部 / 底部 ElTabs 标签按容器宽度换行，隐藏滚动箭头并覆盖库写入的横向位移。选中标签使用自身的主色底线，底部标签改为顶线，保留库的焦点样式、切换事件及面板生命周期；单个过长标签可在自身宽度内折行。规则限定于直接所属的水平标签头，不改变左侧 / 右侧纵向 Tabs。公共 Analyzer 与离线页面当前不使用 ElTabs，不受此规则影响。
 
@@ -44,6 +48,8 @@ CSS 与 Less 的选型由实施代理自行决定，根据实际重复程度和�
 
 `text.css` 由 `setup.ts` 全局加载，应用与 Cypress 共用。`body` 默认使用项目常规文字色、基础字号和 `overflow-wrap: break-word`，普通文本通过继承获得这些样式；使用 `:where(div, span)` 默认清零 margin / padding，`:where(span)` 默认设置 `vertical-align: middle`，组件自身的样式可覆盖。普通文本无需添加 `.text`；需要覆盖父容器颜色时使用 `.text-regular`，需要不同字号或状态色时保留对应修饰类。已清理可由全局默认覆盖的 `.text` 声明；标题、段落、链接、表单控件及需要固定字号或重置单元格间距的组件仍可使用 `.text`，不删除有实际作用的重置。
 
+辅助文字可组合 `.text-secondary` 与现有 `.text-small`；状态色复用 `.text-primary` / `.text-warning` / `.text-danger` 等，不在业务组件中重复声明相同颜色。字号类只调整字号，颜色类只调整颜色，不隐式修改布局或重置其他属性。
+
 `theme/tables.css` 提供三种表格共用的 `--ui-table-*` 参数，由 `setup.ts` 直接加载，应用与 Cypress 共用。初值保持 BaseTable 现有外观：14px 字号、1.4 行高、4px × 8px 单元格内边距、1px 网格边框及 500 表头字重；颜色引用项目主题，随 `html.dark` 切换。
 
 `vendors/element-plus-table.css` 与 `vendors/primevue-table.css` 将同一参数映射到保留的 ElTable / DataTable，并补齐网格线、表头字重和空状态样式。优先使用安装版本的公开变量，必要规则限定在组件内部，不合并组件库分离的表头/正文表格，不改变滚动、固定列、列宽或业务事件。排序箭头、筛选、选择、展开和焦点反馈保留；选中行与普通悬停行使用不同颜色。缓存设置等已有页面局部尺寸覆盖继续优先。
@@ -58,12 +64,14 @@ CSS 与 Less 的选型由实施代理自行决定，根据实际重复程度和�
 
 | 类名 | 适用列 | 默认样式 |
 | --- | --- | --- |
-| `table-col-rank` | 排名、序号 | 宽度、最小宽度及最大宽度均为 4em、居中、不换行 |
-| `table-col-player` | PlayerName、玩家名 | 最小宽度 150px、左对齐 |
-| `table-col-number` | Time、Bvs、STNB、3BV、Pluck 等数值 | 最小宽度 100px、右对齐、不换行、等宽数字 |
-| `table-col-datetime` | 上传时间等日期时间 | 最小宽度 170px、居中、不换行 |
+| `table-col-rank` | 排名、序号 | 宽度 3em、居中、不换行 |
+| `table-col-player` | PlayerName、玩家名 | 宽度 12em、左对齐 |
+| `table-col-mode` / `table-col-prop` | 模式、属性标签 | 宽度 5em、居中 |
+| `table-col-bv` | 3BV 等较短数值 | 宽度 3em、右对齐、不换行、等宽数字 |
+| `table-col-number` | Time、Bvs、STNB、Pluck 等数值 | 宽度 5em、右对齐、不换行、等宽数字 |
+| `table-col-datetime` | 上传时间等日期时间 | 宽度 10em、居中、不换行 |
 | `table-col-center` | 模式、分组表头等 | 居中，不规定宽度 |
 
-在对应的原生 `<th>` 和 `<td>` 上使用同一个类，例如 `<th class="table-col-number">Bvs</th>` 与 `<td class="table-col-number">{{ value }}</td>`。这些类只定义外观，不负责计算排名、数值格式化或渲染 PlayerName，也不需要新增列组件。最小宽度由公共文件统一维护，玩家、数值和日期时间列可随内容与容器增长；特殊表格按需要局部覆盖，不通过列的位置推断语义。保留组件库的表格后续按其样式接口单独接入。
+在对应的原生 `<th>` 和 `<td>` 上使用同一个类，例如 `<th class="table-col-number">Bvs</th>` 与 `<td class="table-col-number">{{ value }}</td>`。这些类只定义外观，不负责计算排名、数值格式化或渲染 PlayerName，也不需要新增列组件。width 为表格自动布局的列宽基准，实际宽度仍受内容和容器影响；只需居中且保留原列宽时使用 `table-col-center`。特殊表格按需要局部覆盖，不通过列的位置推断语义。保留组件库的表格后续按其样式接口单独接入。
 
 按实际使用范围小步提取，不整体搬入组件库参数，也不建立依赖本地存档的统一入口。实施进度见[前端 UI 重构计划](../../UI_REFACTOR_PLAN.md)。

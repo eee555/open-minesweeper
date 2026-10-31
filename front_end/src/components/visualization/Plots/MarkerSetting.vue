@@ -1,5 +1,5 @@
 <template>
-    <Tippy trigger="click" placement="bottom-start" interactive>
+    <Tippy class="marker-setting-tippy" trigger="click" placement="bottom-start" interactive :append-to="appendTo">
         <BaseButton class="square-button" :aria-label="label">
             <svg class="marker-setting__icon" viewBox="0 0 24 24" aria-hidden="true">
                 <circle
@@ -16,7 +16,7 @@
                 <div class="marker-setting">
                     <div v-if="hasOption('shape')" class="marker-setting__item">
                         <span class="text-regular text-small">
-                            {{ t('local.shape') }}
+                            {{ t('prop.shape') }}
                         </span>
                         <ElSelect v-model="shape">
                             <ElOption label="Circle" value="circle" />
@@ -48,7 +48,6 @@
 
 <script setup lang="ts">
 import '@/styles/cards.css';
-import '@/styles/text.css';
 
 import { ElInputNumber, ElOption, ElSelect, ElSlider } from 'element-plus';
 import { computed } from 'vue';
@@ -78,17 +77,24 @@ function hasOption(option: MarkerSettingOption) {
     return optionSet.value.has(option);
 }
 
+// 全屏时必须挂进全屏元素子树，否则浮层不绘制；非全屏仍挂 body，
+// 避免被祖先元素的 overflow 裁剪。
+function appendTo(element: Element) {
+    const fullscreenEl = document.fullscreenElement;
+    return fullscreenEl?.contains(element) === true
+        ? element.parentElement ?? fullscreenEl
+        : document.body;
+}
+
 const i18nMessages = {
     'zh-cn': { local: {
         opacity: '透明度',
         radius: '半径',
-        shape: '形状',
         strokeWidth: '描边宽度',
     } },
     en: { local: {
         opacity: 'Opacity',
         radius: 'Radius',
-        shape: 'Shape',
         strokeWidth: 'Stroke width',
     } },
 };

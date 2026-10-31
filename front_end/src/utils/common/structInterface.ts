@@ -40,6 +40,8 @@ export interface GetUserInfoResponse {
     realname: string;
     is_banned: boolean;
     is_staff: boolean;
+    is_superuser?: boolean;
+    is_memorial?: boolean;
     country: string;
     signature: string;
     last_change_avatar: string;

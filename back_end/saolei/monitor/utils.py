@@ -5,7 +5,8 @@ from django.db import connection
 
 
 def get_snapshot_path():
-    return Path(getattr(settings, 'MONITOR_SNAPSHOT_PATH', settings.BASE_DIR / 'runtime' / 'monitor.json'))
+    root = settings.BASE_DIR if settings.DEBUG else Path(settings.STATIC_ROOT).parent
+    return Path(getattr(settings, 'MONITOR_SNAPSHOT_PATH', root / 'runtime' / 'monitor.json'))
 
 
 def get_db_size():

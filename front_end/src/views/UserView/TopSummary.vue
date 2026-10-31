@@ -7,7 +7,7 @@
             <div class="top-lsf-summary" data-cy="top-lsf-summary">
                 <StackBar v-if="softValues" :data="lsfContributions" height="10px" :format-value="formatLsf" legend />
             </div>
-            <BaseButton class="square-button top-summary-refresh" size="small" :disabled="loading" :aria-busy="loading || undefined" :aria-label="t('common.action.refresh')" :title="t('common.action.refresh')" data-cy="refresh-top" @click="loadRecords(true)">
+            <BaseButton class="square-button top-summary-refresh" size="small" :disabled="loading" :aria-busy="loading || undefined" :aria-label="t('action.refresh')" :title="t('action.refresh')" data-cy="refresh-top" @click="loadRecords(true)">
                 <BaseIconRefresh :loading="loading" aria-hidden="true" />
             </BaseButton>
         </div>
@@ -57,7 +57,7 @@ const visibleRecords = computed(() => (props.active && loadedKey.value === dataK
 const softValues = computed(() => (visibleRecords.value && anchors.value ? topSoftValues(visibleRecords.value, anchors.value) : null));
 const lsfContributions = computed(() => (softValues.value
     ? topLsfContributions(softValues.value).map(({ mode, level, value }) => ({
-        name: `${mode === 'nf' ? 'NF ' : ''}${t(`common.level.${level}`)}`,
+        name: `${mode === 'nf' ? 'NF ' : ''}${t(`level.${level}`)}`,
         value,
         color: mode === 'nf' ? tinycolor(colorTheme.value.level[level]).setAlpha(0.5).toRgbString() : colorTheme.value.level[level],
     }))

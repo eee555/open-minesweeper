@@ -3,7 +3,7 @@
         <template #icon>
             <BaseIconPrev aria-hidden="true" />
         </template>
-        {{ t('common.button.back') }}
+        {{ t('button.back') }}
     </BaseButton>
 </template>
 

@@ -7,7 +7,7 @@ import VideoPlayer from './App.vue';
 import PlayerName from '@/components/PlayerName.vue';
 import $axios from '@/http';
 import i18n from '@/i18n';
-import { videoPlayerConfig, videoplayerstore } from '@/store';
+import { videoplayerstore } from '@/store';
 import { hashRouter, installHashHistoryCleanup } from '@cy/support/hashHistory';
 
 function Page(label: string) {
@@ -38,7 +38,7 @@ function mountNavigation(initialPath: string) {
             global: {
                 plugins: [i18n, router],
                 config: { globalProperties: { $axios } },
-                stubs: { NativePlayer: true, FlopPlayer: true, StrangeDust: true },
+                stubs: { NativePlayer: true },
             },
         });
     });
@@ -46,18 +46,14 @@ function mountNavigation(initialPath: string) {
 
 describe('hash navigation after opening a replay', () => {
     installHashHistoryCleanup();
-    let previousBackend: typeof videoPlayerConfig.value.backend;
 
     beforeEach(() => {
-        previousBackend = videoPlayerConfig.value.backend;
-        videoPlayerConfig.value.backend = 'native';
         videoplayerstore.visible = false;
         cy.mockPlayerNameFallback();
     });
 
     afterEach(() => {
         videoplayerstore.visible = false;
-        videoPlayerConfig.value.backend = previousBackend;
     });
 
     it('updates the view after a username, replay title and ranking click', () => {

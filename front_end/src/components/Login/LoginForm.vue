@@ -50,10 +50,10 @@
             </BaseTextButton>
         </ElFormItem>
     </ElForm>
+    <DiscordAuthorizeButton mode="login" :set-expiry="remember_me ? setExpiry : 0" />
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
 import '@/styles/cards.css';
 
 import type { FormInstance, FormRules } from 'element-plus';
@@ -65,6 +65,7 @@ import BaseIconInfo from '../common/icons/BaseIconInfo.vue';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import BaseTextButton from '@/components/common/BaseTextButton.vue';
+import DiscordAuthorizeButton from '@/components/discord/DiscordAuthorizeButton.vue';
 import { httpErrorNotification } from '@/components/Notifications';
 import ValidCode from '@/components/ValidCode.vue';
 import useCurrentInstance from '@/utils/common/useCurrentInstance';

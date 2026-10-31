@@ -4,13 +4,13 @@
             <PrToolbar>
                 <template #start>
                     <span class="text-medium text-regular">
-                        {{ t('common.platform.m') }}&nbsp;#{{ id }}
+                        {{ t('platform.m') }}&nbsp;#{{ id }}
                     </span>
                 </template>
             </PrToolbar>
         </div>
         <ElDescriptions border>
-            <ElDescriptionsItem :label="t('common.prop.update_time')" :span="3">
+            <ElDescriptionsItem :label="t('prop.update_time')" :span="3">
                 {{ toISODateTimeString(info.update_time) }}
             </ElDescriptionsItem>
         </ElDescriptions>
@@ -18,8 +18,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
-
 import { ElDescriptions, ElDescriptionsItem } from 'element-plus';
 import PrToolbar from 'primevue/toolbar';
 import { useI18n } from 'vue-i18n';

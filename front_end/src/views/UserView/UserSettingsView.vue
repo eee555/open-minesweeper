@@ -1,5 +1,5 @@
 <template>
-    <div v-if="canEdit" class="user-settings">
+    <div v-if="canEdit" class="layout-stack user-settings">
         <section>
             <h2 class="text-large">
                 {{ t('local.profile') }}
@@ -23,7 +23,7 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
+import '@/styles/layout.css';
 import { computed, defineAsyncComponent, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
@@ -60,9 +60,6 @@ const { t } = useI18n({ messages: i18nMessages });
 
 <style scoped>
 .user-settings {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
     max-width: 48rem;
 }
 

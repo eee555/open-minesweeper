@@ -11,8 +11,8 @@
                     <circle v-for="(row, index) in rows" :key="`point-${row.field}`" class="top-radar-point" :cx="point(index, row.radius).x" :cy="point(index, row.radius).y" r="3" />
                     <text v-if="nf" class="top-radar-mark" x="240" y="220" text-anchor="middle" dominant-baseline="middle">NF</text>
                     <text v-for="(row, index) in rows" :key="`label-${row.field}`" class="top-radar-label" :x="labels[index].x" :y="labels[index].y - 5" :text-anchor="labels[index].anchor">
-                        <tspan :x="labels[index].x">{{ t(`common.level.${row.level}`) }}</tspan>
-                        <tspan :x="labels[index].x" dy="14">{{ t(`common.prop.${topStatNames[row.stat]}`) }}</tspan>
+                        <tspan :x="labels[index].x">{{ t(`level.${row.level}`) }}</tspan>
+                        <tspan :x="labels[index].x" dy="14">{{ t(`prop.${topStatNames[row.stat]}`) }}</tspan>
                     </text>
                 </g>
                 <line v-for="(row, index) in rows" :key="`hit-${row.field}`" class="top-radar-hit" :data-axis="index" x1="240" y1="220" :x2="axisEnds[index].x" :y2="axisEnds[index].y" tabindex="0" :aria-label="`${row.name}: ${tooltipText(index)}`" />
@@ -59,7 +59,7 @@ const rows = computed(() => topAxes.map(({ level, stat }) => {
     const field = topField(props.nf, level, stat);
     const anchor = props.anchors[field]?.value ?? 0;
     const value = topMean(props.records[field], stat);
-    return { field, level, stat, name: `${t(`common.level.${level}`)} ${t(`common.prop.${topStatNames[stat]}`)}`, value, anchor, radius: topRadius(value, anchor, stat) };
+    return { field, level, stat, name: `${t(`level.${level}`)} ${t(`prop.${topStatNames[stat]}`)}`, value, anchor, radius: topRadius(value, anchor, stat) };
 }));
 const playerMax = computed(() => Math.max(...rows.value.map((row) => row.radius)));
 const nodes = computed(() => {

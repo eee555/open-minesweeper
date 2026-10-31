@@ -305,6 +305,86 @@ describe('fetchUserInfo', () => {
         expect(axiosGet).toHaveBeenCalledTimes(1);
         expect(axiosGet).toHaveBeenCalledWith('/api/userprofile/infobulk', { params: { ids: '1,2' } });
     });
+
+    it('invalidates only the saved user immediately with the normal one-day interval and survives reload', async () => {
+        await putCachedUser(createUser(1, 'Old Real Name'));
+        await putCachedUser(createUser(2, 'Other User'));
+        const fetchUserInfo = await loadFetchUserInfo();
+        const { invalidateUserInfo, userInfoRevision } = await import('./userService');
+        const lastUpdate = serviceConfig.value.userInfoLastUpdate;
+        expect((await fetchUserInfo(1)).realname).toBe('Old Real Name');
+
+        await invalidateUserInfo(1);
+        expect(userInfoRevision(1)).toBe(1);
+        expect(await getCachedUser(1)).toBeUndefined();
+        expect((await getCachedUser(2))?.realname).toBe('Other User');
+        expect(serviceConfig.value.userInfoLastUpdate).toBe(lastUpdate);
+        axiosGet.mockResolvedValueOnce({ data: [{ ...createUser(1, 'hidden'), firstname: 'hidden', lastname: 'hidden' }] });
+
+        const user = await fetchUserInfo(1);
+        expect(user.isNameHidden).toBe(true);
+        expect(axiosGet).toHaveBeenCalledExactlyOnceWith('/api/userprofile/infobulk', { params: { ids: '1' } });
+        const reloadedFetch = await loadFetchUserInfo();
+        expect((await reloadedFetch(1)).isNameHidden).toBe(true);
+        expect(axiosGet).toHaveBeenCalledTimes(1);
+    });
+
+    it('discards a response started before a privacy save instead of restoring the old name', async () => {
+        const fetchUserInfo = await loadFetchUserInfo();
+        const { invalidateUserInfo } = await import('./userService');
+        const response = Promise.withResolvers<{ data: GetUserInfoResponse[] }>();
+        const started = Promise.withResolvers<undefined>();
+        axiosGet.mockImplementationOnce(() => {
+            started.resolve(undefined);
+            return response.promise;
+        });
+        const oldRequest = fetchUserInfo(1);
+        await started.promise;
+        await invalidateUserInfo(1);
+        axiosGet.mockResolvedValueOnce({ data: [{ ...createUser(1, 'hidden'), firstname: 'hidden', lastname: 'hidden' }] });
+        expect((await fetchUserInfo(1)).isNameHidden).toBe(true);
+
+        response.resolve({ data: [createUser(1, 'Old Real Name')] });
+        expect((await oldRequest).isNameHidden).toBe(true);
+        expect((await getCachedUser(1))?.realname).toBe('hidden');
+        expect(axiosGet).toHaveBeenCalledTimes(2);
+    });
+
+    it('preserves callers waiting for a batch that has not started when the cache is invalidated', async () => {
+        const fetchUserInfo = await loadFetchUserInfo({ userInfoBatchDelay: 10000 });
+        const { invalidateUserInfo } = await import('./userService');
+        const scheduled = Promise.withResolvers<Parameters<typeof setTimeout>[0]>();
+        const setTimer = globalThis.setTimeout;
+        const timer = vi.spyOn(globalThis, 'setTimeout').mockImplementationOnce((callback) => {
+            scheduled.resolve(callback);
+            return setTimer(() => { /* The batch is released explicitly below. */ }, 0);
+        });
+        axiosGet.mockResolvedValue({ data: [createUser(1, 'hidden')] });
+        const waiting = fetchUserInfo(1);
+        const runBatch = await scheduled.promise;
+        timer.mockRestore();
+        await invalidateUserInfo(1);
+        const fresh = fetchUserInfo(1);
+        runBatch();
+
+        const users = await Promise.all([waiting, fresh]);
+        expect(users.every((user) => user.isNameHidden)).toBe(true);
+        expect(axiosGet).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not turn a saved profile into an error when local cache invalidation fails', async () => {
+        await putCachedUser(createUser(1, 'Old Real Name'));
+        const fetchUserInfo = await loadFetchUserInfo();
+        const { invalidateUserInfo } = await import('./userService');
+        const database = await import('./database');
+        vi.spyOn(database, 'getTransaction').mockRejectedValueOnce(new Error('IndexedDB unavailable'));
+
+        await expect(invalidateUserInfo(1)).resolves.toBeUndefined();
+        expect(serviceConfig.value.userInfoLastUpdate).toBe(0);
+        axiosGet.mockResolvedValueOnce({ data: [createUser(1, 'hidden')] });
+        expect((await fetchUserInfo(1)).isNameHidden).toBe(true);
+        expect((await getCachedUser(1))?.realname).toBe('hidden');
+    });
 });
 
 describe('fetchUserVideos identity isolation', () => {

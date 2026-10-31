@@ -1,30 +1,25 @@
 <template>
     <section class="thrp-record" :aria-busy="loading">
         <h3 class="text text-large">
-            {{ t('common.prop.thrp') }}
+            {{ t('prop.thrp') }}
         </h3>
         <p v-if="failed" role="alert" class="text-danger">
             {{ t('local.loadFailed') }}
             <BaseTextButton @click="retry++">
-                <i class="pi pi-refresh" aria-hidden="true" />{{ t('common.action.refresh') }}
+                <i class="pi pi-refresh" aria-hidden="true" />{{ t('action.refresh') }}
             </BaseTextButton>
         </p>
         <BaseTable v-loading="loading" table-class="thrp-record-table">
             <template #head>
                 <tr>
                     <th v-for="stat in thrpStats" :key="stat" scope="col" class="table-col-center">
-                        {{ t(`common.level.${stat}`) }}
+                        {{ stat === 'e_nf' ? `${t('level.e')} NF` : t(`level.${stat}`) }}
                     </th>
                 </tr>
             </template>
             <tr>
                 <td v-for="stat in thrpStats" :key="stat" class="table-col-center" :data-field="stat" :style="cellStyle(stat)">
-                    <VideoPreviewLink v-if="videoId(stat)" :id="videoId(stat)">
-                        {{ formatScore(stat) }}
-                    </VideoPreviewLink>
-                    <template v-else>
-                        {{ formatScore(stat) }}
-                    </template>
+                    <ThrpRecordValue :record="record" :stat="stat" :rank="record?.ranks[stat] ?? null" />
                 </td>
             </tr>
         </BaseTable>
@@ -38,14 +33,13 @@ import { useI18n } from 'vue-i18n';
 
 import BaseTable from '@/components/common/BaseTable.vue';
 import BaseTextButton from '@/components/common/BaseTextButton.vue';
-import VideoPreviewLink from '@/components/VideoPreviewLink.vue';
+import ThrpRecordValue from '@/components/visualization/ThrpRecordValue.vue';
 import { fetchProfileThrpRecord, profileDataRevision } from '@/services/profileDataService';
-import { thrpStats, thrpValue, thrpVideoId } from '@/services/thrpRankingService';
+import { thrpStats, thrpValue } from '@/services/thrpRankingService';
 import type { ThrpPlayerRecord, ThrpStat } from '@/services/thrpRankingService';
 import { colorThemes } from '@/store/color';
 import { local } from '@/store/local';
 import { getPiecewiseColorSchemeName } from '@/utils/ms_const';
-import '@/styles/text.css';
 
 const props = defineProps({ userId: { type: Number, required: true } });
 const record = ref<ThrpPlayerRecord>();
@@ -80,15 +74,6 @@ watch([() => props.userId, () => profileDataRevision(props.userId), active, retr
     }
 }, { immediate: true });
 
-function formatScore(stat: ThrpStat) {
-    const value = record.value ? thrpValue(record.value, stat) : null;
-    return `${value?.toFixed(3) ?? '--'}(${record.value?.ranks[stat] ?? '--'})`;
-}
-
-function videoId(stat: ThrpStat) {
-    return record.value ? thrpVideoId(record.value, stat) : undefined;
-}
-
 function cellStyle(stat: ThrpStat) {
     if (!local.value.colored || !record.value) return undefined;
     const value = thrpValue(record.value, stat);
@@ -117,7 +102,7 @@ const { t } = useI18n({ messages: i18nMessages });
 
 :deep(.thrp-record-table th),
 :deep(.thrp-record-table td) {
-    width: 25%;
+    width: 20%;
     white-space: nowrap;
 }
 </style>

@@ -7,6 +7,11 @@ import { userRoutes } from '@/views/UserView/routes';
 
 const routes: RouteRecordRaw[] = [
     {
+        path: '/discord',
+        name: 'discord-result',
+        component: () => import('../views/DiscordResultView.vue'),
+    },
+    {
         path: '/',
         name: 'home',
         component: () => import('../views/HomeView/App.vue'),
@@ -27,8 +32,9 @@ const routes: RouteRecordRaw[] = [
         path: '/database',
         name: 'database',
         component: () => import('../views/DatabaseView/App.vue'),
-        redirect: { name: 'database-videos' },
+        redirect: { name: 'database-users' },
         children: [
+            { path: 'users', name: 'database-users', component: () => import('../views/DatabaseView/UserView.vue') },
             { path: 'videos', name: 'database-videos', component: () => import('../views/VideoView.vue') },
             { path: 'identifiers', name: 'database-identifiers', component: () => import('../views/DatabaseView/IdentifierView.vue') },
         ],
@@ -80,9 +86,19 @@ const routes: RouteRecordRaw[] = [
         children: staffRoutes,
     },
     {
+        path: '/superuser/staff',
+        name: 'superuser-staff',
+        component: () => import('../views/StaffView/StaffAssignments.vue'),
+    },
+    {
         path: '/superuser/delete-videos',
         name: 'superuser-delete-videos',
         component: () => import('../views/StaffView/DeleteVideos.vue'),
+    },
+    {
+        path: '/superuser/memorial',
+        name: 'superuser-memorial',
+        component: () => import('../views/StaffView/MemorialAccounts.vue'),
     },
     {
         path: '/tournament/:id',

@@ -8,6 +8,12 @@ from config.messages import FormErrors
 User = get_user_model()
 
 
+def account_email(email):
+    if email.lower().endswith('@accounts.invalid'):
+        raise forms.ValidationError('Memorial accounts cannot use email authentication.')
+    return email
+
+
 # 登录表单，继承了 forms.Form 类
 class UserLoginForm(forms.Form):
     username = forms.CharField(min_length=1, max_length=MaxSizes.USERNAME)
@@ -23,12 +29,18 @@ class EmailForm(forms.Form):
     captcha = forms.CharField(required=True)
     hashkey = forms.CharField(required=True)
 
+    def clean_email(self):
+        return account_email(self.cleaned_data['email'])
+
 
 # 注册表单
 class UserRegisterForm(forms.ModelForm):
     username = forms.CharField(min_length=1, max_length=MaxSizes.USERNAME, required=True, error_messages=FormErrors.username)
     password = forms.CharField(max_length=MaxSizes.PASSWORD, min_length=MinSizes.PASSWORD, required=True, error_messages=FormErrors.password)
     email = forms.EmailField(min_length=4, max_length=MaxSizes.EMAIL, required=True, error_messages=FormErrors.email)
+
+    def clean_email(self):
+        return account_email(self.cleaned_data['email'])
 
     def clean_username(self):
         # 删去前后空格，长度不能少于1
@@ -49,6 +61,9 @@ class UserRegisterForm(forms.ModelForm):
 class UserRetrieveForm(forms.Form):
     password = forms.CharField(max_length=MaxSizes.PASSWORD, min_length=MinSizes.PASSWORD, required=True)
     email = forms.EmailField(max_length=MaxSizes.EMAIL, required=True)
+
+    def clean_email(self):
+        return account_email(self.cleaned_data['email'])
 
     class Meta:
         # 自定义错误消息

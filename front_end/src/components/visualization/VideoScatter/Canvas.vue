@@ -1,7 +1,7 @@
 <template>
-    <Tippy class="video-scatter-tippy" :duration="0" sticky follow-cursor>
+    <Tippy class="video-scatter-tippy" :duration="0" sticky follow-cursor :append-to="appendTo">
         <YLabel class="text">
-            {{ t(`common.prop.${VideoScatterConfig.y}`) }}
+            {{ t(`prop.${VideoScatterConfig.y}`) }}
         </YLabel>
         <div ref="plotRef" class="plot-stage">
             <TransformGroup
@@ -33,7 +33,7 @@
         </div>
         <span />
         <XLabel class="text">
-            {{ t(`common.prop.${VideoScatterConfig.x}`) }}
+            {{ t(`prop.${VideoScatterConfig.x}`) }}
         </XLabel>
 
         <template #content>
@@ -46,7 +46,6 @@
 
 <script setup lang="ts">
 import '@/styles/cards.css';
-import '@/styles/text.css';
 import '@putianyi888/vue3-plots/style.css';
 
 import { Axis, createLinearScale, Ellipse, getNiceTicks, getPlotArea, Grid, MouseDraw, Rect, Scatter, TransformGroup, XLabel, YLabel } from '@putianyi888/vue3-plots';
@@ -76,11 +75,20 @@ const gridColor = computed(() => getComputedStyle(document.documentElement).getP
 
 function handlePointClick(point: PlotPoint<VideoAbstract>) {
     if (point.data.isLocal) return;
-    void preview(point.data.id, point.data.software);
+    preview(point.data.id);
 }
 
 function handlePointEnter(point: PlotPoint<VideoAbstract>) {
     activePoint.value = point;
+}
+
+// 全屏时必须挂进全屏元素子树，否则浮层不绘制；非全屏仍挂 body，
+// 避免被祖先元素的 overflow 裁剪。
+function appendTo(element: Element) {
+    const fullscreenEl = document.fullscreenElement;
+    return fullscreenEl?.contains(element) === true
+        ? element.parentElement ?? fullscreenEl
+        : document.body;
 }
 
 function handleDraw(shape: AnyShape) {

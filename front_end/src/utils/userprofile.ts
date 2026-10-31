@@ -21,6 +21,8 @@ export interface UserProfileData {
     hide_realname?: boolean;
     is_banned?: boolean;
     is_staff?: boolean;
+    is_superuser?: boolean;
+    is_memorial?: boolean;
     country?: string;
     signature?: string;
     last_change_avatar?: string | Date | null;
@@ -41,6 +43,8 @@ export class UserProfile {
     public hide_realname = false;
     public is_banned = false;
     public is_staff = false;
+    public is_superuser = false;
+    public is_memorial = false;
     public country = '';
     public signature = '';
     public last_change_avatar: Date = new Date();
@@ -67,6 +71,8 @@ export class UserProfile {
         this.hide_realname = data.hide_realname ?? false;
         this.is_banned = data.is_banned ?? false;
         this.is_staff = data.is_staff ?? false;
+        this.is_superuser = data.is_superuser ?? false;
+        this.is_memorial = data.is_memorial ?? false;
         this.country = data.country ?? '';
         this.signature = data.signature ?? '';
 

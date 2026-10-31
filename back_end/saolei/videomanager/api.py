@@ -16,24 +16,31 @@ from ninja import Field, Form, Query, Router, Schema
 from ninja.decorators import decorate_view
 from ninja.errors import HttpError
 from ninja.orm import create_schema
-from ninja.security import django_auth_superuser
-from pydantic import StrictInt
+from ninja.security import django_auth, django_auth_superuser
+from pydantic import StrictInt, StringConstraints
 
 from config.text_choices import MS_TextChoices
 from userprofile.decorators import staff_required
 from userprofile.models import UserProfile
 from .cache import cache, newest_cache
+from .files import original_file
 from .models import ExpandVideoModel, STNB_COEFFICIENTS, VideoModel
 from .schema import ParsedVideoOut, PUBLIC_VIDEO_METADATA_FIELDS, PublicVideoMetadataOut, VIDEO_INFO_BATCH_LIMIT, VIDEO_METADATA_FIELDS, VideoBaseOut, VideoMetadataOut
-from .services import delete_video_by_id
+from .services import delete_video_by_id, freeze_video_by_id
+from .utils import replay_filename, unpack_compression_format
 from .view_utils import video_all_fields
 
 router = Router()
 VIDEO_ACCEL_REDIRECT_PREFIX = '/internal-media/'
 VideoDeleteIn = create_schema(VideoModel, name='VideoDeleteIn', fields=['id'], custom_fields=[('id', Annotated[StrictInt, Field(gt=0, le=2**63 - 1)], ...)])
+VideoFreezeIn = create_schema(
+    VideoModel, name='VideoFreezeIn', fields=['id'],
+    custom_fields=[('id', Annotated[StrictInt, Field(gt=0, le=2**63 - 1)], ...), ('freeze_reason', Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, strict=True)], ...)],
+)
+VideoFreezeOut = create_schema(VideoModel, name='VideoFreezeOut', fields=['id', 'state'], custom_fields=[('freeze_reason', str, ...)])
 
 
-class VideoDeleteAccessOut(Schema):
+class VideoAdminAccessOut(Schema):
     csrf_token: str
 
 
@@ -144,12 +151,42 @@ def get_video_admin(request, video_id: int):
     """
     - staff_required
     """
-    fields = ['player', 'upload_time', 'state', 'software', 'level', 'mode', 'right_ce', 'timems', 'bv', 'bvs', 'ongoing_tournament']
+    fields = ['id', 'player', 'upload_time', 'state', 'software', 'level', 'mode', 'right_ce', 'timems', 'bv', 'bvs', 'ongoing_tournament']
     fields.extend('video__' + field.name for field in ExpandVideoModel._meta.get_fields())
     row = VideoModel.objects.filter(pk=video_id).values(*fields, player__realname=F('player___realname')).first()
     if row is None:
         raise HttpError(404, 'Video not found.')
     return row
+
+
+@router.get('/admin/freeze', auth=django_auth, response=VideoAdminAccessOut)
+@decorate_view(staff_required, ensure_csrf_cookie, cache_control(no_store=True))
+def get_video_freeze_access(request: HttpRequest):
+    """
+    - auth=django_auth (Django session)
+    - staff_required
+    - ensure_csrf_cookie
+    - cache_control(no_store=True)
+
+    Check staff access and initialize the CSRF cookie and request token for freezing a video.
+    """
+    return {'csrf_token': get_token(request)}
+
+
+@router.post('/admin/freeze', auth=django_auth, response=VideoFreezeOut)
+@decorate_view(staff_required)
+def freeze_video_admin(request: HttpRequest, data: VideoFreezeIn):
+    """
+    - auth=django_auth (Django session, CSRF required)
+    - staff_required
+
+    Freeze one video and save a nonblank reason. Repeating the request updates the reason.
+    State-change signals update queues and rankings; the file and upload time are preserved.
+    """
+    try:
+        return freeze_video_by_id(data.id, data.freeze_reason, actor_id=request.user.pk)
+    except VideoModel.DoesNotExist:
+        raise HttpError(404, 'Video not found.')
 
 
 @router.post('/admin/delete', auth=django_auth_superuser, response=VideoDeleteOut)
@@ -169,7 +206,7 @@ def delete_video_admin(request: HttpRequest, data: VideoDeleteIn):
     return delete_video_by_id(data.id, actor_id=request.auth.pk)
 
 
-@router.get('/admin/delete', auth=django_auth_superuser, response=VideoDeleteAccessOut)
+@router.get('/admin/delete', auth=django_auth_superuser, response=VideoAdminAccessOut)
 @decorate_view(ensure_csrf_cookie, cache_control(no_store=True))
 def get_video_delete_access(request: HttpRequest):
     """
@@ -207,22 +244,29 @@ def _can_request_video(request: HttpRequest, video: VideoModel):
     return request.user.id == video.player_id
 
 
-def _video_file_response(request: HttpRequest, video_id: int):
+def _video_file_response(request: HttpRequest, video_id: int, *, decompress=False):
     video = get_object_or_404(VideoModel, id=video_id)
     if not _can_request_video(request, video):
         raise HttpError(403, 'Forbidden.')
     file_name = video.file.name
-    if settings.DEBUG:
-        try:
+    try:
+        if decompress and video.compression_format:
+            with original_file(file_name, video.compression_format, video.original_filename) as source:
+                response = HttpResponse(source.read(), headers={'Content-Length': str(source.size)})
+        elif settings.DEBUG:
             response = FileResponse(default_storage.open(file_name, 'rb'))
-        except FileNotFoundError:
-            raise HttpError(404, 'Video file not found.')
-    else:
-        response = HttpResponse()
-        response['X-Accel-Redirect'] = f'{VIDEO_ACCEL_REDIRECT_PREFIX}{quote(file_name, safe="/")}'
+        else:
+            response = HttpResponse()
+            response['X-Accel-Redirect'] = f'{VIDEO_ACCEL_REDIRECT_PREFIX}{quote(file_name, safe="/")}'
+    except FileNotFoundError:
+        raise HttpError(404, 'Video file not found.')
     response['Content-Type'] = 'application/octet-stream'
-    file_name_uri = quote(file_name.split('/')[-1])
+    filename = replay_filename(file_name, video.original_filename)
+    if video.compression_format and not decompress:
+        filename += '.msrc'
+    file_name_uri = quote(filename)
     response['Content-Disposition'] = f'attachment; filename="{file_name_uri}"'
+    response['X-Replay-Container-Version'] = '0' if decompress else str(unpack_compression_format(video.compression_format)[0])
     return response
 
 
@@ -247,26 +291,24 @@ VideoFullOut = create_schema(
 
 @router.get('/preview')
 @decorate_view(ratelimit(key='ip', rate='20/m'))
-def video_preview(request: HttpRequest, video_id_with_extension: str = Query(..., alias='id')):  # noqa: B008
+def video_preview(request: HttpRequest, video_id: int = Query(..., alias='id')):  # noqa: B008
     """
     - ratelimit(key='ip', rate='20/m')
+
+    按录像 ID 返回当前存储的文件，已压缩录像返回 MSRC 容器，未压缩录像返回原始字节。
     """
-    try:
-        video_id = int(video_id_with_extension[:-4])
-    except ValueError:
-        raise HttpError(400, 'Invalid video id.')
-    response = _video_file_response(request, video_id)
-    response['Access-Control-Expose-Headers'] = 'Content-Disposition'
-    return response
+    return _video_file_response(request, video_id)
 
 
 @router.get('/download/{video_id}')
-@decorate_view(ratelimit(key='ip', rate='20/m'))
+@decorate_view(ratelimit(key='ip', rate='5/m'))
 def video_download(request: HttpRequest, video_id: int):
     """
-    - ratelimit(key='ip', rate='20/m')
+    - ratelimit(key='ip', rate='5/m')
+
+    按录像 ID 返回原始录像文件，MSRC 容器在后端解压，文件名保留原软件后缀。
     """
-    return _video_file_response(request, video_id)
+    return _video_file_response(request, video_id, decompress=True)
 
 
 @router.get('/review_queue', response=list[VideoMetadataOut])

@@ -1,5 +1,5 @@
 <template>
-    <button class="stat-header" type="button" :aria-label="`${t(`common.level.${level}`)} ${label}`" :aria-pressed="selected === field" @click="emit('select', field)">
+    <button class="stat-header" type="button" :aria-label="`${t(`level.${level}`)} ${label}`" :aria-pressed="selected === field" @click="emit('select', field)">
         {{ label }}
     </button>
 </template>
@@ -22,7 +22,7 @@ const emit = defineEmits<{ select: [field: SaoleiField] }>();
 
 const { t } = useI18n();
 const field = computed<SaoleiField>(() => `${props.level}${props.stat}`);
-const label = computed(() => t(`common.prop.${SaoleiStat[props.stat]}`));
+const label = computed(() => t(`prop.${SaoleiStat[props.stat]}`));
 </script>
 
 <style scoped>

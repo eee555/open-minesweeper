@@ -6,6 +6,46 @@
 python manage.py <command> --help
 ```
 
+## 纪念账号建档
+
+### `create_memorial_account`
+
+位置：`common/management/commands/create_memorial_account.py`。
+
+站长先通过服务器、既有命令和 shell 核实注销及清理旧身份，再显式指定 UserProfile ID、UserMS ID 和用户名。两个编号必须分别未占用且小于各自表当前最大主键；不自动追加、不接管孤立 UserMS，空表拒绝建档。
+
+```bash
+python manage.py create_memorial_account 42 70 legend --realname "传奇玩家" --country CN
+```
+
+ID 和资料仅为示例，须替换为已核实的空缺；另支持 `--firstname`、`--lastname`、`--signature`。命令在事务内锁定两表最大主键行、复核空缺并只执行插入，模型验证或占用冲突回滚。新账号不可登录、无管理员权限、使用不可用密码及独立占位邮箱。
+
+旧数据清理和资料维护由站长使用已有工具完成；录像补传使用 `/superuser/memorial`。业务规则见仓库 `back_end/saolei/userprofile/README.md`。
+
+## 扫雷网首次迁移与增量同步
+
+### `sync_saolei_api`
+
+位置：`accountlink/management/commands/sync_saolei_api.py`。使用服务器 `secrets.json` 的 `saolei_api_key`，只处理已验证且关联一致的扫雷网账号。首批仅提供此管理命令，旧查询关闭，不开放新的 Web API，前端代码不动。
+
+部署时先使用已有 `backfill_video_hashes` 补齐存量原文件哈希，再运行 `makemigrations accountlink --noinput` 并核对生成结果，最后运行 `migrate`。迁移文件按仓库惯例不跟踪，编号取决于服务器已有历史；应生成删除旧 `VideoSaolei`、创建独立 `SaoleiApiVideo` 及账号字段变更的结构迁移，保留账号绑定、本站录像、扩展记录及文件。首次运行可先指定一个扫雷网账号 ID 核对结果，再处理全部绑定：
+
+```bash
+python manage.py sync_saolei_api --account-id 101 --full
+python manage.py sync_saolei_api --all-linked --full
+python manage.py sync_saolei_api --all-linked
+```
+
+`--account-id` 可重复指定；`--all-linked` 表示全部已验证绑定，两者必须选择其一。`--full` 从 0 重新扫描目录，不清空数据、不回退账号成功游标；去掉此选项用于增量和中断续跑。`--page-size` 默认为 200，取值 1 至 1000。命令发现任何存量录像缺少原文件哈希时拒绝同步。
+
+整个命令串行共用一个客户端，数据请求间隔 2.1 秒，文件请求间隔 0.4 秒；不要并行启动多个同步命令。目录页和 `AccountSaolei.video_sync_cursor` 同事务提交，失败不推进；目录同步后还会补导本地白名单内未完成的录像，避免游标已推进但文件未导入时漏导。软件精确白名单为 `Clone`、`Vienna`、`Arbiter`、`元扫雷`，其他名称只保存目录并跳过；上游 `status` 不限制导入。
+
+目录按 ID 严格大于已存游标续跑，`next_cursor` 可等于本页最后一条 ID，不自行加 1；跨过本轮 `stats().max_video_id` 时仅提交上界内的记录，游标最多保存到上界，下一轮仍能取得紧随上界的录像。
+
+本站文件校验直接拒收（`file/type`、`file/incomplete`、`file/level`、`file/review`）时，来源保存 `import_rejected=True`。首次拒收计入失败；后续增量及 `--full` 均跳过详情请求和文件下载，计入跳过数量，目录刷新保留标记。需要人工重试时，在 Django shell 中将指定来源的 `import_rejected` 清为 `False` 后重跑。网络、上游、配置、绑定及写入故障仍可重试；冻结或待审核等正常保存的录像不设置拒收标记。部署此字段变更也须先执行 `makemigrations accountlink --noinput` 和 `migrate`。
+
+同主文件哈希命中时复用既有本站录像，异主冲突不改归属或上传时间。单项失败保留成功进度并汇总，退出码非零；鉴权失败和限流立即停止，不自动重试。进度见命令输出和 `accountlink` 日志；客户端错误保留异常类型和具体原因，不输出认证头或响应体。接口关闭由站长人工鉴定，同步完成不自动开放接口。账号资料仅采用 ID、姓名和外站封禁状态，不同步成绩或标识列表。
+
 ## 勋章补发
 
 ### `enqueue_medal_backfill`
@@ -81,10 +121,11 @@ python -m dangerzone.init_local_test --no-weekly
 
 位置：`effranking/management/commands/rebuild_eff_ranks.py`
 
-从录像数据库重建效率 Thrp 榜。`--ranking-name` 仅支持 `thrp`（默认值）；`--batch-size` 默认 1000，必须为正数。
+从录像数据库重建效率榜。`--ranking-name` 支持 `thrp`（默认，包含高级 NF 满分列表）和 `nf_ioe`；`--batch-size` 默认 1000，必须为正数。新增大榜后需显式执行，将历史录像纳入缓存，不需要个人纪录数据迁移。
 
 ```bash
 python manage.py rebuild_eff_ranks
+python manage.py rebuild_eff_ranks --ranking-name nf_ioe
 ```
 
 首次建榜或缓存丢失后执行，API 不回源数据库。执行前暂停录像上传、审核、修改、删除、标识绑定/解绑和比赛公开等写入。命令先构建临时榜，成功后原子替换，失败保留旧榜。规则见 `back_end/saolei/effranking/README.md`。
@@ -198,6 +239,52 @@ python manage.py rebuild_custom_pluck_cache --level c16_30_150
 
 ## 数据刷新
 
+### `compress_video_files`
+
+位置：`videomanager/management/commands/compress_video_files.py`
+
+手动将历史录像或旧格式文件转换为 `videomanager.config.TARGET_COMPRESSION_FORMAT` 指定的 MSRC 格式，当前为 `(1, 1, 2)`。新上传和导入优先保存压缩文件，校验失败时保存源文件并标记失败，可用 `--retry-failed` 重试。符合目标格式的录像会跳过，不启用定期压缩任务。只在前后端均已支持 MSRC 后执行本命令。
+
+| 参数 | 默认值 | 说明 |
+| --- | --- | --- |
+| `--start` | `0` | 包含的起始录像 ID |
+| `--end` | 不限制 | 不包含的结束录像 ID |
+| `--batch-size` | `100` | 每批读取的候选记录数，必须为正整数 |
+| `--dry-run` | 关闭 | 仅列出候选 ID 与相对路径，不读写文件 |
+| `--retry-failed` | 关闭 | 仅重试失败记录，每条在本次执行中最多尝试一次 |
+
+```bash
+python manage.py compress_video_files --dry-run
+python manage.py compress_video_files --start 1000 --end 1100
+python manage.py compress_video_files --retry-failed
+```
+
+默认跳过已经采用目标格式及已标记失败的录像。每条先读取原始字节，验证大小、已有哈希、压缩输出格式及完整解压还原；完整保存归档后，以原路径和格式未变化为条件更新数据库。提交后检查旧路径引用并立即清理，允许切换瞬间的播放或下载失败后重新请求。命令显示总量及逐条进度，不重新解析录像、不触发保存信号，不改原始大小、哈希或排行。
+
+单个损坏或缺失文件保留原记录及格式、标记失败并继续；依赖配置、磁盘空间、只读存储、权限及数据库错误停止本轮，之前完成的转换保留。失败文件通过 `--retry-failed` 手动再试；目标变化不会自动清除失败标记。数据库提交结果不明时保留文件供核对，清理失败仅记录日志。
+
+### `backfill_video_hashes`
+
+位置：`videomanager/management/commands/backfill_video_hashes.py`
+
+部署后先完成数据库迁移，再手动执行本命令，为所有尚无 `original_hash`（NULL 或空字符串）的录像回填原始文件 SHA-256 的前 96 位，保存为 24 个小写十六进制字符。包含所有状态及比赛录像；已有哈希保持不变。逐个读取文件计算，不解析录像，仅通过条件更新写入哈希，不触发保存信号、排行或缓存更新，不修改上传及查重逻辑。
+
+启动时统计待回填数量并固定最大录像 ID；按 ID 分批读取记录，文件分块计算哈希，避免一次加载全部录像或文件内容。输出已处理/总数、百分比、成功、失败、跳过数量及当前 ID，初始和结束时也输出进度。执行期间删除或被其他进程回填的记录，可能使实际处理数量小于初始总数。上传及导入入口已在解析前计算哈希并随新录像保存；部署查重切换后应再执行一次本命令，补齐此前旧代码运行期间新增的空哈希记录。
+
+文件缺失时报告录像 ID，保留空哈希并继续；其他文件读写或数据库错误停止命令，之前完成的回填保留，可重新执行。写入时确认文件路径未变化且哈希仍为空，避免覆盖其他进程的结果。MSRC 文件先通过统一文件层还原，再计算原始内容哈希；原文件继续分块计算。
+
+| 参数 | 默认值 | 说明 |
+| --- | --- | --- |
+| `--start` | `0` | 起始录像 ID，包含，必须非负 |
+| `--end` | 不限制 | 结束录像 ID，不包含，不能小于 `start` |
+| `--batch-size` | `1000` | 每批读取的记录数量，必须为正整数 |
+| `--step` | `100` | 每处理多少条输出一次进度，必须为正整数 |
+
+```bash
+python manage.py backfill_video_hashes
+python manage.py backfill_video_hashes --start 10000 --end 20000 --step 10
+```
+
 ### `refresh_videos`
 
 位置：`videomanager/management/commands/refresh_videos.py`
@@ -272,6 +359,25 @@ python manage.py refresh_tournament_scores 123
 python manage.py refresh_tournament_user_stats
 ```
 
+## 数据清理
+
+### `cleanup_orphan_userms` {#cleanup-orphan-userms}
+
+位置：`msuser/management/commands/cleanup_orphan_userms.py`
+
+删除没有关联 `UserProfile` 的孤立 `UserMS`，并按既有外键级联删除这些资料的标识。通过真实关联判断是否孤立，不比较两张表的主键数值；已经关联用户的资料全部保留，包括停用账号。
+
+```bash
+python manage.py cleanup_orphan_userms --dry-run
+python manage.py cleanup_orphan_userms --batch-size 1000
+```
+
+`--dry-run` 只统计；`--batch-size` 默认 1000，必须为正数；`--database` 默认 `default`，可指定已配置的数据库别名。输出只统计 `UserMS` 数量，不把级联删除的标识计入其中，重复执行没有待清理数据时输出 0。
+
+实际删除按主键分批，每批独立事务：先锁定候选 `UserMS` 行，再重新检查用户关联，保留候选查询之后已关联的资料。失败时回滚当前批，此前完成的批次保留。命令不扫描或改写 Redis，也不重建用户排行。新的账号删除已由 `UserProfile.post_delete` 自动清理其关联 `UserMS`；本命令处理历史遗留或其他来源的孤立资料。
+
+执行期间暂停先创建 `UserMS`、再关联账号的写入流程；尚未完成关联的新资料也符合孤立条件，命令无法将其与历史残留区分。
+
 ## 缓存清理
 
 ### `delete_legacy_speedranking_cache`
@@ -325,13 +431,13 @@ python manage.py db_worker_robust --queue-name default --interval 2
 
 位置：`monitor/management/commands/refresh_monitor_snapshot.py`
 
-立即采样录像、任务、磁盘和内存统计，原子发布 `BASE_DIR/runtime/monitor.json`，供 `GET /api/monitor/summary` 读取。首次部署或本地调试时可手动运行；日常更新由下方 APScheduler 任务执行。单项失败保留原样本及时间，其他项继续更新；具体结构见[服务器监控快照](./cache.md#服务器监控快照)。
+立即采样录像、任务、磁盘和内存统计，原子发布监控 JSON，供 `GET /api/monitor/summary` 读取。开发环境默认写入 `BASE_DIR/runtime/monitor.json`；生产环境默认写入与 `STATIC_ROOT` 同级的 `runtime/monitor.json`，可通过 `MONITOR_SNAPSHOT_PATH` 覆盖。首次部署或本地调试时可手动运行；日常更新由下方 APScheduler 任务执行。单项失败保留原样本及时间，其他项继续更新；具体结构见[服务器监控快照](./cache.md#服务器监控快照)。
 
 ```bash
 python manage.py refresh_monitor_snapshot
 ```
 
-生产环境需部署 `default.conf` 中的精确路径配置，并执行 `nginx -t` 和 reload。默认文件路径为 `/root/saolei/runtime/monitor.json`；更改部署目录时同步调整 Nginx alias。Nginx worker 需要读取文件及遍历父目录的权限。采样或写入失败时检查 `logs/apscheduler.log`；旧文件不会自动过期，应检查各项采样时间。
+生产环境需部署 `default.conf` 中的精确路径配置，并执行 `nginx -t` 和 reload。Nginx `alias` 应与采样实际输出路径一致；更改输出目录时同步调整配置。Nginx worker 需要读取文件及遍历父目录的权限。采样或写入失败时检查 `logs/apscheduler.log`；旧文件不会自动过期，应检查各项采样时间。
 
 ### `runapscheduler`
 
@@ -344,13 +450,14 @@ python manage.py refresh_monitor_snapshot
 | `refresh_monitor_snapshot` | 启动时及每 5 分钟 | 生成统一监控 JSON；单实例执行，错过多次调度时合并执行 |
 | `delete_old_job_executions` | 每天 00:03 | 清理超过 7 天的 APScheduler 执行记录 |
 | `delete_newest_queue` | 每天 01:08 | 按上传时间保留最新 1000 条，允许两次清理之间暂时超过上限 |
-| `delete_freezed_video` | 每天 01:28 | 删除 7 天以前冻结状态的录像 |
 | `delete_overdue_emailverifyrecord` | 每周一 01:03 | 清理 1 小时以前的邮箱验证码 |
 | `delete_overdue_captcha` | 每周一 01:05 | 清理过期图形验证码 |
 | `delete_overdue_tasks` | 每周一 01:10（`settings.TIME_ZONE`，当前为 UTC） | 按 `config/common.py` 的保留期限分批清理成功的后台任务，删除总量不限 |
 | `refresh_tournament_score_reference` | 每年 1 月 1 日 00:00 UTC | 将当前积分 zset 整体折算到新年年初，并原子更新锚点；数据库不变 |
 
 年度锚点任务在调度器启动时也会执行一次幂等检查，补上跨年停机或错过的更新；同一年不会重复衰减。
+
+冻结录像不再按时间自动删除。调度器启动时会移除数据库中遗留的 `delete_freezed_video` 任务；更新代码后需重启调度器，使旧进程停止执行该任务。
 
 后台任务清理与管理员接口 `POST /api/common/tasks/cleanup` 共用服务；接口每类任务每次最多删除 200 条，定时任务则以每批 200 条循环删除所有符合条件的记录。失败、待执行、执行中和未配置的任务均保留。
 

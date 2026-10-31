@@ -1,17 +1,14 @@
 import json
 import logging
-import os
 
 from captcha.models import CaptchaStore
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
-from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponseNotFound, JsonResponse
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFound, JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 from django_ratelimit.decorators import ratelimit
 
-from msuser.models import UserMS
-from .decorators import staff_required
-from .forms import EmailForm, UserLoginForm, UserRegisterForm, UserRetrieveForm
+from .forms import EmailForm, UserLoginForm, UserRetrieveForm
 from .models import EmailVerifyRecord, UserProfile
 from .services import judge_email_verification, send_email, user_metadata
 from .utils import judge_captcha
@@ -76,45 +73,6 @@ def user_retrieve(request):
     return JsonResponse({'type': 'success', 'user': user_metadata(user, user)})
 
 
-# 用户注册
-# @method_decorator(ensure_csrf_cookie)
-@ratelimit(key='ip', rate='6/h')
-@require_POST
-def user_register(request):
-    user_register_form = UserRegisterForm(data=request.POST)
-    if user_register_form.is_valid():
-        emailHashkey = request.POST.get('email_key')
-        email_captcha = request.POST.get('email_captcha')
-        email = request.POST.get('email')
-        if judge_email_verification(email, email_captcha, emailHashkey):
-            new_user = user_register_form.save(commit=False)
-            # 设置密码(哈希)
-            new_user.set_password(
-                user_register_form.cleaned_data['password'])
-            new_user.is_active = True  # 自动激活
-            user_ms = UserMS.objects.create()
-            new_user.userms = user_ms
-            user_ms.save()  # noqa: DJM100
-            new_user.save()  # noqa: DJM100
-            # 保存好数据后立即登录
-            login(request, new_user)
-            logger.info(f'用户 {new_user.username}#{new_user.id} 注册')
-            # 顺手把过期的验证码删了
-            EmailVerifyRecord.objects.filter(hashkey=emailHashkey).delete()
-            return JsonResponse({'type': 'success', 'user': user_metadata(new_user, new_user)})
-        else:
-            return JsonResponse({'type': 'error', 'object': 'emailcode'})
-    else:
-        if 'email' not in user_register_form.cleaned_data or 'username' not in user_register_form.cleaned_data:
-            # 可能发生前端验证正确，而后端验证不正确（后端更严格），此时clean会直接删除email字段
-            # 重复的邮箱、用户名也会被删掉
-            errors_dict = json.loads(user_register_form.errors.as_json())
-            errors = list(errors_dict.values())[0]
-            return JsonResponse({'status': 105, 'msg': errors[0]['message']})
-        else:
-            return JsonResponse({'status': 101, 'msg': user_register_form.errors.as_text().split('*')[-1]})
-
-
 @require_GET
 def check_collision(request):
     user = None
@@ -127,46 +85,6 @@ def check_collision(request):
     if not user:
         return HttpResponse(False)
     return HttpResponse(True)
-
-
-# 【站长】任命解除管理员
-# http://127.0.0.1:8000/userprofile/set_staff/?id=1&is_staff=True
-@require_GET
-def set_staff(request: HttpRequest):
-    if not request.user.is_superuser:
-        return HttpResponseForbidden()
-    user = UserProfile.objects.get(id=request.GET['id'])
-    user.is_staff = request.GET['is_staff']
-    logger.info(f"{request.user.id} set_staff {request.GET['id']} {request.GET['is_staff']}")
-    if request.GET['is_staff'] == 'True':
-        user.is_staff = True
-        user.save(update_fields=['is_staff', 'date_updated'])
-        logger.info(f'用户 {user.username}#{user.id} 成为管理员')
-        return HttpResponse(f'设置"{user.realname}"为管理员成功！')
-    elif request.GET['is_staff'] == 'False':
-        user.is_staff = False
-        user.save(update_fields=['is_staff', 'date_updated'])
-        logger.info(f'用户 {user.username}#{user.id} 卸任管理员')
-        return HttpResponse(f'解除"{user.realname}"的管理员权限！')
-    else:
-        return HttpResponse('失败！is_staff需要为"True"或"False"（首字母大写）')
-
-
-# 【管理员】删除用户的个人信息，从服务器磁盘上完全删除，但不影响是否封禁
-# 站长可以删除管理员信息（如果站长也是管理员）。
-# http://127.0.0.1:8000/userprofile/del_user_info/?id=1
-@require_GET
-@staff_required
-def del_user_info(request):
-    user = UserProfile.objects.get(id=request.GET['id'])
-    if user.is_staff and not request.user.is_superuser:
-        return HttpResponse('没有删除管理员信息的权限！')
-    logger.info(f'管理员 {request.user.username}#{request.user.id} 删除用户 {user.username}#{user.id}')
-    user.realname = ''
-    user.signature = ''
-    if user.avatar and os.path.isfile(user.avatar.path):
-        os.remove(user.avatar.path)
-    user.avatar = None
 
 
 # 创建验证码

@@ -1,8 +1,8 @@
 <template>
-    <div class="checkbox-buttons" role="group" :aria-label="t('common.prop.level')">
+    <div class="checkbox-buttons" role="group" :aria-label="t('prop.level')">
         <label v-for="l in MS_Levels" :key="l" class="checkbox-button">
             <input v-model="level" class="checkbox-button-input" type="checkbox" :value="l" @change="handleChange">
-            <span class="checkbox-button-content">{{ t(`common.level.${l}`) }}</span>
+            <span class="checkbox-button-content">{{ t(`level.${l}`) }}</span>
         </label>
     </div>
 </template>

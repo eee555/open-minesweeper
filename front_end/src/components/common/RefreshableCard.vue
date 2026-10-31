@@ -3,7 +3,7 @@
         <header class="refreshable-card-header">
             <h2>{{ title }}</h2>
             <BaseTextButton size="small" :disabled="loading" @click="emit('refresh')">
-                {{ t('common.action.refresh') }}
+                {{ t('action.refresh') }}
             </BaseTextButton>
         </header>
         <slot />

@@ -160,25 +160,6 @@ export async function fetchTournamentVideos(tournamentId: number): Promise<Video
     return data;
 }
 
-export async function downloadTournamentVideos(tournamentId: number): Promise<ArrayBuffer> {
-    const { data } = await $axios.get<ArrayBuffer>('/api/tournament/download', {
-        params: { tournament_id: tournamentId },
-        responseType: 'arraybuffer',
-    });
-    return data;
-}
-
-export async function downloadParticipantTournamentVideos(params: ParticipantVideosParams): Promise<ArrayBuffer> {
-    const { data } = await $axios.get<ArrayBuffer>('/api/tournament/download/participant', {
-        params: {
-            user_id: params.userId,
-            tournament_id: params.tournamentId,
-        },
-        responseType: 'arraybuffer',
-    });
-    return data;
-}
-
 function tournamentParticipantFromResponse(data: TournamentParticipantResponse): TournamentParticipant {
     return new TournamentParticipant({
         id: data.id,

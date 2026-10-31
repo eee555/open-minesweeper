@@ -3,7 +3,7 @@
         <template #head>
             <tr>
                 <th scope="col" class="table-col-player">
-                    {{ t('common.prop.realName') }}
+                    {{ t('prop.realName') }}
                 </th>
                 <th scope="col" class="registered-interval">
                     {{ t('local.interval') }}
@@ -12,14 +12,14 @@
                     {{ t('local.token') }}
                 </th>
                 <th v-if="canManage" scope="col" class="registered-actions">
-                    {{ t('common.prop.action') }}
+                    {{ t('prop.action') }}
                 </th>
             </tr>
         </template>
         <tr v-for="row in participants" :key="row.id">
             <td class="table-col-player">
                 <PlayerName v-if="row.user_id !== 0" :user-id="row.user_id" />
-                <span v-else>{{ t('common.anonymous') }}</span>
+                <span v-else>{{ t('anonymous') }}</span>
             </td>
             <td class="registered-interval">
                 {{ row.start_time ? toISODateTimeString(row.start_time) : '' }} ~ {{ row.end_time ? toISODateTimeString(row.end_time) : '' }}
@@ -46,12 +46,12 @@
         </p>
         <template v-if="selectedParticipant">
             <PlayerName v-if="selectedParticipant.user_id !== 0" :user-id="selectedParticipant.user_id" />
-            <span v-else>{{ t('common.anonymous') }}</span>
+            <span v-else>{{ t('anonymous') }}</span>
             <div>{{ selectedParticipant.token }}</div>
         </template>
         <template #footer>
             <BaseButton :disabled="deleting" @click="dialogVisible = false">
-                {{ t('common.button.cancel') }}
+                {{ t('button.cancel') }}
             </BaseButton>
             <BaseButtonConfirm :loading="deleting" @click="confirmDeletion" />
         </template>

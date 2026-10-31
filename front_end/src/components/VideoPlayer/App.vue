@@ -8,34 +8,22 @@
                 <RouterLink :to="`/video/${videoplayerstore.id}`" class="link video-player__analyzer-link" @click="videoplayerstore.visible = false">
                     {{ t('local.video') }} #{{ videoplayerstore.id }}
                 </RouterLink>
-                <span style="margin-left: auto;">
-                    {{ t('local.player') }}
-                    <ElSelect v-model="videoPlayerConfig.backend" style="width: 10rem">
-                        <ElOption key="native" value="native" :label="t('local.native')" />
-                        <ElOption key="flop" value="flop" label="flop-player" />
-                        <ElOption key="StrangeDust" value="StrangeDust" label="strange-dust.github.io" />
-                    </ElSelect>
-                </span>
             </div>
         </template>
-        <FlopPlayer v-if="videoPlayerConfig.backend == 'flop'" :src="videoplayerstore.url" />
-        <NativePlayer v-if="videoPlayerConfig.backend == 'native'" :src="videoplayerstore.url" />
-        <StrangeDust v-if="videoPlayerConfig.backend == 'StrangeDust'" :src="videoplayerstore.url" />
+        <NativePlayer :src="videoplayerstore.url" />
     </ElDialog>
 </template>
 
 <script setup lang="ts">
 import '@/styles/link.css';
-import { ElDialog, ElOption, ElSelect } from 'element-plus';
+import { ElDialog } from 'element-plus';
 import { defineAsyncComponent, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterLink, useRoute } from 'vue-router';
 
-import { videoPlayerConfig, videoplayerstore } from '@/store';
+import { videoplayerstore } from '@/store';
 
-const FlopPlayer = defineAsyncComponent(() => import('./FlopPlayer.vue'));
 const NativePlayer = defineAsyncComponent(() => import('./NativePlayer.vue'));
-const StrangeDust = defineAsyncComponent(() => import('./StrangeDust.vue'));
 const route = useRoute();
 watch(() => route.fullPath, () => {
     videoplayerstore.visible = false;
@@ -44,13 +32,9 @@ watch(() => route.fullPath, () => {
 const i18nMessages = {
     'zh-cn': { local: {
         video: '录像',
-        player: '播放器：',
-        native: '原生',
     } },
     en: { local: {
         video: 'Video',
-        player: 'Video Player: ',
-        native: 'Native',
     } },
 };
 

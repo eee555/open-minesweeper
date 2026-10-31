@@ -15,7 +15,7 @@ IMPORT_EXTENSIONS = ('.avf', '.mvf', '.rmv')
 
 
 def normalize_profile(profile: Profile, player_id: int) -> dict:
-    if profile.player_id != player_id or not profile.name or len(profile.name) > 128:
+    if profile.player_id != player_id or not profile.name or not profile.name.strip() or len(profile.name) > 128:
         raise ValueError('Invalid MSGames profile')
     local_name = str(profile.local_name)
     if len(local_name) > 128 or (profile.fields.get('Joined') and profile.joined is None):

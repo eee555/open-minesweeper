@@ -91,11 +91,7 @@ export const videoplayerstore = defineStore('videoplayer', {
     state: () => ({
         visible: false,
         id: 0,
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-        software: 'a' as MS_Software,
         url: '',
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-        error: null as unknown,
     }),
 })(pinia);
 
@@ -105,17 +101,19 @@ export type { LocalSettings } from './local';
 export const videoPlayerConfig = useLocalStorage(
     'video-player-config',
     {
-        backend: 'native' as 'native' | 'flop' | 'StrangeDust',
         cellSize: 24,
         showProbability: true,
         probabilityColorScheme: {
             colors: ['#15803d', '#0f766e', '#2563eb', '#b45309', '#dc2626', '#7f1d1d'],
             thresholds: [10, 25, 50, 75, 90],
         },
-        strangeDustTrust: false,
     },
     { mergeDefaults: true },
 );
+
+// Drop settings belonging to removed external replay players.
+Reflect.deleteProperty(videoPlayerConfig.value, 'backend');
+Reflect.deleteProperty(videoPlayerConfig.value, 'strangeDustTrust');
 
 export const videofilter = useLocalStorage('videofilter', {
     pagesize: 100,

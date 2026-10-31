@@ -7,7 +7,7 @@
                         {{ t('local.pluckRecord') }}
                     </th>
                     <th class="text text-info" scope="col">
-                        {{ t('common.prop.pluck') }}
+                        {{ t('prop.pluck') }}
                     </th>
                 </tr>
             </template>
@@ -63,7 +63,7 @@ const recordByLevel = computed(() => new Map(
 ));
 
 function customLevelLabel(customLevel: CustomLevel): string {
-    return t('common.level.c', {
+    return t('level.c', {
         row: customLevel.row,
         column: customLevel.column,
         mine: customLevel.mine,

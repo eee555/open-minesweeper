@@ -1,6 +1,6 @@
 # 小游戏开发与离线构建
 
-网站和离线版共用四种训练。玩法及成绩使用说明见 [VitePress 中文页](../../vitepress_doc/zh/guide/minigames.md)及[英文页](../../vitepress_doc/en/guide/minigames.md)，后端提交与排行见[后端实现](../../back_end/saolei/minigame/README.md)。离线帮助 [README.txt](./README.txt) 和版权声明 [COPYRIGHT.txt](./COPYRIGHT.txt) 同时用于离线页面和 ZIP。
+本文说明网站与离线版共用的四种训练的开发结构、回放存储及构建方式。面向玩家的玩法与成绩说明见 [VitePress 中文页](../../vitepress_doc/zh/guide/minigames.md)及[英文页](../../vitepress_doc/en/guide/minigames.md)，后端提交与排行见[后端实现](../../back_end/saolei/minigame/README.md)。离线帮助 [README.txt](./README.txt) 和版权声明 [COPYRIGHT.txt](./COPYRIGHT.txt) 同时用于离线页面和 ZIP。
 
 | 游戏 | 网站入口 | 规则与生成器 |
 | --- | --- | --- |
@@ -11,11 +11,9 @@
 
 四种训练的成功局均自动保存本地历史。网站登录且未封禁的玩家可手动上传成绩与回放，无需实名；多指训练九个榜单独立于左键训练。
 
-网站回放入口为 `/minigame/{game}?player={player_id}&key={mode_key}`，例如 `/minigame/left-click?player=42&key=b-50-v1`。`OnlineReplay.vue` 通过 `GET /api/minigame/{game}/replay?player=...&key=...` 获取原始 7z 和 `X-Minigame-Score`，解包并组合完整榜单标识后，由 `review.ts` 复用现有解析器重建快照。加载结果通过 `replayData` 传给原游戏组件，共用参数栏、棋盘、计数器、轨迹及分析图，初始停在完成状态；漏雷共用逐局图表悬停回溯。重开或修改玩法参数后清除 `player`、`key`，在同一组件内保留所选模式并开始新局。更换回放参数时取消旧请求，缺失或损坏录像显示错误；观看录像不保存历史或上传成绩。HTTP 加载入口仅在网站引入，不进入离线包。
-
 ## 公共显示与输入
 
-[MiniGame 组件](../src/components/MiniGame/) 复用项目的 `@putianyi888/vue3-minesweeper-board`，不使用 `ms-toollib`。游戏控制器维护规则、状态与整数毫秒成绩；[clock.ts](../src/utils/minigame/clock.ts) 负责计时，依赖库的 `Counter` 仅显示剩余数量和秒数（三位小数）。
+[MiniGame 组件](../src/components/MiniGame/) 复用项目的 `@putianyi888/vue3-minesweeper-board`，不使用 `ms-toollib`。游戏控制器维护规则、状态与整数毫秒成绩；[clock.ts](../src/utils/minigame/clock.ts) 负责计时，依赖库的 `Counter` 负责显示。左键／多指训练的本地 `leftClickScoreDisplay` 设置作用于右上角和完整排行榜，[scoreDisplay.ts](../src/utils/minigame/scoreDisplay.ts) 统一换算 Time／CES；回放使用当前帧的剩余数量和时间。抽屉固定显示两列，CES 排序复用反向用时索引；存储及上传仍使用毫秒。
 
 [Frame.vue](../src/components/MiniGame/Frame.vue) 使用依赖库 Example 的外框布局，计数器栏默认可点击或用 Enter／空格重开。多指训练全屏时设置 `restartOnCounter=false`，计数器改为无按钮语义的显示容器，由顶栏按钮重开；全局重开热键继续生效。[Board.vue](../src/components/MiniGame/Board.vue) 通过公开的背景、前景插槽显示按下预览和透明雷，叠加轨迹及目标高亮。前景透明度不影响背景按下状态。
 
@@ -35,7 +33,7 @@
 
 每题只有一个雷，控制器用单个 `mine` 索引保存雷位；级别与题数见使用指南。
 
-继续按固定题数递归切分棋盘矩形，每次随机选择容量足够的切分和题数分配；每个叶子区域放一道完整 3×3 题。中级的 15 题直接随机散布，无需碰撞重试或生成满盘后删题，不要求所有合法排布等概率。每题从八个邻格中随机选择一个雷位。
+生成器按固定题数递归切分棋盘矩形，每次随机选择容量足够的切分和题数分配；每个叶子区域放一道完整 3×3 题。中级的 15 题直接随机散布，无需碰撞重试或生成满盘后删题，不要求所有合法排布等概率。每题从八个邻格中随机选择一个雷位。
 
 此前调查的 [potpack](https://github.com/mapbox/potpack) 面向近正方形容器中的紧凑装箱，不能直接满足固定棋盘上的随机散布；因此此处保留容量约束分区。Vitest 覆盖两个固定级别及不同随机源下的题数、单雷、边界、非重叠和实际位置变化。
 
@@ -56,9 +54,17 @@
 
 棋盘压缩、事件数组、像素坐标和差分编码使用回放数据格式 v1，见[中文标准](../../vitepress_doc/zh/guide/development/minigame-replay-format.md)及[英文标准](../../vitepress_doc/en/guide/development/minigame-replay-format.md)。新回放统一保存为 v1，读取时兼容无版本字段或显式 `version: 0` 的旧数据。
 
-左键训练和标双训练结束后提供当前局回放；重开或切换游戏清空当前预览，成功局的记录保留在本地数据库，暂不提供录像文件下载。
+左键、多指和标双训练结束后共用播放控件，初始暂停在末端；漏雷训练成功后通过逐局耗时图表悬停回溯局面。重开或切换游戏清空当前预览，成功局的记录保留在本地数据库，暂不提供录像文件下载。
 
-多指训练共用左键训练页面、生成器及播放控件。[touchRecording.ts](../src/utils/minigame/touchRecording.ts) 编解码带触点编号的五元组，[touchReplay.ts](../src/utils/minigame/touchReplay.ts) 记录触点生命周期并重建快照。每次触摸单独还原路径，[TouchTrace.vue](../src/components/MiniGame/TouchTrace.vue) 用单个 SVG 绘制全部路径及 1/4 格标记，避免为每次点击分配全棋盘 Canvas；遮罩透明。鼠标速度与点击时长分析仅用于原有鼠标训练。
+### 多指轨迹
+
+多指训练共用左键训练页面与生成器。[touchRecording.ts](../src/utils/minigame/touchRecording.ts) 编解码带触点编号的五元组，[touchReplay.ts](../src/utils/minigame/touchReplay.ts) 记录触点生命周期并重建快照。路径绘制直接使用 `@putianyi888/vue3-minesweeper-board` 自 `0.7.0` 提供的 `TouchTrace`，接口见[上游文档](https://github.com/putianyi889/minesweeper-board/blob/main/docs/api/touch-trace.md)及安装包类型。
+
+本地 [TouchTrace.vue](../src/components/MiniGame/TouchTrace.vue) 只适配数据：将 `touchId` 映射为 `id`，将鼠标式运行时动作映射为 `down`、`move`、`up`、`cancel`；按本地方向交换坐标，并把当前事件索引加一作为排他上界 `endIndex`。适配保持事件一一对应，不筛选事件或修改录像；仅更换录像或方向时重新映射，推进播放索引直接交给上游处理。
+
+上游使用单个 SVG 绘制各触点的独立路径、持续落点标记和当前触点，并处理前进缓存与向后跳转。图层尺寸读取棋盘上下文，标记直径为 1/4 格、遮罩透明、颜色沿用项目主题。抬起或取消后保留历史路径，结束时仍按住的触点继续显示；图层不拦截输入。
+
+### 编解码与分析
 
 - [boardEncoding.ts](../src/utils/minigame/boardEncoding.ts) 编解码 Base64 雷位及标双题目；[recording.ts](../src/utils/minigame/recording.ts) 负责格式读取、v0 转换、差分事件解码，并通过原有自动机推导按键状态和操作意图。
 - [archive.ts](../src/utils/minigame/archive.ts) 复用 [7z-wasm](https://github.com/use-strict/7z-wasm) 将 v1 JSON 压缩为只含 `replay.json` 的独立 7z，使用 LZMA2、级别 1 和 1 MiB 字典。压缩器按需初始化，离线包内联 Wasm；虚拟文件在每次操作后清理。
@@ -68,22 +74,41 @@
 - 成功标双统计该题最后插旗、成功双键前最近左键按下、成功双键触发三个时间点。纠正错旗后使用该题最后一次插旗时间；失败及无效果的双键不计入。底段为插旗至左键按下，顶段为左键按下至双键触发。
 - 共享分析组件复用 `vue3-plots` 和 Tippy；漏雷结果复用原有 StackBar，并关闭其 tooltip。图表不改变游戏记录。
 
+鼠标移速、点击速度、点击时长及标双操作分段分析仅用于鼠标训练，多指训练不显示这些图表。
+
 ## 本地成绩
 
-[history.ts](../src/utils/minigame/history.ts) 使用已有的 `idb`，在每种游戏成功结算时自动保存一条记录。失败、未完成的重开及切换游戏不保存，回放和悬停不重复写入。在线和离线入口共用此逻辑，暂不提供历史列表或历史可视化。
+[history.ts](../src/utils/minigame/history.ts) 使用已有的 `idb`，在每种游戏成功结算时自动保存一条记录。失败、未完成的重开及切换游戏不保存，回放和悬停不重复写入。网站和离线入口共用保存逻辑及历史列表。
 
 数据库为 `saolei-minigame`，结构版本 3，`results` 表使用自增 `id`，保存游戏类型、完整模式参数、完成时间 `playedAt`（Unix 毫秒）和成绩 `scoreMs`（整数毫秒）。两条非唯一索引分别为 `playedAt` 和 `scoreMs`，支持时间与成绩排序；同一毫秒完成或成绩相同的多局均保留。版本 1 的 v0 和版本 2 的 v1 JSON 旧库均在升级事务中自动转换为 7z，保留主键、时间、成绩、模式和索引。单条格式转换失败时记录警告，将原回放 JSON 整体压缩后继续迁移，不删除该条目、不强行标记为 v1；后续读取仍按正常规则报告解析错误。压缩或数据库操作失败时回滚整个升级并保留旧库。压缩器在打开升级事务前初始化。
 
 - 有旧记录需要转换时，网站和离线版共用 [HistoryMigration.vue](../src/components/MiniGame/HistoryMigration.vue)，显示“正在优化录像格式，请不要关闭页面”、进度条和已处理／总条数。升级提交或失败回滚后关闭，期间不允许按 Escape 或点击遮罩关闭。压缩前先留出绘制提示的时间，并用轻量数据库请求保持升级事务活跃。
-- 已保存的回放统一使用 `replay` 字段中的 7z `ArrayBuffer`，不转 Base64；新回放不保存展开的快照和统计，迁移兜底的原 JSON 则完整保留旧字段。`readMinigameHistoryEntry` 解压并还原供运行时使用的成绩结构，无法解析的旧回放仍报告错误。
-- 多指载荷为 `TouchRecording`，没有鼠标专用的 `specialEvents`；通过 `rebuildTouchReplay(mode, recording, scoreMs)` 还原。新增游戏不改变数据库结构版本，也不迁移已有回放。
-- 左键及标双载荷为 `TrainingRecording` 的 `version`、`cellSize`、压缩初始棋盘 `initialBoard`、普通事件 `events` 及特殊事件 `specialEvents`。读取后调用 `rebuildTrainingReplay({game, mode}, recording, scoreMs)`，复用游戏规则一次性重建全部快照、剩余计数及成功标双时间点，再交给现有回放组件；这些派生数据只留在内存中。
-- 漏雷载荷为 `version: 1` 和 10 局的雷位字符串、目标坐标及耗时。解压后由 `decodeMissingCellRounds` 重算数字并还原运行时棋盘，再交给 `reviewMissingCellRound` 逐局回溯。
+- `replay` 保存 7z `ArrayBuffer`，派生快照及分析数据只留在内存。载荷与棋盘、事件编码见[回放格式标准](../../vitepress_doc/zh/guide/development/minigame-replay-format.md)，编解码模块见上文。
 - 写入前立即复制数据，异步打开数据库期间重开不会改变待保存内容。`idb.add` 等待事务完成；保存失败记录控制台警告，不中断当前对局，后续成绩仍会尝试写入。
 - 本地历史独立于可丢弃的 `saolei-cache`，不套用缓存的过期、版本清空或自动字段转换。以后修改结构时显式迁移并保留历史数据。连接在版本升级时释放，避免旧页面阻塞迁移。
 - 数据归属于当前浏览器与来源，在线站点和离线文件不保证共用；清除浏览器站点数据会删除记录。
 
-网站入口收到游戏的 `completed(rankingKey, scoreMs, replay)` 事件后暂存本局数据，通过 `resultActions` 插槽在棋盘下方提供上传按钮，仅在点击时提交；重开、修改玩法参数或切换游戏清除待上传状态。HTTP 及登录状态由网站 `MiniGameView/App.vue` 和 `OnlineReplay.vue` 接入。左键及标双提交 `TrainingRecording`，多指提交 `TouchRecording`，漏雷提交 `{version: 1, rounds}`。表单中的 `replay` 为 JSON 字符串。后端压缩为 7z 后用 BinaryField 保存每人每榜最佳成绩对应的回放，回放不进入 Redis。上传失败可重试，不影响自动保存的本地记录；失败局不发完成事件。离线入口不监听这些事件，继续禁止导入网站 HTTP、用户 store 及路由。
+共用的 [HistoryPanel.vue](../src/components/MiniGame/HistoryPanel.vue) 展示当前游戏和配置的成功纪录，每页 20 条，表格只含日期、用时，支持日期范围筛选及用时升／降序排列。配置变化时回到第一页，保存事务完成后自动刷新。`queryMinigameHistory(rankingKey, options)` 用现有索引排序，匹配完整榜单 key 后计算总数和分页，只返回本页的 `id`、`playedAt`、`scoreMs`，不解压回放或升级数据库。点击行只向入口传递记录 ID。
+
+离线入口右上角提供历史书签，以非模态 `ElDrawer` 显示同一列表。点击行时从 IndexedDB 读取所选 7z，复用 `readMinigameHistoryReplay` 重建回放并传给原游戏的 `replayData`；重开或切换配置后退出回放。读取失败或录像损坏时显示错误，切换游戏后忽略旧加载结果。离线入口单独导入 Element Plus 完整样式和深色主题样式，所有资源随 HTML 内联。
+
+## 网站上传与在线回放
+
+网站页右上角的两个书签分别打开排行榜和本地历史，共用一个 `ElDrawer`，也可从抽屉顶部切换内容。排行榜显示当前配置的首页 20 人及登录用户位置，个人在首页内时高亮，否则追加一行；未上传成绩时显示未上榜。抽屉位于顶部菜单下方，启用事件穿透且不锁定页面滚动；排行榜底部提供“完整排行榜”链接。此入口仅用于网站，不进入离线版。
+
+游戏组件通过 `rankingChange(rankingKey)` 通知当前配置。[RankingPanel.vue](../src/views/MiniGameView/RankingPanel.vue) 使用单配置查询接口，在配置、登录状态或上传结果变化时重新加载，并支持手动刷新。配置切换、关闭或卸载时取消旧请求；仅未取消的请求可更新结果。接口及缓存约定见[后端开发文档](../../back_end/saolei/minigame/README.md)。
+
+[MiniGameView/App.vue](../src/views/MiniGameView/App.vue) 收到游戏的 `completed(rankingKey, scoreMs, replay)` 事件后暂存本局数据，通过 `resultActions` 插槽在棋盘下方提供上传按钮，仅在点击时提交；重开、修改玩法参数或切换游戏清除待上传状态。游客仍可游玩并保存本地历史，上传按钮提示需要登录；封禁账号不能上传。
+
+左键及标双提交 `TrainingRecording`，多指提交 `TouchRecording`，漏雷提交 `{version: 1, rounds}`。表单中的 `replay` 为 JSON 字符串。后端压缩为 7z 后用 BinaryField 保存每人每榜最佳成绩对应的回放，回放不进入 Redis。上传失败可重试，不影响自动保存的本地记录；失败局不发完成事件。
+
+排行榜成绩链接使用游戏原路由，并通过 GET 参数指定回放，例如 `/#/minigame/left-click?player=42&key=b-50-v1`。`key` 仅包含模式部分，完整榜单标识为 `left-click-b-50-v1`。
+
+[ReplayLoader.vue](../src/views/MiniGameView/ReplayLoader.vue) 负责本地及在线加载和错误状态。点击本地历史行跳转至对应游戏的 `?history=记录ID`，只从当前来源的 IndexedDB 读取该条 7z 及用时；该参数不能与在线回放的 `player`、`key` 混用，也不具有跨浏览器分享语义。在线回放通过 `GET /api/minigame/{game}/replay?player=...&key=...` 获取原始 7z 和毫秒成绩头 `X-Minigame-Score`。后端直接读取压缩字段，使用 `Content-Encoding: identity` 和 `Cache-Control: no-transform`，避免再次 gzip。两者均按 `ArrayBuffer` 解包，由 [review.ts](../src/utils/minigame/review.ts) 选择现有解析器，重建运行时回放数据。
+
+加载结果通过 `replayData` 和插槽交给原路由的游戏组件，共用参数栏、棋盘、计数器、轨迹及分析图，初始停在完成状态；漏雷共用逐局图表悬停回溯。重开或修改玩法参数后清除 `player`、`key`、`history`，在同一组件内保留所选模式并开始新局。更换回放参数时取消旧请求并忽略过期结果，缺失或损坏录像显示错误；观看录像不保存历史或上传成绩。
+
+`ReplayLoader.vue`、在线上传及登录状态仅用于网站；离线入口通过共用解码器读取本地录像，不导入网站 HTTP、用户 store 或路由。
 
 ## 构建与资源
 
@@ -112,10 +137,18 @@ node --test scripts/offline-package.node-test.mjs
 npx.cmd vitest run src/utils/classicMouse.test.ts src/utils/minigame src/services/minigameRankingService.test.ts src/views/RankingView/useRankingQuery.test.ts
 ```
 
-组件检查由用户执行：
+组件检查由用户在 `front_end` 执行。只验证多指轨迹接入时可运行：
+
+```powershell
+npx.cmd cypress run --component --browser chrome --headless --spec "src/components/MiniGame/TouchTrace.cy.ts,src/views/MiniGameView/MultiTouchTraining.cy.ts,src/views/MiniGameView/Replay.cy.ts"
+```
+
+检查小游戏完整组件范围：
 
 ```powershell
 npx.cmd cypress run --component --browser chrome --headless --spec "src/components/MiniGame/*.cy.ts,src/views/MiniGameView/**/*.cy.ts,src/views/RankingView/MinigameRanking.cy.ts,src/views/SettingView/MiniGame.cy.ts,src/views/Menu.cy.ts"
 ```
 
-Cypress 由用户执行。构建与 ZIP 校验不能替代真实断网 `file://` 验收；关闭网络后检查四种游戏、纹理、计时、回放／图表、重开、设置、主题及语言，并确认没有网络请求。多指输入另需在真实触屏设备验收。
+在线回放测试拦截 7z 响应时使用 `ArrayBuffer`，不能用会被 Cypress 序列化为 JSON 的 `Cypress.Buffer`。
+
+构建与 ZIP 校验不能替代真实断网 `file://` 验收；关闭网络后检查四种游戏、纹理、计时、回放／图表、重开、设置、主题及语言，并确认没有网络请求。多指输入另需在真实触屏设备验收，包括同时按下、取消、单指滚动、全屏及回放方向切换。

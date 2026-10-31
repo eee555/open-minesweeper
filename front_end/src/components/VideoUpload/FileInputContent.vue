@@ -1,6 +1,6 @@
 <template>
     <span v-if="isUserAnonymous" class="text-large text-regular">
-        {{ t('common.msg.realNameRequired') }}
+        {{ t('msg.realNameRequired') }}
     </span>
     <template v-else>
         <span class="text-large" style="padding: 0.1em; color: inherit;">

@@ -2,7 +2,7 @@
     <div style="display: flex; gap: 1rem; align-items: center">
         <label class="checkbox nf-toggle">
             <input v-model="nf" class="checkbox-input" type="checkbox">
-            <span>{{ t('common.nf') }}</span>
+            <span>{{ t('nf') }}</span>
         </label>
     </div>
     <ElAlert v-if="failed" :title="t('ranking.loadFailed')" type="error" :closable="false" />
@@ -11,10 +11,10 @@
             <tr>
                 <th rowspan="2" scope="col" class="table-col-rank" />
                 <th rowspan="2" scope="col" class="table-col-player">
-                    {{ t('common.prop.player') }}
+                    {{ t('prop.player') }}
                 </th>
                 <th v-for="level in levels" :key="level" colspan="2" scope="colgroup" class="table-col-center">
-                    {{ t(`common.level.${level}`) }}
+                    {{ t(`level.${level}`) }}
                 </th>
             </tr>
             <tr>

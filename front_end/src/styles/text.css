@@ -39,6 +39,10 @@ body {
     color: var(--ui-text-color-regular);
 }
 
+.text-secondary {
+    color: var(--ui-text-color-secondary);
+}
+
 .text-primary {
     color: var(--ui-color-primary);
 }

@@ -1,6 +1,6 @@
 ---
 title: Account Links - Open Minesweeper
-description: How to link a Mineracer account through authorization, or link accounts from Saolei.wang, Minesweeper.Online, Bilibili and other platforms through moderator verification.
+description: How to link Discord and Mineracer accounts through authorization, or link accounts from other platforms through moderator verification.
 ---
 
 # Account Links
@@ -13,7 +13,15 @@ Profile refresh and replay synchronization are disabled while Saolei.wang migrat
 
 ## Linking Process
 
-Mineracer accounts are linked automatically after confirmation on Mineracer. Other platforms require you to enter an ID and have a moderator verify it.
+Discord and Mineracer accounts are linked automatically after authorization on the external site. Other platforms require you to enter an ID and have a moderator verify it.
+
+### Discord
+
+Click **Link Discord** on your own **Account Links** tab. After you authorize on Discord, you will return automatically. No ID entry or moderator approval is required. Discord is a private link: account details are visible only to you and site moderators.
+
+Once linked, you can choose **Log in with Discord** in the login dialog. First register or log in with your existing site account and link Discord; authorization does not create a site account automatically.
+
+Each site account can link to one Discord account, and each Discord account can link to one site account. Remove the link from your own card to disable future Discord logins. **Authorize again** updates the same account's names, avatar, banner and badges. Logging in with Discord also refreshes these details.
 
 ### Mineracer
 
@@ -37,7 +45,7 @@ Each Open Minesweeper account can link to only one Mineracer account, and each M
 
 The word "id" can be ambiguous. On some websites it may be confused with a username or nickname. For platforms that require manual ID entry, the id should be a string of digits. After you choose a platform, the page should show instructions for finding that platform's id. Mineracer user IDs are obtained automatically during authorization, so these entry requirements do not apply to Mineracer.
 
-Once confirmed, the link cannot currently be undone directly, so please enter the id carefully. If you entered a wrong id, contact a moderator.
+For platforms that require manual ID entry, enter the id carefully. Contact a moderator to correct a wrong id.
 
 ### Let a moderator know you
 The moderators can see your link request. If they already know you, they will approve it directly. If they do not know you, you need to contact them for approval.
@@ -48,7 +56,7 @@ Authoritative Minesweeper lets you link your Saolei.wang and Minesweeper.Online 
 
 ## Privacy
 
-Open Minesweeper uses real names. Once you link an account from another platform, other users on that platform may be able to learn your real name. Some account links are used only for customer support, and those accounts are private and visible only to moderators. Tencent QQ is currently a private platform.
+Public links may let users on other platforms connect your account with your real-name identity on this site. Discord and Tencent QQ are private platforms: link summaries, IDs and profile details are visible only to you and site moderators.
 
 ## FAQ
 
@@ -74,4 +82,4 @@ We plan to develop a creator feature that lets you promote your minesweeper cont
 
 ### How do I remove an account link?
 
-Mineracer links cannot currently be removed or replaced, including by moderators through the site's account linking tools. For other platforms, the website does not support removing links yourself; please contact a moderator.
+You can unlink Discord from your own account card. Mineracer links cannot currently be removed or replaced, including by moderators through the site's account linking tools. For other platforms, contact a moderator.

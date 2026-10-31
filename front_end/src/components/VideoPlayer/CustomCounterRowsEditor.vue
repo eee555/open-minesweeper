@@ -12,7 +12,7 @@
                 :key="index"
                 class="custom-counter-rows-editor__row"
             >
-                <i class="custom-counter-rows-editor__drag-handle pi pi-ellipsis-v" />
+                <i class="custom-counter-rows-editor__drag-handle pi pi-ellipsis-v text-secondary" />
                 <ElInput
                     class="custom-counter-rows-editor__label"
                     :model-value="row[0]"
@@ -170,7 +170,6 @@ function updateConfigFromRows(rows: CustomCounterTableRow[]) {
 }
 
 .custom-counter-rows-editor__drag-handle {
-    color: var(--ui-text-color-secondary);
     cursor: grab;
     font-size: 14px;
 }

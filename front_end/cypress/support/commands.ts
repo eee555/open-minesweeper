@@ -142,7 +142,7 @@ Cypress.Commands.add('mockGetEmailCode', (options) => {
 });
 
 Cypress.Commands.add('mockRegister', () => {
-    cy.intercept('POST', '/userprofile/register', (req) => {
+    cy.intercept('POST', '/api/userprofile/register', (req) => {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- Cypress 将拦截请求体类型标为 any；这里测试环境固定为 form-urlencoded 字符串。
         const params = new URLSearchParams(req.body);
         const email_captcha = params.get('email_captcha');
@@ -150,7 +150,7 @@ Cypress.Commands.add('mockRegister', () => {
         if (email_captcha !== '123456') {
             req.reply({
                 type: 'error',
-                object: 'emailCode',
+                object: 'emailcode',
             });
             return;
         }

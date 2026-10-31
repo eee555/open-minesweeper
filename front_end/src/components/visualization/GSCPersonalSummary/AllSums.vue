@@ -1,8 +1,8 @@
 <template>
     <span style="flex: 1" />
-    <ElStatistic class="stathead" :title="`${t('common.score.sum')} ${t('common.prop.time')}`" :value="roundedSumTime" :precision="3" />
-    <ElStatistic class="stathead" :title="`${t('common.score.sum')} ${t('common.prop.bvs')}`" :value="roundedSumBvs" :precision="3" />
-    <ElStatistic class="stathead" :title="`${t('common.score.sum')} ${t('common.prop.stnb')}`" :value="roundedSumStnb" :precision="3" />
+    <ElStatistic class="stathead" :title="`${t('score.sum')} ${t('prop.time')}`" :value="roundedSumTime" :precision="3" />
+    <ElStatistic class="stathead" :title="`${t('score.sum')} ${t('prop.bvs')}`" :value="roundedSumBvs" :precision="3" />
+    <ElStatistic class="stathead" :title="`${t('score.sum')} ${t('prop.stnb')}`" :value="roundedSumStnb" :precision="3" />
     <span style="flex: 1" />
 </template>
 

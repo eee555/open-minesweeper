@@ -128,7 +128,6 @@ function createEvaluationContext(video: AnyVideo) {
 
 :deep(.custom-counter td) {
     overflow: hidden;
-    font-variant-numeric: tabular-nums;
     text-align: right;
     text-overflow: ellipsis;
     white-space: nowrap;

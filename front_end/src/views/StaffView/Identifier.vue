@@ -1,17 +1,17 @@
 <template>
     <ElInput v-model="identifier" />
     <BaseButton @click="handleGet">
-        {{ t('common.button.query') }}
+        {{ t('button.query') }}
     </BaseButton>
     <BaseButton v-if="safe == 'false'" @click="handleApprove">
-        {{ t('common.button.approve') }}
+        {{ t('button.approve') }}
     </BaseButton>
     <template v-if="identifier !== ''">
         <br>&nbsp;
         {{ t('local.linkUserId') }}
         <ElInputNumber v-model="newUserid" :min="0" :precision="0" />
         <BaseButton @click="handleAdd">
-            {{ t('common.button.link') }}
+            {{ t('button.link') }}
         </BaseButton>
     </template>
     <br>

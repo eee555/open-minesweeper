@@ -1,11 +1,9 @@
 export default {
     local: 'de',
     name: 'Deutsch',
-    common: {
-        button: {
-            cancel: 'abbrechen',
-            confirm: 'bestätigen',
-        },
+    button: {
+        cancel: 'abbrechen',
+        confirm: 'bestätigen',
     },
     form: {
         captcha: 'Captcha',

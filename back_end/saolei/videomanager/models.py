@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import logging
+from uuid import uuid4
 
+from django.core.files.base import ContentFile
 from django.core.validators import MaxValueValidator
 from django.db import models
 from django.db.models.functions import Power
@@ -9,7 +11,10 @@ from config.global_settings import MaxSizes
 from config.text_choices import MS_TextChoices
 from userprofile.models import UserProfile
 from utils.parser import MSVideoParser
+from .config import TARGET_COMPRESSION_FORMAT
 from .fields import RestrictedFileField
+from .files import compress_original, CompressionConfigurationError
+from .utils import replay_filename
 
 logger = logging.getLogger('videomanager')
 MAX_TIMEMS = 99_999_999
@@ -24,6 +29,7 @@ class ExpandVideoModel(models.Model):
     # video = models.OneToOneField(VideoModel, on_delete=models.CASCADE)
     identifier = models.CharField(max_length=MaxSizes.IDENTIFIER, default='')
     tournament_identifier = models.JSONField(default=list)
+    freeze_reason = models.TextField(default='', blank=True, verbose_name='冻结原因')
 
 
 # 其他类：checksum_ok, mode
@@ -62,10 +68,15 @@ class VideoModel(models.Model):
     file = RestrictedFileField(
         upload_to='videos/%Y%m%d/', max_length=100, max_upload_size=MaxSizes.VIDEOFILE)
     file_size = models.PositiveIntegerField(default=0)
+    original_hash = models.CharField(max_length=24, null=True, blank=True, unique=True)
+    original_filename = models.CharField(max_length=255, null=True, blank=True)
+    stored_file_size = models.PositiveIntegerField(null=True, blank=True)
+    compression_format = models.PositiveIntegerField(default=0)
+    compression_failed = models.BooleanField(default=False)
     video = models.OneToOneField(
         ExpandVideoModel, on_delete=models.CASCADE, related_name='+')
     # file = models.FileField(upload_to='/assets/videos')
-    # 上传时间，兼最近状态变化时间、更新时间（冻结后会刷新）
+    # 上传时间
     upload_time = models.DateTimeField(auto_now_add=True, verbose_name='上传时间')
     # 录像自带时间戳，可被用户篡改，用于用户自用。实际上无时区，因为Django限制，固定时区为UTC。
     end_time = models.DateTimeField(null=True, blank=True)
@@ -179,10 +190,12 @@ class VideoModel(models.Model):
             models.Index(fields=['state'], name='state_idx'),
             models.Index(fields=['level', 'mode', 'player', 'pluck'], name='video_lmp_pluck_idx'),
             models.Index(fields=['player', 'state', 'level'], name='video_player_state_level_idx'),
+            models.Index(fields=['compression_format'], name='video_compression_format_idx'),
+            models.Index(fields=['file'], name='video_file_idx'),
         ]
 
     @staticmethod
-    def create_from_parser(parser: MSVideoParser, user: UserProfile, *, upload_time=None):
+    def create_from_parser(parser: MSVideoParser, user: UserProfile, *, original_hash: str, upload_time=None):
         """
         注意：
         - 执行之前：
@@ -193,6 +206,22 @@ class VideoModel(models.Model):
           - 检查比赛标识
           - 刷新排行
         """
+        source = parser.file
+        source.seek(0)
+        try:
+            data = source.read()
+        finally:
+            source.seek(0)
+        original_filename = replay_filename(source.name)
+        compression_failed = False
+        try:
+            stored_data, compression_format = compress_original(data, TARGET_COMPRESSION_FORMAT)
+        except (ValueError, EOFError, CompressionConfigurationError) as error:
+            stored_data, compression_format, stored_name = data, 0, original_filename
+            compression_failed = True
+            logger.warning('Replay compression failed; storing original: filename=%s target=%s error=%s', original_filename, TARGET_COMPRESSION_FORMAT, error)
+        else:
+            stored_name = f'{uuid4().hex}.msrc'
         e_video = ExpandVideoModel.objects.create(
             identifier=parser.identifier,
             tournament_identifier=parser.tournament_identifier,
@@ -200,7 +229,8 @@ class VideoModel(models.Model):
         video = VideoModel(
             player=user,
             upload_time=upload_time,
-            file=parser.file, file_size=parser.file.size,
+            file=ContentFile(stored_data, name=stored_name), file_size=len(data), original_hash=original_hash,
+            original_filename=original_filename, stored_file_size=len(stored_data), compression_format=compression_format, compression_failed=compression_failed,
             video=e_video,
             end_time=parser.end_time,
             state=parser.state, software=parser.software,

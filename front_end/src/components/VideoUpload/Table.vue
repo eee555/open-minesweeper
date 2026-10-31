@@ -31,7 +31,7 @@
                 </label>
             </template>
         </PrColumn>
-        <PrColumn field="status" :header="t('common.prop.status')" :show-filter-match-modes="false" :show-filter-operator="false">
+        <PrColumn field="status" :header="t('prop.status')" :show-filter-match-modes="false" :show-filter-operator="false">
             <template #body="{data}: {data: UploadEntry}">
                 {{ t(`local.${data.status}`) }}
             </template>
@@ -43,12 +43,12 @@
                 </PrListbox>
             </template>
         </PrColumn>
-        <PrColumn field="stat.end_time" :header="t('common.prop.end_time')" sortable>
+        <PrColumn field="stat.end_time" :header="t('prop.end_time')" sortable>
             <template #body="{data}: {data: UploadEntry}">
                 {{ data.stat ? toISODateTimeString(data.stat.end_time!) : '' }}
             </template>
         </PrColumn>
-        <PrColumn field="stat.level" :header="t('common.prop.level')" :show-filter-match-modes="false" :show-filter-operator="false">
+        <PrColumn field="stat.level" :header="t('prop.level')" :show-filter-match-modes="false" :show-filter-operator="false">
             <template #body="{data}: {data: UploadEntry}">
                 {{ data.stat ? formatLevel(data.stat.level) : '' }}
             </template>
@@ -60,25 +60,25 @@
                 </PrListbox>
             </template>
         </PrColumn>
-        <PrColumn field="stat.mode" :header="t('common.prop.mode')" :show-filter-match-modes="false" :show-filter-operator="false">
+        <PrColumn field="stat.mode" :header="t('prop.mode')" :show-filter-match-modes="false" :show-filter-operator="false">
             <template #body="{data}: {data: UploadEntry}">
-                {{ data.stat ? t(`common.mode.code${data.stat.mode}`) : '' }}
+                {{ data.stat ? t(`mode.code${data.stat.mode}`) : '' }}
             </template>
             <template #filter="{ filterModel, applyFilter }">
                 <PrListbox v-model="filterModel.value" :options="Object.keys(MS_Mode)" @change="applyFilter()">
                     <template #option="slotProps">
-                        {{ t(`common.level.${slotProps.option}`) }}
+                        {{ t(`level.${slotProps.option}`) }}
                     </template>
                 </PrListbox>
             </template>
         </PrColumn>
-        <PrColumn field="stat.timems" :header="t('common.prop.time')" sortable>
+        <PrColumn field="stat.timems" :header="t('prop.time')" sortable>
             <template #body="{data}: {data: UploadEntry}">
                 {{ data.stat ? data.stat.displayStat('time') : '' }}
             </template>
         </PrColumn>
-        <PrColumn field="stat.bv" :header="t('common.prop.bv')" sortable />
-        <PrColumn field="stat.bvs" :header="t('common.prop.bvs')" sortable>
+        <PrColumn field="stat.bv" :header="t('prop.bv')" sortable />
+        <PrColumn field="stat.bvs" :header="t('prop.bvs')" sortable>
             <template #body="{data}: {data: UploadEntry}">
                 {{ data.stat ? data.stat.displayStat('bvs') : '' }}
             </template>
@@ -87,50 +87,50 @@
             <div class="description-layout">
                 <dl class="descriptions">
                     <div class="description-item description-wide">
-                        <dt>{{ t('common.prop.fileName') }}</dt>
+                        <dt>{{ t('prop.fileName') }}</dt>
                         <dd>
                             {{ data.file.name }}
                         </dd>
                     </div>
                     <template v-if="data.stat">
                         <div class="description-item">
-                            <dt>{{ t('common.prop.cl') }}</dt>
+                            <dt>{{ t('prop.cl') }}</dt>
                             <dd>
                                 {{ data.stat.displayStat('cl') }}
                             </dd>
                         </div>
                         <div class="description-item description-span-2">
-                            <dt>{{ t('common.prop.ce') }}</dt>
+                            <dt>{{ t('prop.ce') }}</dt>
                             <dd>
                                 {{ data.stat.displayStat('ce') }}
                             </dd>
                         </div>
                         <div class="description-item">
-                            <dt>{{ t('common.prop.cl_s') }}</dt>
+                            <dt>{{ t('prop.cl_s') }}</dt>
                             <dd>
                                 {{ data.stat.displayStat('cls') }}
                             </dd>
                         </div>
                         <div class="description-item description-span-2">
-                            <dt>{{ t('common.prop.ce_s') }}</dt>
+                            <dt>{{ t('prop.ce_s') }}</dt>
                             <dd>
                                 {{ data.stat.displayStat('ces') }}
                             </dd>
                         </div>
                         <div class="description-item">
-                            <dt>{{ t('common.prop.ioe') }}</dt>
+                            <dt>{{ t('prop.ioe') }}</dt>
                             <dd>
                                 {{ data.stat.displayStat('ioe') }}
                             </dd>
                         </div>
                         <div class="description-item">
-                            <dt>{{ t('common.prop.thrp') }}</dt>
+                            <dt>{{ t('prop.thrp') }}</dt>
                             <dd>
                                 {{ data.stat.displayStat('thrp') }}
                             </dd>
                         </div>
                         <div class="description-item">
-                            <dt>{{ t('common.prop.corr') }}</dt>
+                            <dt>{{ t('prop.corr') }}</dt>
                             <dd>
                                 {{ data.stat.displayStat('corr') }}
                             </dd>
@@ -262,12 +262,12 @@ const { t } = useI18n({ messages: i18nMessages });
 
 function formatLevel(level: string | CustomLevel): string {
     if (level instanceof CustomLevel) {
-        return t('common.level.c', {
+        return t('level.c', {
             column: level.column,
             mine: level.mine,
             row: level.row,
         });
     }
-    return t(`common.level.${level}`);
+    return t(`level.${level}`);
 }
 </script>

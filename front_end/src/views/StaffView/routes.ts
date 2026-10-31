@@ -61,4 +61,9 @@ export const staffRoutes: RouteRecordRaw[] = [
         name: 'staff-ranking-repair',
         component: () => import('./RankingRepair.vue'),
     },
+    {
+        path: 'minigame',
+        name: 'staff-minigame',
+        component: () => import('./Minigame.vue'),
+    },
 ];

@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Any, Literal
 
 from django.db import transaction
-from django.http import HttpRequest, HttpResponse, HttpResponseForbidden, StreamingHttpResponse
+from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404
 from django_ratelimit.decorators import ratelimit
 from ninja import Field, Form, Router, Schema
@@ -15,13 +15,12 @@ from tournament.cache import TOURNAMENT_USER_CACHE_KEYS, TournamentCache
 from tournament.models import GSCTournament, Tournament, TournamentParticipant, TournamentUser
 from tournament.schema import ParticipantOutBase
 from tournament.services import with_participant_video_status
-from userprofile.decorators import login_required_error, staff_required
+from userprofile.decorators import admin_csrf_required, login_required_error, staff_required
 from userprofile.models import UserProfile
 from utils.response import HttpResponseConflict
 from utils.schema import IdIn
 from videomanager.models import VideoModel
 from videomanager.schema import VideoBaseOut
-from videomanager.view_utils import generate_file_stream
 
 router = Router()
 cache = TournamentCache()
@@ -124,10 +123,11 @@ def get_tournament(request: HttpRequest, tournament_id: int):
 
 
 @router.post('/set')
-@decorate_view(login_required_error)
+@decorate_view(login_required_error, admin_csrf_required)
 def set_tournament(request: HttpRequest, data: TournamentSetIn = Form(...)):  # noqa: B008
     """
     - `login_required_error`
+    - `admin_csrf_required`
 
     主办方可修改比赛；GSC 比赛也允许管理员修改。
     """
@@ -196,8 +196,12 @@ def allow_tournament(request: HttpRequest, data: IdIn = Form(...)):  # noqa: B00
 
 
 @router.post('/cancel')
-@decorate_view(login_required_error)
+@decorate_view(login_required_error, admin_csrf_required)
 def cancel_tournament(request: HttpRequest, data: IdIn = Form(...)):  # noqa: B008
+    """
+    - login_required_error
+    - admin_csrf_required
+    """
     tournament = get_object_or_404(Tournament, id=data.id)
     if not request.user.is_staff and tournament.host != request.user:
         return HttpResponseForbidden()
@@ -230,10 +234,11 @@ def get_participant_list(request: HttpRequest, tournament_id: int):
 
 
 @router.delete('/participant/{participant_id}', response={204: None})
-@decorate_view(login_required_error, ratelimit(key='user', rate='30/m', block=True))
+@decorate_view(login_required_error, admin_csrf_required, ratelimit(key='user', rate='30/m', block=True))
 def delete_participant(request: HttpRequest, participant_id: int):
     """
     - `login_required_error`
+    - `admin_csrf_required`
     - `ratelimit(key='user', rate='30/m', block=True)`
 
     Only the tournament host or staff may delete a participant.
@@ -324,25 +329,3 @@ def get_tournament_news(request: HttpRequest):
             and tournament.start_time <= now < tournament.end_time
         ],
     }
-
-
-@router.get('/download')
-@decorate_view(ratelimit(key='ip', rate='1/h'))
-def download_all_videos(request: HttpRequest, tournament_id: int):
-    tournament = get_object_or_404(Tournament, id=tournament_id)
-    if tournament.state != Tournament_TextChoices.State.AWARDED:
-        return HttpResponseForbidden()
-    response = StreamingHttpResponse(generate_file_stream(tournament.videos.all()), content_type='application/octet-stream')
-    response['Content-Disposition'] = 'attachment; filename="all_files_stream.bin"'
-    return response
-
-
-@router.get('/download/participant')
-@decorate_view(ratelimit(key='ip', rate='1/m'))
-def download_videos_participant(request: HttpRequest, tournament_id: int, user_id: int):
-    tournament = get_object_or_404(Tournament, id=tournament_id)
-    if tournament.state != Tournament_TextChoices.State.AWARDED and request.user.id != user_id:
-        return HttpResponseForbidden()
-    response = StreamingHttpResponse(generate_file_stream(tournament.videos.filter(player_id=user_id)), content_type='application/octet-stream')
-    response['Content-Disposition'] = 'attachment; filename="all_files_stream.bin"'
-    return response

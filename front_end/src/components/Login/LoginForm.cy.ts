@@ -23,6 +23,7 @@ function expectCaptchaRefresh(count: number) {
 
 describe('<LoginForm />', () => {
     beforeEach(() => {
+        cy.intercept('GET', '**/api/accountlink/discord/config', { enabled: false });
         cy.mockLogin();
         cy.mockCaptchaRefresh();
     });

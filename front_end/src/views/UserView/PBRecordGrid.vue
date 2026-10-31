@@ -1,7 +1,7 @@
 <template>
     <section class="pb-records" :data-cy="`pb-grid-${level}`">
         <h3 class="text-regular">
-            {{ t(`common.level.${level}`) }}
+            {{ t(`level.${level}`) }}
         </h3>
         <p v-if="recordsByBV.size === 0" class="text-info" data-cy="pb-empty">
             {{ t('local.empty') }}
@@ -9,9 +9,9 @@
         <div v-else class="pb-grid-scroll">
             <div class="pb-grid">
                 <span />
-                <span v-for="digit in 10" :key="`head-${digit}`" class="pb-label">{{ digit - 1 }}</span>
+                <span v-for="digit in 10" :key="`head-${digit}`" class="pb-label text-secondary">{{ digit - 1 }}</span>
                 <template v-for="row in rows" :key="row.start">
-                    <span class="pb-label">{{ row.start }}–{{ row.start + 9 }}</span>
+                    <span class="pb-label text-secondary">{{ row.start }}–{{ row.start + 9 }}</span>
                     <template v-for="cell in row.cells" :key="cell.bv">
                         <span v-if="cell.record" :title="recordTitle(cell.record)" :style="cellStyle(cell.record)" class="pb-cell" :data-cy="`pb-${level}-${cell.bv}`">
                             <VideoPreviewLink :id="cell.record.video_id">
@@ -63,8 +63,8 @@ function value(record: PBPlayerRecord) {
 function recordTitle(record: PBPlayerRecord): string {
     return [
         `BV ${record.bv}${record.nf ? ' · NF' : ''}`,
-        ...pbStats.map((metric) => `${t(`common.prop.${metric}`)}: ${formatPBValue(record.timems, record.level, record.bv, metric)}`),
-        `${t('local.rank')}: ${record.rank ?? '--'}`,
+        ...pbStats.map((metric) => `${t(`prop.${metric}`)}: ${formatPBValue(record.timems, record.level, record.bv, metric)}`),
+        `${t('prop.rank')}: ${record.rank ?? '--'}`,
     ].join('\n');
 }
 function cellStyle(record: PBPlayerRecord) {
@@ -79,11 +79,9 @@ function cellStyle(record: PBPlayerRecord) {
 const i18nMessages = {
     'zh-cn': { local: {
         empty: '暂无 PB 纪录',
-        rank: '排名',
     } },
     en: { local: {
         empty: 'No PB records',
-        rank: 'Rank',
     } },
 };
 const { t } = useI18n({ messages: i18nMessages });
@@ -106,9 +104,6 @@ const { t } = useI18n({ messages: i18nMessages });
     display: flex;
     align-items: center;
     justify-content: center;
-}
-.pb-label {
-    color: var(--ui-text-color-secondary);
 }
 .pb-cell {
     outline: 1px solid var(--ui-border-color-lighter);

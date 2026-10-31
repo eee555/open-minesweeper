@@ -1,15 +1,19 @@
 import { fileURLToPath, URL } from 'node:url';
 
 import vue from '@vitejs/plugin-vue';
-import { defineConfig } from 'vite';
+import { defineConfig, normalizePath } from 'vite';
 import type { Plugin } from 'vite';
 
 import { getOfflineStyles, singleFileWithLicenses } from './scripts/offline-build';
 
+const websiteSourceRoot = normalizePath(fileURLToPath(new URL('./src/', import.meta.url)));
 const isolatedMinigame: Plugin = {
     name: 'isolated-offline-minigame',
     generateBundle() {
-        const forbidden = [...this.getModuleIds()].filter((id) => (/\/src\/(?:http\.ts|store\/|router\/|bootstrap\.ts|setup\.ts)|\/ms-toollib\//u).test(id.replaceAll('\\', '/')));
+        const forbidden = [...this.getModuleIds()].filter((id) => {
+            const normalized = normalizePath(id);
+            return (normalized.startsWith(websiteSourceRoot) && (/^(?:(?:http|bootstrap|setup)\.ts(?:$|\?)|(?:store|router)\/)/u).test(normalized.slice(websiteSourceRoot.length))) || normalized.includes('/ms-toollib/');
+        });
         if (forbidden.length > 0) this.error(`Offline minigame imports website or replay modules: ${forbidden.join(', ')}`);
     },
 };

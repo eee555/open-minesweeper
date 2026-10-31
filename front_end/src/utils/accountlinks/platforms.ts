@@ -4,9 +4,11 @@ const womProfile = (id: string | number): string => 'https://minesweeper.online/
 const qqProfile = (id: string | number): string => 'https://user.qzone.qq.com/' + id;
 const bilibiliProfile = (id: string | number): string => 'https://space.bilibili.com/' + id;
 const mineracerProfile = (): string => 'https://mineracer.com/';
+const discordProfile = (id: string | number): string => 'https://discord.com/users/' + id;
 
 export const AccountLinkPlatform = {
     Bilibili: 'B',
+    Discord: 'd',
     Mineracer: 'm',
     MSGames: 'a',
     QQ: 'q',
@@ -29,6 +31,7 @@ interface AccountLinkPlatformProfile {
 }
 
 export const platformlist: Record<AccountLinkPlatform, AccountLinkPlatformProfile> = {
+    [AccountLinkPlatform.Discord]: { url: 'https://discord.com/', profile: discordProfile },
     [AccountLinkPlatform.Bilibili]: { url: 'https://www.bilibili.com/', profile: bilibiliProfile },
     [AccountLinkPlatform.Mineracer]: { url: 'https://mineracer.com/', profile: mineracerProfile },
     [AccountLinkPlatform.MSGames]: { url: 'https://minesweepergame.com/', profile: msgamesProfile },

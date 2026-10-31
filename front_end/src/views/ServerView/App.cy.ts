@@ -8,18 +8,18 @@ import i18n from '@/i18n';
 const global = {
     plugins: [i18n],
     config: { globalProperties: { $axios } },
-    stubs: { TopAnchors: true, VueUiDonut: DonutStub },
+    stubs: { VueUiDonut: DonutStub },
 };
 
 describe('Server snapshot requests', () => {
-    it('keeps six stable grid items while asynchronous statistics load', () => {
+    it('keeps five stable grid items while asynchronous statistics load', () => {
         cy.intercept('GET', '**/api/monitor/summary', { body: monitorResponse() }).as('memory');
         cy.mount(App, { global });
         cy.wait('@memory');
         cy.get('.server-statistics').should(($layout) => {
             expect(Number($layout.attr('data-layout-version'))).to.be.greaterThan(0);
         });
-        cy.get('.server-statistics > [data-statistic-item]').should('have.length', 6);
+        cy.get('.server-statistics > [data-statistic-item]').should('have.length', 5);
         cy.get('[data-statistic-item="process"] [data-memory-chart="process"]').should('exist');
         cy.get('[data-statistic-item="redis"] [data-memory-chart="redis"]').should('exist');
         cy.get('[data-statistic]').should('have.length', 3);

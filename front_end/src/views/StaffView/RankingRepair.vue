@@ -5,21 +5,25 @@
             <ElSelect v-model="rankingName" :aria-label="t('local.ranking')" :disabled="working">
                 <ElOption :label="t('local.standard')" value="saolei" />
                 <ElOption :label="t('local.nf')" value="saolei_nf" />
-                <ElOption :label="t('common.prop.thrp')" value="thrp" />
+                <ElOption :label="t('prop.thrp')" value="thrp" />
+                <ElOption label="NF IOE" value="nf_ioe" />
             </ElSelect>
         </label>
         <label>
             {{ t('local.stat') }}
             <ElSelect v-if="rankingName === 'thrp'" v-model="thrpStat" :aria-label="t('local.stat')" :disabled="working">
-                <ElOption v-for="field in thrpStats" :key="field" :label="t(`common.level.${field}`)" :value="field" />
+                <ElOption v-for="field in thrpStats" :key="field" :label="field === 'e_nf' ? `${t('level.e')} NF` : t(`level.${field}`)" :value="field" />
+            </ElSelect>
+            <ElSelect v-else-if="rankingName === 'nf_ioe'" v-model="ioeStat" :aria-label="t('local.stat')" :disabled="working">
+                <ElOption v-for="field in nfIOEStats" :key="field" :label="t(`level.${field}`)" :value="field" />
             </ElSelect>
             <ElSelect v-else v-model="stat" :aria-label="t('local.stat')" :disabled="working">
                 <ElOption v-for="field in saoleiFields" :key="field" :label="t(`local.${field}`)" :value="field" />
             </ElSelect>
         </label>
         <label>
-            {{ t('common.prop.userId') }}
-            <ElInputNumber v-model="userId" :aria-label="t('common.prop.userId')" :min="1" :precision="0" :controls="false" :disabled="working" />
+            {{ t('prop.userId') }}
+            <ElInputNumber v-model="userId" :aria-label="t('prop.userId')" :min="1" :precision="0" :controls="false" :disabled="working" />
         </label>
         <BaseButton native-type="submit" :disabled="!canRebuild" :loading="working">
             <template #icon>
@@ -41,22 +45,28 @@ import { useI18n } from 'vue-i18n';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import { actionSuccessNotification, httpErrorNotification } from '@/components/Notifications';
+import { formatNFIOEValue, nfIOEStats, nfIOEVideoId, rebuildNFIOERecord } from '@/services/nfIOERankingService';
+import type { NFIOEStat } from '@/services/nfIOERankingService';
 import type { SaoleiField, SaoleiRankingName } from '@/services/saoleiRankingService';
 import { formatSaoleiValue, rebuildSaoleiRecord, saoleiFields, saoleiVideoId } from '@/services/saoleiRankingService';
-import { rebuildThrpRecord, thrpStats, thrpValue, thrpVideoId } from '@/services/thrpRankingService';
+import { formatThrpValue, rebuildThrpRecord, thrpStats, thrpVideoId } from '@/services/thrpRankingService';
 import type { ThrpStat } from '@/services/thrpRankingService';
-import '@/styles/text.css';
 
-const rankingName = ref<SaoleiRankingName | 'thrp'>('saolei');
+const rankingName = ref<SaoleiRankingName | 'thrp' | 'nf_ioe'>('saolei');
 const stat = ref<SaoleiField>('bt');
 const thrpStat = ref<ThrpStat>('b');
+const ioeStat = ref<NFIOEStat>('b');
 const userId = ref<number>();
 const working = ref(false);
 const result = ref<{ value: string; videoId?: number }>();
 const canRebuild = computed(() => userId.value !== undefined && Number.isSafeInteger(userId.value) && userId.value > 0);
-const selectedLabel = computed(() => (rankingName.value === 'thrp' ? t(`common.level.${thrpStat.value}`) : t(`local.${stat.value}`)));
+const selectedLabel = computed(() => {
+    if (rankingName.value === 'nf_ioe') return t(`level.${ioeStat.value}`);
+    if (rankingName.value === 'thrp') return thrpStat.value === 'e_nf' ? `${t('level.e')} NF` : t(`level.${thrpStat.value}`);
+    return t(`local.${stat.value}`);
+});
 
-watch([rankingName, stat, thrpStat, userId], () => {
+watch([rankingName, stat, thrpStat, ioeStat, userId], () => {
     result.value = undefined;
 });
 
@@ -67,7 +77,10 @@ async function rebuild() {
     try {
         if (rankingName.value === 'thrp') {
             const record = await rebuildThrpRecord(userId.value, thrpStat.value);
-            result.value = { value: thrpValue(record, thrpStat.value)?.toFixed(3) ?? '--', videoId: thrpVideoId(record, thrpStat.value) };
+            result.value = { value: formatThrpValue(record, thrpStat.value), videoId: thrpVideoId(record, thrpStat.value) };
+        } else if (rankingName.value === 'nf_ioe') {
+            const record = await rebuildNFIOERecord(userId.value, ioeStat.value);
+            result.value = { value: formatNFIOEValue(record, ioeStat.value), videoId: nfIOEVideoId(record, ioeStat.value) };
         } else {
             const record = await rebuildSaoleiRecord(userId.value, rankingName.value, stat.value);
             result.value = { value: formatSaoleiValue(record, stat.value), videoId: saoleiVideoId(record, stat.value) };

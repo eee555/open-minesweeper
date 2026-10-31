@@ -1,5 +1,5 @@
 <template>
-    <PrColumn field="end_time" :sortable="sortable" :header="t('common.prop.end_time')">
+    <PrColumn field="end_time" :sortable="sortable" :header="t('prop.end_time')">
         <template #body="{ data }">
             <span class="text">
                 {{ utc_to_local_format(data.end_time) }}
@@ -9,8 +9,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
-
 import PrColumn from 'primevue/column';
 import { useI18n } from 'vue-i18n';
 

@@ -12,7 +12,7 @@ from config.text_choices import Tournament_TextChoices
 from config.tournaments import TournamentWeights
 from tournament.models import WeeklyParticipant, WeeklyTournament
 from tournament.schema import ParticipantOutBase
-from userprofile.decorators import login_required_error, staff_required
+from userprofile.decorators import admin_csrf_required, login_required_error, staff_required
 from utils.response import HttpResponseConflict, realname_required_response
 from utils.schema import IdIn
 from videomanager.models import VideoModel
@@ -87,8 +87,12 @@ def new_weekly_tournament(request: HttpRequest, data: NewWeeklyTournamentIn = Fo
 
 
 @router.post('/set')
-@decorate_view(login_required_error)
+@decorate_view(login_required_error, admin_csrf_required)
 def set_weekly_tournament(request: HttpRequest, data: WeeklySetIn = Form(...)):  # noqa: B008
+    """
+    - login_required_error
+    - admin_csrf_required
+    """
     tournament = get_object_or_404(WeeklyTournament, id=data.id)
     if not request.user.is_staff and tournament.host != request.user:
         return HttpResponseForbidden()

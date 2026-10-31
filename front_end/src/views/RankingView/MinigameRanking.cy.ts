@@ -10,6 +10,7 @@ import type { MinigameRankingGroup } from '@/services/minigameRankingService';
 import { pinia } from '@/store/create';
 import { trainingGames } from '@/utils/minigame/games';
 import { leftClickModes, multiTouchModes } from '@/utils/minigame/leftClickTraining';
+import { defaultMinigameSettings, minigameSettings } from '@/utils/minigame/settings';
 
 const groups: MinigameRankingGroup[] = [
     { game: 'left-click', rankings: leftClickModes.map((mode) => ({ key: mode.rankingKey, game: 'left-click', level: mode.key, density: String(mode.density) as '50' | '75' | '87.5', order: 'asc', unit: 'ms', min_score: 1, max_score: Number.MAX_SAFE_INTEGER, accept_submissions: true })) },
@@ -32,6 +33,7 @@ function mountRanking(path: string) {
 
 describe('minigame rankings', () => {
     beforeEach(() => {
+        minigameSettings.value = defaultMinigameSettings();
         cy.mockPlayerNameFallback();
         cy.intercept('GET', '/api/minigame/rankings', groups).as('rankings');
         cy.intercept({ method: 'GET', pathname: '/api/minigame/*/rank' }, (request) => {
@@ -39,6 +41,35 @@ describe('minigame rankings', () => {
             const records = Object.fromEntries(game?.rankings.map((ranking, index) => [ranking.key, index === 1 ? null : { score: 1234, achieved_at: '2026-10-23T00:00:00Z' }]) ?? []);
             request.reply({ count: 25, players: [{ player_id: 42, rank: Number(request.query.start) + 1, records }] });
         }).as('rank');
+    });
+    afterEach(() => {
+        minigameSettings.value = defaultMinigameSettings();
+    });
+
+    it('switches both click-training rankings to CES locally without refetching scores', () => {
+        const router = mountRanking('/ranking/minigame/left-click');
+        cy.wait('@rank');
+        cy.get('[data-cy=minigame-replay-link]').first().should('have.text', '1.234');
+        cy.get('[data-cy=minigame-ranking-score-display]').should('have.text', 'Time').click();
+        cy.get('[data-cy=minigame-replay-link]').first().should('have.text', '25.122');
+        cy.window().its('localStorage').invoke('getItem', 'minigame-settings').should((value: string | null) => {
+            expect((JSON.parse(value ?? '{}') as { leftClickScoreDisplay?: string }).leftClickScoreDisplay).to.eq('ces');
+        });
+        cy.get('.minigame-ranking-table table').extractTableData().should((rows) => {
+            expect(rows.at(-1)?.[3]).to.eq('--');
+        });
+        cy.get('.minigame-ranking-table th[aria-sort=descending]').should('have.length', 1);
+        cy.get('@rank.all').should('have.length', 1);
+        cy.then(() => router.push('/ranking/minigame/multi-touch'));
+        cy.wait('@rank');
+        cy.get('[data-cy=minigame-replay-link]').first().should('have.text', '25.122');
+        cy.get('[data-cy=minigame-ranking-score-display]').click();
+        cy.get('[data-cy=minigame-replay-link]').first().should('have.text', '1.234');
+        cy.get('.minigame-ranking-table th[aria-sort=ascending]').should('have.length', 1);
+        cy.then(() => router.push('/ranking/minigame/flag-chord'));
+        cy.wait('@rank');
+        cy.get('[data-cy=minigame-replay-link]').first().should('have.text', '1.234');
+        cy.get('[data-cy=minigame-ranking-score-display]').should('not.exist');
     });
 
     it('opens a deep link with nine columns, sorts, paginates, refreshes and switches groups', () => {

@@ -7,6 +7,7 @@ from django_redis import get_redis_connection
 
 from config.customranking import CUSTOM_PLUCK_LEVELS
 from customranking.cache import get_custom_pluck_detail_key, get_custom_pluck_rank_key
+from effranking.nf_ioe.cache import NFIOERankingCache
 from effranking.thrp.cache import ThrpRankingCache
 from minigame.cache import MiniGameRankingCache
 from speedranking.pb.cache import PBRankingCache
@@ -41,6 +42,8 @@ def _known_memory_keys(ranking, fields, player_ids):
     for key in TopRankingCache().keys:
         yield 'other_rankings', key
     for key in ThrpRankingCache().keys:
+        yield 'other_rankings', key
+    for key in NFIOERankingCache().keys:
         yield 'other_rankings', key
     for key in MiniGameRankingCache().keys:
         yield 'other_rankings', key

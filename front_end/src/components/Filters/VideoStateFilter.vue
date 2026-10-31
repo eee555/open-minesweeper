@@ -1,8 +1,8 @@
 <template>
-    <div class="checkbox-buttons" role="group" :aria-label="t('common.prop.state')">
+    <div class="checkbox-buttons" role="group" :aria-label="t('prop.state')">
         <label v-for="item of statelist" :key="item.state" class="checkbox-button">
             <input v-model="checkboxGroup" class="checkbox-button-input" type="checkbox" :value="item.state" @change="handleChange">
-            <span class="checkbox-button-content">{{ t(`common.state.${item.state}`) }}</span>
+            <span class="checkbox-button-content">{{ t(`state.${item.state}`) }}</span>
         </label>
     </div>
 </template>

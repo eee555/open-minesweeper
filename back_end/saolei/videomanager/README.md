@@ -5,7 +5,7 @@
 ## 核心模型
 
 - `VideoModel`：录像主表，保存玩家、文件、审核状态、级别、模式、成绩、`pluck`、比赛标记等信息。
-- `ExpandVideoModel`：录像扩展信息，目前主要保存录像内标识 `identifier` 和比赛标识列表 `tournament_identifier`。
+- `ExpandVideoModel`：录像扩展信息，保存录像内标识 `identifier`、比赛标识列表 `tournament_identifier` 和冻结原因 `freeze_reason`（不设长度上限的文本，旧记录默认为空字符串）。
 
 `VideoModel` 是多个 app 的事实事件源。任何保存 `VideoModel` 的代码都应尽量使用 `save(update_fields=[...])`，让信号接收器能判断本次修改的影响范围。
 
@@ -13,17 +13,21 @@
 
 主要入口：
 
-- `common.services.new_video_by_file`（普通上传的解析、标识校验、查重和创建）
+- `common.services.new_video_by_file`（普通上传的哈希查重、解析、标识校验和创建）
+- `common.services.import_video_by_file`（历史导入及纪念账号补录）
 - `VideoModel.create_from_parser`
+- `accountlink.services.msgames_video_import_one`
 - `accountlink.services.saolei_video_import_one`
 - `tournament.gsc.services.upload_gsc_history_video`（独立编排历史代传，直接调用 `create_from_parser` 并显式关联历史比赛，不依赖普通上传业务）
 - 管理命令或测试中直接 `VideoModel.objects.create`
 
 创建前通常需要完成：
 
+- `videomanager.utils.calculate_original_hash` 分块计算原始文件 SHA-256 的前 96 位，复位文件流，再由 `find_identical_video` 查询 `original_hash` 索引。仅以哈希相等判断重复，不读取已有文件或比较大小、解析字段。普通上传命中时拒绝；导入命中时复用，不运行 parser。历史及纪念账号补录、GSC 补传仍拒绝其他用户的录像。
 - `utils.parser.MSVideoParser` 解析录像文件，得到基础字段、扩展字段、状态、标识、比赛 token、`pluck`。
 - `identifier` 检查标识安全性和归属。如果录像本身合法但标识不属于用户，状态应降为 `IDENTIFIER`。
-- 文件重复检查。
+
+未命中时只解析一次，向 `create_from_parser(..., original_hash=...)` 传入已算好的摘要，随新录像一起保存。`original_hash` 使用 `unique=True`，由数据库阻止重复哈希写入；字段自带唯一索引，已移除原来的 `video_original_hash_idx` 普通索引。保留 `null=True, blank=True`，允许多条未填充的 NULL 记录，但空字符串也是唯一值。部署时需生成并执行结构迁移；不额外扫描历史重复哈希，也不自动删除重复录像。存量由 `backfill_video_hashes` 补齐，覆盖上次回填后旧代码创建的空哈希记录。
 
 导入传给 `create_from_parser(..., upload_time=...)` 的时间在创建信号中参与 check-in 判断，避免历史文件按当前时间误入正在进行的比赛。由于 `auto_now_add`，创建后仍通过 `videomanager.services.set_import_upload_time` 显式保存来源时间；复用文件只在指定时间更早时保存，继续触发队列和排行信号。
 
@@ -36,6 +40,16 @@
 - `customranking`：自定义 pluck 排行需要录像满足 `OFFICIAL`、非比赛、合法自定义配置、`pluck is not None`。当前通过 `VideoModel` 保存后的信号维护 `CustomPluckRecord`。
 - `utils.parser.MSVideoParser`：标准三等级和当前支持的自定义 `pluck` 场景都会在解析时前台计算，保存 `VideoModel` 后触发 `customranking`。
 - `videomanager.tasks`：`task_video_pluck` 入口保留，供未来重新需要后台计算时复用。
+
+## 冻结录像
+
+管理员页面“录像信息”中查询录像后，可以输入多行冻结原因并冻结录像；已冻结录像可以通过同一按钮更新原因。原因不能为空白，不设固定长度上限。
+
+`POST /api/video/admin/freeze` 接受 JSON `{"id": 123, "freeze_reason": "原因"}`，使用 Django 会话认证、CSRF 和 `staff_required`；权限只在 API 层检查。同路径 GET 验证管理员权限并返回 CSRF token，响应禁止缓存。详情接口返回 `video__freeze_reason`。
+
+`freeze_video_by_id` 在共享排行准入和数据库事务内锁定主记录与扩展记录，一起保存 `FROZEN` 状态和原因。状态变更通过既有信号更新队列、竞速、效率及自定义 pluck 排行；只修改已冻结录像的原因不会重复触发排行更新。冻结保留录像文件、上传时间和比赛关联，比赛已保存的成绩不在此操作中重算。
+
+冻结录像不再自动删除。更新代码、执行数据库迁移并重启 `runapscheduler` 后，调度器会清除旧的 `delete_freezed_video` 持久化任务。
 
 ## 删除录像
 
@@ -53,7 +67,7 @@
 - **最新录像队列保持现状**：数据库删除不移除 `newest_queue` 快照，最新录像接口仍可能返回已删除的 ID。队列只按既有规则裁剪或由管理员单独移除，不增加删除信号清理或读取时查库过滤。
 - **比赛普通删除不立即重算。** 删除录像会清除比赛的多对多关联，暂时保留已结算成绩、名次、积分和历史最好成绩。显式重算按赛种及成绩来源处理：打卡赛和 GSC 录像来源不再计入已删除录像，GSC 手工来源保留录入成绩但仍参与全场排名及积分更新。新赛种须提供自己的删除及重算规则。站长 API 已提供比赛 ID 和日志警告，隐藏页面已增加删除警告和确认；未来通知主办方的私信尚未实现，详见 [比赛录像删除与成绩一致性](../tournament/VIDEO_DELETION_PLAN.md)。
 
-本次不修改模型字段、不需要数据库迁移，也不自动扫描清理历史孤立扩展行。旧的 pluck 缺失纪录可通过既有 `refresh_all_custom_pluck_ranks` 业务服务重建；仅重建 Redis 缓存不能补回缺失的数据库纪录。
+删除流程本身不修改模型字段，也不自动扫描清理历史孤立扩展行。旧的 pluck 缺失纪录可通过既有 `refresh_all_custom_pluck_ranks` 业务服务重建；仅重建 Redis 缓存不能补回缺失的数据库纪录。
 
 删除源判定和提交后回调沿用 Django 的 [删除信号 `origin`](https://docs.djangoproject.com/en/6.0/ref/signals/#post-delete) 与 [`transaction.on_commit`](https://docs.djangoproject.com/en/6.0/topics/db/transactions/#performing-actions-after-commit)。
 
@@ -118,6 +132,8 @@ video.save(update_fields=['pluck'])
 `effranking` 使用数据库生成的 `thrp = bv / (left_ce + right_ce + double_ce)`。`CAPTURE_FIELDS` 已包含 `bv` 和三个有效点击数字段；其中 `right_ce` 在效率榜中参与分母计算，不用于区分 NF。保存后先判断影响范围，提交后再读取持久化的 Thrp，避免使用实例上的旧派生值。原纪录变差或失效时只查询受影响玩家、级别的补位。
 
 ### 文件和解析字段
+
+录像文件已接入 MSRC 存储及前端按需解压。新上传和导入立即压缩，历史文件使用 `compress_video_files` 手动转换，不注册定时压缩任务。字段、协议和部署步骤见 [录像文件压缩方案](./VIDEO_FILE_COMPRESSION_PLAN.md)。
 
 `refresh_video(video)` 会重新解析文件并刷新所有文件包含的数据。
 
@@ -250,3 +266,15 @@ video.save(update_fields=['pluck'])
 自定义级别没有 `stnb` 定义，`VideoModel.stnb` 返回 `None`。
 
 `iqg = bv / (timems / 1000) ^ 1.7` 已作为 `VideoModel` 的 `GeneratedField` 保存，`ExpandVideoModel.stnb` 已删除。`stnb` 属性由 `VideoModel.iqg` 派生；旧个人纪录功能已移除。 `stnb` 与 `bvs`、`ioe` 一样属于 `VideoModel` 基础字段变化后的派生指标，不再监听 `ExpandVideoModel` 的保存事件。
+
+### 压缩存储
+
+`videomanager.files` 统一压缩并恢复原始录像字节，供录像创建、重解析、后台 pluck 和哈希回填使用。上传和各平台导入共用 `VideoModel.create_from_parser`：解析后在内存中压缩、校验完整往返字节，再创建录像并直接保存 UUID `.msrc` 文件。压缩或校验失败时改为保存源文件，`compression_format=0`、`stored_file_size=file_size`，设置 `compression_failed=True` 并记录日志，允许后续 `--retry-failed` 手动重试；新录像没有文件切换过程。
+
+历史文件由转换服务验证原始大小、已存哈希、MSRC 目标格式及完整往返字节，再保存独立归档并短事务切换路径；提交后检查引用并立即删除旧文件。转换不调用录像 parser，也不触发录像保存信号。
+
+`GET /api/video/preview?id=123` 只接受数字 ID，返回当前存储字节（MSRC 容器或尚未压缩的源文件），每 IP `20/m`；生产环境通过 `X-Accel-Redirect` 发送。`GET /api/video/download/123` 返回原始录像文件，压缩录像在后端复用 `original_file` 解压后由内存字节响应发送，每 IP `5/m`，不写临时文件或保存解压结果。download 使用原文件名，`X-Replay-Container-Version` 固定为 `0`；preview 按实际响应格式设置文件名和容器版本。两者都不需要软件参数。
+
+生产的公开 API CORS 由 `default.conf` 按原始请求 URI 统一管理，保持既有白名单，仅开放跨域 GET 且不允许跨域凭据；OPTIONS 仅处理 GET 的预检，其他方法不返回允许跨域的响应头。Nginx 同时恢复内部重定向会丢失的录像版本头。DEBUG 开发及 Cypress 直连 Django 时保留原有 CORS 中间件策略。部署时先同步 Nginx 配置并校验、重载，再更新后端；内部媒体 location 依赖 server 层响应头继承，不单独定义 `add_header`。
+
+`original_hash`、`file_size` 仍描述原始文件；物理大小记录在 `stored_file_size`。失败保留来源文件与实际格式，设置 `compression_failed`；磁盘空间、只读存储及依赖配置错误停止整批。手动重试使用 `compress_video_files --retry-failed`。没有 APScheduler 压缩任务。

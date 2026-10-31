@@ -3,7 +3,7 @@
         {{ tournament.getLocalName(local.language) }}
         <TournamentStateIcon :state="tournament.getDisplayState(globalNow)" />
     </h1>
-    {{ t('local.schedule') }}{{ t('common.punct.colon') }}
+    {{ t('local.schedule') }}{{ t('punct.colon') }}
     <span>
         {{ tournament.displayStartTime() }}
         &nbsp;~&nbsp;

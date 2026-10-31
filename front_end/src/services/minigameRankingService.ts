@@ -27,6 +27,12 @@ export interface MinigameRankingRow {
     records: Record<string, MinigameScore | null>;
 }
 
+export interface MinigameRankingSummary {
+    count: number;
+    players: MinigameRankingRow[];
+    player: { player_id: number; records: Record<string, (MinigameScore & { rank: number | null }) | null> } | null;
+}
+
 export interface MinigameRankingGroup {
     game: TrainingGame;
     rankings: MinigameRanking[];
@@ -47,6 +53,11 @@ export function fetchMinigameRankings(): Promise<MinigameRankingGroup[]> {
 
 export async function fetchMinigameRanking(game: TrainingGame, sort: string, start: number, end: number): Promise<{ count: number; players: MinigameRankingRow[] }> {
     const { data } = await $axios.get<{ count: number; players: MinigameRankingRow[] }>(`/api/minigame/${game}/rank`, { params: { sort, start, end } });
+    return data;
+}
+
+export async function fetchMinigameRankingSummary(rankingKey: string, signal?: AbortSignal): Promise<MinigameRankingSummary> {
+    const { data } = await $axios.get<MinigameRankingSummary>(`/api/minigame/${rankingKey}/summary`, { signal });
     return data;
 }
 

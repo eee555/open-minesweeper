@@ -1,7 +1,7 @@
 <template>
     <ElTable :data="tournamentList" table-layout="auto" :default-sort="{ prop: 'startDate', order: 'descending' }" @row-click="rowClick">
         <!-- @vue-generic {Tournament} -->
-        <ElTableColumn :label="t('common.prop.state')">
+        <ElTableColumn :label="t('prop.state')">
             <template #default="{row}">
                 <TournamentStateIcon :state="row.getDisplayState(globalNow)" />
             </template>

@@ -10,7 +10,7 @@
                         #
                     </th>
                     <th scope="col" class="table-col-player">
-                        {{ t('common.prop.player') }}
+                        {{ t('prop.player') }}
                     </th>
                     <th v-for="field in softFields" :key="field" scope="col" class="table-col-number" :aria-sort="selected === field ? 'descending' : 'none'">
                         <BaseTextButton :type="selected === field ? 'primary' : 'default'" :data-field="field" :aria-pressed="selected === field" @click="selected = field">
@@ -38,7 +38,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
 import { ElPagination, vLoading } from 'element-plus';
 import { computed, onScopeDispose, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -73,7 +72,7 @@ let requestId = 0;
 function columnLabel(field: SoftField) {
     if (field === 'lsf') return 'LSF';
     const [mode, level] = field.split(':');
-    return `${mode === 'nf' ? 'NF ' : ''}${t(`common.level.${level}`)}`;
+    return `${mode === 'nf' ? 'NF ' : ''}${t(`level.${level}`)}`;
 }
 
 function equivalentEt(value: number, field: GradeField) {

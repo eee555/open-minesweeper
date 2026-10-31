@@ -2,6 +2,7 @@ import os
 
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.validators import UnicodeUsernameValidator
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django_cleanup import cleanup
@@ -22,6 +23,7 @@ class UserProfile(AbstractUser):
         UserMS, on_delete=models.CASCADE, related_name='parent', null=True)
 
     date_updated = models.DateTimeField(auto_now=True)
+    is_memorial = models.BooleanField(default=False)
 
     username = models.CharField(
         _('username'),
@@ -90,11 +92,27 @@ class UserProfile(AbstractUser):
         super(UserProfile, self).delete(*args, **kwargs)
 
     class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(is_memorial=False) | models.Q(is_active=False, is_staff=False, is_superuser=False, password__startswith='!', email__endswith='@accounts.invalid'),
+                name='memorial_auth_disabled',
+            ),
+        ]
         indexes = [
             models.Index(fields=['date_updated'], name='date_updated_idx'),
             models.Index(fields=['country'], name='country_idx'),
             models.Index(fields=['vip'], name='vip_idx'),
         ]
+
+    def clean(self):
+        super().clean()
+        if self.is_memorial and (self.is_active or self.is_staff or self.is_superuser or self.has_usable_password() or not self.email.endswith('@accounts.invalid')):
+            raise ValidationError('Memorial accounts must remain inactive, without credentials or administrative permissions.')
+
+    def save(self, *args, update_fields=None, **kwargs):
+        if self.is_memorial:
+            self.clean()
+        return super().save(*args, update_fields=update_fields, **kwargs)
 
     def has_realname(self) -> bool:
         return bool(self._realname.strip()) and self._realname.strip() != '匿名'

@@ -87,6 +87,29 @@ describe('PlayerName', () => {
         cy.contains(`User#${user.id}`);
     });
 
+    it('shows the memorial identity', () => {
+        mockUserInfo({ body: [{ ...user, is_memorial: true }] });
+        mountPlayerName(user.id);
+        cy.wait('@fetchUser');
+        cy.get('[data-cy=memorial-badge]').should('contain.text', 'Memorial account');
+    });
+
+    it('refreshes an already mounted cached name after a profile save without waiting a day', () => {
+        cy.then(async () => {
+            serviceConfig.value.userInfoLastUpdate = Date.now();
+            serviceConfig.value.userInfoUpdateInterval = 86400000;
+            const db = await getDatabase();
+            await db.put(USER_INFO_STORE_NAME, user);
+            local.value.playerName1 = 'realname';
+        });
+        mockUserInfo({ body: [{ ...user, realname: 'hidden', firstname: 'hidden', lastname: 'hidden' }] });
+        mountPlayerName(user.id);
+        expectName('Alice');
+        cy.then(() => invalidateUserInfo(user.id));
+        cy.wait('@fetchUser');
+        expectName(`User #${user.id}`, `User #${user.id}`);
+    });
+
     it('uses the fallback fixture even when the player name was previously cached', () => {
         cy.then(async () => {
             const db = await getDatabase();

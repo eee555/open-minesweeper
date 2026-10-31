@@ -17,7 +17,7 @@ describe('profile record cache', () => {
     it('shares pending and completed lightweight records, and invalidates without downloading', async () => {
         const data = {} as Record<SaoleiRankingName, SaoleiPlayerRecord>;
         vi.mocked(fetchSaoleiRecords).mockResolvedValue(data);
-        const thrp = { player_id: 42, b: null, i: null, e: null, ranks: { b: null, i: null, e: null, sum: null } };
+        const thrp = { player_id: 42, b: null, i: null, e: null, e_nf: null, ranks: { b: null, i: null, e: null, sum: null, e_nf: null } };
         vi.mocked(fetchThrpRecord).mockResolvedValue(thrp);
         const first = fetchProfileSaoleiRecords(42);
         const firstThrp = fetchProfileThrpRecord(42);

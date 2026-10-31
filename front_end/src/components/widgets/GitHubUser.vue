@@ -7,7 +7,6 @@
 
 <script setup lang="ts" name="GitHubUser">
 import '@/styles/link.css';
-import '@/styles/text.css';
 import { ElImage } from 'element-plus';
 
 const props = defineProps({

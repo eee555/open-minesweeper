@@ -3,10 +3,10 @@
     {{ t('local.endId') }}<ElInputNumber v-model="endid" />&nbsp;
     {{ t('staff.batch.size') }}<ElInputNumber v-model="batchsize" />&nbsp;
     <BaseButton :disabled="working" @click="startBatchUpdate">
-        {{ t('common.button.start') }}
+        {{ t('button.start') }}
     </BaseButton>
     <BaseButton :disabled="!working" @click="stopBatchUpdate">
-        {{ t('common.button.stop') }}
+        {{ t('button.stop') }}
     </BaseButton><br>
     {{ t('staff.batch.help') }}
     <span v-for="(log, index) in logList" :key="index" :style="{ display: 'block' }">
@@ -19,7 +19,6 @@ import { ElInputNumber } from 'element-plus';
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
-import '@/styles/text.css';
 import BaseButton from '@/components/common/BaseButton.vue';
 import useCurrentInstance from '@/utils/common/useCurrentInstance';
 

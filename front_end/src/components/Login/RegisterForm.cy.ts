@@ -168,6 +168,41 @@ describe('<RegisterForm />', () => {
         cy.contains('Successfully registered!');
     });
 
+    for (const category of ['illegal', 'unknown']) {
+        it(`checks username moderation only on submission and handles ${category}`, () => {
+            cy.mockGetEmailCode();
+            cy.intercept('POST', '/api/userprofile/register', {
+                body: { type: 'error', object: 'censorship', category },
+            }).as('registerRequest');
+            const onLogin = cy.spy().as('registered');
+            cy.mount(RegisterForm, { ...mountOptions, props: { onLogin } });
+
+            findUsernameInput().type('validUsername{enter}');
+            findEmailInput().type('valid@email.com{enter}');
+            cy.contains('Image captcha').next().find('input').type('test{enter}');
+            cy.contains('button', 'Send').click();
+            cy.contains('Email code').next().find('input').type('123456{enter}');
+            findPasswordInput().type('validPassword{enter}');
+            findConfirmPasswordInput().type('validPassword{enter}');
+            cy.contains('label', 'Agree to').click();
+
+            findRegisterButton().should('be.enabled');
+            cy.get('@registerRequest.all').should('have.length', 0);
+            findRegisterButton().click();
+            cy.wait('@registerRequest');
+            cy.get('@registered').should('not.have.been.called');
+            cy.contains('Email code').next().find('input').should('have.value', '123456');
+            if (category === 'illegal') {
+                expectUsernameValidationError('This username did not pass content moderation. Please choose another username.');
+                findRegisterButton().should('be.disabled');
+            } else {
+                cy.contains('.el-notification', 'Username moderation is temporarily unavailable. Please try again later.').should('be.visible');
+                findRegisterButton().should('be.enabled');
+                cy.closeElNotifications();
+            }
+        });
+    }
+
     // 这个不放到最后就会出奇怪的bug
     it('Username Validation - Format', () => {
         cy.mount(RegisterForm, mountOptions);

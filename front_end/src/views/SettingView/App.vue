@@ -1,16 +1,7 @@
 <template>
-    <div style="display: flex; flex-direction: column; gap: 1rem;">
+    <div class="layout-stack">
         <Appearance />
         <PlayerBadgeSettings />
-        <section class="card">
-            <h2 class="card-title">
-                {{ t('local.thirdPartyTrust') }}
-            </h2>
-            <label class="checkbox">
-                <input v-model="videoPlayerConfig.strangeDustTrust" class="checkbox-input" type="checkbox">
-                <span>https://strange-dust.github.io/minesweeper-replay-analyzer/</span>
-            </label>
-        </section>
         <Visualization />
         <MiniGame />
         <section v-experimental class="card">
@@ -20,19 +11,19 @@
             <div class="description-layout">
                 <dl class="descriptions">
                     <div class="description-item">
-                        <dt>{{ t('common.level.b') }}</dt>
+                        <dt>{{ t('level.b') }}</dt>
                         <dd>
                             <ElInputNumber v-model="STNB_const.b" size="small" :controls="false" />
                         </dd>
                     </div>
                     <div class="description-item">
-                        <dt>{{ t('common.level.i') }}</dt>
+                        <dt>{{ t('level.i') }}</dt>
                         <dd>
                             <ElInputNumber v-model="STNB_const.i" size="small" :controls="false" />
                         </dd>
                     </div>
                     <div class="description-item">
-                        <dt>{{ t('common.level.e') }}</dt>
+                        <dt>{{ t('level.e') }}</dt>
                         <dd>
                             <ElInputNumber v-model="STNB_const.e" size="small" :controls="false" />
                         </dd>
@@ -52,6 +43,7 @@
 <script lang="ts" setup name="UserSettings">
 import '@/styles/descriptions.css';
 import '@/styles/cards.css';
+import '@/styles/layout.css';
 import { ElInputNumber } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 
@@ -62,19 +54,16 @@ import PlayerBadgeSettings from './PlayerBadge.vue';
 import Visualization from './Visualization.vue';
 
 import { vExperimental } from '@/components/ExperimentalFeature';
-import { videoPlayerConfig } from '@/store';
 import { STNB_const } from '@/utils/ms_const';
 
 const i18nMessages = {
     'zh-cn': { local: {
         localCache: '本地缓存',
         stnbConst: 'STNB常数',
-        thirdPartyTrust: '第三方网站信任列表',
     } },
     en: { local: {
         localCache: 'Local Cache',
         stnbConst: 'STNB Constants',
-        thirdPartyTrust: 'Third Party Trust List',
     } },
 };
 

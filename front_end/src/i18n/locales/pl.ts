@@ -1,21 +1,19 @@
 export default {
     local: 'pl',
     name: 'polski',
-    common: {
-        level: {
-            b: 'początkujący',
-            i: 'średniozaawansowany',
-            e: 'ekspert',
-        },
-        mode: {
-            std: 'podstawowy',
-            nf: 'bez flag',
-            ng: 'bez zgadywania',
-            dg: 'rekurencyjny akord',
-        },
-        prop: {
-            time: 'czas',
-        },
+    level: {
+        b: 'początkujący',
+        i: 'średniozaawansowany',
+        e: 'ekspert',
+    },
+    mode: {
+        std: 'podstawowy',
+        nf: 'bez flag',
+        ng: 'bez zgadywania',
+        dg: 'rekurencyjny akord',
+    },
+    prop: {
+        time: 'czas',
     },
     form: {
         captcha: 'captcha',

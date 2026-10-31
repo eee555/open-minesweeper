@@ -46,7 +46,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
 import { toRefs, useElementSize } from '@vueuse/core';
 import { ElSplitter, ElSplitterPanel } from 'element-plus';
 import { computed, reactive, ref, useTemplateRef, watch } from 'vue';

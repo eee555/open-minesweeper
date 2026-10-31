@@ -1,17 +1,16 @@
 <template>
     <div class="cell">
-        <span class="text-regular">{{ t(`common.level.short${level}`) }}</span>
+        <span class="text-regular">{{ t(`level.short${level}`) }}</span>
     </div>
     <div v-for="i in count" class="cell">
         <span class="text-regular">{{ i }}</span>
     </div>
     <div class="cell">
-        <span class="text-regular">{{ t('common.score.sum') }}</span>
+        <span class="text-regular">{{ t('score.sum') }}</span>
     </div>
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
 import type { PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
 

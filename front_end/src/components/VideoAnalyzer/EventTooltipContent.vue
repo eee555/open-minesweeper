@@ -4,7 +4,7 @@
             <strong>{{ event.key }}</strong>
             <template v-if="event.type === 'pulse'">
                 <output class="event-tooltip__time">{{ t('local.time') }}: {{ seconds(event.pulse.timeMs) }} s</output>
-                <output v-if="event.pulse.value !== undefined" class="event-tooltip__value">{{ t('local.value') }}: {{ event.pulse.value }}</output>
+                <output v-if="event.pulse.value !== undefined" class="event-tooltip__value">{{ t('prop.value') }}: {{ event.pulse.value }}</output>
             </template>
             <template v-else>
                 <output class="event-tooltip__start">{{ t('local.start') }}: {{ seconds(event.span.startMs) }} s</output>
@@ -17,7 +17,6 @@
 
 <script setup lang="ts">
 import '@/styles/cards.css';
-import '@/styles/text.css';
 import type { PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -28,14 +27,12 @@ const seconds = (ms: number) => (ms / 1000).toFixed(3);
 const i18nMessages = {
     'zh-cn': { local: {
         time: '时间',
-        value: '值',
         start: '开始',
         end: '结束',
         duration: '持续时间',
     } },
     en: { local: {
         time: 'Time',
-        value: 'Value',
         start: 'Start',
         end: 'End',
         duration: 'Duration',

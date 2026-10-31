@@ -7,8 +7,6 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
-
 import { ArrayUtils } from '@/utils/arrays';
 
 defineProps({

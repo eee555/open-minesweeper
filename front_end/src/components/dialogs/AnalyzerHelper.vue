@@ -30,7 +30,6 @@
 
 <script setup lang="ts">
 import '@/styles/link.css';
-import '@/styles/text.css';
 import { useI18n } from 'vue-i18n';
 
 import BaseTable from '@/components/common/BaseTable.vue';

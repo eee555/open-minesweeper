@@ -5,7 +5,7 @@
             <br>
             {{ t('local.description2') }}
             <br>
-            {{ t('software.officialSite') }}{{ t('common.punct.colon') }}
+            {{ t('software.officialSite') }}{{ t('punct.colon') }}
             https://sweeper.wien
         </span>
         <div style="height: 1em" />
@@ -111,7 +111,6 @@
 <script setup lang="ts">
 import '@/styles/descriptions.css';
 import '@/styles/link.css';
-import '@/styles/text.css';
 import { useI18n } from 'vue-i18n';
 
 import { BaseBadgeMsgames, BaseBadgeOpenms, BaseBadgeSaolei, BaseBadgeScoreganizer } from '@/components/common/badge';

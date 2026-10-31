@@ -1,10 +1,8 @@
 <template>
-    <img style="width: 16px; height: 16px" :src="iconSrc" :title="t(`common.software.${software}`)">
+    <img style="width: 16px; height: 16px" :src="iconSrc" :title="t(`software.${software}`)">
 </template>
 
 <script setup lang="ts">
-import '@/styles/text.css';
-
 import type { PropType } from 'vue';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';

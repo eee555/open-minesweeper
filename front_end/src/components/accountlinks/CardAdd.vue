@@ -8,7 +8,7 @@
             <ElFormItem :label="t('accountlink.platform')">
                 <ElSelect v-model="form.platform">
                     <ElOption
-                        v-for="platform of manualAccountLinkPlatforms" :key="platform" :value="platform" :label="t(`common.platform.${platform}`)"
+                        v-for="platform of manualAccountLinkPlatforms" :key="platform" :value="platform" :label="t(`platform.${platform}`)"
                         :disabled="userHasPlatform(platform)"
                     />
                 </ElSelect>
