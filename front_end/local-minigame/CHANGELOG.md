@@ -1,6 +1,6 @@
 # 更新记录 / Changelog
 
-## 未发布 / Unreleased
+## 0.7.0 — 2026-10-31
 
 - 新增本地历史抽屉，按当前游戏和配置展示纪录，支持日期筛选、用时排序及点击回放。
 - Added a local history drawer for the current game and configuration, with date filters, time sorting and replay playback.

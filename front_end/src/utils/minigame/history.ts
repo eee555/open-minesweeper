@@ -53,7 +53,7 @@ export type MinigameStoredEntry = {
     | { game: 'missing-cell'; mode: MissingCellMode }
 );
 
-export type MinigameHistoryMetadata = Pick<MinigameStoredEntry, 'playedAt' | 'scoreMs' | 'game' | 'mode'> & { id: number };
+export type MinigameHistoryMetadata = Pick<MinigameStoredEntry, 'playedAt' | 'scoreMs'> & { id: number };
 export type MinigameHistorySort = 'date' | 'score-asc' | 'score-desc';
 
 const historyRevision = shallowRef(0);
@@ -163,9 +163,9 @@ export async function queryMinigameHistory(rankingKey: string, { from, to, sort 
     const index = sort === 'date' ? dateIndex : tx.store.index('scoreMs');
     let cursor = await index.openCursor(sort === 'date' ? range : undefined, sort === 'score-asc' ? 'next' : 'prev');
     while (cursor !== null) {
-        const { playedAt, scoreMs, game, mode } = cursor.value;
+        const { playedAt, scoreMs } = cursor.value;
         if (getMinigameHistoryRankingKey(cursor.value) === rankingKey && (from === undefined || playedAt >= from) && (to === undefined || playedAt < to)) {
-            if (count >= offset && entries.length < limit) entries.push({ id: cursor.primaryKey, playedAt, scoreMs, game, mode });
+            if (count >= offset && entries.length < limit) entries.push({ id: cursor.primaryKey, playedAt, scoreMs });
             count++;
         }
         cursor = await cursor.continue();

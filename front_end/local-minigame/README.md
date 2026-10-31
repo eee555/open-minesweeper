@@ -83,15 +83,12 @@
 数据库为 `saolei-minigame`，结构版本 3，`results` 表使用自增 `id`，保存游戏类型、完整模式参数、完成时间 `playedAt`（Unix 毫秒）和成绩 `scoreMs`（整数毫秒）。两条非唯一索引分别为 `playedAt` 和 `scoreMs`，支持时间与成绩排序；同一毫秒完成或成绩相同的多局均保留。版本 1 的 v0 和版本 2 的 v1 JSON 旧库均在升级事务中自动转换为 7z，保留主键、时间、成绩、模式和索引。单条格式转换失败时记录警告，将原回放 JSON 整体压缩后继续迁移，不删除该条目、不强行标记为 v1；后续读取仍按正常规则报告解析错误。压缩或数据库操作失败时回滚整个升级并保留旧库。压缩器在打开升级事务前初始化。
 
 - 有旧记录需要转换时，网站和离线版共用 [HistoryMigration.vue](../src/components/MiniGame/HistoryMigration.vue)，显示“正在优化录像格式，请不要关闭页面”、进度条和已处理／总条数。升级提交或失败回滚后关闭，期间不允许按 Escape 或点击遮罩关闭。压缩前先留出绘制提示的时间，并用轻量数据库请求保持升级事务活跃。
-- 已保存的回放统一使用 `replay` 字段中的 7z `ArrayBuffer`，不转 Base64；新回放不保存展开的快照和统计，迁移兜底的原 JSON 则完整保留旧字段。`readMinigameHistoryEntry` 解压并还原供运行时使用的成绩结构，无法解析的旧回放仍报告错误。
-- 多指载荷为 `TouchRecording`，没有鼠标专用的 `specialEvents`；通过 `rebuildTouchReplay(mode, recording, scoreMs)` 还原。新增游戏不改变数据库结构版本，也不迁移已有回放。
-- 左键及标双载荷为 `TrainingRecording` 的 `version`、`cellSize`、压缩初始棋盘 `initialBoard`、普通事件 `events` 及特殊事件 `specialEvents`。读取后调用 `rebuildTrainingReplay({game, mode}, recording, scoreMs)`，复用游戏规则一次性重建全部快照、剩余计数及成功标双时间点，再交给现有回放组件；这些派生数据只留在内存中。
-- 漏雷载荷为 `version: 1` 和 10 局的雷位字符串、目标坐标及耗时。解压后由 `decodeMissingCellRounds` 重算数字并还原运行时棋盘，再交给 `reviewMissingCellRound` 逐局回溯。
+- `replay` 保存 7z `ArrayBuffer`，派生快照及分析数据只留在内存。载荷与棋盘、事件编码见[回放格式标准](../../vitepress_doc/zh/guide/development/minigame-replay-format.md)，编解码模块见上文。
 - 写入前立即复制数据，异步打开数据库期间重开不会改变待保存内容。`idb.add` 等待事务完成；保存失败记录控制台警告，不中断当前对局，后续成绩仍会尝试写入。
 - 本地历史独立于可丢弃的 `saolei-cache`，不套用缓存的过期、版本清空或自动字段转换。以后修改结构时显式迁移并保留历史数据。连接在版本升级时释放，避免旧页面阻塞迁移。
 - 数据归属于当前浏览器与来源，在线站点和离线文件不保证共用；清除浏览器站点数据会删除记录。
 
-共用的 [HistoryPanel.vue](../src/components/MiniGame/HistoryPanel.vue) 预筛选当前游戏和配置的本地成功纪录，每页 20 条，默认最新日期在前，可按浏览器本地日期范围进一步筛选及按用时升／降序排列。游戏、级别或密度变化时刷新列表并回到第一页。`queryMinigameHistory(rankingKey, options)` 复用 `playedAt`、`scoreMs` 索引，遍历元数据匹配完整榜单 key 后计算总数和分页，只返回本页元数据；不解压回放，不升级数据库版本。保存事务完成后更新 `minigameHistoryRevision`，刷新已打开的列表。
+共用的 [HistoryPanel.vue](../src/components/MiniGame/HistoryPanel.vue) 展示当前游戏和配置的成功纪录，每页 20 条，表格只含日期、用时，支持日期范围筛选及用时升／降序排列。配置变化时回到第一页，保存事务完成后自动刷新。`queryMinigameHistory(rankingKey, options)` 用现有索引排序，匹配完整榜单 key 后计算总数和分页，只返回本页的 `id`、`playedAt`、`scoreMs`，不解压回放或升级数据库。点击行只向入口传递记录 ID。
 
 离线入口右上角提供历史书签，以非模态 `ElDrawer` 显示同一列表。点击行时从 IndexedDB 读取所选 7z，复用 `readMinigameHistoryReplay` 重建回放并传给原游戏的 `replayData`；重开或切换配置后退出回放。读取失败或录像损坏时显示错误，切换游戏后忽略旧加载结果。离线入口单独导入 Drawer、Pagination 和深色主题样式，所有资源随 HTML 内联。
 
@@ -111,7 +108,7 @@
 
 加载结果通过 `replayData` 和插槽交给原路由的游戏组件，共用参数栏、棋盘、计数器、轨迹及分析图，初始停在完成状态；漏雷共用逐局图表悬停回溯。重开或修改玩法参数后清除 `player`、`key`、`history`，在同一组件内保留所选模式并开始新局。更换回放参数时取消旧请求并忽略过期结果，缺失或损坏录像显示错误；观看录像不保存历史或上传成绩。
 
-本地历史浏览及回放由网站和离线入口共同支持。在线加载、上传和登录状态只由网站入口接入。离线入口不监听完成事件进行上传，也不包含 `ReplayLoader.vue`，继续禁止导入网站 HTTP、用户 store 及路由。
+`ReplayLoader.vue`、在线上传及登录状态仅用于网站；离线入口通过共用解码器读取本地录像，不导入网站 HTTP、用户 store 或路由。
 
 ## 构建与资源
 

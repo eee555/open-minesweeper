@@ -160,7 +160,7 @@ describe('current minigame ranking', () => {
         const expectTime = (time: string) => {
             cy.get('[data-cy=minigame-history-panel] table').extractTableData().should((rows) => {
                 expect(rows).to.have.length(2);
-                expect(rows[1][2]).to.equal(time);
+                expect(rows[1][1]).to.equal(time);
             });
         };
         mountGame();

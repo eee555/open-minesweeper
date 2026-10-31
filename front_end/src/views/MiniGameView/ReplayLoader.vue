@@ -22,14 +22,14 @@ import { getMinigameDatabase, MINIGAME_RESULTS_STORE } from '@/utils/minigame/hi
 import { readMinigameHistoryReplay, rebuildMinigameReplay } from '@/utils/minigame/review';
 import type { MinigameReplay } from '@/utils/minigame/review';
 
-const props = defineProps({ game: { type: String as PropType<TrainingGame>, required: true }, enabled: { type: Boolean, default: false } });
+const props = defineProps({ game: { type: String as PropType<TrainingGame>, required: true } });
 defineSlots<{ default: (props: { replay: MinigameReplay | null }) => VNode[] }>();
 const route = useRoute();
 const loading = ref(false);
 const error = ref<'invalidLink' | 'notFound' | 'localNotFound' | 'loadFailed' | 'corrupt' | null>(null);
 const data = shallowRef<MinigameReplay | null>(null);
 
-watch([() => props.game, () => route.query.player, () => route.query.key, () => route.query.history, () => props.enabled], async ([game, player, key, history, enabled], _previous, onCleanup) => {
+watch([() => props.game, () => route.query.player, () => route.query.key, () => route.query.history], async ([game, player, key, history], _previous, onCleanup) => {
     const controller = new AbortController();
     onCleanup(() => {
         controller.abort();
@@ -37,7 +37,7 @@ watch([() => props.game, () => route.query.player, () => route.query.key, () => 
     data.value = null;
     error.value = null;
     loading.value = false;
-    if (!enabled) return;
+    if (player === undefined && key === undefined && history === undefined) return;
     const local = history !== undefined;
     const id = local ? history : player;
     const recordId = typeof id === 'string' && (/^\d+$/).test(id) ? Number(id) : NaN;

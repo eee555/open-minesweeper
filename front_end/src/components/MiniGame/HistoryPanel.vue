@@ -10,16 +10,13 @@
         <p v-if="failed" role="alert" class="text text-danger text-small">
             {{ t('local.loadFailed') }}
         </p>
-        <BaseTable :empty="entries.length === 0" :column-count="3" :empty-text="t(loading ? 'local.loading' : 'local.empty')">
+        <BaseTable :empty="entries.length === 0" :column-count="2" :empty-text="t(loading ? 'local.loading' : 'local.empty')">
             <template #head>
                 <tr>
                     <th scope="col" :aria-sort="sort === 'date' ? 'descending' : 'none'">
                         <button type="button" class="stat-header" data-cy="minigame-history-date-sort" @click="sort = 'date'">
                             {{ t('local.date') }}
                         </button>
-                    </th>
-                    <th scope="col">
-                        {{ t('local.game') }}
                     </th>
                     <th scope="col" class="table-col-number" :aria-sort="sort === 'score-asc' ? 'ascending' : sort === 'score-desc' ? 'descending' : 'none'">
                         <button type="button" class="stat-header" data-cy="minigame-history-score-sort" @click="sort = sort === 'score-asc' ? 'score-desc' : 'score-asc'">
@@ -29,12 +26,8 @@
                     </th>
                 </tr>
             </template>
-            <tr v-for="entry in entries" :key="entry.id" tabindex="0" class="history-row" :data-history-id="entry.id" :aria-label="t('local.play', { date: toISODateTimeString(new Date(entry.playedAt)), game: t(`minigame.${entry.game}`) })" @click="emit('play', entry)" @keydown.enter.prevent="emit('play', entry)" @keydown.space.prevent="emit('play', entry)">
+            <tr v-for="entry in entries" :key="entry.id" tabindex="0" class="history-row" :data-history-id="entry.id" :aria-label="t('local.play', { date: toISODateTimeString(new Date(entry.playedAt)) })" @click="emit('play', entry.id)" @keydown.enter.prevent="emit('play', entry.id)" @keydown.space.prevent="emit('play', entry.id)">
                 <td>{{ toISODateTimeString(new Date(entry.playedAt)) }}</td>
-                <td>
-                    {{ t(`minigame.${entry.game}`) }}
-                    <span class="history-mode text-secondary text-small">{{ t(`level.${entry.mode.key}`) }}<template v-if="'density' in entry.mode"> · {{ entry.mode.density }}%</template></span>
-                </td>
                 <td class="table-col-number">
                     {{ ms_to_s(entry.scoreMs) }}
                 </td>
@@ -57,7 +50,7 @@ import { minigameHistoryRevision, queryMinigameHistory } from '@/utils/minigame/
 import type { MinigameHistoryMetadata, MinigameHistorySort } from '@/utils/minigame/history';
 
 const props = defineProps({ rankingKey: { type: String, required: true } });
-const emit = defineEmits<{ play: [entry: MinigameHistoryMetadata] }>();
+const emit = defineEmits<{ play: [id: number] }>();
 const fromDate = ref('');
 const toDate = ref('');
 const sort = ref<MinigameHistorySort>('date');
@@ -76,10 +69,11 @@ function dateBoundary(value: string, nextDay = false): number | undefined {
     return date.getTime();
 }
 
-watch([() => props.rankingKey, fromDate, toDate, sort, minigameHistoryRevision, refresh], () => {
+const filters = [() => props.rankingKey, fromDate, toDate, sort, minigameHistoryRevision, refresh] as const;
+watch(filters, () => {
     page.value = 1;
 }, { flush: 'sync' });
-watch([() => props.rankingKey, fromDate, toDate, sort, page, minigameHistoryRevision, refresh], async (_value, _old, onCleanup) => {
+watch([...filters, page], async (_value, _old, onCleanup) => {
     let active = true;
     onCleanup(() => {
         active = false;
@@ -108,9 +102,8 @@ const i18nMessages = {
         from: '开始日期',
         to: '结束日期',
         date: '日期',
-        game: '游戏 / 配置',
         time: '用时（秒）',
-        play: '播放 {date} 的{game}录像',
+        play: '播放 {date} 的录像',
         loading: '正在读取本地历史…',
         empty: '暂无符合条件的本地纪录',
         loadFailed: '无法读取本地历史，请重试。',
@@ -120,9 +113,8 @@ const i18nMessages = {
         from: 'From',
         to: 'To',
         date: 'Date',
-        game: 'Game / mode',
         time: 'Time (s)',
-        play: 'Play {game} from {date}',
+        play: 'Play replay from {date}',
         loading: 'Loading local history…',
         empty: 'No matching local results',
         loadFailed: 'Could not load local history. Please try again.',
@@ -165,9 +157,5 @@ input {
 
 .history-row:is(:hover, :focus-visible) > td {
     background: var(--ui-color-primary-light-9);
-}
-
-.history-mode {
-    display: block;
 }
 </style>

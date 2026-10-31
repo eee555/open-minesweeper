@@ -9,7 +9,7 @@
                 <i class="pi pi-history" aria-hidden="true" />
             </BaseButton>
         </div>
-        <ReplayLoader v-slot="{ replay }" :enabled="viewingReplay" :game="selected">
+        <ReplayLoader v-slot="{ replay }" :game="selected">
             <RouterView v-slot="{ Component }">
                 <component :is="Component" :key="selected" :replay-data="replay" @completed="queueResult" @reset="resetGame" @ranking-change="selectedRankingKey = $event">
                     <template #resultActions>
@@ -70,7 +70,7 @@ import { LoginStatus } from '@/utils/common/structInterface';
 import { trainingGames } from '@/utils/minigame/games';
 import type { TrainingGame } from '@/utils/minigame/games';
 import { minigameHistoryMigration } from '@/utils/minigame/history';
-import type { MinigameHistoryMetadata, MinigameReplayData } from '@/utils/minigame/history';
+import type { MinigameReplayData } from '@/utils/minigame/history';
 
 const route = useRoute();
 const router = useRouter();
@@ -112,8 +112,8 @@ function clearResult() {
     uploaded.value = false;
 }
 
-function playHistory(entry: MinigameHistoryMetadata) {
-    void router.push({ name: `minigame-${entry.game}`, query: { history: entry.id } });
+function playHistory(id: number) {
+    void router.push({ name: `minigame-${selected.value}`, query: { history: id } });
 }
 
 function resetGame() {

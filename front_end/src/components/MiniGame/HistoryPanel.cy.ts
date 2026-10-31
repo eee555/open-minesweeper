@@ -25,16 +25,16 @@ describe('local minigame history', () => {
         cy.get('.history-row').should('have.length', 2);
         cy.get('[data-cy=minigame-history-score-sort]').click();
         cy.get('table').extractTableData().should((rows) => {
-            expect(rows.slice(1).map((row) => row[2])).to.deep.equal(['0.200', '0.300']);
+            expect(rows.slice(1).map((row) => row[1])).to.deep.equal(['0.200', '0.300']);
         });
         cy.get('.history-row').first().click();
         cy.get('@play').should('have.been.calledOnce');
         cy.then(() => {
-            expect(play.firstCall.args[0]).to.include({ id: ids[2] }).and.not.have.property('replay');
+            expect(play.firstCall.args).to.deep.equal([ids[2]]);
         });
         cy.get('[data-cy=minigame-history-score-sort]').click();
         cy.get('table').extractTableData().should((rows) => {
-            expect(rows.slice(1).map((row) => row[2])).to.deep.equal(['0.300', '0.200']);
+            expect(rows.slice(1).map((row) => row[1])).to.deep.equal(['0.300', '0.200']);
         });
         cy.get('.history-row').first().focus();
         cy.get('.history-row').first().type('{enter}');
@@ -65,7 +65,7 @@ describe('local minigame history', () => {
         cy.get('@vue').invoke('setProps', { rankingKey: leftClickModes[1].rankingKey });
         cy.get('table').extractTableData().should((rows) => {
             expect(rows).to.have.length(2);
-            expect(rows[1][2]).to.equal('0.005');
+            expect(rows[1][1]).to.equal('0.005');
         });
         cy.get('@vue').invoke('setProps', { rankingKey: leftClickModes[0].rankingKey });
         cy.get('.history-row').should('have.length', 20);
@@ -74,7 +74,7 @@ describe('local minigame history', () => {
         cy.then(() => saveMinigameResult({ game: 'left-click', mode: leftClickModes[0], scoreMs: 1234, replay: { version: 1, cellSize: 32, initialBoard: 'AAAAAP////8', events: [], specialEvents: [] } }));
         cy.get('.history-row').should('have.length', 20);
         cy.get('table').extractTableData().should((rows) => {
-            expect(rows[1][2]).to.equal('1.234');
+            expect(rows[1][1]).to.equal('1.234');
         });
     });
 });

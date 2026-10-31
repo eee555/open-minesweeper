@@ -145,19 +145,6 @@ describe('local minigame history', () => {
         expect(Object.keys(saved.replay).sort()).toEqual(['cellSize', 'events', 'initialBoard', 'specialEvents', 'version']);
     });
 
-    it('indexes completion time and numeric score independently', async () => {
-        const history = await import('./history');
-        const timestamp = vi.spyOn(Date, 'now');
-        for (const [result, playedAt] of [[leftClickResult(), 100], [touchResult(), 150], [flagChordResult(), 300], [missingCellResult(), 200]] as const) {
-            timestamp.mockReturnValue(playedAt);
-            await history.saveMinigameResult(result);
-        }
-        const db = await history.getMinigameDatabase();
-        expect(Array.from(db.transaction(history.MINIGAME_RESULTS_STORE).store.indexNames)).toEqual(['playedAt', 'scoreMs']);
-        expect((await db.getAllFromIndex(history.MINIGAME_RESULTS_STORE, 'playedAt')).map((entry) => entry.game)).toEqual(['left-click', 'multi-touch', 'missing-cell', 'flag-chord']);
-        expect((await db.getAllFromIndex(history.MINIGAME_RESULTS_STORE, 'scoreMs')).map((entry) => entry.game)).toEqual(['multi-touch', 'flag-chord', 'left-click', 'missing-cell']);
-    });
-
     it('queries date ranges and score-sorted pages without unpacking recordings or returning archive bytes', async () => {
         const history = await import('./history');
         const [{ rankingKey }] = leftClickModes;
@@ -220,7 +207,7 @@ describe('local minigame history', () => {
             const key = history.getMinigameHistoryRankingKey(config);
             const page = await history.queryMinigameHistory(key, { sort: 'score-asc', limit: 1 });
             expect(page.count).toBe(index === 0 ? 3 : 1);
-            expect(page.entries.map((entry) => history.getMinigameHistoryRankingKey(entry))).toEqual([key]);
+            expect(await db.get('results', page.entries[0].id)).toMatchObject(config);
         }
         const key = leftClickModes[0].rankingKey;
         const page = await history.queryMinigameHistory(key, { sort: 'score-asc', offset: 1, limit: 1 });

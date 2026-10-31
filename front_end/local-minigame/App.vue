@@ -65,7 +65,6 @@ import HistoryPanel from '@/components/MiniGame/HistoryPanel.vue';
 import GameSettings from '@/components/MiniGame/Settings.vue';
 import type { TrainingGame } from '@/utils/minigame/games';
 import { getMinigameDatabase, MINIGAME_RESULTS_STORE, minigameHistoryMigration } from '@/utils/minigame/history';
-import type { MinigameHistoryMetadata } from '@/utils/minigame/history';
 import { readMinigameHistoryReplay } from '@/utils/minigame/review';
 import type { MinigameReplay } from '@/utils/minigame/review';
 import FlagChordTraining from '@/views/MiniGameView/FlagChordTraining/App.vue';
@@ -95,14 +94,14 @@ function selectGame(value: TrainingGame) {
     game.value = value;
 }
 
-async function playHistory(entry: MinigameHistoryMetadata) {
+async function playHistory(id: number) {
     const request = ++replayRequest;
     loadingReplay.value = true;
     replayError.value = null;
     let received = false;
     try {
         const db = await getMinigameDatabase();
-        const stored = await db.get(MINIGAME_RESULTS_STORE, entry.id);
+        const stored = await db.get(MINIGAME_RESULTS_STORE, id);
         if (request !== replayRequest) return;
         if (stored === undefined) {
             replayError.value = 'notFound';
