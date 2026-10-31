@@ -66,7 +66,7 @@ function cellStyle(row: PBRankingPlayer, stat: PBStat) {
 }
 
 function previewVideo(row: PBRankingPlayer) {
-    void preview(row.video_id);
+    preview(row.video_id);
 }
 
 const { t } = useI18n();

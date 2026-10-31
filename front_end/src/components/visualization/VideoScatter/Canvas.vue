@@ -75,7 +75,7 @@ const gridColor = computed(() => getComputedStyle(document.documentElement).getP
 
 function handlePointClick(point: PlotPoint<VideoAbstract>) {
     if (point.data.isLocal) return;
-    void preview(point.data.id, point.data.software);
+    preview(point.data.id);
 }
 
 function handlePointEnter(point: PlotPoint<VideoAbstract>) {

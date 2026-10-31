@@ -39,7 +39,7 @@ function mountAnalyzer(width = 1100, fixture: { filename: string; durationMs: nu
         cy.wrap(wrapper).as('analyzer');
     });
     cy.wait('@parsedVideoInfo').its('request.query.ids').should('eq', '123');
-    cy.wait('@getReplay').its('request.query.id').should('eq', `123.${fixture.filename.split('.').pop()}`);
+    cy.wait('@getReplay').its('request.query.id').should('eq', '123');
     cy.get('.analyzer-progress-bar__slider', { timeout: 10000 }).should('have.attr', 'max', String(fixture.durationMs)).and('not.be.disabled');
 }
 

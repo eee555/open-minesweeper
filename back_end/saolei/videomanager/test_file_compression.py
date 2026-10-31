@@ -111,13 +111,50 @@ class ReplayCompressionTests(TestCase):
         self.assertFalse(default_storage.exists(old_name))
         with original_file(video.file.name, video.compression_format, video.original_filename) as source:
             self.assertEqual(source.read(), b'original replay bytes')
-        for url in (f'/api/video/download/{video.pk}', f'/api/video/preview?id={video.pk}.evf'):
+        for url, version, filename in (
+            (f'/api/video/download/{video.pk}', '0', video.original_filename),
+            (f'/api/video/preview?id={video.pk}', '1', video.original_filename + '.msrc'),
+        ):
             response = self.client.get(url, HTTP_ORIGIN='http://localhost:8080')
             self.assertEqual(response.status_code, 200)
-            self.assertEqual(response['X-Replay-Container-Version'], '1')
+            self.assertEqual(response['X-Replay-Container-Version'], version)
             self.assertIn('X-Replay-Container-Version', response['Access-Control-Expose-Headers'])
-            self.assertIn(video.original_filename + '.msrc', response['Content-Disposition'])
-            self.assertEqual(msrc.decompress(b''.join(response.streaming_content)), b'original replay bytes')
+            self.assertEqual(response['Content-Disposition'], f'attachment; filename="{filename}"')
+            data = b''.join(response.streaming_content) if response.streaming else response.content
+            self.assertEqual(msrc.decompress(data) if version == '1' else data, b'original replay bytes')
+
+    @override_settings(DEBUG=False)
+    def test_production_download_restores_bytes_while_preview_uses_internal_redirect(self):
+        video = self.video()
+        with self.captureOnCommitCallbacks(execute=True):
+            compress_video_file(video)
+        video.refresh_from_db()
+        preview = self.client.get(f'/api/video/preview?id={video.pk}')
+        self.assertEqual(preview.status_code, 200)
+        self.assertTrue(preview['X-Accel-Redirect'].endswith('.msrc'))
+        self.assertEqual(preview['X-Replay-Container-Version'], '1')
+        archive = Path(video.file.path).read_bytes()
+        with patch.object(default_storage, 'save', side_effect=AssertionError('Download must not write files')):
+            response = self.client.get(f'/api/video/download/{video.pk}')
+            self.assertEqual(response.status_code, 200)
+            self.assertNotIn('X-Accel-Redirect', response)
+            self.assertEqual(response['X-Replay-Container-Version'], '0')
+            self.assertEqual(response['Content-Disposition'], f'attachment; filename="{video.original_filename}"')
+            self.assertEqual(int(response['Content-Length']), video.file_size)
+            self.assertFalse(response.streaming)
+            self.assertEqual(response.content, b'original replay bytes')
+        self.assertEqual(Path(video.file.path).read_bytes(), archive)
+        default_storage.delete(video.file.name)
+        self.assertEqual(self.client.get(f'/api/video/download/{video.pk}').status_code, 404)
+
+    def test_preview_accepts_only_a_numeric_id_and_preserves_uncompressed_files(self):
+        video = self.video()
+        response = self.client.get('/api/video/preview', {'id': video.pk})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['X-Replay-Container-Version'], '0')
+        self.assertFalse(response['Content-Disposition'].endswith('.msrc"'))
+        self.assertEqual(b''.join(response.streaming_content), b'original replay bytes')
+        self.assertEqual(self.client.get('/api/video/preview', {'id': f'{video.pk}.evf'}).status_code, 422)
 
     def test_failure_is_skipped_until_explicit_retry(self):
         video = self.video()
@@ -185,8 +222,16 @@ class ReplayCompressionTests(TestCase):
         convert.assert_not_called()
         with self.captureOnCommitCallbacks(execute=True):
             compress_video_file(video)
-        self.assertEqual(self.client.get(f'/api/video/download/{video.pk}').status_code, 403)
+        urls = (f'/api/video/download/{video.pk}', f'/api/video/preview?id={video.pk}')
+        for url in urls:
+            self.assertEqual(self.client.get(url).status_code, 403)
+        staff = UserProfile.objects.create_user(username='compression-staff', email='staff@example.com', is_staff=True, userms=UserMS.objects.create())
+        self.client.force_login(staff)
+        for url in urls:
+            self.assertEqual(self.client.get(url).status_code, 403)
         self.client.force_login(self.user)
-        response = self.client.get(f'/api/video/download/{video.pk}')
-        self.assertEqual(response.status_code, 200)
-        b''.join(response.streaming_content)
+        for url in urls:
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, 200)
+            if response.streaming:
+                b''.join(response.streaming_content)

@@ -30,7 +30,7 @@ export function useSiteReplaySource(id: MaybeRefOrGetter<string>): SiteReplaySou
             if (controller.signal.aborted) return;
             const { software } = video;
             const filename = videoId + getSoftwareExtension(software);
-            const response = await fetchReplayFile('/api/video/preview', { params: { id: filename }, signal: controller.signal, filename });
+            const response = await fetchReplayFile('/api/video/preview', { params: { id: videoId }, signal: controller.signal, filename });
             if (controller.signal.aborted) return;
             source.value = { data: response.data, filename: response.filename, software };
         } catch (error) {

@@ -204,7 +204,7 @@ function selected_index(): string[] {
 }
 
 function previewVideo(row: Video): void {
-    void preview(row.id, row.software);
+    preview(row.id);
 }
 
 function columnFormatter(key: string, value: VideoFieldValue | undefined): string | number | boolean | null | undefined {

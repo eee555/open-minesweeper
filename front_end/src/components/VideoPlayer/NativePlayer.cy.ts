@@ -11,7 +11,7 @@ import { videoPlayerConfig } from '@/store';
 
 const fixture = {
     filename: 'c_10_129.073_24_0.186_Pu Tian Yi(Hu Bei).evf',
-    src: '/api/video/preview?id=c_10_129.073_24_0.186_Pu%20Tian%20Yi%28Hu%20Bei%29.evf',
+    src: '/api/video/preview?id=123',
 };
 
 function mountOptions(src: string) {
@@ -27,7 +27,7 @@ function mountOptions(src: string) {
 function mockVideoFixture(headers: Record<string, string> = {}, filename = fixture.filename) {
     cy.intercept('GET', '**/api/video/preview**', {
         statusCode: 200,
-        headers: { 'content-type': 'application/octet-stream', 'x-replay-container-version': '0', ...headers },
+        headers: { 'content-type': 'application/octet-stream', 'content-disposition': `attachment; filename="${encodeURIComponent(filename)}"`, 'x-replay-container-version': '0', ...headers },
         // Load raw bytes on the Cypress server instead of sending an ArrayBuffer through request.reply().
         fixture: `${filename},null`,
     }).as('getVideo');
@@ -47,7 +47,7 @@ describe('<NativePlayer />', () => {
     it('decodes a Python-generated MSRC replay using the local fallback', () => {
         cy.intercept('GET', 'https://cdn.jsdelivr.net/npm/@putianyi888/msrc@0.2.0/**', { forceNetworkError: true });
         mockVideoFixture({ 'x-replay-container-version': '1', 'content-disposition': 'attachment; filename="52200.evf.msrc"' }, '52200.evf.msrc');
-        cy.mount(NativePlayer, mountOptions('/api/video/preview?id=52200.evf'));
+        cy.mount(NativePlayer, mountOptions('/api/video/preview?id=52200'));
         waitForLoadedPlayer();
         cy.get('.native-player__content').should('be.visible');
     });
@@ -114,7 +114,7 @@ describe('<NativePlayer />', () => {
             });
             cy.stub(win, 'cancelAnimationFrame');
         });
-        cy.mount(NativePlayer, mountOptions('/api/video/preview?id=52200.evf'));
+        cy.mount(NativePlayer, mountOptions('/api/video/preview?id=52200'));
         cy.wait('@getVideo');
         waitForLoadedPlayer();
 

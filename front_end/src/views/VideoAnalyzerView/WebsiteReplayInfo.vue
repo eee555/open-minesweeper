@@ -27,17 +27,16 @@
             </div>
         </div>
         <nav class="website-replay-info__links" :aria-label="t('local.links')">
-            <button type="button" class="base-button base-button--size-small website-replay-info__link website-replay-info__replay-download" :disabled="downloading" :title="t('local.downloadReplay')" :aria-label="t('local.downloadReplay')" @click="downloadReplay">
-                <i :class="downloading ? 'pi pi-spin pi-spinner' : 'pi pi-file-export'" aria-hidden="true" />
+            <button type="button" class="base-button base-button--size-small website-replay-info__link website-replay-info__replay-download" :disabled="source === null" :title="t('local.downloadReplay')" :aria-label="t('local.downloadReplay')" @click="downloadReplay">
+                <i class="pi pi-file-export" aria-hidden="true" />
             </button>
-            <a class="base-button base-button--size-small website-replay-info__link website-replay-info__strange-dust" :href="strangeDustUrl || undefined" role="link" aria-label="StrangeDust Analyzer" title="StrangeDust Analyzer" :aria-disabled="strangeDustUrl ? undefined : true" :tabindex="strangeDustUrl ? undefined : -1" target="_blank" rel="noopener noreferrer">
+            <a class="base-button base-button--size-small website-replay-info__link website-replay-info__strange-dust" :href="strangeDustUrl" aria-label="StrangeDust Analyzer" title="StrangeDust Analyzer" target="_blank" rel="noopener noreferrer">
                 <img :src="strangeDustIcon" alt="" width="16" height="16">
             </a>
             <a class="base-button base-button--size-small website-replay-info__link website-replay-info__offline-download" :href="offlineDownloadUrl" :download="offlineDownloadFilename" :title="t('local.downloadOffline')" :aria-label="t('local.downloadOffline')">
                 <img :src="analyzerIcon" alt="" width="16" height="16">
             </a>
         </nav>
-        <span v-if="downloadError" role="alert" class="text-danger">{{ downloadError }}</span>
     </section>
 </template>
 
@@ -45,7 +44,7 @@
 import '@/styles/link.css';
 import '@/styles/button.css';
 import 'primeicons/primeicons.css';
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed } from 'vue';
 import type { PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterLink } from 'vue-router';
@@ -57,47 +56,26 @@ import type { SiteReplayInfo, SiteReplayRanking } from './useSiteReplayInfo';
 import strangeDustIcon from '@/assets/strange-dust.ico';
 import analyzerIcon from '@/assets/video-analyzer.svg';
 import PlayerName from '@/components/PlayerName.vue';
-import { fetchReplayFile } from '@/services/replayFileService';
+import type { ReplaySource } from '@/components/VideoAnalyzer/replayParser';
 import { downloadBlob } from '@/utils/fileIO';
-import type { MS_Software } from '@/utils/ms_const';
-import { getReplayDownloadUrl, getReplayPreviewUrl, getStrangeDustAnalyzerUrl } from '@/utils/replayLinks';
+import { getReplayPreviewUrl, getStrangeDustAnalyzerUrl } from '@/utils/replayLinks';
 import { utc_to_local_format } from '@/utils/system/tools';
 
 const props = defineProps({
     id: { type: String, required: true },
+    source: { type: Object as PropType<ReplaySource | null>, default: null },
     info: { type: Object as PropType<SiteReplayInfo | null>, default: null },
     loading: { type: Boolean, default: false },
     errorMessage: { type: String, default: '' },
-    software: { type: String as PropType<MS_Software | null>, default: null },
 });
-const strangeDustUrl = computed(() => (props.software === null ? '' : getStrangeDustAnalyzerUrl(getReplayPreviewUrl(props.id, props.software))));
+const strangeDustUrl = computed(() => getStrangeDustAnalyzerUrl(getReplayPreviewUrl(props.id)));
 const offlineDownloadFilename = `OpenMinesweeperVideoAnalyzer-${analyzerVersion.version}.zip`;
 const offlineDownloadUrl = `${import.meta.env.BASE_URL}assets/${offlineDownloadFilename}`;
 
-const downloading = ref(false);
-const downloadError = ref('');
-let downloadController: AbortController | undefined;
-watch(() => props.id, () => {
-    downloadController?.abort();
-    downloading.value = false;
-    downloadError.value = '';
-});
-onBeforeUnmount(() => downloadController?.abort());
-async function downloadReplay() {
-    downloadController?.abort();
-    const controller = new AbortController();
-    downloadController = controller;
-    downloading.value = true;
-    downloadError.value = '';
-    try {
-        const replay = await fetchReplayFile(getReplayDownloadUrl(props.id), { filename: props.info?.filename, signal: controller.signal });
-        if (controller.signal.aborted) return;
-        downloadBlob(new Blob([replay.data], { type: 'application/octet-stream' }), replay.filename);
-    } catch (error) {
-        if (!controller.signal.aborted) downloadError.value = error instanceof Error ? error.message : String(error);
-    } finally {
-        if (!controller.signal.aborted) downloading.value = false;
-    }
+function downloadReplay() {
+    const replay = props.source;
+    if (replay === null) return;
+    downloadBlob(new Blob([replay.data], { type: 'application/octet-stream' }), replay.filename);
 }
 
 function rankingLabel(ranking: SiteReplayRanking): string {
