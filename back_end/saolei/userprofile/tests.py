@@ -10,7 +10,6 @@ from django.utils import timezone
 from msuser.models import UserMS
 from userprofile.models import UserProfile
 from videomanager.models import ExpandVideoModel, VideoModel
-from videomanager.view_utils import generate_file_stream
 
 
 @override_settings(RATELIMIT_ENABLE=False)
@@ -349,7 +348,7 @@ class RealnamePrivacyTests(TestCase):
                 self.user.refresh_from_db()
                 self.assertEqual(self.user._realname, '匿名')
 
-    def test_video_queries_and_export_do_not_bypass_name_getters(self):
+    def test_video_queries_do_not_bypass_name_getters(self):
         with TemporaryDirectory() as root, override_settings(MEDIA_ROOT=root):
             video = VideoModel(player=self.user, video=ExpandVideoModel.objects.create(identifier='privacy'), software='e', level='e', bv=100, timems=100000)
             video.file.save('privacy.evf', ContentFile(b'original replay'))  # noqa: DJM100
@@ -367,6 +366,3 @@ class RealnamePrivacyTests(TestCase):
             response = self.client.get(f'/api/video/admin/detail/{video.pk}')
             self.assertEqual(response.json()['player__realname'], self.user._realname)
             self.assertEqual(self.client.get('/video/get/', {'id': video.pk}).status_code, 404)
-            stream = iter(generate_file_stream(VideoModel.objects.filter(pk=video.pk)))
-            next(stream)
-            self.assertEqual(next(stream).decode(), f'{self.user.pk}_hidden/privacy.evf')

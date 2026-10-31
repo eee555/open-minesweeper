@@ -11,6 +11,8 @@ description: 开源扫雷网Redis/Django缓存结构详解，包括录像队列�
 
 `SaoleiApiVideo.file_url` 将详情返回的文件地址以客户端规范化后缀 `YYYY/MM/DD/filename` 保存到数据库，供文件导入使用，没有单独的 URL 缓存。目录列表不含此字段，目录刷新保留已存后缀；详情明确返回无文件时置空，下载失败仍保留后缀供重试时刷新。
 
+`SaoleiApiVideo.import_rejected` 在数据库中持久化本站文件校验直接拒收的结果，不使用缓存。导入事务回滚后单独写入；后续同步在请求详情和下载文件前跳过，目录刷新及 `--full` 不清除此标记。需人工重试时由站长在 Django shell 清除；网络、上游及其他非文件校验故障不设置标记，仍按本地未完成来源补导。
+
 录像解析字段现在由前端 IndexedDB 按 ID 缓存。普通查询返回 ID 和网站动态字段，再批量补全；字段定义变化时随前端更新递增 `CACHE_STORE_DEFINITIONS['video-info'].version`，加载新前端后清空整张录像表，接口无需携带版本。接口和 Redis 改动前后字段表见仓库 `front_end/src/services/videoService.md`。部署后运行 [compact_video_cache](./management-commands.md#compact-video-cache) 压缩存量载荷。
 
 旧竞速排行榜及新闻的读写逻辑已移除，可运行`python manage.py delete_legacy_speedranking_cache`清理旧个人纪录hash、排行zset及`news_queue`。支持`--dry-run`预览，具体范围见[管理命令文档](./management-commands.md#delete-legacy-speedranking-cache)。
@@ -42,6 +44,10 @@ redis-cli -n 0 DEL io_s_old io_r_old io_s_spds io_r_spds cpus
 ```
 
 扫雷网旧站爬取及旧来源列表、统计查询已关闭，账号关联保留。首批仅由管理命令使用新来源结构同步目录和导入文件；旧爬取任务不会访问外站或写入业务数据。具体入口见仓库 `back_end/saolei/accountlink/README.md`。
+
+## Discord 授权临时状态
+
+Discord 绑定及登录在 `caches['default']` 保存 `accountlink:discord:flow:{state}` 和 `accountlink:discord:used:{state}`，TTL 均为 600 秒。前者保存浏览器及发起用户归属、PKCE verifier、回调配置和登录有效期，在回调时删除；后者通过原子 `cache.add` 防止多个 worker 重复消费同一次授权。Django Session 的 `discord_oauth_browser` 保存浏览器随机标识。缓存不保存 Client Secret 或访问令牌；清除临时状态只会要求用户重新授权，不影响已绑定记录。配置和验证边界见 `back_end/saolei/accountlink/discord/README.md`。
 
 ## 服务器监控快照
 
@@ -82,7 +88,7 @@ Redis 分类只读取业务代码直接确定的 DB 0 key，不执行 `SCAN`、`
 
 小游戏页排行榜抽屉仅读取所选配置的首页 20 人及登录用户位置，复用上述键，不初始化同组其他榜单或增加缓存键。含个人位置的响应禁止共享缓存，接口详情见后端 README。
 
-成绩创建或严格改善后通过 `on_commit` 写 ZSET 和 Hash，删除后移除成员并保留初始化标记。接受并发和重建的偶发覆盖；运行 `manage.py rebuild_minigame_ranks [--ranking-key key]` 可恢复缓存，不改数据库成绩。完整接口与取舍见 `back_end/saolei/minigame/README.md`。
+成绩创建或严格改善后通过 `on_commit` 写 ZSET 和 Hash，删除后移除成员并保留初始化标记。管理员在「小游戏纪录」删除单项成绩及回放时也复用该信号，不影响其他配置的缓存。接受并发和重建的偶发覆盖；运行 `manage.py rebuild_minigame_ranks [--ranking-key key]` 可恢复缓存，不改数据库成绩。完整接口与取舍见 `back_end/saolei/minigame/README.md`。
 
 最佳成绩对应的 v1 JSON 回放压缩为 7z，仅保存在 `MiniGameBestScore.replay_archive` BinaryField，不进入 Redis。缓存重建和排行榜数据库回源用 `defer('replay_archive')` 排除二进制回放字段。
 
@@ -173,8 +179,6 @@ digraph cache {
         get_participant_videos [label="/api/tournament/get_videos/participant"];
         reveal_video [label="POST /api/tournament/video/{video_id}/reveal"];
         get_tournament_news [label="/api/tournament/get_news"];
-        download_all_videos [label="/api/tournament/download"];
-        download_videos_participant [label="/api/tournament/download/participant"];
         get_gsc_results [label="/api/tournament/gsc/results"];
         create_gsc_participant [label="/api/tournament/gsc/participant"];
         register_gsc_participant_identifier [label="/api/tournament/gsc/participant/identifier"];
@@ -367,13 +371,6 @@ digraph cache {
     video_db -> reveal_video [label="read / lock / owner check"];
     reveal_video -> video_db [label="save ongoing_tournament=False"];
     tournament_cache -> get_tournament_news;
-    tournament_db -> download_all_videos;
-    video_db -> download_all_videos;
-    video_files -> download_all_videos;
-    tournament_db -> download_videos_participant;
-    userprofile_db -> download_videos_participant;
-    video_db -> download_videos_participant;
-    video_files -> download_videos_participant;
 
     // tournament gsc API
     tournament_db -> get_gsc_results;
@@ -753,3 +750,13 @@ Redis 连接和读写异常记录日志，计算及数据库摘要不回滚，�
 - 录像队列缓存不保存比赛录像，`VideoQueueCache.add` / `add_bulk` 会跳过 `ongoing_tournament=True` 的录像。
 - 参赛 checkin 先读 `tournament:normal:participants`，命中后再按 tournament id 查询数据库对象，用于写入录像的多对多关系。
 - `customranking:pluck:{level}:rank` 只保存排序所需数据，展示字段来自同级 `detail` hash。
+
+## 录像物理存储
+
+录像压缩仅改变 `file`、`original_filename`、`stored_file_size`、`compression_format`、`compression_failed` 等存储字段。原始 `file_size`、`original_hash` 和解析结果保持不变，不升级前端录像缓存版本，也不将压缩容器写入 IndexedDB。
+
+服务器磁盘摘要汇总 `stored_file_size`；尚未补齐的原始录像回退到 `file_size`。新上传和导入在创建录像前尝试压缩校验，成功保存压缩文件，失败保存源文件并记录 `compression_format=0`、`stored_file_size=file_size` 及失败标记，两种情况均走原有创建信号；历史文件由管理员运行 `compress_video_files` 手动转换，不注册 APScheduler 压缩任务。
+
+preview 仅凭数字 ID 返回当前存储的文件，客户端按容器版本解压；download 在请求中恢复原始录像字节，复用 `original_file` 的输出大小及内存限制，不写临时文件、不缓存解压结果、不改动存储文件。两者每 IP 分别限流 `20/m` 和 `5/m`；生产 preview 及未压缩文件下载继续走 `X-Accel-Redirect`，压缩文件下载由 Django 以内存字节响应发送解压结果。
+
+生产的 CORS 白名单、预检及公开响应头统一配置在 `default.conf`，按原始 `$request_uri` 判断，因此 `X-Accel-Redirect` 后仍保持原 API 的跨域范围。内部媒体继承 HTTPS server 的 CORS 头，并从上游变量恢复 `X-Replay-Container-Version`。DEBUG 本地开发和 Cypress 仍由 Django CORS 中间件处理。先校验、重载完整 Nginx 配置，再更新生产后端，避免切换期间缺少跨域头。

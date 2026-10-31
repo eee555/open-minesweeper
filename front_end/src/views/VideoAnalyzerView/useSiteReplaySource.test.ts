@@ -25,7 +25,7 @@ function fixture() {
 }
 
 function response<T>(data: T): AxiosResponse<T> {
-    return { data, status: 200, statusText: 'OK', headers: {}, config: { headers: new AxiosHeaders() } };
+    return { data, status: 200, statusText: 'OK', headers: { 'x-replay-container-version': '0' }, config: { headers: new AxiosHeaders() } };
 }
 
 function setup() {
@@ -102,7 +102,7 @@ describe('analyzer replay loading', () => {
         const signal = get.mock.calls[0][1]?.signal;
         expect(fetchVideoInfo).toHaveBeenCalledWith(52200);
         expect(get).toHaveBeenCalledWith('/api/video/preview', {
-            params: { id: '52200.evf' }, responseType: 'arraybuffer', signal,
+            params: { id: '52200' }, responseType: 'arraybuffer', signal,
         });
     });
 

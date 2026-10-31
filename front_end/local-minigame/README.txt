@@ -3,8 +3,10 @@
 解压 ZIP，用 Chrome 或 Edge 打开 index.html。无需服务器或网络连接。
 Extract the ZIP and open index.html in Chrome or Edge. No server or internet connection is required.
 
-棋盘左上角显示剩余点击数或题数，右上角显示用时（秒，三位小数）。
-The top-left counter shows clicks or questions left. The top-right counter shows elapsed seconds with three decimal places.
+棋盘左上角显示剩余点击数或题数，右上角默认显示用时（秒，三位小数）。
+The top-left counter shows clicks or questions left. The top-right counter defaults to elapsed seconds with three decimal places.
+左键和多指训练可在本地设置中切换 Time／CES。CES = 成功点击数（不含首次）÷ 用时（秒），回放按当前进度计算。本地历史始终同时显示 Time、CES 两列，可点击任一成绩表头排序。
+Left-click and multi-touch training have a local Time / CES setting. CES = successful clicks excluding the first / elapsed seconds, calculated at the current position during replays. Local history always shows both Time and CES; click either score heading to sort.
 非全屏时，点击上方任意计数器或中间空白开始新一局；也可用 Tab 选中该区域后按 Enter 或空格。
 Outside fullscreen, click anywhere in the counter bar to start a new game, or focus it with Tab and press Enter or Space.
 格子大小默认 32px，在小游戏设置中直接输入正整数，所有小游戏共用，自动保存在本地。
@@ -79,8 +81,8 @@ Hover a bar or segment to review that board with its target highlighted. The cou
 支持鼠标的训练共用按下预览：按住左键时鼠标所在格显示压下；双键时鼠标周围 3×3 格显示压下。两种预览均仅排除旗格，旗格始终凸起；松开后恢复。
 Mouse-controlled training games preview a held left button on the cell under the cursor, and held chords on the surrounding 3×3 region. Both previews exclude only flagged cells, which stay raised. Releasing clears the preview.
 
-可切换训练游戏、中文/英文及浅色/深色主题。切换游戏放弃当前局。四种训练的成功成绩、模式和完成时间自动保存在当前浏览器：左键、多指及标双保留回放轨迹，漏雷保留逐局棋盘、目标和用时。失败及未完成的对局不保存，暂不提供历史查看。离线版不上传；网站登录且未封禁时，可在成功后点击“上传成绩与回放”提交至小游戏排行榜，无需实名，服务器保留个人最佳成绩对应的回放。清除浏览器站点数据会删除本地记录。
-Switch games, Chinese/English and light/dark themes. Switching games discards the current round. Successful left-click, multi-touch and flag-and-chord results retain replay data in this browser with their modes and completion times; missing cell retains each board, target and time. Failed and unfinished games are not saved. History browsing is not available yet. The offline version uploads nothing. On the website, click "Upload score and replay" after a successful game to submit it while logged in and not banned; a real name is not required. The server retains the replay for each personal best. Clearing browser site data removes local records.
+可切换训练游戏、中文/英文及浅色/深色主题。切换游戏放弃当前局。四种训练的成功成绩、模式和完成时间自动保存在当前浏览器：左键、多指及标双保留回放轨迹，漏雷保留逐局棋盘、目标和用时。失败及未完成的对局不保存。点击右上角的历史书签，查看当前游戏和配置的纪录；可按日期范围筛选、点击用时表头排序，点击任意一行回放。点击计数器或切换玩法参数即可退出回放，开始新局。离线版不上传；网站登录且未封禁时，可在成功后点击“上传成绩与回放”提交至小游戏排行榜，无需实名，服务器保留个人最佳成绩对应的回放。清除浏览器站点数据会删除本地记录。
+Switch games, Chinese/English and light/dark themes. Switching games discards the current round. Successful left-click, multi-touch and flag-and-chord results retain replay data in this browser with their modes and completion times; missing cell retains each board, target and time. Failed and unfinished games are not saved. Open the history bookmark at the top right to view results for the current game and configuration. Filter by date, click the time heading to sort, and click a row to replay it. Click the counter bar or change game parameters to leave the replay and start a new game. The offline version uploads nothing. On the website, click "Upload score and replay" after a successful game to submit it while logged in and not banned; a real name is not required. The server retains the replay for each personal best. Clearing browser site data removes local records.
 
 版本见页面及 version.json。版权与许可见 COPYRIGHT.txt、LICENSE、THIRD_PARTY_LICENSES.txt / .json 和 licenses/。
 The version is displayed on the page and in version.json. See COPYRIGHT.txt, LICENSE, THIRD_PARTY_LICENSES.txt / .json and licenses/ for copyright and license notices.

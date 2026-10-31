@@ -226,6 +226,8 @@ class AccountLinkTestCase(TestCase):
     def test_private_platforms(self):
         self.assertIn(Platform.QQ, private_platforms)
         self.assertTrue(isPrivate(Platform.QQ))
+        self.assertIn(Platform.DISCORD, private_platforms)
+        self.assertTrue(isPrivate(Platform.DISCORD))
         self.assertFalse(isPrivate(Platform.BILIBILI))
         self.assertFalse(isPrivate(Platform.SAOLEI))
 

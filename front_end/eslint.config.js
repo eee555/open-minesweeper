@@ -115,6 +115,7 @@ export default defineConfig({
                 'vite.minigame.config.ts',
                 'scripts/offline-build.ts',
                 'scripts/cdn-styles.ts',
+                'scripts/msrc-notices.ts',
             ],
             optionalDependencies: false,
             peerDependencies: false,
@@ -306,7 +307,7 @@ export default defineConfig({
     },
 }, {
     // Node's native config loader requires extensions in this TypeScript import chain.
-    files: ['vite.config.ts', 'scripts/cdn-styles.ts'],
+    files: ['vite.config.ts', 'scripts/cdn-styles.ts', 'scripts/msrc-notices.ts'],
     rules: {
         'import-x/extensions': ['error', 'always', { ignorePackages: true }],
     },

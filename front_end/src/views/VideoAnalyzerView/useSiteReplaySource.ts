@@ -3,7 +3,7 @@ import { ref, shallowRef, toValue, watch } from 'vue';
 import type { MaybeRefOrGetter, Ref, ShallowRef } from 'vue';
 
 import type { ReplaySource } from '@/components/VideoAnalyzer/replayParser';
-import $axios from '@/http';
+import { fetchReplayFile } from '@/services/replayFileService';
 import { fetchVideoInfo } from '@/services/videoInfoService';
 import { getSoftwareExtension } from '@/utils/strings';
 
@@ -30,9 +30,9 @@ export function useSiteReplaySource(id: MaybeRefOrGetter<string>): SiteReplaySou
             if (controller.signal.aborted) return;
             const { software } = video;
             const filename = videoId + getSoftwareExtension(software);
-            const response = await $axios.get<ArrayBuffer>('/api/video/preview', { params: { id: filename }, responseType: 'arraybuffer', signal: controller.signal });
+            const response = await fetchReplayFile('/api/video/preview', { params: { id: videoId }, signal: controller.signal, filename });
             if (controller.signal.aborted) return;
-            source.value = { data: response.data, filename, software };
+            source.value = { data: response.data, filename: response.filename, software };
         } catch (error) {
             if (controller.signal.aborted || isCancel(error)) return;
             errorMessage.value = isAxiosError(error) && error.response !== undefined

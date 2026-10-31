@@ -52,8 +52,6 @@ import BaseButton from '@/components/common/BaseButton.vue';
 import { httpErrorNotification, successNotification } from '@/components/Notifications';
 import { preview } from '@/utils/common/PlayerDialog';
 import useCurrentInstance from '@/utils/common/useCurrentInstance';
-import type { MS_Software } from '@/utils/ms_const';
-import { MS_Softwares } from '@/utils/ms_const';
 
 const { proxy } = useCurrentInstance();
 const globalI18n = useI18n({ useScope: 'global' });
@@ -65,7 +63,6 @@ const videofieldlist = ['player', 'upload_time', 'state']; // 可以修改的域
 const videomodel = ref<Record<string, unknown>>({});
 const freezeReason = ref('');
 const freezing = ref(false);
-const softwareSet = new Set<unknown>(MS_Softwares);
 
 const getVideo = () => {
     const id = videoid.value;
@@ -116,8 +113,7 @@ const removeNewest = (id: number) => {
 };
 
 function previewVideo() {
-    const { software } = videomodel.value;
-    void preview(videoid.value, softwareSet.has(software) ? software as MS_Software : undefined);
+    preview(videoid.value);
 }
 
 function videoFieldLabel(field: string) {

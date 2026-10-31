@@ -52,9 +52,9 @@ Tournament replays are hidden by default: they are excluded from public replay l
 
 ### Visibility Across Multiple Tournaments
 
-If a replay belongs to multiple tournaments, once one is awarded, other users can see its results through that tournament's complete data export and individual participant pages. They can also obtain the replay file through bulk downloads for the whole tournament or one participant, even if another tournament keeps it hidden.
+If a replay belongs to multiple tournaments, once one is awarded, other users can see its results through that tournament's complete data export and individual participant pages, even if another tournament keeps it hidden.
 
-Other users still cannot play it online or download it individually. **Blocked online playback does not prevent access through tournament bulk downloads.** These exceptions apply only after awards, not simply when the tournament ends.
+Other users still cannot play or download the replay. The exception for viewing results applies only after awards, not simply when the tournament ends.
 
 ### Manual Reveal
 

@@ -120,25 +120,4 @@ describe('General Settings', () => {
         cy.get('[data-cy=player-name-format]').select('name1');
         cy.get('[data-cy=player-name-2]').should('not.be.visible');
     });
-
-    it('persists third-party trust and supports toggling it with Space', () => {
-        cy.visit('/#/settings');
-        const trustLabel = 'https://strange-dust.github.io/minesweeper-replay-analyzer/';
-        cy.contains('label', trustLabel).closest('.layout-stack').should('have.css', 'display', 'flex').and('have.css', 'flex-direction', 'column');
-        cy.contains('label', trustLabel).find('.checkbox-input').should('not.be.checked').and('have.css', 'appearance', 'none');
-        cy.contains('label', trustLabel).click();
-        cy.contains('label', trustLabel).find('input').should('be.checked').and('not.have.css', 'background-image', 'none');
-        cy.window().its('localStorage').invoke('getItem', 'video-player-config').should((value: string | null) => {
-            const config = JSON.parse(value ?? '{}') as { strangeDustTrust?: boolean };
-            expect(config.strangeDustTrust).to.equal(true);
-        });
-        cy.reload();
-        cy.contains('label', trustLabel).find('input').should('be.checked').and('not.have.css', 'background-image', 'none').focus();
-        cy.realPress('Space');
-        cy.contains('label', trustLabel).find('input').should('not.be.checked').and('have.css', 'background-image', 'none');
-        cy.window().its('localStorage').invoke('getItem', 'video-player-config').should((value: string | null) => {
-            const config = JSON.parse(value ?? '{}') as { strangeDustTrust?: boolean };
-            expect(config.strangeDustTrust).to.equal(false);
-        });
-    });
 });

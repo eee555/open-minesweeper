@@ -55,9 +55,9 @@ class Command(BaseCommand):
                         except Exception as exc:
                             self.report_failure(f'账号#{account.pk} {stage}', exc, counts)
                     pending = SaoleiApiVideo.objects.filter(user=account, remote_id__lte=upper_bound, import_video__isnull=True)
-                    counts['skipped'] += pending.exclude(software__in=SUPPORTED_SOFTWARE).count()
-                    # 同时补导以前已入库但未完成的录像，不只处理本次新增的页。
-                    for source in pending.filter(software__in=SUPPORTED_SOFTWARE).select_related('user').order_by('remote_id').iterator():
+                    counts['skipped'] += pending.filter(Q(import_rejected=True) | ~Q(software__in=SUPPORTED_SOFTWARE)).count()
+                    # 同时补导以前已入库但未完成且未被本站拒收的录像，不只处理本次新增的页。
+                    for source in pending.filter(import_rejected=False, software__in=SUPPORTED_SOFTWARE).select_related('user').order_by('remote_id').iterator():
                         source.user = account
                         try:
                             result = import_saolei_video(source, client)

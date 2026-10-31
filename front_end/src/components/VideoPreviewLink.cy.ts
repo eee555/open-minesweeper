@@ -53,7 +53,7 @@ describe('<VideoPreviewLink />', () => {
         }).click();
 
         cy.wrap(videoplayerstore).its('visible').should('eq', true);
-        cy.wrap(videoplayerstore).its('url').should('include', '/api/video/preview?id=43.rmv');
+        cy.wrap(videoplayerstore).its('url').should('include', '/api/video/preview?id=43');
         cy.location('hash').should('not.eq', '#/video/43');
         cy.get('@software.all').should('have.length', 0);
         cy.get('@parsedVideoInfo.all').should('have.length', 0);
