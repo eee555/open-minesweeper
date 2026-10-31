@@ -90,6 +90,11 @@ const { t } = useI18n({ messages: i18nMessages });
 <style scoped lang="less">
 .personal-homepage {
     display: flex;
+    min-width: 0;
+
+    .content-area {
+        min-width: 0;
+    }
 
     &.narrow-mode {
         flex-direction: column;

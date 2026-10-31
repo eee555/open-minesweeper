@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "status": "approved default coloring template",
+  "approved_on": "2026-11-01",
+  "material": "soft-metal-v1",
+  "source": "front_end/src/services/medalMaterial.ts",
+  "source_sha256": "38a03cecbe9ff4241dfd4f727b4f8f249905d295bc8ba04e872ce8093ba80693",
+  "colors_source": "front_end/src/services/medalPalette.ts",
+  "customization": {
+    "required_in_ui": true,
+    "independent_tier_colors": 5,
+    "hex_input": true,
+    "exact_threshold_overrides": true,
+    "reset_defaults": true,
+    "local_persistence": true,
+    "json_import_export": true,
+    "preserve_existing_user_overrides": true
+  },
+  "render_contract": {
+    "samples_per_channel": 256,
+    "color_interpolation": "sRGB",
+    "alpha": "unchanged",
+    "difficulty_stars": "independent layer, never tone with body",
+    "fixed_color_subbadges": "require separate recolorable layer or mask before production integration"
+  },
+  "replaces": [
+    "initial strong-highlights default",
+    "body-color-first default"
+  ],
+  "production_integration": "Integrated in MedalArt.vue for 24 single-difficulty ability definitions; 17 regenerated shared bodies and 3 stars; local website and production frontend package",
+  "approved_snapshot": "front_end/src/assets/medal-templates/approved-material.json"
+}

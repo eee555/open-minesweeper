@@ -1,18 +1,39 @@
 <template>
-    <span class="medal-graphic" :class="[`is-${metal}`, { 'is-framed': framed, 'is-pinned': pinned, 'is-badge': badge }]" :style="{ '--medal-size': `${size}px` }">
-        <span class="medal-body">
-            <img class="base" :src="shown" alt="" :width="size" :height="size" loading="lazy" decoding="async" @error="usePlaceholder">
-            <span v-if="plate" class="plate" aria-hidden="true">{{ plate }}</span>
+    <span class="medal-graphic" :class="{ 'is-framed': framed, 'is-pinned': pinned, 'is-locked': stage === null }" :style="{ '--medal-size': `${size}px` }" role="img" :aria-label="accessibleName" :data-score-tier="tier">
+        <span class="art-stage">
+            <span class="medal-body" :style="bodyStyle">
+                <svg class="base" viewBox="0 0 320 320" :width="size" :height="size" aria-hidden="true" focusable="false">
+                    <defs v-if="fixedBadge && color">
+                        <mask :id="maskId" maskUnits="userSpaceOnUse" x="0" y="0" width="320" height="320">
+                            <rect x="0" y="0" width="320" height="320" fill="white" />
+                            <circle :cx="fixedBadge.cx" :cy="fixedBadge.cy" :r="fixedBadge.r" fill="black" />
+                        </mask>
+                        <clipPath :id="clipId">
+                            <circle :cx="fixedBadge.cx" :cy="fixedBadge.cy" :r="fixedBadge.r" />
+                        </clipPath>
+                    </defs>
+                    <image :href="shown" width="320" height="320" :filter="filter" :mask="fixedBadge && color ? `url(#${maskId})` : undefined" @error="usePlaceholder" />
+                    <image v-if="fixedBadge && color" class="fixed-badge" :href="src" width="320" height="320" :clip-path="`url(#${clipId})`" @error="usePlaceholder" />
+                </svg>
+            </span>
+            <img v-if="difficulty" class="difficulty" :src="difficultySrc" alt="" :width="size * .32" :height="size * .32" loading="lazy" decoding="async">
         </span>
+        <span class="plate" aria-hidden="true">{{ plate }}</span>
     </span>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, useId, watch } from 'vue';
 import type { PropType } from 'vue';
+import { useI18n } from 'vue-i18n';
 
+import { medalAppearance, medalBodyPlacement, medalFixedBadge, medalScoreTier } from '@/services/medalAppearance';
+import { medalPaletteColor } from '@/services/medalPalette';
+import { medalPalette } from '@/services/medalPaletteStore';
 import { recolorMedalUrl } from '@/services/medalRecolor';
-import { medalArtBadge, medalArtMetal, medalArtPlate, medalArtUrl } from '@/services/medalService';
+import { medalArtMetal, medalArtPlate, medalArtUrl, medalCaption } from '@/services/medalService';
+import { acquireMedalToneFilter } from '@/services/medalToneFilter';
+import { MedalSeries } from '@/utils/medal_const';
 
 const props = defineProps({
     series: { type: String, required: true },
@@ -22,26 +43,50 @@ const props = defineProps({
     framed: { type: Boolean, default: false },
     pinned: { type: Boolean, default: false },
 });
-
+const { locale } = useI18n({ useScope: 'global' });
+const id = useId();
+const maskId = `${id}-body-mask`;
+const clipId = `${id}-fixed-badge`;
 const placeholder = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-
-const stage = computed(() => props.stage);
-const metal = computed(() => medalArtMetal(props.series, props.code, stage.value));
-const badge = computed(() => medalArtBadge(props.series));
-const plate = computed(() => medalArtPlate(props.series, stage.value));
-const src = computed(() => medalArtUrl(props.series, props.code, stage.value) ?? placeholder);
+const appearance = computed(() => medalAppearance(props.series, props.code));
+const difficulty = computed(() => appearance.value?.difficulty);
+const tier = computed(() => (appearance.value ? medalScoreTier(props.code, props.stage) : undefined));
+const color = computed(() => (appearance.value && props.stage !== null
+    ? medalPaletteColor(medalPalette.value, tier.value, props.code, props.stage) ?? '#7A7E87'
+    : undefined));
+const fixedBadge = computed(() => medalFixedBadge(props.series));
+const plate = computed(() => medalArtPlate(props.series, props.stage));
+const src = computed(() => medalArtUrl(props.series, props.code, props.stage) ?? placeholder);
 const shown = ref(placeholder);
-let request = 0;
+const filter = ref<string>();
+const bodyStyle = computed(() => {
+    const layout = appearance.value ? medalBodyPlacement(props.series) : { left: 0, top: 0, size: 100 };
+    return { left: `${layout.left}%`, top: `${layout.top}%`, width: `${layout.size}%`, height: `${layout.size}%` };
+});
+const difficultySrc = computed(() => `${import.meta.env.BASE_URL}assets/medals/difficulty/${difficulty.value}.webp?v=1`);
+const accessibleName = computed(() => {
+    const { title } = medalCaption(props.series, props.code, props.stage, locale.value);
+    return tier.value !== undefined ? `${title} · ${locale.value.startsWith('zh') ? '色档' : 'Color tier'} ${tier.value}` : title;
+});
 
-watch([src, metal], () => {
+watch(color, (value, _, onCleanup) => {
+    if (value === undefined) {
+        filter.value = undefined; return;
+    }
+    const resource = acquireMedalToneFilter(value);
+    filter.value = resource.filter;
+    onCleanup(resource.release);
+}, { immediate: true });
+let request = 0;
+watch([src, () => props.series, () => props.stage], () => {
     const current = ++request;
     const address = src.value;
-    const tone = metal.value;
-    if (tone === 'e') {
-        shown.value = address;
-        return;
+    // Shareholder metal expresses tenure, not game difficulty.
+    const metal = medalArtMetal(props.series, props.code, props.stage);
+    if (props.series !== MedalSeries.SHAREHOLDER || metal === 'e') {
+        shown.value = address; return;
     }
-    void recolorMedalUrl(address, tone).then((url) => {
+    void recolorMedalUrl(address, metal).then((url) => {
         if (current === request) shown.value = url;
     }).catch(() => {
         if (current === request) shown.value = address;
@@ -49,8 +94,7 @@ watch([src, metal], () => {
 }, { immediate: true });
 
 function usePlaceholder(event: Event) {
-    const { target } = event;
-    if (target instanceof HTMLImageElement && !target.src.startsWith('data:')) target.src = placeholder;
+    if (event.target instanceof SVGImageElement) event.target.setAttribute('href', placeholder);
 }
 </script>
 
@@ -59,36 +103,40 @@ function usePlaceholder(event: Event) {
     position: relative;
     display: block;
     width: var(--medal-size);
-    height: var(--medal-size);
     line-height: 0;
+    flex-shrink: 0;
 }
-
+.art-stage {
+    position: relative;
+    display: block;
+    width: var(--medal-size);
+    height: var(--medal-size);
+}
 .medal-body {
     position: absolute;
-    inset: 0;
-    container-type: size;
 }
-
-.medal-graphic.is-b {
-    --medal-fill: rgba(78, 36, 14, 0.9);
-    --medal-ink: rgb(236, 176, 108);
+.base {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
 }
-
-.medal-graphic.is-i {
-    --medal-fill: rgba(32, 40, 48, 0.9);
-    --medal-ink: rgb(232, 238, 244);
+.difficulty {
+    position: absolute;
+    left: 2%;
+    top: 0;
+    width: 32%;
+    height: 32%;
+    object-fit: contain;
+    pointer-events: none;
 }
-
-.medal-graphic.is-e {
-    --medal-fill: rgba(24, 18, 6, 0.9);
-    --medal-ink: rgb(243, 212, 138);
+.is-locked {
+    opacity: .45;
 }
-
-.medal-graphic.is-framed {
+.is-framed {
     background: var(--ui-fill-color-blank);
 }
-
-.medal-graphic.is-framed::after {
+.is-framed::after {
     content: '';
     position: absolute;
     inset: 0;
@@ -96,44 +144,22 @@ function usePlaceholder(event: Event) {
     border: 1px solid var(--ui-border-color);
     pointer-events: none;
 }
-
-.medal-graphic.is-pinned::after {
+.is-pinned::after {
     border: 3px solid var(--ui-color-primary);
 }
-
-.base {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-}
-
 .plate {
-    position: absolute;
-    left: 50%;
-    top: 80%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: block;
+    min-height: 21px;
+    padding: 1px 2px 2px;
     box-sizing: border-box;
-    height: calc(56 * 100cqw / 320);
-    padding: 0 calc(10 * 100cqw / 320);
-    border: calc(2 * 100cqw / 320) solid var(--medal-ink);
-    border-radius: calc(8 * 100cqw / 320);
-    background: var(--medal-fill);
-    color: var(--medal-ink);
+    color: var(--ui-text-color-primary);
     font-family: Arial, 'Segoe UI', sans-serif;
-    font-size: calc(38 * 100cqw / 320);
-    font-weight: 700;
+    font-size: 14px;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
-    line-height: 1;
+    line-height: 18px;
+    text-align: center;
     white-space: nowrap;
     pointer-events: none;
-    transform: translate(-50%, -50%);
-}
-
-.is-badge .plate {
-    left: 40%;
-    top: 73%;
 }
 </style>

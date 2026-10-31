@@ -447,7 +447,7 @@ export default {
             [MedalSeries.FLAGLESS_SPEED]: 'Flagless Speed',
             [MedalSeries.FLAGLESS_MASTERY]: 'Flagless Mastery',
             [MedalSeries.FLAGLESS_PRECISION]: 'Flagless Precision',
-            [MedalSeries.FLAGGED_PRECISION]: 'Flagged Precision',
+            [MedalSeries.FLAGGED_PRECISION]: 'Precision',
             [MedalSeries.THREE_FLAGLESS_PRECISION]: 'Three-Tier Flagless Precision',
             [MedalSeries.THREE_FLAGGED_PRECISION]: 'Three-Tier Flagged Precision',
             [MedalSeries.REGISTERED]: 'Registered',
@@ -460,8 +460,8 @@ export default {
         },
         sub: 'Sub',
         meaning: {
-            [MedalSeries.BREAKTHROUGH]: '{level} best time reached {value}s.',
-            [MedalSeries.FLAGLESS_BREAKTHROUGH]: '{level} no-flag best time reached {value}s.',
+            [MedalSeries.BREAKTHROUGH]: '{level} best time is strictly below {value}s.',
+            [MedalSeries.FLAGLESS_BREAKTHROUGH]: '{level} no-flag best time is strictly below {value}s.',
             [MedalSeries.SPEED]: '{level} best 3BV/s reached {value}.',
             [MedalSeries.FLAGLESS_SPEED]: '{level} no-flag best 3BV/s reached {value}.',
             [MedalSeries.MASTERY]: '{level} best STNB reached {value}.',
@@ -475,7 +475,7 @@ export default {
             [MedalSeries.LEVELS]: 'Approved replay on each level.',
             [MedalSeries.LEVELS_NF]: 'Approved no-flag replay on each level.',
             [MedalSeries.MODES]: 'Approved replay in every open mode.',
-            [MedalSeries.SAOLEI]: 'Imported a Saolei.net replay.',
+            [MedalSeries.SAOLEI]: 'Your saolei.wang account link has been verified.',
             [MedalSeries.SHAREHOLDER]: 'Smallest replay id under {value}.',
         },
         flavor: {

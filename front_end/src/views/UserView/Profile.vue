@@ -24,7 +24,7 @@
                 </div>
             </template>
         </div>
-        <ProfilePins class="profile-pins" :user-id="user.id" />
+        <ProfilePins class="profile-pins" :user-id="user.id" :compact="direction === 'horizontal'" />
         <BaseButton v-if="store.isSelf" class="edit-button" @click="router.push({ name: 'user-settings', params: { id: user.id } })">
             {{ t('local.editButton') }}
         </BaseButton>
@@ -83,9 +83,9 @@ const { t } = useI18n({ messages: i18nMessages });
 
 /* 横向布局：窄屏顶部栏 */
 .horizontal-profile {
-    display: flex;
-    flex-wrap: wrap;
-    row-gap: 0.5rem;
+    display: grid;
+    grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+    gap: 8px 12px;
     align-items: center;
     justify-content: space-between;
     background-color: var(--ui-bg-color);
@@ -96,7 +96,20 @@ const { t } = useI18n({ messages: i18nMessages });
         display: flex;
         align-items: center;
         gap: 8px;
-        flex-shrink: 0;
+        flex-wrap: wrap;
+        max-width: clamp(140px, 36vw, 260px);
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    > :not(.profile):not(.profile-pins) {
+        grid-column: 1 / -1;
+    }
+    .profile-pins {
+        min-width: 0;
+        width: 100%;
+        max-height: 64px;
+        margin: 0;
     }
 
     .avatar {

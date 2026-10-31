@@ -1,60 +1,79 @@
 <template>
     <div class="medal-page">
+        <details @toggle="showPalette = ($event.target as HTMLDetailsElement).open">
+            <summary>{{ t('local.colors') }}</summary>
+            <MedalPaletteSettings v-if="showPalette" />
+        </details>
         <p v-if="loading">
             {{ t('local.loading') }}
         </p>
         <template v-else>
-            <p class="score">
-                {{ t('local.score', { value: score }) }}
-            </p>
+            <section v-if="summary" class="pin-editor">
+                <div class="toolbar">
+                    <strong>{{ editing ? t('local.draft') : t('local.pins') }}</strong>
+                    <BaseButton v-if="canEdit && !editing" @click="editing = true">
+                        {{ t('local.manage') }}
+                    </BaseButton>
+                    <template v-if="editing && canEdit">
+                        <span>{{ t('local.selected', { count: selected.length, max: pinLimit() }) }}</span>
+                        <span v-if="dirty">{{ t('local.unsaved') }}</span>
+                        <BaseButton class="save" type="primary" :disabled="saving" @click="save">
+                            {{ t('local.save') }}
+                        </BaseButton>
+                        <BaseButton :disabled="saving" @click="cancelEdit">
+                            {{ t('local.cancel') }}
+                        </BaseButton>
+                    </template>
+                </div>
+                <ol class="pin-preview">
+                    <li v-for="(item, index) in displayedPins" :key="itemKey(item)">
+                        <MedalArt :series="item.series" :code="item.code" :stage="item.stage" :size="48" />
+                        <span>{{ titleOf(item) }}</span>
+                        <div v-if="editing && canEdit" class="toolbar">
+                            <BaseButton :disabled="saving || index === 0" :aria-label="t('local.earlier')" @click="movePin(index, -1)">
+                                ←
+                            </BaseButton>
+                            <BaseButton :disabled="saving || index === displayedPins.length - 1" :aria-label="t('local.later')" @click="movePin(index, 1)">
+                                →
+                            </BaseButton>
+                            <BaseButton :disabled="saving" @click="onPick(item)">
+                                {{ t('local.remove') }}
+                            </BaseButton>
+                        </div>
+                    </li>
+                </ol>
+                <p v-if="!displayedPins.length">
+                    {{ t('local.noPins') }}
+                </p>
+            </section>
+            <div class="filters toolbar" role="group" :aria-label="t('local.all')">
+                <BaseButton :type="!earnedOnly ? 'primary' : 'default'" :aria-pressed="!earnedOnly" @click="earnedOnly = false">
+                    {{ t('local.all') }} {{ visibleItems.length }}
+                </BaseButton>
+                <BaseButton :type="earnedOnly ? 'primary' : 'default'" :aria-pressed="earnedOnly" @click="earnedOnly = true">
+                    {{ t('local.earned') }} {{ earnedItems.length }}
+                </BaseButton>
+            </div>
             <p v-if="summary?.scan_pending" class="scan-pending">
                 {{ t('local.scanPending') }}
-                <BaseButton @click="refreshPlayerMedals(store.player.id)">
-                    {{ t('local.retry') }}
-                </BaseButton>
             </p>
-            <p v-else-if="categories.length === 0" class="empty">
+            <p v-if="message" role="status" class="message">
+                {{ message }}
+            </p>
+            <BaseButton v-if="loadError || summary?.scan_pending" @click="refreshPlayerMedals(store.player.id)">
+                {{ t('local.retry') }}
+            </BaseButton>
+            <p v-if="!loadError && !summary?.scan_pending && categories.length === 0" class="empty">
                 {{ t('local.empty') }}
             </p>
             <section v-for="category in categories" :key="category.id" class="category">
                 <h2 class="category-title">
                     {{ categoryLabel(category.id) }}
                 </h2>
-                <section v-for="group in category.sections" :key="group.series" class="series">
-                    <h3 v-if="group.series && category.id !== 'ability'" class="series-title">
-                        {{ seriesLabel(group.series) }}
-                    </h3>
-                    <ul class="medal-list">
-                        <li v-for="item in group.items" :key="itemKey(item)" class="medal-tile">
-                            <BaseTooltip :show-animation="0" :hide-animation="0">
-                                <div
-                                    class="medal-face" :class="{ 'is-pinned': isSelected(item.grant_id), 'is-pickable': canPick(item) }"
-                                    :role="canEdit ? 'button' : undefined" :tabindex="canEdit ? 0 : undefined"
-                                    :aria-pressed="canEdit ? isSelected(item.grant_id) : undefined" :aria-disabled="canEdit && !canPick(item) ? true : undefined"
-                                    :aria-label="canEdit ? titleOf(item) : undefined"
-                                    @click="onPick(item)" @keydown.enter.prevent="onPick(item)" @keydown.space.prevent="onPick(item)"
-                                >
-                                    <MedalArt :series="item.series" :code="item.code" :stage="item.stage" :size="72" framed :pinned="isSelected(item.grant_id)" />
-                                </div>
-                                <template #content>
-                                    <div class="tip-title">
-                                        {{ titleOf(item) }}
-                                    </div>
-                                    <div v-for="(line, index) in detailLines(item)" :key="index" class="tip-line" :class="{ 'is-flavor': line.flavor }">
-                                        {{ line.text }}
-                                    </div>
-                                </template>
-                            </BaseTooltip>
-                        </li>
-                    </ul>
-                </section>
+                <template v-for="group in category.sections" :key="group.series">
+                    <MedalRow v-for="item in group.items" :key="itemKey(item)" :item="item" :editing="canEdit && editing" :selected="isSelected(item.grant_id)" :disabled="saving" @pick="onPick(item)" />
+                </template>
             </section>
-            <BaseButton v-if="canEdit && categories.length" class="save" type="primary" :disabled="saving" @click="save">
-                {{ t('local.save') }}
-            </BaseButton>
-            <p v-if="message" class="message">
-                {{ message }}
-            </p>
         </template>
     </div>
 </template>
@@ -64,11 +83,12 @@ import { computed, onActivated, onDeactivated, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import MedalArt from './MedalArt.vue';
+import MedalRow from './MedalRow.vue';
 
 import BaseButton from '@/components/common/BaseButton.vue';
-import BaseTooltip from '@/components/common/BaseTooltip.vue';
+import MedalPaletteSettings from '@/components/MedalPaletteSettings.vue';
 import type { MedalItem, PlayerMedals } from '@/services/medalService';
-import { medalCaption, medalLevel, medalSeriesLabel, medalStageLabel, refreshPlayerMedals, saveMedalPins, subscribePlayerMedals } from '@/services/medalService';
+import { medalDisplayName, medalLevel, refreshPlayerMedals, saveMedalPins, subscribePlayerMedals } from '@/services/medalService';
 import { store } from '@/store';
 import { MedalSeries } from '@/utils/medal_const';
 
@@ -88,10 +108,37 @@ const seriesByCategory: Record<MedalCategory, string[]> = {
 };
 
 const summary = ref<PlayerMedals | null>(null);
+const showPalette = ref(false);
 const selected = ref<number[]>([]);
 const loading = ref(false);
 const saving = ref(false);
 const message = ref('');
+const loadError = ref(false);
+const earnedOnly = ref(false);
+const editing = ref(false);
+const visibleItems = computed(() => {
+    const unique = new Map<string, MedalItem>();
+    for (const group of summary.value?.series ?? []) for (const item of group.items) {
+        if (!item.hidden || item.grant_id !== null) unique.set(itemKey(item), item);
+    }
+    return [...unique.values()];
+});
+const earnedItems = computed(() => visibleItems.value.filter((item) => item.grant_id !== null && item.stage !== null));
+const dirty = computed(() => !sameIds(selected.value, summary.value?.pin_ids ?? []));
+const displayedPins = computed(() => (editing.value ? selected.value : summary.value?.pin_ids ?? []).flatMap((id) => {
+    const item = earnedItems.value.find((entry) => entry.grant_id === id);
+    return item ? [item] : [];
+}));
+function cancelEdit() {
+    selected.value = summary.value?.pin_ids.slice() ?? []; editing.value = false; message.value = '';
+}
+function movePin(index: number, offset: number) {
+    const next = selected.value.slice();
+    const destination = index + offset;
+    if (destination < 0 || destination >= next.length) return;
+    [next[index], next[destination]] = [next[destination], next[index]];
+    selected.value = next;
+}
 
 function byLevel(items: MedalItem[]) {
     return [...items].sort((left, right) => (levelRank[medalLevel(left.code)] ?? 3) - (levelRank[medalLevel(right.code)] ?? 3));
@@ -104,7 +151,7 @@ function sameIds(left: number[], right: number[]) {
 const categories = computed(() => {
     const earned = new Map<string, MedalItem[]>();
     for (const group of summary.value?.series ?? []) {
-        const items = group.items.filter((item) => item.grant_id !== null);
+        const items = visibleItems.value.filter((item) => item.series === group.series && (!earnedOnly.value || (item.grant_id !== null && item.stage !== null)));
         if (items.length) earned.set(group.series, items);
     }
     return categoryOrder.flatMap((id): MedalCategoryGroup[] => {
@@ -118,7 +165,6 @@ const categories = computed(() => {
         return sections.length ? [{ id, sections }] : [];
     });
 });
-const score = computed(() => summary.value?.score ?? 0);
 const canEdit = computed(() => store.isSelf);
 
 function categoryLabel(id: MedalCategory) {
@@ -131,35 +177,11 @@ function categoryLabel(id: MedalCategory) {
 }
 
 function itemKey(item: MedalItem) {
-    return `${item.code}:${item.scope_key}:${item.grant_id ?? 'locked'}`;
-}
-
-function seriesLabel(name: string) {
-    return medalSeriesLabel(name, locale.value);
+    return JSON.stringify([item.code, item.scope_key]);
 }
 
 function titleOf(item: MedalItem) {
-    return medalCaption(item.series, item.code, item.stage, locale.value).title;
-}
-
-function flavorOf(item: MedalItem) {
-    return medalCaption(item.series, item.code, item.stage, locale.value).flavor;
-}
-
-function meaningOf(item: MedalItem) {
-    return medalCaption(item.series, item.code, item.stage, locale.value).meaning;
-}
-
-function detailLines(item: MedalItem) {
-    const lines: { text: string; flavor: boolean }[] = [];
-    const flavor = flavorOf(item);
-    const meaning = meaningOf(item);
-    if (flavor) lines.push({ text: flavor, flavor: true });
-    if (meaning) lines.push({ text: meaning, flavor: false });
-    if (item.annotation) lines.push({ text: item.annotation, flavor: false });
-    if (item.stage_count > 1 && item.next_threshold != null) lines.push({ text: t('local.next', { value: medalStageLabel(item.series, item.next_threshold) }), flavor: false });
-    if (item.score > 0) lines.push({ text: t('local.points', { value: item.score }), flavor: false });
-    return lines;
+    return medalDisplayName(item.series, item.code, item.stage, locale.value);
 }
 
 function isSelected(grantId: number | null) {
@@ -171,11 +193,13 @@ function pinLimit() {
 }
 
 function canPick(item: MedalItem) {
-    return canEdit.value && item.grant_id !== null && (isSelected(item.grant_id) || selected.value.length < pinLimit());
+    return canEdit.value && editing.value && !saving.value && item.grant_id !== null && item.stage !== null && (isSelected(item.grant_id) || selected.value.length < pinLimit());
 }
 
 function onPick(item: MedalItem) {
-    if (!canPick(item) || item.grant_id === null) return;
+    if (!canPick(item) || item.grant_id === null) {
+        message.value = t('local.limit'); return;
+    }
     toggle(item.grant_id, !isSelected(item.grant_id));
 }
 
@@ -188,11 +212,15 @@ function toggle(grantId: number, checked: boolean) {
 const loadedFor = ref(0);
 
 async function save() {
+    if (!canEdit.value || !editing.value || saving.value) return;
     const playerId = store.player.id;
     saving.value = true;
     message.value = '';
     try {
         await saveMedalPins(selected.value, playerId);
+        if (viewing.value && store.player.id === playerId) {
+            editing.value = false; message.value = t('local.saved');
+        }
     } catch {
         if (viewing.value && store.player.id === playerId) message.value = t('local.saveFailed');
     } finally {
@@ -213,126 +241,148 @@ watch(() => [store.player.id, viewing.value], (_, __, onCleanup) => {
     if (loadedFor.value !== playerId) {
         summary.value = null;
         selected.value = [];
+        editing.value = false;
+        earnedOnly.value = false;
         loadedFor.value = 0;
     }
     loading.value = false;
+    loadError.value = false;
     if (!viewing.value || !playerId) return;
     loading.value = summary.value === null;
     onCleanup(subscribePlayerMedals(playerId, (data) => {
-        const dirty = summary.value !== null && !sameIds(selected.value, summary.value.pin_ids);
+        const preserveSelection = editing.value && dirty.value;
         summary.value = data;
         loadedFor.value = playerId;
         loading.value = false;
+        loadError.value = false;
         message.value = '';
-        if (!dirty) selected.value = data.pin_ids.slice();
+        if (!preserveSelection) selected.value = data.pin_ids.slice();
         else {
             const owned = new Set(data.series.flatMap((group) => group.items.flatMap((item) => (item.grant_id === null ? [] : [item.grant_id]))));
-            selected.value = selected.value.filter((id) => owned.has(id));
+            selected.value = selected.value.filter((id) => owned.has(id)).slice(0, data.max_pins);
         }
     }, () => {
         loading.value = false;
+        loadError.value = true;
         message.value = t('local.loadFailed');
     }));
 }, { immediate: true });
 
 const i18nMessages = {
     'zh-cn': { local: {
+        all: '全部勋章',
+        earned: '已获得勋章',
+        manage: '管理佩戴',
+        pins: '已保存佩戴',
+        draft: '待保存选择',
+        cancel: '取消修改',
+        unsaved: '有未保存的修改',
+        selected: '已选 {count} / {max}',
+        remove: '移除',
+        earlier: '向前移动',
+        later: '向后移动',
+        noPins: '尚未佩戴勋章',
+        limit: '已达到佩戴上限，请先移除一枚。',
+        saved: '佩戴已保存',
+        colors: '自定义勋章配色',
         loading: '加载中',
         empty: '还没有勋章',
         scanPending: '历史勋章正在补发。若未自动更新，请稍后重试。',
         retry: '重新加载',
-        score: '总分{value}',
-        points: '分数{value}',
         next: '下一档{value}',
         save: '保存佩戴',
         saveFailed: '佩戴没有保存',
         loadFailed: '勋章没有加载出来',
-        category: { ability: '能力称号', novice: '新手称号', practice: '历练称号', contest: '比赛称号', contribution: '贡献称号', other: '其他称号' },
+        category: { ability: '能力称号',
+            novice: '新手称号',
+            practice: '历练称号',
+            contest: '比赛称号',
+            contribution: '贡献称号',
+            other: '其他称号' },
     } },
     en: { local: {
+        all: 'All medals',
+        earned: 'Earned medals',
+        manage: 'Manage pins',
+        pins: 'Saved pins',
+        draft: 'Pending selection',
+        cancel: 'Cancel changes',
+        unsaved: 'Unsaved changes',
+        selected: 'Selected {count} / {max}',
+        remove: 'Remove',
+        earlier: 'Move earlier',
+        later: 'Move later',
+        noPins: 'No pinned medals',
+        limit: 'Pin limit reached. Remove a medal first.',
+        saved: 'Pins saved',
+        colors: 'Customize medal colors',
         loading: 'Loading',
         empty: 'No medals yet',
         scanPending: 'Historical medals are being awarded. If they do not update automatically, try again shortly.',
         retry: 'Reload',
-        score: 'Score {value}',
-        points: 'Points {value}',
         next: 'Next {value}',
         save: 'Save pins',
         saveFailed: 'Could not save pins',
         loadFailed: 'Could not load medals',
-        category: { ability: 'Ability', novice: 'Novice', practice: 'Practice', contest: 'Competition', contribution: 'Contribution', other: 'Other' },
+        category: { ability: 'Ability',
+            novice: 'Novice',
+            practice: 'Practice',
+            contest: 'Competition',
+            contribution: 'Contribution',
+            other: 'Other' },
     } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 const { locale } = useI18n({ useScope: 'global' });
 </script>
 
-<style scoped lang="less">
+<style scoped>
 .medal-page {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-}
-
-.score,
-.empty,
-.message {
-    margin: 0;
-    color: var(--ui-text-color-regular);
-}
-
-.category {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.category-title {
-    margin: 0;
+    gap: 16px;
+    min-width: 0;
+    max-width: 100%;
     color: var(--ui-text-color-primary);
-    font-size: var(--ui-font-size-large);
 }
-
-.series-title {
-    margin: 0 0 4px;
-    color: var(--ui-text-color-regular);
-    font-size: var(--ui-font-size-base);
-    font-weight: 600;
-}
-
-.medal-list {
+.toolbar {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 8px;
-    margin: 0;
-    padding: 0;
+}
+.pin-editor {
+    padding: 12px;
+    background: var(--ui-fill-color-light);
+}
+.pin-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
     list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
 }
-
-.medal-face {
-    width: 72px;
-    height: 72px;
+.pin-preview li {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 120px;
+    max-width: 180px;
+    overflow-wrap: anywhere;
+    text-align: center;
 }
-
-.medal-face.is-pickable {
-    cursor: pointer;
+.category {
+    min-width: 0;
 }
-
-.tip-title {
-    color: var(--ui-text-color-primary);
+.category-title {
+    margin: 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--ui-border-color);
+    font-size: var(--ui-font-size-large);
 }
-
-.tip-line {
-    color: var(--ui-text-color-secondary);
-    font-size: var(--ui-font-size-small);
-}
-
-.tip-line.is-flavor {
-    color: var(--ui-text-color-regular);
-    font-size: var(--ui-font-size-base);
-}
-
-.save {
-    align-self: flex-start;
+.message, .empty {
+    margin: 0;
 }
 </style>

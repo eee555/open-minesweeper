@@ -312,7 +312,6 @@ const speedSeries = new Set<string>([MedalSeries.SPEED, MedalSeries.FLAGLESS_SPE
 const masterySeries = new Set<string>([MedalSeries.MASTERY, MedalSeries.FLAGLESS_MASTERY]);
 const precisionSeries = new Set<string>([MedalSeries.FLAGLESS_PRECISION, MedalSeries.FLAGGED_PRECISION, MedalSeries.THREE_FLAGLESS_PRECISION, MedalSeries.THREE_FLAGGED_PRECISION]);
 const noviceSeries = new Set<string>([MedalSeries.REGISTERED, MedalSeries.REVIEWED, MedalSeries.LEVELS, MedalSeries.LEVELS_NF, MedalSeries.MODES, MedalSeries.SAOLEI]);
-const badgeSeries = new Set<string>([MedalSeries.FLAGLESS_BREAKTHROUGH, MedalSeries.FLAGLESS_SPEED, MedalSeries.FLAGLESS_MASTERY, MedalSeries.FLAGLESS_PRECISION, MedalSeries.THREE_FLAGLESS_PRECISION]);
 
 function trimScaled(stage: number, scale: number) {
     return (stage / scale).toFixed(5).replace(/0+$/, '').replace(/\.$/, '');
@@ -340,6 +339,13 @@ function medalPlainStage(series: string, stage: number | null) {
     if (stage == null) return '';
     if (series === MedalSeries.BREAKTHROUGH || series === MedalSeries.FLAGLESS_BREAKTHROUGH) return String(stage / 1000);
     return medalStageLabel(series, stage) || String(stage);
+}
+
+/** Compact name beside artwork that already shows its threshold in CSS. */
+export function medalDisplayName(series: string, code: string, stage: number | null, locale: string): string {
+    const caption = medalCaption(series, code, stage, locale);
+    if (!medalArtPlate(series, stage)) return caption.title;
+    return caption.title.split('·')[0].trim();
 }
 
 export function medalCaption(series: string, code: string, stage: number | null, locale: string): { title: string; meaning: string; flavor: string } {
@@ -421,23 +427,19 @@ export function medalArtMetal(series: string, code: string, stage: number | null
     return 'b';
 }
 
-export function medalArtBadge(series: string): boolean {
-    return badgeSeries.has(series);
-}
-
-/** 叠在底图上的短数字。称号里的 Sub 前缀和系列名仍由页面文案显示。 */
+/** 图案下方的统一 CSS 数字行；没有数值时仍由组件保留空位。 */
 export function medalArtPlate(series: string, stage: number | null): string {
-    if (stage == null || noviceSeries.has(series) || series === MedalSeries.SHAREHOLDER) return '';
+    if (stage == null || noviceSeries.has(series)) return '';
     if (timeSeries.has(series)) return String(stage / 1000);
     if (speedSeries.has(series)) return trimScaled(stage, 10000);
     if (precisionSeries.has(series)) return trimScaled(stage, 100000);
-    if (masterySeries.has(series)) return String(stage);
+    if (masterySeries.has(series) || series === MedalSeries.SHAREHOLDER) return String(stage);
     return '';
 }
 
 export function medalArtUrl(series: string, code: string, stage: number | null): string | undefined {
     const folder = medalArtFolder[series];
     if (!folder || stage == null || !code) return undefined;
-    // 铜和银由前端从这张金色底图换色。v=5 让浏览器丢掉按金属色缓存的旧图。
-    return `${import.meta.env.BASE_URL}assets/medals/${folder}.webp?v=5`;
+    // One approved template per series; score colors and CSS numbers are applied by the frontend.
+    return `${import.meta.env.BASE_URL}assets/medals/${folder}.webp?v=6`;
 }

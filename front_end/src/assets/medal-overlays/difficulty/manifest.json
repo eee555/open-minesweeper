@@ -1,0 +1,122 @@
+{
+  "version": "difficulty-overlays-v2",
+  "status": "integrated in shared frontend medal renderer",
+  "layout": {
+    "view_box": [
+      0,
+      0,
+      320,
+      320
+    ],
+    "marker_box": [
+      12.8,
+      0,
+      115.2,
+      115.2
+    ],
+    "body_box": [
+      0,
+      0,
+      320,
+      320
+    ],
+    "marker_css": {
+      "left": "4%",
+      "top": "0%",
+      "width": "36%",
+      "height": "36%"
+    },
+    "body_css": {
+      "left": "0%",
+      "top": "0%",
+      "width": "100%",
+      "height": "100%"
+    },
+    "body_fit": "preserve original square template canvas and padding; per-family body placement is explicit; no alpha cropping",
+    "marker_fit": "preserve full shared square canvas; never crop occupied group separately",
+    "rounding": "round(size * percentage) independently for body dimensions, offsets and marker dimensions",
+    "reference": "time-difficulty-corners-v1: original top-left polygon position; keep Time body at original size and position",
+    "family_body_overrides": {
+      "mastery": {
+        "left": "2%",
+        "top": "16%",
+        "width": "84%",
+        "height": "84%"
+      },
+      "mastery-nf": {
+        "left": "2%",
+        "top": "16%",
+        "width": "84%",
+        "height": "84%"
+      },
+      "precision-nf": {
+        "left": "12%",
+        "top": "12%",
+        "width": "88%",
+        "height": "88%"
+      },
+      "precision": {
+        "left": "12%",
+        "top": "12%",
+        "width": "88%",
+        "height": "88%"
+      }
+    }
+  },
+  "levels": [
+    {
+      "code": "b",
+      "name": "初级",
+      "stars": 1,
+      "source": "one-star.png",
+      "canonical_source": "front_end/src/assets/medal-overlays/difficulty/one-star.png",
+      "layout": "single star at lower-center of shared marker canvas",
+      "sha256": "b6af1d2ca0b4d9732c50d54c0a4400ce65d313a05d50f801420f439ce873e718"
+    },
+    {
+      "code": "i",
+      "name": "中级",
+      "stars": 2,
+      "source": "two-stars.png",
+      "canonical_source": "front_end/src/assets/medal-overlays/difficulty/two-stars.png",
+      "layout": "two stars in bottom row",
+      "sha256": "916d6f1119b210e52a8cf99f151791ac151380bbafd791545adc27c3692e4282"
+    },
+    {
+      "code": "e",
+      "name": "高级",
+      "stars": 3,
+      "source": "three-stars.png",
+      "canonical_source": "front_end/src/assets/medal-overlays/difficulty/three-stars.png",
+      "layout": "one top and two bottom; upright triangle",
+      "sha256": "0ae5bf6e6c67760ecc4faa76f9da32ed1d422b90fa4477ecccfabde27fef8648"
+    }
+  ],
+  "applicability": {
+    "rule": "Use explicit single-difficulty semantics (b/i/e) from the medal definition or appearance configuration. Never infer from color, score stage, Chinese title text, code suffix alone or the count of internal medallions.",
+    "current": "8 implemented single-difficulty ability families x 3 difficulties = 24 combinations, all included in the placement review.",
+    "planned_single_difficulty": [
+      "各难度概率收集、上限收集、BV 种数及 NF 变体",
+      "各难度达标局数（速度／效率等）及对应玩法",
+      "单一难度的薄盘、数字收集、单局中级时亚速、初级一 BV 等收藏与隐藏称号",
+      "金羊杯各难度时间／3BV/s／STNB 的单局名次和有效最佳名次；赛事金属依然表示名次"
+    ],
+    "future_asset_rule": "Future single-difficulty artwork uses the same reserved marker box and must pass the overlap check before integration. Listed planned titles have no source artwork in this template set, so no finished visual validation is claimed.",
+    "no_single_marker": [
+      "三阶盲扫精工、三阶标旗精工",
+      "三级合计、中高级合计、跨难度交叉比较等多难度称号",
+      "新手、关联、资历、纪念及无单一难度的赛事总名次"
+    ],
+    "triple_note": "Three stars mean Expert difficulty only; they never mean Three-Level completion."
+  },
+  "publish_contract": {
+    "format": "WebP",
+    "size": [
+      64,
+      64
+    ],
+    "preserve_full_canvas": true,
+    "maximum_bytes_per_overlay": 2048,
+    "runtime_integration": "integrated; public/assets/medals/difficulty/{b,i,e}.webp"
+  }
+}

@@ -227,8 +227,8 @@ describe('PlayerName', () => {
             const ids = new URL(url).searchParams.get('ids') ?? '';
             expect(ids.split(',')).to.include(String(player.id));
         });
-        cy.get('[id^=tippy-] img').should('be.visible').and('have.attr', 'src').and('include', 'breakthrough.webp');
-        cy.get('[id^=tippy-] img').realHover();
+        cy.get('[id^=tippy-] svg.base image').should('have.attr', 'href').and('include', 'breakthrough.webp');
+        cy.get('[id^=tippy-] .medal-graphic').realHover();
         cy.get('[id^=tippy-]').should('contain', 'Expert Breakthrough · Sub30').and('contain', 'Expert best time reached 30s.');
         cy.get('@medalDetail.all').should('have.length', 0);
     });
