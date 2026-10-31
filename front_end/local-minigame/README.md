@@ -90,7 +90,7 @@
 
 共用的 [HistoryPanel.vue](../src/components/MiniGame/HistoryPanel.vue) 展示当前游戏和配置的成功纪录，每页 20 条，表格只含日期、用时，支持日期范围筛选及用时升／降序排列。配置变化时回到第一页，保存事务完成后自动刷新。`queryMinigameHistory(rankingKey, options)` 用现有索引排序，匹配完整榜单 key 后计算总数和分页，只返回本页的 `id`、`playedAt`、`scoreMs`，不解压回放或升级数据库。点击行只向入口传递记录 ID。
 
-离线入口右上角提供历史书签，以非模态 `ElDrawer` 显示同一列表。点击行时从 IndexedDB 读取所选 7z，复用 `readMinigameHistoryReplay` 重建回放并传给原游戏的 `replayData`；重开或切换配置后退出回放。读取失败或录像损坏时显示错误，切换游戏后忽略旧加载结果。离线入口单独导入 Drawer、Pagination 和深色主题样式，所有资源随 HTML 内联。
+离线入口右上角提供历史书签，以非模态 `ElDrawer` 显示同一列表。点击行时从 IndexedDB 读取所选 7z，复用 `readMinigameHistoryReplay` 重建回放并传给原游戏的 `replayData`；重开或切换配置后退出回放。读取失败或录像损坏时显示错误，切换游戏后忽略旧加载结果。离线入口单独导入 Element Plus 完整样式和深色主题样式，所有资源随 HTML 内联。
 
 ## 网站上传与在线回放
 
