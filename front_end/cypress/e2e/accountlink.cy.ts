@@ -1,3 +1,4 @@
+import type { AccountLinkQueueResponse } from '@/utils/accountlinks';
 
 const STAFF = {
     id: 1,
@@ -77,37 +78,32 @@ function waitForLoading() {
 
 function visitStaffAccountLink() {
     cy.login(STAFF.username, STAFF.password);
-    cy.intercept('GET', '/api/accountlink/admin/queue').as('accountLinkQueue');
     cy.visit('/#/staff/accountlink');
     cy.wait('@accountLinkQueue').its('response.statusCode').should('eq', 200);
     waitForLoading();
 }
 
 function expectAccountLinkTableRow(platform: string, identifier: string, verified: boolean) {
-    cy.contains('table:visible tbody tr', identifier, { timeout: 10000 }).should('be.visible');
-    cy.get('table:visible').getTable().should((tableData) => {
-        const row = tableData.find((item) => item['平台 ID'] === identifier);
+    cy.get('table:visible', { timeout: 10000 }).extractTableData().should((rows) => {
+        expect(rows[0]).to.deep.equal(['用户 ID', '平台', '平台 ID', '已验证']);
+        const row = rows.slice(1).find((item) => item[2] === identifier);
 
-        expect(row, `account link row for ${platform} #${identifier}`).to.deep.equal({
-            '用户 ID': `${USER.id}`,
-            平台: platform,
-            '平台 ID': identifier,
-            已验证: verified ? '已验证' : '未验证',
-        });
+        expect(row, `account link row for ${platform} #${identifier}`).to.deep.equal([
+            `${USER.id}`, platform, identifier, verified ? '已验证' : '未验证',
+        ]);
     });
 }
 
 function expectAccountLinkTableData(expected: { platform: string; identifier: string; verified: boolean }[]) {
-    cy.get('table:visible').getTable().should((tableData) => {
+    cy.get('table:visible').extractTableData().should((rows) => {
+        expect(rows[0]).to.deep.equal(['用户 ID', '平台', '平台 ID', '已验证']);
+        const tableData = rows.slice(1);
         expect(tableData.length).to.equal(expected.length);
         expected.forEach((item) => {
-            const row = tableData.find((tableRow) => tableRow['平台 ID'] === item.identifier);
-            expect(row).to.deep.equal({
-                '用户 ID': `${USER.id}`,
-                平台: item.platform,
-                '平台 ID': item.identifier,
-                已验证: item.verified ? '已验证' : '未验证',
-            });
+            const row = tableData.find((tableRow) => tableRow[2] === item.identifier);
+            expect(row).to.deep.equal([
+                `${USER.id}`, item.platform, item.identifier, item.verified ? '已验证' : '未验证',
+            ]);
         });
     });
 }
@@ -116,7 +112,6 @@ function staffVerifyAccount(platform: string, identifier: string) {
     visitStaffAccountLink();
     expectAccountLinkTableRow(platform, identifier, false);
 
-    cy.intercept('POST', '**/api/accountlink/verify/').as('verifyAccountLink');
     cy.contains('.el-form-item__label', '用户 ID').next().find('input').clear();
     cy.contains('.el-form-item__label', '用户 ID').next().find('input').type(`${USER.id}{enter}`);
     cy.contains('.el-form-item__label', /^平台$/).next().find('.el-select').click();
@@ -124,13 +119,23 @@ function staffVerifyAccount(platform: string, identifier: string) {
     cy.contains('.el-form-item__label', '平台 ID').next().find('input').type(`${identifier}{enter}`);
     cy.contains('button', /^\s*绑定\s*$/).click();
     cy.wait('@verifyAccountLink').its('response.statusCode').should('eq', 200);
-    cy.wait('@accountLinkQueue').its('response.statusCode').should('eq', 200);
+    cy.wait<unknown, AccountLinkQueueResponse[]>('@accountLinkQueue').then(({ response }) => {
+        expect(response?.statusCode).to.equal(200);
+        const link = response?.body.find((item) => item.userprofile === USER.id && item.identifier === identifier);
+        expect(link?.verified, `refreshed queue for ${platform} #${identifier}`).to.equal(true);
+    });
     waitForLoading();
 
     expectAccountLinkTableRow(platform, identifier, true);
 }
 
 describe('Account Link', () => {
+    beforeEach(() => {
+        // Register once per test: private account verification visits this page twice.
+        cy.intercept('GET', '/api/accountlink/admin/queue').as('accountLinkQueue');
+        cy.intercept('POST', '**/api/accountlink/verify/').as('verifyAccountLink');
+    });
+
     it('Before All', () => {
         // 初始化数据库
         cy.flushDatabase();
@@ -235,5 +240,3 @@ describe('Account Link', () => {
         });
     });
 });
-
-export {};
