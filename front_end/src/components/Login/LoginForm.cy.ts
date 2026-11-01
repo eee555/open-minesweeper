@@ -23,7 +23,6 @@ function expectCaptchaRefresh(count: number) {
 
 describe('<LoginForm />', () => {
     beforeEach(() => {
-        cy.intercept('GET', '**/api/accountlink/discord/config', { enabled: false });
         cy.mockLogin();
         cy.mockCaptchaRefresh();
     });
@@ -39,6 +38,7 @@ describe('<LoginForm />', () => {
         cy.contains('Forget password?');
         cy.contains('button', /^Log in$/).should('have.attr', 'type', 'button');
         cy.contains('button', 'Forget password?').should('have.attr', 'type', 'button');
+        cy.contains('button', 'Log in with Discord').should('not.exist');
     });
 
     it('Normal Flow', () => {

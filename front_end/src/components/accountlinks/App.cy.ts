@@ -16,13 +16,12 @@ const privateLinks: AccountLinksResponse = {
     a: null,
     w: null,
     q: null,
-    d: { id: '803511102246789123', parent: 1, username: 'private_user', global_name: '', update_time: '2026-10-31T12:00:00Z' },
+    d: { id: '803511102246789123', parent: 1 },
 };
 const publicLinks: AccountLinksResponse = { ...privateLinks, summary: [], d: null };
 
 describe('<AccountLinksApp />', () => {
     beforeEach(() => {
-        cy.intercept('GET', '**/api/accountlink/discord/config', { enabled: false });
         cy.intercept('GET', '**/api/accountlink/classic/status/', {
             statusCode: 200,
             body: { status: 'none', uid: null, request_id: null, expires_at: null, error_category: '' },

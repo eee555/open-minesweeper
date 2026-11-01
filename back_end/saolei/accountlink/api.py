@@ -1,5 +1,6 @@
 from datetime import datetime
 import logging
+import re
 from typing import List
 
 from django.core.exceptions import ObjectDoesNotExist
@@ -9,6 +10,7 @@ from django_ratelimit.decorators import ratelimit
 from ninja import Form, Router, Schema
 from ninja.decorators import decorate_view
 from ninja.orm import create_schema
+from pydantic import field_validator, ValidationInfo
 
 from userprofile.decorators import login_required_error, staff_required
 from userprofile.models import UserProfile
@@ -59,6 +61,13 @@ class AccountLinkCompleteOut(Schema):
 class AccountLinkCreateIn(Schema):
     platform: str
     identifier: str
+
+    @field_validator('identifier')
+    @classmethod
+    def valid_identifier(cls, value: str, info: ValidationInfo):
+        if info.data.get('platform') == Platform.DISCORD and not re.fullmatch(r'[1-9][0-9]{0,19}', value):
+            raise ValueError('Expected a Discord numeric User ID of up to 20 digits.')
+        return value
 
 
 class AccountLinkVerifyIn(AccountLinkCreateIn):
@@ -177,7 +186,7 @@ def create_account_link(request, data: AccountLinkCreateIn = Form(...)):  # noqa
     """
     if data.platform not in Platform.values or not data.identifier:
         return HttpResponseBadRequest()
-    if data.platform in (Platform.MINERACER, Platform.DISCORD, Platform.CLASSIC):
+    if data.platform in (Platform.MINERACER, Platform.CLASSIC):
         return HttpResponseBadRequest()
     if AccountLinkQueue.objects.filter(platform=data.platform, userprofile=request.user).exists():
         return HttpResponseConflict()

@@ -180,13 +180,6 @@ class AccountWorldOfMinesweeper(models.Model):
 class AccountDiscord(models.Model):
     id = models.CharField(max_length=20, primary_key=True, help_text='Discord snowflake, serialized as a string without JavaScript precision loss.')
     parent = models.OneToOneField(UserProfile, on_delete=models.CASCADE, related_name='account_discord')
-    username = models.CharField(max_length=32)
-    global_name = models.CharField(max_length=32, blank=True, default='')
-    avatar = models.CharField(max_length=34, blank=True, default='', help_text='Discord avatar hash, empty when unavailable.')
-    banner = models.CharField(max_length=34, blank=True, default='', help_text='Discord banner hash, empty when unavailable.')
-    accent_color = models.PositiveIntegerField(null=True, blank=True, default=None)
-    public_flags = models.PositiveBigIntegerField(null=True, blank=True, default=None)
-    update_time = models.DateTimeField(auto_now=True)
 
 
 class AccountMineracer(models.Model):

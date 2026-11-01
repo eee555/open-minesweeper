@@ -322,8 +322,6 @@ CLASSIC_TIMEOUT = float(os.environ.get('CLASSIC_BIND_TIMEOUT', '5'))
 CLASSIC_CONNECT_TIMEOUT = min(CLASSIC_TIMEOUT, float(os.environ.get('CLASSIC_BIND_CONNECT_TIMEOUT', '2')))
 CLASSIC_CALLBACK_TOLERANCE_SECONDS = 300
 
-DISCORD_OAUTH_CLIENT_ID = '1566049116339965972'
-DISCORD_OAUTH_REDIRECT_URI = 'https://openms.top/api/accountlink/discord/callback'
 
 # WOM（Minesweeper.Online）公开资料。令牌存在 secrets.json 的 wom_api_token，不写入代码或环境变量。
 WOM_API_BASE_URL = os.environ.get('WOM_API_BASE_URL', 'https://api.lockhart.ren')

@@ -74,9 +74,31 @@ describe('<CardAdd />', () => {
         cy.contains('The QQ number is accessible from site moderators');
 
         cy.get('.el-select').click();
+        cy.contains('.el-select-dropdown__item', 'Discord').click();
+        cy.contains('Copy User ID');
+        cy.contains('contact a moderator for verification');
+
+        cy.get('.el-select').click();
         cy.contains('.el-select-dropdown__item', 'Bilibili').click();
         cy.contains('space.bilibili.com');
         cy.contains('Privacy notice');
         cy.contains('Linking Bilibili may allow others');
+    });
+
+    it('submits a Discord snowflake unchanged for moderator verification', () => {
+        mountAccountLink(CardAdd, { onAddLink: cy.spy().as('addLink') });
+        cy.get('.el-button').first().click();
+        cy.get('.el-select').click();
+        cy.contains('.el-select-dropdown__item', 'Discord').click();
+        cy.contains('Enable Developer Mode');
+        for (const id of ['player', '0', '01', '1'.repeat(21)]) {
+            cy.get('.el-input input').clear();
+            cy.get('.el-input input').type(id);
+            cy.contains('button', 'Confirm').should('be.disabled');
+        }
+        cy.get('.el-input input').clear();
+        cy.get('.el-input input').type('18446744073709551615');
+        cy.contains('button', 'Confirm').should('be.enabled').click();
+        cy.get('@addLink').should('have.been.calledOnceWith', 'd', '18446744073709551615');
     });
 });
