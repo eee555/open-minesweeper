@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" color="#475569" role="img" aria-labelledby="title-mastery-nf">
-  <title id="title-mastery-nf">盲扫通明 基础模板 v1</title>
-  <g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
-    <defs><mask id="clear-mn"><rect width="64" height="64" fill="white" stroke="none"/><rect x="39" y="37" width="25" height="27" fill="black" stroke="none"/></mask></defs><g mask="url(#clear-mn)"><g transform="scale(.82)"><path fill="currentColor" stroke="none" d="m32 5 8 19 19 8-19 8-8 19-8-19-19-8 19-8Z"/></g></g><g stroke-width="4"><path d="M45 60V41h15l-5 6 5 6H45"/><path d="m41 58 20-20"/></g>
-  </g>
-</svg>
