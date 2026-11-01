@@ -477,8 +477,8 @@ export default {
         },
         sub: 'Sub',
         meaning: {
-            [MedalSeries.BREAKTHROUGH]: '{level}最快时间严格小于{value}秒。',
-            [MedalSeries.FLAGLESS_BREAKTHROUGH]: '{level}盲扫最快时间严格小于{value}秒。',
+            [MedalSeries.BREAKTHROUGH]: '{level}最快时间小于{value}秒。',
+            [MedalSeries.FLAGLESS_BREAKTHROUGH]: '{level}盲扫最快时间小于{value}秒。',
             [MedalSeries.SPEED]: '{level}最高3BV/s达到{value}。',
             [MedalSeries.FLAGLESS_SPEED]: '{level}盲扫最高3BV/s达到{value}。',
             [MedalSeries.MASTERY]: '{level}最高STNB达到{value}。',

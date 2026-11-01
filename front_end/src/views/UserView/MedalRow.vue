@@ -183,7 +183,7 @@ const { locale } = useI18n({ useScope: 'global' });
 .row-summary {
     display: flex;
     align-items: flex-start;
-    gap: 12px;
+    gap: 24px;
     flex: 0 1 280px;
     min-width: 0;
 }

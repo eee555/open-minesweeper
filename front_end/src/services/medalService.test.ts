@@ -538,7 +538,7 @@ describe('medalCaption', () => {
         const { medalCaption } = await import('./medalService');
         expect(medalCaption(MedalSeries.BREAKTHROUGH, 'ability.time.e', 30000, 'en')).toEqual({
             title: 'Expert Breakthrough · Sub30',
-            meaning: 'Expert best time is strictly below 30s.',
+            meaning: 'Expert best time is below 30s.',
             flavor: '',
         });
         expect(medalCaption(MedalSeries.SHAREHOLDER, 'shareholder.origin', 1000, 'zh-cn')).toMatchObject({

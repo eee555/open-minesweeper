@@ -39,7 +39,7 @@ describe('template-based medal art', () => {
         });
     });
     for (const size of [32, 56, 64, 80]) {
-        it(`keeps a long corner number visible without adding a row at ${size}px`, () => {
+        it(`starts a long corner number beside the icon without adding a row at ${size}px`, () => {
             cy.mount(MedalArt, { props: { series: 'h', code: 'shareholder.origin', stage: 100000, size, cornerPlate: true }, global: { plugins: [i18n] } });
             cy.get('.plate').should('not.exist');
             cy.get('.corner-plate').should('have.text', '100000').and('be.visible');
@@ -48,8 +48,8 @@ describe('template-based medal art', () => {
                 const number = $graphic.find('.corner-plate')[0].getBoundingClientRect();
                 expect($graphic[0].getBoundingClientRect().height).to.be.closeTo(size, 1);
                 expect(number.top).to.be.greaterThan(art.top + art.height / 2);
-                expect(number.right).to.be.closeTo(art.right, 5);
-                expect(number.left).to.be.at.least(art.left - 5);
+                expect(number.left).to.be.closeTo(art.right - 6, 1);
+                expect(number.right).to.be.greaterThan(art.right);
                 expect(number.bottom).to.be.closeTo(art.bottom, 3);
             });
         });

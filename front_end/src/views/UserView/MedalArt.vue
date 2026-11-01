@@ -17,7 +17,7 @@
                 </svg>
             </span>
             <img v-if="difficulty" class="difficulty" :src="difficultySrc" alt="" :width="size * .32" :height="size * .32" loading="lazy" decoding="async">
-            <span v-if="cornerPlate && plate" class="corner-plate" aria-hidden="true">{{ plate }}</span>
+            <span v-if="cornerPlate && plate" class="corner-plate" aria-hidden="true"><span>{{ plate }}</span></span>
         </span>
         <span v-if="!cornerPlate" class="plate" aria-hidden="true">{{ plate }}</span>
     </span>
@@ -142,7 +142,7 @@ function usePlaceholder(event: Event) {
 }
 .corner-plate {
     position: absolute;
-    right: -4px;
+    left: calc(100% - 6px);
     bottom: -2px;
     font-size: 11px;
     line-height: 14px;

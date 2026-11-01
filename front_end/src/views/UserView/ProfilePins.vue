@@ -86,6 +86,21 @@ onDeactivated(() => {
     border-radius: 4px;
 }
 
+.pin {
+    container-type: inline-size;
+}
+
+/* Start beside the icon; when the cell is too narrow, end-align to the cell edge instead of overflowing it. */
+.pin :deep(.corner-plate) {
+    right: calc((var(--medal-size) - 100cqw) / 2 + 2px);
+    display: flex;
+    justify-content: flex-end;
+}
+
+.pin :deep(.corner-plate > span) {
+    margin-right: auto;
+}
+
 .pin-ring {
     box-shadow: 0 0 0 2px var(--ui-color-primary);
 }

@@ -486,8 +486,8 @@ export default {
         },
         sub: 'Sub',
         meaning: {
-            [MedalSeries.BREAKTHROUGH]: '{level} best time is strictly below {value}s.',
-            [MedalSeries.FLAGLESS_BREAKTHROUGH]: '{level} no-flag best time is strictly below {value}s.',
+            [MedalSeries.BREAKTHROUGH]: '{level} best time is below {value}s.',
+            [MedalSeries.FLAGLESS_BREAKTHROUGH]: '{level} no-flag best time is below {value}s.',
             [MedalSeries.SPEED]: '{level} best 3BV/s reached {value}.',
             [MedalSeries.FLAGLESS_SPEED]: '{level} no-flag best 3BV/s reached {value}.',
             [MedalSeries.MASTERY]: '{level} best STNB reached {value}.',
