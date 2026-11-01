@@ -1,4 +1,4 @@
-/* eslint-disable vue/one-component-per-file -- Each case mounts a render-only lifecycle fixture. */
+
 import { defineComponent, h, KeepAlive, ref } from 'vue';
 import { createMemoryHistory, createRouter } from 'vue-router';
 
