@@ -144,7 +144,7 @@ provideAnalyzerState({
     timeWindow,
     loading: computed(() => props.loading),
     errorMessage,
-    filename: computed(() => props.filename || props.source?.filename || 'replay'),
+    filename: computed(() => props.filename || (props.source?.filename ?? '') || 'replay'),
     createExportVideo,
 });
 const { selectedLayout } = toRefs<AnalyzerConfig>(analyzerConfig, { replaceRef: false });

@@ -8,7 +8,7 @@ import type { PreparedCounter } from './counter';
 import { provideAnalyzerState, useAnalyzerState } from './useAnalyzerState';
 import type { AnalyzerState } from './useAnalyzerState';
 
-import { createAnalyzerTestState } from '../../../cypress/support/analyzerState';
+import { createAnalyzerTestState } from '@cy/support/analyzerState';
 
 describe('Analyzer instance state', () => {
     it('shares reactive references with descendants and keeps sibling instances isolated', async () => {
@@ -46,7 +46,10 @@ describe('Analyzer instance state', () => {
         const frame = shallowRef<AnalyzerState['frame']['value']>({ board: [[10]], globalBoard: [[0]], probabilityBoard: [[0]], cursorPosition: null, mouseState: 0, currentEventIndex: 0, nativeCellSize: 16 });
         const counters = shallowRef(new Map<string, PreparedCounter>());
         let state: AnalyzerState | undefined;
-        const Consumer = defineComponent({ setup() { state = useAnalyzerState(); return () => null; } });
+        const Consumer = defineComponent({ setup() {
+            state = useAnalyzerState();
+            return () => null;
+        } });
         await renderToString(createSSRApp({
             setup() {
                 provideAnalyzerState(createAnalyzerTestState({ config, frame, preparedCounters: counters }));
@@ -65,9 +68,12 @@ describe('Analyzer instance state', () => {
     });
 
     it('reports a missing provider instead of returning a global fallback', async () => {
-        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
         try {
-            const Consumer = defineComponent({ setup() { useAnalyzerState(); return () => null; } });
+            const Consumer = defineComponent({ setup() {
+                useAnalyzerState();
+                return () => null;
+            } });
             await expect(renderToString(createSSRApp(Consumer))).rejects.toThrow('Analyzer state must be provided');
         } finally {
             warn.mockRestore();

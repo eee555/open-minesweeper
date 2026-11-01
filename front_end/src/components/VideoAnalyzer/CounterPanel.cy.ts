@@ -32,7 +32,9 @@ function mountCounter(config = singleCounterConfig(), slotNames: string[] = []) 
             playback.seek(1000);
             state = createAnalyzerTestState({ config: settings, counterEvents: shallowRef(events), playback });
             provideAnalyzerState(state);
-            watch(() => settings.value.counter, (value) => { update(value); });
+            watch(() => settings.value.counter, (value) => {
+                update(value);
+            });
             return () => h(CounterPanel);
         },
     }), { global: { plugins: [i18n], stubs: { transition: false } } }).then((mounted) => {
@@ -95,7 +97,9 @@ describe('<CounterPanel />', () => {
         config.rows[0].expression = 'left';
         mountCounter(config).then(({ state }) => {
             cy.get('.video-analyzer-counter__value').should('have.text', '4.000');
-            cy.then(() => state.playback.seek(1500));
+            cy.then(() => {
+                state.playback.seek(1500);
+            });
             cy.get('.video-analyzer-counter__value').should('have.text', '6.000');
             cy.then(() => {
                 state.config.value.counter = { ...config, rows: [{ ...config.rows[0], expression: 'bbbv_s' }] };

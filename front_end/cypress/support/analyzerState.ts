@@ -27,7 +27,9 @@ export function createAnalyzerTestState(overrides: Partial<AnalyzerState> = {}):
         loading: ref(false),
         errorMessage: ref(''),
         filename: ref('replay'),
-        createExportVideo: () => { throw new Error('Test replay is not loaded'); },
+        createExportVideo: () => {
+            throw new Error('Test replay is not loaded');
+        },
         ...overrides,
     };
 }

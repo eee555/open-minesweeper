@@ -44,7 +44,12 @@ function mountAnalyzer(width = 1100, fixture: { filename: string; durationMs: nu
     cy.mount(defineComponent({
         expose: [],
         render: () => h('div', { class: 'analyzer-test-container', style: { width: `${width}px`, height: '600px' } }, [h(App, { id: '123' }, info === undefined ? undefined : { info })]),
-    }), { global: { plugins: [i18n, hashRouter()], config: { globalProperties: { $axios } }, stubs: { transition: false }, mixins: [captureAnalyzerState((value) => { state = value; })] } }).then(({ wrapper }) => {
+    }), { global: { plugins: [i18n, hashRouter()],
+        config: { globalProperties: { $axios } },
+        stubs: { transition: false },
+        mixins: [captureAnalyzerState((value) => {
+            state = value;
+        })] } }).then(({ wrapper }) => {
         analyzerStates.set(wrapper, () => state);
         cy.wrap(wrapper).as('analyzer');
     });

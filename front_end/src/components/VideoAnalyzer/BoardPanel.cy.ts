@@ -5,8 +5,8 @@ import { computed, defineComponent, h, ref, shallowRef } from 'vue';
 import BoardPanel from './BoardPanel.vue';
 import { defaultAnalyzerConfig } from './config';
 import type { AnalyzerConfig } from './config';
-import { usePlayback } from './usePlayback';
 import { provideAnalyzerState } from './useAnalyzerState';
+import { usePlayback } from './usePlayback';
 
 import i18n from '@/i18n';
 import { videoPlayerConfig } from '@/store';

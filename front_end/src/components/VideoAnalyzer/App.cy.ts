@@ -24,7 +24,10 @@ describe('<VideoAnalyzer /> raw-source interface', () => {
                         config.value = value;
                     },
                     probabilityColorScheme: { colors: ['#000', '#fff'], thresholds: [50] },
-                })]) }), { global: { plugins: [i18n], mixins: [captureAnalyzerState((value) => { state = value; })] } }).then(() => {
+                })]) }), { global: { plugins: [i18n],
+                mixins: [captureAnalyzerState((value) => {
+                    state = value;
+                })] } }).then(() => {
                 const counters = state.preparedCounters.value;
                 const events = state.preparedEvents.value;
                 const frame = state.frame.value;
