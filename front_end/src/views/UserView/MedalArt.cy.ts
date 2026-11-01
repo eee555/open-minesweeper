@@ -26,18 +26,37 @@ describe('template-based medal art', () => {
         cy.get('mask circle').should('have.attr', 'fill', 'black');
         cy.get('.difficulty').should('have.attr', 'src').and('contain', '/difficulty/e.webp');
     });
-    for (const size of [32, 48, 72]) {
-        it(`keeps numbers legible and outside the centered body at ${size}px`, () => {
-            cy.mount(MedalArt, { props: { series: 'm', code: 'ability.stnb.e', stage: 100, size }, global: { plugins: [i18n] } });
-            cy.get('.plate').should('have.css', 'font-size', '14px').and('have.css', 'background-color', 'rgba(0, 0, 0, 0)');
-            cy.get('.medal-graphic').then(($graphic) => {
+    it('keeps the default number row outside the centered body', () => {
+        cy.mount(MedalArt, { props: { series: 'm', code: 'ability.stnb.e', stage: 100, size: 32 }, global: { plugins: [i18n] } });
+        cy.get('.plate').should('have.text', '100');
+        cy.get('.medal-graphic').should(($graphic) => {
+            const art = $graphic.find('.art-stage')[0].getBoundingClientRect();
+            const body = $graphic.find('.medal-body')[0].getBoundingClientRect();
+            const number = $graphic.find('.plate')[0].getBoundingClientRect();
+            expect(Math.abs(body.x + body.width / 2 - art.x - art.width / 2)).to.be.lessThan(1);
+            expect(Math.abs(body.y + body.height / 2 - art.y - art.height / 2)).to.be.lessThan(1);
+            expect(number.top).to.be.at.least(art.bottom);
+        });
+    });
+    for (const size of [32, 56, 64, 80]) {
+        it(`keeps a long corner number visible without adding a row at ${size}px`, () => {
+            cy.mount(MedalArt, { props: { series: 'h', code: 'shareholder.origin', stage: 100000, size, cornerPlate: true }, global: { plugins: [i18n] } });
+            cy.get('.plate').should('not.exist');
+            cy.get('.corner-plate').should('have.text', '100000').and('be.visible');
+            cy.get('.medal-graphic').should(($graphic) => {
                 const art = $graphic.find('.art-stage')[0].getBoundingClientRect();
-                const body = $graphic.find('.medal-body')[0].getBoundingClientRect();
-                const number = $graphic.find('.plate')[0].getBoundingClientRect();
-                expect(Math.abs(body.x + body.width / 2 - art.x - art.width / 2)).to.be.lessThan(1);
-                expect(Math.abs(body.y + body.height / 2 - art.y - art.height / 2)).to.be.lessThan(1);
-                expect(number.top).to.be.at.least(art.bottom);
+                const number = $graphic.find('.corner-plate')[0].getBoundingClientRect();
+                expect($graphic[0].getBoundingClientRect().height).to.be.closeTo(size, 1);
+                expect(number.top).to.be.greaterThan(art.top + art.height / 2);
+                expect(number.right).to.be.closeTo(art.right, 5);
+                expect(number.left).to.be.at.least(art.left - 5);
+                expect(number.bottom).to.be.closeTo(art.bottom, 3);
             });
         });
     }
+    it('keeps a medal without a number at icon height in corner mode', () => {
+        cy.mount(MedalArt, { props: { series: 'r', code: 'novice.realname', stage: 1, size: 48, cornerPlate: true }, global: { plugins: [i18n] } });
+        cy.get('.corner-plate').should('not.exist');
+        cy.get('.medal-graphic').invoke('outerHeight').should('be.closeTo', 48, 1);
+    });
 });

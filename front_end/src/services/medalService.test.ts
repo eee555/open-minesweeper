@@ -2,9 +2,9 @@ import { existsSync } from 'node:fs';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { MedalStateRecord, PlayerMedals } from './medalService';
+import type { MedalItem, MedalStateRecord, PlayerMedals } from './medalService';
 
-import { MedalSeries } from '@/utils/medal_const';
+import { MedalDirection, MedalKind, MedalSeries } from '@/utils/medal_const';
 
 const { axiosGet, axiosPut, serviceConfig } = vi.hoisted(() => ({
     axiosGet: vi.fn(),
@@ -14,8 +14,36 @@ const { axiosGet, axiosPut, serviceConfig } = vi.hoisted(() => ({
 vi.mock('@/http', () => ({ default: { get: axiosGet, put: axiosPut } }));
 vi.mock('./store', () => ({ serviceConfig }));
 
-function summary(scanPending = false, score = 0): PlayerMedals {
-    return { scan_pending: scanPending, score, max_pins: 6, pin_ids: [], pins: [], series: [] };
+function summary(scanPending = false, grantId = 0): PlayerMedals {
+    const pins: MedalItem[] = grantId
+        ? [{
+            code: 'novice.realname',
+            series: MedalSeries.REGISTERED,
+            subseries: '',
+            kind: MedalKind.ONCE,
+            stage: 1,
+            stage_count: 1,
+            direction: MedalDirection.ASC,
+            current_value: 1,
+            next_threshold: null,
+            granted_at: null,
+            video_id: null,
+            tournament_id: null,
+            rank: null,
+            hidden: false,
+            annotation: '',
+            grant_id: grantId,
+            scope_key: '',
+            thresholds: [1],
+        }]
+        : [];
+    return {
+        scan_pending: scanPending,
+        max_pins: 6,
+        pin_ids: grantId ? [grantId] : [],
+        pins,
+        series: pins.length ? [{ series: MedalSeries.REGISTERED, items: pins }] : [],
+    };
 }
 
 function deferred() {

@@ -17,8 +17,9 @@
                 </svg>
             </span>
             <img v-if="difficulty" class="difficulty" :src="difficultySrc" alt="" :width="size * .32" :height="size * .32" loading="lazy" decoding="async">
+            <span v-if="cornerPlate && plate" class="corner-plate" aria-hidden="true">{{ plate }}</span>
         </span>
-        <span class="plate" aria-hidden="true">{{ plate }}</span>
+        <span v-if="!cornerPlate" class="plate" aria-hidden="true">{{ plate }}</span>
     </span>
 </template>
 
@@ -42,6 +43,7 @@ const props = defineProps({
     size: { type: Number, required: true },
     framed: { type: Boolean, default: false },
     pinned: { type: Boolean, default: false },
+    cornerPlate: { type: Boolean, default: false },
 });
 const { locale } = useI18n({ useScope: 'global' });
 const id = useId();
@@ -130,6 +132,21 @@ function usePlaceholder(event: Event) {
     object-fit: contain;
     pointer-events: none;
 }
+.plate, .corner-plate {
+    color: var(--ui-text-color-primary);
+    font-family: Arial, 'Segoe UI', sans-serif;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    pointer-events: none;
+}
+.corner-plate {
+    position: absolute;
+    right: -4px;
+    bottom: -2px;
+    font-size: 11px;
+    line-height: 14px;
+}
 .is-locked {
     opacity: .45;
 }
@@ -152,14 +169,8 @@ function usePlaceholder(event: Event) {
     min-height: 21px;
     padding: 1px 2px 2px;
     box-sizing: border-box;
-    color: var(--ui-text-color-primary);
-    font-family: Arial, 'Segoe UI', sans-serif;
     font-size: 14px;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
     line-height: 18px;
     text-align: center;
-    white-space: nowrap;
-    pointer-events: none;
 }
 </style>

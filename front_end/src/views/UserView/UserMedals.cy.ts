@@ -29,14 +29,12 @@ function summary(scanPending: boolean, series: MedalSeries = MedalSeries.REGISTE
         rank: null,
         hidden: false,
         annotation: '',
-        score: 1,
         grant_id: 1,
         scope_key: '',
         thresholds: [1],
     };
     return {
         scan_pending: scanPending,
-        score: scanPending ? 0 : 1,
         max_pins: 6,
         pin_ids: scanPending ? [] : [1],
         pins: scanPending ? [] : [item],
@@ -60,7 +58,7 @@ function createProfileRouter() {
         history: createMemoryHistory(),
         routes: [
             { path: '/', redirect: '/player/1/top' },
-            ...['top', MedalKind.PB, 'record', 'upload'].map((tab) => ({ path: `/player/:id/${tab}`, name: `user-${tab}`, component: page })),
+            ...['top', 'pb', 'record', 'upload'].map((tab) => ({ path: `/player/:id/${tab}`, name: `user-${tab}`, component: page })),
         ],
     });
 }

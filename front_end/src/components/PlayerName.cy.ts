@@ -9,6 +9,7 @@ import { getDatabase, USER_INFO_STORE_NAME } from '@/services/database';
 import { syncMedalsAfterUpload } from '@/services/medalService';
 import { setMedalOverride } from '@/services/staffMedalService';
 import { serviceConfig } from '@/services/store';
+import { invalidateUserInfo } from '@/services/userService';
 import { local } from '@/store/local';
 import { hashRouter, installHashHistoryCleanup } from '@cy/support/hashHistory';
 

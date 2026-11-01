@@ -24,6 +24,7 @@ describe('shared medal appearance', () => {
         expect(medalScoreTier('ability.time.b', 12000)).toBe(1);
         expect(medalScoreTier('ability.time.b', 10000)).toBe(2);
         expect(medalScoreTier('ability.time.e', 120000)).toBe(2);
+        expect(medalScoreTier('ability.time.i', 20000)).toBe(medalScoreTier('ability.time.i', 15000));
         expect(medalScoreTier('ability.thrp.nf.e', 95000)).toBe(4);
     });
     it('uses explicit definitions for stars and never mistakes three-level completion or code suffixes for Expert', () => {

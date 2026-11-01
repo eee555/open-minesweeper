@@ -27,7 +27,7 @@
                 </div>
                 <ol class="pin-preview">
                     <li v-for="(item, index) in displayedPins" :key="itemKey(item)">
-                        <MedalArt :series="item.series" :code="item.code" :stage="item.stage" :size="48" />
+                        <MedalArt :series="item.series" :code="item.code" :stage="item.stage" :size="64" corner-plate />
                         <span>{{ titleOf(item) }}</span>
                         <div v-if="editing && canEdit" class="toolbar">
                             <BaseButton :disabled="saving || index === 0" :aria-label="t('local.earlier')" @click="movePin(index, -1)">

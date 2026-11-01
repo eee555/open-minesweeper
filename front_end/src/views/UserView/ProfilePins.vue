@@ -1,7 +1,7 @@
 <template>
     <div v-show="pins.length" class="pins" :class="{ compact }" :tabindex="compact ? 0 : undefined">
         <div v-for="pin in pins" :key="pin.grant_id ?? pin.code" :title="medalCaption(pin.series, pin.code, pin.stage, locale).title" class="pin" :class="{ 'pin-ring': showRing(pin) }">
-            <MedalArt v-if="pin.stage != null" :series="pin.series" :code="pin.code" :stage="pin.stage" :size="compact ? 32 : 48" />
+            <MedalArt v-if="pin.stage != null" :series="pin.series" :code="pin.code" :stage="pin.stage" :size="compact ? 32 : 56" corner-plate />
             <span class="series">{{ seriesLabel(pin.series) }}</span>
             <span v-if="!medalArtPlate(pin.series, pin.stage)" class="stage">{{ stageLabel(pin) }}</span>
             <span v-if="showRing(pin)" class="count">{{ pin.current_value }}</span>
@@ -81,7 +81,7 @@ onDeactivated(() => {
     justify-content: flex-start;
     width: calc(50% - 2px);
     min-height: 36px;
-    padding: 2px 4px;
+    padding: 2px 0;
     border: 1px solid var(--ui-border-color);
     border-radius: 4px;
 }

@@ -1,7 +1,7 @@
 <template>
     <article class="medal-row">
         <div class="row-summary">
-            <MedalArt class="main-art" :series="item.series" :code="item.code" :stage="displayStage" :size="64" />
+            <MedalArt :series="item.series" :code="item.code" :stage="displayStage" :size="80" corner-plate />
             <div class="summary-copy">
                 <h3>{{ medalDisplayName(item.series, item.code, displayStage, locale) }}</h3>
                 <p>{{ caption.meaning }}</p>
@@ -29,7 +29,7 @@
             </div>
             <div ref="track" class="stage-track" tabindex="0" :aria-label="caption.title" @keydown.left.prevent="scroll(-1)" @keydown.right.prevent="scroll(1)">
                 <button v-for="(stage, index) in item.thresholds" :key="stage" type="button" class="stage-node" :class="{ current: index === currentIndex, pending: index > currentIndex }" :aria-current="index === currentIndex ? 'step' : undefined" @click="preview(stage)">
-                    <MedalArt :series="item.series" :code="item.code" :stage="stage" :size="40" />
+                    <MedalArt :series="item.series" :code="item.code" :stage="stage" :size="56" corner-plate />
                     <span v-if="!medalArtPlate(item.series, stage) && medalStageLabel(item.series, stage)" class="stage-label">{{ stageLabel(stage) }}</span>
                     <span class="stage-status">{{ status(index) }}</span>
                 </button>
@@ -184,7 +184,7 @@ const { locale } = useI18n({ useScope: 'global' });
     display: flex;
     align-items: flex-start;
     gap: 12px;
-    flex: 1 1 280px;
+    flex: 0 1 280px;
     min-width: 0;
 }
 .summary-copy {
@@ -235,12 +235,6 @@ p, .stage-status, .track-controls {
     color: var(--ui-text-color-primary);
     font: inherit;
     cursor: pointer;
-}
-.stage-node :deep(.medal-graphic) {
-    min-height: 61px;
-}
-.main-art {
-    min-height: 85px;
 }
 .flavor {
     margin-top: 8px;

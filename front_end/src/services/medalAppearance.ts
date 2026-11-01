@@ -11,7 +11,7 @@ export interface MedalAppearance {
 // These are display decisions, not percentiles or changes to award thresholds.
 const time = {
     b: [[20, 15, 12], [10, 8], [6, 5], [4, 3], [2, 1]],
-    i: [[150, 100, 80], [60, 50], [40, 30], [25, 20], [15, 12, 10]],
+    i: [[150, 100, 80], [60, 50], [40, 30], [25, 20, 15], [12, 10]],
     e: [[300, 200, 150], [120, 100], [90, 80], [70, 60], [50, 40, 30]],
 };
 const speed = {
