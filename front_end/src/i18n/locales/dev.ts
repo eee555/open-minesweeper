@@ -3,6 +3,7 @@ export default {
     nf: 'NF',
     platform: {
         d: 'Discord',
+        x: '95经典扫雷',
         m: 'Mineracer',
         w: 'Minesweeper.Online',
     },

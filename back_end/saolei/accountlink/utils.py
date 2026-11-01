@@ -32,6 +32,8 @@ def link_account(platform: Platform, linkid, user: UserProfile):
 def delete_account(user: UserProfile, platform: Platform):
     if platform == Platform.MINERACER:
         raise ExceptionToResponse('mineracer', 'unlink_not_supported', status_code=409)
+    if platform == Platform.CLASSIC:
+        raise ExceptionToResponse('classic', 'unlink_not_supported', status_code=409)
     if platform in PLATFORM_CONFIG:
         PLATFORM_CONFIG[platform]['model'].objects.filter(parent=user).delete()
 

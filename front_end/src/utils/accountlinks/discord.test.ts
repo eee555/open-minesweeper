@@ -39,6 +39,7 @@ describe('Discord account links', () => {
         const response: AccountLinksResponse = {
             summary: [{ id: 1, platform: 'd', identifier: '18446744073709551615', userprofile: 1, verified: true }],
             B: null,
+            x: null,
             m: null,
             c: null,
             a: null,
