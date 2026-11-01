@@ -37,7 +37,7 @@ import AccountLinkGuide from './Guide.vue';
 import BaseButtonCancel from '@/components/common/BaseButtonCancel.vue';
 import BaseButtonConfirm from '@/components/common/BaseButtonConfirm.vue';
 import { BaseIconAdd } from '@/components/common/icon';
-import { AccountLinks, manualAccountLinkPlatforms } from '@/utils/accountlinks';
+import { AccountLinks, isDiscordUserId, manualAccountLinkPlatforms } from '@/utils/accountlinks';
 import type { AccountLinkPlatform } from '@/utils/accountlinks';
 
 const props = defineProps({
@@ -62,6 +62,8 @@ watch(formvisible, (visible) => {
 
 const formValid = computed(() => {
     switch (form.value.platform) {
+        case 'd':
+            return isDiscordUserId(form.value.identifier);
         case 'B':
         case 'a':
         case 'c':

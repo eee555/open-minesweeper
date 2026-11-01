@@ -11,7 +11,9 @@
             />
         </template>
         <CardMineracer v-if="accountlinks.m" :id="accountlinks.m.id" :info="accountlinks.m" />
-        <CardDiscord v-if="accountlinks.d || isOwnAccountLinkPage" :info="accountlinks.d" :editable="isOwnAccountLinkPage" @refresh="refresh" />
+        <template v-for="platform of privateAccountLinkPlatforms" :key="platform">
+            <CardPrivate v-if="accountlinks.has(platform)" :id="accountlinks.getSummary(platform)!.identifier" :platform="platform" :verified="accountlinks.getSummary(platform)!.verified" />
+        </template>
         <CardAdd v-if="showManualAdd" :accountlinks="accountlinks" @add-link="addLink" />
         <CardAddMineracer v-if="showMineracerAdd" @refresh="refresh" />
     </div>
@@ -25,16 +27,16 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import CardAdd from './CardAdd.vue';
 import CardAddMineracer from './CardAddMineracer.vue';
 import CardBilibili from './CardBilibili.vue';
-import CardDiscord from './CardDiscord.vue';
 import CardMineracer from './CardMineracer.vue';
 import CardMsgames from './CardMsgames.vue';
+import CardPrivate from './CardPrivate.vue';
 import CardSaolei from './CardSaolei.vue';
 import CardWoM from './CardWoM.vue';
 
 import { httpErrorNotification } from '@/components/Notifications';
 import { addAccountLink, fetchAccountLinks } from '@/services/accountLinkService';
 import { store } from '@/store';
-import { AccountLinkPlatform, AccountLinks, manualAccountLinkPlatforms } from '@/utils/accountlinks';
+import { AccountLinkPlatform, AccountLinks, manualAccountLinkPlatforms, privateAccountLinkPlatforms } from '@/utils/accountlinks';
 import type { AccountLinkPlatform as AccountLinkPlatformType } from '@/utils/accountlinks';
 
 const props = defineProps({

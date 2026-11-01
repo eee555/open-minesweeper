@@ -19,11 +19,14 @@ export type AccountLinkPlatform = typeof AccountLinkPlatform[keyof typeof Accoun
 
 export const manualAccountLinkPlatforms = [
     AccountLinkPlatform.Bilibili,
+    AccountLinkPlatform.Discord,
     AccountLinkPlatform.MSGames,
     AccountLinkPlatform.QQ,
     AccountLinkPlatform.Saolei,
     AccountLinkPlatform.WoM,
 ] as const;
+
+export const privateAccountLinkPlatforms = [AccountLinkPlatform.QQ, AccountLinkPlatform.Discord] as const;
 
 interface AccountLinkPlatformProfile {
     url: string;

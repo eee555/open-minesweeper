@@ -32,6 +32,10 @@ const LINKS = {
         platform: '腾讯QQ',
         identifier: '123456789',
     },
+    discord: {
+        platform: 'Discord',
+        identifier: '18446744073709551615',
+    },
 } as const;
 
 function linkNewAccount(platform: string, identifier: string) {
@@ -174,6 +178,9 @@ describe('Account Link', () => {
         cy.visitUser(USER.id, 'accountlink');
 
         linkNewAccount(LINKS.qq.platform, LINKS.qq.identifier);
+        expectUnverifiedAccount(LINKS.qq.platform, LINKS.qq.identifier);
+        linkNewAccount(LINKS.discord.platform, LINKS.discord.identifier);
+        expectUnverifiedAccount(LINKS.discord.platform, LINKS.discord.identifier);
 
         cy.get('.account-link-main').find('.pi-plus').should('not.exist');
     });
@@ -187,6 +194,7 @@ describe('Account Link', () => {
             { platform: LINKS.msgames.platform, identifier: LINKS.msgames.identifier, verified: false },
             { platform: LINKS.bilibili.platform, identifier: LINKS.bilibili.identifier, verified: false },
             { platform: LINKS.qq.platform, identifier: LINKS.qq.identifier, verified: false },
+            { platform: LINKS.discord.platform, identifier: LINKS.discord.identifier, verified: false },
         ]);
     });
 
@@ -204,6 +212,11 @@ describe('Account Link', () => {
 
     it('Verify Bilibili Account', () => {
         staffVerifyAccount(LINKS.bilibili.platform, LINKS.bilibili.identifier);
+    });
+
+    it('Verify Private Accounts', () => {
+        staffVerifyAccount(LINKS.qq.platform, LINKS.qq.identifier);
+        staffVerifyAccount(LINKS.discord.platform, LINKS.discord.identifier);
     });
 
     it('Guest View - Should Not See Private Accounts', () => {

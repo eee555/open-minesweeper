@@ -2,7 +2,6 @@ from django.http import JsonResponse
 from ninja import NinjaAPI, Redoc
 
 from accountlink.api import router as accountlink_router
-from accountlink.discord.api import router as accountlink_discord_router
 from accountlink.msgames.api import router as accountlink_msgames_router
 from accountlink.saolei.api import router as accountlink_saolei_router
 from article.api import router as article_router
@@ -29,7 +28,6 @@ api.add_router('/common/', common_router)
 api.add_router('/monitor/', monitor_router)
 api.add_router('/userprofile/', userprofile_router)
 api.add_router('/accountlink/', accountlink_router)
-api.add_router('/accountlink/discord/', accountlink_discord_router)
 api.add_router('/accountlink/msgames/', accountlink_msgames_router)
 api.add_router('/accountlink/saolei/', accountlink_saolei_router)
 api.add_router('/article/', article_router)
