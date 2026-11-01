@@ -26,7 +26,7 @@ ID 和资料仅为示例，须替换为已核实的空缺；另支持 `--firstna
 
 ### `sync_saolei_api`
 
-位置：`accountlink/management/commands/sync_saolei_api.py`。使用服务器 `secrets.json` 的 `saolei_api_key`，只处理已验证且关联一致的扫雷网账号。首批仅提供此管理命令，旧查询关闭，不开放新的 Web API，前端代码不动。
+位置：`accountlink/management/commands/sync_saolei_api.py`。使用服务器 `secrets.json` 的 `saolei_api_key`，只处理已验证且关联一致的扫雷网账号。首批由此命令完成；迁移后已开放新 Ninja API 与前端手动同步，并增加每日自动同步任务。站长命令不受用户 `auto_sync` 开关影响。
 
 部署时先使用已有 `backfill_video_hashes` 补齐存量原文件哈希，再运行 `makemigrations accountlink --noinput` 并核对生成结果，最后运行 `migrate`。迁移文件按仓库惯例不跟踪，编号取决于服务器已有历史；应生成删除旧 `VideoSaolei`、创建独立 `SaoleiApiVideo` 及账号字段变更的结构迁移，保留账号绑定、本站录像、扩展记录及文件。首次运行可先指定一个扫雷网账号 ID 核对结果，再处理全部绑定：
 
@@ -34,17 +34,21 @@ ID 和资料仅为示例，须替换为已核实的空缺；另支持 `--firstna
 python manage.py sync_saolei_api --account-id 101 --full
 python manage.py sync_saolei_api --all-linked --full
 python manage.py sync_saolei_api --all-linked
+python manage.py sync_saolei_api --all-linked --phase metadata
+python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 ```
 
-`--account-id` 可重复指定；`--all-linked` 表示全部已验证绑定，两者必须选择其一。`--full` 从 0 重新扫描目录，不清空数据、不回退账号成功游标；去掉此选项用于增量和中断续跑。`--page-size` 默认为 200，取值 1 至 1000。命令发现任何存量录像缺少原文件哈希时拒绝同步。
+`--account-id` 可重复指定；`--all-linked` 表示全部已验证绑定，两者必须选择其一。`--full` 从 0 重新扫描目录，不清空数据、不回退账号成功游标；去掉此选项用于增量和中断续跑。`--page-size` 默认为 200，取值 1 至 1000。
 
-整个命令串行共用一个客户端，数据请求间隔 2.1 秒，文件请求间隔 0.4 秒；不要并行启动多个同步命令。目录页和 `AccountSaolei.video_sync_cursor` 同事务提交，失败不推进；目录同步后还会补导本地白名单内未完成的录像，避免游标已推进但文件未导入时漏导。软件精确白名单为 `Clone`、`Vienna`、`Arbiter`、`元扫雷`，其他名称只保存目录并跳过；上游 `status` 不限制导入。
+`--phase` 默认为 `all`：先完成选中账号的资料、目录和批量详情同步（`video_info` 每批最多 50 个 ID，保存 URL），再逐个下载导入。`--phase metadata` 只更新元数据，不下载文件；`--phase videos` 只使用已存 URL，不请求 `stats`、`video_list` 或 `video_info`，缺少 URL 的记录先运行 metadata 阶段补齐。`--limit` 是整轮导入的尝试次数上限（失败也计入），默认不限；`--full` 不能与 `--phase videos` 一起使用。涉及文件导入的阶段要求所有存量录像的原文件哈希完整，metadata 阶段不要求。
+
+整个命令串行共用一个客户端，数据请求间隔 2.1 秒，文件请求间隔 0.4 秒；Redis 节流与网页、每日目录调度和每小时导入 worker 共用，仍不要并行启动多个同步命令。目录页和 `AccountSaolei.video_sync_cursor` 同事务提交，失败不推进；详情及文件独立补取，避免游标已推进但后续未完成时漏导。软件精确白名单为 `Clone`、`Vienna`、`Arbiter`、`元扫雷`，其他名称只保存目录并跳过；上游 `status` 不限制导入。
 
 目录按 ID 严格大于已存游标续跑，`next_cursor` 可等于本页最后一条 ID，不自行加 1；跨过本轮 `stats().max_video_id` 时仅提交上界内的记录，游标最多保存到上界，下一轮仍能取得紧随上界的录像。
 
 本站文件校验直接拒收（`file/type`、`file/incomplete`、`file/level`、`file/review`）时，来源保存 `import_rejected=True`。首次拒收计入失败；后续增量及 `--full` 均跳过详情请求和文件下载，计入跳过数量，目录刷新保留标记。需要人工重试时，在 Django shell 中将指定来源的 `import_rejected` 清为 `False` 后重跑。网络、上游、配置、绑定及写入故障仍可重试；冻结或待审核等正常保存的录像不设置拒收标记。部署此字段变更也须先执行 `makemigrations accountlink --noinput` 和 `migrate`。
 
-同主文件哈希命中时复用既有本站录像，异主冲突不改归属或上传时间。单项失败保留成功进度并汇总，退出码非零；鉴权失败和限流立即停止，不自动重试。进度见命令输出和 `accountlink` 日志；客户端错误保留异常类型和具体原因，不输出认证头或响应体。接口关闭由站长人工鉴定，同步完成不自动开放接口。账号资料仅采用 ID、姓名和外站封禁状态，不同步成绩或标识列表。
+同主文件哈希命中时复用既有本站录像，异主冲突不改归属或上传时间。单项失败保留成功进度并汇总，退出码非零；鉴权失败和限流立即停止，不自动重试。进度见命令输出和 `accountlink` 日志；客户端错误保留异常类型和具体原因，不输出认证头或响应体。账号资料仅采用 ID、姓名和外站封禁状态，不同步成绩或标识列表。部署每日同步功能时自动生成并执行 `auto_sync` 默认开启字段的迁移，再重启 Web、worker 与统一 APScheduler；不重新清空来源表或全量导入。
 
 ## 勋章补发
 
@@ -448,6 +452,8 @@ python manage.py refresh_monitor_snapshot
 | 任务 | 频率 | 说明 |
 | --- | --- | --- |
 | `refresh_monitor_snapshot` | 启动时及每 5 分钟 | 生成统一监控 JSON；单实例执行，错过多次调度时合并执行 |
+| `sync_saolei_metadata_daily` | 每天 03:30（调度器时区，当前 UTC） | APScheduler 直接同步启用账号的资料和增量目录，每批最多 50 个 ID 补取详情及 URL；不下载文件、不创建 Django Task |
+| `import_saolei_hourly` | 每小时整点 | 入队一条低优先级 Django Task，按已存 URL 逐个导入启用账号的录像，整轮最多尝试 100 条（含失败）；上一轮未完成时不重复入队 |
 | `delete_old_job_executions` | 每天 00:03 | 清理超过 7 天的 APScheduler 执行记录 |
 | `delete_newest_queue` | 每天 01:08 | 按上传时间保留最新 1000 条，允许两次清理之间暂时超过上限 |
 | `delete_overdue_emailverifyrecord` | 每周一 01:03 | 清理 1 小时以前的邮箱验证码 |

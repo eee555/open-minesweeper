@@ -1,6 +1,6 @@
 import $axios from '@/http';
 import { AccountLinks } from '@/utils/accountlinks';
-import type { AccountLinkPlatform, AccountLinkQueueResponse, AccountLinksResponse, MSGamesImportResult, MSGamesImportSummary, MSGamesSyncResult, MSGamesVideo, SaoleiVideo, SaoleiVideoRaw } from '@/utils/accountlinks';
+import type { AccountLinkPlatform, AccountLinkQueueResponse, AccountLinksResponse, MSGamesImportResult, MSGamesImportSummary, MSGamesSyncResult, MSGamesVideo } from '@/utils/accountlinks';
 
 type AccountLinkUpdateErrorMessageCategory = 'cooldown' | 'empty' | 'indexerror' | 'pageempty' | 'requestexception' | 'timeout' | 'unknown';
 
@@ -54,21 +54,6 @@ function getAccountLinkUpdateErrorMessageCategory(category?: string): AccountLin
         return category as AccountLinkUpdateErrorMessageCategory;
     }
     return 'unknown';
-}
-
-export async function fetchSaoleiImportVideos(saoleiId: number): Promise<SaoleiVideo[]> {
-    const { data } = await $axios.get<SaoleiVideoRaw[]>('accountlink/saolei/videolist/get/', {
-        params: { saolei_id: saoleiId },
-    });
-    return data.map(normalizeSaoleiVideo);
-}
-
-function normalizeSaoleiVideo(video: SaoleiVideoRaw): SaoleiVideo {
-    return {
-        ...video,
-        import_video__id: video.import_video__id ?? 0,
-        import_task__status: video.import_task__status ?? 'NULL',
-    };
 }
 
 export async function fetchMSGamesVideos(msgamesId: number): Promise<MSGamesVideo[]> {

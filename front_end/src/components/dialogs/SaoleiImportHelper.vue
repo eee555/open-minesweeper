@@ -22,16 +22,16 @@ import { useI18n } from 'vue-i18n';
 
 const i18nMessages = {
     'zh-cn': { local: {
-        line_1: '扫雷网正在迁移，资料刷新和录像同步已关闭。',
-        line_2: '账号关联仍然可用，已关联的账号和已保存的资料予以保留。',
-        line_3: '您仍可通过管理按钮查看已收藏的录像和已有导入结果。',
-        line_4: '已导入的录像及其上传时间不受影响。',
+        line_1: '已绑定账号默认每日更新目录，每小时最多自动导入100个录像，可自行关闭。',
+        line_2: '手动同步先更新录像目录，再依次导入未完成的录像，请保持窗口打开。',
+        line_3: '仅接受 Clone、Vienna、Arbiter、元扫雷。本站明确拒收的录像不再自动下载。',
+        line_4: '同步中断后可继续；已导入的录像保持原有关联和审核结果。',
     } },
     en: { local: {
-        line_1: 'Profile refresh and replay synchronization are disabled while Saolei.wang migrates.',
-        line_2: 'Account linking remains available. Existing links and saved profiles are retained.',
-        line_3: 'The Manage button still shows collected replays and existing import results.',
-        line_4: 'Imported replays and their upload times are unchanged.',
+        line_1: 'Linked accounts update their catalogue daily and import up to 100 replays each hour by default. You can disable this.',
+        line_2: 'Manual sync updates the catalogue, then imports pending replays sequentially. Keep the window open.',
+        line_3: 'Only Clone, Vienna, Arbiter and 元扫雷 are supported. Locally rejected replays are not downloaded again.',
+        line_4: 'Interrupted sync can resume. Existing imports keep their links and review results.',
     } },
 };
 

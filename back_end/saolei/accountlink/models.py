@@ -42,6 +42,7 @@ class AccountSaolei(models.Model):
     banned = models.BooleanField(default=False)
     video_sync_cursor = models.PositiveBigIntegerField(default=0)
     video_update_time = models.DateTimeField(null=True)
+    auto_sync = models.BooleanField(default=True, help_text='每天自动增量同步扫雷网资料、录像目录及未完成的录像。')
 
 
 class SaoleiApiVideo(models.Model):

@@ -59,6 +59,8 @@ class APSchedulerRegistrationTests(TestCase):
                 'delete_overdue_tasks',
                 'refresh_tournament_score_reference',
                 'refresh_monitor_snapshot',
+                'sync_saolei_metadata_daily',
+                'import_saolei_hourly',
             },
         )
 
@@ -115,12 +117,14 @@ class APSchedulerRegistrationTests(TestCase):
 
         DjangoJob.objects.create(id='refresh_state_always', job_state=b'old monitor job')
         DjangoJob.objects.create(id='delete_freezed_video', job_state=b'old frozen video cleanup job')
+        DjangoJob.objects.create(id='sync_saolei_daily', job_state=b'old all-in-one Saolei job')
         DjangoJob.objects.create(id='delete_newest_queue', job_state=b'existing cleanup job')
 
         register_jobs(BackgroundScheduler())
 
         self.assertFalse(DjangoJob.objects.filter(id='refresh_state_always').exists())
         self.assertFalse(DjangoJob.objects.filter(id='delete_freezed_video').exists())
+        self.assertFalse(DjangoJob.objects.filter(id='sync_saolei_daily').exists())
         self.assertTrue(DjangoJob.objects.filter(id='delete_newest_queue').exists())
 
     def test_score_reference_job_runs_annually_in_utc_and_checks_on_startup(self):

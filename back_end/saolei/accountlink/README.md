@@ -6,11 +6,15 @@
 
 `POST /api/accountlink/unverify/` 以表单接收 `id`、`platform`、`identifier`。管理员解绑时同事务删除关联账号和申请队列行，待验证申请也可取消；用户随后可以用正确 ID 重新申请。已有隐藏资格与选择保留，Mineracer 仍禁止人工解绑。旧 `/accountlink/unverify/` 已移除。
 
-## 扫雷网迁移期间
+## 扫雷网同步
 
-首批迁移已实现，使用 `saolei-api==0.4.0` 的官方 Release wheel，版本与 SHA256 固定在依赖文件中。完整业务约定及下次更新范围见[扫雷网官方 API 接入方案](SAOLEI_API_IMPORT_PLAN.md)。本次未对现有业务库执行迁移或真实账号导入。
+首批迁移已由站长执行完成，使用 `saolei-api==0.4.0` 的官方 Release wheel，版本与 SHA256 固定在依赖文件中。完整业务约定见[扫雷网官方 API 接入方案](SAOLEI_API_IMPORT_PLAN.md)。
 
-接入分两次更新：首次仅由服务器管理命令完成已绑定账号的同步与录像导入，现有刷新、同步和导入接口继续关闭，旧列表和统计接口也关闭，不开发或改接新 API。前端代码不动；API 相关改动仅限关闭旧查询所需的路由和引用清理。接口关闭情况由站长人工鉴定，不新增自动化测试。同步完成后保持关闭，下次更新再开放新 Ninja API 和前端操作。账号关联申请、审核和已有绑定保留，审核成功不自动触发扫雷网同步。
+现在开放 `/api/accountlink/saolei/` 下的新 Ninja API 和前端账号卡片。权限统一在 API 层处理：只有已验证关联账号本人可以刷新资料、修改自动同步设置、同步目录或导入录像；本地目录和摘要可公开读取。每次手动请求只同步一页目录或导入一条录像，由前端顺序控制整个流程；关闭窗口或停止后保留已完成的进度。旧爬取接口和旧 Task 仍关闭，不恢复网页爬虫。
+
+`AccountSaolei.auto_sync` 默认 `True`，迁移后已有账号及新绑定账号均默认启用。自动同步分两阶段：统一 APScheduler 每天 03:30（调度器时区，当前 UTC）直接执行资料和增量目录同步，按每批最多 50 个录像 ID 调用 `video_info`，将详情及 URL 落库，不创建后台任务或下载文件；每小时整点入队一条低优先级 Django Task，只按已存 URL 逐个导入，整轮最多尝试 100 条，失败也计入上限，不再逐条请求详情。缺少 URL 的来源留待下一次目录阶段补取。小时任务仍 READY／RUNNING 时不重复入队。两个阶段都尊重开关和有效绑定；关闭后仍可手动同步，也不影响站长命令。
+
+网页、每日目录调度、每小时导入任务和管理命令通过 `ThrottledTransport` 共用 Redis 节流键，数据请求至少间隔 2.1 秒，文件请求至少间隔 0.4 秒。只协调站内共享配额，HTTP、认证、响应校验和下载继续复用依赖。竞争等待最多 6 秒，超时或上游限流返回 429 并停止当前手动流程，不无限重试。
 
 自动生成的结构迁移删除旧 `VideoSaolei` 来源模型及全部数据，创建独立的 `SaoleiApiVideo` 来源表；不按相同数字对应新旧来源 ID。账号绑定、已导入本站的 `VideoModel`、扩展记录和文件保留。重新取得的原文件按本站哈希查重，同主复用已有录像，异主冲突不关联或修改既有录像。`SaoleiApiVideo.import_video` 使用可空的 `OneToOneField`，同一条本站录像最多关联一条扫雷网来源记录。仓库不跟踪迁移文件，部署时沿用目标服务器的历史迁移自动生成并核对，不依赖开发机的迁移编号。
 
@@ -18,11 +22,11 @@
 
 `SaoleiApiVideo.file_url` 保存客户端规范化后的录像文件后缀，例如 `2023/04/16/sample.evf`；获取详情时更新并落库，导入从该字段下载文件。目录列表没有文件地址，刷新目录不会清空已保存的后缀；详情明确返回无文件时清空该字段并保留来源供重试。原录像网页链接的 `url` getter 已移除。
 
-账号资料只接入 `id`、`name` 和 `banned`，不使用任何账号成绩数据（`scores`、`scores_nf`）或 `signatures`，不进行账号成绩精度升级。`AccountSaolei` 删除旧成绩、人气、三级录像数量和 `video_import_task` 字段，仅保留账号 ID、用户关联、姓名、封禁状态、资料更新时间及录像目录的游标和完成时间。录像自身的成绩解析和文件内标识校验继续沿用现有业务。
+账号资料只接入 `id`、`name` 和 `banned`，不使用任何账号成绩数据（`scores`、`scores_nf`）或 `signatures`，不进行账号成绩精度升级。`AccountSaolei` 删除旧成绩、人气、三级录像数量和 `video_import_task` 字段，保留基础资料、同步游标及时间，并新增本地 `auto_sync` 设置。录像自身的成绩解析和文件内标识校验继续沿用现有业务。
 
 账号新增本地进度字段 `video_sync_cursor`（默认 0），保存上次成功落库的目录页对应的 `next_cursor`，供增量更新和中断续跑使用。后续请求返回 ID 大于游标的录像，`next_cursor` 可等于本页最后一条 ID，不自行加 1；本轮超过 `stats().max_video_id` 的记录留待下次处理，游标最多保存到该上界。目录记录与游标同事务提交，失败不推进；录像文件导入失败单独重试，不回退目录进度。`video_update_time` 仅在目录扫描完成后更新，不代表所有文件均已导入。
 
-新来源录像保存 `software` 原始软件名称，下次开放的目录接口和录像管理列表再使用此字段；本站录像的软件类型仍由实际文件解析确定。已完成[官方 API 软件名称抽样](SAOLEI_SOFTWARE_SURVEY.md)，包含 `Vienna` 和 `元扫雷3.3.4`（上游现已改名为 `元扫雷`）等实际取值。
+新来源录像保存 `software` 原始软件名称，目录接口和录像管理列表使用此字段；本站录像的软件类型仍由实际文件解析确定。已完成[官方 API 软件名称抽样](SAOLEI_SOFTWARE_SURVEY.md)，包含 `Vienna` 和 `元扫雷3.3.4`（上游现已改名为 `元扫雷`）等实际取值。
 
 新接入方案按软件白名单导入，仅接受 `software` 原字符串精确匹配的 `Clone`、`Vienna`、`Arbiter`、`元扫雷`。`Saolei.wang` 和其他白名单外取值保留来源目录记录，单条、批量、全站重建及重试均跳过导入，不下载文件；跳过与失败分别统计，`status` 仍不作为导入筛选条件。
 
@@ -32,7 +36,7 @@
 - 触发爬取的 `/accountlink/saolei_import_video/`、`/accountlink/saolei_import_videos/` 已移除，返回 HTTP 404。
 - 历史列表 `/accountlink/saolei/videolist/get/` 和统计 `/accountlink/saolei/videoimport/stat/` 已移除，对应视图及旧模型引用一并清理。
 - 三个旧 Django Task 路径保留为失败入口，处理升级前已入队的任务，并禁止管理员重启这些爬取任务。部署时需要重启 Web 和任务 worker，使它们加载新代码；不清除历史任务或业务数据。
-- 本轮不修改前端，保留现有禁用的同步操作；旧查询接口已关闭，下次更新再接入新目录与统计。
+- 前端使用新 Ninja 目录、摘要和同步接口，不再查询旧任务状态或旧来源字段。
 
 管理命令在同一进程共用客户端，串行完成资料、目录和文件导入，不创建 Django Task。部署后在服务器配置 `secrets.json` 中的 `saolei_api_key`，先核对原文件哈希并运行结构迁移，再小范围联调：
 
@@ -42,13 +46,15 @@ python manage.py makemigrations accountlink --noinput
 python manage.py migrate
 python manage.py sync_saolei_api --account-id 101 --full
 python manage.py sync_saolei_api --all-linked --full
+python manage.py sync_saolei_api --all-linked --phase metadata
+python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 ```
 
-`--account-id` 是扫雷网账号 ID，可重复指定；只处理已验证且与 `AccountSaolei.parent` 一致的绑定，不自动修复绑定。命令发现存量录像缺少哈希时拒绝同步。旧任务指针随结构迁移删除，不另设清理接口。
+`--account-id` 是扫雷网账号 ID，可重复指定；只处理已验证且与 `AccountSaolei.parent` 一致的绑定，不自动修复绑定。`--phase` 默认为 `all`，先批量更新所有选中账号的目录和详情，再逐个下载；`metadata` 只运行第一阶段，`videos` 只按本地 URL 导入，不请求 `stats`、列表或详情。`--limit` 限制整轮导入尝试数，默认不限；`--full` 仅用于 `all` 或 `metadata`。只有涉及文件导入的阶段要求存量录像哈希完整。旧任务指针随结构迁移删除，不另设清理接口。
 
 中断续跑或以后增量更新使用 `python manage.py sync_saolei_api --all-linked`，去掉 `--full`。每次运行还会扫描本地白名单内、尚未关联本站录像且未被本站文件校验拒收的记录，补导已入库但未完成的录像。`--full` 从 0 重新对账目录，不清空新表，也不回退已保存的成功游标。
 
-资料或单条录像失败不撤销绑定和既有成功结果；失败会汇总并返回非零退出码。鉴权失败或限流立即停止，不自动重试。来源缺少详情或文件保留重试机会；执行期间请勿并行运行多个使用同一 key 的同步命令。同步完成后接口和前端操作继续保持关闭。
+资料或单条录像失败不撤销绑定和既有成功结果；管理命令失败会汇总并返回非零退出码。鉴权失败或限流立即停止，不自动重试。来源缺少详情或文件保留重试机会；执行期间请勿并行运行多个同步命令。手动流程遇到明确文件拒收或冲突继续下一条，网络故障、鉴权或限流则停止后续请求；重新同步可补导未完成项。
 
 本站文件校验直接拒收（`file/type`、`file/incomplete`、`file/level`、`file/review`）后，导入事务回滚，再将来源的 `import_rejected` 置为 `True`。首次拒收仍计为失败并记录原因；之后的增量同步及 `--full` 都在下载前跳过，计入跳过数量，目录刷新不清除此标记。站长确认需要重试时，通过 Django shell 将该来源的 `import_rejected` 清为 `False` 后重跑即可，不提供额外接口。网络、上游、配置、绑定或写入故障不设置此标记。冻结、待审核及标识不匹配等能正常保存为本站录像的结果仍记为导入成功。
 
