@@ -1,3 +1,4 @@
+import { defineComponent, h } from 'vue';
 import type { ComponentProps } from 'vue-component-type-helpers';
 
 import EditProfile from './EditProfile.vue';
@@ -7,9 +8,11 @@ import i18n from '@/i18n';
 import { pinia } from '@/store/create';
 import { UserProfile } from '@/utils/userprofile';
 
-function mountOptions(props: ComponentProps<typeof EditProfile> = {}) {
-    return {
-        props: props,
+function mountProfile(props: ComponentProps<typeof EditProfile> = {}) {
+    cy.mount(defineComponent({
+        expose: [],
+        render: () => h(EditProfile, props),
+    }), {
         global: {
             plugins: [i18n, pinia],
             config: {
@@ -18,7 +21,7 @@ function mountOptions(props: ComponentProps<typeof EditProfile> = {}) {
                 },
             },
         },
-    };
+    });
 }
 
 function findLocalNameInput() {
@@ -57,7 +60,7 @@ describe('EditProfile', () => {
         it(`automatically saves hide_realname=${String(hide)} when toggled`, () => {
             const user = new UserProfile({ realname: 'Real Name', can_hide_realname: true, hide_realname: !hide });
             mockPrivacyResponse(hide);
-            cy.mount(EditProfile, mountOptions({ user }));
+            mountProfile({ user });
             cy.get('[data-cy=real-name-section] .realname-heading').should('contain.text', 'Real Name').find('label').should('have.attr', 'title').and('contain', 'Changes save automatically.');
             if (hide) cy.get('[data-cy=real-name-section] [data-cy=hide-realname-toggle]').check();
             else cy.get('[data-cy=real-name-section] [data-cy=hide-realname-toggle]').uncheck();
@@ -74,7 +77,7 @@ describe('EditProfile', () => {
     it('saves a new real name and hiding together only after clicking Save', () => {
         const user = new UserProfile({ can_hide_realname: true });
         mockUpdateResponse({ realname: { type: 'success' }, firstname: null, lastname: null, signature: null, hide_realname: { type: 'success' } });
-        cy.mount(EditProfile, mountOptions({ user }));
+        mountProfile({ user });
         cy.get('[data-cy=hide-realname-toggle]').should('not.exist');
         findLocalNameInput().type('Real Name');
         cy.get('[data-cy=hide-realname-toggle]').should('not.be.checked').check();
@@ -95,7 +98,7 @@ describe('EditProfile', () => {
         const user = new UserProfile({ realname: 'Real Name', can_hide_realname: true, signature: 'Original', left_signature_n: 1 });
         mockPrivacyResponse(true);
         mockUpdateResponse({ realname: null, firstname: null, lastname: null, signature: null });
-        cy.mount(EditProfile, mountOptions({ user, expTimeMs: 30000 }));
+        mountProfile({ user, expTimeMs: 30000 });
         findFirstNameInput().type('Draft');
         findSignatureInput().clear();
         findSignatureInput().type('Unsaved signature');
@@ -116,7 +119,7 @@ describe('EditProfile', () => {
     it('restores the saved hiding state when the privacy API rejects the change', () => {
         const user = new UserProfile({ realname: 'Real Name', can_hide_realname: true });
         cy.intercept('POST', '/api/userprofile/name-privacy', { statusCode: 403, body: { type: 'error', object: 'privacy', category: 'not_authorized' } }).as('updatePrivacy');
-        cy.mount(EditProfile, mountOptions({ user }));
+        mountProfile({ user });
         cy.get('[data-cy=hide-realname-toggle]').check();
         cy.wait('@updatePrivacy');
         cy.contains('You are not authorized to hide your real name');
@@ -129,7 +132,7 @@ describe('EditProfile', () => {
     it('restores the saved privacy checkbox when the save is rate limited', () => {
         const user = new UserProfile({ realname: 'Real Name', can_hide_realname: true });
         cy.intercept('POST', '/api/userprofile/name-privacy', { statusCode: 429 }).as('updatePrivacy');
-        cy.mount(EditProfile, mountOptions({ user }));
+        mountProfile({ user });
         cy.get('[data-cy=hide-realname-toggle]').check();
         cy.wait('@updatePrivacy').its('response.statusCode').should('eq', 429);
         cy.get('[data-cy=hide-realname-toggle]').should('not.be.checked').and('not.be.disabled');
@@ -140,7 +143,7 @@ describe('EditProfile', () => {
 
     it('rejects reserved names before posting', () => {
         cy.intercept('POST', '/api/userprofile/update_profile').as('save');
-        cy.mount(EditProfile, mountOptions({ user: new UserProfile() }));
+        mountProfile({ user: new UserProfile() });
         findLocalNameInput().type('hidden');
         cy.get('[data-cy=save-profile]').click();
         cy.contains('A name cannot be the reserved value hidden');
@@ -149,9 +152,9 @@ describe('EditProfile', () => {
 
     describe('Local name', () => {
         it('Disabled', () => {
-            cy.mount(EditProfile, mountOptions({
+            mountProfile({
                 user: new UserProfile({ realname: 'realname' }),
-            }));
+            });
 
             findLocalNameInput().should('be.disabled');
         });
@@ -170,9 +173,9 @@ describe('EditProfile', () => {
                 lastname: null,
             });
 
-            cy.mount(EditProfile, mountOptions({
+            mountProfile({
                 user: user,
-            }));
+            });
 
             findLocalNameInput().type('realname');
             cy.get('button').contains('Save').click();
@@ -192,9 +195,9 @@ describe('EditProfile', () => {
 
     describe('International name', () => {
         it('First name - disabled', () => {
-            cy.mount(EditProfile, mountOptions({
+            mountProfile({
                 user: new UserProfile({ firstname: 'firstname' }),
-            }));
+            });
 
             findFirstNameInput().should('be.disabled');
         });
@@ -213,9 +216,9 @@ describe('EditProfile', () => {
                 lastname: null,
             });
 
-            cy.mount(EditProfile, mountOptions({
+            mountProfile({
                 user: user,
-            }));
+            });
 
             findFirstNameInput().type('firstname');
             cy.get('button').contains('Save').click();
@@ -233,9 +236,9 @@ describe('EditProfile', () => {
         });
 
         it('Last name - disabled', () => {
-            cy.mount(EditProfile, mountOptions({
+            mountProfile({
                 user: new UserProfile({ lastname: 'lastname' }),
-            }));
+            });
 
             findLastNameInput().should('be.disabled');
         });
@@ -254,9 +257,9 @@ describe('EditProfile', () => {
                 lastname: { type: 'success' },
             });
 
-            cy.mount(EditProfile, mountOptions({
+            mountProfile({
                 user: user,
-            }));
+            });
 
             findLastNameInput().type('lastname');
             cy.get('button').contains('Save').click();
@@ -276,20 +279,20 @@ describe('EditProfile', () => {
 
     describe('Signature', () => {
         it('Disabled - no budget', () => {
-            cy.mount(EditProfile, mountOptions({
+            mountProfile({
                 user: new UserProfile({ left_signature_n: 0 }),
                 expTimeMs: 30000,
-            }));
+            });
 
             findSignatureInput().should('be.disabled');
             cy.contains('You gain one chance to modify your signature each month. You have no chance remaining. Next available on: 2025-02-01 08:00:00');
         });
 
         it('Disabled - exp sup 200', () => {
-            cy.mount(EditProfile, mountOptions({
+            mountProfile({
                 user: new UserProfile({ left_signature_n: 1 }),
                 expTimeMs: 999999,
-            }));
+            });
 
             findSignatureInput().should('be.disabled');
             cy.contains('Achieve expert sub200 to change signature');
@@ -311,10 +314,10 @@ describe('EditProfile', () => {
                 signature: { type: 'success' },
             });
 
-            cy.mount(EditProfile, mountOptions({
+            mountProfile({
                 user: user,
                 expTimeMs: 30000,
-            }));
+            });
 
             findSignatureInput().clear();
             findSignatureInput().type('Updated signature');
@@ -344,10 +347,10 @@ describe('EditProfile', () => {
                 },
             });
 
-            cy.mount(EditProfile, mountOptions({
+            mountProfile({
                 user: new UserProfile({ left_signature_n: 1 }),
                 expTimeMs: 30000,
-            }));
+            });
 
             findSignatureInput().type('censorship.unknown');
             cy.get('button').contains('Save').click();
@@ -367,10 +370,10 @@ describe('EditProfile', () => {
                 },
             });
 
-            cy.mount(EditProfile, mountOptions({
+            mountProfile({
                 user: new UserProfile({ left_signature_n: 1 }),
                 expTimeMs: 30000,
-            }));
+            });
 
             findSignatureInput().type('censorship.illegal');
             cy.get('button').contains('Save').click();
@@ -381,10 +384,10 @@ describe('EditProfile', () => {
 
     describe('Buttons', () => {
         it('Cancel', () => {
-            cy.mount(EditProfile, mountOptions({
+            mountProfile({
                 user: new UserProfile({ signature: 'Original signature', left_signature_n: 1 }),
                 expTimeMs: 30000,
-            }));
+            });
 
             findSignatureInput().clear();
             findSignatureInput().type('Unsaved signature');
@@ -397,9 +400,9 @@ describe('EditProfile', () => {
                 throw new Error('Unexpected API call');
             }).as('updateProfile');
 
-            cy.mount(EditProfile, mountOptions({
+            mountProfile({
                 user: new UserProfile(),
-            }));
+            });
 
             cy.get('button').contains('Save').click();
             cy.get('@updateProfile.all').should('have.length', 0);
