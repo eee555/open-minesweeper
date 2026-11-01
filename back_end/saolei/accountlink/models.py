@@ -16,9 +16,12 @@ class Platform(models.TextChoices):
     QQ = 'q', ('腾讯QQ')
     SAOLEI = 'c', ('扫雷网')
     WOM = 'w', ('Minesweeper.Online')
+    CLASSIC = 'x', ('95经典扫雷')
 
 
 MINERACER_USERID_MAX_LENGTH = 64
+CLASSIC_USERID_MIN = 10000000
+CLASSIC_USERID_MAX = 99999999
 
 
 # 用于验证的队列
@@ -192,6 +195,34 @@ class AccountMineracer(models.Model):
     update_time = models.DateTimeField(auto_now=True, verbose_name='Update time', help_text='Time when this Mineracer account link was last updated.')
 
 
+class AccountClassicMinesweeper(models.Model):
+    id = models.PositiveBigIntegerField(primary_key=True, verbose_name='95 Classic UID', help_text='8-digit player UID shown in the 95 Classic Minesweeper mini game.')
+    parent = models.OneToOneField(UserProfile, on_delete=models.CASCADE, related_name='account_classic', verbose_name='OpenMS user', help_text='OpenMS user linked to this 95 Classic Minesweeper account.')
+    update_time = models.DateTimeField(auto_now=True, verbose_name='Update time', help_text='Time when this 95 Classic Minesweeper account link was last updated.')
+
+
+# 95经典扫雷的绑定需玩家在小游戏内确认，requestId 由对方签发，回调按它幂等。
+class ClassicBindRequest(models.Model):
+    class Status(models.TextChoices):
+        PENDING = 'pending', ('Pending')
+        ALLOWED = 'allow', ('Allowed')
+        DENIED = 'deny', ('Denied')
+        REVOKED = 'revoke', ('Revoked')
+        EXPIRED = 'expired', ('Expired')
+        CONFLICT = 'conflict', ('Conflict')
+
+    request_id = models.PositiveBigIntegerField(unique=True, help_text='requestId returned by 95 Classic Minesweeper, reused as the callback idempotency key.')
+    uid = models.PositiveBigIntegerField(unique=True, verbose_name='95 Classic UID', help_text='One row per player UID; a new request overwrites the previous outcome.')
+    userprofile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='classic_bind_requests')
+    account = models.CharField(max_length=128, help_text='OpenMS username sent to the remote app and echoed back in callbacks.')
+    status = models.CharField(max_length=8, choices=Status.choices, default=Status.PENDING)
+    expires_at = models.DateTimeField()
+    error_category = models.CharField(max_length=32, default='', blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    handled_at = models.DateTimeField(null=True)
+
+
 # 使用QQ互联提供的登录接口需要开发者注册，步骤繁琐，不利于去中心化
 class AccountQQ(models.Model):
     id = models.PositiveBigIntegerField(primary_key=True)
@@ -214,6 +245,10 @@ PLATFORM_CONFIG = {
     Platform.MINERACER: {
         'model': AccountMineracer,
         'related_name': 'account_mineracer',
+    },
+    Platform.CLASSIC: {
+        'model': AccountClassicMinesweeper,
+        'related_name': 'account_classic',
     },
     Platform.SAOLEI: {
         'model': AccountSaolei,

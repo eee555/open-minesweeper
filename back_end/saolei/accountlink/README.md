@@ -58,6 +58,68 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 
 本站文件校验直接拒收（`file/type`、`file/incomplete`、`file/level`、`file/review`）后，导入事务回滚，再将来源的 `import_rejected` 置为 `True`。首次拒收仍计为失败并记录原因；之后的增量同步及 `--full` 都在下载前跳过，计入跳过数量，目录刷新不清除此标记。站长确认需要重试时，通过 Django shell 将该来源的 `import_rejected` 清为 `False` 后重跑即可，不提供额外接口。网络、上游、配置、绑定或写入故障不设置此标记。冻结、待审核及标识不匹配等能正常保存为本站录像的结果仍记为导入成功。
 
+## 95经典扫雷接入
+
+95经典扫雷是微信小游戏，合规限制使它不能引导玩家跳转外链，因此采用「本站发起、小游戏内确认、对方回调」的绑定模型，与 Mineracer 的轮询模型和手填 ID 的人工审核模型都不同。
+
+### 流程
+
+1. 已登录用户提交自己在小游戏荣誉页看到的 8 位 UID。
+2. 本站带 `api_key` 请求对方的 `/v1/ext/bind/request`，`account` 传本站用户名，`callback` 传本站回调地址。
+3. 玩家在小游戏内确认或拒绝。
+4. 对方回调本站，`result` 为 `allow` / `deny`，玩家之后主动解绑时为 `revoke`。
+
+只有 `allow` 回调会建立绑定，`deny` 只记录结果；`revoke` 回调删除本站绑定和申请队列行。受理本身不代表绑定成功，未确认前不写 `AccountLinkQueue`。
+
+### 数据模型
+
+- `Platform.CLASSIC` 使用平台码 `x`。
+- `AccountClassicMinesweeper.id` 保存 8 位 UID，`parent` 使用 `related_name='account_classic'`。
+- `ClassicBindRequest` 按 `uid` 与 `request_id` 各唯一一行，保存申请状态、过期时间和错误分类；同一 UID 重新申请会覆盖该行，`request_id` 是回调幂等键。
+
+### 接口
+
+- `POST /api/accountlink/classic/start/`：登录用户提交 `uid`，限流 `6/h`。已有未过期申请时直接复用，不重复请求对方；UID 已被他人绑定或他人有未处理申请时返回 `identifier_conflict` / `pending`。
+- `GET /api/accountlink/classic/status/`：返回当前用户最近一次申请，前端据此轮询；`status` 为 `none` 表示没有申请。
+- `POST /api/accountlink/classic/callback`：接收对方回调，不登录，仅靠签名鉴权。
+
+旧接口一律拒绝：`create_account_link`、staff `verify_link`、staff `unverify_link`、`delete_link`、`update_link`，以及 `delete_account` 的内部调用，避免绕过回调伪造绑定或绕过对方解除绑定。
+
+### 签名与错误分类
+
+回调必须携带 `X-Ext-Timestamp` 与 `X-Ext-Signature`，签名内容为 `HMAC_SHA256(app_secret, timestamp + "." + 原始请求体)`，使用原始字节、常量时间比较，时间戳窗口 300 秒。校验通过后再用 `requestId` 反查申请，并核对 `uid`、`account` 与申请一致，不直接信任请求体。
+
+远端错误码映射：`40001 → bad_request`、`40002 → bad_callback`、`40101 → unauthorized`、`40301 → app_mismatch`、`40401 → uid_not_found`、`40901 → already_bound`、`40902 → denied_recently`、`40903 → revoked_recently`、`42901 → rate_limited`；其余响应与网络故障分别映射为 `response`、`requestexception`、`timeout`。
+
+### 一致性与重试
+
+- 整个回调在一个事务内完成：先按 `requestId` 加锁命中原申请行，再核对 `uid` / `account`，然后才分支处理。同一 UID 的新申请会覆盖旧行，此时迟到的旧回调查不到 `requestId`，返回 404，不会绑定到新申请人。
+- `allow` 复用 `save_verified_account_link`，在事务内完成绑定，重复投递直接返回成功。
+- 发起绑定的写库是幂等的：远端对同一 `(uid, app, account)` 会返回同一个 `requestId`，此时保留已有的 `allow` / `deny` / `revoke`，不退回 `pending`，也不清空 `handled_at`；覆盖前还会重新检查该用户是否已完成绑定。
+- 本地冲突重试无法自愈，记 `conflict` 并写 ERROR 日志，仍返回 2xx 停止对方重试，留待人工处理。
+- 状态查询只把「仍是 pending 且已过期」的记录用条件 UPDATE 收敛为 `expired`，不会覆盖并发到达的 `allow`。
+- 回调只做数据库写入，不触发资料同步或录像导入，满足对方 3 秒响应的要求。
+- 发起绑定会同步等待对方受理。`requests` 的 `timeout` 只是单次读空闲上限，慢速滴流响应会让整次调用远超预算，因此客户端改为 `stream=True` 逐字节读取并按 `CLASSIC_TIMEOUT` 检查整体截止时间（连接 2 秒、总计 5 秒）；`default.conf` 为该路径预留 8 秒网关预算，三者依次递增，浏览器才能拿到后端 JSON 错误而不是 504。
+- 对方没有绑定状态查询接口，回调 4 次重试全部失败即丢失事件，只能按 `requestId` 人工对账；`ClassicBindRequest` 因此不设自动清理。
+
+### 配置
+
+`settings.py` 提供 `CLASSIC_BIND_URL`、`CLASSIC_BIND_CALLBACK_URL`、`CLASSIC_BIND_EXPIRES_IN`（60~604800，默认 86400）、`CLASSIC_BIND_TIMEOUT` 与 `CLASSIC_CALLBACK_TOLERANCE_SECONDS`。凭证不入代码、不入构建产物：
+
+- `secrets.json` 的 `classic_bind_api_key`：发起绑定用，运行期读取。
+- `secrets.json` 的 `classic_callback_app_secret`：回调验签用，运行期读取。
+
+回调地址必须是对方报备白名单内的 https 公网域名，并按其要求公开可达。本模块暂不导入对方录像，录像列表与下载留待后续更新。
+
+部署顺序：先在 `secrets.json` 写入两项凭证，并把回调地址报备给对方，再生成并应用结构迁移，最后重启 Web 进程让新路由生效：
+
+```bash
+python manage.py makemigrations accountlink --noinput
+python manage.py migrate
+```
+
+回调用例需要真实签名，联调时可先在对方测试环境用一个小号 UID 走完整流程，再观察 `logs/accountlink.log` 中的「绑定申请已提交 / 绑定完成 / 玩家解除绑定」记录。`conflict` 表示回调时本地已存在冲突（该 UID 或该用户已绑定其他账号），需要人工核对并处理冲突的绑定关系，用户重新提交即可覆盖旧申请。
+
 ## Mineracer 接入现状
 
 Mineracer 提供的账号关联方式不是现有的“用户手填平台 ID，管理员人工验证”流程，而是更接近 OAuth 2.0 Device Authorization Grant 的确认模型。

@@ -17,6 +17,8 @@ def delete_link(request):
         return HttpResponseBadRequest()
     if platform == Platform.MINERACER:
         return ExceptionToResponse('mineracer', 'unlink_not_supported', status_code=409).response()
+    if platform == Platform.CLASSIC:
+        return ExceptionToResponse('classic', 'unlink_not_supported', status_code=409).response()
     if accountlink := AccountLinkQueue.objects.filter(platform=platform, userprofile=request.user).first():
         if accountlink.verified:
             delete_account(request.user, platform)

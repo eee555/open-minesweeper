@@ -87,6 +87,7 @@ export default {
         a: '@:website.msgames',
         B: '@:website.bilibili',
         c: '@:website.saolei',
+        x: '95 Classic Minesweeper',
         m: 'Mineracer',
         q: 'Tencent QQ',
     },

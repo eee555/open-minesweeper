@@ -14,6 +14,7 @@ describe('<CardAdd />', () => {
                 { id: 1, platform: AccountLinkPlatform.Saolei, identifier: '101', userprofile: 1, verified: true },
             ],
             B: null,
+            x: null,
             m: null,
             c: mockSaoleiResponse(),
             a: null,
