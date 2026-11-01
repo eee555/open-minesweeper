@@ -1,4 +1,4 @@
-import type { AccountLinkQueueResponse } from '@/utils/accountlinks';
+import type { AccountLinkQueueResponse } from '../../src/utils/accountlinks/common';
 
 const STAFF = {
     id: 1,
