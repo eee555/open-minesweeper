@@ -188,3 +188,8 @@ front_end/yarn.lock
 /back_end/saolei/tmp/
 # Local cross-process ranking lock; never remove while workers are running.
 /back_end/saolei/runtime/
+
+# Local medal design drafts and implementation notes; not release assets.
+/docs/medal/artwork-drafts/
+/docs/medal/勋章界面改版计划.md
+/docs/medal/勋章美术与配色改版计划.md

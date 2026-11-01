@@ -5,8 +5,8 @@
     <div v-else class="staff-medals">
         <form class="player-form" @submit.prevent="loadPlayer()">
             <label>
-                {{ t('prop.userId') }}
-                <ElInputNumber v-model="userId" :min="1" :precision="0" :controls="false" :disabled="saving" :aria-label="t('prop.userId')" />
+                {{ t('common.prop.userId') }}
+                <ElInputNumber v-model="userId" :min="1" :precision="0" :controls="false" :disabled="saving" :aria-label="t('common.prop.userId')" />
             </label>
             <BaseButton native-type="submit" :disabled="!validUser || saving" :loading="loading">
                 {{ t('local.reload') }}

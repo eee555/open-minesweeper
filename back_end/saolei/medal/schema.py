@@ -43,7 +43,6 @@ class MedalItemOut(Schema):
     rank: int | None
     hidden: bool
     annotation: str
-    score: int
     grant_id: int | None
     scope_key: str
     thresholds: list[int]
@@ -56,7 +55,6 @@ class SeriesOut(Schema):
 
 class PlayerMedalOut(Schema):
     scan_pending: bool
-    score: int
     max_pins: int
     pin_ids: list[int]
     pins: list[MedalItemOut]

@@ -119,13 +119,12 @@ def scale_units(value, scale):
 def _spec(**kwargs):
     row = {
         'subseries': '', 'level': '', 'style': '', 'scope': {}, 'depends_on': [], 'hidden': False,
-        'score_by_stage': [], 'active': True, 'annotation': '',
+        'active': True, 'annotation': '',
     }
     row.update(kwargs)
     row['thresholds'] = list(row['thresholds'])
     row['scope'] = dict(row['scope'])
     row['depends_on'] = list(row['depends_on'])
-    row['score_by_stage'] = list(row['score_by_stage'])
     return row
 
 

@@ -61,7 +61,7 @@ class MedalShellFixture(MedalTestCase):
         self.user = UserProfile.objects.create_user(username='medal_user', email='medal-user@example.com', password='password')
         self.definition = MedalDefinition.objects.create(
             code='ability.time.b', series=Medal_TextChoices.Series.BREAKTHROUGH, subseries='破限', kind=Medal_TextChoices.Kind.PB, metric='timems',
-            direction=Medal_TextChoices.Direction.DESC, level='b', thresholds=[60000, 50000, 20000], score_by_stage=[3, 5, 8], active=True,
+            direction=Medal_TextChoices.Direction.DESC, level='b', thresholds=[60000, 50000, 20000], active=True,
         )
         self.granted_at = timezone.now() - timedelta(days=3)
 
@@ -126,8 +126,9 @@ class MedalShellTests(MedalShellFixture):
         self.assertEqual(higher.granted_at, self.granted_at)
         self.assertEqual([item['stage'] for item in higher.stage_log], [60000, 50000])
         summary = player_summary(self.user.id)
-        self.assertEqual(summary['score'], 5)
         ability = next(item for group in summary['series'] for item in group['items'] if item['code'] == 'ability.time.b')
+        self.assertEqual(ability['grant_id'], higher.id)
+        self.assertEqual(ability['stage'], 50000)
         self.assertEqual(ability['next_threshold'], 20000)
 
         self.definition.thresholds = [10000]
@@ -505,7 +506,6 @@ class BasicMedalTests(MedalTestCase):
         self.assertEqual(definition.thresholds[1], 15000)
         self.assertTrue(definition.active)
         self.assertFalse(definition.hidden)
-        self.assertEqual(definition.score_by_stage, [])
         self.assertIsNone(definition.bv_min)
         definition.thresholds = [1]
         definition.active = False

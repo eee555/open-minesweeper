@@ -88,7 +88,7 @@ def get_player_medals(request, user_id: int):
     """
     - ratelimit(key='ip', rate='5/s')
 
-    该玩家的勋章摘要、总分和佩戴。尚未做过历史扫描时只入队，不在这次请求里计算。
+    该玩家的勋章摘要和佩戴。尚未做过历史扫描时只入队，不在这次请求里计算。
     """
     try:
         summary = player_summary(user_id)

@@ -37,7 +37,6 @@ def definition_payload(definition):
         'style': definition.style,
         'thresholds': list(definition.thresholds or []),
         'hidden': definition.hidden,
-        'score_by_stage': list(definition.score_by_stage or []),
         'annotation': definition.annotation,
     }
 
@@ -48,7 +47,7 @@ def ensure_shareholder_definition():
         code=SHAREHOLDER_CODE,
         defaults={
             'series': Medal_TextChoices.Series.SHAREHOLDER, 'kind': Medal_TextChoices.Kind.MIN_VIDEO_ID, 'metric': 'video_id', 'direction': Medal_TextChoices.Direction.DESC,
-            'thresholds': list(SHAREHOLDER_THRESHOLDS), 'score_by_stage': [], 'active': True,
+            'thresholds': list(SHAREHOLDER_THRESHOLDS), 'active': True,
         },
     )
     return definition
@@ -287,11 +286,6 @@ def _medal_item(definition, grant, progress):
     value = progress if grant is None or grant['scope_key'] == '' else None
     if definition['kind'] == Medal_TextChoices.Kind.PB:
         value = None
-    index = threshold_index(thresholds, stage) if stage else -1
-    scores = definition['score_by_stage']
-    score = 0
-    if grant is not None and not definition['hidden'] and 0 <= index < len(scores):
-        score = int(scores[index])
     return {
         'code': definition['code'], 'series': definition['series'], 'subseries': definition['subseries'],
         'kind': definition['kind'], 'stage': stage, 'stage_count': len(thresholds), 'direction': definition['direction'],
@@ -300,7 +294,7 @@ def _medal_item(definition, grant, progress):
         'video_id': grant['video_id'] if grant is not None else None,
         'tournament_id': grant['tournament_id'] if grant is not None else None, 'rank': grant['rank'] if grant is not None else None,
         'hidden': definition['hidden'], 'annotation': definition['annotation'] if definition['hidden'] and grant is not None else '',
-        'score': score, 'grant_id': grant['id'] if grant is not None else None,
+        'grant_id': grant['id'] if grant is not None else None,
         'scope_key': grant['scope_key'] if grant is not None else '', 'thresholds': thresholds,
     }
 
@@ -461,7 +455,6 @@ def player_summary(user_id):
     pin_items = [items_by_grant[item] for item in stored if item in items_by_grant][:MAX_PINS]
     return {
         'scan_pending': data['scan_pending'],
-        'score': sum(item['score'] for group in series for item in group['items']),
         'max_pins': MAX_PINS,
         'pin_ids': [item['grant_id'] for item in pin_items],
         'pins': pin_items,

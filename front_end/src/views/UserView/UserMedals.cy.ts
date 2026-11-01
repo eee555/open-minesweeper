@@ -29,14 +29,12 @@ function summary(scanPending: boolean, series: MedalSeries = MedalSeries.REGISTE
         rank: null,
         hidden: false,
         annotation: '',
-        score: 1,
         grant_id: 1,
         scope_key: '',
         thresholds: [1],
     };
     return {
         scan_pending: scanPending,
-        score: scanPending ? 0 : 1,
         max_pins: 6,
         pin_ids: scanPending ? [] : [1],
         pins: scanPending ? [] : [item],
@@ -60,7 +58,7 @@ function createProfileRouter() {
         history: createMemoryHistory(),
         routes: [
             { path: '/', redirect: '/player/1/top' },
-            ...['top', MedalKind.PB, 'record', 'upload'].map((tab) => ({ path: `/player/:id/${tab}`, name: `user-${tab}`, component: page })),
+            ...['top', 'pb', 'record', 'upload'].map((tab) => ({ path: `/player/:id/${tab}`, name: `user-${tab}`, component: page })),
         ],
     });
 }
@@ -72,6 +70,42 @@ function globalOptions(router = createProfileRouter()) {
 describe('player medal subscriptions', () => {
     afterEach(() => {
         store.player.id = 0;
+        store.user.id = 0;
+    });
+
+    it('filters locally and previews locked tiers without selecting pins', () => {
+        store.player.id = 8980 + Cypress.currentRetry;
+        const data = summary(false);
+        const locked = { ...data.series[0].items[0], code: 'ability.time.b', series: MedalSeries.BREAKTHROUGH, kind: MedalKind.PB, stage: null, grant_id: null, thresholds: [20000, 15000, 12000, 10000, 8000, 6000, 5000, 4000, 3000, 2000, 1000], next_threshold: 20000, stage_count: 11 };
+        data.series.push({ series: MedalSeries.BREAKTHROUGH, items: [locked] });
+        const get = cy.stub($axios, 'get').resolves({ data });
+        cy.mount(UserMedalView, { global: globalOptions() });
+        cy.get('.medal-row').should('have.length', 2);
+        cy.get('.filters button').eq(1).click();
+        cy.get('.medal-row').should('have.length', 1);
+        cy.get('.filters button').eq(0).click();
+        cy.get('.stage-track').first().find('button').last().click();
+        cy.get('.medal-detail').should('contain.text', 'Sub1').and('contain.text', 'Not earned');
+        cy.get('.stage-node').should('have.length', 12);
+        cy.then(() => expect(get.callCount).to.equal(1));
+    });
+
+    it('keeps pending pins on save failure and cancels back to saved pins', () => {
+        store.player.id = 8990 + Cypress.currentRetry;
+        store.user.id = store.player.id;
+        cy.stub($axios, 'get').resolves({ data: summary(false) });
+        const put = cy.stub($axios, 'put').rejects(new Error('offline'));
+        cy.mount(UserMedalView, { global: globalOptions() });
+        cy.contains('button', 'Manage pins').click();
+        cy.contains('.row-summary button', 'Unpin').click();
+        cy.get('.pin-preview li').should('have.length', 0);
+        cy.get('.filters button').eq(1).click();
+        cy.contains('button', 'Save pins').click();
+        cy.get('.message').should('contain.text', 'Could not save pins');
+        cy.get('.pin-preview li').should('have.length', 0);
+        cy.then(() => expect(put).to.have.been.calledWith('/api/medal/pins', JSON.stringify({ grant_ids: [] })));
+        cy.contains('button', 'Cancel changes').click();
+        cy.get('.pin-preview li').should('have.length', 1);
     });
 
     it('updates an already open page and pins after upload processing without reloading', () => {
@@ -107,9 +141,7 @@ describe('player medal subscriptions', () => {
             return completed.promise;
         });
         cy.get('.pins .series').should('have.text', 'Reviewed');
-        // Novice names are shown in tooltips, outside the medal page container.
-        cy.get('.medal-page .medal-face').realHover();
-        cy.get('[data-tippy-root] .tip-title').should('have.text', 'Reviewed');
+        cy.get('.medal-page .row-summary h3').should('have.text', 'Reviewed');
         cy.tick(300_000);
         cy.then(() => expect(get.callCount).to.equal(4));
     });
@@ -155,7 +187,7 @@ describe('player medal subscriptions', () => {
         cy.get('.scan-pending').should('contain', 'Historical medals');
         cy.then(() => expect(get.callCount).to.equal(1));
         cy.tick(2000);
-        cy.get('.medal-tile').should('have.length', 1);
+        cy.get('.medal-row').should('have.length', 1);
         cy.get('.pins .pin').should('have.length', 1);
         cy.get('.scan-pending').should('not.exist');
         cy.then(() => {
@@ -165,7 +197,7 @@ describe('player medal subscriptions', () => {
         cy.then(() => {
             showPage.value = true;
         });
-        cy.get('.medal-tile').should('have.length', 1);
+        cy.get('.medal-row').should('have.length', 1);
         cy.then(() => expect(get.callCount).to.equal(2));
     });
 

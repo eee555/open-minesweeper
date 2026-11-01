@@ -105,6 +105,7 @@ export default defineConfig({
                                 { text: '录像表达式参考', link: '/zh/guide/replay-expressions' },
                                 { text: '扫雷标识', link: '/zh/guide/identifier' },
                                 { text: 'top 榜与 LSF 榜', link: '/zh/guide/top-lsf' },
+                                { text: '勋章系统', link: '/zh/guide/medals' },
                                 { text: '小游戏', link: '/zh/guide/minigames' },
                                 {
                                     text: '比赛功能',
@@ -183,6 +184,7 @@ export default defineConfig({
                                 { text: 'Replay Expressions', link: '/en/guide/replay-expressions' },
                                 { text: 'Player Identifiers', link: '/en/guide/identifier' },
                                 { text: 'top and LSF Rankings', link: '/en/guide/top-lsf' },
+                                { text: 'Medals', link: '/en/guide/medals' },
                                 { text: 'Minigames', link: '/en/guide/minigames' },
                                 {
                                     text: 'Tournaments',

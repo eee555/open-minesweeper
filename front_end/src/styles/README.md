@@ -46,7 +46,7 @@ CSS 与 Less 的选型由实施代理自行决定，根据实际重复程度和�
 
 录像信息浮层的查询容器显式设置 32em 宽度并以 `max-width: 100%` 限制，避免 inline-size containment 在浮层按内容计算宽度时丢失列表的固有宽度。模板和局部响应参考 [MDN 描述列表](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/dl) 与 [CSS 容器查询](https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Containment/Container_queries)。
 
-`text.css` 由 `setup.ts` 全局加载，应用与 Cypress 共用。`body` 默认使用项目常规文字色、基础字号和 `overflow-wrap: break-word`，普通文本通过继承获得这些样式；使用 `:where(div, span)` 默认清零 margin / padding，`:where(span)` 默认设置 `vertical-align: middle`，组件自身的样式可覆盖。普通文本无需添加 `.text`；需要覆盖父容器颜色时使用 `.text-regular`，需要不同字号或状态色时保留对应修饰类。已清理可由全局默认覆盖的 `.text` 声明；标题、段落、链接、表单控件及需要固定字号或重置单元格间距的组件仍可使用 `.text`，不删除有实际作用的重置。
+`text.css` 由 `setup.ts` 全局加载，应用与 Cypress 共用。`body` 默认使用项目背景色、常规文字色、基础字号和 `overflow-wrap: break-word`，普通文本通过继承获得这些样式；使用 `:where(div, span)` 默认清零 margin / padding，`:where(span)` 默认设置 `vertical-align: middle`，组件自身的样式可覆盖。普通文本无需添加 `.text`；需要覆盖父容器颜色时使用 `.text-regular`，需要不同字号或状态色时保留对应修饰类。已清理可由全局默认覆盖的 `.text` 声明；标题、段落、链接、表单控件及需要固定字号或重置单元格间距的组件仍可使用 `.text`，不删除有实际作用的重置。
 
 辅助文字可组合 `.text-secondary` 与现有 `.text-small`；状态色复用 `.text-primary` / `.text-warning` / `.text-danger` 等，不在业务组件中重复声明相同颜色。字号类只调整字号，颜色类只调整颜色，不隐式修改布局或重置其他属性。
 

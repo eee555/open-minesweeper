@@ -51,8 +51,10 @@ function expectName(name: string, title?: string) {
 describe('PlayerName', () => {
     installHashHistoryCleanup();
     const originalSettings = { ...local.value };
+    const originalLocale = i18n.global.locale.value;
 
     beforeEach(() => {
+        i18n.global.locale.value = 'en';
         cy.then(async () => {
             const db = await getDatabase();
             await db.clear(USER_INFO_STORE_NAME);
@@ -66,6 +68,7 @@ describe('PlayerName', () => {
 
     afterEach(() => {
         Object.assign(local.value, originalSettings);
+        i18n.global.locale.value = originalLocale;
     });
 
     it('shows the fallback name when server error', () => {
@@ -251,9 +254,9 @@ describe('PlayerName', () => {
             const ids = new URL(url).searchParams.get('ids') ?? '';
             expect(ids.split(',')).to.include(String(player.id));
         });
-        cy.get('[id^=tippy-] img').should('be.visible').and('have.attr', 'src').and('include', 'breakthrough.webp');
-        cy.get('[id^=tippy-] img').realHover();
-        cy.get('[id^=tippy-]').should('contain', 'Expert Breakthrough · Sub30').and('contain', 'Expert best time reached 30s.');
+        cy.get('[id^=tippy-] svg.base image').should('have.attr', 'href').and('include', 'breakthrough.webp');
+        cy.get('[id^=tippy-] .medal-graphic').realHover();
+        cy.get('[id^=tippy-]').should('contain', 'Expert Breakthrough · Sub30').and('contain', 'Expert best time is below 30s.');
         cy.get('@medalDetail.all').should('have.length', 0);
     });
 

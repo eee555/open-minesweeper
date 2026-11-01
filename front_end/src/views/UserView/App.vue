@@ -71,12 +71,16 @@ const i18nMessages = {
         record: '纪录',
         videos: '录像',
         medals: '勋章',
+        upload: '上传',
+        settings: '设置',
     } },
     en: { local: {
         accountlink: 'Account Link',
         record: 'Record',
         videos: 'Videos',
         medals: 'Medals',
+        upload: 'Upload',
+        settings: 'Settings',
     } },
 };
 
@@ -86,6 +90,11 @@ const { t } = useI18n({ messages: i18nMessages });
 <style scoped lang="less">
 .personal-homepage {
     display: flex;
+    min-width: 0;
+
+    .content-area {
+        min-width: 0;
+    }
 
     &.narrow-mode {
         flex-direction: column;

@@ -21,7 +21,6 @@ class MedalDefinition(models.Model):
     bv_min = models.PositiveIntegerField(null=True, blank=True)
     scope = models.JSONField(default=dict)
     hidden = models.BooleanField(default=False)
-    score_by_stage = models.JSONField(default=list)
     active = models.BooleanField(default=False)
     depends_on = models.JSONField(default=list)
     annotation = models.TextField(blank=True, default='')
