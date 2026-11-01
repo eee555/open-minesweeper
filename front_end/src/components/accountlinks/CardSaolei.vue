@@ -2,7 +2,7 @@
     <BaseCardNormal>
         <PrToolbar style="margin-bottom: 0.5em">
             <template #start>
-                <span class="text-medium text-regular">{{ t('platform.c') }} #{{ id }}</span>
+                <span class="text-medium text-regular">{{ t('platform.c') }}&nbsp;#{{ id }}</span>
             </template>
             <template #end>
                 <CarouselControl :ref-carousel="refCarousel!" :length="ownsAccount ? 2 : 1" />
