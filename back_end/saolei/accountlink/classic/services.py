@@ -51,10 +51,14 @@ def classic_bind_status(user: UserProfile) -> ClassicBindRequest | None:
     record = ClassicBindRequest.objects.filter(userprofile=user).order_by('-updated_at').first()
     if record is None or record.status != ClassicBindRequest.Status.PENDING:
         return record
-    if record.expires_at > timezone.now():
+    now = timezone.now()
+    if record.expires_at > now:
         return record
-    record.status = ClassicBindRequest.Status.EXPIRED
-    record.save(update_fields=['status', 'updated_at'])
+    # 只收敛仍是 pending 的记录，避免覆盖并发到达的回调结果。
+    ClassicBindRequest.objects.filter(
+        pk=record.pk, status=ClassicBindRequest.Status.PENDING, expires_at__lte=now,
+    ).update(status=ClassicBindRequest.Status.EXPIRED, updated_at=now)
+    record.refresh_from_db()
     return record
 
 
@@ -65,77 +69,77 @@ def handle_classic_callback(raw_body: bytes, timestamp: str, signature: str):
         raise ExceptionToResponse('classic', 'invalid_signature', status_code=401)
 
     request_id, uid, account, result = _parse_callback_payload(raw_body)
-    record = ClassicBindRequest.objects.filter(request_id=request_id).first()
+    with transaction.atomic():
+        # 申请行可能已被同一 UID 的新申请覆盖；必须在锁内按 requestId 命中并核对身份。
+        record = _lock_classic_request(request_id, uid, account)
+        if result == 'allow':
+            _confirm_classic_binding(record, uid)
+        elif result == 'deny':
+            _deny_classic_binding(record, uid)
+        else:
+            _revoke_classic_binding(record, uid)
+
+
+def _lock_classic_request(request_id: int, uid: int, account: str) -> ClassicBindRequest:
+    record = ClassicBindRequest.objects.select_for_update().filter(request_id=request_id).first()
     if record is None:
         logger.warning(f'95经典扫雷回调找不到申请 request_id={request_id} uid={uid}')
         raise ExceptionToResponse('classic', 'request_not_found', status_code=404)
     if record.uid != uid or record.account != account:
         logger.warning(f'95经典扫雷回调与申请不一致 request_id={request_id} uid={uid}')
         raise ExceptionToResponse('classic', 'payload_mismatch', status_code=400)
-
-    if result == 'allow':
-        _confirm_classic_binding(record.pk, uid)
-    elif result == 'deny':
-        _deny_classic_binding(record.pk, uid)
-    else:
-        _revoke_classic_binding(record.pk, uid)
+    return record
 
 
-def _confirm_classic_binding(record_id: int, uid: int):
-    with transaction.atomic():
-        record = ClassicBindRequest.objects.select_for_update().get(pk=record_id)
-        if record.status == ClassicBindRequest.Status.ALLOWED:
-            logger.info(f'95经典扫雷回调重复投递 request_id={record.request_id} uid={uid} result=allow')
-            return
-        if record.status in {ClassicBindRequest.Status.REVOKED, ClassicBindRequest.Status.CONFLICT}:
-            logger.warning(f'95经典扫雷回调顺序异常 request_id={record.request_id} uid={uid} status={record.status} result=allow')
-            return
-        now = timezone.now()
-        try:
-            save_verified_account_link(record.userprofile, Platform.CLASSIC, str(uid))
-        except ExceptionToResponse as exc:
-            # 冲突重试也无法自愈，落库为 conflict 并留待人工处理，同时返回 2xx 停止对方重试。
-            record.status = ClassicBindRequest.Status.CONFLICT
-            record.error_category = exc.category
-            record.handled_at = now
-            record.save(update_fields=['status', 'error_category', 'handled_at', 'updated_at'])
-            logger.error(f'95经典扫雷绑定冲突 request_id={record.request_id} uid={uid} user_id={record.userprofile_id} category={exc.category}')
-            return
-        record.status = ClassicBindRequest.Status.ALLOWED
-        record.error_category = ''
+def _confirm_classic_binding(record: ClassicBindRequest, uid: int):
+    if record.status == ClassicBindRequest.Status.ALLOWED:
+        logger.info(f'95经典扫雷回调重复投递 request_id={record.request_id} uid={uid} result=allow')
+        return
+    if record.status in {ClassicBindRequest.Status.REVOKED, ClassicBindRequest.Status.CONFLICT}:
+        logger.warning(f'95经典扫雷回调顺序异常 request_id={record.request_id} uid={uid} status={record.status} result=allow')
+        return
+    now = timezone.now()
+    try:
+        save_verified_account_link(record.userprofile, Platform.CLASSIC, str(uid))
+    except ExceptionToResponse as exc:
+        # 冲突重试也无法自愈，落库为 conflict 并留待人工处理，同时返回 2xx 停止对方重试。
+        record.status = ClassicBindRequest.Status.CONFLICT
+        record.error_category = exc.category
         record.handled_at = now
         record.save(update_fields=['status', 'error_category', 'handled_at', 'updated_at'])
-        logger.info(f'95经典扫雷绑定完成 request_id={record.request_id} uid={uid} user_id={record.userprofile_id}')
+        logger.error(f'95经典扫雷绑定冲突 request_id={record.request_id} uid={uid} user_id={record.userprofile_id} category={exc.category}')
+        return
+    record.status = ClassicBindRequest.Status.ALLOWED
+    record.error_category = ''
+    record.handled_at = now
+    record.save(update_fields=['status', 'error_category', 'handled_at', 'updated_at'])
+    logger.info(f'95经典扫雷绑定完成 request_id={record.request_id} uid={uid} user_id={record.userprofile_id}')
 
 
-def _deny_classic_binding(record_id: int, uid: int):
-    with transaction.atomic():
-        record = ClassicBindRequest.objects.select_for_update().get(pk=record_id)
-        if record.status in {ClassicBindRequest.Status.DENIED, ClassicBindRequest.Status.REVOKED}:
-            logger.info(f'95经典扫雷回调重复投递 request_id={record.request_id} uid={uid} result=deny')
-            return
-        if record.status == ClassicBindRequest.Status.ALLOWED:
-            logger.warning(f'95经典扫雷回调顺序异常 request_id={record.request_id} uid={uid} status=allow result=deny')
-            return
-        record.status = ClassicBindRequest.Status.DENIED
-        record.error_category = ''
-        record.handled_at = timezone.now()
-        record.save(update_fields=['status', 'error_category', 'handled_at', 'updated_at'])
-        logger.info(f'95经典扫雷玩家拒绝绑定 request_id={record.request_id} uid={uid} user_id={record.userprofile_id}')
+def _deny_classic_binding(record: ClassicBindRequest, uid: int):
+    if record.status in {ClassicBindRequest.Status.DENIED, ClassicBindRequest.Status.REVOKED}:
+        logger.info(f'95经典扫雷回调重复投递 request_id={record.request_id} uid={uid} result=deny')
+        return
+    if record.status == ClassicBindRequest.Status.ALLOWED:
+        logger.warning(f'95经典扫雷回调顺序异常 request_id={record.request_id} uid={uid} status=allow result=deny')
+        return
+    record.status = ClassicBindRequest.Status.DENIED
+    record.error_category = ''
+    record.handled_at = timezone.now()
+    record.save(update_fields=['status', 'error_category', 'handled_at', 'updated_at'])
+    logger.info(f'95经典扫雷玩家拒绝绑定 request_id={record.request_id} uid={uid} user_id={record.userprofile_id}')
 
 
-def _revoke_classic_binding(record_id: int, uid: int):
-    with transaction.atomic():
-        record = ClassicBindRequest.objects.select_for_update().get(pk=record_id)
-        if record.status == ClassicBindRequest.Status.REVOKED:
-            logger.info(f'95经典扫雷回调重复投递 request_id={record.request_id} uid={uid} result=revoke')
-            return
-        _delete_classic_binding(record.userprofile_id, uid)
-        record.status = ClassicBindRequest.Status.REVOKED
-        record.error_category = ''
-        record.handled_at = timezone.now()
-        record.save(update_fields=['status', 'error_category', 'handled_at', 'updated_at'])
-        logger.info(f'95经典扫雷玩家解除绑定 request_id={record.request_id} uid={uid} user_id={record.userprofile_id}')
+def _revoke_classic_binding(record: ClassicBindRequest, uid: int):
+    if record.status == ClassicBindRequest.Status.REVOKED:
+        logger.info(f'95经典扫雷回调重复投递 request_id={record.request_id} uid={uid} result=revoke')
+        return
+    _delete_classic_binding(record.userprofile_id, uid)
+    record.status = ClassicBindRequest.Status.REVOKED
+    record.error_category = ''
+    record.handled_at = timezone.now()
+    record.save(update_fields=['status', 'error_category', 'handled_at', 'updated_at'])
+    logger.info(f'95经典扫雷玩家解除绑定 request_id={record.request_id} uid={uid} user_id={record.userprofile_id}')
 
 
 def _delete_classic_binding(user_id: int, uid: int):

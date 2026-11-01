@@ -281,6 +281,23 @@ class ClassicCallbackTestCase(TestCase):
         self.assertEqual(self.callback('allow', request_id=2048).status_code, 404)
         self.assertFalse(AccountClassicMinesweeper.objects.exists())
 
+    def test_stale_callback_after_uid_takeover_binds_nobody(self):
+        # 同一 UID 的新申请覆盖旧申请：requestId 与 account 都已改变。
+        other = UserProfile.objects.create_user(username='classic_takeover', email='classic_takeover@test.com')
+        self.record.request_id = 2048
+        self.record.userprofile = other
+        self.record.account = 'classic_takeover'
+        self.record.save(update_fields=['request_id', 'userprofile', 'account', 'updated_at'])
+
+        # 旧申请（requestId=1024，account=classic_callback）的确认回调不得绑定到新申请人。
+        response = self.callback('allow')
+
+        self.assertEqual(response.status_code, 404, response.content)
+        self.assertEqual(self.callback('deny').status_code, 404)
+        self.assertEqual(self.callback('revoke').status_code, 404)
+        self.assertFalse(AccountClassicMinesweeper.objects.exists())
+        self.assertFalse(AccountLinkQueue.objects.exists())
+
     def test_callback_rejects_malformed_body(self):
         timestamp = str(int(timezone.now().timestamp()))
         body = b'not json'
@@ -362,3 +379,16 @@ class ClassicAccountLinksTestCase(TestCase):
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(response.json()['status'], 'none')
         self.assertIsNone(response.json()['uid'])
+
+    def test_status_keeps_completed_result_after_expiry(self):
+        self.client.force_login(self.user)
+        ClassicBindRequest.objects.create(
+            uid=12345678, request_id=1024, userprofile=self.user, account='classic_viewer',
+            status=ClassicBindRequest.Status.ALLOWED, expires_at=timezone.now() - timedelta(seconds=1),
+        )
+
+        response = self.client.get('/api/accountlink/classic/status/')
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()['status'], 'allow')
+        self.assertEqual(ClassicBindRequest.objects.get(uid=12345678).status, ClassicBindRequest.Status.ALLOWED)

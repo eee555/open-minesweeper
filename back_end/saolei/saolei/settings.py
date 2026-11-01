@@ -313,6 +313,7 @@ MINERACER_POLL_INTERVAL_MS = max(1, int(os.environ.get('MINERACER_ACCOUNT_LINK_P
 
 # 95经典扫雷外部应用绑定。api_key 存 secrets.json 的 classic_bind_api_key，
 # 回调验签密钥存 classic_callback_app_secret；回调地址必须是对方报备白名单内的 https 域名。
+# 发起绑定同步等待对方受理，网关为该路径预留 8s（default.conf），客户端超时必须更短。
 CLASSIC_BIND_URL = os.environ.get('CLASSIC_BIND_URL', 'https://mg.xiean.net:6789/v1/ext/bind/request')
 CLASSIC_BIND_CALLBACK_URL = os.environ.get('CLASSIC_BIND_CALLBACK_URL', 'https://openms.top/api/accountlink/classic/callback')
 CLASSIC_BIND_EXPIRES_IN = min(604800, max(60, int(os.environ.get('CLASSIC_BIND_EXPIRES_IN', '86400'))))

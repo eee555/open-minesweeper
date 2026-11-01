@@ -37,8 +37,8 @@ export class ClassicAccountLink {
         if (data === undefined) return;
 
         this.status = data.status;
-        this.uid = data.uid === null ? undefined : data.uid;
-        this.request_id = data.request_id === null ? undefined : data.request_id;
+        this.uid = data.uid ?? undefined;
+        this.request_id = data.request_id ?? undefined;
         this.expires_at = data.expires_at === null ? undefined : new Date(data.expires_at);
         this.error_category = data.error_category;
     }

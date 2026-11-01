@@ -81,8 +81,9 @@ const startLoading = ref(false);
 const statusLoading = ref(false);
 const httpErrorMessageKey = ref('');
 let pollTimer: number | undefined;
+let unmounted = false;
 
-const uidValid = computed(() => /^[1-9]\d{7}$/.test(uid.value));
+const uidValid = computed(() => (/^[1-9]\d{7}$/).test(uid.value));
 const showForm = computed(() => !['pending', 'allow'].includes(link.value.status));
 const statusTagType = computed(() => {
     if (link.value.status === 'allow') return 'success';
@@ -100,6 +101,8 @@ const messageKey = computed(() => {
 const messageType = computed(() => (link.value.status === 'allow' ? 'success' : 'error'));
 
 function applyLink(nextLink: ClassicAccountLink) {
+    // 卸载后到达的响应不能再改状态，也不能重启轮询。
+    if (unmounted) return;
     link.value = nextLink;
     if (nextLink.status === 'pending') {
         schedulePoll();
@@ -166,7 +169,10 @@ function formatRemainingTime(milliseconds: number): string {
 onMounted(() => {
     void loadStatus();
 });
-onBeforeUnmount(clearPollTimer);
+onBeforeUnmount(() => {
+    unmounted = true;
+    clearPollTimer();
+});
 
 const i18nMessages = {
     'zh-cn': { local: {

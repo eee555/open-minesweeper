@@ -87,9 +87,12 @@ python manage.py sync_saolei_api --all-linked --full
 
 ### 一致性与重试
 
-- `allow` 复用 `save_verified_account_link`，在事务与行锁内完成绑定，重复投递直接返回成功。
+- 整个回调在一个事务内完成：先按 `requestId` 加锁命中原申请行，再核对 `uid` / `account`，然后才分支处理。同一 UID 的新申请会覆盖旧行，此时迟到的旧回调查不到 `requestId`，返回 404，不会绑定到新申请人。
+- `allow` 复用 `save_verified_account_link`，在事务内完成绑定，重复投递直接返回成功。
 - 本地冲突重试无法自愈，记 `conflict` 并写 ERROR 日志，仍返回 2xx 停止对方重试，留待人工处理。
+- 状态查询只把「仍是 pending 且已过期」的记录用条件 UPDATE 收敛为 `expired`，不会覆盖并发到达的 `allow`。
 - 回调只做数据库写入，不触发资料同步或录像导入，满足对方 3 秒响应的要求。
+- 发起绑定会同步等待对方受理，`default.conf` 为该路径单独预留 8 秒网关预算，`CLASSIC_TIMEOUT` 默认 5 秒必须短于该预算，否则浏览器会先收到 504。
 - 对方没有绑定状态查询接口，回调 4 次重试全部失败即丢失事件，只能按 `requestId` 人工对账；`ClassicBindRequest` 因此不设自动清理。
 
 ### 配置
