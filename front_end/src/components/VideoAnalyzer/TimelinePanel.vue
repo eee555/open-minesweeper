@@ -29,41 +29,31 @@
 </template>
 
 <script setup lang="ts">
+import { toRefs } from '@vueuse/core';
 import { computed, ref, useTemplateRef, watch } from 'vue';
-import type { PropType } from 'vue';
 import { VueDraggable } from 'vue-draggable-plus';
 import { useI18n } from 'vue-i18n';
 
 import { updateBoardEventKeys } from './boardEvents';
-import type { CounterEvent, CounterRow, PreparedCounter } from './counter';
 import CustomEventEditor from './CustomEventEditor.vue';
-import { defaultCustomEvent, prepareCustomEvents } from './customEvents';
-import type { CustomEventDefinition, PreparedCustomEvent } from './customEvents';
+import { defaultCustomEvent } from './customEvents';
+import type { CustomEventDefinition } from './customEvents';
 import EventTooltipContent from './EventTooltipContent.vue';
 import { addTimelineTrack } from './timeline';
-import type { TimelineConfig, TimeWindow } from './timeline';
 import TimelineEventRow from './TimelineEventRow.vue';
 import TimelinePlot from './TimelinePlot.vue';
 import TimelineSlot from './TimelineSlot.vue';
+import { useAnalyzerState } from './useAnalyzerState';
 import { useEventTooltip } from './useEventTooltip';
-import type { PlaybackController } from './usePlayback';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 
-const props = defineProps({
-    rows: { type: Array as PropType<CounterRow[]>, required: true },
-    counters: { type: Object as PropType<Map<string, PreparedCounter>>, required: true },
-    playback: { type: Object as PropType<PlaybackController>, required: true },
-    events: { type: Array as PropType<CounterEvent[]>, default: () => [] },
-    preparedEvents: { type: Object as PropType<Map<string, PreparedCustomEvent> | null>, default: null },
-});
-const config = defineModel<TimelineConfig>({ required: true });
-const customEvents = defineModel<CustomEventDefinition[]>('customEvents', { default: () => [] });
-const boardEventKeys = defineModel<string[]>('boardEventKeys', { default: () => [] });
-const timeWindow = defineModel<TimeWindow>('window', { required: true });
+const { config: analyzerConfig, playback, counterEvents: events, preparedCounters: counters, preparedEvents, timeWindow } = useAnalyzerState();
+const { timeline: config, customEvents, eventLayer } = toRefs(analyzerConfig, { replaceRef: false });
+const { keys: boardEventKeys } = toRefs(eventLayer, { replaceRef: false });
+const rows = computed(() => analyzerConfig.value.counter.rows);
 const hoverMs = ref<number | null>(null);
 const editor = ref<{ originalKey: string | null; event: CustomEventDefinition } | null>(null);
-const preparedEvents = computed(() => props.preparedEvents ?? prepareCustomEvents(customEvents.value, props.events, props.playback.durationMs.value));
 const timeline = useTemplateRef<HTMLElement>('timeline');
 const tooltip = useTemplateRef<HTMLDivElement>('tooltip');
 const { hovered, showTooltip, moveTooltip, hideTooltip } = useEventTooltip(timeline, tooltip);

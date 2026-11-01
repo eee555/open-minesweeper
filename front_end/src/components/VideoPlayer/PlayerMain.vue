@@ -7,6 +7,9 @@
         </div>
         <div :class="innerBorderClass">
             <MinesweeperBoard :board="video.game_board" :size="size" :cursor-position="cursorPosition">
+                <template #background>
+                    <BoardBackground :board="backgroundBoard" />
+                </template>
                 <template v-if="showProbability" #default>
                     <BoardProbability :board="probabilityBoard" :color="probabilityColor" />
                 </template>
@@ -18,12 +21,13 @@
 <script setup lang="ts">
 import '@putianyi888/vue3-minesweeper-board/style.css';
 
-import { BoardProbability, Counter, innerBorderClass, MinesweeperBoard, outerBorderClass } from '@putianyi888/vue3-minesweeper-board';
+import { BoardBackground, BoardProbability, Counter, innerBorderClass, MinesweeperBoard, outerBorderClass } from '@putianyi888/vue3-minesweeper-board';
 import type { PropType } from 'vue';
 import { computed } from 'vue';
 
 import { PiecewiseColorScheme } from '@/utils/colors';
 import type { AnyVideo } from '@/utils/fileIO';
+import { replayPressedBackground } from '@/utils/replayBoardPress';
 
 interface CursorPosition {
     rowIndex: number;
@@ -40,6 +44,12 @@ const props = defineProps({
         type: PiecewiseColorScheme,
         default: () => new PiecewiseColorScheme([], []),
     },
+});
+
+const backgroundBoard = computed(() => {
+    // eslint-disable-next-line @typescript-eslint/no-meaningless-void-operator
+    void props.currentMs;
+    return replayPressedBackground(props.video.game_board as number[][], props.video.mouse_state, props.cursorPosition);
 });
 
 const probabilityBoard = computed(() => {

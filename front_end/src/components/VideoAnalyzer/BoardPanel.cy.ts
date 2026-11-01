@@ -1,54 +1,49 @@
-import type { MinesweeperBoard } from '@putianyi888/vue3-minesweeper-board';
+import type { BoardBackground, MinesweeperBoard } from '@putianyi888/vue3-minesweeper-board';
 import type { VueWrapper } from '@vue/test-utils';
-import { defineComponent, h, ref } from 'vue';
+import { computed, defineComponent, h, ref, shallowRef } from 'vue';
 
 import BoardPanel from './BoardPanel.vue';
+import { defaultAnalyzerConfig } from './config';
+import type { AnalyzerConfig } from './config';
+import { provideAnalyzerState } from './useAnalyzerState';
 import { usePlayback } from './usePlayback';
 
 import i18n from '@/i18n';
 import { videoPlayerConfig } from '@/store';
+import { createAnalyzerTestState } from '@cy/support/analyzerState';
 
 function mountBoard() {
     const nativeSize = ref(16);
     const height = ref(360);
     const cursorPosition = ref<{ rowIndex: number; columnIndex: number } | null>({ rowIndex: 1.5, columnIndex: 2.5 });
+    const config = ref(defaultAnalyzerConfig());
+    config.value.globalVisible = true;
+    config.value.traceVisible = true;
     cy.viewport(1000, 600);
     cy.mount(defineComponent({
         expose: [],
         setup() {
             const playback = usePlayback(10000);
-            const mode = ref<'fixed' | 'relative' | 'auto'>('auto');
-            const fixedSize = ref(32);
-            const scale = ref(1);
-            return () => h('div', { class: 'board-test-container', style: { width: '650px', height: `${height.value}px` } }, [
-                h(BoardPanel, {
-                    probabilityColorScheme: videoPlayerConfig.value.probabilityColorScheme,
+            provideAnalyzerState(createAnalyzerTestState({
+                config,
+                playback,
+                probabilityColorScheme: ref(videoPlayerConfig.value.probabilityColorScheme),
+                frame: computed(() => ({
                     board: [[10, 0, 1, 10], [10, 1, 2, 10], [10, 10, 10, 10]],
                     globalBoard: [[0, 0, 1, -1], [1, 1, 2, 1], [-1, 1, 0, 0]],
                     probabilityBoard: [[0.5, 0, 0, 0.5], [0.5, 0, 0, 0.5], [0.5, 0.5, 0.5, 0.5]],
-                    traceEvents: [
-                        { row: 0.5, column: 0.5, timeMs: 0, eventIndex: 0, state: 'uu', action: 'mv' },
-                        { row: 1.5, column: 2.5, timeMs: 100, eventIndex: 1, state: 'uu', action: 'mv' },
-                    ],
-                    globalVisible: true,
-                    traceVisible: true,
-                    playback,
-                    loading: false,
                     nativeCellSize: nativeSize.value,
                     cursorPosition: cursorPosition.value,
-                    cellSizeMode: mode.value,
-                    fixedCellSize: fixedSize.value,
-                    cellScale: scale.value,
-                    'onUpdate:cellSizeMode': (value) => {
-                        mode.value = value;
-                    },
-                    'onUpdate:fixedCellSize': (value) => {
-                        fixedSize.value = value;
-                    },
-                    'onUpdate:cellScale': (value) => {
-                        scale.value = value;
-                    },
-                }),
+                    mouseState: 0,
+                    currentEventIndex: null,
+                })),
+                traceEvents: shallowRef([
+                    { row: 0.5, column: 0.5, timeMs: 0, eventIndex: 0, state: 'uu', action: 'mv' },
+                    { row: 1.5, column: 2.5, timeMs: 100, eventIndex: 1, state: 'uu', action: 'mv' },
+                ]),
+            }));
+            return () => h('div', { class: 'board-test-container', style: { width: '650px', height: `${height.value}px` } }, [
+                h(BoardPanel),
             ]);
         },
     }), { global: { plugins: [i18n] } }).then(({ wrapper }) => {
@@ -57,6 +52,7 @@ function mountBoard() {
     cy.wrap(nativeSize).as('nativeSize');
     cy.wrap(height).as('height');
     cy.wrap(cursorPosition).as('cursorPosition');
+    cy.wrap(config).as('config');
 }
 
 function editNumber(selector: string, value: string) {
@@ -89,6 +85,64 @@ function assertLayers(width?: number, height?: number) {
 }
 
 describe('<BoardPanel /> cell sizing', () => {
+    it('edits config in place and follows replacement settings', () => {
+        mountBoard();
+        let original: AnalyzerConfig;
+        cy.get<{ value: AnalyzerConfig }>('@config').then((config) => {
+            original = config.value;
+        });
+        cy.get('.board-size-controls__fixed-toggle').click();
+        cy.get<{ value: AnalyzerConfig }>('@config').should((config) => {
+            expect(config.value).to.eq(original);
+            expect(config.value.cellSizeMode).to.eq('fixed');
+        });
+        cy.get<{ value: AnalyzerConfig }>('@config').then((config) => {
+            config.value = { ...config.value, fixedCellSize: 40, traceTailSeconds: 'infinite', cursorVisible: false };
+        });
+        assertSize(40);
+        cy.get('.board-cursor-layer').should('not.exist');
+        cy.get('.video-analyzer-board__trace-control .board-settings-control__handle').click();
+        cy.get('.video-analyzer-board__trace-tail').should('have.value', '1');
+        cy.get('.video-analyzer-board__trace-tail').invoke('val', 0.5).trigger('input');
+        cy.get<{ value: AnalyzerConfig }>('@config').should((config) => {
+            expect(config.value.traceTailSeconds).to.eq(1);
+        });
+    });
+
+    it('shows press feedback independently of cursor visibility and clears it on release', () => {
+        const board = [[10, 10, 10], [10, 11, 10], [10, 10, 10]];
+        const mouseState = ref(4);
+        const config = ref(defaultAnalyzerConfig());
+        config.value.cursorVisible = false;
+        cy.mount(defineComponent({
+            setup() {
+                const playback = usePlayback(10000);
+                provideAnalyzerState(createAnalyzerTestState({
+                    config,
+                    frame: computed(() => ({ board, globalBoard: null, probabilityBoard: null, mouseState: mouseState.value, cursorPosition: { rowIndex: 1.5, columnIndex: 2.5 }, currentEventIndex: null, nativeCellSize: 16 })),
+                    playback,
+                }));
+                return () => h('div', { style: { width: '650px', height: '360px' } }, [h(BoardPanel)]);
+            },
+        }), { global: { plugins: [i18n] } }).then(({ wrapper }) => {
+            cy.wrap(wrapper).as('board');
+        });
+        for (const [state, expected] of [
+            [4, [[false, false, false], [false, false, true], [false, false, false]]],
+            [5, [[false, true, true], [false, false, true], [false, true, true]]],
+            [6, [[false, true, true], [false, false, true], [false, true, true]]],
+            [1, undefined],
+        ] as const) {
+            cy.then(() => {
+                mouseState.value = state;
+            });
+            cy.get<VueWrapper>('@board').should((wrapper) => {
+                expect(wrapper.findComponent<typeof BoardBackground>('.video-analyzer-board__background').props('board')).to.deep.eq(expected);
+            });
+        }
+        cy.get('.board-cursor-layer').should('not.exist');
+    });
+
     it('keeps the cursor above all other layers, in place and at the same SVG size across sizing modes', () => {
         mountBoard();
         cy.get('.video-analyzer-board__cursor-toggle').should('have.attr', 'aria-pressed', 'true');

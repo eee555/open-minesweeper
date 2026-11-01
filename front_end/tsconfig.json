@@ -1,4 +1,5 @@
 {
+  "extends": "./tsconfig.paths.json",
   "compilerOptions": {
     "target": "es2015",
     "module": "esnext",
@@ -18,14 +19,6 @@
       "cypress",
       "cypress-real-events",
     ],
-    "paths": {
-      "@/*": [
-        "./src/*"
-      ],
-      "@cy/*": [
-        "./cypress/*"
-      ],
-    },
     "lib": [
       "esnext",
       "dom",
