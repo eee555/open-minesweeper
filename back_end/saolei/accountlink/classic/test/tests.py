@@ -1,7 +1,10 @@
 from datetime import timedelta
 import hashlib
 import hmac
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import threading
+import time
 from unittest import SkipTest
 from unittest.mock import patch
 
@@ -10,9 +13,11 @@ from django.test import override_settings, SimpleTestCase, TestCase
 from django.utils import timezone
 import requests
 
-from accountlink.classic.client import verify_classic_callback
+from accountlink.classic.client import request_classic_bind, verify_classic_callback
+from accountlink.classic.services import _store_classic_request
 from accountlink.models import AccountClassicMinesweeper, AccountLinkQueue, ClassicBindRequest, Platform
 from userprofile.models import UserProfile
+from utils.exceptions import ExceptionToResponse
 
 CLASSIC_TEST_SETTINGS = {
     'RATELIMIT_ENABLE': False,
@@ -30,11 +35,14 @@ class ClassicFakeResponse:
     def __init__(self, status_code=200, data=None):
         self.status_code = status_code
         self.data = data
+        self.raw = json.dumps(data).encode('utf-8') if data is not None else b''
 
-    def json(self):
-        if self.data is None:
-            raise ValueError
-        return self.data
+    def iter_content(self, chunk_size=1):
+        for index in range(0, len(self.raw), chunk_size):
+            yield self.raw[index:index + chunk_size]
+
+    def close(self):
+        pass
 
 
 def bind_accepted(request_id=1024):
@@ -73,6 +81,63 @@ class ClassicCallbackSignatureTestCase(SimpleTestCase):
             self.assertFalse(verify_classic_callback('test-app-secret', '1761520300', b'{"requestId":2}', signature))
             self.assertFalse(verify_classic_callback('', '1761520300', b'{"requestId":1}', signature))
             self.assertFalse(verify_classic_callback('test-app-secret', 'not-a-number', b'{"requestId":1}', signature))
+
+
+class ClassicDripServer:
+    """按固定间隔逐字节返回的本地服务：requests 的单次读超时挡不住这种慢速响应。"""
+
+    def __init__(self, total_bytes=40, interval=0.2):
+        handler = type('DripHandler', (_DripHandler,), {'total_bytes': total_bytes, 'interval': interval})
+        self._server = ThreadingHTTPServer(('127.0.0.1', 0), handler)
+
+    def __enter__(self) -> str:
+        threading.Thread(target=self._server.serve_forever, daemon=True).start()
+        return f'http://127.0.0.1:{self._server.server_address[1]}/v1/ext/bind/request'
+
+    def __exit__(self, *exc_info):
+        self._server.shutdown()
+        self._server.server_close()
+
+
+class _DripHandler(BaseHTTPRequestHandler):
+    protocol_version = 'HTTP/1.1'
+    total_bytes = 40
+    interval = 0.2
+
+    def do_POST(self):
+        # 客户端会在截止时间主动断开，关掉长连接避免服务端在读下一行时报错刷屏。
+        self.close_connection = True
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(self.total_bytes))
+        self.send_header('Connection', 'close')
+        self.end_headers()
+        try:
+            for _ in range(self.total_bytes):
+                self.wfile.write(b' ')
+                self.wfile.flush()
+                time.sleep(self.interval)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
+    def log_message(self, *args):
+        pass
+
+
+@override_settings(**CLASSIC_TEST_SETTINGS)
+class ClassicRequestDeadlineTestCase(SimpleTestCase):
+    def test_slow_drip_response_is_cut_by_the_overall_deadline(self):
+        with ClassicDripServer() as url, override_settings(
+            CLASSIC_BIND_URL=url, CLASSIC_TIMEOUT=1.0, CLASSIC_CONNECT_TIMEOUT=1.0,
+        ), patch('accountlink.classic.client.read_secret', side_effect=read_secret):
+            started = time.monotonic()
+            with self.assertRaises(ExceptionToResponse) as caught:
+                request_classic_bind(12345678, 'classic_user', 'https://example.test/cb', 86400)
+            elapsed = time.monotonic() - started
+
+        # 服务端每秒才给一个字节，单次读超时永远不会触发；整体截止时间必须在 1s 左右放行。
+        self.assertEqual(caught.exception.category, 'timeout')
+        self.assertLess(elapsed, 4)
 
 
 @override_settings(**CLASSIC_TEST_SETTINGS)
@@ -133,6 +198,38 @@ class ClassicStartTestCase(TestCase):
         AccountClassicMinesweeper.objects.create(id=12345678, parent=self.user)
         response = self.client.post('/api/accountlink/classic/start/', {'uid': '12345678'})
         self.assertEqual(response.json()['category'], 'already_linked')
+
+    @patch('accountlink.classic.client.requests.post')
+    def test_repeat_request_keeps_denied_state(self, requests_post):
+        requests_post.return_value = bind_accepted()
+        self.client.post('/api/accountlink/classic/start/', {'uid': '12345678'})
+        ClassicBindRequest.objects.filter(uid=12345678).update(
+            status=ClassicBindRequest.Status.DENIED, handled_at=timezone.now(),
+        )
+
+        response = self.client.post('/api/accountlink/classic/start/', {'uid': '12345678'})
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()['status'], 'deny')
+        self.assertEqual(ClassicBindRequest.objects.get(uid=12345678).status, ClassicBindRequest.Status.DENIED)
+
+    def test_idempotent_repeat_keeps_allowed_state(self):
+        ClassicBindRequest.objects.create(
+            uid=12345678,
+            request_id=1024,
+            userprofile=self.user,
+            account='classic_user',
+            status=ClassicBindRequest.Status.ALLOWED,
+            handled_at=timezone.now(),
+            expires_at=timezone.now() + timedelta(hours=1),
+        )
+
+        record = _store_classic_request(self.user, 12345678, 1024, timezone.now() + timedelta(hours=1))
+
+        self.assertEqual(record.status, ClassicBindRequest.Status.ALLOWED)
+        stored = ClassicBindRequest.objects.get(uid=12345678)
+        self.assertEqual(stored.status, ClassicBindRequest.Status.ALLOWED)
+        self.assertIsNotNone(stored.handled_at)
 
     @patch('accountlink.classic.client.requests.post')
     def test_start_rejects_uid_owned_by_another_user_or_pending_elsewhere(self, requests_post):

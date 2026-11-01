@@ -89,10 +89,11 @@ python manage.py sync_saolei_api --all-linked --full
 
 - 整个回调在一个事务内完成：先按 `requestId` 加锁命中原申请行，再核对 `uid` / `account`，然后才分支处理。同一 UID 的新申请会覆盖旧行，此时迟到的旧回调查不到 `requestId`，返回 404，不会绑定到新申请人。
 - `allow` 复用 `save_verified_account_link`，在事务内完成绑定，重复投递直接返回成功。
+- 发起绑定的写库是幂等的：远端对同一 `(uid, app, account)` 会返回同一个 `requestId`，此时保留已有的 `allow` / `deny` / `revoke`，不退回 `pending`，也不清空 `handled_at`；覆盖前还会重新检查该用户是否已完成绑定。
 - 本地冲突重试无法自愈，记 `conflict` 并写 ERROR 日志，仍返回 2xx 停止对方重试，留待人工处理。
 - 状态查询只把「仍是 pending 且已过期」的记录用条件 UPDATE 收敛为 `expired`，不会覆盖并发到达的 `allow`。
 - 回调只做数据库写入，不触发资料同步或录像导入，满足对方 3 秒响应的要求。
-- 发起绑定会同步等待对方受理，`default.conf` 为该路径单独预留 8 秒网关预算，`CLASSIC_TIMEOUT` 默认 5 秒必须短于该预算，否则浏览器会先收到 504。
+- 发起绑定会同步等待对方受理。`requests` 的 `timeout` 只是单次读空闲上限，慢速滴流响应会让整次调用远超预算，因此客户端改为 `stream=True` 逐字节读取并按 `CLASSIC_TIMEOUT` 检查整体截止时间（连接 2 秒、总计 5 秒）；`default.conf` 为该路径预留 8 秒网关预算，三者依次递增，浏览器才能拿到后端 JSON 错误而不是 504。
 - 对方没有绑定状态查询接口，回调 4 次重试全部失败即丢失事件，只能按 `requestId` 人工对账；`ClassicBindRequest` 因此不设自动清理。
 
 ### 配置

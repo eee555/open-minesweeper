@@ -165,6 +165,16 @@ def _store_classic_request(user: UserProfile, uid: int, request_id: int, expires
                 )
             except IntegrityError:
                 raise ExceptionToResponse('classic', 'pending', status_code=409) from None
+        if record.request_id == request_id:
+            # 远端对同一 (uid, app, account) 幂等，并发的第二个请求会拿回同一个 requestId；
+            # 此时必须保留已落库的 allow / deny / revoke，不能退回 pending。
+            if record.userprofile_id != user.pk:
+                raise ExceptionToResponse('classic', 'identifier_conflict', status_code=409)
+            logger.info(f'95经典扫雷申请幂等命中 user_id={user.id} uid={uid} request_id={request_id} status={record.status}')
+            return record
+        if AccountClassicMinesweeper.objects.filter(parent=user).exists():
+            # 网络请求期间该用户已完成绑定，不能再把申请写回 pending。
+            raise ExceptionToResponse('classic', 'already_linked', status_code=409)
         if record.status == ClassicBindRequest.Status.PENDING and record.expires_at > timezone.now() and record.userprofile_id != user.pk:
             raise ExceptionToResponse('classic', 'pending', status_code=409)
         record.request_id = request_id
