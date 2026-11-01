@@ -41,15 +41,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, reactive, ref, useTemplateRef } from 'vue';
+import { toRefs } from '@vueuse/core';
+import { computed, nextTick, onBeforeUnmount, ref, useTemplateRef } from 'vue';
 import type { PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import type { BoardFrameRenderer } from './boardExportFrame';
-import { defaultAnalyzerConfig } from './config';
-import type { PlaybackController } from './usePlayback';
+import { useAnalyzerState } from './useAnalyzerState';
 import { cropPixels, exportBoardVideo, exportTiming, videoFormats, videoQualities } from './videoExport';
-import type { BoardCrop, VideoExportSettings } from './videoExport';
+import type { BoardCrop } from './videoExport';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import { baseErrorNotification } from '@/components/Notifications';
@@ -60,13 +60,11 @@ const props = defineProps({
     createRenderer: { type: Function as PropType<(size: number, signal: AbortSignal) => BoardFrameRenderer | Promise<BoardFrameRenderer>>, required: true },
     rows: { type: Number, required: true },
     columns: { type: Number, required: true },
-    playback: { type: Object as PropType<PlaybackController>, required: true },
-    filename: { type: String, default: 'replay' },
 });
-const exporting = defineModel('exporting', { type: Boolean, default: false });
+const { config, exporting, playback, filename } = useAnalyzerState();
+const { videoExport: settings } = toRefs(config, { replaceRef: false });
 const pinnedSize = defineModel<number | null>('pinnedSize', { default: null });
 const dialog = useTemplateRef('dialog');
-const settings = defineModel<VideoExportSettings>('settings', { default: () => reactive(defaultAnalyzerConfig().videoExport) });
 const scope = ref<'all' | 'range'>('all');
 const crop = ref<BoardCrop>({ top: 0, bottom: 0, left: 0, right: 0 });
 const edges = ['top', 'bottom', 'left', 'right'] as const;
@@ -102,7 +100,6 @@ function cancel() {
 async function start() {
     if (exporting.value || props.cellSize === null) return;
     const size = props.cellSize;
-    const { playback } = props;
     const startMs = scope.value === 'all' ? 0 : playback.rangeStartMs.value;
     const endMs = scope.value === 'all' ? playback.durationMs.value : playback.rangeEndMs.value;
     const rate = playback.playbackRate.value;
@@ -148,7 +145,7 @@ async function start() {
                 progress.value = completed / total;
             } });
         signal.throwIfAborted();
-        downloadBlob(blob, `${props.filename}-${startMs}-${endMs}.${options.format}`);
+        downloadBlob(blob, `${filename.value}-${startMs}-${endMs}.${options.format}`);
     } catch (error) {
         if (!signal.aborted) {
             errorMessage.value = String(error);

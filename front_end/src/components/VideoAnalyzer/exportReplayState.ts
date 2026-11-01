@@ -8,6 +8,7 @@ import type { ReplayVideo } from './replayParser';
 
 import { PiecewiseColorScheme } from '@/utils/colors';
 import type { PiecewiseColorSchemeInterface } from '@/utils/colors';
+import { replayPressedBackground } from '@/utils/replayBoardPress';
 
 export interface ExportBoardSettings {
     size: number;
@@ -30,11 +31,14 @@ export function createExportStateReader(replay: ReplayVideo, settings: ExportBoa
     const globalBoard = settings.globalVisible ? replay.board as number[][] : null;
     return (ms: number) => {
         replay.current_time = ms >= replay.rtime_ms ? Infinity : ms / 1000;
-        const position = settings.cursor === null ? null : readReplayCursor(replay);
+        const position = readReplayCursor(replay);
+        const board = replay.game_board as number[][];
+        const background = replayPressedBackground(board, replay.mouse_state, position);
         return {
-            input: { board: replay.game_board as number[][],
+            input: { board,
                 size: settings.size,
                 layers: {
+                    ...background === undefined ? {} : { background: { board: background } },
                     probability: settings.probabilityVisible ? { board: replay.game_board_poss as number[][], color: (value: number) => scheme.getColor(value * 100) } : false,
                     mouseTrace: settings.traceVisible ? { ...settings.trace, events, ...mouseTraceRange(events, ms, settings.traceTailSeconds, replay.current_event_id) } : false,
                 } } satisfies BoardRenderInput,

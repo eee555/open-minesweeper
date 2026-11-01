@@ -1,7 +1,9 @@
 import type { VueWrapper } from '@vue/test-utils';
+import { toRefs } from '@vueuse/core';
 import { defineComponent, h, ref, shallowRef } from 'vue';
 import type { VueDraggable } from 'vue-draggable-plus';
 
+import { defaultAnalyzerConfig } from './config';
 import { counterVariables, defaultCounterConfig, prepareCounters } from './counter';
 import type { CounterEvent, CounterValues, PreparedCounter } from './counter';
 import { defaultCustomEvent } from './customEvents';
@@ -9,10 +11,12 @@ import type { CustomEventDefinition } from './customEvents';
 import { addTimelineTrack, defaultTimelineConfig, timelinePadding } from './timeline';
 import type { TimelineConfig, TimeWindow } from './timeline';
 import TimelinePanel from './TimelinePanel.vue';
+import { provideAnalyzerState } from './useAnalyzerState';
 import { usePlayback } from './usePlayback';
 import type { PlaybackController } from './usePlayback';
 
 import i18n from '@/i18n';
+import { createAnalyzerTestState } from '@cy/support/analyzerState';
 
 function emptyTimelineConfig(): TimelineConfig {
     return { ...defaultTimelineConfig(), slots: [[], []] };
@@ -23,8 +27,11 @@ function mountTimeline(config: TimelineConfig = emptyTimelineConfig(), width = 8
     counterConfig.rows = [{ ...counterConfig.rows[0], key: 'bvs', expression: 'left', samplingMode: 'button' }];
     counterConfig.rows.push({ ...counterConfig.rows[0], key: 'path', expression: 'path' });
     const events: CounterEvent[] = [0, 5000, 10000, 20000].map((timeMs, index) => ({ timeMs, eventIndex: index, button: true, boardChanged: true, values: { ...Object.fromEntries(counterVariables.map((key) => [key, index * 2])) as CounterValues, path: index * 100 } }));
-    const stored = ref(config);
-    const customEvents = ref(definitions);
+    const analyzerConfig = ref(defaultAnalyzerConfig());
+    analyzerConfig.value.counter = counterConfig;
+    analyzerConfig.value.timeline = config;
+    analyzerConfig.value.customEvents = definitions;
+    const { timeline: stored, customEvents } = toRefs(analyzerConfig, { replaceRef: false });
     const timeWindow = ref<TimeWindow>({ startMs: 0, endMs: durationMs });
     const counters = shallowRef(prepareCounters(counterConfig.rows, events));
     let playback: PlaybackController;
@@ -33,23 +40,9 @@ function mountTimeline(config: TimelineConfig = emptyTimelineConfig(), width = 8
         expose: [],
         setup() {
             playback = usePlayback(durationMs);
+            provideAnalyzerState(createAnalyzerTestState({ config: analyzerConfig, playback, counterEvents: shallowRef(events), preparedCounters: counters, timeWindow }));
             return () => h('div', { style: { width: `${width}px`, height: '450px' } }, [
-                h(TimelinePanel, { modelValue: stored.value,
-                    'onUpdate:modelValue': (value: TimelineConfig) => {
-                        stored.value = value;
-                    },
-                    window: timeWindow.value,
-                    'onUpdate:window': (value: TimeWindow) => {
-                        timeWindow.value = value;
-                    },
-                    rows: counterConfig.rows,
-                    events,
-                    customEvents: customEvents.value,
-                    'onUpdate:customEvents': (value: CustomEventDefinition[]) => {
-                        customEvents.value = value;
-                    },
-                    counters: counters.value,
-                    playback }),
+                h(TimelinePanel),
             ]);
         },
     }), { global: { plugins: [i18n], stubs: { transition: false } } });

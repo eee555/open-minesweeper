@@ -2,9 +2,11 @@ import { defineComponent, h } from 'vue';
 
 import type { KeyframeNavigation } from './keyframes';
 import ProgressBar from './ProgressBar.vue';
+import { provideAnalyzerState } from './useAnalyzerState';
 import { usePlayback } from './usePlayback';
 
 import i18n from '@/i18n';
+import { createAnalyzerTestState } from '@cy/support/analyzerState';
 
 function mountProgress(durationMs = 1000, width = 600, keyframeNavigation: KeyframeNavigation | null = null) {
     let now = 0;
@@ -23,7 +25,8 @@ function mountProgress(durationMs = 1000, width = 600, keyframeNavigation: Keyfr
         expose: [],
         setup() {
             const playback = usePlayback(durationMs);
-            return () => h('div', { style: { width: `${width}px` } }, [h(ProgressBar, { playback, keyframeNavigation })]);
+            provideAnalyzerState(createAnalyzerTestState({ playback, keyframeNavigation }));
+            return () => h('div', { style: { width: `${width}px` } }, [h(ProgressBar)]);
         },
     }), { global: { plugins: [i18n] } });
 
