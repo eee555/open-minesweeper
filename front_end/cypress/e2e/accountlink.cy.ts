@@ -45,7 +45,7 @@ function linkNewAccount(platform: string, identifier: string) {
     cy.get('.el-dialog__body').within(() => {
         cy.contains('平台').next().contains('Select').click();
     });
-    cy.get('li').contains(platform).click();
+    cy.contains('.el-select-dropdown__item:visible', platform).click();
     if (platform === LINKS.bilibili.platform) {
         cy.contains('隐私提醒');
         cy.contains('关联 Bilibili 后');
