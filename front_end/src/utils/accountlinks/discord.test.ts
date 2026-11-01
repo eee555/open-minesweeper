@@ -12,6 +12,7 @@ describe('manual Discord account links', () => {
         const response: AccountLinksResponse = {
             summary: [{ id: 1, platform: 'd', identifier: id, userprofile: 1, verified: true }],
             B: null,
+            x: null,
             m: null,
             c: null,
             a: null,
@@ -37,6 +38,7 @@ describe('manual Discord account links', () => {
             expect(privateAccountLinkPlatforms).toContain(platform);
         }
         expect(manualAccountLinkPlatforms).not.toContain(AccountLinkPlatform.Mineracer);
+        expect(manualAccountLinkPlatforms).not.toContain(AccountLinkPlatform.Classic);
     });
 
     it('handles absent account details and ignores obsolete OAuth profile fields', () => {

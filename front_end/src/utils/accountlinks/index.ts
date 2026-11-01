@@ -1,4 +1,5 @@
 export * from './bilibili';
+export * from './classic';
 export * from './collection';
 export type * from './common';
 export * from './discord';

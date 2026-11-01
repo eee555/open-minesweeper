@@ -86,6 +86,7 @@ export default {
         a: '@:website.msgames',
         B: '@:website.bilibili',
         c: '@:website.saolei',
+        x: '95经典扫雷',
         m: 'Mineracer',
         q: '腾讯QQ',
     },

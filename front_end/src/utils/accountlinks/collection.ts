@@ -1,5 +1,7 @@
 import { AccountBilibili } from './bilibili';
 import type { AccountBilibiliResponse } from './bilibili';
+import { AccountClassic } from './classic';
+import type { AccountClassicResponse } from './classic';
 import type { AccountLinkQueueResponse } from './common';
 import { AccountDiscord } from './discord';
 import type { AccountDiscordResponse } from './discord';
@@ -19,6 +21,7 @@ export interface AccountLinksResponse {
     d?: AccountDiscordResponse | null;
     summary: AccountLinkQueueResponse[];
     B: AccountBilibiliResponse | null;
+    x: AccountClassicResponse | null;
     m: AccountMineracerResponse | null;
     c: AccountSaoleiResponse | null;
     a: AccountMSGamesResponse | null;
@@ -30,6 +33,7 @@ export class AccountLinks {
     public d?: AccountDiscord;
     public summary: AccountLinkQueueResponse[] = [];
     public B?: AccountBilibili;
+    public x?: AccountClassic;
     public m?: AccountMineracer;
     public c?: AccountSaolei;
     public a?: AccountMSGames;
@@ -42,6 +46,7 @@ export class AccountLinks {
         this.summary = data.summary;
         this.d = data.d == null ? undefined : new AccountDiscord(data.d);
         this.B = data.B === null ? undefined : new AccountBilibili(data.B);
+        this.x = data.x == null ? undefined : new AccountClassic(data.x);
         this.m = data.m === null ? undefined : new AccountMineracer(data.m);
         this.c = data.c === null ? undefined : new AccountSaolei(data.c);
         this.a = data.a === null ? undefined : new AccountMSGames(data.a);

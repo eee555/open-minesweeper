@@ -11,11 +11,13 @@
             />
         </template>
         <CardMineracer v-if="accountlinks.m" :id="accountlinks.m.id" :info="accountlinks.m" />
+        <CardClassic v-if="accountlinks.x" :id="accountlinks.x.id" :info="accountlinks.x" />
         <template v-for="platform of privateAccountLinkPlatforms" :key="platform">
             <CardPrivate v-if="accountlinks.has(platform)" :id="accountlinks.getSummary(platform)!.identifier" :platform="platform" :verified="accountlinks.getSummary(platform)!.verified" />
         </template>
         <CardAdd v-if="showManualAdd" :accountlinks="accountlinks" @add-link="addLink" />
         <CardAddMineracer v-if="showMineracerAdd" @refresh="refresh" />
+        <CardAddClassic v-if="showClassicAdd" @refresh="refresh" />
     </div>
 </template>
 
@@ -25,8 +27,10 @@ import type { Component } from 'vue';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import CardAdd from './CardAdd.vue';
+import CardAddClassic from './CardAddClassic.vue';
 import CardAddMineracer from './CardAddMineracer.vue';
 import CardBilibili from './CardBilibili.vue';
+import CardClassic from './CardClassic.vue';
 import CardMineracer from './CardMineracer.vue';
 import CardMsgames from './CardMsgames.vue';
 import CardPrivate from './CardPrivate.vue';
@@ -51,6 +55,7 @@ const accountlinks = ref(new AccountLinks());
 const isOwnAccountLinkPage = computed(() => store.user.id > 0 && props.userId === store.user.id);
 const showManualAdd = computed(() => isOwnAccountLinkPage.value && manualAccountLinkPlatforms.some((platform) => !accountlinks.value.has(platform)));
 const showMineracerAdd = computed(() => isOwnAccountLinkPage.value && accountlinks.value.m === undefined);
+const showClassicAdd = computed(() => isOwnAccountLinkPage.value && accountlinks.value.x === undefined);
 const accountCardConfigs: { platform: AccountLinkPlatformType; component: Component }[] = [
     { platform: AccountLinkPlatform.Saolei, component: CardSaolei },
     { platform: AccountLinkPlatform.MSGames, component: CardMsgames },

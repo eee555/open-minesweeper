@@ -10,6 +10,7 @@ import type { AccountLinksResponse } from '@/utils/accountlinks';
 const privateLinks: AccountLinksResponse = {
     summary: [{ id: 8, platform: 'd', identifier: '803511102246789123', userprofile: 1, verified: true }],
     B: null,
+    x: null,
     m: null,
     c: null,
     a: null,
@@ -21,6 +22,10 @@ const publicLinks: AccountLinksResponse = { ...privateLinks, summary: [], d: nul
 
 describe('<AccountLinksApp />', () => {
     beforeEach(() => {
+        cy.intercept('GET', '**/api/accountlink/classic/status/', {
+            statusCode: 200,
+            body: { status: 'none', uid: null, request_id: null, expires_at: null, error_category: '' },
+        });
         resetAccountLinkStore(1, 1);
         mockSaoleiImportSummary();
     });
@@ -81,6 +86,7 @@ describe('<AccountLinksApp />', () => {
             body: {
                 summary: [],
                 B: null,
+                x: null,
                 m: null,
                 c: null,
                 a: null,
@@ -99,7 +105,7 @@ describe('<AccountLinksApp />', () => {
         cy.get('.el-button').first().click();
         cy.get('.el-select').click();
         cy.contains('.el-select-dropdown__item', 'Bilibili').click();
-        cy.get('.el-input input').type('404');
+        cy.get('.el-dialog .el-input input').type('404');
         cy.contains('button', 'Confirm').click();
 
         cy.wait('@addLink').its('request.body').should('equal', 'platform=B&identifier=404');
@@ -131,6 +137,7 @@ describe('<AccountLinksApp />', () => {
             body: {
                 summary: [],
                 B: null,
+                x: null,
                 m: null,
                 c: null,
                 a: null,

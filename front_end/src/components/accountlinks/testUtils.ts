@@ -177,6 +177,7 @@ export function mockAccountLinksResponse(): AccountLinksResponse {
             { id: 5, platform: AccountLinkPlatform.Mineracer, identifier: '123456789', userprofile: 1, verified: true },
         ],
         B: mockBilibiliResponse(),
+        x: null,
         m: mockMineracerResponse(),
         c: mockSaoleiResponse(),
         a: mockMSGamesResponse(),

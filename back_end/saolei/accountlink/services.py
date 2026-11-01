@@ -61,6 +61,8 @@ def verify_account_link(user_id: int, platform: str, identifier: str, actor_id: 
         raise ExceptionToResponse('user', 'not_found', status_code=404)
     if platform == Platform.MINERACER:
         raise ExceptionToResponse('mineracer', 'manual_link_not_supported', status_code=400)
+    if platform == Platform.CLASSIC:
+        raise ExceptionToResponse('classic', 'manual_link_not_supported', status_code=400)
     if platform not in Platform.values:
         raise ExceptionToResponse('platform', 'invalid', status_code=400)
     links = list(AccountLinkQueue.objects.select_for_update().filter(platform=platform, identifier=identifier).order_by('pk'))
@@ -87,6 +89,8 @@ def unverify_account_link(user_id: int, platform: str, identifier: str):
         raise ExceptionToResponse('user', 'not_found', status_code=404)
     if platform == Platform.MINERACER:
         raise ExceptionToResponse('mineracer', 'unlink_not_supported', status_code=409)
+    if platform == Platform.CLASSIC:
+        raise ExceptionToResponse('classic', 'unlink_not_supported', status_code=409)
     if platform not in Platform.values or not identifier:
         raise ExceptionToResponse('platform', 'invalid', status_code=400)
     link = AccountLinkQueue.objects.select_for_update().filter(userprofile=user, platform=platform, identifier=identifier).first()
@@ -108,6 +112,8 @@ def update_account(platform: Platform, user: UserProfile):
         update_bilibili_account(user.account_bilibili)
     elif platform == Platform.MINERACER:
         raise ExceptionToResponse('mineracer', 'update_not_supported', status_code=400)
+    elif platform == Platform.CLASSIC:
+        raise ExceptionToResponse('classic', 'update_not_supported', status_code=400)
 
 
 def update_wom_account(account: AccountWorldOfMinesweeper):
