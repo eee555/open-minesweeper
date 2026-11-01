@@ -639,10 +639,15 @@ describe('Weekly tournament', () => {
         cy.intercept('POST', '**/api/tournament/weekly/new').as('createWeeklyTournament');
         cy.login(STAFF.username, STAFF.password);
         cy.visit('/#/staff/weekly-tournament');
+        // The form renders before session restoration; staff navigation requires CSRF setup to finish.
+        cy.get('[data-navigation-id=staff]').should('exist');
         cy.contains('比赛类型');
         cy.contains('.el-select', '2高5中').should('be.visible');
         cy.contains('button', '创建下周打卡赛').click();
-        cy.wait('@createWeeklyTournament').its('response.statusCode').should('eq', 200);
+        cy.wait('@createWeeklyTournament').should(({ request, response }) => {
+            expect(request.headers['x-csrftoken'], 'administrator CSRF header').to.be.a('string').and.not.equal('');
+            expect(response?.statusCode, `weekly tournament response: ${JSON.stringify(response?.body)}`).to.eq(200);
+        });
         cy.contains('操作成功');
         cy.closeElNotifications();
         cy.contains('创建结果');

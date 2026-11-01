@@ -7,7 +7,7 @@
             <ElSplitter :key="activeLayout" layout="vertical" class="video-analyzer-view__splitter" @resize-end="(_index, sizes) => savePanelSizes('outer', sizes)">
                 <template v-if="isStacked">
                     <ElSplitterPanel v-for="(panel, index) in orderedPanels" :key="panel.id" :size="`${panelSizes.outer[index]}%`" min="15%">
-                        <BoardPanel v-if="panel.id === 'board'" v-model:exporting="exporting" v-model:export-settings="analyzerConfig.videoExport" v-model:probability-color-scheme="probabilityColorScheme" v-model:event-layer="analyzerConfig.eventLayer" v-model:cell-size-mode="cellSizeMode" v-model:fixed-cell-size="fixedCellSize" v-model:cell-scale="cellScale" v-model:global-visible="globalVisible" v-model:probability-visible="probabilityVisible" v-model:global-opacity="globalOpacity" v-model:probability-opacity="probabilityOpacity" v-model:trace-visible="traceVisible" v-model:trace-opacity="traceOpacity" v-model:trace-tail-seconds="traceTailSeconds" v-model:trace-mask-opacity="traceMaskOpacity" v-model:trace-appearance="traceAppearance" v-model:cursor-visible="cursorVisible" v-model:cursor-shape="cursorShape" v-model:cursor-size="cursorSize" :custom-events="analyzerConfig.customEvents" :prepared-events="preparedEvents" :create-export-video="createExportVideo" :filename="filename || source?.filename || 'replay'" :cursor-position="cursorPosition" :native-cell-size="nativeCellSize" :trace-events="traceEvents" :current-event-index="currentEventIndex" :board="gameBoard" :global-board="globalBoard" :probability-board="probabilityBoard" :playback="playback" :keyframe-navigation="keyframeNavigation" :loading="loading" :error-message="errorMessage">
+                        <BoardPanel v-if="panel.id === 'board'">
                             <template #settings>
                                 <AnalyzerLayoutControl v-model="selectedLayout" />
                             </template>
@@ -16,14 +16,14 @@
                             <section v-if="!infoOnTop && slots.info" class="text text-small video-analyzer-info" :aria-label="t('local.info')">
                                 <slot name="info" />
                             </section>
-                            <CounterPanel v-model="analyzerConfig.counter" :events="counterEvents" :counters="preparedCounters" :slot-names="slotNames" :duration-ms="durationMs" :current-ms="playback.currentMs.value" @send-to-slot="sendToSlot" />
+                            <CounterPanel />
                         </div>
                     </ElSplitterPanel>
                 </template>
                 <ElSplitterPanel v-else :size="`${panelSizes.outer[0]}%`" min="30%">
                     <ElSplitter class="video-analyzer-view__upper-splitter" @resize-end="(_index, sizes) => savePanelSizes('upper', sizes)">
                         <ElSplitterPanel v-for="(panel, index) in orderedPanels" :key="panel.id" :size="`${panelSizes.upper[index]}%`" min="15%">
-                            <BoardPanel v-if="panel.id === 'board'" v-model:exporting="exporting" v-model:export-settings="analyzerConfig.videoExport" v-model:probability-color-scheme="probabilityColorScheme" v-model:event-layer="analyzerConfig.eventLayer" v-model:cell-size-mode="cellSizeMode" v-model:fixed-cell-size="fixedCellSize" v-model:cell-scale="cellScale" v-model:global-visible="globalVisible" v-model:probability-visible="probabilityVisible" v-model:global-opacity="globalOpacity" v-model:probability-opacity="probabilityOpacity" v-model:trace-visible="traceVisible" v-model:trace-opacity="traceOpacity" v-model:trace-tail-seconds="traceTailSeconds" v-model:trace-mask-opacity="traceMaskOpacity" v-model:trace-appearance="traceAppearance" v-model:cursor-visible="cursorVisible" v-model:cursor-shape="cursorShape" v-model:cursor-size="cursorSize" :custom-events="analyzerConfig.customEvents" :prepared-events="preparedEvents" :create-export-video="createExportVideo" :filename="filename || source?.filename || 'replay'" :cursor-position="cursorPosition" :native-cell-size="nativeCellSize" :trace-events="traceEvents" :current-event-index="currentEventIndex" :board="gameBoard" :global-board="globalBoard" :probability-board="probabilityBoard" :playback="playback" :keyframe-navigation="keyframeNavigation" :loading="loading" :error-message="errorMessage">
+                            <BoardPanel v-if="panel.id === 'board'">
                                 <template #settings>
                                     <AnalyzerLayoutControl v-model="selectedLayout" />
                                 </template>
@@ -32,13 +32,13 @@
                                 <section v-if="!infoOnTop && slots.info" class="text text-small video-analyzer-info" :aria-label="t('local.info')">
                                     <slot name="info" />
                                 </section>
-                                <CounterPanel v-model="analyzerConfig.counter" :events="counterEvents" :counters="preparedCounters" :slot-names="slotNames" :duration-ms="durationMs" :current-ms="playback.currentMs.value" @send-to-slot="sendToSlot" />
+                                <CounterPanel />
                             </div>
                         </ElSplitterPanel>
                     </ElSplitter>
                 </ElSplitterPanel>
                 <ElSplitterPanel :size="`${panelSizes.outer[isStacked ? 2 : 1]}%`" min="15%">
-                    <TimelinePanel v-model="analyzerConfig.timeline" v-model:custom-events="analyzerConfig.customEvents" v-model:board-event-keys="analyzerConfig.eventLayer.keys" v-model:window="timeWindow" :prepared-events="preparedEvents" :events="counterEvents" :rows="analyzerConfig.counter.rows" :counters="preparedCounters" :playback="playback" />
+                    <TimelinePanel />
                 </ElSplitterPanel>
             </ElSplitter>
         </div>
@@ -53,6 +53,7 @@ import type { PropType, VNode } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import AnalyzerLayoutControl from './AnalyzerLayoutControl.vue';
+import type { BoardFrame } from './board';
 import BoardPanel from './BoardPanel.vue';
 import { defaultAnalyzerConfig } from './config';
 import type { AnalyzerConfig, AnalyzerLayout } from './config';
@@ -61,9 +62,9 @@ import CounterPanel from './CounterPanel.vue';
 import { adjacentKeyframe } from './keyframes';
 import { readMouseTrace } from './mouseTrace';
 import type { ReplaySource } from './replayParser';
-import { addTimelineTrack } from './timeline';
 import type { TimeWindow } from './timeline';
 import TimelinePanel from './TimelinePanel.vue';
+import { provideAnalyzerState } from './useAnalyzerState';
 import { usePlayback } from './usePlayback';
 import { usePreparedAnalysis } from './usePreparedAnalysis';
 import { useReplayPosition } from './useReplayPosition';
@@ -87,7 +88,16 @@ const replay = useReplaySource(() => props.source);
 const { video, durationMs, globalBoard, createExportVideo } = replay;
 const errorMessage = computed(() => props.errorMessage || replay.errorMessage.value);
 const clock = usePlayback(durationMs);
-const { gameBoard, probabilityBoard, currentEventIndex, cursorPosition, selectKeyframe, clearKeyframe } = useReplayPosition(video, clock.currentMs);
+const { gameBoard, probabilityBoard, mouseState, currentEventIndex, cursorPosition, selectKeyframe, clearKeyframe } = useReplayPosition(video, clock.currentMs);
+const boardFrame = computed<BoardFrame>(() => ({
+    board: gameBoard.value,
+    globalBoard: globalBoard.value,
+    probabilityBoard: probabilityBoard.value,
+    cursorPosition: cursorPosition.value,
+    mouseState: mouseState.value,
+    currentEventIndex: currentEventIndex.value,
+    nativeCellSize: video.value?.pix_size ?? null,
+}));
 const playback = { ...clock,
     seek: (ms: number) => {
         clearKeyframe(); clock.seek(ms);
@@ -108,15 +118,11 @@ watch(playback.loopMode, (mode) => {
 const traceEvents = computed(() => (video.value === null ? [] : readMouseTrace(video.value)));
 const counterEvents = computed(() => (video.value === null ? [] : readCounterEvents(video.value)));
 const { preparedCounters, preparedEvents } = usePreparedAnalysis(analyzerConfig, counterEvents, durationMs);
-const slotNames = computed(() => analyzerConfig.value.timeline.slotSettings.map((slot) => slot.name));
 const timeWindow = ref<TimeWindow>({ startMs: 0, endMs: 0 });
 watch(durationMs, (duration) => {
     timeWindow.value = { startMs: 0, endMs: duration };
 }, { immediate: true });
 
-function sendToSlot(target: { key: string; slotIndex: number }) {
-    addTimelineTrack(analyzerConfig.value.timeline, target.slotIndex, target.key);
-}
 const keyframes = computed(() => counterEvents.value.filter((event) => event.button));
 const keyframeNavigation = { previous: () => {
     stepKeyframe(-1);
@@ -124,14 +130,24 @@ const keyframeNavigation = { previous: () => {
 next: () => {
     stepKeyframe(1);
 } };
-const nativeCellSize = computed(() => video.value?.pix_size ?? null);
-const { selectedLayout, cellSizeMode, fixedCellSize, cellScale, globalVisible, probabilityVisible, globalOpacity, probabilityOpacity, traceVisible, traceOpacity, traceMaskOpacity, traceAppearance, cursorVisible, cursorShape, cursorSize } = toRefs<AnalyzerConfig>(analyzerConfig, { replaceRef: false });
-const traceTailSeconds = computed({
-    get: () => (analyzerConfig.value.traceTailSeconds === 'infinite' ? Infinity : analyzerConfig.value.traceTailSeconds),
-    set: (value: number) => {
-        analyzerConfig.value.traceTailSeconds = value === Infinity ? 'infinite' : value;
-    },
+provideAnalyzerState({
+    config: analyzerConfig,
+    probabilityColorScheme,
+    exporting,
+    frame: boardFrame,
+    playback,
+    keyframeNavigation,
+    counterEvents,
+    preparedCounters,
+    preparedEvents,
+    traceEvents,
+    timeWindow,
+    loading: computed(() => props.loading),
+    errorMessage,
+    filename: computed(() => props.filename || (props.source?.filename ?? '') || 'replay'),
+    createExportVideo,
 });
+const { selectedLayout } = toRefs<AnalyzerConfig>(analyzerConfig, { replaceRef: false });
 watch(() => props.source, () => {
     playback.pause();
     playback.endSeek();

@@ -7,6 +7,8 @@ from django.utils import timezone as django_timezone
 from django_apscheduler import util
 from django_apscheduler.models import DjangoJob, DjangoJobExecution
 
+from accountlink.saolei.services import sync_saolei_metadata_daily
+from accountlink.saolei.tasks import enqueue_saolei_hourly_import
 from monitor.services import publish_monitor_snapshot
 from tournament.cache import TournamentCache
 from userprofile.models import EmailVerifyRecord
@@ -14,6 +16,16 @@ from videomanager.services import delete_newest_queue
 from .services import cleanup_expired_tasks
 
 logger = logging.getLogger(__name__)
+
+
+@util.close_old_connections
+def sync_saolei_daily_catalogue():
+    sync_saolei_metadata_daily()
+
+
+@util.close_old_connections
+def queue_saolei_hourly_import():
+    enqueue_saolei_hourly_import()
 
 
 @util.close_old_connections
@@ -51,7 +63,18 @@ def refresh_tournament_score_reference():
 
 def register_jobs(scheduler):
     # Remove the persisted job before the job store restores its deleted callable.
-    DjangoJob.objects.filter(id__in=['refresh_state_always', 'delete_freezed_video']).delete()
+    DjangoJob.objects.filter(id__in=['refresh_state_always', 'delete_freezed_video', 'sync_saolei_daily']).delete()
+
+    scheduler.add_job(
+        sync_saolei_daily_catalogue,
+        trigger=CronTrigger(hour=3, minute=30, timezone=scheduler.timezone),
+        id='sync_saolei_metadata_daily', misfire_grace_time=3600, coalesce=True, max_instances=1, replace_existing=True,
+    )
+    scheduler.add_job(
+        queue_saolei_hourly_import,
+        trigger=CronTrigger(minute=0, timezone=scheduler.timezone),
+        id='import_saolei_hourly', misfire_grace_time=600, coalesce=True, max_instances=1, replace_existing=True,
+    )
 
     scheduler.add_job(
         refresh_monitor_snapshot,

@@ -1,18 +1,19 @@
 import { defineComponent, h, ref, shallowRef } from 'vue';
 
 import VideoAnalyzer from './App.vue';
-import BoardPanel from './BoardPanel.vue';
 import { defaultAnalyzerConfig } from './config';
-import CounterPanel from './CounterPanel.vue';
 import type { ReplaySource } from './replayParser';
+import type { AnalyzerState } from './useAnalyzerState';
 
 import i18n from '@/i18n';
+import { captureAnalyzerState } from '@cy/support/analyzerState';
 
 describe('<VideoAnalyzer /> raw-source interface', () => {
     it('keeps replay samples cached while changing layer visibility and opacity', () => {
         cy.viewport(1280, 1000);
         const config = ref(defaultAnalyzerConfig());
         const originalConfig = config.value;
+        let state: AnalyzerState;
         cy.fixture('52200.evf', 'binary').then((binary: string) => {
             const source: ReplaySource = { data: Uint8Array.from(binary, (character) => character.charCodeAt(0)).buffer, filename: 'local.evf', software: 'e' };
             cy.mount(defineComponent({ expose: [],
@@ -23,9 +24,13 @@ describe('<VideoAnalyzer /> raw-source interface', () => {
                         config.value = value;
                     },
                     probabilityColorScheme: { colors: ['#000', '#fff'], thresholds: [50] },
-                })]) }), { global: { plugins: [i18n] } }).then(({ wrapper }) => {
-                const counters = wrapper.findComponent(CounterPanel).props('counters');
-                const events = wrapper.findComponent(BoardPanel).props('preparedEvents');
+                })]) }), { global: { plugins: [i18n],
+                mixins: [captureAnalyzerState((value) => {
+                    state = value;
+                })] } }).then(() => {
+                const counters = state.preparedCounters.value;
+                const events = state.preparedEvents.value;
+                const frame = state.frame.value;
                 cy.get('.video-analyzer-board__global-toggle').click();
                 cy.get('.video-analyzer-board__global-toggle').should('have.attr', 'aria-pressed', 'true');
                 cy.get('.video-analyzer-board__probability-toggle').click();
@@ -44,8 +49,10 @@ describe('<VideoAnalyzer /> raw-source interface', () => {
                     expect(config.value.traceVisible).to.eq(true);
                     expect(config.value.cursorVisible).to.eq(false);
                     expect(config.value.globalOpacity).to.eq(0.4);
-                    expect(wrapper.findComponent(CounterPanel).props('counters')).to.eq(counters);
-                    expect(wrapper.findComponent(BoardPanel).props('preparedEvents')).to.eq(events);
+                    expect(state.preparedCounters.value).to.eq(counters);
+                    expect(state.preparedEvents.value).to.eq(events);
+                    expect(state.frame.value).to.eq(frame);
+                    expect(state.config.value).to.eq(originalConfig);
                 });
             });
         });

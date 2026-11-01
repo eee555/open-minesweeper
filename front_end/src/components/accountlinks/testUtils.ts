@@ -49,20 +49,11 @@ export function mockSaoleiResponse(overrides: Partial<AccountSaoleiResponse> = {
         id: 101,
         parent: 1,
         update_time: '2025-01-05T08:09:10Z',
-        video_import_task: null,
         name: 'Saolei Player',
-        total_views: 9876,
-        beg_count: 12,
-        int_count: 8,
-        exp_count: 4,
-        b_t_ms: 12340,
-        i_t_ms: 45670,
-        e_t_ms: 99990,
-        s_t_ms: 158000,
-        b_b_cent: 20,
-        i_b_cent: 30,
-        e_b_cent: 40,
-        s_b_cent: 90,
+        banned: false,
+        auto_sync: true,
+        video_sync_cursor: 1000,
+        video_update_time: '2025-01-05T08:09:10Z',
         ...overrides,
     };
 }
@@ -186,6 +177,7 @@ export function mockAccountLinksResponse(): AccountLinksResponse {
             { id: 5, platform: AccountLinkPlatform.Mineracer, identifier: '123456789', userprofile: 1, verified: true },
         ],
         B: mockBilibiliResponse(),
+        x: null,
         m: mockMineracerResponse(),
         c: mockSaoleiResponse(),
         a: mockMSGamesResponse(),
@@ -195,17 +187,17 @@ export function mockAccountLinksResponse(): AccountLinksResponse {
 }
 
 export function mockSaoleiImportSummary(): void {
-    cy.intercept('GET', '**/accountlink/saolei/videoimport/stat/**', {
+    cy.intercept('GET', '**/api/accountlink/saolei/*/summary', {
         statusCode: 200,
         body: {
-            bulk_task_status: 'NULL',
             total: 3,
-            old_imported: 1,
-            new_total: 2,
-            new_ready: 0,
-            new_success: 1,
-            new_failed: 0,
-            new_connection: 0,
+            imported: 2,
+            pending: 1,
+            rejected: 0,
+            skipped: 0,
+            auto_sync: true,
+            video_sync_cursor: 1000,
+            video_update_time: null,
         },
     }).as('importSummary');
 }

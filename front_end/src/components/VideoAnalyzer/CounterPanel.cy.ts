@@ -1,8 +1,15 @@
+import { defineComponent, h, ref, shallowRef, watch } from 'vue';
+
+import { defaultAnalyzerConfig } from './config';
 import { counterVariables, defaultCounterConfig } from './counter';
 import type { CounterConfig, CounterEvent, CounterValues } from './counter';
 import CounterPanel from './CounterPanel.vue';
+import { provideAnalyzerState } from './useAnalyzerState';
+import type { AnalyzerState } from './useAnalyzerState';
+import { usePlayback } from './usePlayback';
 
 import i18n from '@/i18n';
+import { createAnalyzerTestState } from '@cy/support/analyzerState';
 
 function singleCounterConfig(): CounterConfig {
     return { ...defaultCounterConfig(), rows: [{ key: 'bvs', expression: 'bbbv_solved / time', format: '.3f', samplingMode: 'button' as const }] };
@@ -14,12 +21,28 @@ function mountCounter(config = singleCounterConfig(), slotNames: string[] = []) 
         button: true,
         boardChanged: true,
         values: { ...Object.fromEntries(counterVariables.map((key) => [key, index * 4])) as CounterValues, time: index } }));
-    return cy.mount(CounterPanel, { props: { modelValue: config, events, currentMs: 1000, slotNames, onSendToSlot: cy.spy().as('sendToSlot'), 'onUpdate:modelValue': cy.spy().as('update') }, global: { plugins: [i18n], stubs: { transition: false } } }).then((mounted) => {
+    const update = cy.spy().as('update');
+    let state: AnalyzerState;
+    return cy.mount(defineComponent({
+        setup() {
+            const settings = ref(defaultAnalyzerConfig());
+            settings.value.counter = config;
+            settings.value.timeline = { slots: slotNames.map(() => []), slotSettings: slotNames.map((name) => ({ name, height: 160 })) };
+            const playback = usePlayback(2000);
+            playback.seek(1000);
+            state = createAnalyzerTestState({ config: settings, counterEvents: shallowRef(events), playback });
+            provideAnalyzerState(state);
+            watch(() => settings.value.counter, (value) => {
+                update(value);
+            });
+            return () => h(CounterPanel);
+        },
+    }), { global: { plugins: [i18n], stubs: { transition: false } } }).then((mounted) => {
         cy.get('.video-analyzer-counter').parent().invoke('css', { height: '240px', width: '220px' });
         // This fixture fits six rows per column. The initial RAF reflow can remount row menus.
         cy.get('.video-analyzer-counter__column').should('have.length', Math.ceil(config.rows.length / 6));
         cy.get('.video-analyzer-counter__column').first().find('tr').should('have.length', Math.min(6, config.rows.length));
-        return cy.wrap(mounted);
+        return cy.wrap({ ...mounted, state });
     });
 }
 
@@ -32,13 +55,16 @@ function openRowMenu(key: string) {
 
 describe('<CounterPanel />', () => {
     it('sends the original key to the selected slot every time without editing counter configuration', () => {
-        mountCounter(singleCounterConfig(), ['First', 'Second']);
-        for (const slot of ['1', '1', '0']) {
-            openRowMenu('bvs');
-            cy.get('.video-analyzer-counter__send-to-slot:visible').should('have.attr', 'aria-label', 'Send to plot').select(slot);
-        }
-        cy.get('@sendToSlot').should('have.been.calledThrice').and('have.been.calledWithExactly', { key: 'bvs', slotIndex: 1 }).and('have.been.calledWithExactly', { key: 'bvs', slotIndex: 0 });
-        cy.get('@update').should('not.have.been.called');
+        mountCounter(singleCounterConfig(), ['First', 'Second']).then(({ state }) => {
+            for (const slot of ['1', '1', '0']) {
+                openRowMenu('bvs');
+                cy.get('.video-analyzer-counter__send-to-slot:visible').should('have.attr', 'aria-label', 'Send to plot').select(slot);
+            }
+            cy.then(() => {
+                expect(state.config.value.timeline.slots.map((slot) => slot.map((track) => track.key))).to.deep.eq([['bvs'], ['bvs', 'bvs']]);
+            });
+            cy.get('@update').should('not.have.been.called');
+        });
     });
 
     it('disables sending when no slot exists', () => {
@@ -69,11 +95,15 @@ describe('<CounterPanel />', () => {
     it('updates with time and shows expression errors instead of fallback values', () => {
         const config = singleCounterConfig();
         config.rows[0].expression = 'left';
-        mountCounter(config).then(({ wrapper }) => {
+        mountCounter(config).then(({ state }) => {
             cy.get('.video-analyzer-counter__value').should('have.text', '4.000');
-            cy.then(() => wrapper.setProps({ currentMs: 1500 }));
+            cy.then(() => {
+                state.playback.seek(1500);
+            });
             cy.get('.video-analyzer-counter__value').should('have.text', '6.000');
-            cy.then(() => wrapper.setProps({ modelValue: { ...config, rows: [{ ...config.rows[0], expression: 'bbbv_s' }] } }));
+            cy.then(() => {
+                state.config.value.counter = { ...config, rows: [{ ...config.rows[0], expression: 'bbbv_s' }] };
+            });
             cy.get('.video-analyzer-counter__value').should('have.class', 'text-danger').and('contain.text', 'Unknown variable: bbbv_s');
         });
     });

@@ -9,11 +9,12 @@ import type { ReplayVideo } from './replayParser';
 export { readReplayCursor } from './replayCursor';
 export type { CursorPosition } from './replayCursor';
 
-export function useReplayPosition(video: MaybeRefOrGetter<ReplayVideo | null>, currentMs: MaybeRefOrGetter<number>): { gameBoard: ShallowRef<number[][] | null>; probabilityBoard: ShallowRef<number[][] | null>; currentEventIndex: ShallowRef<number | null>; cursorPosition: ShallowRef<CursorPosition | null>; selectKeyframe: (index: number) => void; clearKeyframe: () => void } {
+export function useReplayPosition(video: MaybeRefOrGetter<ReplayVideo | null>, currentMs: MaybeRefOrGetter<number>): { gameBoard: ShallowRef<number[][] | null>; probabilityBoard: ShallowRef<number[][] | null>; mouseState: ShallowRef<number>; currentEventIndex: ShallowRef<number | null>; cursorPosition: ShallowRef<CursorPosition | null>; selectKeyframe: (index: number) => void; clearKeyframe: () => void } {
     const gameBoard = shallowRef<number[][] | null>(null);
     const probabilityBoard = shallowRef<number[][] | null>(null);
     const currentEventIndex = shallowRef<number | null>(null);
     const cursorPosition = shallowRef<CursorPosition | null>(null);
+    const mouseState = shallowRef(0);
     const keyframeIndex = shallowRef<number | null>(null);
     let timePosition: { replay: ReplayVideo; ms: number; eventIndex: number } | null = null;
     function clearKeyframe() {
@@ -27,6 +28,7 @@ export function useReplayPosition(video: MaybeRefOrGetter<ReplayVideo | null>, c
             probabilityBoard.value = null;
             currentEventIndex.value = null;
             cursorPosition.value = null;
+            mouseState.value = 0;
             return;
         }
         // Infinity includes the final event even when its time offset rounds below the boundary.
@@ -55,11 +57,13 @@ export function useReplayPosition(video: MaybeRefOrGetter<ReplayVideo | null>, c
         }
         currentEventIndex.value = replay.current_event_id;
         cursorPosition.value = readReplayCursor(replay);
+        mouseState.value = replay.mouse_state;
     }, { immediate: true });
     return { gameBoard,
         probabilityBoard,
         currentEventIndex,
         cursorPosition,
+        mouseState,
         selectKeyframe: (index) => {
             keyframeIndex.value = index;
         },
