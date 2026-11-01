@@ -4,8 +4,13 @@ import i18n from '@/i18n';
 import { resetMedalPalette } from '@/services/medalPaletteStore';
 
 describe('medal palette settings', () => {
+    const originalLocale = i18n.global.locale.value;
     beforeEach(() => {
+        i18n.global.locale.value = 'en';
         resetMedalPalette();
+    });
+    afterEach(() => {
+        i18n.global.locale.value = originalLocale;
     });
     it('previews every series and difficulty using the shared renderer', () => {
         cy.mount(MedalPaletteSettings, { global: { plugins: [i18n] } });
@@ -20,6 +25,6 @@ describe('medal palette settings', () => {
         cy.get('.palette-row .hex').first().clear();
         cy.get('.palette-row .hex').first().type('#123456');
         cy.get('.palette-row image').first().should('have.attr', 'filter', 'url(#medal-soft-123456)');
-        cy.get('.medal-colors [role=status]').should('contain.text', '保存在此浏览器');
+        cy.get('.medal-colors [role=status]').should('have.text', 'Personal colors saved in this browser.');
     });
 });
