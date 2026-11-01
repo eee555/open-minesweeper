@@ -1,0 +1,35 @@
+{
+  "version": "time-color-accessible-v2",
+  "assets": [
+    {
+      "id": "base",
+      "path": "front_end/src/assets/medal-templates/breakthrough.png",
+      "bytes": 608034,
+      "sha256": "ccced1048f58ceccffde1b2bdd0dd819a542ed1ee540f9c39915f1753c0380d6"
+    },
+    {
+      "id": "star1",
+      "path": "front_end/src/assets/medal-overlays/difficulty/one-star.png",
+      "bytes": 238324,
+      "sha256": "b6af1d2ca0b4d9732c50d54c0a4400ce65d313a05d50f801420f439ce873e718"
+    },
+    {
+      "id": "star2",
+      "path": "front_end/src/assets/medal-overlays/difficulty/two-stars.png",
+      "bytes": 388526,
+      "sha256": "916d6f1119b210e52a8cf99f151791ac151380bbafd791545adc27c3692e4282"
+    },
+    {
+      "id": "star3",
+      "path": "front_end/src/assets/medal-overlays/difficulty/three-stars.png",
+      "bytes": 608748,
+      "sha256": "0ae5bf6e6c67760ecc4faa76f9da32ed1d422b90fa4477ecccfabde27fef8648"
+    }
+  ],
+  "html": {
+    "bytes": 2486702,
+    "sha256": "11c33ad70f2aea9cb8ce6ae74ce57e85703941289279a2108b21e4090bf2b3fd"
+  },
+  "standalone": true,
+  "app_script_bytes": 17294
+}

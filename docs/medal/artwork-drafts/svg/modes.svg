@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" color="#475569" role="img" aria-labelledby="title-modes">
+  <title id="title-modes">走马观花 基础模板 v1</title>
+  <g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="18" cy="18" r="9" fill="currentColor" stroke="none"/><rect x="37" y="9" width="18" height="18" rx="3" fill="currentColor" stroke="none"/><path fill="currentColor" stroke="none" d="M9 55V36l19 19Zm37-22 12 12-12 12-12-12Z"/>
+  </g>
+</svg>

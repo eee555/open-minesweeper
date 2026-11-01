@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" color="#475569" role="img" aria-labelledby="title-breakthrough-nf">
+  <title id="title-breakthrough-nf">盲扫破境 基础模板 v1</title>
+  <g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <defs><mask id="clear-bn"><rect width="64" height="64" fill="white" stroke="none"/><rect x="39" y="37" width="25" height="27" fill="black" stroke="none"/></mask></defs><g mask="url(#clear-bn)"><g transform="scale(.82)"><path d="M31 11H12v42h19"/><path d="M27 32h28M45 22l10 10-10 10"/></g></g><g stroke-width="4"><path d="M45 60V41h15l-5 6 5 6H45"/><path d="m41 58 20-20"/></g>
+  </g>
+</svg>

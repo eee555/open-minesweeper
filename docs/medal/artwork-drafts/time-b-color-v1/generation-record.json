@@ -1,0 +1,89 @@
+{
+  "method": "Built-in image_gen color-only edits",
+  "edit_target": "front_end/src/assets/medal-templates/breakthrough.png",
+  "date": "2026-10-30",
+  "status": "待检阅",
+  "images": [
+    {
+      "tier": "tier1",
+      "source": "templates/tier1.png",
+      "generation_path": "C:\\Users\\Administrator\\.codex\\generated_images\\01a1876f-9502-7201-b289-875e661eec71\\exec-bb17fd25-a7ca-4bca-a5e1-b7208b6bdee7.png",
+      "target_hex": "#0F766E",
+      "prompt": "Precise COLOR-ONLY edit of the supplied approved frameless breakthrough medal, used for a Minesweeper achievement icon. The input image is the EDIT TARGET. Preserve the recognizable ascending ZIGZAG ARROW, every bend, the same count and positions of surrounding small angular fragments, same camera, layout, silhouette, proportions, and transparent negative spaces. Preserve the dimensional metallic bevels, facet structure, light direction, modeled depth, and subtle material texture. Do not redesign or simplify the geometry. No circular frame, plate, backing, halo, ribbon, new ornament or new object. Keep the same square image composition and artwork scale/padding as the edit target. Recolor ALL previously yellow/gold metallic surfaces, INCLUDING fragment faces, bevels and dark gold edge facets, into the target hue family below. Preserve lightness hierarchy and dimensional contrast: pale tinted near-white specular highlights, saturated midtone faces, darker same-hue edges. Do not leave yellow-gold outlines or gold side faces. No text, numbers, captions, watermark, badge or lettering. Genuine transparent alpha background, not black, white or checkerboard baked into the image. Output ONE isolated transparent medal, not a grid. Target hue: #0F766E (deep teal-green metal, distinctly greenish teal, not blue). The hex specifies the main midtone color family, not a flat uniform fill. This is shape-consistent color study tier1; the artwork geometry must remain faithful to the approved reference.",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_extrema": [
+        0,
+        255
+      ],
+      "sha256": "79b6acfcd0444fd90f5ac5b5424205b032042169de805f231d5059cd4071dc97"
+    },
+    {
+      "tier": "tier2",
+      "source": "templates/tier2.png",
+      "generation_path": "C:\\Users\\Administrator\\.codex\\generated_images\\01a1876f-9502-7201-b289-875e661eec71\\exec-0e8d8196-e92b-4737-b9b8-4a76ff73d894.png",
+      "target_hex": "#2563EB",
+      "prompt": "Precise COLOR-ONLY edit of the supplied approved frameless breakthrough medal, used for a Minesweeper achievement icon. The input image is the EDIT TARGET. Preserve the recognizable ascending ZIGZAG ARROW, every bend, the same count and positions of surrounding small angular fragments, same camera, layout, silhouette, proportions, and transparent negative spaces. Preserve the dimensional metallic bevels, facet structure, light direction, modeled depth, and subtle material texture. Do not redesign or simplify the geometry. No circular frame, plate, backing, halo, ribbon, new ornament or new object. Keep the same square image composition and artwork scale/padding as the edit target. Recolor ALL previously yellow/gold metallic surfaces, INCLUDING fragment faces, bevels and dark gold edge facets, into the target hue family below. Preserve lightness hierarchy and dimensional contrast: pale tinted near-white specular highlights, saturated midtone faces, darker same-hue edges. Do not leave yellow-gold outlines or gold side faces. No text, numbers, captions, watermark, badge or lettering. Genuine transparent alpha background, not black, white or checkerboard baked into the image. Output ONE isolated transparent medal, not a grid. Target hue: #2563EB (clear saturated royal-blue metal, distinctly blue, not teal). The hex specifies the main midtone color family, not a flat uniform fill. This is shape-consistent color study tier2; the artwork geometry must remain faithful to the approved reference.",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_extrema": [
+        0,
+        255
+      ],
+      "sha256": "a4bb2dc9fd3e60e70d6c2ea892336da81342c65f6afad3680985075b572a63d0"
+    },
+    {
+      "tier": "tier3",
+      "source": "templates/tier3.png",
+      "generation_path": "C:\\Users\\Administrator\\.codex\\generated_images\\01a1876f-9502-7201-b289-875e661eec71\\exec-c54188ac-5af8-4c35-ba14-43de31b63333.png",
+      "target_hex": "#7C3AED",
+      "prompt": "Precise COLOR-ONLY edit of the supplied approved frameless breakthrough medal, used for a Minesweeper achievement icon. The input image is the EDIT TARGET. Preserve the recognizable ascending ZIGZAG ARROW, every bend, the same count and positions of surrounding small angular fragments, same camera, layout, silhouette, proportions, and transparent negative spaces. Preserve the dimensional metallic bevels, facet structure, light direction, modeled depth, and subtle material texture. Do not redesign or simplify the geometry. No circular frame, plate, backing, halo, ribbon, new ornament or new object. Keep the same square image composition and artwork scale/padding as the edit target. Recolor ALL previously yellow/gold metallic surfaces, INCLUDING fragment faces, bevels and dark gold edge facets, into the target hue family below. Preserve lightness hierarchy and dimensional contrast: pale tinted near-white specular highlights, saturated midtone faces, darker same-hue edges. Do not leave yellow-gold outlines or gold side faces. No text, numbers, captions, watermark, badge or lettering. Genuine transparent alpha background, not black, white or checkerboard baked into the image. Output ONE isolated transparent medal, not a grid. Target hue: #7C3AED (saturated violet-purple metal, distinctly purple, not blue or pink). The hex specifies the main midtone color family, not a flat uniform fill. This is shape-consistent color study tier3; the artwork geometry must remain faithful to the approved reference.",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_extrema": [
+        0,
+        255
+      ],
+      "sha256": "61d57885d7c8e6a21c455aaadd7e6407035397d1e321c31d6090ec33a5b58714"
+    },
+    {
+      "tier": "tier4",
+      "source": "templates/tier4.png",
+      "generation_path": "C:\\Users\\Administrator\\.codex\\generated_images\\01a1876f-9502-7201-b289-875e661eec71\\exec-cc67b5eb-c7c8-424e-9a41-a95eaec1c0b6.png",
+      "target_hex": "#B45309",
+      "prompt": "Precise COLOR-ONLY edit of the supplied approved frameless breakthrough medal, used for a Minesweeper achievement icon. The input image is the EDIT TARGET. Preserve the recognizable ascending ZIGZAG ARROW, every bend, the same count and positions of surrounding small angular fragments, same camera, layout, silhouette, proportions, and transparent negative spaces. Preserve the dimensional metallic bevels, facet structure, light direction, modeled depth, and subtle material texture. Do not redesign or simplify the geometry. No circular frame, plate, backing, halo, ribbon, new ornament or new object. Keep the same square image composition and artwork scale/padding as the edit target. Recolor ALL previously yellow/gold metallic surfaces, INCLUDING fragment faces, bevels and dark gold edge facets, into the target hue family below. Preserve lightness hierarchy and dimensional contrast: pale tinted near-white specular highlights, saturated midtone faces, darker same-hue edges. Do not leave yellow-gold outlines or gold side faces. No text, numbers, captions, watermark, badge or lettering. Genuine transparent alpha background, not black, white or checkerboard baked into the image. Output ONE isolated transparent medal, not a grid. Target hue: #B45309 (rich burnt-orange metal, distinctly orange, not yellow-gold and not copper brown). The hex specifies the main midtone color family, not a flat uniform fill. This is shape-consistent color study tier4; the artwork geometry must remain faithful to the approved reference.",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_extrema": [
+        0,
+        255
+      ],
+      "sha256": "2feed9832de791fc92566eaa7193db7671fe7985ff0f8ccdacdfce65135056f3"
+    },
+    {
+      "tier": "tier5",
+      "source": "templates/tier5.png",
+      "generation_path": "C:\\Users\\Administrator\\.codex\\generated_images\\01a1876f-9502-7201-b289-875e661eec71\\exec-c9585247-9e29-4015-8328-c1642a1d9cb7.png",
+      "target_hex": "#BE185D",
+      "prompt": "Precise COLOR-ONLY edit of the supplied approved frameless breakthrough medal, used for a Minesweeper achievement icon. The input image is the EDIT TARGET. Preserve the recognizable ascending ZIGZAG ARROW, every bend, the same count and positions of surrounding small angular fragments, same camera, layout, silhouette, proportions, and transparent negative spaces. Preserve the dimensional metallic bevels, facet structure, light direction, modeled depth, and subtle material texture. Do not redesign or simplify the geometry. No circular frame, plate, backing, halo, ribbon, new ornament or new object. Keep the same square image composition and artwork scale/padding as the edit target. Recolor ALL previously yellow/gold metallic surfaces, INCLUDING fragment faces, bevels and dark gold edge facets, into the target hue family below. Preserve lightness hierarchy and dimensional contrast: pale tinted near-white specular highlights, saturated midtone faces, darker same-hue edges. Do not leave yellow-gold outlines or gold side faces. No text, numbers, captions, watermark, badge or lettering. Genuine transparent alpha background, not black, white or checkerboard baked into the image. Output ONE isolated transparent medal, not a grid. Target hue: #BE185D (rich rose-magenta metal, distinctly rose pink, not violet). The hex specifies the main midtone color family, not a flat uniform fill. This is shape-consistent color study tier5; the artwork geometry must remain faithful to the approved reference.",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_extrema": [
+        0,
+        255
+      ],
+      "sha256": "3c37c3a2ce11f56a0dca947683d7e17fc2949e5a79cd8c78700a72d1dd50fad9"
+    }
+  ],
+  "edit_target_sha256": "ccced1048f58ceccffde1b2bdd0dd819a542ed1ee540f9c39915f1753c0380d6"
+}

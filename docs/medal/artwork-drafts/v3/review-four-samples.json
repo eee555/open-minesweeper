@@ -1,0 +1,42 @@
+[
+  {
+    "id": "01",
+    "name": "破境",
+    "slug": "breakthrough",
+    "source": "templates/breakthrough.png",
+    "before": "../v2/templates/breakthrough.png",
+    "version": "v3-samples",
+    "status": "待检阅",
+    "feedback": ""
+  },
+  {
+    "id": "02",
+    "name": "神速",
+    "slug": "speed",
+    "source": "templates/speed.png",
+    "before": "../v2/templates/speed.png",
+    "version": "v3-samples",
+    "status": "待检阅",
+    "feedback": ""
+  },
+  {
+    "id": "10",
+    "name": "三阶标旗精工",
+    "slug": "precision-three",
+    "source": "templates/precision-three.png",
+    "before": "../v2/templates/precision-three.png",
+    "version": "v3-samples",
+    "status": "待检阅",
+    "feedback": ""
+  },
+  {
+    "id": "17",
+    "name": "原始股东",
+    "slug": "shareholder",
+    "source": "templates/shareholder.png",
+    "before": "../v2/templates/shareholder.png",
+    "version": "v3-samples",
+    "status": "待检阅",
+    "feedback": ""
+  }
+]

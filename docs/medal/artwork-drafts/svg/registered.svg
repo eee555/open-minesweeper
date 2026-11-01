@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" color="#475569" role="img" aria-labelledby="title-registered">
+  <title id="title-registered">实名在册 基础模板 v1</title>
+  <g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="8" y="13" width="48" height="38" rx="5"/><circle cx="23" cy="27" r="5"/><path d="M15 42c0-9 16-9 16 0m8-16h9m-9 13h9"/>
+  </g>
+</svg>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" color="#475569" role="img" aria-labelledby="title-levels">
+  <title id="title-levels">扫雷新秀 基础模板 v1</title>
+  <g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path fill="currentColor" stroke="none" d="M8 54V40h15V26h15V11h18v43Z"/>
+  </g>
+</svg>

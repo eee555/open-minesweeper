@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" color="#475569" role="img" aria-labelledby="title-precision-nf-three">
+  <title id="title-precision-nf-three">三阶盲扫精工 基础模板 v1</title>
+  <g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <defs><mask id="clear-tn"><rect width="64" height="64" fill="white" stroke="none"/><rect x="39" y="37" width="25" height="27" fill="black" stroke="none"/></mask></defs><g mask="url(#clear-tn)"><g transform="scale(.82)"><path d="M29 17h6M23 25l5 10m13-10-5 10"/><circle cx="20" cy="17" r="9"/><circle cx="44" cy="17" r="9"/><circle cx="32" cy="43" r="9"/></g></g><g stroke-width="4"><path d="M45 60V41h15l-5 6 5 6H45"/><path d="m41 58 20-20"/></g>
+  </g>
+</svg>

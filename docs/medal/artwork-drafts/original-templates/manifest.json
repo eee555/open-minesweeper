@@ -1,0 +1,73 @@
+{
+  "purpose": "Original source templates before the approved frameless v3 replacement; includes pre-existing local edits.",
+  "files": [
+    {
+      "name": "breakthrough-nf.png",
+      "sha256": "fee025bf87e7bf5f1022f1c6879ba3c0c40dbb803bba42edcd956cb43424870c"
+    },
+    {
+      "name": "breakthrough.png",
+      "sha256": "d321c89e1f41712072d3882a7e2dbc7b24824403884a86d9b03f4eaf3067de8f"
+    },
+    {
+      "name": "levels-nf.png",
+      "sha256": "e305d6727b2fe2bf3ca413c40fd74aa7e09c0eb57f7c03563c48a619d681a997"
+    },
+    {
+      "name": "levels.png",
+      "sha256": "fc13cbb2a9c2f463007bb31dad6ffc04d2651c0883ce51199aabd509afd20bd1"
+    },
+    {
+      "name": "mastery-nf.png",
+      "sha256": "40c9ebc12f7b2579313d6dd11e5ae8d7352de5e06b1f3efa955ee258b1a12103"
+    },
+    {
+      "name": "mastery.png",
+      "sha256": "ad49c67b48910e38f297e264273fd54fcdab1c568d6734833ae0575725872d99"
+    },
+    {
+      "name": "modes.png",
+      "sha256": "4adfa06618c35e40cde033f2c55f950060c3a00af5d483e68b718cd3543f640c"
+    },
+    {
+      "name": "precision-nf-three.png",
+      "sha256": "dd28e88415959305464c5acde04c923e7534aa5bf90f42be4c36cc4dbcf134d9"
+    },
+    {
+      "name": "precision-nf.png",
+      "sha256": "7de007dd8104c5262d84826d52bec77d5261bec58400dd8784434fca395a4e96"
+    },
+    {
+      "name": "precision-three.jpg",
+      "sha256": "c83518433e377fa47001975593defb43e577f219f8ad4ad85aa6199721af3a93"
+    },
+    {
+      "name": "precision.png",
+      "sha256": "492918b3dea097951f4ee5dbe856dfa2b99b3214f01880623a7f61302e461bcf"
+    },
+    {
+      "name": "registered.png",
+      "sha256": "13fb920c298969387d18faa89a8facb9aac9ec78b6724c599354098af95ed1ec"
+    },
+    {
+      "name": "reviewed.png",
+      "sha256": "eb30faeb242738a73b76dcae67cd0795190fc3c1e4849574847b1f476dbe2e6c"
+    },
+    {
+      "name": "saolei.png",
+      "sha256": "14ff6d87f7cb19874a21dbc8a83d2c525ef64e861e4af3bd67dbbabd1645f853"
+    },
+    {
+      "name": "shareholder.png",
+      "sha256": "6e570d12d616eab072d15788deaf22a5fa000764ed18d0e9da48b097f9357e40"
+    },
+    {
+      "name": "speed-nf.png",
+      "sha256": "b08d95f93b3646071a577777c67a431ab09c62aed7d24de491e609f1b4f49c73"
+    },
+    {
+      "name": "speed.png",
+      "sha256": "27db4337f14f65c3ce67f793d933b28b8fa47fa3d9a217f5f7ffc4da638c30c4"
+    }
+  ]
+}

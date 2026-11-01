@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" color="#475569" role="img" aria-labelledby="title-reviewed">
+  <title id="title-reviewed">录像过审 基础模板 v1</title>
+  <g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <defs><mask id="clear-v"><rect width="64" height="64" fill="white" stroke="none"/><rect x="39" y="37" width="25" height="27" fill="black" stroke="none"/></mask></defs><g mask="url(#clear-v)"><g transform="scale(.82)"><rect x="8" y="12" width="45" height="39" rx="5"/><path fill="currentColor" stroke="none" d="m22 22 15 10-15 10Z"/></g></g><path stroke-width="6" d="m39 49 7 7 14-17"/>
+  </g>
+</svg>

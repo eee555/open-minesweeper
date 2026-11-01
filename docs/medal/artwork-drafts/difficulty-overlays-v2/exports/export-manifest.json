@@ -1,0 +1,138 @@
+{
+  "exported_on": "2026-10-31",
+  "version": "difficulty-overlays-v2",
+  "source_sha256": "1c30fa84075f60bac2f83103ec18623e81341cfa1088cc5bf0884b6808fa3b58",
+  "embedded_assets": [
+    {
+      "path": "bodies/breakthrough.png",
+      "bytes": 56930,
+      "sha256": "3c6dd6c1346840a5946792b5c3afceac6f1c18482e2aecc6f65b4925b3a4b57b"
+    },
+    {
+      "path": "resources/one-star.png",
+      "bytes": 238324,
+      "sha256": "b6af1d2ca0b4d9732c50d54c0a4400ce65d313a05d50f801420f439ce873e718"
+    },
+    {
+      "path": "resources/two-stars.png",
+      "bytes": 388526,
+      "sha256": "916d6f1119b210e52a8cf99f151791ac151380bbafd791545adc27c3692e4282"
+    },
+    {
+      "path": "resources/three-stars.png",
+      "bytes": 608748,
+      "sha256": "0ae5bf6e6c67760ecc4faa76f9da32ed1d422b90fa4477ecccfabde27fef8648"
+    },
+    {
+      "path": "reference-corner.png",
+      "bytes": 689555,
+      "sha256": "27add98fc1fe3489dbca090c8d10264907c43913abb428f46c3dec42ea235d01"
+    },
+    {
+      "path": "bodies/speed.png",
+      "bytes": 70249,
+      "sha256": "d098ac70e7f52ffb3cf392adeec94c818eb6ae6abe2363979713f8db8cf26171"
+    },
+    {
+      "path": "bodies/mastery.png",
+      "bytes": 53502,
+      "sha256": "456431d555844a35608fb5701ba98500ec1213bc9c3169d67cf0d199b85950aa"
+    },
+    {
+      "path": "bodies/breakthrough-nf.png",
+      "bytes": 79146,
+      "sha256": "eb850e33198fed94ea89c476d79331ea440b95ebd3af384d4279ea4cdda34e26"
+    },
+    {
+      "path": "bodies/speed-nf.png",
+      "bytes": 90400,
+      "sha256": "d9e41f1e013d31d7356b0874704fc035e43705573e1911a90298f38c3c804cb4"
+    },
+    {
+      "path": "bodies/mastery-nf.png",
+      "bytes": 81368,
+      "sha256": "31c46d4b6dd82830a0f0ab24eccca34a94c9b28811fe42d85c17900baa7cc34c"
+    },
+    {
+      "path": "bodies/precision-nf.png",
+      "bytes": 91289,
+      "sha256": "7f40b101a074e7e2de0e760f657d2a4ad7b3f6886509317c1bf7adea34eb950f"
+    },
+    {
+      "path": "bodies/precision.png",
+      "bytes": 69870,
+      "sha256": "2b98e0a7af6c53dc72cf7cab70b21943d74abeeeae47679448424c3159ef3555"
+    },
+    {
+      "path": "resources/one-star.webp",
+      "bytes": 616,
+      "sha256": "447791133b692159571e5d5a834093dc6fffdf1eeaeac630c535997f75324580"
+    },
+    {
+      "path": "resources/two-stars.webp",
+      "bytes": 860,
+      "sha256": "36cda34ca5baaab2f7a882de7c4e737ce992da367def09a18317cace6964cc96"
+    },
+    {
+      "path": "resources/three-stars.webp",
+      "bytes": 1348,
+      "sha256": "865d04d8f9c53f3b668a9a1450158f28aa1e30024f1df0493c4108e840956481"
+    },
+    {
+      "path": "time-light.png",
+      "bytes": 179811,
+      "sha256": "aa76fce96aee1de2e590b57825f7243a9a1d8d5d4440cb5761b7165cda72dd21"
+    },
+    {
+      "path": "time-dark.png",
+      "bytes": 170202,
+      "sha256": "a52a4a627f3670a9829a6087c1a139c2cd6be020abf9a2847f6c1e51374c8d7a"
+    },
+    {
+      "path": "coverage-light.png",
+      "bytes": 387968,
+      "sha256": "7e38aa4bb36bf89b82028fb3a2c568cc0b1ff5946b19db8cb5aa717579013b14"
+    },
+    {
+      "path": "coverage-dark.png",
+      "bytes": 371305,
+      "sha256": "d3637f389f62579af2283110345d2e9df86a7f655c2aad835c2711de429ad6ba"
+    },
+    {
+      "path": "resources-light.png",
+      "bytes": 156555,
+      "sha256": "d6ffc9cee60908635bb210fc0d287776475870782b964bc89685c81d63aea835"
+    },
+    {
+      "path": "README.md",
+      "bytes": 3656,
+      "sha256": "39aabcbfbdffd0caf08afcb8df0aed3f46d67694f5e0c5cd99ab7ec2082be369"
+    },
+    {
+      "path": "generation-record.json",
+      "bytes": 6931,
+      "sha256": "a7aac73c14881e44d1fcd1a92adb43b179fb4a82e065110b193d751df9282e51"
+    },
+    {
+      "path": "placement-check.json",
+      "bytes": 69595,
+      "sha256": "ed798f47fb48840810b5cf797c06bc4d60ad428e6a47d24358ebcde7295f7d47"
+    }
+  ],
+  "offline_html": {
+    "filename": "difficulty-overlays-preview-offline.html",
+    "bytes": 5205362,
+    "sha256": "82ff540768f4c148b35594d0347d9a842cb64ccdef5e6ddc7b22145e1bbb714a"
+  },
+  "archive": {
+    "filename": "difficulty-overlays-preview.zip",
+    "bytes": 7340848,
+    "sha256": "1165922f8d0c186a7b8656a1e1c118548624f2da6a020aff1a8bd2470ac4bda2"
+  },
+  "requires_local_server": false,
+  "verification": [
+    "All embedded payloads match source bytes",
+    "No external or relative HTML src/href dependencies",
+    "ZIP CRC and archived linked assets verified"
+  ]
+}

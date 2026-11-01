@@ -1,0 +1,133 @@
+{
+  "exported_on": "2026-10-30",
+  "source_sha256": "4ade891ecb51a551d1ca98473eeca0939da178ea54b0b11b8d6285083f3e8938",
+  "embedded_assets": [
+    {
+      "path": "README.md",
+      "bytes": 4568,
+      "sha256": "ea09866cea9a3a9449e17682ac6b808aa1c03bbe6b35c0d7f2c93fce356ce7fd"
+    },
+    {
+      "path": "bodies/breakthrough-nf.png",
+      "bytes": 80702,
+      "sha256": "50f5af009ae00d833a7e4010ffc11a49e239cbafe011e83c448d0e45e4947d58"
+    },
+    {
+      "path": "bodies/breakthrough.png",
+      "bytes": 60507,
+      "sha256": "63ed78368d5b6290d1d8a0edf4fcca697a2badab795f80121f329e49fccb1bbb"
+    },
+    {
+      "path": "bodies/mastery-nf.png",
+      "bytes": 89226,
+      "sha256": "8ae643e4930a51cda2ab7b259d3d0dc3a2df71deca6c18ad82889e24ccb9d9f1"
+    },
+    {
+      "path": "bodies/mastery.png",
+      "bytes": 59991,
+      "sha256": "4334e59dc8069cd394a22fc49fab5d1012f20467a68f536e6c7bd109fc34a5b0"
+    },
+    {
+      "path": "bodies/precision-nf.png",
+      "bytes": 93569,
+      "sha256": "9837b080984dccf57388ae9b8f4cde22425a5bbb5f47e05983cb0d77c53fad73"
+    },
+    {
+      "path": "bodies/precision.png",
+      "bytes": 71830,
+      "sha256": "d550d8a9019ccdd49e28effbb795d64b1c90cffe142a7653b0f36899ed08d568"
+    },
+    {
+      "path": "bodies/speed-nf.png",
+      "bytes": 98625,
+      "sha256": "5eac4d196a208db02c6cd4461c198f4763ac7ef6c583e891c48b55354a93a190"
+    },
+    {
+      "path": "bodies/speed.png",
+      "bytes": 74867,
+      "sha256": "74314d6368c846d208addcd89202911f129d11f44c26b0bf2ef00aa521f0a612"
+    },
+    {
+      "path": "coverage-dark.png",
+      "bytes": 337622,
+      "sha256": "9dd64861cdd432a731603fc45fcf6edd2ea562e01985e386d7cd584d4f6279db"
+    },
+    {
+      "path": "coverage-light.png",
+      "bytes": 351586,
+      "sha256": "60187a7084ca37759762606e754f4c65fa603b90b54bf7eb3d08406e33654201"
+    },
+    {
+      "path": "generation-record.json",
+      "bytes": 6931,
+      "sha256": "a7aac73c14881e44d1fcd1a92adb43b179fb4a82e065110b193d751df9282e51"
+    },
+    {
+      "path": "placement-check.json",
+      "bytes": 16439,
+      "sha256": "1d02fc2145999ab2d1b5aed395a6c4651adeb740be1b49c40dfabd79a030c75d"
+    },
+    {
+      "path": "resources-light.png",
+      "bytes": 156555,
+      "sha256": "d6ffc9cee60908635bb210fc0d287776475870782b964bc89685c81d63aea835"
+    },
+    {
+      "path": "resources/one-star.png",
+      "bytes": 238324,
+      "sha256": "b6af1d2ca0b4d9732c50d54c0a4400ce65d313a05d50f801420f439ce873e718"
+    },
+    {
+      "path": "resources/one-star.webp",
+      "bytes": 616,
+      "sha256": "447791133b692159571e5d5a834093dc6fffdf1eeaeac630c535997f75324580"
+    },
+    {
+      "path": "resources/three-stars.png",
+      "bytes": 608748,
+      "sha256": "0ae5bf6e6c67760ecc4faa76f9da32ed1d422b90fa4477ecccfabde27fef8648"
+    },
+    {
+      "path": "resources/three-stars.webp",
+      "bytes": 1348,
+      "sha256": "865d04d8f9c53f3b668a9a1450158f28aa1e30024f1df0493c4108e840956481"
+    },
+    {
+      "path": "resources/two-stars.png",
+      "bytes": 388526,
+      "sha256": "916d6f1119b210e52a8cf99f151791ac151380bbafd791545adc27c3692e4282"
+    },
+    {
+      "path": "resources/two-stars.webp",
+      "bytes": 860,
+      "sha256": "36cda34ca5baaab2f7a882de7c4e737ce992da367def09a18317cace6964cc96"
+    },
+    {
+      "path": "time-dark.png",
+      "bytes": 155434,
+      "sha256": "ac80e48a8b5f739511652d6ece6adc64a13e48e8e8bb3cd7682cd38f84bfa9fd"
+    },
+    {
+      "path": "time-light.png",
+      "bytes": 163007,
+      "sha256": "23d1ff4c43684b86557f9e5a58e580fbcbd6ef3cd68a6416aa5e498a4b274527"
+    }
+  ],
+  "offline_html": {
+    "filename": "difficulty-overlays-preview-offline.html",
+    "bytes": 4120633,
+    "sha256": "7486c8c001ae1514ae5a33faa3c3f23913097ac751fd826c80203757aac80cbc"
+  },
+  "archive": {
+    "filename": "difficulty-overlays-preview.zip",
+    "bytes": 5908354,
+    "sha256": "05634a0c5a948234f6e2fd0079fa38f43a8e2ea181b2ff34bcd01c2750da682a"
+  },
+  "requires_local_server": false,
+  "verification": [
+    "All 22 embedded payloads match source bytes",
+    "No external or relative HTML src/href dependencies",
+    "ZIP CRC and source assets verified",
+    "Offline loader and original controls executed with a DOM stub"
+  ]
+}

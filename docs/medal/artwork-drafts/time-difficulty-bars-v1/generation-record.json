@@ -1,0 +1,51 @@
+{
+  "method": "Built-in image_gen precise edits",
+  "date": "2026-10-30",
+  "edit_target": "front_end/src/assets/medal-templates/breakthrough.png",
+  "scope": "time difficulty only; uniform original gold; 1/2/3 bars; review only",
+  "images": [
+    {
+      "slug": "beginner",
+      "name": "初级",
+      "bars": 1,
+      "prompt": "Precise small additive edit of the supplied approved Minesweeper TIME breakthrough medal. Image 1 is the EDIT TARGET. Keep the existing bright gold ascending ZIGZAG ARROW and ALL its bends, every angular fragment, original silhouette, camera, facet structure, metallic bevels, thickness, light direction, colors and positions unchanged. This is ONLY a comparison of difficulty rank markers, so do not recolor any part of the medal. Retain the same square canvas and the exact scale and placement of the existing artwork. ADD a simple integrated rank marker made of short thick HORIZONTAL parallel gold metal bars, BELOW the arrow-tail/lower-left section in the currently empty lower-center region, centered around x=45% of canvas width. Each bar is about 26% of canvas width and 4% of canvas height, with plain squared beveled ends, bright upper facet and darker gold side edge, matching the original metal. Bars must be straight and horizontal, not chevrons, not wings, not numeral glyphs. Bars have equal length, equal thickness, and clear transparent gaps of about 3% of canvas height. The marker sits close to the arrow tail but does not obscure, replace, reshape, or remove any original arrow or fragments. The TOP bar always occupies the same location, about y=82% of canvas height; when there are additional bars, stack them below it, about y=89% then y=96%, with sufficient canvas edge clearance. Do not add a plate or shield behind the bars, no circular frame or enclosing border, no text, no numerals, no badge, no glow. All spaces around and between surviving subjects must be genuinely transparent alpha, not a black backdrop or painted checkerboard. Output ONE isolated medal, not a comparison sheet. Difficulty rank marker for this output: EXACTLY 1 separate horizontal metal bar. This exact count is essential. Only ONE bar, with no extra edge stripe that could be mistaken for another bar.",
+      "source": "templates/beginner.png",
+      "generation_path": "C:\\Users\\Administrator\\.codex\\generated_images\\01a1876f-9502-7201-b289-875e661eec71\\exec-e553c3ad-13ff-471b-ad0c-17312365c07d.png",
+      "status": "待检阅",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "sha256": "ee14e19b20c7b7888a64b57780975fcef096cc58bd310f3ffafe0d7d6568a5a2"
+    },
+    {
+      "slug": "intermediate",
+      "name": "中级",
+      "bars": 2,
+      "prompt": "Precise small additive edit of the supplied approved Minesweeper TIME breakthrough medal. Image 1 is the EDIT TARGET. Keep the existing bright gold ascending ZIGZAG ARROW and ALL its bends, every angular fragment, original silhouette, camera, facet structure, metallic bevels, thickness, light direction, colors and positions unchanged. This is ONLY a comparison of difficulty rank markers, so do not recolor any part of the medal. Retain the same square canvas and the exact scale and placement of the existing artwork. ADD a simple integrated rank marker made of short thick HORIZONTAL parallel gold metal bars, BELOW the arrow-tail/lower-left section in the currently empty lower-center region, centered around x=45% of canvas width. Each bar is about 26% of canvas width and 4% of canvas height, with plain squared beveled ends, bright upper facet and darker gold side edge, matching the original metal. Bars must be straight and horizontal, not chevrons, not wings, not numeral glyphs. Bars have equal length, equal thickness, and clear transparent gaps of about 3% of canvas height. The marker sits close to the arrow tail but does not obscure, replace, reshape, or remove any original arrow or fragments. The TOP bar always occupies the same location, about y=82% of canvas height; when there are additional bars, stack them below it, about y=89% then y=96%, with sufficient canvas edge clearance. Do not add a plate or shield behind the bars, no circular frame or enclosing border, no text, no numerals, no badge, no glow. All spaces around and between surviving subjects must be genuinely transparent alpha, not a black backdrop or painted checkerboard. Output ONE isolated medal, not a comparison sheet. Difficulty rank marker for this output: EXACTLY 2 separate horizontal metal bars. This exact count is essential. Exactly TWO bars; leave both clearly separate and equal in length.",
+      "source": "templates/intermediate.png",
+      "generation_path": "C:\\Users\\Administrator\\.codex\\generated_images\\01a1876f-9502-7201-b289-875e661eec71\\exec-14a84579-4f75-4ec5-a031-d3e8769e235c.png",
+      "status": "待检阅",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "sha256": "e749d8a2bf68f37114317860aa0c89bbdea12c915c906c4276ee7e782aef9a8c"
+    },
+    {
+      "slug": "expert",
+      "name": "高级",
+      "bars": 3,
+      "prompt": "Precise small additive edit of the supplied approved Minesweeper TIME breakthrough medal. Image 1 is the EDIT TARGET. Keep the existing bright gold ascending ZIGZAG ARROW and ALL its bends, every angular fragment, original silhouette, camera, facet structure, metallic bevels, thickness, light direction, colors and positions unchanged. This is ONLY a comparison of difficulty rank markers, so do not recolor any part of the medal. Retain the same square canvas and the exact scale and placement of the existing artwork. ADD a simple integrated rank marker made of short thick HORIZONTAL parallel gold metal bars, BELOW the arrow-tail/lower-left section in the currently empty lower-center region, centered around x=45% of canvas width. Each bar is about 26% of canvas width and 4% of canvas height, with plain squared beveled ends, bright upper facet and darker gold side edge, matching the original metal. Bars must be straight and horizontal, not chevrons, not wings, not numeral glyphs. Bars have equal length, equal thickness, and clear transparent gaps of about 3% of canvas height. The marker sits close to the arrow tail but does not obscure, replace, reshape, or remove any original arrow or fragments. The TOP bar always occupies the same location, about y=82% of canvas height; when there are additional bars, stack them below it, about y=89% then y=96%, with sufficient canvas edge clearance. Do not add a plate or shield behind the bars, no circular frame or enclosing border, no text, no numerals, no badge, no glow. All spaces around and between surviving subjects must be genuinely transparent alpha, not a black backdrop or painted checkerboard. Output ONE isolated medal, not a comparison sheet. Difficulty rank marker for this output: EXACTLY 3 separate horizontal metal bars. This exact count is essential. Exactly THREE bars; leave all three clearly separate and equal in length.",
+      "source": "templates/expert.png",
+      "generation_path": "C:\\Users\\Administrator\\.codex\\generated_images\\01a1876f-9502-7201-b289-875e661eec71\\exec-78304dbb-d352-4af5-bc3a-045f47fc282f.png",
+      "status": "待检阅",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "sha256": "1133258ea15a3e717555b471537428f8be44040c9fd28bbbf25a445520e85dda"
+    }
+  ],
+  "edit_target_sha256": "ccced1048f58ceccffde1b2bdd0dd819a542ed1ee540f9c39915f1753c0380d6"
+}

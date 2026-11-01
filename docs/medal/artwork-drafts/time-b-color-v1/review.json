@@ -1,0 +1,211 @@
+{
+  "version": "time-b-color-v1",
+  "date": "2026-10-30",
+  "status": "待检阅",
+  "code": "ability.time.b",
+  "name": "初级破境",
+  "metric": "timems",
+  "direction": "desc",
+  "comparison": "strictly less than",
+  "threshold_source": "back_end/saolei/medal/utils.py:TIME_SECONDS[BEGINNER]",
+  "palette_source": "docs/medal/勋章美术与配色改版计划.md",
+  "mapping_status": "本轮审阅提案，尚未确认分界，不改变发放规则；按 Sub10、Sub6、Sub4、Sub2 换色，不按阈值序号等分。",
+  "difficulty_rule": "初级／中级／高级由文字区分，颜色只表达各难度自己的成绩档次。",
+  "palette": [
+    {
+      "id": "tier1",
+      "name": "青绿",
+      "hex": "#0F766E",
+      "description": "deep teal-green metal, distinctly greenish teal, not blue",
+      "target_hex": "#0F766E",
+      "seconds": [
+        20,
+        15,
+        12
+      ],
+      "source": "templates/tier1.png"
+    },
+    {
+      "id": "tier2",
+      "name": "蓝",
+      "hex": "#2563EB",
+      "description": "clear saturated royal-blue metal, distinctly blue, not teal",
+      "target_hex": "#2563EB",
+      "seconds": [
+        10,
+        8
+      ],
+      "source": "templates/tier2.png"
+    },
+    {
+      "id": "tier3",
+      "name": "紫",
+      "hex": "#7C3AED",
+      "description": "saturated violet-purple metal, distinctly purple, not blue or pink",
+      "target_hex": "#7C3AED",
+      "seconds": [
+        6,
+        5
+      ],
+      "source": "templates/tier3.png"
+    },
+    {
+      "id": "tier4",
+      "name": "橙",
+      "hex": "#B45309",
+      "description": "rich burnt-orange metal, distinctly orange, not yellow-gold and not copper brown",
+      "target_hex": "#B45309",
+      "seconds": [
+        4,
+        3
+      ],
+      "source": "templates/tier4.png"
+    },
+    {
+      "id": "tier5",
+      "name": "玫红",
+      "hex": "#BE185D",
+      "description": "rich rose-magenta metal, distinctly rose pink, not violet",
+      "target_hex": "#BE185D",
+      "seconds": [
+        2,
+        1
+      ],
+      "source": "templates/tier5.png"
+    }
+  ],
+  "medals": [
+    {
+      "code": "ability.time.b",
+      "difficulty": "初级",
+      "stage": 20000,
+      "seconds": 20,
+      "label": "Sub20",
+      "name": "初级破境·Sub20",
+      "tier": "tier1",
+      "color_name": "青绿",
+      "source": "templates/tier1.png",
+      "status": "待检阅"
+    },
+    {
+      "code": "ability.time.b",
+      "difficulty": "初级",
+      "stage": 15000,
+      "seconds": 15,
+      "label": "Sub15",
+      "name": "初级破境·Sub15",
+      "tier": "tier1",
+      "color_name": "青绿",
+      "source": "templates/tier1.png",
+      "status": "待检阅"
+    },
+    {
+      "code": "ability.time.b",
+      "difficulty": "初级",
+      "stage": 12000,
+      "seconds": 12,
+      "label": "Sub12",
+      "name": "初级破境·Sub12",
+      "tier": "tier1",
+      "color_name": "青绿",
+      "source": "templates/tier1.png",
+      "status": "待检阅"
+    },
+    {
+      "code": "ability.time.b",
+      "difficulty": "初级",
+      "stage": 10000,
+      "seconds": 10,
+      "label": "Sub10",
+      "name": "初级破境·Sub10",
+      "tier": "tier2",
+      "color_name": "蓝",
+      "source": "templates/tier2.png",
+      "status": "待检阅"
+    },
+    {
+      "code": "ability.time.b",
+      "difficulty": "初级",
+      "stage": 8000,
+      "seconds": 8,
+      "label": "Sub8",
+      "name": "初级破境·Sub8",
+      "tier": "tier2",
+      "color_name": "蓝",
+      "source": "templates/tier2.png",
+      "status": "待检阅"
+    },
+    {
+      "code": "ability.time.b",
+      "difficulty": "初级",
+      "stage": 6000,
+      "seconds": 6,
+      "label": "Sub6",
+      "name": "初级破境·Sub6",
+      "tier": "tier3",
+      "color_name": "紫",
+      "source": "templates/tier3.png",
+      "status": "待检阅"
+    },
+    {
+      "code": "ability.time.b",
+      "difficulty": "初级",
+      "stage": 5000,
+      "seconds": 5,
+      "label": "Sub5",
+      "name": "初级破境·Sub5",
+      "tier": "tier3",
+      "color_name": "紫",
+      "source": "templates/tier3.png",
+      "status": "待检阅"
+    },
+    {
+      "code": "ability.time.b",
+      "difficulty": "初级",
+      "stage": 4000,
+      "seconds": 4,
+      "label": "Sub4",
+      "name": "初级破境·Sub4",
+      "tier": "tier4",
+      "color_name": "橙",
+      "source": "templates/tier4.png",
+      "status": "待检阅"
+    },
+    {
+      "code": "ability.time.b",
+      "difficulty": "初级",
+      "stage": 3000,
+      "seconds": 3,
+      "label": "Sub3",
+      "name": "初级破境·Sub3",
+      "tier": "tier4",
+      "color_name": "橙",
+      "source": "templates/tier4.png",
+      "status": "待检阅"
+    },
+    {
+      "code": "ability.time.b",
+      "difficulty": "初级",
+      "stage": 2000,
+      "seconds": 2,
+      "label": "Sub2",
+      "name": "初级破境·Sub2",
+      "tier": "tier5",
+      "color_name": "玫红",
+      "source": "templates/tier5.png",
+      "status": "待检阅"
+    },
+    {
+      "code": "ability.time.b",
+      "difficulty": "初级",
+      "stage": 1000,
+      "seconds": 1,
+      "label": "Sub1",
+      "name": "初级破境·Sub1",
+      "tier": "tier5",
+      "color_name": "玫红",
+      "source": "templates/tier5.png",
+      "status": "待检阅"
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "method": "Actual SVG transfer table sampling over source grayscale histogram; alpha > 128; no browser screenshot",
+  "near_definition": "Euclidean encoded RGB distance <= 24 from selected color",
+  "white_mix_definition": "Projection of output-minus-selected RGB onto direction toward white, above 0.2",
+  "limitation": "Source-brightness diagnostic; not semantic face segmentation or final browser rasterization",
+  "source_opaque_pixels": 259728,
+  "tables_bounded_monotonic": true,
+  "main_face_tracks_selected": true,
+  "palette_results": [
+    {
+      "color": "#244A86",
+      "previous": {
+        "near_selected_percent": 9.27,
+        "white_mix_over_20_percent": 45.16
+      },
+      "body": {
+        "near_selected_percent": 42.33,
+        "white_mix_over_20_percent": 3.88
+      }
+    },
+    {
+      "color": "#4C91C7",
+      "previous": {
+        "near_selected_percent": 7.87,
+        "white_mix_over_20_percent": 45.16
+      },
+      "body": {
+        "near_selected_percent": 40.38,
+        "white_mix_over_20_percent": 3.88
+      }
+    },
+    {
+      "color": "#CCB8E3",
+      "previous": {
+        "near_selected_percent": 12.02,
+        "white_mix_over_20_percent": 45.16
+      },
+      "body": {
+        "near_selected_percent": 43.02,
+        "white_mix_over_20_percent": 3.88
+      }
+    },
+    {
+      "color": "#F2CE9B",
+      "previous": {
+        "near_selected_percent": 10.32,
+        "white_mix_over_20_percent": 45.16
+      },
+      "body": {
+        "near_selected_percent": 43.02,
+        "white_mix_over_20_percent": 3.88
+      }
+    },
+    {
+      "color": "#B34A55",
+      "previous": {
+        "near_selected_percent": 8.29,
+        "white_mix_over_20_percent": 45.16
+      },
+      "body": {
+        "near_selected_percent": 40.49,
+        "white_mix_over_20_percent": 3.88
+      }
+    }
+  ]
+}
