@@ -23,7 +23,7 @@ import { hashRouter, installHashHistoryCleanup } from '@cy/support/hashHistory';
 import { mockVideoInfo } from '@cy/support/videoInfo';
 
 type Layout = 'counter-left' | 'counter-right' | 'counter-top' | 'board-top';
-const analyzerStates = new WeakMap<VueWrapper, () => AnalyzerState>();
+const analyzerStates = new WeakMap<object, () => AnalyzerState>();
 
 function sharedState(wrapper: VueWrapper): AnalyzerState {
     const state = analyzerStates.get(wrapper)?.();
