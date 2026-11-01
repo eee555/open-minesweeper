@@ -31,7 +31,8 @@ class MedalSummaryTests(tests.MedalShellFixture):
             result = player_summary(self.user.id)
         self.assertFalse(any('videomanager_videomodel' in query['sql'] for query in queries))
         self.assertFalse(result['scan_pending'])
-        self.assertEqual(result['score'], 5)
+        self.assertNotIn('score', result)
+        self.assertTrue(all('score' not in item for item in self.items(result)))
         self.assertEqual(result['pin_ids'], [grant.id])
         self.assertIsNone(result['pins'][0]['current_value'])
         with self.assertNumQueries(1):
@@ -55,7 +56,7 @@ class MedalSummaryTests(tests.MedalShellFixture):
         with self.assertRaisesRegex(RuntimeError, 'rollback'), transaction.atomic():
             write_stage(self.user, self.definition, stage=50000, current_value=49000)
             replace_pins(self.user, [])
-            self.assertEqual(player_summary(self.user.id)['score'], 5)
+            self.assertEqual(next(item for item in self.items(player_summary(self.user.id)) if item['code'] == self.definition.code)['stage'], 50000)
             raise RuntimeError('rollback')
         self.assertEqual(player_summary(self.user.id), before)
         self.assertEqual(MedalGrant.objects.get(pk=grant.id).stage, 60000)
@@ -74,14 +75,10 @@ class MedalSummaryTests(tests.MedalShellFixture):
         grant = write_stage(self.user, self.definition, stage=50000, current_value=49000)
         replace_pins(self.user, [grant.id])
         data = PlayerMedalSummary.objects.get(user=self.user).data
-        self.definition.score_by_stage = [30, 50, 80]
-        self.definition.save(update_fields=['score_by_stage'])
-        self.assertEqual(player_summary(self.user.id)['score'], 50)
         self.definition.hidden = True
         self.definition.annotation = '已解锁说明'
         self.definition.save(update_fields=['hidden', 'annotation'])
         self.assertEqual(player_summary(self.user.id)['pins'][0]['annotation'], '已解锁说明')
-        self.assertEqual(player_summary(self.user.id)['score'], 0)
         self.definition.active = False
         self.definition.save(update_fields=['active'])
         result = player_summary(self.user.id)
@@ -93,12 +90,20 @@ class MedalSummaryTests(tests.MedalShellFixture):
         self.user.is_staff = True
         grant = set_player_override(self.user, self.user.id, self.definition.code, '', 'grant', '人工复核', stage=50000)
         replace_pins(self.user, [grant.id])
-        self.assertEqual(player_summary(self.user.id)['pins'][0]['stage'], 50000)
+        result = player_summary(self.user.id)
+        item = next(item for item in self.items(result) if item['code'] == self.definition.code)
+        self.assertEqual(item['stage'], 50000)
+        self.assertEqual(item['grant_id'], grant.id)
+        self.assertEqual(result['pin_ids'], [grant.id])
+        self.assertEqual(result['pins'], [item])
         self.assertNotIn('reason', str(PlayerMedalSummary.objects.get(user=self.user).data))
         set_player_override(self.user, self.user.id, self.definition.code, '', 'revoke', '撤销')
         result = player_summary(self.user.id)
         self.assertEqual(result['pin_ids'], [])
-        self.assertEqual(result['score'], 0)
+        self.assertEqual(result['pins'], [])
+        item = next(item for item in self.items(result) if item['code'] == self.definition.code)
+        self.assertIsNone(item['grant_id'])
+        self.assertIsNone(item['stage'])
 
     def test_evaluation_preserves_scoped_grants_in_summary(self):
         grant = write_stage(self.user, self.definition, scope_key='event:1', stage=50000, evidence={'rank': 2, 'tournament_id': 123})

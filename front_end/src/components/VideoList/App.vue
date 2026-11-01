@@ -96,7 +96,7 @@ const ColumnUploadTime = defineAsyncComponent(() => import('./ColumnUploadTime.v
 
 function handleRowClick(event: { data: VideoAbstract }) {
     if (event.data.isLocal) return;
-    void preview(event.data.id, event.data.software);
+    preview(event.data.id);
 }
 
 function componentConfig(choice: ColumnChoice) {

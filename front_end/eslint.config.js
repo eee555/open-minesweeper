@@ -115,6 +115,7 @@ export default defineConfig({
                 'vite.minigame.config.ts',
                 'scripts/offline-build.ts',
                 'scripts/cdn-styles.ts',
+                'scripts/msrc-notices.ts',
             ],
             optionalDependencies: false,
             peerDependencies: false,
@@ -306,7 +307,7 @@ export default defineConfig({
     },
 }, {
     // Node's native config loader requires extensions in this TypeScript import chain.
-    files: ['vite.config.ts', 'scripts/cdn-styles.ts'],
+    files: ['vite.config.ts', 'scripts/cdn-styles.ts', 'scripts/msrc-notices.ts'],
     rules: {
         'import-x/extensions': ['error', 'always', { ignorePackages: true }],
     },
@@ -369,6 +370,8 @@ export default defineConfig({
 }, {
     files: ['**/*.cy.ts'],
     rules: {
+        // Each test case may define its own component fixture in the same spec.
+        'vue/one-component-per-file': 'off',
         // Cypress 组件测试中的 .vue 组件导入在 typescript-eslint 的 project service 中可能被解析为 error type，
         // 传给 cy.mount/helper 时会触发 no-unsafe-argument；这类报错不代表运行时参数不安全。
         '@typescript-eslint/no-unsafe-argument': 'off',

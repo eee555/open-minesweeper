@@ -4,9 +4,7 @@ const fetchVideoInfo = vi.hoisted(() => vi.fn());
 const videoplayerstore = vi.hoisted(() => ({
     visible: false,
     id: 0,
-    software: 'a',
     url: '',
-    error: null,
 }));
 
 vi.mock('@/services/videoInfoService', () => ({ fetchVideoInfo }));
@@ -18,32 +16,27 @@ describe('preview', () => {
         Object.assign(videoplayerstore, {
             visible: false,
             id: 0,
-            software: 'a',
             url: '',
-            error: null,
         });
     });
 
-    it('fetches the software when the caller does not provide it', async () => {
+    it('opens a replay immediately without fetching its software', async () => {
         const { preview } = await import('./PlayerDialog');
-        fetchVideoInfo.mockResolvedValue({ software: 'e' });
+        preview(12);
 
-        await preview(12);
-
-        expect(fetchVideoInfo).toHaveBeenCalledWith(12);
-        expect(videoplayerstore.software).toBe('e');
-        expect(videoplayerstore.url).toContain('/api/video/preview?id=12.evf');
+        expect(fetchVideoInfo).not.toHaveBeenCalled();
+        expect(videoplayerstore.id).toBe(12);
+        expect(videoplayerstore.url).toContain('/api/video/preview?id=12');
         expect(videoplayerstore.visible).toBe(true);
     });
 
-    it('uses the provided software without fetching it again', async () => {
+    it.each([undefined, null, 0, -1])('does not open an invalid replay ID %s', async (id) => {
         const { preview } = await import('./PlayerDialog');
 
-        await preview(34, 'r');
+        preview(id);
 
         expect(fetchVideoInfo).not.toHaveBeenCalled();
-        expect(videoplayerstore.software).toBe('r');
-        expect(videoplayerstore.url).toContain('/api/video/preview?id=34.rmv');
-        expect(videoplayerstore.visible).toBe(true);
+        expect(videoplayerstore.url).toBe('');
+        expect(videoplayerstore.visible).toBe(false);
     });
 });

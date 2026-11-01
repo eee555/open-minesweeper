@@ -4,6 +4,7 @@ from typing import List
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFound
+from django.views.decorators.cache import never_cache
 from django_ratelimit.decorators import ratelimit
 from ninja import Form, Router, Schema
 from ninja.decorators import decorate_view
@@ -13,7 +14,7 @@ from userprofile.decorators import login_required_error, staff_required
 from userprofile.models import UserProfile
 from utils.response import HttpResponseConflict
 from .mineracer.sessions import poll_mineracer_account_link_session, start_mineracer_account_link
-from .models import AccountBilibili, AccountLinkQueue, AccountMineracer, AccountMinesweeperGames, AccountQQ, AccountSaolei, AccountWorldOfMinesweeper, Platform, PLATFORM_CONFIG
+from .models import AccountBilibili, AccountDiscord, AccountLinkQueue, AccountMineracer, AccountMinesweeperGames, AccountQQ, AccountSaolei, AccountWorldOfMinesweeper, Platform, PLATFORM_CONFIG
 from .services import unverify_account_link, update_account, verify_account_link
 from .utils import private_platforms
 
@@ -37,6 +38,7 @@ AccountMSGamesOut = create_schema(AccountMinesweeperGames)
 AccountWoMOut = create_schema(AccountWorldOfMinesweeper)
 AccountBiliOut = create_schema(AccountBilibili)
 AccountMineracerOut = create_schema(AccountMineracer)
+AccountDiscordOut = create_schema(AccountDiscord)
 AccountQQOut = create_schema(AccountQQ)
 
 
@@ -46,6 +48,7 @@ class AccountLinkCompleteOut(Schema):
     c: AccountSaoleiOut | None = None
     a: AccountMSGamesOut | None = None
     m: AccountMineracerOut | None = None
+    d: AccountDiscordOut | None = None
     w: AccountWoMOut | None = None
     q: AccountQQOut | None = None
 
@@ -112,12 +115,14 @@ def get_account_data(user: UserProfile, platform: Platform):
 
 
 @router.get('/{user_id}', response=AccountLinkCompleteOut)
-@decorate_view(ratelimit(key='ip', rate='2/s'))
+@decorate_view(never_cache, ratelimit(key='ip', rate='2/s'))
 def get_account_links(request, user_id: int):
     """
+    - never_cache
+    - ratelimit(key='ip', rate='2/s')
+
     Return visible account links and include verified account details in one request.
 
-    - ratelimit(key='ip', rate='2/s')
     - Staff and the user themself can see all links, including unverified and private links.
     - Other users can only see verified non-private links.
     - Platform account details are included only for verified visible links.
@@ -140,6 +145,7 @@ def get_account_links(request, user_id: int):
         Platform.SAOLEI.value: None,
         Platform.MSGAMES.value: None,
         Platform.MINERACER.value: None,
+        Platform.DISCORD.value: None,
         Platform.WOM.value: None,
         Platform.QQ.value: None,
     }
@@ -167,7 +173,7 @@ def create_account_link(request, data: AccountLinkCreateIn = Form(...)):  # noqa
     """
     if data.platform not in Platform.values or not data.identifier:
         return HttpResponseBadRequest()
-    if data.platform == Platform.MINERACER:
+    if data.platform in (Platform.MINERACER, Platform.DISCORD):
         return HttpResponseBadRequest()
     if AccountLinkQueue.objects.filter(platform=data.platform, userprofile=request.user).exists():
         return HttpResponseConflict()

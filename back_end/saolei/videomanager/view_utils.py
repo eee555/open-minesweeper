@@ -1,9 +1,8 @@
-import struct
-
 from config.text_choices import MS_TextChoices
 from utils.exceptions import ExceptionToResponse
 from utils.parser import MSVideoParser
 from utils.ranking_lock import ranking_access
+from .files import original_file
 from .models import ExpandVideoModel, VideoModel
 from .utils import VideoParseError
 
@@ -18,7 +17,12 @@ for name in [field.name for field in ExpandVideoModel._meta.get_fields()]:
 @ranking_access(operation='videomanager.refresh_video')
 def refresh_video(video: VideoModel):
     try:
-        parser = MSVideoParser(video.file)
+        replay = original_file(video.file.name, video.compression_format, video.original_filename) if video.compression_format else video.file
+        try:
+            parser = MSVideoParser(replay)
+            new_size = replay.size
+        finally:
+            replay.close()
     except (ValueError, RuntimeError, EOFError, OverflowError, ExceptionToResponse) as exc:
         raise VideoParseError(str(exc)) from exc
 
@@ -42,7 +46,6 @@ def refresh_video(video: VideoModel):
             updated_fields.append(field)
 
     # 2. 处理 file_size（独立来源）
-    new_size = video.file.size
     if new_size != video.file_size:
         video.file_size = new_size
         updated_fields.append('file_size')
@@ -66,26 +69,3 @@ def refresh_video(video: VideoModel):
     if video.state == MS_TextChoices.State.IDENTIFIER and (e_video.identifier in video.player.userms.identifiers):
         video.state = MS_TextChoices.State.OFFICIAL
         video.save(update_fields=['state'])
-
-
-def generate_file_stream(queryset):
-    def file_iterator():
-        for video in queryset.select_related('player'):
-            if not video.file:
-                continue
-
-            filename = f'{video.player_id}_{video.player.realname}/{video.file.name.split("/")[-1]}'
-            filename_bytes = filename.encode('utf-8')
-            filename_len = len(filename_bytes)
-            filesize = video.file.size
-
-            # Header: 4-byte filename length + filename + 8-byte file size
-            yield struct.pack('>I', filename_len)
-            yield filename_bytes
-            yield struct.pack('>Q', filesize)  # unsigned long long, 8 bytes
-
-            # File content
-            with video.file.open('rb') as f:
-                while chunk := f.read(8192):
-                    yield chunk
-    return file_iterator()

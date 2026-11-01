@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Any, Literal
 
 from django.db import transaction
-from django.http import HttpRequest, HttpResponse, HttpResponseForbidden, StreamingHttpResponse
+from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404
 from django_ratelimit.decorators import ratelimit
 from ninja import Field, Form, Router, Schema
@@ -21,7 +21,6 @@ from utils.response import HttpResponseConflict
 from utils.schema import IdIn
 from videomanager.models import VideoModel
 from videomanager.schema import VideoBaseOut
-from videomanager.view_utils import generate_file_stream
 
 router = Router()
 cache = TournamentCache()
@@ -330,25 +329,3 @@ def get_tournament_news(request: HttpRequest):
             and tournament.start_time <= now < tournament.end_time
         ],
     }
-
-
-@router.get('/download')
-@decorate_view(ratelimit(key='ip', rate='1/h'))
-def download_all_videos(request: HttpRequest, tournament_id: int):
-    tournament = get_object_or_404(Tournament, id=tournament_id)
-    if tournament.state != Tournament_TextChoices.State.AWARDED:
-        return HttpResponseForbidden()
-    response = StreamingHttpResponse(generate_file_stream(tournament.videos.all()), content_type='application/octet-stream')
-    response['Content-Disposition'] = 'attachment; filename="all_files_stream.bin"'
-    return response
-
-
-@router.get('/download/participant')
-@decorate_view(ratelimit(key='ip', rate='1/m'))
-def download_videos_participant(request: HttpRequest, tournament_id: int, user_id: int):
-    tournament = get_object_or_404(Tournament, id=tournament_id)
-    if tournament.state != Tournament_TextChoices.State.AWARDED and request.user.id != user_id:
-        return HttpResponseForbidden()
-    response = StreamingHttpResponse(generate_file_stream(tournament.videos.filter(player_id=user_id)), content_type='application/octet-stream')
-    response['Content-Disposition'] = 'attachment; filename="all_files_stream.bin"'
-    return response

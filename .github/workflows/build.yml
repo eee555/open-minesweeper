@@ -52,6 +52,9 @@ jobs:
     - name: Build project 1
       run: |
         cd front_end
+        python -m pip install Pillow
+        python scripts/build_medal_art.py
+        python -m unittest discover -s scripts -p test_medal_art.py
         npm run build:openms
         cd dist
         # 打包完后，克隆录像播放器并构建
@@ -86,3 +89,5 @@ jobs:
         cd front_end
         sshpass -p "${SERVER_PASSWORD}" scp -o StrictHostKeyChecking=no -r dist ../back_end/saolei/wheels ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}:/root/github/saolei_website/back_end/saolei
         sshpass -p "${SERVER_PASSWORD}" ssh -o StrictHostKeyChecking=no ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "cd /root/github/saolei_website/back_end/saolei && sha256sum -c wheels/SHA256SUMS"
+        # Exact medal-only replacement: remove obsolete remote files after successful SCP.
+        sshpass -p "${SERVER_PASSWORD}" ssh -o StrictHostKeyChecking=no ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "cd /root/github/saolei_website/back_end/saolei && find dist/assets/medals -type f ! -path 'dist/assets/medals/breakthrough-nf.webp' ! -path 'dist/assets/medals/breakthrough.webp' ! -path 'dist/assets/medals/difficulty/b.webp' ! -path 'dist/assets/medals/difficulty/e.webp' ! -path 'dist/assets/medals/difficulty/i.webp' ! -path 'dist/assets/medals/levels-nf.webp' ! -path 'dist/assets/medals/levels.webp' ! -path 'dist/assets/medals/mastery-nf.webp' ! -path 'dist/assets/medals/mastery.webp' ! -path 'dist/assets/medals/modes.webp' ! -path 'dist/assets/medals/precision-nf-three.webp' ! -path 'dist/assets/medals/precision-nf.webp' ! -path 'dist/assets/medals/precision-three.webp' ! -path 'dist/assets/medals/precision.webp' ! -path 'dist/assets/medals/registered.webp' ! -path 'dist/assets/medals/reviewed.webp' ! -path 'dist/assets/medals/saolei.webp' ! -path 'dist/assets/medals/shareholder.webp' ! -path 'dist/assets/medals/speed-nf.webp' ! -path 'dist/assets/medals/speed.webp' -delete"

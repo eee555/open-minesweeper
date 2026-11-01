@@ -53,6 +53,12 @@ export type MinigameStoredEntry = {
     | { game: 'missing-cell'; mode: MissingCellMode }
 );
 
+export type MinigameHistoryMetadata = Pick<MinigameStoredEntry, 'playedAt' | 'scoreMs'> & { id: number };
+export type MinigameHistorySort = 'date' | 'score-asc' | 'score-desc';
+
+const historyRevision = shallowRef(0);
+export const minigameHistoryRevision = readonly(historyRevision);
+
 export interface MinigameHistoryDB extends DBSchema {
     [MINIGAME_RESULTS_STORE]: {
         key: number;
@@ -137,6 +143,37 @@ export function getMinigameDatabase(): Promise<IDBPDatabase<MinigameHistoryDB>> 
     return opening;
 }
 
+export function getMinigameHistoryRankingKey(entry: Pick<MinigameStoredEntry, 'game' | 'mode'>): string {
+    return 'rankingKey' in entry.mode ? entry.mode.rankingKey : `${entry.game}-${entry.mode.key}-v1`;
+}
+
+/** Filter the selected configuration before counting or paging. Date bounds are [from, to). */
+export async function queryMinigameHistory(rankingKey: string, { from, to, sort = 'date', offset = 0, limit = 20 }: {
+    from?: number; to?: number; sort?: MinigameHistorySort; offset?: number; limit?: number;
+} = {}): Promise<{ count: number; entries: MinigameHistoryMetadata[] }> {
+    if (from !== undefined && to !== undefined && from >= to) return { count: 0, entries: [] };
+    const range = from === undefined
+        ? to === undefined ? undefined : IDBKeyRange.upperBound(to, true)
+        : to === undefined ? IDBKeyRange.lowerBound(from) : IDBKeyRange.bound(from, to, false, true);
+    const db = await getMinigameDatabase();
+    const tx = db.transaction(MINIGAME_RESULTS_STORE);
+    const dateIndex = tx.store.index('playedAt');
+    let count = 0;
+    const entries: MinigameHistoryMetadata[] = [];
+    const index = sort === 'date' ? dateIndex : tx.store.index('scoreMs');
+    let cursor = await index.openCursor(sort === 'date' ? range : undefined, sort === 'score-asc' ? 'next' : 'prev');
+    while (cursor !== null) {
+        const { playedAt, scoreMs } = cursor.value;
+        if (getMinigameHistoryRankingKey(cursor.value) === rankingKey && (from === undefined || playedAt >= from) && (to === undefined || playedAt < to)) {
+            if (count >= offset && entries.length < limit) entries.push({ id: cursor.primaryKey, playedAt, scoreMs });
+            count++;
+        }
+        cursor = await cursor.continue();
+    }
+    await tx.done;
+    return { count, entries };
+}
+
 function encodeHistoryEntry(entry: MinigameHistoryEntry, archive: ReplayArchiveCodec, preserveOriginal = false): MinigameStoredEntry {
     const { id, playedAt, scoreMs, game, mode } = entry;
     let source: unknown;
@@ -175,7 +212,9 @@ export async function saveMinigameResult(result: MinigameResult): Promise<number
         const archive = await loadReplayArchiveCodec();
         const stored = encodeHistoryEntry(entry, archive);
         const db = await getMinigameDatabase();
-        return await db.add(MINIGAME_RESULTS_STORE, stored);
+        const id = await db.add(MINIGAME_RESULTS_STORE, stored);
+        historyRevision.value++;
+        return id;
     } catch (error) {
         console.warn('Failed to save the minigame result to IndexedDB.', error);
         return undefined;

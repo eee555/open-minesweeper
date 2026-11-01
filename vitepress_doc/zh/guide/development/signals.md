@@ -193,3 +193,9 @@ GSC 历史补录沿用默认 TournamentUser 创建和 best 保存信号，允许
 `medal.signals.invalidate_summary_on_evidence_delete`监听`VideoModel`及`TournamentParticipant`的`pre_delete`。在授予证据外键被`SET_NULL`前查询受影响玩家，按主键顺序取得玩家锁，并在同一删除事务内删除对应`PlayerMedalSummary`。事务提交后再删 `medal:display:v4:{user_id}`；删除回滚时摘要和状态键都还在。下次摘要读取补齐已置空的证据链接。自然进度和授予资格继续由既有后台评估处理；展示键删除不改变 `MedalScan`；下一次录像刷新仍增量处理受影响难度和证据，展示读取缺键时批量查摘要或授予回填，不回扫历史录像。
 
 标识绑定、解绑和比赛录像公开保留 `QuerySet.update()`，它们不会触发 `post_save`。业务入口通过 `videomanager.events.videos_bulk_changed` 发送受影响的 `player_ids`，由勋章接收器去重，并为每名玩家注册独立的 `transaction.on_commit(..., robust=True)` 回调；事务回滚不入队，单名玩家入队失败会记录错误日志，不阻断其他玩家或缓存更新。比赛批量公开的最新队列及各排行也分别使用独立的 robust 提交回调，缓存与勋章入队互不依赖成功；这些回调暂不自动重试。入队函数在同一事务锁定玩家行，并在数据库按任务路径、`READY` 状态和玩家参数判断是否已有任务，不读取全队列 JSON。新插入的 `task_refresh_player_medals` 优先级为 1，3 秒后才可执行；已有 `READY` 任务时合并参数，不推迟原有较早时间；异常过晚时间提前到当前 3 秒延迟上限。合并查询期间若任务已被 worker 领取，另排新任务承接变更。补发任务优先级仍是 0，创建后即可执行。`on_commit()` 回调仍同步执行，不能据此认定请求没有入队开销。
+
+## 录像存储转换
+
+新上传和导入在 `VideoModel.create_from_parser` 中先尝试压缩校验，成功保存归档，失败保存源文件并将压缩格式记为 `0`；创建录像仍正常触发已有的比赛、统计、排行和勋章信号。原始 `file_size` 和解析结果的含义不变。
+
+`compress_video_files` 通过主键、原路径及原压缩格式作为条件执行 `QuerySet.update()`，不调用模型 `save()`，不触发保存信号。转换服务在提交后检查旧文件的数据库引用并清理文件。原始大小、哈希、审核状态及比赛信息保持不变，存储转换不重算排行或录像数量，也不依赖 django-cleanup 的保存信号完成路径切换。

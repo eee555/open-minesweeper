@@ -27,6 +27,7 @@ describe('minigame settings section', () => {
         cy.get('[data-cy="minigame-cell-size"]').should('have.value', '32');
         cy.get('[data-cy="minigame-mine-opacity"]').should('have.value', '0.5');
         cy.get('[data-cy="minigame-mine-up"]').should('be.checked');
+        cy.get('[data-cy="minigame-score-time"]').should('be.checked');
         cy.get('.minigame-board-foreground').should('have.css', 'opacity', '0.5');
         cy.get<ComponentWrapper<typeof SettingsAndTraining>>('@vue').then((wrapper) => {
             const board: number[][] = wrapper.findComponent<typeof MiniGameBoard>('[data-cy="minigame-board"]').props('board');
@@ -68,11 +69,16 @@ describe('minigame settings section', () => {
         cy.get('[data-cy="minigame-restart-hotkey"]').trigger('keydown', { eventConstructor: 'KeyboardEvent', code: 'F2', key: 'F2' });
         cy.get('[data-cy="minigame-restart-hotkey"]').blur();
         cy.get('[data-cy="minigame-mine-opacity"]').should('have.value', '1');
+        cy.get('[data-cy="minigame-score-ces"]').parent().click();
+        cy.get('[data-cy="training-game"]').should('have.attr', 'data-phase', 'playing');
+        cy.get('[data-cy="training-remaining"]').should('have.attr', 'aria-label', '031');
+        cy.get('[data-cy="training-time"]').should('have.attr', 'aria-label', '000.000');
         cy.window().its('localStorage').invoke('getItem', 'minigame-settings').should((value: string | null) => {
             const settings = JSON.parse(value ?? '{}') as Partial<MinigameSettings>;
             expect(settings.leftClickMineOpacity).to.eq(1);
             expect(settings.cellSize).to.eq(27);
             expect(settings.leftClickMinePressed).to.eq(true);
+            expect(settings.leftClickScoreDisplay).to.eq('ces');
             expect(settings.restartHotkey?.code).to.eq('F2');
         });
     });

@@ -6,7 +6,7 @@ import { rebuildMinigameReplay } from './review';
 
 const mouse = { version: 1, cellSize: 32, initialBoard: 'AAAAAP////8', events: [[0, 16, 16, 2], [10, 32, 0, 1], [10, 0, 0, 2]], specialEvents: [] };
 
-describe('opening minigame ranking replays', () => {
+describe('opening minigame replays', () => {
     it('resolves the selected ranking and rebuilds mouse and touch states with the saved score', () => {
         const left = rebuildMinigameReplay('left-click', leftClickModes[0].rankingKey, mouse, 30);
         if (left.game !== 'left-click') throw new Error('Expected a mouse replay');

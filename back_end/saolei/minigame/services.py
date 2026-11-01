@@ -51,6 +51,12 @@ def get_replay(ranking_key, player_id):
     return record[0], bytes(record[1])
 
 
+def delete_score(ranking_key, player_id):
+    deleted, _ = MiniGameBestScore.objects.filter(ranking_key=ranking_key, player_id=player_id).defer('replay_archive').delete()
+    if not deleted:
+        raise MiniGameError(404, 'record_not_found', 'Score record not found')
+
+
 def get_ranking(game, sort, start, end, rankings=None):
     rankings = GAME_RANKINGS[game] if rankings is None else rankings
     try:

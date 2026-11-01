@@ -8,6 +8,7 @@ from urllib.parse import urlsplit
 from django.conf import settings
 from django.db import DatabaseError
 from django.db.models import Sum
+from django.db.models.functions import Coalesce
 from django.tasks import TaskResultStatus
 from django.utils import timezone
 from django_tasks_db.models import DBTaskResult
@@ -88,7 +89,7 @@ def get_task_summary():
 
 def get_disk_usage():
     disk = psutil.disk_usage('.')
-    video_size = VideoModel.objects.aggregate(s=Sum('file_size'))['s']
+    video_size = VideoModel.objects.aggregate(s=Sum(Coalesce('stored_file_size', 'file_size')))['s']
     db_size = get_db_size()
     return {'total': disk.total, 'used': disk.used, 'free': disk.free, 'video': video_size, 'db': db_size}
 

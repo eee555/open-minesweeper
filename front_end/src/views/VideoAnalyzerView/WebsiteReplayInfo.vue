@@ -27,10 +27,10 @@
             </div>
         </div>
         <nav class="website-replay-info__links" :aria-label="t('local.links')">
-            <a class="base-button base-button--size-small website-replay-info__link website-replay-info__replay-download" :href="replayDownloadUrl" :download="info?.filename ?? ''" :title="t('local.downloadReplay')" :aria-label="t('local.downloadReplay')">
+            <button type="button" class="base-button base-button--size-small website-replay-info__link website-replay-info__replay-download" :disabled="source === null" :title="t('local.downloadReplay')" :aria-label="t('local.downloadReplay')" @click="downloadReplay">
                 <i class="pi pi-file-export" aria-hidden="true" />
-            </a>
-            <a class="base-button base-button--size-small website-replay-info__link website-replay-info__strange-dust" :href="strangeDustUrl || undefined" role="link" aria-label="StrangeDust Analyzer" title="StrangeDust Analyzer" :aria-disabled="strangeDustUrl ? undefined : true" :tabindex="strangeDustUrl ? undefined : -1" target="_blank" rel="noopener noreferrer">
+            </button>
+            <a class="base-button base-button--size-small website-replay-info__link website-replay-info__strange-dust" :href="strangeDustUrl" aria-label="StrangeDust Analyzer" title="StrangeDust Analyzer" target="_blank" rel="noopener noreferrer">
                 <img :src="strangeDustIcon" alt="" width="16" height="16">
             </a>
             <a class="base-button base-button--size-small website-replay-info__link website-replay-info__offline-download" :href="offlineDownloadUrl" :download="offlineDownloadFilename" :title="t('local.downloadOffline')" :aria-label="t('local.downloadOffline')">
@@ -56,21 +56,27 @@ import type { SiteReplayInfo, SiteReplayRanking } from './useSiteReplayInfo';
 import strangeDustIcon from '@/assets/strange-dust.ico';
 import analyzerIcon from '@/assets/video-analyzer.svg';
 import PlayerName from '@/components/PlayerName.vue';
-import type { MS_Software } from '@/utils/ms_const';
-import { getReplayDownloadUrl, getReplayPreviewUrl, getStrangeDustAnalyzerUrl } from '@/utils/replayLinks';
+import type { ReplaySource } from '@/components/VideoAnalyzer/replayParser';
+import { downloadBlob } from '@/utils/fileIO';
+import { getReplayPreviewUrl, getStrangeDustAnalyzerUrl } from '@/utils/replayLinks';
 import { utc_to_local_format } from '@/utils/system/tools';
 
 const props = defineProps({
     id: { type: String, required: true },
+    source: { type: Object as PropType<ReplaySource | null>, default: null },
     info: { type: Object as PropType<SiteReplayInfo | null>, default: null },
     loading: { type: Boolean, default: false },
     errorMessage: { type: String, default: '' },
-    software: { type: String as PropType<MS_Software | null>, default: null },
 });
-const strangeDustUrl = computed(() => (props.software === null ? '' : getStrangeDustAnalyzerUrl(getReplayPreviewUrl(props.id, props.software))));
-const replayDownloadUrl = computed(() => getReplayDownloadUrl(props.id));
+const strangeDustUrl = computed(() => getStrangeDustAnalyzerUrl(getReplayPreviewUrl(props.id)));
 const offlineDownloadFilename = `OpenMinesweeperVideoAnalyzer-${analyzerVersion.version}.zip`;
 const offlineDownloadUrl = `${import.meta.env.BASE_URL}assets/${offlineDownloadFilename}`;
+
+function downloadReplay() {
+    const replay = props.source;
+    if (replay === null) return;
+    downloadBlob(new Blob([replay.data], { type: 'application/octet-stream' }), replay.filename);
+}
 
 function rankingLabel(ranking: SiteReplayRanking): string {
     const label = ranking.ranking === 'saolei'

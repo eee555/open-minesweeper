@@ -1,4 +1,3 @@
-/* eslint-disable vue/one-component-per-file -- Each test mounts its own render-only fixture. */
 import { defineComponent, h, ref } from 'vue';
 
 import BaseButton from './BaseButton.vue';

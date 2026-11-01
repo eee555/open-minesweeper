@@ -39,10 +39,13 @@
 | `GET /api/minigame/{game}/replay` | 查询参数 `player=玩家ID, key=模式key`（如 `b-50-v1`） | 对应最佳成绩的原始 7z，`X-Minigame-Score` 为匹配的整数毫秒成绩 |
 | `GET /api/minigame/{game}/rank` | `sort=榜单key, start=0, end=20` | `{count, players}`，每行包含名次与完整成绩列 |
 | `GET /api/minigame/{game}/player/{player_id}` | 路径参数 | 该玩家本组全部成绩及各列名次 |
+| `DELETE /api/minigame/admin/{ranking_key}/player/{player_id}` | 完整榜单 key、玩家 ID；管理员会话及 CSRF token | 删除该项最佳成绩及回放，成功返回 `204`；无纪录返回 `404 record_not_found` |
 
 分页为左闭右开区间，最多 100 人。`sort` 默认使用本组第一列；空榜或空区间返回空列表，现存用户没有成绩时各列为 `null`。
 
 未知游戏、榜单或用户返回 `404`，跨游戏排序或非法输入返回 `422`，关闭提交的榜单返回 `409 ranking_closed`。业务错误为 `{code, detail}`；权限、限流和表单解析沿用项目格式。提交按用户限流 `60/m`，公开查询按 IP 限流 `5/s`。
+
+管理员在网站的「管理员 → 小游戏纪录」按玩家 ID 和游戏查询，再删除指定配置的纪录；删除同时移除回放，复用删除信号在事务提交后清理该玩家的 ZSET 和 Hash 成员，不影响其他配置或玩家。管理员接口使用包含 CSRF 校验的 `staff_required`，不设限流；不禁止玩家之后重新提交。
 
 回放公开读取，`game` 来自路径，查询参数 `key` 只包含模式部分，二者组合为完整的 `ranking_key`；数据库及 Redis 的榜单标识不变。缺失或空回放返回 `404 replay_not_found`。一次数据库查询读取成绩及 7z，不解包、不重新压缩、不访问 Redis。响应类型为 `application/x-7z-compressed`，设置 `Content-Encoding: identity` 跳过默认 GZipMiddleware，`Cache-Control: no-transform` 防止中间层再次转换，并公开 `X-Minigame-Score` 响应头供播放器读取。
 

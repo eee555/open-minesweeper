@@ -1,4 +1,5 @@
 body {
+    background-color: var(--ui-bg-color);
     color: var(--ui-text-color-regular);
     font-size: var(--ui-font-size-base);
     overflow-wrap: break-word;

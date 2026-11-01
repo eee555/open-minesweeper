@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from django.core.management import call_command
 from django.db import connection, IntegrityError, transaction
-from django.test import override_settings, TestCase
+from django.test import Client, override_settings, TestCase
 from django.test.utils import CaptureQueriesContext
 from redis.exceptions import ConnectionError as RedisConnectionError
 
@@ -252,6 +252,75 @@ class MiniGameRankingTests(TestCase):
         with self.assertNumQueries(0):
             self.assertEqual(get_ranking('left-click', self.ranking_key, 0, 20), {'count': 0, 'players': []})
         self.assertIsNone(self.cache.client.hget(self.cache.detail_key(self.ranking_key), str(record.player_id)))
+
+    def test_admin_delete_requires_staff_and_csrf(self):
+        self.submit(1000)
+        url = f'/api/minigame/admin/{self.ranking_key}/player/{self.player.id}'
+        client = Client(enforce_csrf_checks=True)
+        with patch('minigame.api.delete_score') as delete:
+            self.assertEqual(client.delete(url).status_code, 403)
+            client.force_login(self.player)
+            self.assertEqual(client.delete(url).status_code, 403)
+            staff = self.make_player('minigame-staff')
+            staff.is_staff = True
+            staff.save(update_fields=['is_staff'])
+            client.force_login(staff)
+            token = client.get('/api/userprofile/admin/csrf').json()['csrf_token']
+            for headers in ({}, {'HTTP_X_CSRFTOKEN': 'x' * 64}, {'HTTP_X_CSRFTOKEN': token, 'HTTP_ORIGIN': 'https://evil.invalid'}):
+                self.assertEqual(client.delete(url, **headers).status_code, 403)
+            self.assertEqual(client.get(url).status_code, 405)
+            delete.assert_not_called()
+        self.assertTrue(MiniGameBestScore.objects.filter(player=self.player, ranking_key=self.ranking_key).exists())
+
+    def test_admin_delete_removes_only_selected_score_replay_and_cache(self):
+        staff = self.make_player('minigame-delete-staff')
+        staff.is_staff = True
+        staff.save(update_fields=['is_staff'])
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(staff)
+        token = client.get('/api/userprofile/admin/csrf').json()['csrf_token']
+        for game, rankings in GAME_RANKINGS.items():
+            with self.subTest(game=game):
+                key = rankings[0].key
+                self.submit(1000, key)
+                preserved = self.submit(2000, rankings[1].key)['record']
+                self.submit(3000, key, staff)
+                get_ranking(game, key, 0, 20)
+                url = f'/api/minigame/admin/{key}/player/{self.player.id}'
+                with self.captureOnCommitCallbacks(execute=True), CaptureQueriesContext(connection) as queries:
+                    response = client.delete(url, HTTP_X_CSRFTOKEN=token)
+                self.assertEqual(response.status_code, 204, response.content)
+                self.assertFalse(response.content)
+                self.assertTrue(all('replay_archive' not in query['sql'].lower() for query in queries))
+                self.assertFalse(MiniGameBestScore.objects.filter(player=self.player, ranking_key=key).exists())
+                self.assertTrue(MiniGameBestScore.objects.filter(pk=preserved.pk).exists())
+                self.assertIsNone(self.cache.client.zscore(self.cache.rank_key(key), self.player.id))
+                self.assertIsNone(self.cache.client.hget(self.cache.detail_key(key), str(self.player.id)))
+                self.assertTrue(self.cache.client.exists(self.cache.ready_key(key)))
+                with self.assertNumQueries(0):
+                    result = get_ranking_summary(key, self.player.id)
+                self.assertEqual(result['count'], 1)
+                self.assertEqual(result['players'][0]['player_id'], staff.id)
+                self.assertEqual(result['players'][0]['rank'], 1)
+                self.assertIsNone(result['player']['records'][key])
+                replay = client.get(f'/api/minigame/{game}/replay', {'player': self.player.id, 'key': key.removeprefix(f'{game}-')})
+                self.assertEqual(replay.status_code, 404)
+                repeated = client.delete(url, HTTP_X_CSRFTOKEN=token)
+                self.assertEqual(repeated.status_code, 404)
+                self.assertEqual(repeated.json()['code'], 'record_not_found')
+        unknown = client.delete(f'/api/minigame/admin/unknown/player/{self.player.id}', HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(unknown.status_code, 404)
+        self.assertEqual(unknown.json()['code'], 'unknown_ranking')
+
+    def test_admin_delete_succeeds_when_redis_is_unavailable(self):
+        self.submit(1000)
+        self.player.is_staff = True
+        self.player.save(update_fields=['is_staff'])
+        self.client.force_login(self.player)
+        with patch('minigame.services.MiniGameRankingCache', side_effect=RedisConnectionError), self.assertLogs('minigame.services', 'ERROR'), self.captureOnCommitCallbacks(execute=True):
+            response = self.client.delete(f'/api/minigame/admin/{self.ranking_key}/player/{self.player.id}')
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(MiniGameBestScore.objects.filter(player=self.player, ranking_key=self.ranking_key).exists())
 
     def test_redis_failure_preserves_writes_and_batch_database_fallback(self):
         with patch('minigame.services.MiniGameRankingCache', side_effect=RedisConnectionError), self.assertLogs('minigame.services', 'ERROR'):

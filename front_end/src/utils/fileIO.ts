@@ -1,4 +1,3 @@
-import JSZip from 'jszip';
 import { AvfVideo, EvfVideo, MvfVideo, RmvVideo } from 'ms-toollib';
 
 import { CustomLevel } from './customlevel';
@@ -59,35 +58,6 @@ export function get_video_level(video: AnyVideo): MS_Level | CustomLevel {
         return new CustomLevel(video.row, video.column, video.mine_num);
     }
     return ['b', 'i', 'e'][video.level - 3] as MS_Level;
-}
-
-export async function streamToZip(data: Uint8Array, filename: string): Promise<void> {
-    const zip = new JSZip();
-    let offset = 0;
-
-    while (offset < data.length) {
-        // Read 4-byte filename length
-        const filenameLen = new DataView(data.buffer, offset, 4).getUint32(0, false);
-        offset += 4;
-
-        // Read filename
-        const filenameBytes = data.slice(offset, offset + filenameLen);
-        const entryFilename = new TextDecoder().decode(filenameBytes);
-        offset += filenameLen;
-
-        // Read 8-byte file size
-        const fileSize = Number(new DataView(data.buffer, offset, 8).getBigUint64(0, false));
-        offset += 8;
-
-        // Read file content
-        const fileData = data.slice(offset, offset + fileSize);
-        offset += fileSize;
-
-        zip.file(entryFilename, fileData);
-    }
-
-    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
-    downloadBlob(blob, filename);
 }
 
 export function downloadBlob(blob: Blob, filename: string): void {

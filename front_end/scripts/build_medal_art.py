@@ -1,12 +1,13 @@
-"""用勋章模板生成每种外观一张金色透明 WebP。
+"""用透明 PNG 勋章模板生成每种外观一张金色透明 WebP。
 
-铜和银由前端按同一套换色公式从这张金色底图算出。档位数字由 MedalArt.vue 用 CSS 绘制。
+成绩颜色由前端柔和金属曲线实现，难度使用独立星级。档位数字由 MedalArt.vue 用 CSS 绘制。
 发布文件固定为128x128透明WebP、单张不超过8KiB。新增模板后必须运行test_medal_art.py。
 规则见docs/medal/软件架构.md的“勋章图片生成与资源预算”。
 运行：back_end/saolei/.venv/Scripts/python.exe front_end/scripts/build_medal_art.py
 """
-from collections import deque
 from pathlib import Path
+from tempfile import TemporaryDirectory
+import shutil
 
 from PIL import Image
 
@@ -17,74 +18,31 @@ SIZE = 320
 # 页面最大显示72px；128px源图在高像素密度屏幕上更清晰，同时仍远小于模板原图。
 EXPORT_SIZE = 128
 MAX_IMAGE_BYTES = 8 * 1024
-
-
-def is_background(red, green, blue, kind):
-    if kind == 'black':
-        return red < 28 and green < 28 and blue < 28
-    if max(red, green, blue) - min(red, green, blue) > 16:
-        return False
-    average = (red + green + blue) / 3
-    return 110 <= average <= 220
-
-
-def clear_background(image, kind):
-    rgba = image.convert('RGBA')
-    width, height = rgba.size
-    pixels = rgba.load()
-    seen = bytearray(width * height)
-    queue = deque()
-
-    def push(x, y):
-        index = y * width + x
-        if seen[index]:
-            return
-        red, green, blue, _alpha = pixels[x, y]
-        if not is_background(red, green, blue, kind):
-            return
-        seen[index] = 1
-        queue.append((x, y))
-
-    for x in range(width):
-        push(x, 0)
-        push(x, height - 1)
-    for y in range(height):
-        push(0, y)
-        push(width - 1, y)
-    while queue:
-        x, y = queue.popleft()
-        pixels[x, y] = (0, 0, 0, 0)
-        for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
-            if 0 <= nx < width and 0 <= ny < height:
-                push(nx, ny)
-    for _pass in range(8):
-        pending = []
-        for y in range(height):
-            for x in range(width):
-                red, green, blue, alpha = pixels[x, y]
-                if alpha == 0 or not is_background(red, green, blue, kind):
-                    continue
-                neighbors = ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1))
-                if any(0 <= nx < width and 0 <= ny < height and pixels[nx, ny][3] == 0 for nx, ny in neighbors):
-                    pending.append((x, y))
-        for x, y in pending:
-            pixels[x, y] = (0, 0, 0, 0)
-        if not pending:
-            break
-    return rgba
+ABILITY_TEMPLATES = {'breakthrough', 'breakthrough-nf', 'speed', 'speed-nf', 'mastery', 'mastery-nf', 'precision', 'precision-nf'}
+TEMPLATES = (
+    'breakthrough', 'breakthrough-nf', 'speed', 'speed-nf', 'mastery', 'mastery-nf',
+    'precision', 'precision-nf', 'precision-nf-three', 'precision-three',
+    'registered', 'reviewed', 'levels', 'levels-nf', 'modes', 'saolei', 'shareholder',
+)
 
 
 def fit_square(image, size):
     image.thumbnail((size, size), Image.Resampling.LANCZOS)
     canvas = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-    canvas.paste(image, ((size - image.width) // 2, (size - image.height) // 2), image)
+    # RGBA 直接复制，避免再次用自身作遮罩将半透明边缘的 alpha 平方。
+    canvas.paste(image, ((size - image.width) // 2, (size - image.height) // 2))
     return canvas
 
 
-def prepare(path, kind):
-    image = clear_background(Image.open(path), kind)
+def prepare(path, preserve_canvas=False):
+    with Image.open(path) as source:
+        if source.format != 'PNG' or 'A' not in source.getbands() or source.getchannel('A').getextrema()[0] == 255:
+            raise ValueError(f'{path}: medal templates must be PNGs with an existing transparent alpha channel')
+        image = source.convert('RGBA')
     box = image.getbbox()
-    if box:
+    if not box:
+        raise ValueError(f'{path}: medal template is empty')
+    if not preserve_canvas:
         image = image.crop(box)
     return fit_square(image, SIZE)
 
@@ -101,51 +59,40 @@ def save_art(image, path):
     save_encoded(image.resize((EXPORT_SIZE, EXPORT_SIZE), Image.Resampling.LANCZOS), path)
 
 
-def clean_output():
-    if not OUTPUT_DIR.exists():
-        return
-    for path in OUTPUT_DIR.rglob('*'):
-        if path.is_file():
-            path.unlink()
-    for path in sorted((path for path in OUTPUT_DIR.rglob('*') if path.is_dir()), reverse=True):
-        path.rmdir()
-
-
-def write_single(base, folder):
-    save_art(base, OUTPUT_DIR / f'{folder}.webp')
-
-
 def main():
-    clean_output()
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    templates = (
-        ('breakthrough.png', 'black', 'breakthrough'),
-        ('breakthrough-nf.png', 'black', 'breakthrough-nf'),
-        ('speed.png', 'black', 'speed'),
-        ('speed-nf.png', 'black', 'speed-nf'),
-        ('mastery.png', 'black', 'mastery'),
-        ('mastery-nf.png', 'black', 'mastery-nf'),
-        ('precision.png', 'checker', 'precision'),
-        ('precision-nf.png', 'checker', 'precision-nf'),
-        ('precision-nf-three.png', 'checker', 'precision-nf-three'),
-        ('precision-three.jpg', 'black', 'precision-three'),
-        ('registered.png', 'black', 'registered'),
-        ('reviewed.png', 'checker', 'reviewed'),
-        ('levels.png', 'black', 'levels'),
-        ('levels-nf.png', 'checker', 'levels-nf'),
-        ('modes.png', 'black', 'modes'),
-        ('saolei.png', 'black', 'saolei'),
-        ('shareholder.png', 'black', 'shareholder'),
-    )
-    count = 0
-    for filename, background, folder in templates:
-        path = TEMPLATE_DIR / filename
-        if not path.exists():
-            continue
-        write_single(prepare(path, background), folder)
-        count += 1
-        print(folder, count)
-    print('total', count)
+    # Keep the approved ability canvas: badge masks and shared stars use those coordinates.
+    prepared = [(prepare(TEMPLATE_DIR / f'{name}.png', preserve_canvas=name in ABILITY_TEMPLATES), name) for name in TEMPLATES]
+    overlays = TEMPLATE_DIR.parent / 'medal-overlays' / 'difficulty'
+    stars = [(prepare(overlays / name, preserve_canvas=True), code) for name, code in [('one-star.png', 'b'), ('two-stars.png', 'i'), ('three-stars.png', 'e')]]
+    OUTPUT_DIR.parent.mkdir(parents=True, exist_ok=True)
+    # Validate every export and aggregate budget before replacing the published files.
+    with TemporaryDirectory(prefix='medal-art-', dir=OUTPUT_DIR.parent) as directory:
+        stage = Path(directory)
+        for image, name in prepared:
+            save_art(image, stage / f'{name}.webp')
+        (stage / 'difficulty').mkdir()
+        for image, code in stars:
+            target = stage / 'difficulty' / f'{code}.webp'
+            image.resize((64, 64), Image.Resampling.LANCZOS).save(target, format='WEBP', quality=50, alpha_quality=45, method=6)
+            if target.stat().st_size > 2048:
+                raise ValueError(f'{target.name}: star overlay exceeds 2KiB')
+        files = list(stage.rglob('*.webp'))
+        if sum(path.stat().st_size for path in files) > 160 * 1024:
+            raise ValueError('Medal library exceeds 160KiB')
+        if 6 * max(path.stat().st_size for path in stage.glob('*.webp')) > 44 * 1024:
+            raise ValueError('Six medal bodies exceed 44KiB')
+        for source in files:
+            target = OUTPUT_DIR / source.relative_to(stage)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, target)
+        # This directory is exclusively owned by this generator. Remove superseded files
+        # only after the complete replacement set has passed validation and been copied.
+        expected = {path.relative_to(stage) for path in files}
+        for old in OUTPUT_DIR.rglob('*'):
+            if old.is_file() and old.relative_to(OUTPUT_DIR) not in expected:
+                old.unlink()
+
+    print(f'Published {len(prepared)} shared bodies and {len(stars)} shared stars; no per-threshold or per-color image files.')
 
 
 if __name__ == '__main__':

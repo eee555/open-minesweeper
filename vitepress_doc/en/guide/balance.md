@@ -9,7 +9,9 @@ description: Open Minesweeper donation income and server expense details, showin
 
 | Sponsor | Amount | Date | Channel | Sponsored object | Allocation |
 | :------: | :-----: | :----------: | :------: | :------: | :------: |
-| *树             | ¥200.00 | 2026-10-26 | 微信 | 网站 | -- |
+| 18875             | ¥63.00 | 2026-10-31 | Alipay | Website | -- |
+| Vostok             | ¥5.00 | 2026-10-31 | WeChat | Website | -- |
+| *树             | ¥200.00 | 2026-10-26 | WeChat | Website | -- |
 | 26225 | ¥200.00 | 2026-8-31 | WeChat | Website | -- |
 | AUGUSTE | ¥36.66 | 2026-7-21 | QQ | Website | -- |
 | 毛毛虫 | ¥100.00 | 2026-7-21 | QQ | Website | -- |
@@ -41,7 +43,7 @@ description: Open Minesweeper donation income and server expense details, showin
 | Domain | ¥1.00 | 2023-12-11 | Huawei Cloud | fff666.top |
 | Server | ¥89.14 | 2023-12-03 | Huawei Cloud | East China-Shanghai 1, 2 vCPU, 2 GiB memory, 40 GiB system disk, 400 GB traffic package, 3 Mbit/s peak bandwidth |
 
-Current account balance: ¥461.18
+Current account balance: ¥529.18
 
 Resource expiration dates and next renewal amounts:
 

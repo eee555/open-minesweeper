@@ -1,23 +1,31 @@
 <template>
+    <header class="profile-header">
+        <div>
+            <slot name="heading" />
+        </div>
+        <div class="profile-actions">
+            <BaseButton type="primary" :loading="updating" data-cy="save-profile" @click="updateProfile">
+                {{ t('button.save') }}
+            </BaseButton>
+            <BaseButton type="info" :disabled="updating" @click="refresh">
+                {{ t('button.cancel') }}
+            </BaseButton>
+        </div>
+    </header>
     <!-- 真实姓名 -->
     <div class="input-label" data-cy="real-name-section">
-        <div class="text-large">
-            {{ t('local.realname') }}
-        </div>
-        <div class="text-small">
-            {{ t('local.realnameTooltip') }}
-        </div>
-        <div v-if="canChoosePrivacy" class="text-small">
-            <label>
-                <input v-model="hideRealname" type="checkbox" :disabled="updating" data-cy="hide-realname-toggle">
+        <div class="realname-heading text-large">
+            <span :title="user.can_hide_realname ? t('local.realnameTooltip') : `${t('local.realnameTooltip')} ${t('local.privacyAuthorization')}`">{{ t('local.realname') }}</span>
+            <label v-if="canChoosePrivacy" class="name-privacy text-small" :title="`${user.isAnonymous ? t('local.privacySaveWithName') : t('local.privacyAutoSave')} ${t('local.privacyScope')}`">
+                <input v-model="hideRealname" type="checkbox" :disabled="updating" data-cy="hide-realname-toggle" @change="onPrivacyChange">
                 {{ user.isAnonymous ? t('local.hideWithName') : t('local.hideRealname') }}
             </label>
-            <p>{{ t('local.privacyScope') }}</p>
+            <span v-show="canChoosePrivacy && (updating || privacySaved)" class="text-small" role="status" aria-live="polite" data-cy="privacy-save-status" :class="{ 'text-success': privacySaved }">
+                <template v-if="updating">{{ t('local.privacySaving') }}</template>
+                <template v-else-if="privacySaved">{{ t('local.privacySaved') }}</template>
+            </span>
         </div>
-        <p v-else-if="!user.isAnonymous" class="text-small">
-            {{ t('local.privacyAuthorization') }}
-        </p>
-        <p v-if="privacyError" class="text-danger text-small">
+        <p v-if="privacyError" class="text-danger text-small" role="alert">
             {{ privacyError }}
         </p>
     </div>
@@ -91,18 +99,10 @@
             :disabled="signatureDisabled"
         />
     </div>
-
-    <div style="margin-top: 1em">
-        <BaseButton type="primary" :loading="updating" data-cy="save-profile" @click="updateProfile">
-            {{ t('button.save') }}
-        </BaseButton>
-        <BaseButton type="info" :disabled="updating" @click="refresh">
-            {{ t('button.cancel') }}
-        </BaseButton>
-    </div>
 </template>
 
 <script setup lang="ts">
+import { isAxiosError } from 'axios';
 import { ElInput } from 'element-plus';
 import { computed, ref, watch } from 'vue';
 import type { PropType } from 'vue';
@@ -122,6 +122,8 @@ const props = defineProps({
     qualificationStatus: { type: String as PropType<'idle' | 'loading' | 'ready' | 'error'>, default: 'ready' },
 });
 
+defineSlots<{ heading?: () => unknown }>();
+
 const { proxy } = useCurrentInstance();
 
 const UpdateProfileFields = ['realname', 'firstname', 'lastname', 'signature'] as const;
@@ -137,6 +139,7 @@ const user = defineModel<UserProfile>('user', { type: UserProfile, default: () =
 const updating = ref(false);
 const hideRealname = ref(false);
 const privacyError = ref('');
+const privacySaved = ref(false);
 
 const defaultFormStatus: formStatusSingle = {
     new: '',
@@ -151,6 +154,7 @@ const formStatus = ref<EnumMap<UpdateProfileField, formStatusSingle>>(
 function refresh() {
     hideRealname.value = !user.value.isAnonymous && user.value.hide_realname;
     privacyError.value = '';
+    privacySaved.value = false;
     for (const field of UpdateProfileFields) {
         formStatus.value[field].new = user.value[field];
         formStatus.value[field].status = '';
@@ -185,8 +189,39 @@ function processUpdateResponse(field: UpdateProfileField, data: UpdateProfileRes
     }
 }
 
-async function updateProfile() {
+async function onPrivacyChange() {
+    privacySaved.value = false;
+    if (user.value.isAnonymous || updating.value) return;
+    const owner = user.value;
+    const requestedHide = hideRealname.value;
     privacyError.value = '';
+    updating.value = true;
+    const params = new FormData();
+    params.append('hide_realname', String(requestedHide));
+    try {
+        const { data } = await proxy.$axios.post<{ hide_realname: boolean }>('/api/userprofile/name-privacy', params);
+        await invalidateUserInfo(owner.id);
+        if (user.value !== owner) return;
+        owner.hide_realname = data.hide_realname;
+        hideRealname.value = data.hide_realname;
+        privacySaved.value = true;
+    } catch (error) {
+        if (user.value !== owner) return;
+        hideRealname.value = !owner.isAnonymous && owner.hide_realname;
+        if (isAxiosError<{ object: string; category: string }>(error) && error.response?.data.object === 'privacy') {
+            privacyError.value = t(`local.error.privacy.${error.response.data.category}`);
+        } else {
+            httpErrorNotification(error);
+        }
+    } finally {
+        updating.value = false;
+    }
+}
+
+async function updateProfile() {
+    if (updating.value) return;
+    privacyError.value = '';
+    privacySaved.value = false;
     let invalid = false;
     for (const field of ['realname', 'firstname', 'lastname'] as const) {
         if (formStatus.value[field].new.trim() === HIDDEN_NAME) {
@@ -202,13 +237,14 @@ async function updateProfile() {
     }
     updating.value = true;
     const owner = user.value;
+    const requestedHide = hideRealname.value;
     const params = new FormData();
     for (const field of UpdateProfileFields) {
         if (formStatus.value[field].new !== user.value[field]) {
             params.append(field, formStatus.value[field].new);
         }
     }
-    if (canChoosePrivacy.value && hideRealname.value !== user.value.hide_realname) params.append('hide_realname', String(hideRealname.value));
+    if (canChoosePrivacy.value && requestedHide !== user.value.hide_realname) params.append('hide_realname', String(requestedHide));
 
     if (params.keys().next().done !== true) {
         await proxy.$axios.post(
@@ -222,7 +258,10 @@ async function updateProfile() {
                 processUpdateResponse(field, data[field]);
             }
             if (data.hide_realname?.type === 'error') privacyError.value = t(data.hide_realname.object === 'name' && data.hide_realname.category === 'reserved' ? 'msg.reservedName' : `local.error.${data.hide_realname.object}.${data.hide_realname.category}`);
-            if (data.hide_realname?.type === 'success') owner.hide_realname = hideRealname.value;
+            if (data.hide_realname?.type === 'success') {
+                owner.hide_realname = requestedHide;
+                privacySaved.value = true;
+            }
             hideRealname.value = !owner.isAnonymous && owner.hide_realname;
         }).catch((error: unknown) => {
             if (user.value === owner) hideRealname.value = !owner.isAnonymous && owner.hide_realname;
@@ -247,6 +286,10 @@ const i18nMessages = {
         updateSuccess: '修改成功',
         hideWithName: '同时隐藏实名',
         hideRealname: '隐藏实名',
+        privacyAutoSave: '切换后自动保存，无需点击“保存”。',
+        privacySaveWithName: '请点击“保存”，将实名和隐藏设置一起保存。',
+        privacySaving: '正在保存…',
+        privacySaved: '隐藏设置已保存',
         privacyAuthorization: '需要管理员授权或成功绑定 MSGames。已经绑定的用户可联系管理员补发资格。',
         privacyScope: '仅隐藏本站姓名，账号关联姓名和原始录像不受影响。由于缓存的原因，隐藏可能不会立刻生效。',
         signatureTooltip: ({ named }: { named: { (key: 'left'): number; (key: 'next'): string } }) => {
@@ -280,6 +323,10 @@ const i18nMessages = {
         updateSuccess: 'Update successful',
         hideWithName: 'Hide my real name when saving',
         hideRealname: 'Hide my real name',
+        privacyAutoSave: 'Changes save automatically. No need to click Save.',
+        privacySaveWithName: 'Click Save to save your real name and privacy setting together.',
+        privacySaving: 'Saving…',
+        privacySaved: 'Name privacy saved',
         privacyAuthorization: 'Requires administrator approval or a successful MSGames binding. If already linked, ask an administrator to grant eligibility.',
         privacyScope: 'Hides site profile names. Linked account names and original replays are unaffected. Due to caching, name hiding may not take effect immediately.',
         signatureTooltip: ({ named }: { named: { (key: 'left'): number; (key: 'next'): string } }) => {
@@ -305,8 +352,28 @@ const { t } = useI18n({ messages: i18nMessages });
 </script>
 
 <style lang="less" scoped>
+.profile-header,
+.realname-heading {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.profile-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: auto;
+}
+
 .input-label {
     margin-top: 0.75em;
     margin-bottom: 0.5em;
+}
+
+.name-privacy {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
 }
 </style>

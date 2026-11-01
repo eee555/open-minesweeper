@@ -74,7 +74,7 @@ function handleClick(event: MouseEvent) {
     event.stopPropagation();
     if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
-    void preview(props.id, resolvedSoftware.value);
+    preview(props.id);
 }
 </script>
 

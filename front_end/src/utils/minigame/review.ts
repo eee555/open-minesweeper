@@ -1,5 +1,8 @@
+import { unpackReplayArchive } from './archive';
 import { flagChordModes } from './flagChordTraining';
 import type { TrainingGame } from './games';
+import { getMinigameHistoryRankingKey } from './history';
+import type { MinigameStoredEntry } from './history';
 import { leftClickModes, multiTouchModes } from './leftClickTraining';
 import { missingCellModes } from './missingCellTraining';
 import type { MissingCellMode, MissingCellRoundResult } from './missingCellTraining';
@@ -16,6 +19,12 @@ export interface MissingCellReplay {
 }
 
 export type MinigameReplay = AnyTrainingReplay | MissingCellReplay;
+
+/** Website and offline history use the same stored 7z and replay reconstruction. */
+export async function readMinigameHistoryReplay(entry: MinigameStoredEntry): Promise<MinigameReplay> {
+    const source = await unpackReplayArchive(entry.replay);
+    return rebuildMinigameReplay(entry.game, getMinigameHistoryRankingKey(entry), source, entry.scoreMs);
+}
 
 /** Reuse the local replay decoders; mode and score come from the selected ranking. */
 export function rebuildMinigameReplay(game: TrainingGame, rankingKey: string, source: unknown, scoreMs: number): MinigameReplay {

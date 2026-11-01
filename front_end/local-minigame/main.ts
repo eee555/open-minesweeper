@@ -1,3 +1,5 @@
+import 'element-plus/dist/index.css';
+import 'element-plus/theme-chalk/dark/css-vars.css';
 import '../src/styles/theme/index.css';
 import '../src/styles/text.css';
 import '../src/styles/checkbox-buttons.css';

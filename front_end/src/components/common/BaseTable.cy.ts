@@ -1,4 +1,3 @@
-/* eslint-disable vue/one-component-per-file -- Each test mounts its own render-only fixture. */
 import { defineComponent, h, nextTick, ref } from 'vue';
 
 import BaseTable from './BaseTable.vue';

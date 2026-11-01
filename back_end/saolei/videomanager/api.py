@@ -23,9 +23,11 @@ from config.text_choices import MS_TextChoices
 from userprofile.decorators import staff_required
 from userprofile.models import UserProfile
 from .cache import cache, newest_cache
+from .files import original_file
 from .models import ExpandVideoModel, STNB_COEFFICIENTS, VideoModel
 from .schema import ParsedVideoOut, PUBLIC_VIDEO_METADATA_FIELDS, PublicVideoMetadataOut, VIDEO_INFO_BATCH_LIMIT, VIDEO_METADATA_FIELDS, VideoBaseOut, VideoMetadataOut
 from .services import delete_video_by_id, freeze_video_by_id
+from .utils import replay_filename, unpack_compression_format
 from .view_utils import video_all_fields
 
 router = Router()
@@ -242,22 +244,29 @@ def _can_request_video(request: HttpRequest, video: VideoModel):
     return request.user.id == video.player_id
 
 
-def _video_file_response(request: HttpRequest, video_id: int):
+def _video_file_response(request: HttpRequest, video_id: int, *, decompress=False):
     video = get_object_or_404(VideoModel, id=video_id)
     if not _can_request_video(request, video):
         raise HttpError(403, 'Forbidden.')
     file_name = video.file.name
-    if settings.DEBUG:
-        try:
+    try:
+        if decompress and video.compression_format:
+            with original_file(file_name, video.compression_format, video.original_filename) as source:
+                response = HttpResponse(source.read(), headers={'Content-Length': str(source.size)})
+        elif settings.DEBUG:
             response = FileResponse(default_storage.open(file_name, 'rb'))
-        except FileNotFoundError:
-            raise HttpError(404, 'Video file not found.')
-    else:
-        response = HttpResponse()
-        response['X-Accel-Redirect'] = f'{VIDEO_ACCEL_REDIRECT_PREFIX}{quote(file_name, safe="/")}'
+        else:
+            response = HttpResponse()
+            response['X-Accel-Redirect'] = f'{VIDEO_ACCEL_REDIRECT_PREFIX}{quote(file_name, safe="/")}'
+    except FileNotFoundError:
+        raise HttpError(404, 'Video file not found.')
     response['Content-Type'] = 'application/octet-stream'
-    file_name_uri = quote(file_name.split('/')[-1])
+    filename = replay_filename(file_name, video.original_filename)
+    if video.compression_format and not decompress:
+        filename += '.msrc'
+    file_name_uri = quote(filename)
     response['Content-Disposition'] = f'attachment; filename="{file_name_uri}"'
+    response['X-Replay-Container-Version'] = '0' if decompress else str(unpack_compression_format(video.compression_format)[0])
     return response
 
 
@@ -282,26 +291,24 @@ VideoFullOut = create_schema(
 
 @router.get('/preview')
 @decorate_view(ratelimit(key='ip', rate='20/m'))
-def video_preview(request: HttpRequest, video_id_with_extension: str = Query(..., alias='id')):  # noqa: B008
+def video_preview(request: HttpRequest, video_id: int = Query(..., alias='id')):  # noqa: B008
     """
     - ratelimit(key='ip', rate='20/m')
+
+    按录像 ID 返回当前存储的文件，已压缩录像返回 MSRC 容器，未压缩录像返回原始字节。
     """
-    try:
-        video_id = int(video_id_with_extension[:-4])
-    except ValueError:
-        raise HttpError(400, 'Invalid video id.')
-    response = _video_file_response(request, video_id)
-    response['Access-Control-Expose-Headers'] = 'Content-Disposition'
-    return response
+    return _video_file_response(request, video_id)
 
 
 @router.get('/download/{video_id}')
-@decorate_view(ratelimit(key='ip', rate='20/m'))
+@decorate_view(ratelimit(key='ip', rate='5/m'))
 def video_download(request: HttpRequest, video_id: int):
     """
-    - ratelimit(key='ip', rate='20/m')
+    - ratelimit(key='ip', rate='5/m')
+
+    按录像 ID 返回原始录像文件，MSRC 容器在后端解压，文件名保留原软件后缀。
     """
-    return _video_file_response(request, video_id)
+    return _video_file_response(request, video_id, decompress=True)
 
 
 @router.get('/review_queue', response=list[VideoMetadataOut])

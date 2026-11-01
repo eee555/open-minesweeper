@@ -11,6 +11,7 @@
             />
         </template>
         <CardMineracer v-if="accountlinks.m" :id="accountlinks.m.id" :info="accountlinks.m" />
+        <CardDiscord v-if="accountlinks.d || isOwnAccountLinkPage" :info="accountlinks.d" :editable="isOwnAccountLinkPage" @refresh="refresh" />
         <CardAdd v-if="showManualAdd" :accountlinks="accountlinks" @add-link="addLink" />
         <CardAddMineracer v-if="showMineracerAdd" @refresh="refresh" />
     </div>
@@ -19,11 +20,12 @@
 <script setup lang="ts">
 import { vLoading } from 'element-plus';
 import type { Component } from 'vue';
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import CardAdd from './CardAdd.vue';
 import CardAddMineracer from './CardAddMineracer.vue';
 import CardBilibili from './CardBilibili.vue';
+import CardDiscord from './CardDiscord.vue';
 import CardMineracer from './CardMineracer.vue';
 import CardMsgames from './CardMsgames.vue';
 import CardSaolei from './CardSaolei.vue';
@@ -44,7 +46,7 @@ const props = defineProps({
 
 const loading = ref(false);
 const accountlinks = ref(new AccountLinks());
-const isOwnAccountLinkPage = computed(() => store.player.id == store.user.id);
+const isOwnAccountLinkPage = computed(() => store.user.id > 0 && props.userId === store.user.id);
 const showManualAdd = computed(() => isOwnAccountLinkPage.value && manualAccountLinkPlatforms.some((platform) => !accountlinks.value.has(platform)));
 const showMineracerAdd = computed(() => isOwnAccountLinkPage.value && accountlinks.value.m === undefined);
 const accountCardConfigs: { platform: AccountLinkPlatformType; component: Component }[] = [
@@ -54,26 +56,44 @@ const accountCardConfigs: { platform: AccountLinkPlatformType; component: Compon
     { platform: AccountLinkPlatform.Bilibili, component: CardBilibili },
 ];
 
-watch(() => props.userId, refresh, { immediate: true });
+let refreshVersion = 0;
+const viewerContext = computed(() => `${store.sessionRevision}:${store.user.id}:${store.user.is_staff}`);
+watch([() => props.userId, viewerContext], () => {
+    accountlinks.value = new AccountLinks();
+    void refresh();
+}, { immediate: true });
+onBeforeUnmount(() => {
+    refreshVersion++;
+});
 
 async function refresh() {
-    if (props.userId == 0) return;
+    const version = ++refreshVersion;
+    const viewer = viewerContext.value;
+    const target = props.userId;
+    const isCurrent = () => version === refreshVersion && viewer === viewerContext.value && target === props.userId;
+    if (target === 0) {
+        loading.value = false;
+        return;
+    }
     loading.value = true;
     try {
-        accountlinks.value = await fetchAccountLinks(props.userId);
+        const result = await fetchAccountLinks(target);
+        if (isCurrent()) accountlinks.value = result;
     } catch (error) {
-        httpErrorNotification(error);
+        if (isCurrent()) httpErrorNotification(error);
     } finally {
-        loading.value = false;
+        if (isCurrent()) loading.value = false;
     }
 }
 
 async function addLink(platform: AccountLinkPlatformType, identifier: string) {
+    const viewer = viewerContext.value;
+    const target = props.userId;
     try {
         const accountlink = await addAccountLink(platform, identifier);
-        accountlinks.value.addSummary(accountlink);
+        if (viewer === viewerContext.value && target === props.userId) accountlinks.value.addSummary(accountlink);
     } catch (error) {
-        httpErrorNotification(error);
+        if (viewer === viewerContext.value && target === props.userId) httpErrorNotification(error);
     }
 }
 </script>

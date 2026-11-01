@@ -2,15 +2,6 @@
     <div class="layout-stack">
         <Appearance />
         <PlayerBadgeSettings />
-        <section class="card">
-            <h2 class="card-title">
-                {{ t('local.thirdPartyTrust') }}
-            </h2>
-            <label class="checkbox">
-                <input v-model="videoPlayerConfig.strangeDustTrust" class="checkbox-input" type="checkbox">
-                <span>https://strange-dust.github.io/minesweeper-replay-analyzer/</span>
-            </label>
-        </section>
         <Visualization />
         <MiniGame />
         <section v-experimental class="card">
@@ -63,19 +54,16 @@ import PlayerBadgeSettings from './PlayerBadge.vue';
 import Visualization from './Visualization.vue';
 
 import { vExperimental } from '@/components/ExperimentalFeature';
-import { videoPlayerConfig } from '@/store';
 import { STNB_const } from '@/utils/ms_const';
 
 const i18nMessages = {
     'zh-cn': { local: {
         localCache: '本地缓存',
         stnbConst: 'STNB常数',
-        thirdPartyTrust: '第三方网站信任列表',
     } },
     en: { local: {
         localCache: 'Local Cache',
         stnbConst: 'STNB Constants',
-        thirdPartyTrust: 'Third Party Trust List',
     } },
 };
 

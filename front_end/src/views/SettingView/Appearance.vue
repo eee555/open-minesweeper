@@ -55,6 +55,7 @@
             </dl>
         </div>
     </section>
+    <MedalPaletteSettings />
 </template>
 
 <script setup lang="ts">
@@ -65,6 +66,7 @@ import { ElInputNumber, ElSwitch } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 
 import BaseTooltip from '@/components/common/BaseTooltip.vue';
+import MedalPaletteSettings from '@/components/MedalPaletteSettings.vue';
 import { local } from '@/store';
 import { ViennaIconLegacy, ViennaIconNew } from '@/utils/assets';
 

@@ -30,22 +30,25 @@ describe('shared minigame settings storage', () => {
         expect(minigameSettings.value.restartHotkey).toBeNull();
         expect(minigameSettings.value.leftClickMineOpacity).toBe(0.5);
         expect(minigameSettings.value.leftClickMinePressed).toBe(false);
+        expect(minigameSettings.value.leftClickScoreDisplay).toBe('time');
         expect(minigameSettings.value.cellSize).toBe(32);
         expect(minigameSettings.value.multiTouchOrientation).toBe('horizontal');
         const restartHotkey = restartHotkeyFromEvent({ key: 'r', code: 'KeyR', ctrlKey: true, altKey: false, shiftKey: false, metaKey: false, repeat: false, isComposing: false });
         minigameSettings.value.restartHotkey = restartHotkey;
         minigameSettings.value.leftClickMineOpacity = 0.23;
         minigameSettings.value.leftClickMinePressed = true;
+        minigameSettings.value.leftClickScoreDisplay = 'ces';
         minigameSettings.value.cellSize = 40;
         minigameSettings.value.multiTouchOrientation = 'vertical';
         await nextTick();
-        expect(JSON.parse(storage.getItem('minigame-settings') ?? '{}')).toEqual({ restartHotkey, cellSize: 40, leftClickMineOpacity: 0.23, leftClickMinePressed: true, multiTouchOrientation: 'vertical' });
+        expect(JSON.parse(storage.getItem('minigame-settings') ?? '{}')).toEqual({ restartHotkey, cellSize: 40, leftClickMineOpacity: 0.23, leftClickMinePressed: true, leftClickScoreDisplay: 'ces', multiTouchOrientation: 'vertical' });
         const scope = effectScope();
         try {
             const restored = scope.run(() => useLocalStorage<MinigameSettings>('minigame-settings', defaultMinigameSettings(), { mergeDefaults: true }));
             expect(restored?.value.restartHotkey).toEqual(restartHotkey);
             expect(restored?.value.leftClickMineOpacity).toBe(0.23);
             expect(restored?.value.leftClickMinePressed).toBe(true);
+            expect(restored?.value.leftClickScoreDisplay).toBe('ces');
             expect(restored?.value.cellSize).toBe(40);
             expect(restored?.value.multiTouchOrientation).toBe('vertical');
             minigameSettings.value.restartHotkey = null;
@@ -54,6 +57,7 @@ describe('shared minigame settings storage', () => {
             expect(cleared?.value.restartHotkey).toBeNull();
             expect(cleared?.value.leftClickMineOpacity).toBe(0.23);
             expect(cleared?.value.leftClickMinePressed).toBe(true);
+            expect(cleared?.value.leftClickScoreDisplay).toBe('ces');
             expect(cleared?.value.cellSize).toBe(40);
             expect(cleared?.value.multiTouchOrientation).toBe('vertical');
         } finally {
@@ -67,7 +71,7 @@ describe('shared minigame settings storage', () => {
         const scope = effectScope();
         try {
             const restored = scope.run(() => useLocalStorage<MinigameSettings>('minigame-settings', defaultMinigameSettings(), { mergeDefaults: true }));
-            expect(restored?.value).toEqual({ restartHotkey, cellSize: 32, leftClickMineOpacity: 0.5, leftClickMinePressed: false, multiTouchOrientation: 'horizontal' });
+            expect(restored?.value).toEqual({ restartHotkey, cellSize: 32, leftClickMineOpacity: 0.5, leftClickMinePressed: false, leftClickScoreDisplay: 'time', multiTouchOrientation: 'horizontal' });
         } finally {
             scope.stop();
         }

@@ -27,7 +27,8 @@ export function singleFileWithLicenses(): Plugin {
     const plugin = viteSingleFile();
     if (!isBundlePlugin(plugin)) throw new Error('Single-file plugin object is unavailable');
     const inlineBundle = plugin.generateBundle;
-    if (typeof inlineBundle !== 'function') throw new Error('Single-file generateBundle hook is unavailable');
-    plugin.generateBundle = { order: 'post', handler: inlineBundle };
+    if (typeof inlineBundle === 'function') plugin.generateBundle = { order: 'post', handler: inlineBundle };
+    else if (inlineBundle && typeof inlineBundle.handler === 'function') plugin.generateBundle = { ...inlineBundle, order: 'post' };
+    else throw new Error('Single-file generateBundle hook is unavailable');
     return plugin;
 }

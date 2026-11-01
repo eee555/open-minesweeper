@@ -133,6 +133,8 @@ video.save(update_fields=['pluck'])
 
 ### 文件和解析字段
 
+录像文件已接入 MSRC 存储及前端按需解压。新上传和导入立即压缩，历史文件使用 `compress_video_files` 手动转换，不注册定时压缩任务。字段、协议和部署步骤见 [录像文件压缩方案](./VIDEO_FILE_COMPRESSION_PLAN.md)。
+
 `refresh_video(video)` 会重新解析文件并刷新所有文件包含的数据。
 
 `python manage.py refresh_videos` 按主键顺序遍历全部录像并逐条调用此函数，不筛选状态或模式，不使用批量更新。有变化时由实例保存触发信号；无变化时不会强制保存。解析阶段的已知异常包装为 `VideoParseError`，命令报告录像 ID 并跳过；数据库、文件读写及保存链路等其他错误仍停止执行。已完成的刷新保留，正常结束时汇总成功与跳过数量。
@@ -264,3 +266,15 @@ video.save(update_fields=['pluck'])
 自定义级别没有 `stnb` 定义，`VideoModel.stnb` 返回 `None`。
 
 `iqg = bv / (timems / 1000) ^ 1.7` 已作为 `VideoModel` 的 `GeneratedField` 保存，`ExpandVideoModel.stnb` 已删除。`stnb` 属性由 `VideoModel.iqg` 派生；旧个人纪录功能已移除。 `stnb` 与 `bvs`、`ioe` 一样属于 `VideoModel` 基础字段变化后的派生指标，不再监听 `ExpandVideoModel` 的保存事件。
+
+### 压缩存储
+
+`videomanager.files` 统一压缩并恢复原始录像字节，供录像创建、重解析、后台 pluck 和哈希回填使用。上传和各平台导入共用 `VideoModel.create_from_parser`：解析后在内存中压缩、校验完整往返字节，再创建录像并直接保存 UUID `.msrc` 文件。压缩或校验失败时改为保存源文件，`compression_format=0`、`stored_file_size=file_size`，设置 `compression_failed=True` 并记录日志，允许后续 `--retry-failed` 手动重试；新录像没有文件切换过程。
+
+历史文件由转换服务验证原始大小、已存哈希、MSRC 目标格式及完整往返字节，再保存独立归档并短事务切换路径；提交后检查引用并立即删除旧文件。转换不调用录像 parser，也不触发录像保存信号。
+
+`GET /api/video/preview?id=123` 只接受数字 ID，返回当前存储字节（MSRC 容器或尚未压缩的源文件），每 IP `20/m`；生产环境通过 `X-Accel-Redirect` 发送。`GET /api/video/download/123` 返回原始录像文件，压缩录像在后端复用 `original_file` 解压后由内存字节响应发送，每 IP `5/m`，不写临时文件或保存解压结果。download 使用原文件名，`X-Replay-Container-Version` 固定为 `0`；preview 按实际响应格式设置文件名和容器版本。两者都不需要软件参数。
+
+生产的公开 API CORS 由 `default.conf` 按原始请求 URI 统一管理，保持既有白名单，仅开放跨域 GET 且不允许跨域凭据；OPTIONS 仅处理 GET 的预检，其他方法不返回允许跨域的响应头。Nginx 同时恢复内部重定向会丢失的录像版本头。DEBUG 开发及 Cypress 直连 Django 时保留原有 CORS 中间件策略。部署时先同步 Nginx 配置并校验、重载，再更新后端；内部媒体 location 依赖 server 层响应头继承，不单独定义 `add_header`。
+
+`original_hash`、`file_size` 仍描述原始文件；物理大小记录在 `stored_file_size`。失败保留来源文件与实际格式，设置 `compression_failed`；磁盘空间、只读存储及依赖配置错误停止整批。手动重试使用 `compress_video_files --retry-failed`。没有 APScheduler 压缩任务。
