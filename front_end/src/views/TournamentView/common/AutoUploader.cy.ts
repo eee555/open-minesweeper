@@ -1,4 +1,4 @@
-/* eslint-disable vue/one-component-per-file */
+
 import { defineComponent, h, ref } from 'vue';
 
 import AutoUploader from './AutoUploader.vue';
