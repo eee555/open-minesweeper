@@ -515,7 +515,7 @@ class ClassicReplayPushTestCase(TestCase):
             'X-Ext-Event': 'replay', 'X-Ext-Uid': '12345678', 'X-Ext-Sync-Id': '88',
             'X-Ext-Key': '263-81', 'X-Ext-Season': '263', 'X-Ext-Platform': 'pc',
             'X-Ext-Difficulty': 'expert', 'X-Ext-Played-At': '1761510000000',
-            'X-Ext-Time-Ms': '61234', 'X-Ext-Bv3': '183', 'X-Ext-Bv3s': '2.99',
+            'X-Ext-Time-Ms': '61234', 'X-Ext-Bv3': '183',
             'X-Ext-Nf': '0', 'X-Ext-Sha256': hashlib.sha256(body).hexdigest(), 'X-Ext-Format': 'evf',
         }
         meta.update(overrides or {})
@@ -543,10 +543,9 @@ class ClassicReplayPushTestCase(TestCase):
         self.assertEqual(replay.sync_id, 88)
         self.assertEqual(replay.season, 263)
         self.assertEqual(replay.platform, 'pc')
-        self.assertEqual(replay.difficulty, 'expert')
+        self.assertEqual(replay.difficulty, 'e')
         self.assertEqual(replay.time_ms, 61234)
         self.assertEqual(replay.bv3, 183)
-        self.assertAlmostEqual(replay.bv3s, 2.99)
         self.assertFalse(replay.nf)
         self.assertEqual(replay.file_size, len(b'evf-bytes'))
         self.assertEqual(replay.sha256, hashlib.sha256(b'evf-bytes').hexdigest())

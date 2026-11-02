@@ -5,7 +5,6 @@ import hashlib
 import hmac
 import json
 import logging
-import math
 import re
 
 from django.conf import settings
@@ -37,7 +36,7 @@ CLASSIC_REPLAY_MAX_BYTES = 8 * 1024 * 1024
 CLASSIC_REPLAY_KEY_PATTERN = re.compile(r'^(\d+)-(\d+)$')
 CLASSIC_REPLAY_SHA256_PATTERN = re.compile(r'^[0-9a-f]{64}$')
 CLASSIC_REPLAY_PLATFORMS = frozenset({'mobile', 'pc'})
-CLASSIC_REPLAY_DIFFICULTIES = frozenset({'easy', 'hard', 'expert'})
+CLASSIC_REPLAY_DIFFICULTIES = {'easy': 'b', 'hard': 'i', 'expert': 'e'}
 
 
 @dataclass(frozen=True)
@@ -51,7 +50,6 @@ class ClassicReplayMeta:
     played_at: datetime
     time_ms: int
     bv3: int
-    bv3s: float
     nf: bool
     sha256: str
     file_size: int
@@ -307,8 +305,8 @@ def _parse_classic_replay_meta(headers, file_size: int) -> ClassicReplayMeta:
     match = CLASSIC_REPLAY_KEY_PATTERN.fullmatch(key)
     if match is None or int(match.group(1)) != season or int(match.group(2)) <= 0:
         raise ExceptionToResponse('classic', 'bad_request', status_code=400)
-    platform, difficulty = _header(headers, 'X-Ext-Platform'), _header(headers, 'X-Ext-Difficulty')
-    if platform not in CLASSIC_REPLAY_PLATFORMS or difficulty not in CLASSIC_REPLAY_DIFFICULTIES:
+    platform, difficulty = _header(headers, 'X-Ext-Platform'), CLASSIC_REPLAY_DIFFICULTIES.get(_header(headers, 'X-Ext-Difficulty'))
+    if platform not in CLASSIC_REPLAY_PLATFORMS or difficulty is None:
         raise ExceptionToResponse('classic', 'bad_request', status_code=400)
     played_at_ms = _int_header(headers, 'X-Ext-Played-At', minimum=1)
     try:
@@ -324,7 +322,7 @@ def _parse_classic_replay_meta(headers, file_size: int) -> ClassicReplayMeta:
     return ClassicReplayMeta(
         sync_id=sync_id, uid=uid, key=key, season=season, platform=platform, difficulty=difficulty,
         played_at=played_at, time_ms=_int_header(headers, 'X-Ext-Time-Ms', minimum=0),
-        bv3=_int_header(headers, 'X-Ext-Bv3', minimum=0), bv3s=_float_header(headers, 'X-Ext-Bv3s'),
+        bv3=_int_header(headers, 'X-Ext-Bv3', minimum=0),
         nf=bool(nf), sha256=sha256, file_size=file_size,
     )
 
@@ -344,16 +342,6 @@ def _int_header(headers, name: str, *, minimum: int) -> int:
     if number < minimum:
         raise ExceptionToResponse('classic', 'bad_request', status_code=400)
     return number
-
-
-def _float_header(headers, name: str) -> float:
-    try:
-        value = float(_header(headers, name))
-    except ValueError:
-        raise ExceptionToResponse('classic', 'bad_request', status_code=400) from None
-    if not math.isfinite(value) or value < 0:
-        raise ExceptionToResponse('classic', 'bad_request', status_code=400)
-    return value
 
 
 def _ingest_classic_replay(meta: ClassicReplayMeta, body: bytes):
@@ -385,7 +373,7 @@ def _ingest_classic_replay(meta: ClassicReplayMeta, body: bytes):
 def _store_classic_replay(meta: ClassicReplayMeta) -> ClassicReplay:
     defaults = {
         'sync_id': meta.sync_id, 'season': meta.season, 'platform': meta.platform, 'difficulty': meta.difficulty,
-        'played_at': meta.played_at, 'time_ms': meta.time_ms, 'bv3': meta.bv3, 'bv3s': meta.bv3s,
+        'played_at': meta.played_at, 'time_ms': meta.time_ms, 'bv3': meta.bv3,
         'nf': meta.nf, 'sha256': meta.sha256, 'file_size': meta.file_size, 'error_category': '',
     }
     with transaction.atomic():

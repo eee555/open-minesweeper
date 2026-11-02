@@ -83,6 +83,7 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 - `Platform.CLASSIC` 使用平台码 `x`。
 - `AccountClassicMinesweeper.id` 保存 8 位 UID，`parent` 使用 `related_name='account_classic'`。
 - `ClassicBindRequest` 按 `uid` 与 `request_id` 各唯一一行，保存申请状态、过期时间和错误分类；同一 UID 重新申请会覆盖该行，`request_id` 是回调幂等键。
+- `ClassicReplay.difficulty` 保存 `b` / `i` / `e`（初 / 中 / 高），由请求头 `X-Ext-Difficulty` 的 `easy` / `hard` / `expert` 映射。
 - `ClassicReplay` 按 `key` 唯一保存一条推送记录（对方保证 key 全局唯一），`sync_id` 也唯一；同一 key 换 `syncId` 覆盖同一行，key 出现在不同 uid 时返回 `key_conflict`。`import_video` 为空表示尚未导入，解析失败时保留记录与 `error_category`，玩家再次勾选即可重试。
 
 ### 接口
@@ -97,7 +98,7 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 
 ### 录像推送
 
-- 请求头 `X-Ext-Sync-Id`、`X-Ext-Uid`、`X-Ext-Key`、`X-Ext-Season`、`X-Ext-Platform`、`X-Ext-Difficulty`、`X-Ext-Played-At`、`X-Ext-Time-Ms`、`X-Ext-Bv3`、`X-Ext-Bv3s`、`X-Ext-Nf`、`X-Ext-Sha256`、`X-Ext-Format` 都会校验格式与范围；`X-Ext-Key` 的赛季必须与 `X-Ext-Season` 一致。
+- 请求头 `X-Ext-Sync-Id`、`X-Ext-Uid`、`X-Ext-Key`、`X-Ext-Season`、`X-Ext-Platform`、`X-Ext-Difficulty`、`X-Ext-Played-At`、`X-Ext-Time-Ms`、`X-Ext-Bv3`、`X-Ext-Nf`、`X-Ext-Sha256`、`X-Ext-Format` 都会校验格式与范围；`X-Ext-Key` 的赛季必须与 `X-Ext-Season` 一致；`X-Ext-Difficulty` 的 `easy` / `hard` / `expert` 映射为 `b` / `i` / `e`。`X-Ext-Bv3s` 忽略，不校验也不入库。
 - 签名与绑定回调相同：`HMAC_SHA256(app_secret, timestamp + "." + 原始请求体)`，时间戳窗口 300 秒。签名通过后还要用 `X-Ext-Sha256` 校验文件完整，失败返回 400，让对方重试。
 - 文件内容才是成绩来源：导入复用本站 `MSVideoParser` 与录像查重，难度、用时、3BV 等都以 EVF 解析结果为准，请求头只用于归属、审计与幂等。
 - 只有当前仍绑定本站的 UID 才导入；若绑定在排队期间被解除，记录 `unbound` 并返回 2xx，避免对方无意义重试。

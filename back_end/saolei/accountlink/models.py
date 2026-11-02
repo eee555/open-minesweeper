@@ -201,11 +201,18 @@ class ClassicReplay(models.Model):
     key = models.CharField(max_length=64, unique=True, help_text='<赛季>-<录像id>，对方保证全局唯一；同一 key 换 syncId 覆盖同一行。')
     season = models.PositiveIntegerField(help_text='赛季编码，来自 X-Ext-Season。')
     platform = models.CharField(max_length=8, help_text='mobile / pc。')
-    difficulty = models.CharField(max_length=8, help_text='easy / hard / expert。')
+    difficulty = models.CharField(
+        max_length=1,
+        choices=[
+            (MS_TextChoices.Level.BEGINNER, MS_TextChoices.Level.BEGINNER.label),
+            (MS_TextChoices.Level.INTERMEDIATE, MS_TextChoices.Level.INTERMEDIATE.label),
+            (MS_TextChoices.Level.EXPERT, MS_TextChoices.Level.EXPERT.label),
+        ],
+        help_text='b / i / e（初 / 中 / 高），由 X-Ext-Difficulty 映射。',
+    )
     played_at = models.DateTimeField(help_text='对局时间，来自 X-Ext-Played-At（毫秒）。')
     time_ms = models.PositiveIntegerField(help_text='成绩用时（毫秒）。')
     bv3 = models.PositiveSmallIntegerField(help_text='3BV。')
-    bv3s = models.FloatField(help_text='3BV 每秒。')
     nf = models.BooleanField(default=False, help_text='本局无旗（NF）。')
     sha256 = models.CharField(max_length=64, help_text='EVF 文件的 SHA-256（hex）。')
     file_size = models.PositiveIntegerField(default=0)
