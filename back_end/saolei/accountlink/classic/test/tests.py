@@ -637,7 +637,7 @@ class ClassicReplayPushTestCase(TestCase):
     @patch('accountlink.classic.services.MSVideoParser')
     @patch('accountlink.classic.services.VideoModel.create_from_parser')
     def test_import_marks_software_as_classic(self, create_from_parser, parser_class):
-        parser_class.return_value.state = MS_TextChoices.State.PLAIN
+        parser_class.return_value.state = MS_TextChoices.State.OFFICIAL
         create_from_parser.return_value = self.video
         replay = ClassicReplay.objects.create(
             sync_id=100, uid=12345678, key='263-90', season=263, platform='pc', difficulty='e',
@@ -647,6 +647,7 @@ class ClassicReplayPushTestCase(TestCase):
 
         video = _import_classic_replay(replay, b'evf-bytes')
 
+        self.assertEqual(parser_class.return_value.state, MS_TextChoices.State.PLAIN)
         self.assertEqual(video.software, 'x')
         replay.refresh_from_db()
         self.assertEqual(replay.import_video, self.video)

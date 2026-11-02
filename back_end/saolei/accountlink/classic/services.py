@@ -13,7 +13,6 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from config.text_choices import MS_TextChoices
-from identifier.models import Identifier
 from msuser.models import UserMS
 from userprofile.models import UserProfile
 from utils.exceptions import ExceptionToResponse
@@ -435,11 +434,12 @@ def _import_classic_replay(replay: ClassicReplay, data: bytes) -> VideoModel | N
             replay.save(update_fields=['import_video'])
             return collision
         parser = MSVideoParser(file)
+        # 95 经典录像一律进入人工审核，不参与机审和排行。
+        parser.state = MS_TextChoices.State.PLAIN
+        logger.info(f'95经典扫雷录像 {replay.key} 置为 PLAIN，等待人工审核')
         if not user.userms_id:
             user.userms = UserMS.objects.create()
             user.save(update_fields=['userms'])
-        if parser.state == MS_TextChoices.State.OFFICIAL and not Identifier.verify(parser.identifier, user.userms):
-            parser.state = MS_TextChoices.State.IDENTIFIER
         video = VideoModel.create_from_parser(parser, user, original_hash=original_hash, upload_time=replay.played_at)
         # 文件仍是 EVF，但来源标记为 95 经典扫雷，便于前端区分来源。
         video.software = MS_TextChoices.Software.CLASSIC

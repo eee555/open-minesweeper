@@ -100,7 +100,7 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 
 - 请求头 `X-Ext-Sync-Id`、`X-Ext-Uid`、`X-Ext-Key`、`X-Ext-Season`、`X-Ext-Platform`、`X-Ext-Difficulty`、`X-Ext-Played-At`、`X-Ext-Time-Ms`、`X-Ext-Bv3`、`X-Ext-Nf`、`X-Ext-Sha256`、`X-Ext-Format` 都会校验格式与范围；`X-Ext-Key` 的赛季必须与 `X-Ext-Season` 一致；`X-Ext-Difficulty` 的 `easy` / `hard` / `expert` 映射为 `b` / `i` / `e`。`X-Ext-Bv3s` 忽略，不校验也不入库。
 - 签名与绑定回调相同：`HMAC_SHA256(app_secret, timestamp + "." + 原始请求体)`，时间戳窗口 300 秒。签名通过后还要用 `X-Ext-Sha256` 校验文件完整，失败返回 400，让对方重试。
-- 文件内容才是成绩来源：导入复用本站 `MSVideoParser` 与录像查重，难度、用时、3BV 等都以 EVF 解析结果为准，请求头只用于归属、审计与幂等。新建的 `VideoModel.software` 标记为 `x`（95 经典扫雷），文件仍按 EVF 解析、下载和播放。
+- 文件内容才是成绩来源：导入复用本站 `MSVideoParser` 与录像查重，难度、用时、3BV 等都以 EVF 解析结果为准，请求头只用于归属、审计与幂等。新建的 `VideoModel.software` 标记为 `x`（95 经典扫雷），文件仍按 EVF 解析、下载和播放；`state` 统一置为 `State.PLAIN`，等待人工审核，不参与机审排行与勋章。
 - 只有当前仍绑定本站的 UID 才导入；若绑定在排队期间被解除，记录 `unbound` 并返回 2xx，避免对方无意义重试。
 - `X-Ext-Platform=mobile` 的推送直接返回 2xx 并跳过：不入库、不导入，只记录 info 日志；目前只处理 `pc`。
 - 同一 `sync_id` 重试直接返回；同一 `key` 换了 `syncId` 也只保留一行。key 出现在其他 uid 时返回 409 `key_conflict`，不覆盖归属。命中本站已有录像（同哈希）时关联已有录像，不重复入库；同哈希属于其他玩家时返回 409，不修改既有录像。
