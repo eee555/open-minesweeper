@@ -136,6 +136,7 @@ async function getEmailCaptcha(type: string) {
                 validateError(captchaFormRef, t('msg.captchaFail'));
                 counting.value = false;
             } else if (data.object == 'email') {
+                counting.value = false;
                 validateError(captchaFormRef, t('msg.captchaRefresh'));
                 ElNotification({
                     title: t('msg.emailSendFailTitle'),
@@ -145,6 +146,15 @@ async function getEmailCaptcha(type: string) {
                 });
             }
         }
+    }).catch(function () {
+        // 网络异常或后端出错：同样解除倒计时并提示失败
+        counting.value = false;
+        ElNotification({
+            title: t('msg.emailSendFailTitle'),
+            message: t('msg.emailSendFailMsg'),
+            type: 'error',
+            duration: local.value.notification_duration,
+        });
     });
     email_handling.value = false;
 }

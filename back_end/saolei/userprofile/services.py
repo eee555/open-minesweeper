@@ -215,14 +215,37 @@ def send_email(email: str, send_type='register'):
     if settings.EMAIL_SKIP:
         return code, hashkey
     if send_type == 'register':
-        email_title = '开源扫雷网邮箱注册验证码'
-        email_body = f'欢迎您注册开源扫雷网，您的邮箱验证码为：{code}（一小时内有效）。'
+        email_title = '【开源扫雷网】注册验证码'
+        email_body = (
+            '您好：\n\n'
+            '欢迎注册开源扫雷网。您的邮箱验证码是：\n\n'
+            f'{code}\n\n'
+            '该验证码 1 小时内有效，仅用于本次注册。\n'
+            '请勿将验证码转发或告知他人。如果这不是您本人的操作，请忽略本邮件。\n\n'
+            '开源扫雷网\n'
+            'https://openms.top'
+        )
     elif send_type == 'retrieve':
-        email_title = '开源扫雷网找回密码验证码'
-        email_body = f'您正在找回密码。您的邮箱验证码为：{code}（一小时内有效）。请勿与任何人分享此代码，我们的管理员永远不会向您索要此代码。'
+        email_title = '【开源扫雷网】找回密码验证码'
+        email_body = (
+            '您好：\n\n'
+            '我们收到了开源扫雷网账号的找回密码请求。您的邮箱验证码是：\n\n'
+            f'{code}\n\n'
+            '该验证码 1 小时内有效，仅用于本次找回密码。\n'
+            '请勿将验证码转发或告知他人。如果这不是您本人的操作，请忽略本邮件，您的密码不会改变。\n\n'
+            '开源扫雷网\n'
+            'https://openms.top'
+        )
     else:
         return None
-    send_status = send_mail(email_title, email_body, 'wangjianing@88.com', [email])
+    from_email = settings.DEFAULT_FROM_EMAIL
+    if '<' not in from_email:
+        from_email = f'开源扫雷网 <{from_email}>'
+    try:
+        send_status = send_mail(email_title, email_body, from_email, [email])
+    except Exception:
+        logger.exception('邮件发送失败：type=%s, email=%s', send_type, email)
+        return None
     if send_status:
         return hashkey
     else:
