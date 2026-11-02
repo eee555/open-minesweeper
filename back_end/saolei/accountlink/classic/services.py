@@ -253,7 +253,7 @@ def _is_positive_int(value) -> bool:
 
 
 def handle_classic_replay_push(request):
-    """收取玩家勾选的 EVF：先验签与文件摘要，再按 syncId / key 幂等导入。
+    """收取玩家勾选的 EVF：先验签，mobile 直接跳过；其余校验摘要后按 syncId / key 幂等导入。
 
     绑定回调与录像推送共用同一地址，由 API 层按 Content-Type 分流后进入这里。
     """
@@ -264,6 +264,12 @@ def handle_classic_replay_push(request):
         sync_id = request.headers.get('X-Ext-Sync-Id', '')
         logger.warning(f'95经典扫雷录像推送签名校验失败 sync_id={sync_id}')
         raise ExceptionToResponse('classic', 'invalid_signature', status_code=401)
+    if request.headers.get('X-Ext-Platform', '').strip().lower() == 'mobile':
+        sync_id = request.headers.get('X-Ext-Sync-Id', '')
+        uid = request.headers.get('X-Ext-Uid', '')
+        key = request.headers.get('X-Ext-Key', '')
+        logger.info(f'95经典扫雷录像推送跳过 mobile sync_id={sync_id} uid={uid} key={key}')
+        return
     meta = _parse_classic_replay_meta(request.headers, len(body))
     if not hmac.compare_digest(meta.sha256, hashlib.sha256(body).hexdigest()):
         logger.warning(f'95经典扫雷录像推送摘要不匹配 sync_id={meta.sync_id} uid={meta.uid} key={meta.key}')

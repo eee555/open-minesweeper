@@ -614,6 +614,12 @@ class ClassicReplayPushTestCase(TestCase):
                 self.assertEqual(self.push(overrides=overrides).status_code, 400)
         self.assertFalse(ClassicReplay.objects.exists())
 
+    def test_mobile_platform_is_skipped(self):
+        response = self.push(overrides={'X-Ext-Platform': 'mobile'})
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertFalse(ClassicReplay.objects.exists())
+
     @patch('accountlink.classic.services.CLASSIC_REPLAY_MAX_BYTES', 16)
     def test_rejects_oversized_body(self):
         self.assertEqual(self.push(body=b'x' * 17).status_code, 413)
