@@ -101,12 +101,13 @@ class UserMSVideoTests(TestCase):
             userms=self.userms,
         )
 
-    def create_video(self, *, state=MS_TextChoices.State.OFFICIAL, level=MS_TextChoices.Level.BEGINNER, timems=1000, bv=10, mode=MS_TextChoices.Mode.STD, right_ce=1, ongoing_tournament=False, file_size=1):
+    def create_video(self, *, state=MS_TextChoices.State.OFFICIAL, level=MS_TextChoices.Level.BEGINNER, timems=1000, bv=10, mode=MS_TextChoices.Mode.STD, right_ce=1, ongoing_tournament=False, file_size=1, stored_file_size=None):
         expand = ExpandVideoModel.objects.create(identifier='identifier')
         return VideoModel.objects.create(
             player=self.user,
             file='videos/test.avf',
             file_size=file_size,
+            stored_file_size=stored_file_size,
             video=expand,
             state=state,
             software=MS_TextChoices.Software.AVF,
@@ -201,7 +202,7 @@ class UserMSVideoTests(TestCase):
 
     def test_create_updates_video_count(self):
         with CaptureQueriesContext(connection) as queries:
-            self.create_video(file_size=123)
+            self.create_video(file_size=1000, stored_file_size=123)
 
         self.assert_update_count(queries, 'msuser_userms', 1)
         self.assert_update_count(queries, 'videomanager_videomodel', 0)
@@ -319,19 +320,19 @@ class UserMSVideoTests(TestCase):
                 self.assert_video_statistics(0, 0, 0, 0)
 
     def test_saved_size_and_owner_changes_update_statistics(self):
-        video = self.create_video(file_size=123)
-        video.file_size = 456
+        video = self.create_video(file_size=1000, stored_file_size=123)
+        video.stored_file_size = 456
         with CaptureQueriesContext(connection) as queries:
-            video.save(update_fields=['file_size'])
+            video.save(update_fields=['stored_file_size'])
         self.assert_update_count(queries, 'msuser_userms', 1)
         self.assert_video_statistics(1, 0, 456, 0)
 
         other_userms = UserMS.objects.create()
         other_user = UserProfile.objects.create_user(username='new_owner', email='new_owner@example.com', userms=other_userms)
         video.player = other_user
-        video.file_size = 789
+        video.stored_file_size = 789
         with CaptureQueriesContext(connection) as queries:
-            video.save(update_fields=['player', 'file_size'])
+            video.save(update_fields=['player', 'stored_file_size'])
 
         self.assert_update_count(queries, 'msuser_userms', 1)
         self.assert_video_statistics(0, 0, 0, 0)
@@ -341,22 +342,45 @@ class UserMSVideoTests(TestCase):
         self.assertEqual(other_userms.video_num_all, 1)
         self.assertEqual(other_userms.video_size_all, 789)
 
-    def test_size_change_queries_current_tournament_membership(self):
+    def test_stored_size_zero_fallback_and_partial_updates(self):
         video = self.create_video(file_size=123)
+        video.stored_file_size = 0
+        video.file_size = 999  # An unsaved change must not become the fallback size.
+        video.save(update_fields=['stored_file_size'])
+        self.assert_video_statistics(1, 0, 0, 0)
+
+        video.stored_file_size = None
+        video.save(update_fields=['stored_file_size'])
+        self.assert_video_statistics(1, 0, 123, 0)
+
+        video.stored_file_size = 45
+        video.save(update_fields=['stored_file_size'])
+        self.assert_video_statistics(1, 0, 45, 0)
+        video.file_size = 2000
+        with CaptureQueriesContext(connection) as queries:
+            video.save(update_fields=['file_size'])
+        self.assert_update_count(queries, 'msuser_userms', 0)
+        self.assert_video_statistics(1, 0, 45, 0)
+
+        video.delete()
+        self.assert_video_statistics(0, 0, 0, 0)
+
+    def test_size_change_queries_current_tournament_membership(self):
+        video = self.create_video(file_size=1000, stored_file_size=123)
         tournament = Tournament.objects.create()
         tournament.videos.add(video)
         call_command('refresh_video_counts', stdout=StringIO())
 
-        video.file_size = 45
+        video.stored_file_size = 45
         with CaptureQueriesContext(connection) as queries:
-            video.save(update_fields=['file_size'])
+            video.save(update_fields=['stored_file_size'])
         self.assert_update_count(queries, 'msuser_userms', 1)
         self.assertFalse(any('SUM(' in query['sql'].upper() for query in queries))
         self.assert_video_statistics(0, 1, 0, 45)
 
         tournament.videos.clear()
-        video.file_size = 30
-        video.save(update_fields=['file_size'])
+        video.stored_file_size = 30
+        video.save(update_fields=['stored_file_size'])
         self.assert_video_statistics(0, 1, -15, 45)
         call_command('refresh_video_counts', stdout=StringIO())
         self.assert_video_statistics(1, 0, 30, 0)
@@ -373,14 +397,14 @@ class UserMSVideoTests(TestCase):
         )
         other_video = self.create_video()
         VideoModel.objects.filter(pk=other_video.pk).update(player=other_user)
-        self.create_video(state=MS_TextChoices.State.FROZEN, file_size=10)
+        self.create_video(state=MS_TextChoices.State.FROZEN, file_size=1000, stored_file_size=10)
         self.create_video(level=MS_TextChoices.Level.INTERMEDIATE, right_ce=0, file_size=20)
-        self.create_video(level=MS_TextChoices.Level.EXPERT, mode=MS_TextChoices.Mode.JSW, file_size=30)
-        self.create_video(level=MS_TextChoices.Level.EXPERT, mode=MS_TextChoices.Mode.BZD, file_size=30)
-        self.create_video(ongoing_tournament=True, file_size=100)
+        self.create_video(level=MS_TextChoices.Level.EXPERT, mode=MS_TextChoices.Mode.JSW, file_size=3000, stored_file_size=30)
+        self.create_video(level=MS_TextChoices.Level.EXPERT, mode=MS_TextChoices.Mode.BZD, file_size=30, stored_file_size=0)
+        self.create_video(ongoing_tournament=True, file_size=10000, stored_file_size=100)
         tournament = Tournament.objects.create(state=Tournament_TextChoices.State.AWARDED)
         other_tournament = Tournament.objects.create()
-        revealed = self.create_video(file_size=200)
+        revealed = self.create_video(file_size=20000, stored_file_size=200)
         tournament.videos.add(revealed)
         other_tournament.videos.add(revealed)
         tournament.videos.add(self.create_video(ongoing_tournament=True, file_size=200))
@@ -392,7 +416,7 @@ class UserMSVideoTests(TestCase):
         for _ in range(2):
             call_command('refresh_video_counts', batch_size=1, stdout=StringIO())
 
-            self.assert_video_statistics(4, 3, 90, 500)
+            self.assert_video_statistics(4, 3, 60, 500)
             empty_userms.refresh_from_db()
             orphan_userms.refresh_from_db()
             other_userms.refresh_from_db()

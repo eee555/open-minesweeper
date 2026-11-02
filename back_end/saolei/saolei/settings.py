@@ -257,13 +257,14 @@ else:
     CSRF_COOKIE_SAMESITE = 'Lax'
     CSRF_COOKIE_SECURE = True     # https时候改成True
 
-# 发送邮箱验证码
-EMAIL_HOST = 'smtp.88.com'     # 服务器
-EMAIL_PORT = 25                 # 一般情况下都为25
-EMAIL_HOST_USER = 'wangjianing@88.com'     # 账号
-EMAIL_HOST_PASSWORD = 'TdS2ZPt2izAkY25b'   # 密码 (注意：这里的密码指的是授权码)
-# EMAIL_USE_SSL = True
-# EMAIL_FROM = 'wangjianing@88.com'      # 邮箱来自
+# 发送邮箱验证码（敏感凭据从 secrets.json 读取，不要写死在代码里）
+EMAIL_HOST = _read_project_secret('email_host', 'smtpdm.aliyun.com')
+EMAIL_PORT = int(_read_project_secret('email_port', '465') or 465)
+EMAIL_HOST_USER = _read_project_secret('email_host_user', '')
+EMAIL_HOST_PASSWORD = _read_project_secret('email_host_password', '')
+EMAIL_USE_SSL = True
+EMAIL_TIMEOUT = 10              # 避免 SMTP 无响应时请求一直挂起
+DEFAULT_FROM_EMAIL = _read_project_secret('email_from', EMAIL_HOST_USER)
 
 SESSION_COOKIE_NAME = 'session_id'        # Session的cookie保存在浏览器上时的key
 SESSION_COOKIE_PATH = '/'                # Session的cookie保存的路径(默认)

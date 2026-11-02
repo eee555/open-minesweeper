@@ -1,5 +1,11 @@
 from datetime import datetime, timezone
+import json
+import logging
 import math
+from pathlib import Path
+import subprocess
+import sys
+from tempfile import TemporaryDirectory
 
 from django.core.files import File
 import ms_toollib as ms
@@ -7,6 +13,42 @@ import ms_toollib as ms
 from config.customranking import CUSTOM_PLUCK_LEVELS, CUSTOM_PLUCK_MODES
 from config.text_choices import MS_TextChoices
 from .exceptions import ExceptionToResponse
+
+logger = logging.getLogger(__name__)
+PARSER_TIMEOUT_SECONDS = 60
+
+
+def _parse_isolated(file: File) -> dict:
+    """只在子进程中执行原生解析；不继承调用者的数据库连接或事务。"""
+    file.seek(0)
+    try:
+        data = file.read()
+    finally:
+        file.seek(0)
+    with TemporaryDirectory(prefix='replay-parser-') as directory:
+        result_path = Path(directory) / 'result.json'
+        try:
+            result = subprocess.run(
+                [sys.executable, '-X', 'faulthandler', '-m', 'utils.parser_process', Path(file.name).suffix, str(result_path)],
+                cwd=Path(__file__).resolve().parents[1], input=data, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                timeout=PARSER_TIMEOUT_SECONDS, check=False,
+            )
+        except subprocess.TimeoutExpired:
+            logger.error('Replay parser timed out: filename=%r timeout=%s', file.name, PARSER_TIMEOUT_SECONDS)
+            raise ExceptionToResponse('rust', 'panic', 500) from None
+        if result.returncode:
+            logger.error('Replay parser exited: filename=%r exit_code=%s diagnostics=%s', file.name, result.returncode, result.stdout[-8192:].decode('utf-8', errors='replace'))
+            raise ExceptionToResponse('rust', 'panic', 500)
+        try:
+            payload = json.loads(result_path.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            logger.exception('Replay parser returned an invalid result: filename=%r', file.name)
+            raise ExceptionToResponse('rust', 'panic', 500) from None
+    if 'error' in payload:
+        raise ExceptionToResponse(**payload['error'])
+    metadata = payload['metadata']
+    metadata['end_time'] = datetime.fromisoformat(metadata['end_time'])
+    return metadata
 
 
 def pack_custom_level(rows, columns, mines) -> str:
@@ -100,8 +142,12 @@ class MSVideoParser:
 
     pluck: float | None
 
-    def __init__(self, file: File):
+    def __init__(self, file: File, *, isolate=False):
         self.file = file
+        if isolate:
+            self.__dict__.update(_parse_isolated(file))
+            self.tournament_identifiers = self.tournament_identifier
+            return
 
         v, self.software = MSVideoParser.read_file(file)
 

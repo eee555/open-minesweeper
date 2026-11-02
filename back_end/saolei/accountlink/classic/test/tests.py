@@ -14,10 +14,12 @@ from django.utils import timezone
 import requests
 
 from accountlink.classic.client import request_classic_bind, verify_classic_callback
-from accountlink.classic.services import _store_classic_request
-from accountlink.models import AccountClassicMinesweeper, AccountLinkQueue, ClassicBindRequest, Platform
+from accountlink.classic.services import _import_classic_replay, _store_classic_request
+from accountlink.models import AccountClassicMinesweeper, AccountLinkQueue, ClassicBindRequest, ClassicReplay, Platform
+from config.text_choices import MS_TextChoices
 from userprofile.models import UserProfile
 from utils.exceptions import ExceptionToResponse
+from videomanager.models import ExpandVideoModel, VideoModel
 
 CLASSIC_TEST_SETTINGS = {
     'RATELIMIT_ENABLE': False,
@@ -489,3 +491,182 @@ class ClassicAccountLinksTestCase(TestCase):
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(response.json()['status'], 'allow')
         self.assertEqual(ClassicBindRequest.objects.get(uid=12345678).status, ClassicBindRequest.Status.ALLOWED)
+
+
+@override_settings(**CLASSIC_TEST_SETTINGS)
+class ClassicReplayPushTestCase(TestCase):
+    def setUp(self):
+        if ClassicReplay._meta.db_table not in connection.introspection.table_names():
+            raise SkipTest('ClassicReplay migration has not been generated yet.')
+        self.user = UserProfile.objects.create_user(username='classic_replay', email='classic_replay@test.com')
+        AccountClassicMinesweeper.objects.create(id=12345678, parent=self.user)
+        AccountLinkQueue.objects.create(platform=Platform.CLASSIC, identifier='12345678', userprofile=self.user, verified=True)
+        self.video = VideoModel.objects.create(
+            player=self.user, video=ExpandVideoModel.objects.create(identifier='classic_replay'),
+            file='classic.evf', software=MS_TextChoices.Software.EVF, level=MS_TextChoices.Level.EXPERT,
+            mode=MS_TextChoices.Mode.STD, timems=61234, bv=183,
+        )
+        patcher = patch('accountlink.classic.client.read_secret', side_effect=read_secret)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def push(self, *, body=b'evf-bytes', secret='test-app-secret', timestamp=None, overrides=None):
+        meta = {
+            'X-Ext-Event': 'replay', 'X-Ext-Uid': '12345678', 'X-Ext-Sync-Id': '88',
+            'X-Ext-Key': '263-81', 'X-Ext-Season': '263', 'X-Ext-Platform': 'pc',
+            'X-Ext-Difficulty': 'expert', 'X-Ext-Played-At': '1761510000000',
+            'X-Ext-Time-Ms': '61234', 'X-Ext-Bv3': '183',
+            'X-Ext-Nf': '0', 'X-Ext-Sha256': hashlib.sha256(body).hexdigest(), 'X-Ext-Format': 'evf',
+        }
+        meta.update(overrides or {})
+        timestamp = str(int(timezone.now().timestamp()) if timestamp is None else timestamp)
+        signature = hmac.new(secret.encode(), f'{timestamp}.'.encode() + body, hashlib.sha256).hexdigest()
+        return self.client.post(
+            '/api/accountlink/classic/callback', data=body, content_type='application/octet-stream',
+            HTTP_X_EXT_TIMESTAMP=timestamp, HTTP_X_EXT_SIGNATURE=signature,
+            **{f'HTTP_{name.upper().replace("-", "_")}': value for name, value in meta.items()},
+        )
+
+    def fake_import(self, replay, data):
+        replay.import_video = self.video
+        replay.save(update_fields=['import_video'])
+        return self.video
+
+    @patch('accountlink.classic.services._import_classic_replay')
+    def test_replay_is_imported_once_and_idempotent(self, import_replay):
+        import_replay.side_effect = self.fake_import
+
+        response = self.push()
+
+        self.assertEqual(response.status_code, 200, response.content)
+        replay = ClassicReplay.objects.get(uid=12345678, key='263-81')
+        self.assertEqual(replay.sync_id, 88)
+        self.assertEqual(replay.season, 263)
+        self.assertEqual(replay.platform, 'pc')
+        self.assertEqual(replay.difficulty, 'e')
+        self.assertEqual(replay.time_ms, 61234)
+        self.assertEqual(replay.bv3, 183)
+        self.assertFalse(replay.nf)
+        self.assertEqual(replay.file_size, len(b'evf-bytes'))
+        self.assertEqual(replay.sha256, hashlib.sha256(b'evf-bytes').hexdigest())
+        self.assertEqual(replay.import_video, self.video)
+        self.assertEqual(replay.error_category, '')
+        self.assertEqual(import_replay.call_count, 1)
+
+        # 重试使用同一 syncId，不再解析或新增记录。
+        self.assertEqual(self.push().status_code, 200)
+        self.assertEqual(import_replay.call_count, 1)
+        self.assertEqual(ClassicReplay.objects.count(), 1)
+
+    @patch('accountlink.classic.services._import_classic_replay')
+    def test_new_sync_id_overwrites_the_same_key(self, import_replay):
+        import_replay.side_effect = self.fake_import
+        self.push()
+
+        response = self.push(overrides={'X-Ext-Sync-Id': '99'})
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(ClassicReplay.objects.count(), 1)
+        self.assertEqual(ClassicReplay.objects.get().sync_id, 99)
+        self.assertEqual(import_replay.call_count, 1)
+
+    @patch('accountlink.classic.services._import_classic_replay')
+    def test_sync_id_cannot_be_reused_for_another_key(self, import_replay):
+        import_replay.side_effect = self.fake_import
+        self.push()
+
+        response = self.push(overrides={'X-Ext-Key': '263-82'})
+
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertEqual(response.json()['category'], 'sync_id_conflict')
+        self.assertEqual(ClassicReplay.objects.count(), 1)
+
+    @patch('accountlink.classic.services._import_classic_replay')
+    def test_key_cannot_belong_to_another_uid(self, import_replay):
+        import_replay.side_effect = self.fake_import
+        self.push()
+
+        response = self.push(overrides={'X-Ext-Uid': '87654321', 'X-Ext-Sync-Id': '99'})
+
+        self.assertEqual(response.status_code, 409, response.content)
+        self.assertEqual(response.json()['category'], 'key_conflict')
+        replay = ClassicReplay.objects.get(key='263-81')
+        self.assertEqual(replay.uid, 12345678)
+        self.assertEqual(import_replay.call_count, 1)
+
+    def test_rejects_bad_signature_and_checksum(self):
+        self.assertEqual(self.push(secret='wrong-secret').status_code, 401)
+        self.assertFalse(ClassicReplay.objects.exists())
+
+        response = self.push(overrides={'X-Ext-Sha256': '0' * 64})
+
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertEqual(response.json()['category'], 'bad_checksum')
+        self.assertFalse(ClassicReplay.objects.exists())
+
+    def test_rejects_malformed_headers(self):
+        for overrides in (
+            {'X-Ext-Event': 'bind'}, {'X-Ext-Format': 'avf'}, {'X-Ext-Key': '81'},
+            {'X-Ext-Season': '264'}, {'X-Ext-Platform': 'web'}, {'X-Ext-Difficulty': 'custom'},
+            {'X-Ext-Nf': '2'}, {'X-Ext-Uid': '12345'},
+        ):
+            with self.subTest(overrides=overrides):
+                self.assertEqual(self.push(overrides=overrides).status_code, 400)
+        self.assertFalse(ClassicReplay.objects.exists())
+
+    def test_mobile_platform_is_skipped(self):
+        response = self.push(overrides={'X-Ext-Platform': 'mobile'})
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertFalse(ClassicReplay.objects.exists())
+
+    @patch('accountlink.classic.services.CLASSIC_REPLAY_MAX_BYTES', 16)
+    def test_rejects_oversized_body(self):
+        self.assertEqual(self.push(body=b'x' * 17).status_code, 413)
+        self.assertFalse(ClassicReplay.objects.exists())
+
+    @patch('accountlink.classic.services._import_classic_replay', side_effect=ExceptionToResponse('file', 'incomplete', status_code=400))
+    def test_import_failure_keeps_the_record_for_retry(self, import_replay):
+        response = self.push()
+
+        self.assertEqual(response.status_code, 400, response.content)
+        replay = ClassicReplay.objects.get(uid=12345678, key='263-81')
+        self.assertEqual(replay.error_category, 'incomplete')
+        self.assertIsNone(replay.import_video_id)
+
+    @patch('accountlink.classic.services.MSVideoParser')
+    @patch('accountlink.classic.services.VideoModel.create_from_parser')
+    def test_import_marks_software_state_and_freeze_reason(self, create_from_parser, parser_class):
+        parser_class.return_value.state = MS_TextChoices.State.OFFICIAL
+
+        def create(parser, user, **kwargs):
+            self.video.state = parser.state
+            self.video.save(update_fields=['state'])
+            return self.video
+
+        create_from_parser.side_effect = create
+        replay = ClassicReplay.objects.create(
+            sync_id=100, uid=12345678, key='263-90', season=263, platform='pc', difficulty='e',
+            played_at=timezone.now(), time_ms=1000, bv3=10, nf=False,
+            sha256='0' * 64, file_size=9,
+        )
+
+        video = _import_classic_replay(replay, b'evf-bytes')
+
+        self.assertEqual(parser_class.return_value.state, MS_TextChoices.State.FROZEN)
+        self.assertEqual(video.state, MS_TextChoices.State.FROZEN)
+        self.assertEqual(video.software, 'x')
+        self.assertEqual(video.video.freeze_reason, '95Classic_Pending')
+        replay.refresh_from_db()
+        self.assertEqual(replay.import_video, self.video)
+
+    def test_unbound_player_is_acknowledged_without_import(self):
+        AccountClassicMinesweeper.objects.all().delete()
+        AccountLinkQueue.objects.all().delete()
+
+        response = self.push()
+
+        self.assertEqual(response.status_code, 200, response.content)
+        replay = ClassicReplay.objects.get(uid=12345678, key='263-81')
+        self.assertEqual(replay.error_category, 'unbound')
+        self.assertIsNone(replay.import_video_id)

@@ -8,6 +8,7 @@ from unittest.mock import patch
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.core.management import call_command
+from django.db import transaction
 from django.test import override_settings, TestCase
 import msrc
 
@@ -49,6 +50,8 @@ class ReplayCompressionTests(TestCase):
         self.assertEqual(video.compression_format, pack_compression_format(1, 1, 2))
         self.assertEqual(video.stored_file_size, video.file.size)
         self.assertFalse(video.compression_failed)
+        self.user.userms.refresh_from_db()
+        self.assertEqual(self.user.userms.video_size_total, video.stored_file_size)
         self.assertEqual(source.tell(), 0)
         self.assertEqual(source.read(), data)
         files = [path for path in Path(default_storage.location).rglob('*') if path.is_file()]
@@ -70,6 +73,8 @@ class ReplayCompressionTests(TestCase):
         self.assertEqual((video.compression_format, video.stored_file_size, video.file_size), (0, len(data), len(data)))
         self.assertEqual((video.original_filename, video.original_hash), ('original.evf', original_hash))
         self.assertTrue(video.compression_failed)
+        self.user.userms.refresh_from_db()
+        self.assertEqual(self.user.userms.video_size_total, len(data))
         self.assertEqual(source.tell(), 0)
         self.assertEqual(Path(video.file.path).read_bytes(), data)
         self.assertFalse(list(Path(default_storage.location).rglob('*.msrc')))
@@ -84,6 +89,8 @@ class ReplayCompressionTests(TestCase):
         video.refresh_from_db()
         self.assertEqual(video.compression_format, pack_compression_format(1, 1, 2))
         self.assertFalse(video.compression_failed)
+        self.user.userms.refresh_from_db()
+        self.assertEqual(self.user.userms.video_size_total, video.stored_file_size)
         with original_file(video.file.name, video.compression_format, video.original_filename) as restored:
             self.assertEqual(restored.read(), data)
 
@@ -109,6 +116,8 @@ class ReplayCompressionTests(TestCase):
         self.assertEqual(unpack_compression_format(video.compression_format), (1, 1, 2))
         self.assertEqual(pack_compression_format(1, 1, 2), 0x01010002)
         self.assertFalse(default_storage.exists(old_name))
+        self.user.userms.refresh_from_db()
+        self.assertEqual((self.user.userms.video_num_total, self.user.userms.video_size_total), (1, video.stored_file_size))
         with original_file(video.file.name, video.compression_format, video.original_filename) as source:
             self.assertEqual(source.read(), b'original replay bytes')
         for url, version, filename in (
@@ -122,6 +131,48 @@ class ReplayCompressionTests(TestCase):
             self.assertEqual(response['Content-Disposition'], f'attachment; filename="{filename}"')
             data = b''.join(response.streaming_content) if response.streaming else response.content
             self.assertEqual(msrc.decompress(data) if version == '1' else data, b'original replay bytes')
+
+    def test_tournament_storage_statistics_follow_conversion_and_deletion(self):
+        video = self.video(data=b'original replay bytes' * 100, ongoing_tournament=True)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.assertEqual(compress_video_file(video), 'converted')
+        video.refresh_from_db()
+        self.assertLess(video.stored_file_size, video.file_size)
+        self.user.userms.refresh_from_db()
+        self.assertEqual((self.user.userms.video_num_tournament, self.user.userms.video_size_tournament), (1, video.stored_file_size))
+        self.assertEqual(self.user.userms.video_size_total, 0)
+
+        video.delete()
+        self.user.userms.refresh_from_db()
+        self.assertEqual((self.user.userms.video_num_all, self.user.userms.video_size_all), (0, 0))
+
+    def test_storage_switch_and_statistics_roll_back_together(self):
+        video = self.video()
+        old_name = video.file.name
+        with self.assertRaisesMessage(RuntimeError, 'abort conversion'), transaction.atomic():
+            self.assertEqual(compress_video_file(video), 'converted')
+            self.user.userms.refresh_from_db()
+            video.refresh_from_db()
+            self.assertEqual(self.user.userms.video_size_all, video.stored_file_size)
+            raise RuntimeError('abort conversion')
+        video.refresh_from_db()
+        self.user.userms.refresh_from_db()
+        self.assertEqual(video.file.name, old_name)
+        self.assertEqual(self.user.userms.video_size_all, video.file_size)
+        self.assertTrue(default_storage.exists(old_name))
+
+    def test_format_upgrade_uses_previous_stored_size(self):
+        video = self.video(data=b'original replay bytes' * 100)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.assertEqual(compress_video_file(video, target=(1, 1, 1)), 'converted')
+        video.refresh_from_db()
+        self.assertLess(video.stored_file_size, video.file_size)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.assertEqual(compress_video_file(video), 'converted')
+        video.refresh_from_db()
+        self.user.userms.refresh_from_db()
+        self.assertEqual((self.user.userms.video_num_all, self.user.userms.video_size_all), (1, video.stored_file_size))
 
     @override_settings(DEBUG=False)
     def test_production_download_restores_bytes_while_preview_uses_internal_redirect(self):

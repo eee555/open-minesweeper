@@ -145,6 +145,14 @@ async function getEmailCaptcha(type: string) {
                 });
             }
         }
+    }).catch(function () {
+        // 网络异常或后端出错：提示失败，但保留 60 秒倒计时避免频繁重试
+        ElNotification({
+            title: t('msg.emailSendFailTitle'),
+            message: t('msg.emailSendFailMsg'),
+            type: 'error',
+            duration: local.value.notification_duration,
+        });
     });
     email_handling.value = false;
 }

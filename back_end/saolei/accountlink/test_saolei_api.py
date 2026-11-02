@@ -122,8 +122,16 @@ class SaoleiCatalogueTests(TestCase):
         client.video_list.return_value = VideoListResponse.model_validate(remote_page([], cursor=1))
         sync_saolei_catalogue(self.account, client, upper_bound=10)
         client.video_list.assert_called_once_with(player_id=101, cursor=1, size=200)
+
+    def test_last_page_with_null_next_cursor_is_saved(self):
+        # The official API returns nextCursor=null on the last page; saolei-api 0.4.0 rejected it,
+        # so every catalogue lost its final page and counts only grew in whole pages.
+        client = Mock()
+        client.video_list.return_value = VideoListResponse.model_validate({**remote_page([remote_video(1)], more=False), 'nextCursor': None})
+        sync_saolei_catalogue(self.account, client, upper_bound=10)
         self.account.refresh_from_db()
         self.assertEqual(self.account.video_sync_cursor, 1)
+        self.assertTrue(SaoleiApiVideo.objects.filter(remote_id=1).exists())
         self.assertIsNotNone(self.account.video_update_time)
 
     def test_full_refresh_updates_metadata_without_regressing_saved_cursor(self):

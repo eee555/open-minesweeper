@@ -176,9 +176,9 @@ GSC 历史补录沿用默认 TournamentUser 创建和 best 保存信号，允许
 | 撤回已发比赛积分 | `revoke_rank_score_on_participant_delete` |
 | 补录比赛录像 | `add_existing_videos_to_participant_tournament` |
 
-录像数量的三个口径为非比赛 `video_num_total`、比赛 `video_num_tournament`、合计 `video_num_all`；文件空间对应 `video_size_total`、`video_size_tournament`、`video_size_all`，按 `file_size` 累计字节。两个合计字段均由数据库 `GeneratedField` 自动求和。
+录像数量的三个口径为非比赛 `video_num_total`、比赛 `video_num_tournament`、合计 `video_num_all`；文件空间对应 `video_size_total`、`video_size_tournament`、`video_size_all`，按实际存储的 `stored_file_size` 累计字节，空值回退到原始 `file_size`。两个合计字段均由数据库 `GeneratedField` 自动求和。
 
-创建时在比赛 `pre_save` 检查完成后按 `ongoing_tournament` 归类。保存时复用 `videomanager` 捕获的旧值，处理 `file_size` 及玩家归属变更，并即时查询该录像当前是否具有比赛标记或比赛关联。后台压缩修改大小时仅按差额更新对应口径，不触发用户全部录像聚合。删除时在 `pre_delete` 中读取当前大小及比赛归属，避免级联删除先清除比赛关联。
+创建时在比赛 `pre_save` 检查完成后按 `ongoing_tournament` 归类。保存时复用 `videomanager` 捕获的旧值，处理 `stored_file_size`、回退使用的 `file_size` 及玩家归属变更，并即时查询该录像当前是否具有比赛标记或比赛关联。手动压缩使用 `QuerySet.update()` 切换文件后，在同一事务发送 `videomanager.events.video_storage_changed`；`msuser.signals.update_video_size_on_storage_change` 按当前归属增减空间差额，随转换一同提交或回滚，不触发用户全部录像聚合。删除时在 `pre_delete` 中读取当前存储大小及比赛归属，避免级联删除先清除比赛关联。
 
 统计字段使用硬编码的 `if/else` 分支，通过 `F()` 更新。数量、空间及需要提升的上传额度合并为一次 `UserMS UPDATE`；归属转移用 `CASE WHEN` 在一条 SQL 中同时扣减原玩家、增加新玩家，额度仅允许提升新玩家。不涉及统计或额度变化时不发出用户统计 `UPDATE`。两个合计由数据库同步生成。
 

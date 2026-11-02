@@ -21,7 +21,7 @@ class UserMS(models.Model):
         db_persist=True,
     )
 
-    # 按 VideoModel.file_size 求和，单位为字节
+    # 按 VideoModel.stored_file_size 求和，空值回退到 file_size，单位为字节
     video_size_total = models.BigIntegerField(default=0)
     video_size_tournament = models.BigIntegerField(default=0)
     video_size_all = models.GeneratedField(

@@ -57,11 +57,17 @@ def save_catalogue_page(account: AccountSaolei, page: VideoListResponse, *, curs
     ids = [item.id for item in page.items]
     if page.cursor != cursor or ids != sorted(set(ids)) or any(value <= cursor for value in ids):
         raise ResponseError('Invalid video_list ordering or cursor')
-    if page.next_cursor < max([cursor, *ids]) or (page.has_more and page.next_cursor <= cursor):
-        raise ResponseError('video_list next_cursor precedes its records or does not advance')
+    # 末页的上游游标为 null，表示没有下一页；有下一页时必须给出可前进的游标。
+    if page.next_cursor is None:
+        if page.has_more:
+            raise ResponseError('video_list returned hasMore=true without a next_cursor')
+        following = max([cursor, *ids])
+    else:
+        if page.next_cursor < max([cursor, *ids]) or (page.has_more and page.next_cursor <= cursor):
+            raise ResponseError('video_list next_cursor precedes its records or does not advance')
+        # cursor 是已处理的 ID，下一页返回 ID > cursor；跨过本轮上界时不能跳过 upper_bound + 1。
+        following = min(page.next_cursor, upper_bound)
     records = [(item.id, video_defaults(item, account.pk)) for item in page.items if item.id <= upper_bound]
-    # cursor 是已处理的 ID，下一页返回 ID > cursor；跨过本轮上界时不能跳过 upper_bound + 1。
-    following = min(page.next_cursor, upper_bound)
     with transaction.atomic():
         current = lock_account(account)
         for remote_id, defaults in records:
@@ -292,7 +298,8 @@ def saolei_video_import_one(source: SaoleiApiVideo, file: File) -> VideoModel:
             source.import_video = collision
             source.save(update_fields=['import_video'])
             return collision
-        parser = MSVideoParser(file)
+        logger.info('解析扫雷网来源录像#%s account_id=%s file_url=%s', source.remote_id, account.pk, source.file_url)
+        parser = MSVideoParser(file, isolate=True)
         if not user.userms_id:
             user.userms = UserMS.objects.create()
             user.save(update_fields=['userms'])
