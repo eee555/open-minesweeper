@@ -1,6 +1,7 @@
 from contextlib import nullcontext
 from datetime import datetime, timedelta, timezone as datetime_timezone
 from pathlib import Path
+from subprocess import run
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -16,6 +17,7 @@ from saolei_api import RateLimitError, ResponseError, VideoInfo, VideoListRespon
 
 from userprofile.models import UserProfile
 from utils.exceptions import ExceptionToResponse
+from utils.test_parser import abort_parser_process
 from videomanager.models import VideoModel
 from .models import AccountLinkQueue, AccountSaolei, SaoleiApiVideo
 from .saolei.client import ThrottledTransport
@@ -278,7 +280,7 @@ class SaoleiStageTests(TestCase):
             events.append(('details', ids))
             return SimpleNamespace(items=[self.detail(remote_id, userId=remote_id) for remote_id in ids])
 
-        def reject_file(file):
+        def reject_file(file, **kwargs):
             raise ExceptionToResponse('file', 'review')
 
         self.remote.video_info.side_effect = details
@@ -289,7 +291,7 @@ class SaoleiStageTests(TestCase):
         self.assertEqual([event[0] for event in events], ['details', 'details', 'download', 'download'])
 
     def test_hourly_limit_is_global_and_failed_attempts_count_towards_100(self):
-        def reject_file(file):
+        def reject_file(file, **kwargs):
             raise ExceptionToResponse('file', 'review')
 
         self.sources(101, file_url='2023/04/16/sample.evf')
@@ -319,6 +321,33 @@ class SaoleiStageTests(TestCase):
         self.assertEqual(SaoleiApiVideo.objects.filter(import_rejected=True).count(), 100)
         self.assertFalse(SaoleiApiVideo.objects.get(remote_id=101).import_rejected)
         self.assertFalse(SaoleiApiVideo.objects.get(remote_id=102).import_rejected)
+
+    def test_hourly_import_continues_after_parser_process_crashes(self):
+        self.sources(2, file_url='2023/04/16/sample.evf')
+        launches = 0
+
+        def launch(command, **kwargs):
+            nonlocal launches
+            launches += 1
+            return abort_parser_process(command, **kwargs) if launches == 1 else run(command, **kwargs)
+
+        with TemporaryDirectory() as media, override_settings(MEDIA_ROOT=media):
+            with patch('accountlink.saolei.tasks.saolei_client', return_value=nullcontext(self.remote)):
+                with patch('utils.parser.subprocess.run', side_effect=launch):
+                    with self.assertLogs('utils.parser', level='ERROR'), self.assertLogs('accountlink', level='ERROR') as logs:
+                        with self.assertRaises(ExceptionToResponse) as error:
+                            task_import_saolei_hourly.call()
+            self.assertEqual(error.exception.category, 'partial_sync')
+            self.assertIn('来源录像#1', logs.output[0])
+            self.assertIn('rust/panic', logs.output[0])
+            self.assertEqual(self.remote.download_videos.call_count, 2)
+            failed = SaoleiApiVideo.objects.get(remote_id=1)
+            imported = SaoleiApiVideo.objects.get(remote_id=2)
+            self.assertFalse(failed.import_rejected)
+            self.assertIsNone(failed.import_video_id)
+            self.assertIsNotNone(imported.import_video_id)
+            self.assertEqual(VideoModel.objects.count(), 1)
+            self.assertTrue(Path(imported.import_video.file.path).is_file())
 
     def test_batch_detail_owner_validation_rolls_back_all_writes(self):
         self.sources(2, file_url='2023/04/16/old.evf')

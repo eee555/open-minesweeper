@@ -292,7 +292,8 @@ def saolei_video_import_one(source: SaoleiApiVideo, file: File) -> VideoModel:
             source.import_video = collision
             source.save(update_fields=['import_video'])
             return collision
-        parser = MSVideoParser(file)
+        logger.info('解析扫雷网来源录像#%s account_id=%s file_url=%s', source.remote_id, account.pk, source.file_url)
+        parser = MSVideoParser(file, isolate=True)
         if not user.userms_id:
             user.userms = UserMS.objects.create()
             user.save(update_fields=['userms'])
