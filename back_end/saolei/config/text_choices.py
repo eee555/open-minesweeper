@@ -35,6 +35,7 @@ class MS_TextChoices:
         EVF = 'e', ('evf')
         MVF = 'm', ('mvf')
         RMV = 'r', ('rmv')
+        CLASSIC = 'x', ('95 Classic')
 
 
 class Medal_TextChoices:

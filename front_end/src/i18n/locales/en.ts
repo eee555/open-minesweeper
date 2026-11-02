@@ -163,6 +163,7 @@ export default {
     show: 'Show',
     softwareName: {
         e: 'Metasweeper',
+        x: '95 Classic',
     },
     state: {
         a: 'Pending',
@@ -390,6 +391,7 @@ export default {
     software: {
         software_download: 'Software Downloads',
         arbiter: 'Minesweeper Arbiter',
+        x: '95',
         download: 'Download',
         expireDate: 'Expired',
         feature: 'Features',

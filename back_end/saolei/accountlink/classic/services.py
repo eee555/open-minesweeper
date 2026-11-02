@@ -1,21 +1,57 @@
-"""95经典扫雷账号绑定：我方发起申请，玩家在小游戏内确认，对方回调落库。"""
-from datetime import timedelta
+"""95经典扫雷账号绑定与录像同步：绑定由玩家在小游戏内确认，录像由玩家勾选后对方推送。"""
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone as dt_timezone
+import hashlib
+import hmac
 import json
 import logging
+import re
 
 from django.conf import settings
+from django.core.files.base import ContentFile
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
+from config.text_choices import MS_TextChoices
+from msuser.models import UserMS
 from userprofile.models import UserProfile
 from utils.exceptions import ExceptionToResponse
+from utils.parser import MSVideoParser
+from utils.ranking_lock import ranking_access
+from videomanager.models import VideoModel
+from videomanager.services import find_identical_video, set_import_upload_time
+from videomanager.utils import calculate_original_hash
 from .client import request_classic_bind, required_callback_secret, verify_classic_callback
-from ..models import AccountClassicMinesweeper, AccountLinkQueue, CLASSIC_USERID_MAX, CLASSIC_USERID_MIN, ClassicBindRequest, Platform
+from ..models import AccountClassicMinesweeper, AccountLinkQueue, CLASSIC_USERID_MAX, CLASSIC_USERID_MIN, ClassicBindRequest, ClassicReplay, Platform
 from ..services import save_verified_account_link
 
 logger = logging.getLogger('accountlink')
 
 CLASSIC_CALLBACK_RESULTS = {'allow', 'deny', 'revoke'}
+
+CLASSIC_REPLAY_EVENT = 'replay'
+CLASSIC_REPLAY_FORMAT = 'evf'
+CLASSIC_REPLAY_MAX_BYTES = 8 * 1024 * 1024
+CLASSIC_REPLAY_KEY_PATTERN = re.compile(r'^(\d+)-(\d+)$')
+CLASSIC_REPLAY_SHA256_PATTERN = re.compile(r'^[0-9a-f]{64}$')
+CLASSIC_REPLAY_PLATFORMS = frozenset({'mobile', 'pc'})
+CLASSIC_REPLAY_DIFFICULTIES = {'easy': 'b', 'hard': 'i', 'expert': 'e'}
+
+
+@dataclass(frozen=True)
+class ClassicReplayMeta:
+    sync_id: int
+    uid: int
+    key: str
+    season: int
+    platform: str
+    difficulty: str
+    played_at: datetime
+    time_ms: int
+    bv3: int
+    nf: bool
+    sha256: str
+    file_size: int
 
 
 def start_classic_bind(user: UserProfile, uid: int) -> ClassicBindRequest:
@@ -213,3 +249,206 @@ def _parse_callback_payload(raw_body: bytes) -> tuple[int, int, str, str]:
 
 def _is_positive_int(value) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+
+def handle_classic_replay_push(request):
+    """收取玩家勾选的 EVF：先验签，mobile 直接跳过；其余校验摘要后按 syncId / key 幂等导入。
+
+    绑定回调与录像推送共用同一地址，由 API 层按 Content-Type 分流后进入这里。
+    """
+    body = _read_classic_replay_body(request)
+    timestamp = request.headers.get('X-Ext-Timestamp', '')
+    signature = request.headers.get('X-Ext-Signature', '')
+    if not verify_classic_callback(required_callback_secret(), timestamp, body, signature):
+        sync_id = request.headers.get('X-Ext-Sync-Id', '')
+        logger.warning(f'95经典扫雷录像推送签名校验失败 sync_id={sync_id}')
+        raise ExceptionToResponse('classic', 'invalid_signature', status_code=401)
+    if request.headers.get('X-Ext-Platform', '').strip().lower() == 'mobile':
+        sync_id = request.headers.get('X-Ext-Sync-Id', '')
+        uid = request.headers.get('X-Ext-Uid', '')
+        key = request.headers.get('X-Ext-Key', '')
+        logger.info(f'95经典扫雷录像推送跳过 mobile sync_id={sync_id} uid={uid} key={key}')
+        return
+    meta = _parse_classic_replay_meta(request.headers, len(body))
+    if not hmac.compare_digest(meta.sha256, hashlib.sha256(body).hexdigest()):
+        logger.warning(f'95经典扫雷录像推送摘要不匹配 sync_id={meta.sync_id} uid={meta.uid} key={meta.key}')
+        raise ExceptionToResponse('classic', 'bad_checksum', status_code=400)
+    _ingest_classic_replay(meta, body)
+
+
+def _read_classic_replay_body(request) -> bytes:
+    """流式读请求体，避免 request.body 的全局大小限制；超过 8MB 直接拒绝。"""
+    content_length = request.META.get('CONTENT_LENGTH') or ''
+    if content_length:
+        try:
+            declared = int(content_length)
+        except ValueError:
+            raise ExceptionToResponse('classic', 'bad_request', status_code=400) from None
+        if declared > CLASSIC_REPLAY_MAX_BYTES:
+            raise ExceptionToResponse('classic', 'payload_too_large', status_code=413)
+    chunks, total = [], 0
+    for chunk in request:
+        total += len(chunk)
+        if total > CLASSIC_REPLAY_MAX_BYTES:
+            raise ExceptionToResponse('classic', 'payload_too_large', status_code=413)
+        chunks.append(chunk)
+    if not chunks:
+        raise ExceptionToResponse('classic', 'bad_request', status_code=400)
+    return b''.join(chunks)
+
+
+def _parse_classic_replay_meta(headers, file_size: int) -> ClassicReplayMeta:
+    """请求头由对方签名保护，这里只做格式与范围校验，避免脏数据入库。"""
+    if headers.get('X-Ext-Event', '') != CLASSIC_REPLAY_EVENT or headers.get('X-Ext-Format', '').strip().lower() != CLASSIC_REPLAY_FORMAT:
+        raise ExceptionToResponse('classic', 'bad_request', status_code=400)
+    sync_id = _int_header(headers, 'X-Ext-Sync-Id', minimum=1)
+    uid = _int_header(headers, 'X-Ext-Uid', minimum=CLASSIC_USERID_MIN)
+    if uid > CLASSIC_USERID_MAX:
+        raise ExceptionToResponse('classic', 'bad_request', status_code=400)
+    key = _header(headers, 'X-Ext-Key')
+    season = _int_header(headers, 'X-Ext-Season', minimum=0)
+    match = CLASSIC_REPLAY_KEY_PATTERN.fullmatch(key)
+    if match is None or int(match.group(1)) != season or int(match.group(2)) <= 0:
+        raise ExceptionToResponse('classic', 'bad_request', status_code=400)
+    platform, difficulty = _header(headers, 'X-Ext-Platform'), CLASSIC_REPLAY_DIFFICULTIES.get(_header(headers, 'X-Ext-Difficulty'))
+    if platform not in CLASSIC_REPLAY_PLATFORMS or difficulty is None:
+        raise ExceptionToResponse('classic', 'bad_request', status_code=400)
+    played_at_ms = _int_header(headers, 'X-Ext-Played-At', minimum=1)
+    try:
+        played_at = datetime.fromtimestamp(played_at_ms / 1000, tz=dt_timezone.utc)
+    except (OverflowError, OSError, ValueError):
+        raise ExceptionToResponse('classic', 'bad_request', status_code=400) from None
+    nf = _int_header(headers, 'X-Ext-Nf', minimum=0)
+    if nf not in (0, 1):
+        raise ExceptionToResponse('classic', 'bad_request', status_code=400)
+    sha256 = _header(headers, 'X-Ext-Sha256').lower()
+    if CLASSIC_REPLAY_SHA256_PATTERN.fullmatch(sha256) is None:
+        raise ExceptionToResponse('classic', 'bad_request', status_code=400)
+    return ClassicReplayMeta(
+        sync_id=sync_id, uid=uid, key=key, season=season, platform=platform, difficulty=difficulty,
+        played_at=played_at, time_ms=_int_header(headers, 'X-Ext-Time-Ms', minimum=0),
+        bv3=_int_header(headers, 'X-Ext-Bv3', minimum=0),
+        nf=bool(nf), sha256=sha256, file_size=file_size,
+    )
+
+
+def _header(headers, name: str) -> str:
+    value = headers.get(name, '').strip()
+    if not value:
+        raise ExceptionToResponse('classic', 'bad_request', status_code=400)
+    return value
+
+
+def _int_header(headers, name: str, *, minimum: int) -> int:
+    value = _header(headers, name)
+    if not value.isascii() or not value.isdecimal():
+        raise ExceptionToResponse('classic', 'bad_request', status_code=400)
+    number = int(value)
+    if number < minimum:
+        raise ExceptionToResponse('classic', 'bad_request', status_code=400)
+    return number
+
+
+def _ingest_classic_replay(meta: ClassicReplayMeta, body: bytes):
+    """先落同步记录再导入；导入失败保留记录，玩家再次勾选时可重试。"""
+    if ClassicReplay.objects.filter(sync_id=meta.sync_id).exclude(key=meta.key).exists():
+        logger.warning(f'95经典扫雷录像推送 syncId 冲突 sync_id={meta.sync_id} uid={meta.uid} key={meta.key}')
+        raise ExceptionToResponse('classic', 'sync_id_conflict', status_code=400)
+    replay = _store_classic_replay(meta)
+    if replay.import_video_id:
+        logger.info(f'95经典扫雷录像重复推送 sync_id={meta.sync_id} uid={meta.uid} key={meta.key} video_id={replay.import_video_id}')
+        return
+    try:
+        video = _import_classic_replay(replay, body)
+    except ExceptionToResponse as exc:
+        ClassicReplay.objects.filter(pk=replay.pk).update(error_category=exc.category)
+        logger.warning(f'95经典扫雷录像导入失败 sync_id={meta.sync_id} uid={meta.uid} key={meta.key} category={exc.obj}/{exc.category}')
+        raise
+    except Exception:
+        ClassicReplay.objects.filter(pk=replay.pk).update(error_category='import')
+        logger.exception(f'95经典扫雷录像导入异常 sync_id={meta.sync_id} uid={meta.uid} key={meta.key}')
+        raise ExceptionToResponse('classic', 'import', status_code=500) from None
+    if video is None:
+        ClassicReplay.objects.filter(pk=replay.pk).update(error_category='unbound')
+        logger.warning(f'95经典扫雷录像推送时玩家已解绑 sync_id={meta.sync_id} uid={meta.uid} key={meta.key}')
+        return
+    logger.info(f'95经典扫雷录像已导入 sync_id={meta.sync_id} uid={meta.uid} key={meta.key} video_id={video.pk}')
+
+
+def _store_classic_replay(meta: ClassicReplayMeta) -> ClassicReplay:
+    defaults = {
+        'sync_id': meta.sync_id, 'season': meta.season, 'platform': meta.platform, 'difficulty': meta.difficulty,
+        'played_at': meta.played_at, 'time_ms': meta.time_ms, 'bv3': meta.bv3,
+        'nf': meta.nf, 'sha256': meta.sha256, 'file_size': meta.file_size, 'error_category': '',
+    }
+    with transaction.atomic():
+        replay = ClassicReplay.objects.select_for_update().filter(key=meta.key).first()
+        if replay is not None and replay.uid != meta.uid:
+            logger.warning(f'95经典扫雷录像 key 属于其他玩家 key={meta.key} uid={meta.uid} owner_uid={replay.uid}')
+            raise ExceptionToResponse('classic', 'key_conflict', status_code=409)
+        if replay is None:
+            try:
+                with transaction.atomic():
+                    return ClassicReplay.objects.create(uid=meta.uid, key=meta.key, **defaults)
+            except IntegrityError:
+                replay = ClassicReplay.objects.select_for_update().filter(key=meta.key).first()
+                if replay is None:
+                    raise ExceptionToResponse('classic', 'sync_id_conflict', status_code=400) from None
+                if replay.uid != meta.uid:
+                    raise ExceptionToResponse('classic', 'key_conflict', status_code=409) from None
+        if replay.import_video_id and replay.sha256 != meta.sha256:
+            logger.warning(f'95经典扫雷同一录像重复推送但文件摘要变化 key={meta.key} uid={meta.uid}')
+        for field, value in defaults.items():
+            setattr(replay, field, value)
+        try:
+            with transaction.atomic():
+                replay.save(update_fields=[*defaults, 'updated_at'])
+        except IntegrityError:
+            raise ExceptionToResponse('classic', 'sync_id_conflict', status_code=400) from None
+        return replay
+
+
+@ranking_access(operation='accountlink.classic_import', blocking=False)
+def _import_classic_replay(replay: ClassicReplay, data: bytes) -> VideoModel | None:
+    """解析并导入 EVF；录像内容才是成绩来源，请求头只用于归属与幂等。"""
+    file = ContentFile(data, f'{replay.key}.evf')
+    original_hash = calculate_original_hash(file)
+    with transaction.atomic():
+        replay = ClassicReplay.objects.select_for_update().get(pk=replay.pk)
+        if replay.import_video_id:
+            return replay.import_video
+        account = AccountClassicMinesweeper.objects.filter(pk=replay.uid).first()
+        if account is None:
+            return None
+        # 与 revoke 保持「先锁用户、再删绑定」的顺序，避免两边互相等待。
+        user = UserProfile.objects.select_for_update().get(pk=account.parent_id)
+        if not AccountClassicMinesweeper.objects.filter(pk=replay.uid, parent=user).exists():
+            return None
+        collision = find_identical_video(original_hash)
+        if collision is not None:
+            collision = VideoModel.objects.select_for_update().get(pk=collision.pk)
+            if collision.player_id != user.pk:
+                raise ExceptionToResponse('file', 'collision', status_code=409)
+            set_import_upload_time(collision, replay.played_at)
+            replay.import_video = collision
+            replay.save(update_fields=['import_video'])
+            return collision
+        parser = MSVideoParser(file)
+        # 95 经典录像默认冻结，等待人工处理，不参与机审和排行。
+        parser.state = MS_TextChoices.State.FROZEN
+        logger.info(f'95经典扫雷录像 {replay.key} 置为 FROZEN，原因 95Classic_Pending')
+        if not user.userms_id:
+            user.userms = UserMS.objects.create()
+            user.save(update_fields=['userms'])
+        video = VideoModel.create_from_parser(parser, user, original_hash=original_hash, upload_time=replay.played_at)
+        video.video.freeze_reason = '95Classic_Pending'
+        video.video.save(update_fields=['freeze_reason'])
+        # 文件仍是 EVF，但来源标记为 95 经典扫雷，便于前端区分来源。
+        video.software = MS_TextChoices.Software.CLASSIC
+        set_import_upload_time(video, replay.played_at, created=True)
+        video.update_redis()
+        video.save(update_fields=['upload_time', 'ongoing_tournament', 'software'])
+        replay.import_video = video
+        replay.save(update_fields=['import_video'])
+        logger.info(f'95经典扫雷录像 {replay.key} 已关联本站录像#{video.pk}')
+        return video

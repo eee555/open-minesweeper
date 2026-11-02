@@ -12,6 +12,10 @@
                         <img style="width: 24px; height: 24px; vertical-align: middle;" :src="ArbiterIcon">
                         {{ t('software.arbiter') }}
                     </template>
+                    <template v-else-if="data.software === 'x'">
+                        <img style="width: 24px; height: 24px; vertical-align: middle;" :src="Classic95Icon">
+                        {{ t('softwareName.x') }}
+                    </template>
                 </template>
                 <template #overlay>
                     <MetasweeperHelper v-if="data.software == 'e'" style="justify-self: center;" />
@@ -37,7 +41,7 @@ import { useI18n } from 'vue-i18n';
 
 import BaseOverlay from '@/components/common/BaseOverlay.vue';
 import SoftwareIcon from '@/components/widgets/SoftwareIcon.vue';
-import { ArbiterIcon, MetasweeperIcon } from '@/utils/assets';
+import { ArbiterIcon, Classic95Icon, MetasweeperIcon } from '@/utils/assets';
 import { MS_Softwares } from '@/utils/ms_const';
 import type { VideoAbstract } from '@/utils/videoabstract';
 

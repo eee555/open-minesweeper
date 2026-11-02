@@ -15,7 +15,7 @@ from pydantic import field_validator, ValidationInfo
 from userprofile.decorators import login_required_error, staff_required
 from userprofile.models import UserProfile
 from utils.response import HttpResponseConflict
-from .classic.services import classic_bind_status, handle_classic_callback, start_classic_bind
+from .classic.services import classic_bind_status, handle_classic_callback, handle_classic_replay_push, start_classic_bind
 from .mineracer.sessions import poll_mineracer_account_link_session, start_mineracer_account_link
 from .models import AccountBilibili, AccountClassicMinesweeper, AccountDiscord, AccountLinkQueue, AccountMineracer, AccountMinesweeperGames, AccountQQ, AccountSaolei, AccountWorldOfMinesweeper, Platform, PLATFORM_CONFIG
 from .services import unverify_account_link, update_account, verify_account_link
@@ -299,14 +299,19 @@ def classic_callback(request):
     - never_cache
     - ratelimit(key='ip', rate='300/m', block=True)
 
-    Receive allow / deny / revoke from 95 Classic Minesweeper. The request is
-    authenticated by an HMAC over the raw body, and repeated events are ignored.
+    Receive signed callbacks from 95 Classic Minesweeper on one URL. JSON bodies
+    are allow / deny / revoke events; octet-stream bodies are player-approved EVF
+    replays, imported synchronously within the remote's 10-second budget.
     """
-    handle_classic_callback(
-        request.body,
-        request.headers.get('X-Ext-Timestamp', ''),
-        request.headers.get('X-Ext-Signature', ''),
-    )
+    content_type = (request.content_type or '').lower()
+    if content_type == 'application/octet-stream' or request.headers.get('X-Ext-Event') == 'replay':
+        handle_classic_replay_push(request)
+    else:
+        handle_classic_callback(
+            request.body,
+            request.headers.get('X-Ext-Timestamp', ''),
+            request.headers.get('X-Ext-Signature', ''),
+        )
     return HttpResponse()
 
 
