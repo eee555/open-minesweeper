@@ -62,6 +62,8 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 
 本站文件校验直接拒收（`file/type`、`file/incomplete`、`file/level`、`file/review`）后，导入事务回滚，再将来源的 `import_rejected` 置为 `True`。首次拒收仍计为失败并记录原因；之后的增量同步及 `--full` 都在下载前跳过，计入跳过数量，目录刷新不清除此标记。站长确认需要重试时，通过 Django shell 将该来源的 `import_rejected` 清为 `False` 后重跑即可，不提供额外接口。网络、上游、配置、绑定或写入故障不设置此标记。冻结、待审核及标识不匹配等能正常保存为本站录像的结果仍记为导入成功。
 
+扫雷网导入使用 `MSVideoParser(file, isolate=True)`，每份文件在独立 Python 子进程中执行 `ms_toollib` 的解析、分析和审核，超时为 60 秒；子进程不启动 Django 应用或访问数据库。原生中止（如 SIGABRT）、异常退出或超时归为 `rust/panic`，当前文件的导入事务回滚，自动任务及管理命令继续处理后续录像；本轮仍汇总为失败。这类故障不设置 `import_rejected`，后续同步会重试。解析前记录来源 ID、账号 ID 和文件相对 URL，进程失败时记录文件名、退出码和诊断尾部，供站长提取样本定位上游问题。其他上传入口保持原有解析路径。
+
 ## 95经典扫雷接入
 
 95经典扫雷是微信小游戏，合规限制使它不能引导玩家跳转外链，因此采用「本站发起、小游戏内确认、对方回调」的绑定模型，与 Mineracer 的轮询模型和手填 ID 的人工审核模型都不同。

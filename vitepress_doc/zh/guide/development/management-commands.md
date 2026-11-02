@@ -50,6 +50,8 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 
 同主文件哈希命中时复用既有本站录像，异主冲突不改归属或上传时间。单项失败保留成功进度并汇总，退出码非零；鉴权失败和限流立即停止，不自动重试。进度见命令输出和 `accountlink` 日志；客户端错误保留异常类型和具体原因，不输出认证头或响应体。账号资料仅采用 ID、姓名和外站封禁状态，不同步成绩或标识列表。部署每日同步功能时自动生成并执行 `auto_sync` 默认开启字段的迁移，再重启 Web、worker 与统一 APScheduler；不重新清空来源表或全量导入。
 
+文件解析通过独立子进程执行，每条最多 60 秒，原生崩溃或超时计为 `rust/panic`，继续处理下一条，不设置永久拒收标记。`accountlink` 日志在解析前记录来源录像 ID、账号 ID 和文件相对 URL，`utils.parser` 日志记录异常退出码及诊断尾部；下一轮同步会重试这类失败。隔离使用 Python 标准库 [`subprocess.run`](https://docs.python.org/3.12/library/subprocess.html#subprocess.run)，不复制 worker 的数据库连接。
+
 ## 勋章补发
 
 ### `enqueue_medal_backfill`
