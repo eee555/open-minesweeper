@@ -19,7 +19,7 @@ description: 开源扫雷网Redis/Django缓存结构详解，包括录像队列�
 
 旧竞速排行榜及新闻的读写逻辑已移除，可运行`python manage.py delete_legacy_speedranking_cache`清理旧个人纪录hash、排行zset及`news_queue`。支持`--dry-run`预览，具体范围见[管理命令文档](./management-commands.md#delete-legacy-speedranking-cache)。
 
-`UserMS` 的录像数量及文件空间保存在数据库，不按级别、模式或 NF 分类，也不涉及 Redis 清理。创建时按 `ongoing_tournament` 归类；全量重算时，`ongoing_tournament=True` 或关联到任意比赛的录像属于比赛口径，包括已公开、已结束比赛的录像。同一录像关联多个比赛只计算一次。空间按 `VideoModel.file_size` 求和，单位为字节。
+`UserMS` 的录像数量及文件空间保存在数据库，不按级别、模式或 NF 分类，也不涉及 Redis 清理。创建时按 `ongoing_tournament` 归类；全量重算时，`ongoing_tournament=True` 或关联到任意比赛的录像属于比赛口径，包括已公开、已结束比赛的录像。同一录像关联多个比赛只计算一次。空间按实际存储的 `VideoModel.stored_file_size` 求和，空值回退到原始 `file_size`，单位为字节；已压缩录像统计压缩后的大小。
 
 | 口径 | 数量字段 | 文件空间字段 |
 | --- | --- | --- |
@@ -37,7 +37,7 @@ description: 开源扫雷网Redis/Django缓存结构详解，包括录像队列�
 
 补录逻辑及延迟重算行为保持不变：比赛关联变化不立即调整统计。删除、文件大小及玩家归属变更按该录像当前的比赛标记和关联归类，允许与原先计入的口径存在偏差，统一由 [refresh_video_counts](./management-commands.md#refresh-video-counts) 全量重算修复；不保存历史统计分类字段。迁移后需先运行重算命令补齐历史统计。
 
-保存信号中数量、文件空间及需要提升的上传额度合并到一次 `UserMS UPDATE`；归属变化通过一条 `CASE WHEN UPDATE` 同时处理两位玩家。后台压缩修改 `file_size` 时，只查询该录像是否属于比赛，再按大小差额更新对应口径，不重算该用户的全部录像。所有统计字段使用固定字段名与 `if/else` 分支，不动态拼接。
+保存信号中数量、文件空间及需要提升的上传额度合并到一次 `UserMS UPDATE`；归属变化通过一条 `CASE WHEN UPDATE` 同时处理两位玩家。手动压缩切换 `stored_file_size` 后，在同一事务发送 `video_storage_changed`，只查询该录像当前比赛归属，再按存储大小差额更新对应口径，不重算该用户的全部录像，也不修改原始 `file_size`。所有统计字段使用固定字段名与 `if/else` 分支，不动态拼接。部署此统计口径变更后，运行一次 `refresh_video_counts` 修正已有统计。
 
 旧 World 监控页面及其 CPU/网络 IO 采集已移除，不再读写历史采样；旧 `/monitor/io_cpus/` 和 `/monitor/capacity/` 不恢复。部署并停止旧采集进程后，可按固定名称清理 `saolei_website` Redis DB 中的五个遗留 key，无需遍历其他 key：
 
@@ -753,7 +753,7 @@ Redis 连接和读写异常记录日志，计算及数据库摘要不回滚，�
 
 录像压缩仅改变 `file`、`original_filename`、`stored_file_size`、`compression_format`、`compression_failed` 等存储字段。原始 `file_size`、`original_hash` 和解析结果保持不变，不升级前端录像缓存版本，也不将压缩容器写入 IndexedDB。
 
-服务器磁盘摘要汇总 `stored_file_size`；尚未补齐的原始录像回退到 `file_size`。新上传和导入在创建录像前尝试压缩校验，成功保存压缩文件，失败保存源文件并记录 `compression_format=0`、`stored_file_size=file_size` 及失败标记，两种情况均走原有创建信号；历史文件由管理员运行 `compress_video_files` 手动转换，不注册 APScheduler 压缩任务。
+服务器磁盘摘要和 `UserMS` 文件空间均汇总 `stored_file_size`；尚未补齐的原始录像回退到 `file_size`。新上传和导入在创建录像前尝试压缩校验，成功保存压缩文件，失败保存源文件并记录 `compression_format=0`、`stored_file_size=file_size` 及失败标记，两种情况均走原有创建信号；历史文件由管理员运行 `compress_video_files` 手动转换，并在文件切换事务中同步用户空间差额，不注册 APScheduler 压缩任务。
 
 preview 仅凭数字 ID 返回当前存储的文件，客户端按容器版本解压；download 在请求中恢复原始录像字节，复用 `original_file` 的输出大小及内存限制，不写临时文件、不缓存解压结果、不改动存储文件。两者每 IP 分别限流 `20/m` 和 `5/m`；生产 preview 及未压缩文件下载继续走 `X-Accel-Redirect`，压缩文件下载由 Django 以内存字节响应发送解压结果。
 

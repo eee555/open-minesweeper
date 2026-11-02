@@ -14,6 +14,7 @@ from config.text_choices import MS_TextChoices
 from utils.ranking_lock import ranking_access
 from .cache import newest_cache
 from .config import TARGET_COMPRESSION_FORMAT
+from .events import video_storage_changed
 from .files import compress_original, original_file, validate_compression_target
 from .models import ExpandVideoModel, VideoModel
 from .utils import calculate_original_hash, pack_compression_format, replay_filename
@@ -66,7 +67,7 @@ def _delete_unreferenced_file(file_name):
 
 
 def compress_video_file(video, *, target=TARGET_COMPRESSION_FORMAT, retry_failed=False):
-    """转换独立文件，校验后短事务切换；仅更新存储字段。"""
+    """转换独立文件，校验后短事务切换，并同步存储空间统计。"""
     validate_compression_target(target)
     target_code = pack_compression_format(*target)
     if not retry_failed and (video.compression_failed or video.compression_format == target_code):
@@ -97,11 +98,14 @@ def compress_video_file(video, *, target=TARGET_COMPRESSION_FORMAT, retry_failed
         return 'failed' if changed else 'skipped'
     # A database failure can leave the commit result unknown. Keep both files for recovery.
     with transaction.atomic():
-        changed = current.update(
+        previous = current.select_for_update().values('stored_file_size', 'file_size').first()
+        changed = previous is not None and current.update(
             file=archive_name, original_filename=replay_filename(source_name, video.original_filename),
             stored_file_size=len(archive), compression_format=actual_format, compression_failed=False,
         )
         if changed:
+            old_size = previous['stored_file_size'] if previous['stored_file_size'] is not None else previous['file_size']
+            video_storage_changed.send(sender=VideoModel, video_id=video.pk, size_delta=len(archive) - old_size, using=current.db)
             transaction.on_commit(lambda: _delete_unreferenced_file(source_name))
     if not changed:
         _delete_unreferenced_file(archive_name)
