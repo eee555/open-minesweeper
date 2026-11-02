@@ -1,3 +1,4 @@
+import Classic95Icon from '@/assets/img/img_classic95.jpg';
 import MetasweeperIcon from '@/assets/img/img_meta.png';
 import DefaultAvatar from '@/assets/person.png';
 
@@ -8,6 +9,7 @@ const ViennaIconNew = '/img/vsweep_16x16_4bit.ico' as const;
 
 export {
     ArbiterIcon,
+    Classic95Icon,
     Clone07Icon,
     DefaultAvatar,
     MetasweeperIcon,
