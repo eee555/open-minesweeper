@@ -1,4 +1,4 @@
-import Classic95Icon from '@/assets/img/img_classic95.jpg';
+import Classic95Icon from '@/assets/img/img_classic95.png';
 import MetasweeperIcon from '@/assets/img/img_meta.png';
 import DefaultAvatar from '@/assets/person.png';
 

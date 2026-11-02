@@ -1,5 +1,5 @@
 <template>
-    <img v-if="iconSrc" :class="{ 'software-icon--round': software === 'x' }" style="width: 16px; height: 16px" :src="iconSrc" :title="t(`software.${software}`)">
+    <img v-if="iconSrc" style="width: 16px; height: 16px" :src="iconSrc" :title="t(`software.${software}`)">
     <span v-else class="software-fallback" :title="t(`software.${software}`)">{{ t(`software.${software}`) }}</span>
 </template>
 
@@ -33,10 +33,6 @@ const iconSrc = computed(() => {
 </script>
 
 <style scoped>
-.software-icon--round {
-    border-radius: 50%;
-}
-
 .software-fallback {
     display: inline-flex;
     align-items: center;

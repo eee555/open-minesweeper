@@ -13,7 +13,7 @@
                         {{ t('software.arbiter') }}
                     </template>
                     <template v-else-if="data.software === 'x'">
-                        <img style="width: 24px; height: 24px; vertical-align: middle; border-radius: 50%;" :src="Classic95Icon">
+                        <img style="width: 24px; height: 24px; vertical-align: middle;" :src="Classic95Icon">
                         {{ t('softwareName.x') }}
                     </template>
                 </template>
