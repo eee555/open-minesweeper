@@ -71,9 +71,10 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 ### 流程
 
 1. 已登录用户提交自己在小游戏荣誉页看到的 8 位 UID。
-2. 本站带 `api_key` 请求对方的 `/v1/ext/bind/request`，`account` 传本站用户名，`callback` 传本站回调地址。
+2. 本站带 `api_key` 请求对方的 `/v1/ext/bind/request`，`account` 传本站用户名，`callback` 传本站回调地址；请求体不带 `app`，应用名由 `api_key` 在对方开户时绑定的名称决定，玩家在「我的荣誉」看到的即为「应用名 | 本站用户名」。
 3. 玩家在小游戏内确认或拒绝。
 4. 对方回调本站，`result` 为 `allow` / `deny`，玩家之后主动解绑时为 `revoke`。
+5. 玩家在小游戏「我的荣誉 → 外部绑定账户 → 录像同步」里勾选录像后，对方把 EVF 文件一次性 POST 到同一回调地址；本站验签、校验 SHA-256 后同步导入。
 
 只有 `allow` 回调会建立绑定，`deny` 只记录结果；`revoke` 回调删除本站绑定和申请队列行。受理本身不代表绑定成功，未确认前不写 `AccountLinkQueue`。
 
@@ -82,14 +83,26 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 - `Platform.CLASSIC` 使用平台码 `x`。
 - `AccountClassicMinesweeper.id` 保存 8 位 UID，`parent` 使用 `related_name='account_classic'`。
 - `ClassicBindRequest` 按 `uid` 与 `request_id` 各唯一一行，保存申请状态、过期时间和错误分类；同一 UID 重新申请会覆盖该行，`request_id` 是回调幂等键。
+- `ClassicReplay` 按 `(uid, key)` 唯一保存一条推送记录，`sync_id` 也唯一；`import_video` 为空表示尚未导入，解析失败时保留记录与 `error_category`，玩家再次勾选即可重试。
 
 ### 接口
 
 - `POST /api/accountlink/classic/start/`：登录用户提交 `uid`，限流 `6/h`。已有未过期申请时直接复用，不重复请求对方；UID 已被他人绑定或他人有未处理申请时返回 `identifier_conflict` / `pending`。
 - `GET /api/accountlink/classic/status/`：返回当前用户最近一次申请，前端据此轮询；`status` 为 `none` 表示没有申请。
-- `POST /api/accountlink/classic/callback`：接收对方回调，不登录，仅靠签名鉴权。
+- `POST /api/accountlink/classic/callback`：接收对方回调，不登录，仅靠签名鉴权。同一地址接收两类报文，先按 `Content-Type` 分流：
+  - `application/json`：绑定事件，3 秒内返回 2xx；
+  - `application/octet-stream`（带 `X-Ext-Event: replay`）：玩家授权推送的 EVF 文件，最多 8MB，10 秒内返回 2xx。
 
-旧接口一律拒绝：`create_account_link`、staff `verify_link`、staff `unverify_link`、`delete_link`、`update_link`，以及 `delete_account` 的内部调用，避免绕过回调伪造绑定或绕过对方解除绑定。
+旧接口一律拒绝：`create_account_link`、staff `verify_link`、staff `unverify_link`、`delete_link`、`update_link`，以及 `delete_account` 的内部调用，避免绕过回调伪造绑定或绕过对方解除绑定。对方已下线的 `GET /v1/ext/replay/list` / `download` 本站从未接入，无需清理。
+
+### 录像推送
+
+- 请求头 `X-Ext-Sync-Id`、`X-Ext-Uid`、`X-Ext-Key`、`X-Ext-Season`、`X-Ext-Platform`、`X-Ext-Difficulty`、`X-Ext-Played-At`、`X-Ext-Time-Ms`、`X-Ext-Bv3`、`X-Ext-Bv3s`、`X-Ext-Nf`、`X-Ext-Sha256`、`X-Ext-Format` 都会校验格式与范围；`X-Ext-Key` 的赛季必须与 `X-Ext-Season` 一致。
+- 签名与绑定回调相同：`HMAC_SHA256(app_secret, timestamp + "." + 原始请求体)`，时间戳窗口 300 秒。签名通过后还要用 `X-Ext-Sha256` 校验文件完整，失败返回 400，让对方重试。
+- 文件内容才是成绩来源：导入复用本站 `MSVideoParser` 与录像查重，难度、用时、3BV 等都以 EVF 解析结果为准，请求头只用于归属、审计与幂等。
+- 只有当前仍绑定本站的 UID 才导入；若绑定在排队期间被解除，记录 `unbound` 并返回 2xx，避免对方无意义重试。
+- 同一 `sync_id` 重试直接返回；同一 `(uid, key)` 换了 `syncId` 也只保留一行。命中本站已有录像（同哈希）时关联已有录像，不重复入库；同哈希属于其他玩家时返回 409，不修改既有录像。
+- `revoke` 只删除绑定和申请队列，不删除已经推送并导入的录像：这些录像属于玩家本人，删除会同时影响成绩与排行；解绑后对方停止推送新录像。
 
 ### 签名与错误分类
 
@@ -97,14 +110,18 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 
 远端错误码映射：`40001 → bad_request`、`40002 → bad_callback`、`40101 → unauthorized`、`40301 → app_mismatch`、`40401 → uid_not_found`、`40901 → already_bound`、`40902 → denied_recently`、`40903 → revoked_recently`、`42901 → rate_limited`；其余响应与网络故障分别映射为 `response`、`requestexception`、`timeout`。
 
+录像推送的本地错误分类：`invalid_signature`（401）、`bad_checksum` / `bad_request` / `sync_id_conflict`（400）、`payload_too_large`（413）、`import`（500）；文件解析拒收沿用 `file/type`、`file/incomplete`、`file/level`、`file/review`，同哈希归属他人为 `file/collision`（409）。
+
 ### 一致性与重试
 
-- 整个回调在一个事务内完成：先按 `requestId` 加锁命中原申请行，再核对 `uid` / `account`，然后才分支处理。同一 UID 的新申请会覆盖旧行，此时迟到的旧回调查不到 `requestId`，返回 404，不会绑定到新申请人。
+- 整个绑定回调在一个事务内完成：先按 `requestId` 加锁命中原申请行，再核对 `uid` / `account`，然后才分支处理。同一 UID 的新申请会覆盖旧行，此时迟到的旧回调查不到 `requestId`，返回 404，不会绑定到新申请人。
 - `allow` 复用 `save_verified_account_link`，在事务内完成绑定，重复投递直接返回成功。
 - 发起绑定的写库是幂等的：远端对同一 `(uid, app, account)` 会返回同一个 `requestId`，此时保留已有的 `allow` / `deny` / `revoke`，不退回 `pending`，也不清空 `handled_at`；覆盖前还会重新检查该用户是否已完成绑定。
 - 本地冲突重试无法自愈，记 `conflict` 并写 ERROR 日志，仍返回 2xx 停止对方重试，留待人工处理。
 - 状态查询只把「仍是 pending 且已过期」的记录用条件 UPDATE 收敛为 `expired`，不会覆盖并发到达的 `allow`。
-- 回调只做数据库写入，不触发资料同步或录像导入，满足对方 3 秒响应的要求。
+- 绑定回调只做数据库写入，不触发资料同步或录像导入，满足对方 3 秒响应的要求。
+- 录像先落 `ClassicReplay` 再导入：解析失败保留记录并返回非 2xx，对方按 `立即` → `+5 秒` → `+30 秒` → `+5 分钟` 重试 4 次；导入与排行刷新在同一把排行读锁内完成，排行重建占用写锁时立即返回 503，由对方重试。玩家侧显示失败时可重新勾选。
+- 录像导入按 `uid` 重新校验绑定，并复用 `revoke` 的加锁顺序（先锁 `UserProfile` 再删绑定），避免与解绑回调互相等待。
 - 发起绑定会同步等待对方受理。`requests` 的 `timeout` 只是单次读空闲上限，慢速滴流响应会让整次调用远超预算，因此客户端改为 `stream=True` 逐字节读取并按 `CLASSIC_TIMEOUT` 检查整体截止时间（连接 2 秒、总计 5 秒）；`default.conf` 为该路径预留 8 秒网关预算，三者依次递增，浏览器才能拿到后端 JSON 错误而不是 504。
 - 对方没有绑定状态查询接口，回调 4 次重试全部失败即丢失事件，只能按 `requestId` 人工对账；`ClassicBindRequest` 因此不设自动清理。
 
@@ -113,18 +130,18 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 `settings.py` 提供 `CLASSIC_BIND_URL`、`CLASSIC_BIND_CALLBACK_URL`、`CLASSIC_BIND_EXPIRES_IN`（60~604800，默认 86400）、`CLASSIC_BIND_TIMEOUT` 与 `CLASSIC_CALLBACK_TOLERANCE_SECONDS`。凭证不入代码、不入构建产物：
 
 - `secrets.json` 的 `classic_bind_api_key`：发起绑定用，运行期读取。
-- `secrets.json` 的 `classic_callback_app_secret`：回调验签用，运行期读取。
+- `secrets.json` 的 `classic_callback_app_secret`：绑定回调与录像推送验签用，运行期读取。
 
-回调地址必须是对方报备白名单内的 https 公网域名，并按其要求公开可达。本模块暂不导入对方录像，录像列表与下载留待后续更新。
+回调地址必须是对方报备白名单内的 https 公网域名，并按其要求公开可达。`default.conf` 为 `/api/accountlink/classic/callback` 单独设置 `client_max_body_size 8m` 与 `uwsgi_read_timeout 12s`：前者容纳 EVF 文件，后者高于对方 10 秒超时；导入本身必须在该预算内完成，否则由对方重试。
 
-部署顺序：先在 `secrets.json` 写入两项凭证，并把回调地址报备给对方，再生成并应用结构迁移，最后重启 Web 进程让新路由生效：
+部署顺序：先在 `secrets.json` 写入两项凭证，并把回调地址报备给对方，再生成并应用结构迁移（新增 `ClassicReplay`），最后重启 Web 进程让新路由生效：
 
 ```bash
 python manage.py makemigrations accountlink --noinput
 python manage.py migrate
 ```
 
-回调用例需要真实签名，联调时可先在对方测试环境用一个小号 UID 走完整流程，再观察 `logs/accountlink.log` 中的「绑定申请已提交 / 绑定完成 / 玩家解除绑定」记录。`conflict` 表示回调时本地已存在冲突（该 UID 或该用户已绑定其他账号），需要人工核对并处理冲突的绑定关系，用户重新提交即可覆盖旧申请。
+回调用例需要真实签名，联调时可先在对方测试环境用一个小号 UID 走完整流程，再观察 `logs/accountlink.log` 中的「绑定申请已提交 / 绑定完成 / 玩家解除绑定 / 录像已导入」记录。`conflict` 表示回调时本地已存在冲突（该 UID 或该用户已绑定其他账号），需要人工核对并处理冲突的绑定关系，用户重新提交即可覆盖旧申请。
 
 ## Mineracer 接入现状
 
