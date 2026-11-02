@@ -14,7 +14,7 @@ const tasks = { sampled_at: '2026-10-25T12:00:00Z', total: 1000, status: { READY
 const videos = {
     sampled_at: '2026-10-25T12:00:00Z',
     total: 1000,
-    software: { a: 100, e: 200, m: 300, r: 400 },
+    software: { a: 100, e: 200, m: 300, r: 400, x: 0 },
     level: { b: 200, i: 200, e: 200, c8_8_40: 400 },
     mode: { '00': 500, '01': 0, '04': 0, '05': 100, '07': 100, '08': 100, '09': 100, 10: 100, 11: 0 },
     state: { a: 100, b: 100, c: 700, d: 100, e: 0 },
@@ -79,8 +79,9 @@ describe('Server statistics cards', () => {
         cy.mount(VideoSummary, { global, props: { section: videos } });
         cy.get('.statistics-total').should('contain.text', 'Total: 1,000');
         const activeLegend = '.video-panel[aria-hidden="false"] .vue-data-ui-legend-item';
-        cy.get(activeLegend).should('have.length', 4);
+        cy.get(activeLegend).should('have.length', 5);
         cy.contains(activeLegend, 'Avf:').should('contain.text', '100');
+        cy.contains(activeLegend, '95:').should('contain.text', '0');
         cy.contains('.video-dimensions button', 'Level').click();
         cy.contains('.video-dimensions button', 'Level').should('have.attr', 'aria-pressed', 'true');
         cy.contains(activeLegend, '8x8/40').should('contain.text', '400').invoke('text').should('match', /40(?:\.0)?%/);
