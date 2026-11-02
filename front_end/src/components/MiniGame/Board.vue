@@ -32,8 +32,8 @@ import { ClassicMouseAutomaton } from '@/utils/classicMouse';
 import type { ClassicMouseAction, ClassicMouseEvent } from '@/utils/classicMouse';
 import { pressedBackground } from '@/utils/minigame/boardPress';
 import type { BoardPress } from '@/utils/minigame/boardPress';
-import { minigameSettings } from '@/utils/minigame/settings';
 import type { TrainingMouseInput } from '@/utils/minigame/replay';
+import { minigameSettings } from '@/utils/minigame/settings';
 import type { TouchAction, TrainingTouchInput } from '@/utils/minigame/touchRecording';
 import { scrollTouchAncestors, SingleTouchScroll } from '@/utils/minigame/touchScroll';
 
