@@ -17,6 +17,7 @@ STATE_QUEUE_NAMES = {
 CAPTURE_FIELDS = {
     'state',
     'file_size',
+    'stored_file_size',
     'ongoing_tournament',
     'pluck',
     'timems',
@@ -77,6 +78,8 @@ def capture_video_update(sender, instance: VideoModel, update_fields=None, **kwa
         instance._old_values = {}
         return
 
+    if fields & {'file_size', 'stored_file_size', 'player_id'}:
+        fields = fields | {'file_size', 'stored_file_size'}
     instance._old_values = VideoModel.objects.filter(pk=instance.pk).values(*fields).first() or {}
 
 

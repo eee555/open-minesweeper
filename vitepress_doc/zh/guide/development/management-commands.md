@@ -263,7 +263,7 @@ python manage.py compress_video_files --start 1000 --end 1100
 python manage.py compress_video_files --retry-failed
 ```
 
-默认跳过已经采用目标格式及已标记失败的录像。每条先读取原始字节，验证大小、已有哈希、压缩输出格式及完整解压还原；完整保存归档后，以原路径和格式未变化为条件更新数据库。提交后检查旧路径引用并立即清理，允许切换瞬间的播放或下载失败后重新请求。命令显示总量及逐条进度，不重新解析录像、不触发保存信号，不改原始大小、哈希或排行。
+默认跳过已经采用目标格式及已标记失败的录像。每条先读取原始字节，验证大小、已有哈希、压缩输出格式及完整解压还原；完整保存归档后，以原路径和格式未变化为条件更新数据库，并在同一事务同步 `UserMS` 存储空间差额。提交后检查旧路径引用并立即清理，允许切换瞬间的播放或下载失败后重新请求。命令显示总量及逐条进度，不重新解析录像、不触发普通保存信号，不改原始大小、哈希或排行。
 
 单个损坏或缺失文件保留原记录及格式、标记失败并继续；依赖配置、磁盘空间、只读存储、权限及数据库错误停止本轮，之前完成的转换保留。失败文件通过 `--retry-failed` 手动再试；目标变化不会自动清除失败标记。数据库提交结果不明时保留文件供核对，清理失败仅记录日志。
 
@@ -314,7 +314,7 @@ python manage.py refresh_videos --start 10000 --end 20000 --step 50
 
 位置：`msuser/management/commands/refresh_video_counts.py`
 
-刷新全部 `UserMS` 的比赛、非比赛录像数量及文件空间：`video_num_total`、`video_num_tournament`、`video_size_total`、`video_size_tournament`。空间按 `VideoModel.file_size` 求和，单位为字节；合计字段 `video_num_all`、`video_size_all` 由数据库 `GeneratedField` 自动计算。不修改上传额度、个人纪录或 Redis。
+刷新全部 `UserMS` 的比赛、非比赛录像数量及文件空间：`video_num_total`、`video_num_tournament`、`video_size_total`、`video_size_tournament`。空间按实际存储的 `VideoModel.stored_file_size` 求和，空值回退到原始 `file_size`，单位为字节；合计字段 `video_num_all`、`video_size_all` 由数据库 `GeneratedField` 自动计算。不修改上传额度、个人纪录或 Redis。部署空间统计由原始大小改为存储大小的变更后，运行一次此命令修正已有统计。
 
 进行中的比赛录像及关联到任何比赛的录像（包括已结束比赛）计入比赛口径，其余计入非比赛口径；不按审核状态筛选。通过 `EXISTS` 检查比赛关联，避免同一录像关联多个比赛时重复累计；无录像的用户四个基础统计均归零，包括未关联个人资料的 `UserMS`。
 

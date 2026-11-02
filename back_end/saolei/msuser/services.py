@@ -1,5 +1,6 @@
 from django.db import transaction
 from django.db.models import BigIntegerField, Case, Count, Exists, F, Min, OuterRef, Q, QuerySet, Sum, Value, When
+from django.db.models.functions import Coalesce
 
 from config.text_choices import MS_TextChoices
 from msuser.models import UserMS
@@ -106,8 +107,8 @@ def refresh_video_statistics(users: list[UserMS], *, batch_size=None):
         .annotate(
             video_num_total=Count('id', filter=normal),
             video_num_tournament=Count('id', filter=~normal),
-            video_size_total=Sum('file_size', filter=normal, default=0, output_field=BigIntegerField()),
-            video_size_tournament=Sum('file_size', filter=~normal, default=0, output_field=BigIntegerField()),
+            video_size_total=Sum(Coalesce('stored_file_size', 'file_size'), filter=normal, default=0, output_field=BigIntegerField()),
+            video_size_tournament=Sum(Coalesce('stored_file_size', 'file_size'), filter=~normal, default=0, output_field=BigIntegerField()),
         )
     )
     counts_by_user = {row['player__userms_id']: row for row in rows}
