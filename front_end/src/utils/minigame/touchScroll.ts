@@ -1,17 +1,22 @@
-interface TouchPosition { x: number; y: number; onBoard: boolean }
+interface TouchPosition { x: number; y: number; onBoard: boolean; scrollThresholdMet: boolean }
 
 /** Keep tracking every finger while scrolling only a lone board contact. */
 export class SingleTouchScroll {
     private readonly contacts = new Map<number, TouchPosition>();
 
     public down(id: number, x: number, y: number, onBoard: boolean): void {
-        this.contacts.set(id, { x, y, onBoard });
+        this.contacts.set(id, { x, y, onBoard, scrollThresholdMet: false });
     }
 
-    public move(id: number, x: number, y: number): { x: number; y: number } | null {
+    public move(id: number, x: number, y: number, scrollThreshold: number): { x: number; y: number } | null {
         const previous = this.contacts.get(id);
         if (previous === undefined) return null;
-        this.contacts.set(id, { ...previous, x, y });
+        const distance = Math.hypot(previous.x - x, previous.y - y);
+        if (!previous.scrollThresholdMet && distance < scrollThreshold) {
+            // Keep the touch-down position so crossing the threshold applies the full movement.
+            return null;
+        }
+        this.contacts.set(id, { ...previous, x, y, scrollThresholdMet: true });
         if (this.contacts.size !== 1 || !previous.onBoard) return null;
         return { x: previous.x - x, y: previous.y - y };
     }
