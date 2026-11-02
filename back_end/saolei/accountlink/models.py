@@ -194,11 +194,11 @@ class AccountClassicMinesweeper(models.Model):
     update_time = models.DateTimeField(auto_now=True, verbose_name='Update time', help_text='Time when this 95 Classic Minesweeper account link was last updated.')
 
 
-# 玩家在小游戏内勾选后，对方一次性推送 EVF 文件；(uid, key) 一条有效记录，syncId 用于重试幂等。
+# 玩家在小游戏内勾选后，对方一次性推送 EVF 文件；key 全局唯一，syncId 用于重试幂等。
 class ClassicReplay(models.Model):
     sync_id = models.PositiveBigIntegerField(unique=True, help_text='X-Ext-Sync-Id；重复推送（重试）时不变。')
     uid = models.PositiveBigIntegerField(verbose_name='95 Classic UID', help_text='推送时玩家的 8 位 UID。')
-    key = models.CharField(max_length=64, help_text='<赛季>-<录像id>，与对方 list 的 key 同口径。')
+    key = models.CharField(max_length=64, unique=True, help_text='<赛季>-<录像id>，对方保证全局唯一；同一 key 换 syncId 覆盖同一行。')
     season = models.PositiveIntegerField(help_text='赛季编码，来自 X-Ext-Season。')
     platform = models.CharField(max_length=8, help_text='mobile / pc。')
     difficulty = models.CharField(max_length=8, help_text='easy / hard / expert。')
@@ -214,11 +214,6 @@ class ClassicReplay(models.Model):
     error_category = models.CharField(max_length=32, default='', blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=['uid', 'key'], name='accountlink_classic_replay_uid_key_uniq'),
-        ]
 
 
 # 95经典扫雷的绑定需玩家在小游戏内确认，requestId 由对方签发，回调按它幂等。

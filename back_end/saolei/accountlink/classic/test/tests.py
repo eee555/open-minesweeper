@@ -582,6 +582,19 @@ class ClassicReplayPushTestCase(TestCase):
         self.assertEqual(response.json()['category'], 'sync_id_conflict')
         self.assertEqual(ClassicReplay.objects.count(), 1)
 
+    @patch('accountlink.classic.services._import_classic_replay')
+    def test_key_cannot_belong_to_another_uid(self, import_replay):
+        import_replay.side_effect = self.fake_import
+        self.push()
+
+        response = self.push(overrides={'X-Ext-Uid': '87654321', 'X-Ext-Sync-Id': '99'})
+
+        self.assertEqual(response.status_code, 409, response.content)
+        self.assertEqual(response.json()['category'], 'key_conflict')
+        replay = ClassicReplay.objects.get(key='263-81')
+        self.assertEqual(replay.uid, 12345678)
+        self.assertEqual(import_replay.call_count, 1)
+
     def test_rejects_bad_signature_and_checksum(self):
         self.assertEqual(self.push(secret='wrong-secret').status_code, 401)
         self.assertFalse(ClassicReplay.objects.exists())

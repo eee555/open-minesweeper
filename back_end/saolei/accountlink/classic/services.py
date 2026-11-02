@@ -255,7 +255,7 @@ def _is_positive_int(value) -> bool:
 
 
 def handle_classic_replay_push(request):
-    """收取玩家勾选的 EVF：先验签与文件摘要，再按 syncId / (uid, key) 幂等导入。
+    """收取玩家勾选的 EVF：先验签与文件摘要，再按 syncId / key 幂等导入。
 
     绑定回调与录像推送共用同一地址，由 API 层按 Content-Type 分流后进入这里。
     """
@@ -358,7 +358,7 @@ def _float_header(headers, name: str) -> float:
 
 def _ingest_classic_replay(meta: ClassicReplayMeta, body: bytes):
     """先落同步记录再导入；导入失败保留记录，玩家再次勾选时可重试。"""
-    if ClassicReplay.objects.filter(sync_id=meta.sync_id).exclude(uid=meta.uid, key=meta.key).exists():
+    if ClassicReplay.objects.filter(sync_id=meta.sync_id).exclude(key=meta.key).exists():
         logger.warning(f'95经典扫雷录像推送 syncId 冲突 sync_id={meta.sync_id} uid={meta.uid} key={meta.key}')
         raise ExceptionToResponse('classic', 'sync_id_conflict', status_code=400)
     replay = _store_classic_replay(meta)
@@ -389,17 +389,22 @@ def _store_classic_replay(meta: ClassicReplayMeta) -> ClassicReplay:
         'nf': meta.nf, 'sha256': meta.sha256, 'file_size': meta.file_size, 'error_category': '',
     }
     with transaction.atomic():
-        replay = ClassicReplay.objects.select_for_update().filter(uid=meta.uid, key=meta.key).first()
+        replay = ClassicReplay.objects.select_for_update().filter(key=meta.key).first()
+        if replay is not None and replay.uid != meta.uid:
+            logger.warning(f'95经典扫雷录像 key 属于其他玩家 key={meta.key} uid={meta.uid} owner_uid={replay.uid}')
+            raise ExceptionToResponse('classic', 'key_conflict', status_code=409)
         if replay is None:
             try:
                 with transaction.atomic():
                     return ClassicReplay.objects.create(uid=meta.uid, key=meta.key, **defaults)
             except IntegrityError:
-                replay = ClassicReplay.objects.select_for_update().filter(uid=meta.uid, key=meta.key).first()
+                replay = ClassicReplay.objects.select_for_update().filter(key=meta.key).first()
                 if replay is None:
                     raise ExceptionToResponse('classic', 'sync_id_conflict', status_code=400) from None
+                if replay.uid != meta.uid:
+                    raise ExceptionToResponse('classic', 'key_conflict', status_code=409) from None
         if replay.import_video_id and replay.sha256 != meta.sha256:
-            logger.warning(f'95经典扫雷同一录像重复推送但文件摘要变化 uid={meta.uid} key={meta.key}')
+            logger.warning(f'95经典扫雷同一录像重复推送但文件摘要变化 key={meta.key} uid={meta.uid}')
         for field, value in defaults.items():
             setattr(replay, field, value)
         try:

@@ -83,7 +83,7 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 - `Platform.CLASSIC` 使用平台码 `x`。
 - `AccountClassicMinesweeper.id` 保存 8 位 UID，`parent` 使用 `related_name='account_classic'`。
 - `ClassicBindRequest` 按 `uid` 与 `request_id` 各唯一一行，保存申请状态、过期时间和错误分类；同一 UID 重新申请会覆盖该行，`request_id` 是回调幂等键。
-- `ClassicReplay` 按 `(uid, key)` 唯一保存一条推送记录，`sync_id` 也唯一；`import_video` 为空表示尚未导入，解析失败时保留记录与 `error_category`，玩家再次勾选即可重试。
+- `ClassicReplay` 按 `key` 唯一保存一条推送记录（对方保证 key 全局唯一），`sync_id` 也唯一；同一 key 换 `syncId` 覆盖同一行，key 出现在不同 uid 时返回 `key_conflict`。`import_video` 为空表示尚未导入，解析失败时保留记录与 `error_category`，玩家再次勾选即可重试。
 
 ### 接口
 
@@ -101,7 +101,7 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 - 签名与绑定回调相同：`HMAC_SHA256(app_secret, timestamp + "." + 原始请求体)`，时间戳窗口 300 秒。签名通过后还要用 `X-Ext-Sha256` 校验文件完整，失败返回 400，让对方重试。
 - 文件内容才是成绩来源：导入复用本站 `MSVideoParser` 与录像查重，难度、用时、3BV 等都以 EVF 解析结果为准，请求头只用于归属、审计与幂等。
 - 只有当前仍绑定本站的 UID 才导入；若绑定在排队期间被解除，记录 `unbound` 并返回 2xx，避免对方无意义重试。
-- 同一 `sync_id` 重试直接返回；同一 `(uid, key)` 换了 `syncId` 也只保留一行。命中本站已有录像（同哈希）时关联已有录像，不重复入库；同哈希属于其他玩家时返回 409，不修改既有录像。
+- 同一 `sync_id` 重试直接返回；同一 `key` 换了 `syncId` 也只保留一行。key 出现在其他 uid 时返回 409 `key_conflict`，不覆盖归属。命中本站已有录像（同哈希）时关联已有录像，不重复入库；同哈希属于其他玩家时返回 409，不修改既有录像。
 - `revoke` 只删除绑定和申请队列，不删除已经推送并导入的录像：这些录像属于玩家本人，删除会同时影响成绩与排行；解绑后对方停止推送新录像。
 
 ### 签名与错误分类
@@ -110,7 +110,7 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 
 远端错误码映射：`40001 → bad_request`、`40002 → bad_callback`、`40101 → unauthorized`、`40301 → app_mismatch`、`40401 → uid_not_found`、`40901 → already_bound`、`40902 → denied_recently`、`40903 → revoked_recently`、`42901 → rate_limited`；其余响应与网络故障分别映射为 `response`、`requestexception`、`timeout`。
 
-录像推送的本地错误分类：`invalid_signature`（401）、`bad_checksum` / `bad_request` / `sync_id_conflict`（400）、`payload_too_large`（413）、`import`（500）；文件解析拒收沿用 `file/type`、`file/incomplete`、`file/level`、`file/review`，同哈希归属他人为 `file/collision`（409）。
+录像推送的本地错误分类：`invalid_signature`（401）、`bad_checksum` / `bad_request` / `sync_id_conflict`（400）、`payload_too_large`（413）、`key_conflict`（409）、`import`（500）；文件解析拒收沿用 `file/type`、`file/incomplete`、`file/level`、`file/review`，同哈希归属他人为 `file/collision`（409）。
 
 ### 一致性与重试
 
