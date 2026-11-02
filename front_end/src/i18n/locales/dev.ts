@@ -49,10 +49,12 @@ export default {
         e: 'Evf',
         r: 'Rmv',
         m: 'Mvf',
+        x: '95',
     },
     softwareName: {
         a: 'Minesweeper Arbiter',
         r: 'Viennasweeper',
         m: 'Clone 2007',
+        x: '95 Classic',
     },
 };

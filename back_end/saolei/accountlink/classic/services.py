@@ -435,9 +435,11 @@ def _import_classic_replay(replay: ClassicReplay, data: bytes) -> VideoModel | N
         if parser.state == MS_TextChoices.State.OFFICIAL and not Identifier.verify(parser.identifier, user.userms):
             parser.state = MS_TextChoices.State.IDENTIFIER
         video = VideoModel.create_from_parser(parser, user, original_hash=original_hash, upload_time=replay.played_at)
+        # 文件仍是 EVF，但来源标记为 95 经典扫雷，便于前端区分来源。
+        video.software = MS_TextChoices.Software.CLASSIC
         set_import_upload_time(video, replay.played_at, created=True)
         video.update_redis()
-        video.save(update_fields=['upload_time', 'ongoing_tournament'])
+        video.save(update_fields=['upload_time', 'ongoing_tournament', 'software'])
         replay.import_video = video
         replay.save(update_fields=['import_video'])
         logger.info(f'95经典扫雷录像 {replay.key} 已关联本站录像#{video.pk}')

@@ -114,6 +114,7 @@ describe('strings', () => {
             expect(getSoftwareExtension('e')).toBe('.evf');
             expect(getSoftwareExtension('r')).toBe('.rmv');
             expect(getSoftwareExtension('m')).toBe('.mvf');
+            expect(getSoftwareExtension('x')).toBe('.evf');
         });
     });
 });

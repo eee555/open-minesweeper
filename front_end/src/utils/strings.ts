@@ -138,5 +138,6 @@ export function getSoftwareExtension(software: MS_Software): '.avf' | '.evf' | '
         case 'e': return '.evf';
         case 'r': return '.rmv';
         case 'm': return '.mvf';
+        case 'x': return '.evf';
     }
 }

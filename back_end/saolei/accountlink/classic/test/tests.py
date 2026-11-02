@@ -14,7 +14,7 @@ from django.utils import timezone
 import requests
 
 from accountlink.classic.client import request_classic_bind, verify_classic_callback
-from accountlink.classic.services import _store_classic_request
+from accountlink.classic.services import _import_classic_replay, _store_classic_request
 from accountlink.models import AccountClassicMinesweeper, AccountLinkQueue, ClassicBindRequest, ClassicReplay, Platform
 from config.text_choices import MS_TextChoices
 from userprofile.models import UserProfile
@@ -627,6 +627,23 @@ class ClassicReplayPushTestCase(TestCase):
         replay = ClassicReplay.objects.get(uid=12345678, key='263-81')
         self.assertEqual(replay.error_category, 'incomplete')
         self.assertIsNone(replay.import_video_id)
+
+    @patch('accountlink.classic.services.MSVideoParser')
+    @patch('accountlink.classic.services.VideoModel.create_from_parser')
+    def test_import_marks_software_as_classic(self, create_from_parser, parser_class):
+        parser_class.return_value.state = MS_TextChoices.State.PLAIN
+        create_from_parser.return_value = self.video
+        replay = ClassicReplay.objects.create(
+            sync_id=100, uid=12345678, key='263-90', season=263, platform='pc', difficulty='e',
+            played_at=timezone.now(), time_ms=1000, bv3=10, nf=False,
+            sha256='0' * 64, file_size=9,
+        )
+
+        video = _import_classic_replay(replay, b'evf-bytes')
+
+        self.assertEqual(video.software, 'x')
+        replay.refresh_from_db()
+        self.assertEqual(replay.import_video, self.video)
 
     def test_unbound_player_is_acknowledged_without_import(self):
         AccountClassicMinesweeper.objects.all().delete()

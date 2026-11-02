@@ -12,6 +12,9 @@
                         <img style="width: 24px; height: 24px; vertical-align: middle;" :src="ArbiterIcon">
                         {{ t('software.arbiter') }}
                     </template>
+                    <template v-else-if="data.software === 'x'">
+                        {{ t('softwareName.x') }}
+                    </template>
                 </template>
                 <template #overlay>
                     <MetasweeperHelper v-if="data.software == 'e'" style="justify-self: center;" />
