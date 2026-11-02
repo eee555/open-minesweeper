@@ -136,7 +136,6 @@ async function getEmailCaptcha(type: string) {
                 validateError(captchaFormRef, t('msg.captchaFail'));
                 counting.value = false;
             } else if (data.object == 'email') {
-                counting.value = false;
                 validateError(captchaFormRef, t('msg.captchaRefresh'));
                 ElNotification({
                     title: t('msg.emailSendFailTitle'),
@@ -147,8 +146,7 @@ async function getEmailCaptcha(type: string) {
             }
         }
     }).catch(function () {
-        // 网络异常或后端出错：同样解除倒计时并提示失败
-        counting.value = false;
+        // 网络异常或后端出错：提示失败，但保留 60 秒倒计时避免频繁重试
         ElNotification({
             title: t('msg.emailSendFailTitle'),
             message: t('msg.emailSendFailMsg'),
