@@ -38,4 +38,4 @@ npm 的 dev/frontend 及 build:dev、build:frontend、build:openms pre hook 会�
 
 部署时 collectstatic 收集 ZIP 到 /root/saolei/static/assets/。项目 Nginx 配置的 `location ^~ /assets/` 直接提供该目录的 Vite 资源；更新服务器配置后先 nginx -t，再重载。网站的下载地址为 `${BASE_URL}assets/OpenMinesweeperVideoAnalyzer-${version}.zip`，发布后应核对 HTTP 200、application/zip 和包内版本。
 
-软件下载弹窗的 [AnalyzerHelper.vue](../src/components/dialogs/AnalyzerHelper.vue) 表格是手动发布历史；确认文件实际可下载后再更新条目。开发中的版本与尚未上传的 ZIP 不自动加入下载历史。生成的 HTML 和 ZIP 保持 Git 忽略。
+资源页的 [AnalyzerHelper.vue](../src/views/ResourcesView/AnalyzerHelper.vue) 表格是手动发布历史；确认文件实际可下载后再更新条目。开发中的版本与尚未上传的 ZIP 不自动加入下载历史。生成的 HTML 和 ZIP 保持 Git 忽略。

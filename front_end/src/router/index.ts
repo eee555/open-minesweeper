@@ -2,6 +2,7 @@ import type { RouteRecordRaw } from 'vue-router';
 import { createRouter, createWebHashHistory } from 'vue-router';
 
 import { rankingRoutes } from '@/views/RankingView/routes';
+import { resourceRoutes } from '@/views/ResourcesView/routes';
 import { staffRoutes } from '@/views/StaffView/routes';
 import { userRoutes } from '@/views/UserView/routes';
 
@@ -45,6 +46,11 @@ const routes: RouteRecordRaw[] = [
         name: 'server',
         component: () => import('../views/ServerView/App.vue'),
     },
+    {
+        path: '/resources',
+        redirect: { name: 'resources-metasweeper' },
+    },
+    ...resourceRoutes,
     {
         path: '/minigame',
         component: () => import('../views/MiniGameView/App.vue'),

@@ -1,10 +1,21 @@
 <template>
     <section class="analyzer-helper text" aria-label="OpenMinesweeper Video Analyzer">
-        <h3 class="text-medium">
-            OpenMinesweeper Video Analyzer
-        </h3>
         <p>{{ t('local.description') }}</p>
         <p>{{ t('local.openOffline') }}</p>
+        <div class="description-layout">
+            <dl class="descriptions descriptions-bordered">
+                <div class="description-item">
+                    <dt>{{ t('software.platform') }}</dt>
+                    <dd>{{ t('software.webPage') }}</dd>
+                </div>
+                <div class="description-item">
+                    <dt>{{ t('software.supportedLanguages') }}</dt>
+                    <dd>
+                        <BaseFlagUK />&nbsp;<BaseFlagCN />
+                    </dd>
+                </div>
+            </dl>
+        </div>
         <BaseTable>
             <template #head>
                 <tr>
@@ -29,14 +40,17 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/descriptions.css';
 import '@/styles/link.css';
 import { useI18n } from 'vue-i18n';
 
 import BaseTable from '@/components/common/BaseTable.vue';
+import { BaseFlagCN, BaseFlagUK } from '@/components/common/flag';
 
 const downloadBaseUrl = `${import.meta.env.BASE_URL}assets/`;
 // 发布历史手动维护：新版本提供下载后，添加版本、日期及实际 ZIP 文件名；不读取 version.json 自动更新。
 const tableData = [
+    { version: '0.2.1', date: '2026-11-01', filename: 'OpenMinesweeperVideoAnalyzer-0.2.1.zip' },
     { version: '0.2.0', date: '2026-10-19', filename: 'OpenMinesweeperVideoAnalyzer-0.2.0.zip' },
     { version: '0.1.3', date: '2026-10-18', filename: 'OpenMinesweeperVideoAnalyzer-0.1.3.zip' },
     { version: '0.1.2', date: '2026-10-13', filename: 'OpenMinesweeperVideoAnalyzer-0.1.2.zip' },

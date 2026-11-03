@@ -403,6 +403,7 @@ export default {
         supportedLanguages: '语言',
         version: '版本',
         viennasweeper: 'Viennasweeper',
+        webPage: '网页',
     },
     staff: {
         batch: {

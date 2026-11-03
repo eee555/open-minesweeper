@@ -412,6 +412,7 @@ export default {
         supportedLanguages: 'Languages',
         version: 'Version',
         viennasweeper: 'Viennasweeper',
+        webPage: 'Web page',
     },
     staff: {
         batch: {
