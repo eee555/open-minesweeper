@@ -71,7 +71,9 @@ describe('<ResourcesView /> routing', () => {
 
     it('opens a deep link and falls back to the first resource for unknown paths', () => {
         const router = mountResources('/resources/analyzer');
-        cy.get('[data-cy=resource-analyzer]').should('be.visible').and('contain.text', 'OpenMinesweeper Video Analyzer');
+        // 只断言结构与路由，不绑定面板里的具体文案。
+        cy.get('[data-cy=resource-analyzer]').should('be.visible');
+        cy.get('[data-cy=resource-analyzer] a[download]').should('exist');
         tabOf('Video Analyzer').should('have.attr', 'aria-selected', 'true');
 
         cy.then(() => router.push('/resources/not-a-resource'));
