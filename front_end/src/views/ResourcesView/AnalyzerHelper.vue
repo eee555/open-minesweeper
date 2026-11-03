@@ -2,6 +2,20 @@
     <section class="analyzer-helper text" aria-label="OpenMinesweeper Video Analyzer">
         <p>{{ t('local.description') }}</p>
         <p>{{ t('local.openOffline') }}</p>
+        <div class="description-layout">
+            <dl class="descriptions descriptions-bordered">
+                <div class="description-item">
+                    <dt>{{ t('software.platform') }}</dt>
+                    <dd>{{ t('software.webPage') }}</dd>
+                </div>
+                <div class="description-item">
+                    <dt>{{ t('software.supportedLanguages') }}</dt>
+                    <dd>
+                        <BaseFlagUK />&nbsp;<BaseFlagCN />
+                    </dd>
+                </div>
+            </dl>
+        </div>
         <BaseTable>
             <template #head>
                 <tr>
@@ -26,10 +40,12 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/descriptions.css';
 import '@/styles/link.css';
 import { useI18n } from 'vue-i18n';
 
 import BaseTable from '@/components/common/BaseTable.vue';
+import { BaseFlagCN, BaseFlagUK } from '@/components/common/flag';
 
 const downloadBaseUrl = `${import.meta.env.BASE_URL}assets/`;
 // 发布历史手动维护：新版本提供下载后，添加版本、日期及实际 ZIP 文件名；不读取 version.json 自动更新。

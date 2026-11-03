@@ -55,8 +55,8 @@ describe('<ResourcesView /> routing', () => {
             cy.get(`[data-cy=resource-${tab.id}]`).should('be.visible');
             tabOf(tab.en).should('have.attr', 'aria-selected', 'true');
         }
-        // 一次只有一个标签内容在渲染，切走后旧标签不再存在。
-        cy.get('.resources-panel').should('have.length', 1);
+        // 标签内容按需渲染：未访问的标签不进入 DOM，访问过的保留但只有一个可见。
+        cy.get('.resources-panel:visible').should('have.length', 1);
     });
 
     it('localizes tab labels and uses 元扫雷 for Metasweeper in Chinese', () => {
