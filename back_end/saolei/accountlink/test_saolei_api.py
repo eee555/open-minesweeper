@@ -11,13 +11,14 @@ from django.core.management import call_command, CommandError
 from django.db import connection
 from django.db.migrations import DeleteModel
 from django.db.migrations.executor import MigrationExecutor
-from django.test import override_settings, TestCase, TransactionTestCase
+from django.test import Client as DjangoClient, override_settings, TestCase, TransactionTestCase
 from django.utils import timezone
 import httpx
 from saolei_api import Client, RateLimitError, ResponseError, VideoInfo, VideoListResponse
 
 from config.text_choices import MS_TextChoices
 from identifier.models import Identifier
+from msuser.models import UserMS
 from userprofile.models import UserProfile
 from utils.exceptions import ExceptionToResponse
 from utils.parser import MSVideoParser
@@ -402,6 +403,89 @@ class SaoleiImportTests(TestCase):
         client.download_videos.assert_not_called()
         self.account.refresh_from_db()
         self.assertEqual(self.account.video_sync_cursor, 0)
+
+
+MEMORIAL_BASE = '/api/accountlink/saolei'
+
+
+@override_settings(RATELIMIT_ENABLE=False, BAIDU_VERIFY_SKIP=True)
+class SaoleiMemorialAdminTests(TestCase):
+    """纪念账号无法登录，改由站长操作其扫雷网录像；普通账号的本人限制保持不变。"""
+
+    def setUp(self):
+        self.memorial = UserProfile.objects.create_user(pk=2001, username='memorial-player', email='memorial-player@accounts.invalid', is_memorial=True, is_active=False, userms=UserMS.objects.create(pk=2002))
+        self.account = AccountSaolei.objects.create(pk=3001, parent=self.memorial)
+        AccountLinkQueue.objects.create(platform=Platform.SAOLEI, identifier='3001', userprofile=self.memorial, verified=True)
+        self.superuser = UserProfile.objects.create_user(username='owner-saolei', email='owner-saolei@example.com', is_superuser=True)
+        self.staff = UserProfile.objects.create_user(username='staff-saolei', email='staff-saolei@example.com', is_staff=True)
+        self.ordinary = UserProfile.objects.create_user(username='ordinary-saolei', email='ordinary-saolei@example.com')
+        self.page_client = Mock()
+
+    def start(self):
+        upstream = patch('accountlink.saolei.api.upstream_client', return_value=nullcontext(self.page_client))
+        self.page_client.stats.return_value.max_video_id = 10
+        return upstream
+
+    def test_superuser_reads_and_syncs_a_memorial_account(self):
+        self.client.force_login(self.superuser)
+        self.assertEqual(self.client.get(f'{MEMORIAL_BASE}/3001/summary').status_code, 200)
+        self.assertEqual(self.client.get(f'{MEMORIAL_BASE}/3001/videos').status_code, 200)
+        with self.start(), patch('accountlink.saolei.api.sync_saolei_page', return_value=(5, True)) as page:
+            response = self.client.post(f'{MEMORIAL_BASE}/3001/sync/page', {'cursor': 0, 'upper_bound': 10}, content_type='application/json')
+            self.assertEqual(response.status_code, 200, response.content)
+            self.assertEqual(response.json(), {'cursor': 5, 'has_more': True})
+            page.assert_called_once()
+            start = self.client.post(f'{MEMORIAL_BASE}/3001/sync/start', {'full': True}, content_type='application/json')
+            self.assertEqual(start.status_code, 200, start.content)
+            self.assertEqual(start.json(), {'cursor': 0, 'upper_bound': 10})
+
+    def test_staff_manages_imports_but_not_profile_or_settings_of_a_memorial_account(self):
+        """管理员可以同步与导入纪念账号的录像；资料与自动同步设置仍只属于站长。"""
+        self.client.force_login(self.staff)
+        with self.start(), patch('accountlink.saolei.api.sync_saolei_page', return_value=(5, True)):
+            response = self.client.post(f'{MEMORIAL_BASE}/3001/sync/page', {'cursor': 0, 'upper_bound': 10}, content_type='application/json')
+            self.assertEqual(response.status_code, 200, response.content)
+            self.assertEqual(self.client.post(f'{MEMORIAL_BASE}/3001/sync/start', {'full': True}, content_type='application/json').status_code, 200)
+        self.assertEqual(self.client.post(f'{MEMORIAL_BASE}/3001/profile').status_code, 403)
+        self.assertEqual(self.client.post(f'{MEMORIAL_BASE}/3001/settings', {'auto_sync': False}, content_type='application/json').status_code, 403)
+
+    def test_ordinary_users_stay_outside_the_memorial_bypass(self):
+        self.client.force_login(self.ordinary)
+        with self.start():
+            self.assertEqual(self.client.post(f'{MEMORIAL_BASE}/3001/sync/page', {'cursor': 0, 'upper_bound': 10}, content_type='application/json').status_code, 403)
+            self.assertEqual(self.client.get(f'{MEMORIAL_BASE}/3001/summary').status_code, 200)
+        self.assertEqual(self.client.post(f'{MEMORIAL_BASE}/3001/profile').status_code, 403)
+        self.assertEqual(self.client.post(f'{MEMORIAL_BASE}/3001/settings', {'auto_sync': False}, content_type='application/json').status_code, 403)
+
+    def test_bypass_is_limited_to_memorial_accounts(self):
+        regular = UserProfile.objects.create_user(username='regular-saolei', email='regular-saolei@example.com')
+        AccountSaolei.objects.create(pk=3002, parent=regular)
+        AccountLinkQueue.objects.create(platform=Platform.SAOLEI, identifier='3002', userprofile=regular, verified=True)
+        self.client.force_login(self.superuser)
+        with self.start():
+            self.assertEqual(self.client.post(f'{MEMORIAL_BASE}/3002/sync/page', {'cursor': 0, 'upper_bound': 10}, content_type='application/json').status_code, 403)
+            self.assertEqual(self.client.post(f'{MEMORIAL_BASE}/3002/profile').status_code, 403)
+
+    def test_memorial_sync_requires_a_session_and_admin_csrf(self):
+        anonymous = DjangoClient(enforce_csrf_checks=True)
+        self.assertEqual(anonymous.post(f'{MEMORIAL_BASE}/3001/sync/page', {'cursor': 0, 'upper_bound': 10}, content_type='application/json').status_code, 403)
+        admin = DjangoClient(enforce_csrf_checks=True)
+        admin.force_login(self.superuser)
+        with self.start():
+            self.assertEqual(admin.post(f'{MEMORIAL_BASE}/3001/sync/start', {'full': False}, content_type='application/json').status_code, 403)
+            self.assertEqual(admin.get('/api/common/admin/memorial/users/2001/videos').status_code, 200)
+            csrf = admin.cookies['csrftoken'].value
+            allowed = admin.post(f'{MEMORIAL_BASE}/3001/sync/start', {'full': False}, content_type='application/json', HTTP_X_CSRFTOKEN=csrf)
+            self.assertEqual(allowed.status_code, 200, allowed.content)
+
+    def test_owner_can_still_sync_their_own_account_without_csrf(self):
+        own = AccountSaolei.objects.create(pk=4001, parent=self.staff)
+        AccountLinkQueue.objects.create(platform=Platform.SAOLEI, identifier='4001', userprofile=self.staff, verified=True)
+        self.client.force_login(self.staff)
+        with self.start(), patch('accountlink.saolei.api.sync_saolei_page', return_value=(7, False)):
+            response = self.client.post(f'{MEMORIAL_BASE}/4001/sync/page', {'cursor': 0, 'upper_bound': 10}, content_type='application/json')
+            self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(own.parent_id, self.staff.pk)
 
 
 class SaoleiSourceMigrationTests(TransactionTestCase):
