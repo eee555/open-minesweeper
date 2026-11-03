@@ -12,9 +12,6 @@
                     <option v-for="item in trainingDensities" :key="item.value" :value="item.value">{{ item.label }}</option>
                 </select>
             </label>
-            <label v-if="gameType === 'multi-touch'">{{ t('local.scrollThreshold') }}
-                <InputNumber v-model="minigameSettings.scrollThreshold" :min="0" :max="Number.MAX_SAFE_INTEGER" integer step="1" inputmode="numeric" data-cy="training-scroll-threshold" /> px
-            </label>
             <div v-if="gameType === 'multi-touch' && level === 'e'" class="checkbox-buttons" role="radiogroup" :aria-label="t('local.orientation')" data-cy="training-orientation">
                 <label v-for="direction in touchOrientations" :key="direction" class="checkbox-button">
                     <input v-model="minigameSettings.multiTouchOrientation" class="checkbox-button-input" type="radio" :name="orientationGroupName" :value="direction">
@@ -221,7 +218,6 @@ const i18nMessages = {
         exitFullscreen: '退出全屏',
         fullscreenFailed: '无法进入全屏，请使用浏览器允许全屏的方式打开页面。',
         density: '雷密度',
-        scrollThreshold: '滚动判定阈值',
         remaining: '剩余点击数',
         boardLabel: '左键训练棋盘，点击没有雷的凸起格子',
         rules: '仅接受鼠标。雷的不透明度可在小游戏设置中调整。每次左键弹起只完成当前一个安全格，不自动展开；点到雷即失败。右键和双键不执行操作。',
@@ -235,7 +231,6 @@ const i18nMessages = {
         exitFullscreen: 'Exit fullscreen',
         fullscreenFailed: 'Cannot enter fullscreen. Open this page in a browser that permits fullscreen.',
         density: 'Mine density',
-        scrollThreshold: 'Scroll threshold',
         remaining: 'Clicks left',
         boardLabel: 'Left-click training board. Click raised cells without mines.',
         rules: 'Mouse only. Adjust mine opacity in minigame settings. Each left-button release opens just one safe cell; hitting a mine ends the game. Right clicks and chords have no effect.',

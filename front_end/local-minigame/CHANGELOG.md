@@ -1,5 +1,10 @@
 # 更新记录 / Changelog
 
+## 0.7.2 — 2026-11-03
+
+- 多指训练新增滚动阈值设置（小游戏设置中调整，默认 0px），单指移动超过阈值后才开始滚动棋盘，避免点击时手指轻微移动带动画面；阈值上限 200px。
+- Multi-touch training adds a scroll threshold setting in the minigame settings (0px by default): the board scrolls only after a finger moves past it, so slight movement while tapping no longer drags the view. The threshold caps at 200px.
+
 ## 0.7.1 — 2026-10-31
 
 - 左键和多指训练的右上角计数器可切换 Time／CES，回放按当前进度计算；本地历史同时显示两项成绩并支持排序。

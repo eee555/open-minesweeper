@@ -82,4 +82,26 @@ describe('minigame settings section', () => {
             expect(settings.restartHotkey?.code).to.eq('F2');
         });
     });
+
+    it('saves the multi-touch scroll threshold without restarting an ongoing game', () => {
+        cy.mount(SettingsAndTraining, { global: { plugins: [i18n] } });
+        cy.get<ComponentWrapper<typeof SettingsAndTraining>>('@vue').then((wrapper) => {
+            const board: number[][] = wrapper.findComponent<typeof MiniGameBoard>('[data-cy="minigame-board"]').props('board');
+            const [safe] = board.flatMap((row, r) => row.flatMap((value, c) => (value === 10 ? [{ row: r, column: c }] : [])));
+            mouseAt(safe.row, safe.column, 'mousedown');
+            mouseAt(safe.row, safe.column, 'mouseup');
+        });
+        cy.get('[data-cy="training-game"]').should('have.attr', 'data-phase', 'playing');
+        cy.get('[data-cy="minigame-scroll-threshold"]').should('have.value', '0');
+        cy.get('[data-cy="minigame-scroll-threshold"]').clear();
+        cy.get('[data-cy="minigame-scroll-threshold"]').type('40');
+        cy.get('[data-cy="minigame-scroll-threshold"]').blur();
+        cy.get('[data-cy="minigame-scroll-threshold"]').should('have.value', '40');
+        cy.get('[data-cy="training-game"]').should('have.attr', 'data-phase', 'playing');
+        cy.get('[data-cy="training-remaining"]').should('have.attr', 'aria-label', '031');
+        cy.window().its('localStorage').invoke('getItem', 'minigame-settings').should((value: string | null) => {
+            const settings = JSON.parse(value ?? '{}') as Partial<MinigameSettings>;
+            expect(settings.scrollThreshold).to.eq(40);
+        });
+    });
 });

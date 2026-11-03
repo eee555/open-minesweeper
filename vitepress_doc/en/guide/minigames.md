@@ -30,7 +30,7 @@ Uses the same sizes, mine densities and win/loss rules as left-click training, b
 
 Mine opacity and the pressed or raised mine-cell setting are shared with left-click training.
 
-Drag with one finger to scroll the board and page, without stopping at the board edges. Scrolling stops while two or more contacts are held. Expert offers horizontal **16 rows × 30 columns** or vertical **30 rows × 16 columns**. Orientation is saved locally; changing it keeps the current game and replay.
+Drag with one finger to scroll the board and page, without stopping at the board edges. Scrolling stops while two or more contacts are held. Adjust the scroll threshold in minigame settings (0px by default); scrolling starts only after a finger moves past it, so slight movement while tapping does not drag the view. Expert offers horizontal **16 rows × 30 columns** or vertical **30 rows × 16 columns**. Orientation is saved locally; changing it keeps the current game and replay.
 
 Fullscreen removes the board frames and surrounding spacing. Enter the cell size in its toolbar; it is shared with minigame settings and saved, without automatic resizing. Scroll horizontally and vertically when needed. Fullscreen counters are display-only; use the toolbar restart button for a new game. Changing size or exiting fullscreen keeps the current game and cell size; exiting restores the counter-bar restart action.
 

@@ -11,7 +11,7 @@ import { encodeMines } from '@/utils/minigame/boardEncoding';
 import { multiTouchModes } from '@/utils/minigame/leftClickTraining';
 import type { AnyTrainingReplay } from '@/utils/minigame/replay';
 import { defaultMinigameSettings, minigameSettings } from '@/utils/minigame/settings';
-import { isolateMinigameHistory, mouseAt, savedMinigameResults, touchAt } from '@cy/support/minigame';
+import { isolateMinigameHistory, mouseAt, savedMinigameResults, touchAt, touchClientAt } from '@cy/support/minigame';
 
 function mountGame(gameType: 'multi-touch' | 'left-click' = 'multi-touch') {
     return cy.mount(defineComponent({ expose: [], render: () => h(App, { offline: true, gameType }) }), { global: { plugins: [i18n] } }).then(({ wrapper }) => {
@@ -207,6 +207,39 @@ describe('touch-only training', () => {
         cy.get('[data-cy="training-game"]').should('have.attr', 'data-phase', 'ready');
         cy.get('[data-cy="training-fullscreen"]').should('have.attr', 'aria-pressed', 'true');
         cy.get('[data-cy="training-fullscreen"]').click();
+    });
+
+    it('waits for the scroll threshold saved in the shared settings', () => {
+        cy.viewport(400, 800);
+        mountGame();
+        cy.get('[data-cy="training-level"] input[value="e"]').parent().click();
+        cy.get('[data-cy="training-remaining"]').should('have.attr', 'aria-label', '240');
+        minigameSettings.value.scrollThreshold = 40;
+        cy.get<ComponentWrapper<typeof App>>('@game').then((wrapper) => {
+            const board: number[][] = wrapper.findComponent<typeof MiniGameBoard>('[data-cy="minigame-board"]').props('board');
+            const [safe] = cells(board, 10);
+            cy.get('.training-scroll').scrollTo(0, 0);
+            cy.get('[data-cy="minigame-board"]').then(($board) => {
+                const rect = $board[0].getBoundingClientRect();
+                const startX = rect.left + (safe.column + 0.5) * 32;
+                const startY = rect.top + (safe.row + 0.5) * 32;
+                touchClientAt(startX, startY, 'pointerdown');
+                touchClientAt(startX - 24, startY, 'pointermove');
+                cy.get('.training-scroll').should(($scroll) => {
+                    expect($scroll[0].scrollLeft).to.eq(0);
+                });
+                // Crossing the threshold scrolls the whole distance from the touch-down point.
+                touchClientAt(startX - 64, startY, 'pointermove');
+                cy.get('.training-scroll').should(($scroll) => {
+                    expect($scroll[0].scrollLeft).to.be.closeTo(64, 1);
+                });
+                touchClientAt(startX - 80, startY, 'pointermove');
+                cy.get('.training-scroll').should(($scroll) => {
+                    expect($scroll[0].scrollLeft).to.be.closeTo(80, 1);
+                });
+                touchClientAt(startX - 80, startY, 'pointerup');
+            });
+        });
     });
 
     it('opens on each independent contact down, ignoring mouse, pen, movement and release', () => {

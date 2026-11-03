@@ -46,6 +46,17 @@ describe('single-finger scrolling', () => {
         expect(scroll.move(1, 106, 108, 10)).toEqual({ x: -6, y: -8 });
         expect(scroll.move(1, 104, 105, 10)).toEqual({ x: 2, y: 3 });
     });
+
+    it('re-arms the threshold on the next touch down', () => {
+        const scroll = new SingleTouchScroll();
+        scroll.down(1, 100, 100, true);
+        expect(scroll.move(1, 80, 100, 30)).toBeNull();
+        expect(scroll.move(1, 60, 100, 30)).toEqual({ x: 40, y: 0 });
+        scroll.up(1);
+        scroll.down(1, 100, 100, true);
+        expect(scroll.move(1, 80, 100, 30)).toBeNull();
+        expect(scroll.move(1, 60, 100, 30)).toEqual({ x: 40, y: 0 });
+    });
 });
 
 describe('touch scroll chaining', () => {
