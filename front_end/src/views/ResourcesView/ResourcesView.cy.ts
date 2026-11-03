@@ -40,8 +40,9 @@ function tabOf(label: string) {
 
 describe('<ResourcesView /> routing', () => {
     it('redirects the bare path to the first resource', () => {
-        mountResources('/resources');
-        cy.location('pathname').should('eq', FIRST_PATH);
+        const router = mountResources('/resources');
+        // 组件测试跑在 Cypress 的 iframe 里，内存路由不改 window.location，只能读路由实例。
+        cy.wrap(router).its('currentRoute.value.path').should('eq', FIRST_PATH);
         cy.get('[data-cy=resource-metasweeper]').should('be.visible').and('contain.text', 'Metasweeper');
         cy.get('[data-cy=resource-arbiter]').should('not.exist');
         tabOf('Metasweeper').should('have.attr', 'aria-selected', 'true');
@@ -61,7 +62,7 @@ describe('<ResourcesView /> routing', () => {
 
     it('localizes tab labels and uses 元扫雷 for Metasweeper in Chinese', () => {
         mountResources(FIRST_PATH, 'zh-cn');
-        cy.get('.resources-header').should('contain.text', '资源');
+        cy.get('.resources-tabs .el-tabs__item').should('have.length', TABS.length);
         for (const tab of TABS) {
             tabOf(tab.zh).should('exist');
         }
@@ -74,7 +75,7 @@ describe('<ResourcesView /> routing', () => {
         tabOf('Video Analyzer').should('have.attr', 'aria-selected', 'true');
 
         cy.then(() => router.push('/resources/not-a-resource'));
-        cy.location('pathname').should('eq', FIRST_PATH);
+        cy.wrap(router).its('currentRoute.value.path').should('eq', FIRST_PATH);
         cy.get('[data-cy=resource-metasweeper]').should('be.visible');
         tabOf('Metasweeper').should('have.attr', 'aria-selected', 'true');
     });
