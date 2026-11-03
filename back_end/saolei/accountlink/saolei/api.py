@@ -12,7 +12,7 @@ from ninja.orm import create_schema
 from pydantic import Field
 from saolei_api import RateLimitError, SaoleiError
 
-from userprofile.decorators import login_required_error
+from userprofile.decorators import admin_csrf_required, login_required_error
 from utils.exceptions import ExceptionToResponse
 from .client import saolei_client
 from .services import check_binding, import_saolei_video, pending_saolei_videos, sync_saolei_page, update_saolei_account_info
@@ -72,10 +72,19 @@ def account_for_request(request, account_id, *, owner=False):
     account = AccountSaolei.objects.filter(pk=account_id).first()
     if account is None:
         raise HttpError(404, 'Saolei account not found.')
-    if owner and (not request.user.is_authenticated or request.user.pk != account.parent_id):
-        raise HttpError(403, 'Only the linked account owner can synchronize videos.')
+    if owner:
+        if not request.user.is_authenticated:
+            raise HttpError(403, 'Only the linked account owner can synchronize videos.')
+        # 纪念账号无法登录，改由管理员（站长或具备管理员权限的账号）代为同步与导入其扫雷网录像。
+        if request.user.pk != account.parent_id and not ((request.user.is_staff or request.user.is_superuser) and account.parent.is_memorial):
+            raise HttpError(403, 'Only the linked account owner can synchronize videos.')
     check_binding(account, account.parent_id)
     return account
+
+
+def memorial_admin_only(account, user) -> bool:
+    """纪念账号无法登录，其资料与自动同步设置只能由站长代为修改。"""
+    return account.parent.is_memorial and user.pk != account.parent_id
 
 
 @contextmanager
@@ -123,24 +132,30 @@ def videos(request, account_id: int, after: int = 0, pending: bool = False):
 
 
 @router.post('/{account_id}/settings', response=SaoleiAccountOut)
-@decorate_view(login_required_error, ratelimit(key='user', rate='30/m', block=True))
+@decorate_view(login_required_error, admin_csrf_required, ratelimit(key='user', rate='30/m', block=True))
 def settings(request, account_id: int, data: SyncSettingsIn):
     """- login_required_error
+    - admin_csrf_required
     - ratelimit(key='user', rate='30/m', block=True)
     """
     account = account_for_request(request, account_id, owner=True)
+    if memorial_admin_only(account, request.user) and not request.user.is_superuser:
+        raise HttpError(403, 'Only a superuser can change a memorial account profile or auto-sync setting.')
     account.auto_sync = data.auto_sync
     account.save(update_fields=['auto_sync'])
     return account
 
 
 @router.post('/{account_id}/profile', response=SaoleiAccountOut)
-@decorate_view(login_required_error, ratelimit(key='user', rate='6/h', block=True))
+@decorate_view(login_required_error, admin_csrf_required, ratelimit(key='user', rate='6/h', block=True))
 def profile(request, account_id: int):
     """- login_required_error
+    - admin_csrf_required
     - ratelimit(key='user', rate='6/h', block=True)
     """
     account = account_for_request(request, account_id, owner=True)
+    if memorial_admin_only(account, request.user) and not request.user.is_superuser:
+        raise HttpError(403, 'Only a superuser can change a memorial account profile or auto-sync setting.')
     with upstream_client() as client:
         update_saolei_account_info(account, client)
     account.refresh_from_db()
@@ -148,9 +163,10 @@ def profile(request, account_id: int):
 
 
 @router.post('/{account_id}/sync/start', response=SyncStartOut)
-@decorate_view(login_required_error, ratelimit(key='user', rate='6/h', block=True))
+@decorate_view(login_required_error, admin_csrf_required, ratelimit(key='user', rate='6/h', block=True))
 def start_sync(request, account_id: int, data: SyncStartIn):
     """- login_required_error
+    - admin_csrf_required
     - ratelimit(key='user', rate='6/h', block=True)
     """
     account = account_for_request(request, account_id, owner=True)
@@ -160,9 +176,10 @@ def start_sync(request, account_id: int, data: SyncStartIn):
 
 
 @router.post('/{account_id}/sync/page', response=SyncPageOut)
-@decorate_view(login_required_error, ratelimit(key='user', rate='30/m', block=True))
+@decorate_view(login_required_error, admin_csrf_required, ratelimit(key='user', rate='30/m', block=True))
 def sync_page(request, account_id: int, data: SyncPageIn):
     """- login_required_error
+    - admin_csrf_required
     - ratelimit(key='user', rate='30/m', block=True)
     """
     account = account_for_request(request, account_id, owner=True)
@@ -172,9 +189,10 @@ def sync_page(request, account_id: int, data: SyncPageIn):
 
 
 @router.post('/videos/{source_id}/import', response=ImportOut)
-@decorate_view(login_required_error, ratelimit(key='user', rate='30/m', block=True))
+@decorate_view(login_required_error, admin_csrf_required, ratelimit(key='user', rate='30/m', block=True))
 def import_video(request, source_id: int):
     """- login_required_error
+    - admin_csrf_required
     - ratelimit(key='user', rate='30/m', block=True)
     """
     source = SaoleiApiVideo.objects.filter(pk=source_id).first()
