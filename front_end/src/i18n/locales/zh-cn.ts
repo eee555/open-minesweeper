@@ -404,6 +404,7 @@ export default {
         version: '版本',
         viennasweeper: 'Viennasweeper',
         webPage: '网页',
+        wechat: '微信',
     },
     staff: {
         batch: {
