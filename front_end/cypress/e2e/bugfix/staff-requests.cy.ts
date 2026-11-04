@@ -20,6 +20,11 @@ interface TaskDetail {
     run_after: string;
 }
 
+interface TaskPage {
+    count: number;
+    items: TaskDetail[];
+}
+
 describe('Staff requests against the backend', () => {
     it('Before All', () => {
         cy.flushDatabase();
@@ -113,7 +118,7 @@ describe('Staff requests against the backend', () => {
     it('restarts a failed task and deletes it through the staff page', () => {
         cy.login(STAFF.username, STAFF.password);
         cy.dangerzonePost<TaskDetail>('create_failed_task').then(({ body: failedTask }) => {
-            cy.intercept('GET', '**/api/common/tasks/detail').as('loadTasks');
+            cy.intercept('GET', '**/api/common/tasks/detail*').as('loadTasks');
             cy.intercept('POST', '**/api/common/tasks/restart').as('restartTask');
             cy.intercept('POST', '**/api/common/tasks/delete').as('deleteTask');
             cy.visit('/#/staff/task');
@@ -133,10 +138,10 @@ describe('Staff requests against the backend', () => {
                 cy.contains('td', restartedTask.id).should('exist');
 
                 cy.contains('button', '加载任务').click();
-                cy.wait<unknown, TaskDetail[]>('@loadTasks').then(({ response: loaded }) => {
+                cy.wait<unknown, TaskPage>('@loadTasks').then(({ response: loaded }) => {
                     expect(loaded?.statusCode).to.eq(200);
-                    expect(loaded?.body).to.deep.include(restartedTask);
-                    expect(loaded?.body).to.deep.include(failedTask);
+                    expect(loaded?.body.items).to.deep.include(restartedTask);
+                    expect(loaded?.body.items).to.deep.include(failedTask);
                 });
 
                 cy.contains('tr', failedTask.id).find('input[type="checkbox"]').check();
@@ -144,10 +149,10 @@ describe('Staff requests against the backend', () => {
                 cy.wait('@deleteTask').its('response.statusCode').should('eq', 200);
                 cy.contains('td', failedTask.id).should('not.exist');
                 cy.contains('button', '加载任务').click();
-                cy.wait<unknown, TaskDetail[]>('@loadTasks').then(({ response: loaded }) => {
+                cy.wait<unknown, TaskPage>('@loadTasks').then(({ response: loaded }) => {
                     expect(loaded?.statusCode).to.eq(200);
-                    expect(loaded?.body.map((task) => task.id)).not.to.include(failedTask.id);
-                    expect(loaded?.body).to.deep.include(restartedTask);
+                    expect(loaded?.body.items.map((task) => task.id)).not.to.include(failedTask.id);
+                    expect(loaded?.body.items).to.deep.include(restartedTask);
                 });
                 cy.contains('td', failedTask.id).should('not.exist');
                 cy.contains('td', restartedTask.id).should('exist');

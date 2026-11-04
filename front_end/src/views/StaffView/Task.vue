@@ -31,18 +31,27 @@
         </template>
     </PrToolbar>
     <PrDataTable
+        v-model:first="first"
+        v-model:rows="rows"
         v-model:filters="filters"
         v-model:selection="selectedTasks"
+        v-model:sort-field="sortField"
+        v-model:sort-order="sortOrder"
         v-loading="loading"
         :value="taskData"
+        lazy
+        :total-records="totalRecords"
         filter-display="menu"
         paginator
-        :rows="10"
+        :rows-per-page-options="[10, 25, 50, 100]"
         paginator-template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown JumpToPageInput CurrentPageReport"
+        @page="refresh"
+        @sort="refresh"
+        @filter="refresh"
     >
         <PrColumn selection-mode="multiple" />
         <PrColumn field="id" :header="t('local.id')" />
-        <PrColumn field="status" :header="t('prop.status')">
+        <PrColumn field="status" :header="t('prop.status')" :show-filter-match-modes="false" :show-filter-operator="false">
             <template #body="{ data }">
                 <BaseButton v-if="data.status === 'FAILED'" @click="console.log(data.traceback)">
                     {{ t(`local.status.${data.status}`) }}
@@ -52,7 +61,7 @@
                 </template>
             </template>
             <template #filter="{ filterModel, filterCallback }">
-                <PrSelect v-model="filterModel.value" :options="[...DjangoTaskResultStatusOptions]" :option-label="taskStatusLabel" @change="filterCallback()" />
+                <PrSelect v-model="filterModel.value" :options="taskStatusFilterOptions" :option-label="taskStatusLabel" @change="filterCallback()" />
             </template>
         </PrColumn>
         <PrColumn field="enqueued_at" :header="t('local.enqueuedAt')" sortable>
@@ -72,7 +81,11 @@
         </PrColumn>
         <PrColumn field="args_kwargs" :header="t('local.arguments')" />
         <PrColumn field="priority" :header="t('local.priority')" sortable />
-        <PrColumn field="task_path" :header="t('local.taskPath')" />
+        <PrColumn field="task_path" :header="t('local.taskPath')" :show-filter-match-modes="false" :show-filter-operator="false">
+            <template #filter="{ filterModel, filterCallback }">
+                <PrInputText v-model="filterModel.value" :aria-label="t('local.taskPath')" @keydown.enter="filterCallback()" />
+            </template>
+        </PrColumn>
         <PrColumn field="worker_ids" :header="t('local.workerIds')" />
         <PrColumn field="queue_name" :header="t('local.queue')" />
         <PrColumn field="backend_name" :header="t('local.backend')" />
@@ -103,6 +116,7 @@ import { FilterMatchMode } from '@primevue/core/api';
 import { ElDescriptions, ElDescriptionsItem, vLoading } from 'element-plus';
 import PrColumn from 'primevue/column';
 import PrDataTable from 'primevue/datatable';
+import PrInputText from 'primevue/inputtext';
 import PrSelect from 'primevue/select';
 import PrToolbar from 'primevue/toolbar';
 import { onMounted, ref } from 'vue';
@@ -138,6 +152,13 @@ interface TaskDetail {
     traceback: string;
 }
 
+interface TaskPage {
+    count: number;
+    page: number;
+    page_size: number;
+    items: TaskDetail[];
+}
+
 interface TaskSummary {
     total: number;
     status: EnumMap<DjangoTaskResultStatus, number>;
@@ -151,19 +172,27 @@ const disabledCrawlingTasks = new Set([
     'accountlink.tasks.task_saolei_video_import_bulk',
 ]);
 
+const taskStatusFilterOptions = DjangoTaskResultStatusOptions.filter((status) => status !== 'NULL');
+
 const taskData = ref<TaskDetail[]>([]);
 const selectedTasks = ref<TaskDetail[]>([]);
 const loading = ref(false);
 const summaryLoading = ref(false);
 const cleanupLoading = ref(false);
 const restartingTaskId = ref<string | null>(null);
+const first = ref(0);
+const rows = ref(10);
+const totalRecords = ref(0);
+const sortField = ref('enqueued_at');
+const sortOrder = ref<number | undefined>(-1);
 const taskSummary = ref<TaskSummary>({
     total: 0,
     status: createEnumMap(DjangoTaskResultStatusOptions, 0),
 });
 
 const filters = ref({
-    status: { value: null, matchMode: FilterMatchMode.EQUALS },
+    status: { value: null as DjangoTaskResultStatus | null, matchMode: FilterMatchMode.EQUALS },
+    task_path: { value: null as string | null, matchMode: FilterMatchMode.CONTAINS },
 });
 
 async function refreshSummary() {
@@ -176,49 +205,42 @@ async function refreshSummary() {
 
 async function refresh() {
     loading.value = true;
-    await proxy.$axios.get<TaskDetail[]>('/api/common/tasks/detail').then((response) => {
-        taskData.value = response.data;
+    await proxy.$axios.get<TaskPage>('/api/common/tasks/detail', {
+        params: {
+            page: Math.floor(first.value / rows.value) + 1,
+            page_size: rows.value,
+            status: filters.value.status.value ?? '',
+            task_path: filters.value.task_path.value ?? '',
+            sort: sortField.value,
+            reverse: sortOrder.value !== 1,
+        },
+    }).then((response) => {
+        taskData.value = response.data.items;
+        totalRecords.value = response.data.count;
     }).catch(httpErrorNotification);
     loading.value = false;
 }
 
-onMounted(refreshSummary);
+onMounted(() => {
+    void refreshSummary();
+    void refresh();
+});
 
 async function cleanupExpiredTasks() {
     cleanupLoading.value = true;
     await proxy.$axios.post<number>('/api/common/tasks/cleanup').then(async () => {
-        await refreshSummary();
+        await Promise.all([refreshSummary(), refresh()]);
     }).catch(httpErrorNotification);
     cleanupLoading.value = false;
-}
-
-function updateTaskSummary(status: DjangoTaskResultStatus, delta: number) {
-    taskSummary.value.status[status] = Math.max(0, (taskSummary.value.status[status] ?? 0) + delta);
-}
-
-function addTask(task: TaskDetail) {
-    taskData.value.unshift(task);
-    taskSummary.value.total += 1;
-    updateTaskSummary(task.status, 1);
-}
-
-function removeTask(taskId: string) {
-    const index = taskData.value.findIndex((task) => task.id === taskId);
-    if (index === -1) return;
-
-    const [task] = taskData.value.splice(index, 1);
-    selectedTasks.value = selectedTasks.value.filter((selectedTask) => selectedTask.id !== taskId);
-    taskSummary.value.total = Math.max(0, taskSummary.value.total - 1);
-    updateTaskSummary(task.status, -1);
 }
 
 async function restartTask(task: TaskDetail) {
     restartingTaskId.value = task.id;
     try {
-        const response = await proxy.$axios.post<TaskDetail>('/api/common/tasks/restart', {
+        await proxy.$axios.post<TaskDetail>('/api/common/tasks/restart', {
             task_id: task.id,
         });
-        addTask(response.data);
+        await Promise.all([refreshSummary(), refresh()]);
     } catch (error) {
         httpErrorNotification(error);
     }
@@ -227,15 +249,19 @@ async function restartTask(task: TaskDetail) {
 
 async function deleteSelected() {
     if (selectedTasks.value.length === 0) return;
+    const deletedTaskIds = new Set<string>();
     try {
         for (const task of selectedTasks.value) {
             await proxy.$axios.post('/api/common/tasks/delete', {
                 task_id: task.id,
             });
-            removeTask(task.id);
+            deletedTaskIds.add(task.id);
         }
     } catch (error) {
         httpErrorNotification(error);
+    } finally {
+        selectedTasks.value = selectedTasks.value.filter((task) => !deletedTaskIds.has(task.id));
+        await Promise.all([refreshSummary(), refresh()]);
     }
 }
 
