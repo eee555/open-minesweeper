@@ -1,22 +1,15 @@
-import { h } from 'vue';
-import { ElTabs } from 'element-plus';
-
-import NewsQueue from './NewsQueue.vue';
+import NewsQueueHost from './NewsQueueHost.vue';
 
 import i18n from '@/i18n';
 import { pinia } from '@/store/create';
 import type { NewsEvent } from '@/services/newsService';
 
-// NewsQueue 的根元素是 <ElTabPane>，强制要求父级为 <ElTabs>。这里用 h() 渲染函数
-// 包裹（不能用 .ts 模板字符串——项目是 runtime-only Vue 构建，无模板编译器），
-// 并显式 modelValue 激活 news pane；intercept 用明确的 StaticResponse 避免 axios 不确定性。
+// NewsQueue 的根元素是 <ElTabPane>，强制要求父级为 <ElTabs>。这里用一个 .vue 包裹组件
+// （模板 <ElTabs><NewsQueue/></ElTabs>，与生产 HomeView/App.vue 同结构，由 Vite 编译），
+// 避免 runtime-only 构建下 .ts 模板字符串无法编译、以及运行时 slots 选项的不确定性。
 function mountNews(events: unknown[]) {
     cy.intercept('GET', '**/api/news/events**', { statusCode: 200, body: events }).as('news');
-    cy.mount(ElTabs, {
-        props: { modelValue: 'news' },
-        slots: { default: () => h(NewsQueue) },
-        global: { plugins: [i18n, pinia] },
-    });
+    cy.mount(NewsQueueHost, { global: { plugins: [i18n, pinia] } });
     cy.wait('@news');
 }
 
