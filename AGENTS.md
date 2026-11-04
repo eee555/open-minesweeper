@@ -2,6 +2,14 @@
 
 本文件为 AI 编码助手（以及其它自动化工具）提供本仓库的工作约定。在本仓库做任何修改前，请先读完本文件。
 
+## 参考与优先级
+
+本文件只约定**工作流与交付方式**，不重复定义编码规范。编码规范以仓库根目录的 `.codex/instructions.md` 为准——它是本仓库的编码规范，`.cursor/rules/codex-instructions.mdc` 亦声明"规范与本规则冲突时，以该文件为准"。
+
+- 写代码或改代码前，先读 `.codex/instructions.md` 中与本次改动对应的章节并照做。
+- **本文件未覆盖、未明确或存在歧义的地方，一律把 `.codex/instructions.md` 作为 fallback 参考。**
+- 两者冲突时：编码相关以 `.codex/instructions.md` 为准，工作流相关以本文件为准。
+
 ## 硬性工作流要求
 
 1. **一切改动都基于上游的 `dev` 分支**（`eee555/open-minesweeper` 的 `dev`，本地对应 `upstream/dev`）。不要基于 `main` 开发。
@@ -48,7 +56,9 @@ npm run vitest      # 单元测试
 npm run build:openms
 ```
 
-## 代码约定
+## 代码约定（速查索引，规范以 `.codex/instructions.md` 为准）
+
+以下只是便于快速定位的索引，不是规范本体；完整规范见 `.codex/instructions.md`。
 
 - **后端风格由 flake8 强制**，配置在 `back_end/saolei/setup.cfg`。除 flake8 本体外还启用了 bugbear、builtins、commas、comprehensions、datetimez、encodings、import-order（google 风格）、multiline-containers、print、quotes 等插件；已忽略 `E501`、`A003`、`DJ08`、`W504`、`W503`。修改后端前请先读该文件。
 - **仓库自带一个本地 flake8 插件** `flake8_plugins.django_save_update_fields`，规则号 `DJM100`：任何 Django 模型实例的 `save()` 调用都必须显式传入 `update_fields=`（`form.save(commit=False)` 除外）。这是硬性要求。
