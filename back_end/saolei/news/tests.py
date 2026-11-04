@@ -5,7 +5,7 @@ from unittest.mock import patch
 from django.test import override_settings, SimpleTestCase
 
 from speedranking.pb.cache import PBRankingCache
-from speedranking.services import _publish_lsf_news, _publish_pb_news, _write_records
+from speedranking.services import _news_targets, _publish_lsf_news, _publish_pb_news, _write_records
 from speedranking.top.cache import TopRankingCache
 from speedranking.top.services import complete_update
 from speedranking.top.utils import SOFT_FIELDS
@@ -49,6 +49,7 @@ class NewsCacheTests(SimpleTestCase):
     def test_overflow_removes_oldest_hash_fields(self):
         for index in range(5):
             publish('pb', index, {'n': index})
+            time.sleep(0.002)
         self.assertEqual(cache.hlen(EVENTS_KEY), 3)
         self.assertEqual([event['payload']['n'] for event in read_events(limit=10)], [4, 3, 2])
 
@@ -171,3 +172,31 @@ class LSFNewsTests(SimpleTestCase):
     def test_forced_admin_rebuild_takes_no_snapshot(self, _send):
         records = {1: {'std:bt': {'videos': [{'value': 1000, 'video_id': 9}]}}}
         self.assertEqual(complete_update({1: {}}, records, set(), force=True), {})
+
+
+class NewsTargetsTests(SimpleTestCase):
+    def test_each_change_uses_its_own_trigger_video(self):
+        old_top = {
+            1: {'std:bt': {'videos': [{'video_id': 10, 'value': 1000}]}},
+            2: {'std:bt': {'videos': [{'video_id': 20, 'value': 1000}]}},
+            3: {'std:bt': {'videos': [{'video_id': 30, 'value': 1000}]}},
+        }
+        top_records = {
+            1: {'std:bt': {'videos': [{'video_id': 91, 'value': 900}, {'video_id': 10, 'value': 1000}]}},
+            2: {'std:bt': {'videos': [{'video_id': 92, 'value': 900}, {'video_id': 20, 'value': 1000}]}},
+            3: old_top[3],
+        }
+        targets = _news_targets(old_top, top_records, {(3, 'std:b:10'): (93, 0)})
+        self.assertEqual(targets, {1: 91, 2: 92, 3: 93})
+
+    def test_unchanged_players_are_not_news_targets(self):
+        old_top = {1: {'std:bt': {'videos': [{'video_id': 10, 'value': 1000}]}}}
+        self.assertEqual(_news_targets(old_top, old_top, {}), {})
+
+
+class LSFNewsPublishTests(SimpleTestCase):
+    @patch('speedranking.services.emit')
+    def test_each_lsf_change_publishes_its_own_event(self, mocked_emit):
+        _publish_lsf_news({1: 91, 2: 92}, {1: (100.0, 5), 2: (200.0, 10)}, {1: (150.0, 3), 2: (250.0, 8)})
+        self.assertEqual(mocked_emit.call_count, 2)
+        self.assertEqual([item.args[2]['video_id'] for item in mocked_emit.call_args_list], [91, 92])

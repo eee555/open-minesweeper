@@ -64,6 +64,24 @@ def _publish_lsf_news(news_targets, before, after):
         })
 
 
+def _news_targets(old_top, top_records, pb_changes):
+    """批量刷榜时按变动项收集：每条 PB 纪录变动与每条 LSF 变动各带造成它的录像 id。"""
+    pb_videos = {}
+    for (player_id, _), candidate in pb_changes.items():
+        if candidate is not None:
+            pb_videos.setdefault(player_id, set()).add(candidate[0])
+    targets = {}
+    for player_id, record in top_records.items():
+        old = old_top[player_id]
+        if record == old and player_id not in pb_videos:
+            continue
+        old_ids = {item['video_id'] for value in old.values() for item in value['videos']}
+        new_ids = {item['video_id'] for value in record.values() for item in value['videos']}
+        triggers = (new_ids - old_ids) | pb_videos.get(player_id, set())
+        targets[player_id] = min(triggers) if triggers else None
+    return targets
+
+
 def _write_records(previous, saolei_records, pb_changes, top_records, news_targets=None):
     """写入前备好待修改玩家的旧快照，写入后再取一次，新闻由调用路径决定是否发布。"""
     old_saolei, old_pb, old_top = previous
@@ -110,10 +128,10 @@ def _update_videos(videos, remove: bool):
         for players in player_batches(videos, 100):
             subset = videos.filter(player_id__in=players)
             previous = _read_records(players)
-            video_ids = {}
-            for player_id, video_id in subset.values_list('player_id', 'id'):
-                video_ids.setdefault(player_id, []).append(video_id)
             if remove:
+                video_ids = {}
+                for player_id, video_id in subset.values_list('player_id', 'id'):
+                    video_ids.setdefault(player_id, []).append(video_id)
                 ids_by_player = {player_id: set(ids) for player_id, ids in video_ids.items()}
                 saolei_records = saolei.prepare_remove_videos(ids_by_player, previous[0])
                 pb_changes = pb.prepare_remove_videos(ids_by_player, previous[1])
@@ -123,7 +141,7 @@ def _update_videos(videos, remove: bool):
                 saolei_records = saolei.prepare_add_videos(subset, previous[0])
                 pb_changes = pb.prepare_add_videos(subset, previous[1])
                 top_records = top.prepare_add_videos(subset, previous[2])
-                news_targets = {player_id: min(ids) for player_id, ids in video_ids.items()}
+                news_targets = _news_targets(previous[2], top_records, pb_changes)
             _write_records(previous, saolei_records, pb_changes, top_records, news_targets=news_targets)
 
 
