@@ -189,6 +189,13 @@ class NewsTargetsTests(SimpleTestCase):
         old_top = {1: {'std:bt': {'videos': [{'video_id': 10, 'value': 1000}]}}}
         self.assertEqual(_news_targets(old_top, old_top, {}), {})
 
+    def test_multiple_new_videos_picks_min_id(self):
+        # 同玩家同批新增 91、92 两条录像，triggers 含两条，按 id 最小者（91）
+        # 作为 LSF 新闻代表链接；取舍见 speedranking.services._news_targets 文档。
+        old_top = {1: {'std:bt': {'videos': [{'video_id': 10, 'value': 1000}]}}}
+        top_records = {1: {'std:bt': {'videos': [{'video_id': 10, 'value': 1000}, {'video_id': 91, 'value': 900}, {'video_id': 92, 'value': 1100}]}}}
+        self.assertEqual(_news_targets(old_top, top_records, {}), {1: 91})
+
 
 class LSFNewsPublishTests(SimpleTestCase):
     @patch('speedranking.services.emit')

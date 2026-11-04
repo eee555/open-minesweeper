@@ -65,7 +65,12 @@ def _publish_lsf_news(news_targets, before, after):
 
 
 def _news_targets(old_top, top_records, pb_changes):
-    """批量刷榜时按变动项收集：每条 PB 纪录变动与每条 LSF 变动各带造成它的录像 id。"""
+    """批量刷榜时按变动项收集：每条 PB 纪录变动与每条 LSF 变动各带造成它的录像 id。
+
+    同一玩家同批新增多条录像时 triggers 会包含多条 id，这里取 id 最小者作为
+    LSF 新闻的代表链接——无法精确归因到“真正提升 LSF 的那条”，但链接仍指向
+    该玩家的录像，偏差仅在于具体跳到哪一条。
+    """
     pb_videos = {}
     for (player_id, _), candidate in pb_changes.items():
         if candidate is not None:
