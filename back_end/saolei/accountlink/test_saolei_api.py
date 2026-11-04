@@ -295,7 +295,7 @@ class SaoleiImportTests(TestCase):
                 self.assertEqual(source.file_url, '2023/04/16/sample.evf')
         self.assertFalse(VideoModel.objects.exists())
 
-    def test_rejected_file_is_skipped_after_full_sync_until_manually_cleared(self):
+    def test_command_retries_rejected_source_and_succeeds(self):
         source = self.source()
         client = self.remote_client(source)
         client.stats.return_value.max_video_id = 1
@@ -316,21 +316,14 @@ class SaoleiImportTests(TestCase):
             client.reset_mock()
             stdout = StringIO()
             call_command('sync_saolei_api', account_id=[101], full=True, stdout=stdout, stderr=StringIO())
-            self.assertIn('导入 0，跳过 1，失败 0', stdout.getvalue())
+            self.assertIn('导入 1，跳过 0，失败 0', stdout.getvalue())
             client.video_list.assert_called_once()
             source.refresh_from_db()
             self.assertTrue(source.import_rejected)
-            self.assertEqual(import_saolei_video(source, client), 'skipped')
+            self.assertEqual(import_saolei_video(source, client), 'existing')
             client.video_info.assert_not_called()
-            client.download_videos.assert_not_called()
-            self.assertFalse(VideoModel.objects.exists())
-            self.assertFalse(list(Path(self.media.name).rglob('*.evf')))
-            SaoleiApiVideo.objects.filter(pk=source.pk).update(import_rejected=False)
-            call_command('sync_saolei_api', account_id=[101], stdout=StringIO(), stderr=StringIO())
-        source.refresh_from_db()
-        self.assertFalse(source.import_rejected)
-        self.assertIsNotNone(source.import_video_id)
-        client.download_videos.assert_called_once()
+            client.download_videos.assert_called_once()
+            self.assertEqual(VideoModel.objects.count(), 1)
 
     def test_command_resumes_directory_and_recovers_previously_committed_pending_file(self):
         requests = []
@@ -364,7 +357,7 @@ class SaoleiImportTests(TestCase):
             self.assertEqual(self.account.video_sync_cursor, 1)
             self.assertFalse(VideoModel.objects.exists())
             self.assertEqual(SaoleiApiVideo.objects.get(remote_id=1).file_url, '2023/04/16/sample.evf')
-            self.assertFalse(SaoleiApiVideo.objects.get(remote_id=1).import_rejected)
+            self.assertTrue(SaoleiApiVideo.objects.get(remote_id=1).import_rejected)
             fail_download = False
             requests.clear()
             call_command('sync_saolei_api', account_id=[101], stdout=StringIO(), stderr=StringIO())

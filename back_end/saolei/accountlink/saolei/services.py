@@ -111,8 +111,10 @@ def sync_saolei_page(account: AccountSaolei, client: Client, *, cursor: int, upp
     return following, has_more
 
 
-def pending_saolei_videos(account=None, upper_bound=None, *, ready=False):
-    videos = SaoleiApiVideo.objects.filter(import_video__isnull=True, import_rejected=False, software__in=SUPPORTED_SOFTWARE)
+def pending_saolei_videos(account=None, upper_bound=None, *, ready=False, include_rejected=False):
+    videos = SaoleiApiVideo.objects.filter(import_video__isnull=True, software__in=SUPPORTED_SOFTWARE)
+    if not include_rejected:
+        videos = videos.filter(import_rejected=False)
     if account is not None:
         videos = videos.filter(user=account)
     if upper_bound is not None:
@@ -159,11 +161,11 @@ def refresh_saolei_details(account, client, *, upper_bound, counts, report_failu
             progress(f'账号#{account.pk} 详情已更新：{len(saved)}/{len(batch)}')
 
 
-def import_pending_saolei_videos(sources, client, *, counts, report_failure, limit=None, progress=None, automatic=False):
+def import_pending_saolei_videos(sources, client, *, counts, report_failure, limit=None, progress=None, automatic=False, ignore_rejected=False):
     """仅下载已保存 URL 的来源；上限按尝试数计算，失败也占用本轮额度。"""
     snapshots = list(sources.order_by('remote_id').values_list('pk', 'user__parent_id')[:limit])
     for source_id, parent_id in snapshots:
-        rows = pending_saolei_videos(ready=True).filter(pk=source_id)
+        rows = pending_saolei_videos(ready=True, include_rejected=ignore_rejected).filter(pk=source_id)
         if automatic:
             rows = rows.filter(user__auto_sync=True)
         source = rows.select_related('user').first()
@@ -172,7 +174,7 @@ def import_pending_saolei_videos(sources, client, *, counts, report_failure, lim
         counts['attempted'] += 1
         try:
             check_binding(source.user, parent_id)
-            result = import_saolei_video(source, client, refresh_detail=False)
+            result = import_saolei_video(source, client, refresh_detail=False, ignore_rejected=ignore_rejected)
             counts[result] += 1
             if progress:
                 progress(f'来源录像#{source.remote_id}：{result}')
@@ -180,6 +182,7 @@ def import_pending_saolei_videos(sources, client, *, counts, report_failure, lim
             raise
         except Exception as exc:
             report_failure(f'来源录像#{source.remote_id}', exc, counts)
+            SaoleiApiVideo.objects.filter(pk=source_id, import_video__isnull=True).update(import_rejected=True)
 
 
 def save_video_details(account, sources, details):
@@ -211,10 +214,10 @@ def save_video_detail(source: SaoleiApiVideo, detail: VideoInfo) -> SaoleiApiVid
     return updated
 
 
-def import_saolei_video(source: SaoleiApiVideo, client: Client, *, refresh_detail=True) -> str:
+def import_saolei_video(source: SaoleiApiVideo, client: Client, *, refresh_detail=True, ignore_rejected=False) -> str:
     if source.import_video_id:
         return 'existing'
-    if source.import_rejected or source.software not in SUPPORTED_SOFTWARE:
+    if (source.import_rejected and not ignore_rejected) or source.software not in SUPPORTED_SOFTWARE:
         return 'skipped'
     if refresh_detail:
         details = [item for item in client.video_info(source.remote_id).items if item.id == source.remote_id]
