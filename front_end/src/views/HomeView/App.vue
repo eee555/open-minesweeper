@@ -2,7 +2,9 @@
     <div class="home-content">
         <div class="home-top-row">
             <ElTabs class="home-news-tabs" type="border-card">
-                <NewsQueue />
+                <NewsQueue category="all" />
+                <NewsQueue category="pb" />
+                <NewsQueue category="lsf" />
             </ElTabs>
             <NormalTournamentQueue />
         </div>

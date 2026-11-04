@@ -1,6 +1,6 @@
 <template>
-    <ElTabs model-value="news">
-        <NewsQueue />
+    <ElTabs model-value="all">
+        <NewsQueue category="all" />
     </ElTabs>
 </template>
 

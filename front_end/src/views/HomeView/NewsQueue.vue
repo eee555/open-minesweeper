@@ -1,7 +1,7 @@
 <template>
-    <ElTabPane v-loading="loading" class="home-news-pane" name="news">
+    <ElTabPane v-loading="loading" class="home-news-pane" :name="category">
         <template #label>
-            {{ globalI18n.t('home.news') }}&nbsp;
+            {{ label }}&nbsp;
             <BaseTextButton
                 underline="never" :disabled="loading" :aria-label="t('local.refresh')"
                 style="vertical-align: baseline;" @keydown.stop @click="refresh"
@@ -9,15 +9,6 @@
                 <BaseIconRefresh />
             </BaseTextButton>
         </template>
-        <div class="news-categories">
-            <button
-                v-for="item in categories" :key="item.value" type="button"
-                class="news-category" :class="{ 'is-active': category === item.value }"
-                @click="select(item.value)"
-            >
-                {{ t(item.label) }}
-            </button>
-        </div>
         <div v-if="!events.length" class="news-empty">
             {{ t('local.empty') }}
         </div>
@@ -39,7 +30,7 @@
 
 <script setup lang='ts'>
 import { ElTabPane, vLoading } from 'element-plus';
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import BaseTextButton from '@/components/common/BaseTextButton.vue';
@@ -49,25 +40,15 @@ import { fetchNews } from '@/services/newsService';
 import type { NewsCategory, NewsEvent } from '@/services/newsService';
 import { utc_to_local_format } from '@/utils/system/tools';
 
-const globalI18n = useI18n({ useScope: 'global' });
+const props = defineProps({
+    category: { type: String, default: 'all' },
+});
+const category = computed(() => props.category as NewsCategory);
 
-const categories: { value: NewsCategory; label: string }[] = [
-    { value: 'all', label: 'local.all' },
-    { value: 'pb', label: 'local.pb' },
-    { value: 'lsf', label: 'local.lsf' },
-];
-
-const category = ref<NewsCategory>('all');
 const events = ref<NewsEvent[]>([]);
 const loading = ref(false);
 
 onMounted(refresh);
-
-async function select(value: NewsCategory) {
-    if (category.value === value) return;
-    category.value = value;
-    await refresh();
-}
 
 async function refresh() {
     loading.value = true;
@@ -156,31 +137,13 @@ const i18nMessages = {
 };
 
 const { t } = useI18n({ messages: i18nMessages });
+const label = computed(() => {
+    const c = category.value;
+    return c === 'pb' ? t('local.pb') : c === 'lsf' ? t('local.lsf') : t('local.all');
+});
 </script>
 
 <style scoped>
-.news-categories {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 12px;
-}
-
-.news-category {
-    background: transparent;
-    border: 1px solid var(--ui-border-color-lighter, #dcdfe6);
-    border-radius: 4px;
-    color: inherit;
-    cursor: pointer;
-    font-size: 13px;
-    padding: 2px 10px;
-}
-
-.news-category.is-active {
-    background: var(--ui-fill-color-light, #f5f7fa);
-    border-color: var(--ui-color-primary, #409eff);
-    color: var(--ui-color-primary, #409eff);
-}
-
 .news-empty {
     display: grid;
     min-height: 200px;
