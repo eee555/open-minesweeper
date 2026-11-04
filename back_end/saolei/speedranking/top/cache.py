@@ -33,10 +33,7 @@ class TopRankingCache:
                 pipe.zrevrank(key, player_id)
             rows = pipe.execute()
         size = len(player_ids)
-        return {
-            player_id: (value, rank)
-            for player_id, value, rank in zip(player_ids, rows[:size], rows[size:])
-        }
+        return {player_id: (value, rank) for player_id, value, rank in zip(player_ids, rows[:size], rows[size:])}
 
     @property
     def keys(self):

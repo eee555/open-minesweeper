@@ -1,9 +1,9 @@
 <template>
     <ElTabPane v-loading="loading" class="home-news-pane" name="news">
         <template #label>
-            {{ t('home.news') }}&nbsp;
+            {{ globalI18n.t('home.news') }}&nbsp;
             <BaseTextButton
-                underline="never" :disabled="loading" :aria-label="t('news.refresh')"
+                underline="never" :disabled="loading" :aria-label="t('local.refresh')"
                 style="vertical-align: baseline;" @keydown.stop @click="refresh"
             >
                 <BaseIconRefresh />
@@ -19,7 +19,7 @@
             </button>
         </div>
         <div v-if="!events.length" class="news-empty">
-            {{ t('news.empty') }}
+            {{ t('local.empty') }}
         </div>
         <ul v-else class="news-list">
             <li v-for="event in events" :key="event.id" class="news-item" :data-cy="`news-${event.category}`">
@@ -49,12 +49,12 @@ import { fetchNews } from '@/services/newsService';
 import type { NewsCategory, NewsEvent } from '@/services/newsService';
 import { utc_to_local_format } from '@/utils/system/tools';
 
-const { t } = useI18n();
+const globalI18n = useI18n({ useScope: 'global' });
 
 const categories: { value: NewsCategory; label: string }[] = [
-    { value: 'all', label: 'news.all' },
-    { value: 'pb', label: 'news.pb' },
-    { value: 'lsf', label: 'news.lsf' },
+    { value: 'all', label: 'local.all' },
+    { value: 'pb', label: 'local.pb' },
+    { value: 'lsf', label: 'local.lsf' },
 ];
 
 const category = ref<NewsCategory>('all');
@@ -108,9 +108,9 @@ function describe(event: NewsEvent): string {
     if (event.category === 'pb') {
         const { field, old, new: current } = event.payload;
         if (!old) {
-            return t('news.pbFirst', { field: formatField(field), newTime: formatTimeValue(current.timems), newRank: formatRank(current.rank) });
+            return t('local.pbFirst', { field: formatField(field), newTime: formatTimeValue(current.timems), newRank: formatRank(current.rank) });
         }
-        return t('news.pbImproved', {
+        return t('local.pbImproved', {
             field: formatField(field),
             oldTime: formatTimeValue(old.timems),
             newTime: formatTimeValue(current.timems),
@@ -120,15 +120,42 @@ function describe(event: NewsEvent): string {
     }
     const { old, new: current } = event.payload;
     if (!old) {
-        return t('news.lsfFirst', { newLsf: current.lsf.toFixed(2), newRank: formatRank(current.rank) });
+        return t('local.lsfFirst', { newLsf: current.lsf.toFixed(2), newRank: formatRank(current.rank) });
     }
-    return t('news.lsfImproved', {
+    return t('local.lsfImproved', {
         oldLsf: old.lsf.toFixed(2),
         newLsf: current.lsf.toFixed(2),
         oldRank: formatRank(old.rank),
         newRank: formatRank(current.rank),
     });
 }
+
+const i18nMessages = {
+    'zh-cn': { local: {
+        all: '全部',
+        pb: 'PB榜',
+        lsf: 'LSF',
+        empty: '暂无新闻',
+        refresh: '刷新',
+        pbImproved: '将{field}的PB从{oldTime}刷新为{newTime}，排名{oldRank} → {newRank}',
+        pbFirst: '首次进入{field}榜第{newRank}名，成绩{newTime}',
+        lsfImproved: 'LSF从{oldLsf}提升至{newLsf}，排名{oldRank} → {newRank}',
+        lsfFirst: '首次进入LSF榜第{newRank}名，LSF {newLsf}',
+    } },
+    en: { local: {
+        all: 'All',
+        pb: 'PB',
+        lsf: 'LSF',
+        empty: 'No news yet',
+        refresh: 'Refresh',
+        pbImproved: 'improved their {field} PB from {oldTime} to {newTime}, rank {oldRank} → {newRank}',
+        pbFirst: 'entered the {field} board at #{newRank} with {newTime}',
+        lsfImproved: 'LSF rose from {oldLsf} to {newLsf}, rank {oldRank} → {newRank}',
+        lsfFirst: 'entered the LSF board at #{newRank} with {newLsf}',
+    } },
+};
+
+const { t } = useI18n({ messages: i18nMessages });
 </script>
 
 <style scoped>

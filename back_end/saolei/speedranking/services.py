@@ -3,7 +3,8 @@ import json
 
 from django.db import transaction
 
-from news.services import emit, LSF_NEWS_TOP_N, PB_NEWS_TOP_N
+from news.services import emit
+from news.utils import LSF_NEWS_TOP_N, PB_NEWS_TOP_N
 from utils.querysets import player_batches
 from utils.ranking_lock import ranking_access
 from videomanager.models import VideoModel
@@ -30,11 +31,7 @@ def _read_records(players):
 
 def _publish_pb_news(old_pb, pb_changes, ranking, news_targets):
     """PB 刷新后，只有终点仍在前 10 的事件才附带旧/新成绩、录像与名次。"""
-    candidates = [
-        (player_id, field)
-        for (player_id, field), candidate in pb_changes.items()
-        if candidate is not None and player_id in news_targets
-    ]
+    candidates = [(player_id, field) for (player_id, field), candidate in pb_changes.items() if candidate is not None and player_id in news_targets]
     if not candidates:
         return
     with pipeline() as pipe:

@@ -344,18 +344,6 @@ export default {
         usernamePasswordInvalid: 'Invalid username or password',
         usernameRequired: '@:form.username required',
     },
-    news: {
-        all: 'All',
-        pb: 'PB',
-        lsf: 'LSF',
-        empty: 'No news yet',
-        refresh: 'Refresh',
-        replay: 'Replay',
-        pbImproved: 'improved their {field} PB from {oldTime} to {newTime}, rank {oldRank} → {newRank}',
-        pbFirst: 'entered the {field} board at #{newRank} with {newTime}',
-        lsfImproved: 'LSF rose from {oldLsf} to {newLsf}, rank {oldRank} → {newRank}',
-        lsfFirst: 'entered the LSF board at #{newRank} with {newLsf}',
-    },
     profile: {
         exportJSON: 'Export as JSON',
         exportJSONTooltip: 'Raw data fetched from the server.',
