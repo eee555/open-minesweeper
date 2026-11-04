@@ -34,6 +34,7 @@ const sections: { id: string; label: string; software?: MS_Software; icon?: stri
     { id: 'metasweeper', label: 'Metasweeper', software: 'e', component: defineAsyncComponent(() => import('./MetasweeperHelper.vue')) },
     { id: 'arbiter', label: 'Minesweeper Arbiter', software: 'a', component: defineAsyncComponent(() => import('./ArbiterHelper.vue')) },
     { id: 'vienna', label: 'ViennaSweeper', software: 'r', component: defineAsyncComponent(() => import('./ViennaSweeperHelper.vue')) },
+    { id: 'classic95', label: '95 Classic', software: 'x', component: defineAsyncComponent(() => import('./ClassicMinesweeper95.vue')) },
     { id: 'analyzer', label: 'OpenMinesweeper Video Analyzer', icon: analyzerIcon, component: defineAsyncComponent(() => import('./AnalyzerHelper.vue')) },
     { id: 'yuanshen', label: 'Yuanshen Toolbox', icon: yuanshenToolboxIcon, component: defineAsyncComponent(() => import('./YuanshenToolboxHelper.vue')) },
 ];
@@ -58,6 +59,7 @@ const i18nMessages = {
         metasweeper: '元扫雷',
         arbiter: '阿比特',
         vienna: '维也纳扫雷',
+        classic95: '95经典扫雷',
         analyzer: '录像分析器',
         yuanshen: '元神工具箱',
     } },
@@ -65,6 +67,7 @@ const i18nMessages = {
         metasweeper: 'Metasweeper',
         arbiter: 'Arbiter',
         vienna: 'ViennaSweeper',
+        classic95: '95 Classic',
         analyzer: 'Video Analyzer',
         yuanshen: 'Yuanshen Toolbox',
     } },

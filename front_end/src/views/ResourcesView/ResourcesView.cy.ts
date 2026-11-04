@@ -10,6 +10,7 @@ const TABS = [
     { id: 'metasweeper', en: 'Metasweeper', zh: '元扫雷' },
     { id: 'arbiter', en: 'Arbiter', zh: '阿比特' },
     { id: 'vienna', en: 'ViennaSweeper', zh: '维也纳扫雷' },
+    { id: 'classic95', en: '95 Classic', zh: '95经典扫雷' },
     { id: 'analyzer', en: 'Video Analyzer', zh: '录像分析器' },
     { id: 'yuanshen', en: 'Yuanshen Toolbox', zh: '元神工具箱' },
 ] as const;
