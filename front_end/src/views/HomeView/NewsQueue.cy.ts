@@ -1,8 +1,8 @@
 import NewsQueueHost from './NewsQueueHost.vue';
 
 import i18n from '@/i18n';
-import { pinia } from '@/store/create';
 import type { NewsEvent } from '@/services/newsService';
+import { pinia } from '@/store/create';
 
 // NewsQueue 的根元素是 <ElTabPane>，强制要求父级为 <ElTabs>。这里用一个 .vue 包裹组件
 // （模板 <ElTabs><NewsQueue/></ElTabs>，与生产 HomeView/App.vue 同结构，由 Vite 编译），
@@ -16,7 +16,10 @@ function mountNews(events: unknown[]) {
 describe('<NewsQueue />', () => {
     it('renders every related replay for an LSF event with multiple triggers', () => {
         const events: NewsEvent[] = [{
-            id: 'lsf-1', occurred_at: 1_000_000, player_id: 42, category: 'lsf',
+            id: 'lsf-1',
+            occurred_at: 1_000_000,
+            player_id: 42,
+            category: 'lsf',
             payload: {
                 video_id: 8001,
                 video_ids: [8001, 8002, 8003],
@@ -24,7 +27,7 @@ describe('<NewsQueue />', () => {
                 new: { lsf: 2.0, rank: 1 },
             },
         }];
-        mountNews(events as unknown[]);
+        mountNews(events);
         cy.get('[data-cy=news-lsf]').should('exist');
         cy.get('[data-cy=news-lsf] a').should('have.length', 3);
         cy.get('[data-cy=news-lsf] a').eq(0).should('have.attr', 'href', '#/video/8001');
@@ -35,7 +38,10 @@ describe('<NewsQueue />', () => {
 
     it('falls back to a single video_id for legacy LSF events without video_ids', () => {
         const legacy = {
-            id: 'lsf-legacy', occurred_at: 1_000_000, player_id: 7, category: 'lsf',
+            id: 'lsf-legacy',
+            occurred_at: 1_000_000,
+            player_id: 7,
+            category: 'lsf',
             payload: { video_id: 555, old: null, new: { lsf: 2.0, rank: 1 } },
         };
         mountNews([legacy]);
@@ -45,14 +51,17 @@ describe('<NewsQueue />', () => {
 
     it('renders old and new replays for a PB event', () => {
         const events: NewsEvent[] = [{
-            id: 'pb-1', occurred_at: 1_000_000, player_id: 9, category: 'pb',
+            id: 'pb-1',
+            occurred_at: 1_000_000,
+            player_id: 9,
+            category: 'pb',
             payload: {
                 field: 'std:bt',
                 old: { timems: 40000, video_id: 101, rank: 2 },
                 new: { timems: 35000, video_id: 102, rank: 1 },
             },
         }];
-        mountNews(events as unknown[]);
+        mountNews(events);
         cy.get('[data-cy=news-pb] a').should('have.length', 2);
         cy.get('[data-cy=news-pb] a').eq(0).should('have.attr', 'href', '#/video/101');
         cy.get('[data-cy=news-pb] a').eq(1).should('have.attr', 'href', '#/video/102');
