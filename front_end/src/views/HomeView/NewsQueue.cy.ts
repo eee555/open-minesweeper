@@ -1,6 +1,3 @@
-import { h } from 'vue';
-import { ElTabs } from 'element-plus';
-
 import NewsQueue from './NewsQueue.vue';
 
 import i18n from '@/i18n';
@@ -9,10 +6,7 @@ import type { NewsEvent } from '@/services/newsService';
 
 function mountNews(events: unknown[]) {
     cy.intercept('GET', '**/api/news/events*', events).as('news');
-    cy.mount(ElTabs, {
-        slots: { default: () => h(NewsQueue) },
-        global: { plugins: [i18n, pinia] },
-    });
+    cy.mount(NewsQueue, { global: { plugins: [i18n, pinia] } });
     cy.wait('@news');
 }
 
