@@ -71,6 +71,31 @@ const reviewQueueResponse = [
     },
 ];
 
+const newsEvents = [
+    {
+        id: 'news-pb-1',
+        category: 'pb',
+        occurred_at: fixedNow - 3600000,
+        player_id: 7,
+        payload: {
+            field: 'std:b:10',
+            old: { timems: 12340, video_id: 101, rank: 8 },
+            new: { timems: 9876, video_id: 102, rank: 3 },
+        },
+    },
+    {
+        id: 'news-lsf-1',
+        category: 'lsf',
+        occurred_at: fixedNow - 7200000,
+        player_id: 8,
+        payload: {
+            video_id: 301,
+            old: { lsf: 3200.5, rank: 40 },
+            new: { lsf: 4100.25, rank: 28 },
+        },
+    },
+];
+
 function normalTournamentResponse() {
     return [
         {
@@ -123,6 +148,7 @@ function mockHomeQueueRequests() {
     cy.intercept({ method: 'GET', pathname: '/api/video/newest_queue' }, { body: metadata.slice(0, newest.length) }).as('newestQueue');
     cy.intercept({ method: 'GET', pathname: '/api/video/review_queue' }, { body: metadata.slice(newest.length) }).as('reviewQueue');
     cy.intercept({ method: 'GET', pathname: '/api/tournament/get_list' }, { body: normalTournamentResponse() }).as('normalTournaments');
+    cy.intercept({ method: 'GET', pathname: '/api/news/events' }, { body: newsEvents }).as('newsEvents');
 }
 
 function configureUserInfoService() {
@@ -153,7 +179,9 @@ describe('HomeView components', () => {
         mountHomeView();
 
         cy.contains('.home-news-tabs .el-tabs__item', 'News').should('be.visible');
-        cy.contains('.news-placeholder', 'News is being rebuilt. Stay tuned.').should('be.visible');
+        cy.wait('@newsEvents');
+        cy.get('[data-cy=news-pb]').should('contain.text', 'improved their STD B BV10 PB from 12.340 to 9.876, rank 8 → 3');
+        cy.get('[data-cy=news-lsf]').should('contain.text', 'LSF rose from 3200.50 to 4100.25, rank 40 → 28');
         cy.contains('.normal-tournament-card', 'Active Tournaments').should('be.visible');
         cy.contains('.el-tabs__item', 'Latest').should('have.class', 'is-active');
         cy.wait('@normalTournaments');

@@ -5,6 +5,7 @@ from django.db.models import F, Q, Window
 from django.db.models.functions import RowNumber
 
 from config.text_choices import MS_TextChoices
+from news.services import emit, LSF_NEWS_TOP_N
 from utils.querysets import player_batches
 from utils.ranking_lock import ranking_access
 from videomanager.models import VideoModel
@@ -122,11 +123,31 @@ def write_records(pipe, previous, records, ranking=None, force_fields=None):
     return affected
 
 
-def complete_update(previous, records, affected, ranking=None, *, force=False):
+def _news_video_id(old, record, video_id):
+    """优先使用本次保存的录像；批量路径没有单一 id 时取新增录像兜底。"""
+    if video_id is not None:
+        return video_id
+    old_ids = {item['video_id'] for value in old.values() for item in value['videos']}
+    new_ids = {item['video_id'] for value in record.values() for item in value['videos']}
+    added = new_ids - old_ids
+    if added:
+        return min(added)
+    removed = old_ids - new_ids
+    return min(removed) if removed else None
+
+
+def complete_update(previous, records, affected, ranking=None, *, force=False, video_id=None):
     """先按已发布锚点局部更新，再由真实锚点变化触发后台重建。"""
     ranking = ranking or TopRankingCache()
     publication = ranking.get_publication()
     anchors = publication['anchors'] if publication else {}
+    soft_key = ranking.soft_key('lsf')
+    with pipeline() as rank_pipe:
+        for player_id in records:
+            rank_pipe.zrevrank(soft_key, player_id)
+        old_ranks = rank_pipe.execute() if records else []
+    old_rank_by_player = dict(zip(records, old_ranks))
+    candidates = []
     with pipeline() as pipe:
         for player_id, record in records.items():
             old = previous[player_id]
@@ -134,12 +155,28 @@ def complete_update(previous, records, affected, ranking=None, *, force=False):
                 continue
             before = soft_values(old, anchors)
             after = soft_values(record, anchors)
+            if not force and before['lsf'] != after['lsf']:
+                candidates.append((player_id, old, before['lsf'], after['lsf']))
             for field in SOFT_FIELDS:
                 if not record:
                     pipe.zrem(ranking.soft_key(field), player_id)
                 elif not old or force or before[field] != after[field]:
                     pipe.zadd(ranking.soft_key(field), {str(player_id): after[field]})
         pipe.execute()
+    if candidates:
+        with pipeline() as rank_pipe:
+            for player_id, *_ in candidates:
+                rank_pipe.zrevrank(soft_key, player_id)
+            new_ranks = rank_pipe.execute()
+        for (player_id, old, old_lsf, new_lsf), new_rank in zip(candidates, new_ranks):
+            if new_rank is None or new_rank >= LSF_NEWS_TOP_N:
+                continue
+            old_rank = old_rank_by_player.get(player_id)
+            emit('lsf', player_id, {
+                'video_id': _news_video_id(old, records[player_id], video_id),
+                'old': {'lsf': old_lsf, 'rank': old_rank + 1 if old_rank is not None else None} if old else None,
+                'new': {'lsf': new_lsf, 'rank': new_rank + 1},
+            })
     if ranking.refresh_anchors(affected):
         soft_refresh_requested.send(sender=TopRankingCache)
 

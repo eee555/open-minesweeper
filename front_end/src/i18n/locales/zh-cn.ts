@@ -344,7 +344,16 @@ export default {
         usernameRequired: '请输入@:form.username',
     },
     news: {
-        breakRecordTo: '将{mode}{level}{stat}纪录刷新为',
+        all: '全部',
+        pb: 'PB榜',
+        lsf: 'LSF',
+        empty: '暂无新闻',
+        refresh: '刷新',
+        replay: '查看录像',
+        pbImproved: '将{field}的PB从{oldTime}刷新为{newTime}，排名{oldRank} → {newRank}',
+        pbFirst: '首次进入{field}榜第{newRank}名，成绩{newTime}',
+        lsfImproved: 'LSF从{oldLsf}提升至{newLsf}，排名{oldRank} → {newRank}',
+        lsfFirst: '首次进入LSF榜第{newRank}名，LSF {newLsf}',
     },
     profile: {
         exportJSON: '导出JSON',
