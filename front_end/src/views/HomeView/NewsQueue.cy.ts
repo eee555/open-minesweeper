@@ -1,5 +1,6 @@
 import NewsQueueHost from './NewsQueueHost.vue';
 
+import $axios from '@/http';
 import i18n from '@/i18n';
 import type { NewsEvent } from '@/services/newsService';
 import { pinia } from '@/store/create';
@@ -7,9 +8,17 @@ import { pinia } from '@/store/create';
 // NewsQueue 的根元素是 <ElTabPane>，强制要求父级为 <ElTabs>。这里用一个 .vue 包裹组件
 // （模板 <ElTabs><NewsQueue/></ElTabs>，与生产 HomeView/App.vue 同结构，由 Vite 编译），
 // 避免 runtime-only 构建下 .ts 模板字符串无法编译、以及运行时 slots 选项的不确定性。
+// NewsQueue 渲染包含 <PlayerName>，其依赖链会读取 proxy.$axios.defaults.baseURL，
+// 组件测试不执行 main.ts，必须显式注入 $axios 并用 mockPlayerNameFallback 拦截其 API。
 function mountNews(events: unknown[]) {
     cy.intercept('GET', '**/api/news/events**', { statusCode: 200, body: events }).as('news');
-    cy.mount(NewsQueueHost, { global: { plugins: [i18n, pinia] } });
+    cy.mockPlayerNameFallback();
+    cy.mount(NewsQueueHost, {
+        global: {
+            plugins: [i18n, pinia],
+            config: { globalProperties: { $axios } },
+        },
+    });
     cy.wait('@news');
 }
 
