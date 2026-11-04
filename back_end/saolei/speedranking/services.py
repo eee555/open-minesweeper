@@ -3,7 +3,7 @@ import json
 
 from django.db import transaction
 
-from news.services import emit, PB_NEWS_TOP_N
+from news.services import emit, LSF_NEWS_TOP_N, PB_NEWS_TOP_N
 from utils.querysets import player_batches
 from utils.ranking_lock import ranking_access
 from videomanager.models import VideoModel
@@ -28,9 +28,13 @@ def _read_records(players):
     return saolei.unpack_records(results[:split], players), PBRankingCache().unpack_records(results[split:split + len(players)], players), TopRankingCache.unpack_records(results[-1], players)
 
 
-def _publish_pb_news(old_pb, pb_changes, ranking):
+def _publish_pb_news(old_pb, pb_changes, ranking, news_targets):
     """PB 刷新后，只有终点仍在前 10 的事件才附带旧/新成绩、录像与名次。"""
-    candidates = [(player_id, field) for (player_id, field), candidate in pb_changes.items() if candidate is not None]
+    candidates = [
+        (player_id, field)
+        for (player_id, field), candidate in pb_changes.items()
+        if candidate is not None and player_id in news_targets
+    ]
     if not candidates:
         return
     with pipeline() as pipe:
@@ -49,19 +53,38 @@ def _publish_pb_news(old_pb, pb_changes, ranking):
         emit('pb', player_id, {'field': field, 'old': old, 'new': new})
 
 
-def _write_records(previous, saolei_records, pb_changes, top_records, video_id=None):
+def _publish_lsf_news(news_targets, before, after):
+    """用写入前后各一次的真实 LSF 快照发布新闻；触发录像由调用路径给出。"""
+    for player_id, video_id in news_targets.items():
+        old_lsf, old_rank = before.get(player_id, (None, None))
+        new_lsf, new_rank = after.get(player_id, (None, None))
+        if new_rank is None or new_rank >= LSF_NEWS_TOP_N or old_lsf == new_lsf:
+            continue
+        emit('lsf', player_id, {
+            'video_id': video_id,
+            'old': {'lsf': old_lsf, 'rank': old_rank + 1 if old_rank is not None else None} if old_lsf is not None else None,
+            'new': {'lsf': new_lsf, 'rank': new_rank + 1},
+        })
+
+
+def _write_records(previous, saolei_records, pb_changes, top_records, news_targets=None):
+    """写入前备好待修改玩家的旧快照，写入后再取一次，新闻由调用路径决定是否发布。"""
     old_saolei, old_pb, old_top = previous
     ranking = PBRankingCache()
+    top_ranking = TopRankingCache()
     previous_ranks = ranking.read_previous_ranks(old_pb, pb_changes) if pb_changes else {}
+    lsf_before = top_ranking.lsf_snapshot(news_targets) if news_targets else {}
     with pipeline() as pipe:
         saolei.write_records(pipe, old_saolei, saolei_records)
         ranking.write_changes(pipe, old_pb, pb_changes)
         affected = top.write_records(pipe, old_top, top_records)
         pipe.execute()
-    top.complete_update(old_top, top_records, affected, video_id=video_id)
+    lsf_after = top.complete_update(old_top, top_records, affected, ranking=top_ranking, snapshot_players=news_targets)
     if pb_changes:
         ranking.refresh_changed_ranks(previous_ranks, pb_changes)
-        _publish_pb_news(old_pb, pb_changes, ranking)
+    if news_targets:
+        _publish_pb_news(old_pb, pb_changes, ranking, news_targets)
+        _publish_lsf_news(news_targets, lsf_before, lsf_after)
 
 
 @ranking_access(operation='speedranking.sync_video')
@@ -75,7 +98,8 @@ def _sync_video(video_id: int, previous_player_id: int):
         saolei_records = saolei.prepare_video_update(video, video_id, previous[0])
         pb_changes = pb.prepare_video_update(video, video_id, previous[1])
         top_records = top.prepare_video_update(video, video_id, previous[2])
-        _write_records(previous, saolei_records, pb_changes, top_records, video_id=video_id)
+        news_targets = {video['player_id']: video_id} if video else None
+        _write_records(previous, saolei_records, pb_changes, top_records, news_targets=news_targets)
 
 
 def sync_video(video_id: int, previous_player_id: int):
@@ -89,18 +113,21 @@ def _update_videos(videos, remove: bool):
         for players in player_batches(videos, 100):
             subset = videos.filter(player_id__in=players)
             previous = _read_records(players)
+            video_ids = {}
+            for player_id, video_id in subset.values_list('player_id', 'id'):
+                video_ids.setdefault(player_id, []).append(video_id)
             if remove:
-                ids_by_player = {}
-                for player_id, video_id in subset.values_list('player_id', 'id'):
-                    ids_by_player.setdefault(player_id, set()).add(video_id)
+                ids_by_player = {player_id: set(ids) for player_id, ids in video_ids.items()}
                 saolei_records = saolei.prepare_remove_videos(ids_by_player, previous[0])
                 pb_changes = pb.prepare_remove_videos(ids_by_player, previous[1])
                 top_records = top.prepare_remove_videos(ids_by_player, previous[2])
+                news_targets = None
             else:
                 saolei_records = saolei.prepare_add_videos(subset, previous[0])
                 pb_changes = pb.prepare_add_videos(subset, previous[1])
                 top_records = top.prepare_add_videos(subset, previous[2])
-            _write_records(previous, saolei_records, pb_changes, top_records)
+                news_targets = {player_id: min(ids) for player_id, ids in video_ids.items()}
+            _write_records(previous, saolei_records, pb_changes, top_records, news_targets=news_targets)
 
 
 def add_videos_to_speed_ranks(videos):

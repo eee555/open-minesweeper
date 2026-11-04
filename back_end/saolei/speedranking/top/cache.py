@@ -20,6 +20,24 @@ class TopRankingCache:
     def soft_key(self, field: str) -> str:
         return f'{self.prefix}:soft:{field}'
 
+    def lsf_snapshot(self, player_ids):
+        """读取一批玩家当前已发布的 LSF 值与名次（0 起），缺失返回 None。"""
+        player_ids = list(player_ids)
+        if not player_ids:
+            return {}
+        key = self.soft_key('lsf')
+        with pipeline() as pipe:
+            for player_id in player_ids:
+                pipe.zscore(key, player_id)
+            for player_id in player_ids:
+                pipe.zrevrank(key, player_id)
+            rows = pipe.execute()
+        size = len(player_ids)
+        return {
+            player_id: (value, rank)
+            for player_id, value, rank in zip(player_ids, rows[:size], rows[size:])
+        }
+
     @property
     def keys(self):
         return [self.detail_key, self.anchors_key, self.publication_key, *[self.rank_key(field) for field in RANK_FIELDS], *[self.soft_key(field) for field in SOFT_FIELDS]]

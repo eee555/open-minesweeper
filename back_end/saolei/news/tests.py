@@ -5,7 +5,7 @@ from unittest.mock import patch
 from django.test import override_settings, SimpleTestCase
 
 from speedranking.pb.cache import PBRankingCache
-from speedranking.services import _publish_pb_news
+from speedranking.services import _publish_lsf_news, _publish_pb_news, _write_records
 from speedranking.top.cache import TopRankingCache
 from speedranking.top.services import complete_update
 from speedranking.top.utils import SOFT_FIELDS
@@ -95,7 +95,7 @@ class PBNewsTests(SimpleTestCase):
             2: {'std:b:10': {'timems': 12000, 'video_id': 11, 'rank': 20}},
         }
         changes = {(1, 'std:b:10'): (20, 0), (2, 'std:b:10'): (21, 0)}
-        _publish_pb_news(old_pb, changes, ranking)
+        _publish_pb_news(old_pb, changes, ranking, {1: 20, 2: 21})
         self.assertEqual(mocked_emit.call_count, 1)
         category, player_id, payload = mocked_emit.call_args.args
         self.assertEqual((category, player_id), ('pb', 1))
@@ -108,7 +108,14 @@ class PBNewsTests(SimpleTestCase):
         ranking = PBRankingCache()
         record = {'timems': 9000, 'video_id': 20, 'rank': 3}
         cache.hset(ranking.player_key(1), 'std:b:10', json.dumps(record))
-        _publish_pb_news({1: {'std:b:10': record}}, {(1, 'std:b:10'): (20, 0)}, ranking)
+        _publish_pb_news({1: {'std:b:10': record}}, {(1, 'std:b:10'): (20, 0)}, ranking, {1: 20})
+        mocked_emit.assert_not_called()
+
+    @patch('speedranking.services.emit')
+    def test_pb_news_only_covers_targeted_players(self, mocked_emit):
+        ranking = PBRankingCache()
+        cache.hset(ranking.player_key(1), 'std:b:10', json.dumps({'timems': 9000, 'video_id': 20, 'rank': 3}))
+        _publish_pb_news({1: {'std:b:10': {'timems': 12000, 'video_id': 10, 'rank': 8}}}, {(1, 'std:b:10'): (20, 0)}, ranking, {2: 21})
         mocked_emit.assert_not_called()
 
 
@@ -119,23 +126,48 @@ class LSFNewsTests(SimpleTestCase):
         ranking = TopRankingCache()
         ranking.flush()
         self.addCleanup(ranking.flush)
+        pb = PBRankingCache()
+        pb.flush()
+        self.addCleanup(pb.flush)
 
+    @patch('speedranking.services.emit')
+    @patch('speedranking.top.services.soft_refresh_requested.send')
     @patch('speedranking.top.services.soft_values', side_effect=[soft(100), soft(200)])
-    @patch.object(TopRankingCache, 'refresh_anchors', return_value=True)
-    def test_personal_lsf_refresh_publishes_one_event(self, _refresh, _soft):
+    def test_write_records_publishes_snapshots_before_and_after(self, _soft, _send, mocked_emit):
+        ranking = TopRankingCache()
+        cache.zadd(ranking.soft_key('lsf'), {'1': 100})
+        previous = ({}, {}, {1: {}})
         records = {1: {'std:bt': {'videos': [{'value': 1000, 'video_id': 9}]}}}
-        with patch('speedranking.top.services.emit') as mocked_emit, patch('speedranking.top.services.soft_refresh_requested.send'):
-            complete_update({1: {}}, records, set(), video_id=9)
-            self.assertEqual(mocked_emit.call_count, 1)
-            category, player_id, payload = mocked_emit.call_args.args
+        _write_records(previous, {}, {}, records, news_targets={1: 9})
+        self.assertEqual(mocked_emit.call_count, 1)
+        category, player_id, payload = mocked_emit.call_args.args
         self.assertEqual((category, player_id), ('lsf', 1))
         self.assertEqual(payload['video_id'], 9)
-        self.assertIsNone(payload['old'])
-        self.assertEqual(payload['new']['lsf'], 200)
-        self.assertEqual(payload['new']['rank'], 1)
+        self.assertEqual(payload['old'], {'lsf': 100, 'rank': 1})
+        self.assertEqual(payload['new'], {'lsf': 200, 'rank': 1})
 
-    @patch('speedranking.top.services.emit')
-    @patch('speedranking.top.services.soft_values', side_effect=[soft(100), soft(200)])
-    def test_forced_admin_rebuild_publishes_no_news(self, _soft, mocked_emit):
-        complete_update({1: {}}, {1: {'std:bt': {'videos': [{'value': 1000, 'video_id': 9}]}}}, set(), force=True)
+    @patch('speedranking.services.emit')
+    @patch('speedranking.top.services.soft_refresh_requested.send')
+    def test_remove_path_publishes_no_news(self, _send, mocked_emit):
+        previous = ({}, {}, {1: {}})
+        records = {1: {'std:bt': {'videos': [{'value': 1000, 'video_id': 9}]}}}
+        _write_records(previous, {}, {}, records)
         mocked_emit.assert_not_called()
+
+    @patch('speedranking.services.emit')
+    def test_news_targets_supply_the_trigger_video(self, mocked_emit):
+        _publish_lsf_news({1: 42}, {1: (100.0, 40)}, {1: (200.0, 28)})
+        payload = mocked_emit.call_args.args[2]
+        self.assertEqual(payload['video_id'], 42)
+        self.assertEqual(payload['old'], {'lsf': 100.0, 'rank': 41})
+        self.assertEqual(payload['new'], {'lsf': 200.0, 'rank': 29})
+
+    @patch('speedranking.services.emit')
+    def test_changes_outside_top_36_publish_no_news(self, mocked_emit):
+        _publish_lsf_news({1: 42}, {1: (100.0, 40)}, {1: (200.0, 40)})
+        mocked_emit.assert_not_called()
+
+    @patch('speedranking.top.services.soft_refresh_requested.send')
+    def test_forced_admin_rebuild_takes_no_snapshot(self, _send):
+        records = {1: {'std:bt': {'videos': [{'value': 1000, 'video_id': 9}]}}}
+        self.assertEqual(complete_update({1: {}}, records, set(), force=True), {})
