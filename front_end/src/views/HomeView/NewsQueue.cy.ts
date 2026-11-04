@@ -1,12 +1,24 @@
+import { defineComponent } from 'vue';
+import { ElTabs } from 'element-plus';
+
 import NewsQueue from './NewsQueue.vue';
 
 import i18n from '@/i18n';
 import { pinia } from '@/store/create';
 import type { NewsEvent } from '@/services/newsService';
 
+// NewsQueue 的根元素是 <ElTabPane>，而 ElTabPane 强制要求父级为 <ElTabs>；
+// 直接用模板复刻 HomeView 的包裹结构，并显式 v-model 强制激活 news pane，
+// 避免 Cypress 下经 slots 传入时 ElTabs 未能激活该 pane 的问题。
+const Wrapper = defineComponent({
+    components: { ElTabs, NewsQueue },
+    data: () => ({ tab: 'news' }),
+    template: '<el-tabs v-model="tab" type="border-card"><news-queue /></el-tabs>',
+});
+
 function mountNews(events: unknown[]) {
-    cy.intercept('GET', '**/api/news/events*', events).as('news');
-    cy.mount(NewsQueue, { global: { plugins: [i18n, pinia] } });
+    cy.intercept('GET', '**/api/news/events**', events).as('news');
+    cy.mount(Wrapper, { global: { plugins: [i18n, pinia] } });
     cy.wait('@news');
 }
 
