@@ -123,6 +123,20 @@ class PBNewsTests(SimpleTestCase):
         _publish_pb_news({1: {'std:b:10': {'timems': 12000, 'video_id': 10, 'rank': 8}}}, {(1, 'std:b:10'): (20, 0)}, ranking, {2: 21})
         mocked_emit.assert_not_called()
 
+    @patch('speedranking.services.emit')
+    def test_pb_progress_without_rank_change_publishes(self, mocked_emit):
+        # 成绩进步（timems 更优）但名次未变，只要名次仍在范围内就推送 PB 新闻。
+        ranking = PBRankingCache()
+        cache.hset(ranking.player_key(1), 'std:b:10', json.dumps({'timems': 9000, 'video_id': 20, 'rank': 3}))
+        old_pb = {1: {'std:b:10': {'timems': 12000, 'video_id': 10, 'rank': 3}}}
+        _publish_pb_news(old_pb, {(1, 'std:b:10'): (20, 0)}, ranking, {1: 20})
+        mocked_emit.assert_called_once()
+        category, player_id, payload = mocked_emit.call_args.args
+        self.assertEqual((category, player_id), ('pb', 1))
+        self.assertEqual(payload['old']['timems'], 12000)
+        self.assertEqual(payload['new']['timems'], 9000)
+        self.assertEqual(payload['new']['rank'], 3)
+
 
 class LSFNewsTests(SimpleTestCase):
     def setUp(self):
@@ -196,6 +210,14 @@ class NewsTargetsTests(SimpleTestCase):
         old_top = {1: {'std:bt': {'videos': [{'video_id': 10, 'value': 1000}]}}}
         top_records = {1: {'std:bt': {'videos': [{'video_id': 10, 'value': 1000}, {'video_id': 91, 'value': 900}, {'video_id': 92, 'value': 1100}]}}}
         self.assertEqual(_news_targets(old_top, top_records, {}), {1: [91, 92]})
+
+    def test_pb_progress_without_rank_change_is_targeted(self):
+        # 玩家仅在 PB 小榜进步（成绩更优、名次不变），top 大榜（LSF）未变，
+        # 因而不会出现在 top_records 中；仍应被纳入 targets，使新闻在名次范围内推送。
+        old_top = {1: {'std:bt': {'videos': [{'video_id': 10, 'value': 1000}]}}}
+        top_records = {}
+        pb_changes = {(1, 'std:b:10'): (11, 0)}
+        self.assertEqual(_news_targets(old_top, top_records, pb_changes), {1: [11]})
 
 
 class LSFNewsPublishTests(SimpleTestCase):

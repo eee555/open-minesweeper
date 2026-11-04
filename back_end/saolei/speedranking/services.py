@@ -76,6 +76,9 @@ def _news_targets(old_top, top_records, pb_changes):
     同一玩家同批新增多条录像时 triggers 会包含多条 id，全部保留（按 id 升序）作为
     LSF 新闻的 video_ids，其中最小者仍作为 video_id 主链接；前端据此可跳到每一条
     相关录像，而非只链接到其中一条。
+
+    仅 PB 成绩进步、但综合素质大榜（LSF）未变的玩家不会出现在 top_records 中，
+    也需要纳入 targets：其成绩虽未改变名次，只要名次仍在新闻范围内，仍应推送 PB 新闻。
     """
     pb_videos = {}
     for (player_id, _), candidate in pb_changes.items():
@@ -90,6 +93,11 @@ def _news_targets(old_top, top_records, pb_changes):
         new_ids = {item['video_id'] for value in record.values() for item in value['videos']}
         triggers = (new_ids - old_ids) | pb_videos.get(player_id, set())
         targets[player_id] = sorted(triggers) if triggers else None
+    # 仅 PB 成绩进步（名次未变）而 top 大榜未变的玩家不在 top_records 中，
+    # 必须以 pb_changes 触发的录像 id 作为 triggers 纳入，使其可被新闻发布捕获。
+    for player_id, videos in pb_videos.items():
+        if player_id not in targets:
+            targets[player_id] = sorted(videos)
     return targets
 
 
