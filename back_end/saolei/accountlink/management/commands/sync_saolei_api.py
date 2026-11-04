@@ -56,13 +56,13 @@ class Command(BaseCommand):
                                              full=options['full'], page_size=options['page_size'], progress=self.stdout.write)
                 else:
                     counts['accounts'] = len(accounts)
-                counts['skipped'] += sum(account.videos.filter(import_video__isnull=True).filter(
-                    Q(import_rejected=True) | ~Q(software__in=SUPPORTED_SOFTWARE),
+                counts['skipped'] += sum(account.videos.filter(import_video__isnull=True).exclude(
+                    software__in=SUPPORTED_SOFTWARE,
                 ).count() for account in accounts)
                 if options['phase'] != 'metadata':
-                    pending = pending_saolei_videos(upper_bound=upper_bound, ready=True).filter(user_id__in=[account.pk for account in accounts])
+                    pending = pending_saolei_videos(upper_bound=upper_bound, ready=True, include_rejected=True).filter(user_id__in=[account.pk for account in accounts])
                     import_pending_saolei_videos(
-                        pending, client, counts=counts, report_failure=self.report_failure, limit=options['limit'], progress=self.stdout.write,
+                        pending, client, counts=counts, report_failure=self.report_failure, limit=options['limit'], progress=self.stdout.write, ignore_rejected=True,
                     )
         except RateLimitError as exc:
             raise CommandError(f'上游限流，同步停止；Retry-After={exc.retry_after}，已提交进度保留') from exc

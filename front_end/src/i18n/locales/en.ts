@@ -412,6 +412,8 @@ export default {
         supportedLanguages: 'Languages',
         version: 'Version',
         viennasweeper: 'Viennasweeper',
+        webPage: 'Web page',
+        wechat: 'WeChat',
     },
     staff: {
         batch: {

@@ -23,11 +23,11 @@
 
 左键训练使用 `input="mouse"`，多指训练使用 `input="touch"`，按 `PointerEvent.pointerType` 分流并抑制兼容鼠标事件。多指输入不经过单鼠标自动机，按 `pointerId` 独立跟踪触点，在按下时开格，移动和抬起仅记录轨迹及更新触点状态，不显示按下预览；取消不影响其他手指。失焦、隐藏、重开及卸载清理全部触点。标双和漏雷保留原来的 `classic` 输入行为。
 
-多指训练的 [touchScroll.ts](../src/utils/minigame/touchScroll.ts) 保留指针捕获，单指拖动按实际滚动容量逐级传递到棋盘容器、祖先和页面，不设置棋盘边缘限制；多指期间只更新位置而不滚动，恢复单指后不累积跳动。滚动后再记录棋盘坐标。浏览器原生平移会触发 `pointercancel`，且手势开始后修改 `touch-action` 不生效，因此沿用 `touch-action: none` 并在现有输入层处理拖动，参见 [MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/touch-action)。
+多指训练的 [touchScroll.ts](../src/utils/minigame/touchScroll.ts) 保留指针捕获，单指拖动按实际滚动容量逐级传递到棋盘容器、祖先和页面，不设置棋盘边缘限制；多指期间只更新位置而不滚动，恢复单指后不累积跳动。滚动阈值 `scrollThreshold`（小游戏设置中调整，默认 0px，上限 200px）按触点独立计算：未越过时保留按下点作锚点，越过时一次性滚动整段位移；多指暂停期间或起点在棋盘外时也照样消耗阈值，恢复后不再等待。滚动后再记录棋盘坐标。浏览器原生平移会触发 `pointercancel`，且手势开始后修改 `touch-action` 不生效，因此沿用 `touch-action: none` 并在现有输入层处理拖动，参见 [MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/touch-action)。
 
 高级游戏和回放始终使用 16×30 坐标，纵向由 `Board` 复用 `d3-array` 的 `transpose` 转置显示，并把输入坐标交换回游戏坐标；`TouchTrace` 同步交换显示坐标。`multiTouchOrientation` 仅存 localStorage，不写入回放，切换方向保留当前局。全屏复用项目的 VueUse `useFullscreen`，通过 Frame 的 `borderless` 移除内外边框、外框内边距及间隔，同时取消全屏容器留白。全屏顶栏与设置页共用 `InputNumber` 和全局格子大小，直接输入正整数，不按窗口自动缩放；超出可用区域时允许横向和纵向滚动。修改尺寸及进出全屏保留当前局，回放继续使用首个触点的参考格子大小。
 
-[settings.ts](../src/utils/minigame/settings.ts) 集中管理 `minigame-settings` localStorage，兼容旧配置补默认值。所有游戏共用格子大小（数字输入框，正整数，默认 32px）和重开热键（默认未设置）；左键和多指共用雷不透明度（默认 50%）及雷格状态 `leftClickMinePressed`（默认 `false`，弹起）。雷格状态仅由 `Board` 派生背景矩阵，旗格始终弹起；不修改逻辑棋盘、不进入回放载荷，播放时使用当前本地设置。网站设置页与小游戏页底部共用设置组件；修改显示参数保留当前局。玩法参数保持在棋盘上方，修改时重开。
+[settings.ts](../src/utils/minigame/settings.ts) 集中管理 `minigame-settings` localStorage，兼容旧配置补默认值。所有游戏共用格子大小（数字输入框，正整数，默认 32px）和重开热键（默认未设置）；左键和多指共用雷不透明度（默认 50%）及雷格状态 `leftClickMinePressed`（默认 `false`，弹起）；多指训练另有滚动阈值 `scrollThreshold`（默认 0px）。雷格状态仅由 `Board` 派生背景矩阵，旗格始终弹起；不修改逻辑棋盘、不进入回放载荷，播放时使用当前本地设置。网站设置页与小游戏页底部共用设置组件；修改显示参数保留当前局。玩法参数保持在棋盘上方，修改时重开；高级方向这类只影响显示的设置也放在棋盘上方，切换时同样保留当前局。
 
 ## 标双题目排布
 

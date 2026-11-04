@@ -13,7 +13,7 @@ from django.test import override_settings, TestCase
 from django.utils import timezone
 from django_tasks_db.models import DBTaskResult
 import httpx
-from saolei_api import RateLimitError, ResponseError, VideoInfo, VideoListResponse
+from saolei_api import RateLimitError, ResponseError, TransportError, VideoInfo, VideoListResponse
 
 from userprofile.models import UserProfile
 from utils.exceptions import ExceptionToResponse
@@ -322,6 +322,30 @@ class SaoleiStageTests(TestCase):
         self.assertFalse(SaoleiApiVideo.objects.get(remote_id=101).import_rejected)
         self.assertFalse(SaoleiApiVideo.objects.get(remote_id=102).import_rejected)
 
+    def test_any_failure_marks_source_as_skipped(self):
+        self.sources(2, file_url='2023/04/16/sample.evf')
+        with patch('accountlink.saolei.services.import_saolei_video', side_effect=[TransportError('network down'), ExceptionToResponse('file', 'collision', 409)]) as imported:
+            with patch('accountlink.saolei.tasks.saolei_client', return_value=nullcontext(self.remote)):
+                with self.assertLogs('accountlink', level='ERROR'), self.assertRaises(ExceptionToResponse):
+                    task_import_saolei_hourly.call()
+        self.assertEqual(imported.call_count, 2)
+        self.assertEqual(SaoleiApiVideo.objects.filter(import_rejected=True).count(), 2)
+        with patch('accountlink.saolei.tasks.saolei_client', return_value=nullcontext(self.remote)):
+            self.assertEqual(task_import_saolei_hourly.call(), {})
+        self.assertEqual(imported.call_count, 2)
+
+    def test_command_retries_rejected_sources_from_the_smallest_id(self):
+        from io import StringIO
+
+        self.sources(3, file_url='2023/04/16/sample.evf')
+        SaoleiApiVideo.objects.filter(remote_id=3).update(software='Saolei.wang')
+        SaoleiApiVideo.objects.update(import_rejected=True)
+        with patch('accountlink.management.commands.sync_saolei_api.saolei_client', return_value=nullcontext(self.remote)):
+            with patch('accountlink.saolei.services.import_saolei_video', return_value='imported') as imported:
+                call_command('sync_saolei_api', account_id=[101], phase='videos', stdout=StringIO(), stderr=StringIO())
+        self.assertEqual([item.args[0].remote_id for item in imported.call_args_list], [1, 2])
+        self.assertEqual([item.kwargs['ignore_rejected'] for item in imported.call_args_list], [True, True])
+
     def test_hourly_import_continues_after_parser_process_crashes(self):
         self.sources(2, file_url='2023/04/16/sample.evf')
         launches = 0
@@ -343,7 +367,7 @@ class SaoleiStageTests(TestCase):
             self.assertEqual(self.remote.download_videos.call_count, 2)
             failed = SaoleiApiVideo.objects.get(remote_id=1)
             imported = SaoleiApiVideo.objects.get(remote_id=2)
-            self.assertFalse(failed.import_rejected)
+            self.assertTrue(failed.import_rejected)
             self.assertIsNone(failed.import_video_id)
             self.assertIsNotNone(imported.import_video_id)
             self.assertEqual(VideoModel.objects.count(), 1)
@@ -371,7 +395,7 @@ class SaoleiStageTests(TestCase):
                 task_import_saolei_hourly.call()
         self.remote.download_videos.assert_called_once()
         self.assertFalse(VideoModel.objects.exists())
-        self.assertFalse(SaoleiApiVideo.objects.filter(import_rejected=True).exists())
+        self.assertEqual(SaoleiApiVideo.objects.filter(import_rejected=True).count(), 2)
 
     def test_missing_detail_keeps_saved_data_and_explicit_null_clears_url(self):
         self.sources(2, file_url='2023/04/16/old.evf')

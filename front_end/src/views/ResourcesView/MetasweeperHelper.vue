@@ -59,7 +59,7 @@
                             <BaseBadgeOpenms />
                         </BaseTagSupport>
                         &nbsp;
-                        <BaseTagSupport :support="false">
+                        <BaseTagSupport>
                             <BaseBadgeSaolei />
                         </BaseTagSupport>
                         &nbsp;

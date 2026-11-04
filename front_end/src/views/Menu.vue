@@ -35,7 +35,7 @@
             <NavigationLinks :id="drawerId" :items="drawerItems" :active="activeSection" :label="t('local.mainNavigation')" @navigate="drawerOpen = false" />
         </ElDrawer>
         <ElDialog
-            v-if="infoDialog !== undefined" model-value :title="infoDialogTitle" width="100%" align-center
+            v-if="infoDialog === 'team'" model-value :title="infoDialogTitle" width="100%" align-center
             body-class="center" :show-close="false" append-to-body @closed="infoDialog = undefined"
         >
             <template #header>
@@ -43,8 +43,7 @@
                     {{ infoDialogTitle }}
                 </h2>
             </template>
-            <Thanks v-if="infoDialog === 'team'" />
-            <Downloads v-else />
+            <Thanks />
         </ElDialog>
     </div>
 </template>
@@ -72,7 +71,6 @@ import { local, store } from '@/store';
 import { LoginStatus } from '@/utils/common/structInterface';
 import { getDocsUrl } from '@/utils/docs';
 
-const Downloads = defineAsyncComponent(() => import('@/components/dialogs/Downloads.vue'));
 const Thanks = defineAsyncComponent(() => import('@/components/dialogs/Thanks.vue'));
 
 defineSlots<{ default?: () => unknown }>();
@@ -84,8 +82,8 @@ const { width } = useElementSize(shell);
 const sidebar = computed(() => local.value.navigation_layout === 'sidebar');
 const compact = computed(() => sidebar.value && width.value < 760);
 const drawerOpen = ref(false);
-const infoDialog = ref<'team' | 'downloads'>();
-const infoDialogTitle = computed(() => (infoDialog.value === 'team' ? t('local.team') : t('software.software_download')));
+const infoDialog = ref<'team'>();
+const infoDialogTitle = computed(() => t('local.team'));
 const drawerId = `navigation-${useId()}`;
 const route = useRoute();
 const language = useLanguage();
@@ -121,6 +119,7 @@ const mainItems = computed<NavigationItem[]>(() => [
     { id: 'tournament', label: t('tournament.tournament'), to: '/tournament' },
     { id: 'minigame', label: t('minigame.title'), to: '/minigame/left-click' },
     { id: 'server', label: t('local.server'), to: '/server' },
+    { id: 'resources', label: t('local.resources'), to: '/resources' },
 ].map((item) => ({ ...item, primary: true })));
 const drawerItems = computed<NavigationItem[]>(() => [
     { id: 'home', label: t('local.home'), to: '/' }, ...mainItems.value,
@@ -199,11 +198,6 @@ function navigationItems(controls: LoginControls): NavigationItem[] {
                 action: () => {
                     infoDialog.value = 'team';
                 } },
-            { id: 'downloads',
-                label: t('software.software_download'),
-                action: () => {
-                    infoDialog.value = 'downloads';
-                } },
         ],
     }, {
         id: 'contact',
@@ -227,6 +221,7 @@ const i18nMessages = {
         staff: '管理',
         docs: '帮助',
         server: '服务器',
+        resources: '资源',
         language: '语言',
         theme: '颜色主题',
         about: '关于我们',
@@ -249,6 +244,7 @@ const i18nMessages = {
         staff: 'Moderate',
         docs: 'Help',
         server: 'Server',
+        resources: 'Resources',
         language: 'Language',
         theme: 'Color theme',
         about: 'About',
