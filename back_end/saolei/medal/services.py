@@ -1186,7 +1186,7 @@ def _refresh_direct_pb(user, state, definitions, videos, forced_levels):
         )
 
 
-def _video_touches_novice(code, video, user_id):
+def _video_touches_novice(code, video, user_id, needed_modes=()):
     if video.player_id != user_id or video.state != MS_TextChoices.State.OFFICIAL:
         return False
     if code == NOVICE_REVIEW:
@@ -1196,12 +1196,8 @@ def _video_touches_novice(code, video, user_id):
     if code == NOVICE_LEVELS_NF:
         return video.level in STANDARD_LEVELS and video.right_ce == 0
     if code == NOVICE_MODES:
-        return video.mode in _mode_list_open()
+        return video.mode in needed_modes
     return False
-
-
-def _mode_list_open():
-    return set(open_modes())
 
 
 def _merge_novice_set(code, extra, videos, user_id, needed_modes):
@@ -1221,7 +1217,7 @@ def _merge_novice_set(code, extra, videos, user_id, needed_modes):
     if code == NOVICE_MODES:
         found = set(_set_from_extra(extra, 'modes'))
         for video in videos:
-            if _video_touches_novice(code, video, user_id):
+            if _video_touches_novice(code, video, user_id, needed_modes):
                 found.add(str(video.mode))
         return 'modes', sorted(found), _covers(found, needed_modes)
     return None, [], False
@@ -1247,7 +1243,8 @@ def _refresh_novice(user, state, videos, invalidate_once):
         if invalidate_once:
             _write_once(user, definition, _once_satisfied(user, definition), state)
             continue
-        if not any(_video_touches_novice(code, video, user.id) for video in videos):
+        needed_modes = _mode_list(definition) if code == NOVICE_MODES else ()
+        if not any(_video_touches_novice(code, video, user.id, needed_modes) for video in videos):
             continue
         if code == NOVICE_REVIEW:
             completing = next((video for video in videos if _video_touches_novice(code, video, user.id)), None)
@@ -1263,7 +1260,7 @@ def _refresh_novice(user, state, videos, invalidate_once):
         if set_key not in extra:
             _write_once(user, definition, _once_satisfied(user, definition), state)
             continue
-        key, values, complete = _merge_novice_set(code, extra, videos, user.id, _mode_list(definition))
+        key, values, complete = _merge_novice_set(code, extra, videos, user.id, needed_modes)
         if key is None:
             continue
         if complete:

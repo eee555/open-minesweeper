@@ -112,7 +112,7 @@ class MSVideoParser:
         v.current_time = 1e8
 
         self.level = MSVideoParser.get_level_from_BaseVideo(v)
-        self.mode = MSVideoParser.get_mode_from_BaseVideo(v)
+        self.mode = MSVideoParser.get_mode_from_BaseVideo(v, self.software)
         self.pluck = calculate_pluck_from_video(v, self.level, self.mode)
 
         try:
@@ -180,7 +180,9 @@ class MSVideoParser:
             raise ExceptionToResponse(obj='file', category='level')
 
     @staticmethod
-    def get_mode_from_BaseVideo(v: ms.BaseVideo):
+    def get_mode_from_BaseVideo(v: ms.BaseVideo, software: MS_TextChoices.Software):
+        if software != MS_TextChoices.Software.EVF:
+            return MS_TextChoices.Mode.STD
         return str(v.mode).rjust(2, '0')
 
     @staticmethod
@@ -206,7 +208,7 @@ class MSVideoParser:
         v.current_time = 1e8
 
         level = MSVideoParser.get_level_from_BaseVideo(v)
-        mode = MSVideoParser.get_mode_from_BaseVideo(v)
+        mode = MSVideoParser.get_mode_from_BaseVideo(v, software)
         pluck = calculate_pluck_from_video(v, level, mode)
 
         review_code = v.is_valid()

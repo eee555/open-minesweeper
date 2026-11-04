@@ -85,13 +85,13 @@ class MedalIncrementalQueryTests(MedalStateFixture, MedalTestCase):
 
     def test_incomplete_mode_set_updates_database_without_publishing_display(self):
         self.prepare_unchanged()
-        second = self.make_video(mode='01', upload_time=self.later)
+        second = self.make_video(mode='05', upload_time=self.later)
         with patch('medal.services.write_player_states') as publish, patch('medal.services._novice_modes_found') as history, CaptureQueriesContext(connection) as queries:
             self.refresh(second)
         publish.assert_not_called()
         history.assert_not_called()
         self.assertEqual(len(selects(queries)), 6)
-        self.assertEqual(PlayerProgress.objects.get(user=self.user, code=NOVICE_MODES).extra, {'modes': ['00', '01']})
+        self.assertEqual(PlayerProgress.objects.get(user=self.user, code=NOVICE_MODES).extra, {'modes': ['00', '05']})
 
     def test_display_misses_are_one_batched_select_then_zero_on_hit(self):
         self.prepare_unchanged()

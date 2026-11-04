@@ -54,8 +54,16 @@ THREE_FL_THRP = (1, 1.2, 1.5)
 
 
 def open_modes():
-    """当前开放的模式名单。全模式成就读这个列表，不读前端不完整的模式表。"""
-    return [item.value for item in MS_TextChoices.Mode]
+    """走马观花的固定项目；不随录像格式的模式枚举自动扩张。
+
+    核对 ms_toollib 1.6.0 base/src/videos/base_video.rs::is_valid：
+    元3.1.11至元3.3.4的模式审核白名单为0、5、6、10。
+    仍须通过公平性、完成状态和鼠标轨迹等审核才计入。
+    """
+    return [
+        MS_TextChoices.Mode.STD, MS_TextChoices.Mode.JSW,
+        MS_TextChoices.Mode.QWC, MS_TextChoices.Mode.RKC,
+    ]
 
 
 def threshold_index(thresholds, stage):
