@@ -50,6 +50,13 @@
                     </div>
                 </dd>
             </div>
+            <div :class="descriptionLayout ? 'description-item' : 'minigame-settings-row'">
+                <dt><label :for="scrollThresholdId">{{ t('local.scrollThreshold') }}</label></dt>
+                <dd class="minigame-settings-controls">
+                    <InputNumber :id="scrollThresholdId" v-model="minigameSettings.scrollThreshold" :min="0" :max="200" integer step="1" inputmode="numeric" data-cy="minigame-scroll-threshold" />
+                    <span>px</span>
+                </dd>
+            </div>
         </dl>
         <p :id="hintId" class="minigame-settings-hint text text-info text-small">
             {{ t('local.hint') }}
@@ -75,6 +82,7 @@ const cellSizeId = useId();
 const opacityId = useId();
 const mineStateId = useId();
 const scoreDisplayId = useId();
+const scrollThresholdId = useId();
 
 function recordHotkey(event: KeyboardEvent) {
     if (event.key === 'Tab') return;
@@ -94,6 +102,7 @@ const i18nMessages = {
         mineState: '左键／多指训练 · 雷格状态',
         scoreDisplay: '左键／多指训练 · 成绩显示',
         cesHint: 'CES = 成功点击次数（不含首次）÷ 用时（秒）。影响右上角计数器和完整排行榜。',
+        scrollThreshold: '多指训练 · 滚动阈值',
         up: '弹起',
         down: '按下',
     } },
@@ -106,6 +115,7 @@ const i18nMessages = {
         mineState: 'Left-click / multi-touch training · Mine cell state',
         scoreDisplay: 'Left-click / multi-touch training · Score display',
         cesHint: 'CES = successful clicks (excluding the first) / elapsed seconds. Applies to the top-right counter and full rankings.',
+        scrollThreshold: 'Multi-touch training · Scroll threshold',
         up: 'Raised',
         down: 'Pressed',
     } },
