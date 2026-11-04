@@ -12,7 +12,9 @@ ALL_KEY = 'news:idx:all:v1'
 CATEGORY_KEY = 'news:idx:cat:{category}:v1'
 CATEGORIES = ('pb', 'lsf')
 TTL_SECONDS = 7 * 24 * 3600
-MAX_EVENTS = 200
+# 至少保留最新的这么多条；7 天内的记录同样全部保留。二者取并集，
+# 因此只有「超出该窗口 且 早于 TTL」的记录才会被删除。
+KEEP_LATEST_EVENTS = 200
 
 
 def _decode(value):
@@ -31,10 +33,12 @@ def publish(category: str, player_id: int, payload: dict) -> dict:
     raw = json.dumps(event, ensure_ascii=False, allow_nan=False)
     cutoff = (now - TTL_SECONDS) * 1000
     with cache.pipeline() as pipe:
-        pipe.zrangebyscore(ALL_KEY, '-inf', cutoff)
-        pipe.zrevrange(ALL_KEY, MAX_EVENTS - 1, -1)
-        expired, overflow = pipe.execute()
-    stale = {_decode(value) for value in (*expired, *overflow)}
+        pipe.zrevrange(ALL_KEY, KEEP_LATEST_EVENTS - 1, -1)  # 超出保留窗口的候选
+        pipe.zrangebyscore(ALL_KEY, '-inf', cutoff)          # 早于 TTL 的候选
+        overflow, expired = pipe.execute()
+    # 只删除「既超出保留窗口、又早于 TTL」的记录：
+    # 7 天内的全部保留（即使超出窗口），最新的 N 条也全部保留（即使早于 TTL）。
+    stale = {_decode(value) for value in overflow} & {_decode(value) for value in expired}
     with cache.pipeline() as pipe:
         if stale:
             pipe.hdel(EVENTS_KEY, *stale)

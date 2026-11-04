@@ -36,22 +36,26 @@ class NewsCacheTests(SimpleTestCase):
         second = publish('pb', 2, {'n': 2})
         self.assertEqual([event['id'] for event in read_events()], [second['id'], first['id']])
 
+    @patch('news.cache.KEEP_LATEST_EVENTS', 3)
     def test_expired_events_are_removed_from_hash(self):
-        event = publish('pb', 1, {})
-        expired = (time.time() - TTL_SECONDS - 60) * 1000
-        cache.zadd(ALL_KEY, {event['id']: expired})
-        cache.zadd(index_key('pb'), {event['id']: expired})
-        fresh = publish('lsf', 2, {})
-        self.assertIsNone(cache.hget(EVENTS_KEY, event['id']))
-        self.assertEqual([item['id'] for item in read_events()], [fresh['id']])
+        for index in range(3):
+            publish('pb', index, {'n': index})
+        expired_id = read_events(limit=10)[-1]['id']
+        cache.zadd(ALL_KEY, {expired_id: (time.time() - TTL_SECONDS - 60) * 1000})
+        cache.zadd(index_key('pb'), {expired_id: (time.time() - TTL_SECONDS - 60) * 1000})
+        publish('pb', 9, {'n': 9})
+        self.assertIsNone(cache.hget(EVENTS_KEY, expired_id))
+        self.assertEqual(cache.hlen(EVENTS_KEY), 3)
 
-    @patch('news.cache.MAX_EVENTS', 3)
-    def test_overflow_removes_oldest_hash_fields(self):
+    @patch('news.cache.time.time')
+    @patch('news.cache.KEEP_LATEST_EVENTS', 3)
+    def test_overflow_keeps_events_when_within_ttl(self, mocked_time):
+        now = 1_000_000_000
+        mocked_time.return_value = now
         for index in range(5):
             publish('pb', index, {'n': index})
-            time.sleep(0.002)
-        self.assertEqual(cache.hlen(EVENTS_KEY), 3)
-        self.assertEqual([event['payload']['n'] for event in read_events(limit=10)], [4, 3, 2])
+        # 5 条都发布于 now，彼此不超时，因此即使超出 KEEP=3 也全部保留
+        self.assertEqual(cache.hlen(EVENTS_KEY), 5)
 
     def test_emit_writes_through_signal(self):
         emit('pb', 7, {'field': 'std:b:10'})
