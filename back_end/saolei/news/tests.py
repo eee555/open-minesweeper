@@ -143,11 +143,12 @@ class LSFNewsTests(SimpleTestCase):
         cache.zadd(ranking.soft_key('lsf'), {'1': 100})
         previous = ({}, {}, {1: {}})
         records = {1: {'std:bt': {'videos': [{'value': 1000, 'video_id': 9}]}}}
-        _write_records(previous, {}, {}, records, news_targets={1: 9})
+        _write_records(previous, {}, {}, records, news_targets={1: [9]})
         self.assertEqual(mocked_emit.call_count, 1)
         category, player_id, payload = mocked_emit.call_args.args
         self.assertEqual((category, player_id), ('lsf', 1))
         self.assertEqual(payload['video_id'], 9)
+        self.assertEqual(payload['video_ids'], [9])
         self.assertEqual(payload['old'], {'lsf': 100, 'rank': 1})
         self.assertEqual(payload['new'], {'lsf': 200, 'rank': 1})
 
@@ -161,7 +162,7 @@ class LSFNewsTests(SimpleTestCase):
 
     @patch('speedranking.services.emit')
     def test_changes_outside_top_36_publish_no_news(self, mocked_emit):
-        _publish_lsf_news({1: 42}, {1: (100.0, 40)}, {1: (200.0, 40)})
+        _publish_lsf_news({1: [42]}, {1: (100.0, 40)}, {1: (200.0, 40)})
         mocked_emit.assert_not_called()
 
     @patch('speedranking.top.services.soft_refresh_requested.send')
@@ -183,25 +184,26 @@ class NewsTargetsTests(SimpleTestCase):
             3: old_top[3],
         }
         targets = _news_targets(old_top, top_records, {(3, 'std:b:10'): (93, 0)})
-        self.assertEqual(targets, {1: 91, 2: 92, 3: 93})
+        self.assertEqual(targets, {1: [91], 2: [92], 3: [93]})
 
     def test_unchanged_players_are_not_news_targets(self):
         old_top = {1: {'std:bt': {'videos': [{'video_id': 10, 'value': 1000}]}}}
         self.assertEqual(_news_targets(old_top, old_top, {}), {})
 
-    def test_multiple_new_videos_picks_min_id(self):
-        # 同玩家同批新增 91、92 两条录像，triggers 含两条，按 id 最小者（91）
-        # 作为 LSF 新闻代表链接；取舍见 speedranking.services._news_targets 文档。
+    def test_multiple_new_videos_all_in_targets(self):
+        # 同玩家同批新增 91、92 两条录像，triggers 含两条，全部保留为 video_ids
+        # （升序），最小者 91 仍作为主链接 video_id；见 _news_targets 文档。
         old_top = {1: {'std:bt': {'videos': [{'video_id': 10, 'value': 1000}]}}}
         top_records = {1: {'std:bt': {'videos': [{'video_id': 10, 'value': 1000}, {'video_id': 91, 'value': 900}, {'video_id': 92, 'value': 1100}]}}}
-        self.assertEqual(_news_targets(old_top, top_records, {}), {1: 91})
+        self.assertEqual(_news_targets(old_top, top_records, {}), {1: [91, 92]})
 
 
 class LSFNewsPublishTests(SimpleTestCase):
     @patch('speedranking.services.emit')
     def test_each_lsf_change_publishes_its_own_event(self, mocked_emit):
-        _publish_lsf_news({1: 91, 2: 92}, {1: (100.0, 5), 2: (200.0, 10)}, {1: (150.0, 3), 2: (250.0, 8)})
+        _publish_lsf_news({1: [91], 2: [92]}, {1: (100.0, 5), 2: (200.0, 10)}, {1: (150.0, 3), 2: (250.0, 8)})
         self.assertEqual(mocked_emit.call_count, 2)
         payloads = [item.args[2] for item in mocked_emit.call_args_list]
         self.assertEqual([payload['video_id'] for payload in payloads], [91, 92])
+        self.assertEqual([payload['video_ids'] for payload in payloads], [[91], [92]])
         self.assertEqual([(payload['old']['rank'], payload['new']['rank']) for payload in payloads], [(6, 4), (11, 9)])

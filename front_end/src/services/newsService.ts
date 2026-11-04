@@ -19,6 +19,7 @@ export interface PBNewsPayload {
 
 export interface LSFNewsPayload {
     video_id: number | null;
+    video_ids: number[];
     old: NewsValue | null;
     new: NewsValue;
 }

@@ -101,7 +101,7 @@ function replayIds(event: NewsEvent): number[] {
     if (event.category === 'pb') {
         return [event.payload.old?.video_id, event.payload.new.video_id].filter((id): id is number => id != null);
     }
-    return event.payload.video_id == null ? [] : [event.payload.video_id];
+    return event.payload.video_ids ?? (event.payload.video_id == null ? [] : [event.payload.video_id]);
 }
 
 function describe(event: NewsEvent): string {

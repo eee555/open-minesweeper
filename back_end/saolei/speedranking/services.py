@@ -51,14 +51,20 @@ def _publish_pb_news(old_pb, pb_changes, ranking, news_targets):
 
 
 def _publish_lsf_news(news_targets, before, after):
-    """用写入前后各一次的真实 LSF 快照发布新闻；触发录像由调用路径给出。"""
-    for player_id, video_id in news_targets.items():
+    """用写入前后各一次的真实 LSF 快照发布新闻；触发录像（可能多条）由调用路径给出。
+
+    video_ids 携带该玩家本批所有相关录像，video_id 取最小者作为主链接，二者一并写入，
+    前端据此可跳到每一条相关录像，避免同批多录像时只链接到其中一条。
+    """
+    for player_id, video_ids in news_targets.items():
+        video_ids = video_ids or []
         old_lsf, old_rank = before.get(player_id, (None, None))
         new_lsf, new_rank = after.get(player_id, (None, None))
         if new_rank is None or new_rank >= LSF_NEWS_TOP_N or old_lsf == new_lsf:
             continue
         emit('lsf', player_id, {
-            'video_id': video_id,
+            'video_id': video_ids[0] if video_ids else None,
+            'video_ids': video_ids,
             'old': {'lsf': old_lsf, 'rank': old_rank + 1 if old_rank is not None else None} if old_lsf is not None else None,
             'new': {'lsf': new_lsf, 'rank': new_rank + 1},
         })
@@ -67,9 +73,9 @@ def _publish_lsf_news(news_targets, before, after):
 def _news_targets(old_top, top_records, pb_changes):
     """批量刷榜时按变动项收集：每条 PB 纪录变动与每条 LSF 变动各带造成它的录像 id。
 
-    同一玩家同批新增多条录像时 triggers 会包含多条 id，这里取 id 最小者作为
-    LSF 新闻的代表链接——无法精确归因到“真正提升 LSF 的那条”，但链接仍指向
-    该玩家的录像，偏差仅在于具体跳到哪一条。
+    同一玩家同批新增多条录像时 triggers 会包含多条 id，全部保留（按 id 升序）作为
+    LSF 新闻的 video_ids，其中最小者仍作为 video_id 主链接；前端据此可跳到每一条
+    相关录像，而非只链接到其中一条。
     """
     pb_videos = {}
     for (player_id, _), candidate in pb_changes.items():
@@ -83,7 +89,7 @@ def _news_targets(old_top, top_records, pb_changes):
         old_ids = {item['video_id'] for value in old.values() for item in value['videos']}
         new_ids = {item['video_id'] for value in record.values() for item in value['videos']}
         triggers = (new_ids - old_ids) | pb_videos.get(player_id, set())
-        targets[player_id] = min(triggers) if triggers else None
+        targets[player_id] = sorted(triggers) if triggers else None
     return targets
 
 
@@ -118,7 +124,7 @@ def _sync_video(video_id: int, previous_player_id: int):
         saolei_records = saolei.prepare_video_update(video, video_id, previous[0])
         pb_changes = pb.prepare_video_update(video, video_id, previous[1])
         top_records = top.prepare_video_update(video, video_id, previous[2])
-        news_targets = {video['player_id']: video_id} if video else None
+        news_targets = {video['player_id']: [video_id]} if video else None
         _write_records(previous, saolei_records, pb_changes, top_records, news_targets=news_targets)
 
 
