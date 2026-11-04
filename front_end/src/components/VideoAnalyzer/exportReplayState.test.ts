@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createExportStateReader } from './exportReplayState';
 import type { ExportBoardSettings } from './exportReplayState';
@@ -8,6 +8,8 @@ import { defaultMouseTraceAppearance, mouseTraceAppearanceProps } from './mouseT
 import { readReplayCursor } from './replayCursor';
 import { mouseTraceRange, readMouseTrace } from './replayMouseTrace';
 import { parseReplay } from './replayParser';
+
+import { replayPressedBackground } from '@/utils/replayBoardPress';
 
 describe('export replay positioning', () => {
     for (const [filename, software] of [
@@ -31,12 +33,24 @@ describe('export replay positioning', () => {
                     expect(state.input.layers?.probability).toMatchObject({ board: replay.game_board_poss });
                     expect(state.input.layers?.mouseTrace).toMatchObject({ ...mouseTraceRange(events, ms, 1, replay.current_event_id), events, opacity: 0.25 });
                     const position = readReplayCursor(replay);
+                    const background = replayPressedBackground(replay.game_board as number[][], replay.mouse_state, position);
+                    expect(state.input.layers?.background).toEqual(background === undefined ? undefined : { board: background });
                     expect(state.cursor).toEqual(position === null ? null : { x: position.columnIndex * 16.4 - 3, y: position.rowIndex * 16.4 - 2, size: 32 });
                 }
                 const hidden = createExportStateReader(replay, { ...settings, globalVisible: false, probabilityVisible: false, traceVisible: false, cursor: null }, events)(1000);
                 expect(hidden.globalBoard).toBeNull();
                 expect(hidden.cursor).toBeNull();
-                expect(hidden.input.layers).toEqual({ probability: false, mouseTrace: false });
+                expect(hidden.input.layers).toMatchObject({ probability: false, mouseTrace: false });
+                const mouseState = vi.spyOn(replay, 'mouse_state', 'get').mockReturnValue(5);
+                try {
+                    const pressed = createExportStateReader(replay, { ...settings, cursor: null }, events)(500);
+                    const expected = replayPressedBackground(replay.game_board as number[][], 5, readReplayCursor(replay));
+                    expect(expected).toBeDefined();
+                    expect(pressed.input.layers?.background).toEqual({ board: expected });
+                    expect(pressed.cursor).toBeNull();
+                } finally {
+                    mouseState.mockRestore();
+                }
             } finally {
                 replay.free();
             }

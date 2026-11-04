@@ -7,9 +7,11 @@ description: 开源扫雷网Redis/Django缓存结构详解，包括录像队列�
 
 本文记录项目当前使用的 Redis / Django cache 结构，以及缓存与数据库、API 之间的读写流向。数据库字段结构以各 app 的 `models.py` 为准，这里只记录缓存中实际保存的数据结构。
 
-扫雷网首批迁移由 [sync_saolei_api](./management-commands.md#sync-saolei-api) 串行执行，没有专用 Redis 进度或任务缓存。目录与 `AccountSaolei.video_sync_cursor` 同数据库事务提交，`video_update_time` 标记完整目录扫描完成；游标不等待文件导入，未完成文件通过本地来源表补导。旧账号成绩、人气、三级录像数量及任务指针字段随迁移删除，不再维护对应历史值。创建本站录像和同主重复文件的更早上传时间仍经过既有保存信号及排行缓存更新，不清理本站录像缓存来重建来源目录。
+扫雷网首批迁移由 [sync_saolei_api](./management-commands.md#sync-saolei-api) 串行执行。迁移后开放前端逐页、逐条手动同步；`AccountSaolei.auto_sync=True` 的账号（默认开启）每日由 APScheduler 直接同步目录并每批最多 50 条取得详情及 URL，每小时由 Django Task 按已存 URL 最多尝试导入 100 条。没有专用 Redis 进度或任务缓存；目录与 `AccountSaolei.video_sync_cursor` 同数据库事务提交，`video_update_time` 仅标记目录扫描完成，不代表全部详情或文件成功；游标不等待详情或文件导入，未完成来源独立补取。旧账号成绩、人气、三级录像数量及任务指针字段随迁移删除，不再维护对应历史值。创建本站录像和同主重复文件的更早上传时间仍经过既有保存信号及排行缓存更新，不清理本站录像缓存来重建来源目录。
 
-`SaoleiApiVideo.file_url` 将详情返回的文件地址以客户端规范化后缀 `YYYY/MM/DD/filename` 保存到数据库，供文件导入使用，没有单独的 URL 缓存。目录列表不含此字段，目录刷新保留已存后缀；详情明确返回无文件时置空，下载失败仍保留后缀供重试时刷新。
+`saolei:throttle:data` 和 `saolei:throttle:download` 是网页、worker 和命令共享的上游节流键，只存常量 `1`，由 Redis `SET NX PX` 原子占用，分别在 2100ms、400ms 后自动过期。没有用户数据或密钥。各客户端竞争同一额度，最多等待 6 秒；不要手动清除正在使用的键。
+
+`SaoleiApiVideo.file_url` 将详情返回的文件地址以客户端规范化后缀 `YYYY/MM/DD/filename` 保存到数据库，供文件导入使用，没有单独的 URL 缓存。目录列表不含此字段，目录刷新保留已存后缀；批量详情校验归属后整批落库，详情缺项保留已有信息，明确返回无文件时置空。自动导入和命令 videos 阶段直接使用已存 URL，不重复请求详情；URL 缺失先由 metadata 阶段补取。前端单条手动导入仍先取得该条最新详情。
 
 `SaoleiApiVideo.import_rejected` 在数据库中持久化本站文件校验直接拒收的结果，不使用缓存。导入事务回滚后单独写入；后续同步在请求详情和下载文件前跳过，目录刷新及 `--full` 不清除此标记。需人工重试时由站长在 Django shell 清除；网络、上游及其他非文件校验故障不设置标记，仍按本地未完成来源补导。
 
@@ -17,7 +19,7 @@ description: 开源扫雷网Redis/Django缓存结构详解，包括录像队列�
 
 旧竞速排行榜及新闻的读写逻辑已移除，可运行`python manage.py delete_legacy_speedranking_cache`清理旧个人纪录hash、排行zset及`news_queue`。支持`--dry-run`预览，具体范围见[管理命令文档](./management-commands.md#delete-legacy-speedranking-cache)。
 
-`UserMS` 的录像数量及文件空间保存在数据库，不按级别、模式或 NF 分类，也不涉及 Redis 清理。创建时按 `ongoing_tournament` 归类；全量重算时，`ongoing_tournament=True` 或关联到任意比赛的录像属于比赛口径，包括已公开、已结束比赛的录像。同一录像关联多个比赛只计算一次。空间按 `VideoModel.file_size` 求和，单位为字节。
+`UserMS` 的录像数量及文件空间保存在数据库，不按级别、模式或 NF 分类，也不涉及 Redis 清理。创建时按 `ongoing_tournament` 归类；全量重算时，`ongoing_tournament=True` 或关联到任意比赛的录像属于比赛口径，包括已公开、已结束比赛的录像。同一录像关联多个比赛只计算一次。空间按实际存储的 `VideoModel.stored_file_size` 求和，空值回退到原始 `file_size`，单位为字节；已压缩录像统计压缩后的大小。
 
 | 口径 | 数量字段 | 文件空间字段 |
 | --- | --- | --- |
@@ -35,7 +37,7 @@ description: 开源扫雷网Redis/Django缓存结构详解，包括录像队列�
 
 补录逻辑及延迟重算行为保持不变：比赛关联变化不立即调整统计。删除、文件大小及玩家归属变更按该录像当前的比赛标记和关联归类，允许与原先计入的口径存在偏差，统一由 [refresh_video_counts](./management-commands.md#refresh-video-counts) 全量重算修复；不保存历史统计分类字段。迁移后需先运行重算命令补齐历史统计。
 
-保存信号中数量、文件空间及需要提升的上传额度合并到一次 `UserMS UPDATE`；归属变化通过一条 `CASE WHEN UPDATE` 同时处理两位玩家。后台压缩修改 `file_size` 时，只查询该录像是否属于比赛，再按大小差额更新对应口径，不重算该用户的全部录像。所有统计字段使用固定字段名与 `if/else` 分支，不动态拼接。
+保存信号中数量、文件空间及需要提升的上传额度合并到一次 `UserMS UPDATE`；归属变化通过一条 `CASE WHEN UPDATE` 同时处理两位玩家。手动压缩切换 `stored_file_size` 后，在同一事务发送 `video_storage_changed`，只查询该录像当前比赛归属，再按存储大小差额更新对应口径，不重算该用户的全部录像，也不修改原始 `file_size`。所有统计字段使用固定字段名与 `if/else` 分支，不动态拼接。部署此统计口径变更后，运行一次 `refresh_video_counts` 修正已有统计。
 
 旧 World 监控页面及其 CPU/网络 IO 采集已移除，不再读写历史采样；旧 `/monitor/io_cpus/` 和 `/monitor/capacity/` 不恢复。部署并停止旧采集进程后，可按固定名称清理 `saolei_website` Redis DB 中的五个遗留 key，无需遍历其他 key：
 
@@ -44,10 +46,6 @@ redis-cli -n 0 DEL io_s_old io_r_old io_s_spds io_r_spds cpus
 ```
 
 扫雷网旧站爬取及旧来源列表、统计查询已关闭，账号关联保留。首批仅由管理命令使用新来源结构同步目录和导入文件；旧爬取任务不会访问外站或写入业务数据。具体入口见仓库 `back_end/saolei/accountlink/README.md`。
-
-## Discord 授权临时状态
-
-Discord 绑定及登录在 `caches['default']` 保存 `accountlink:discord:flow:{state}` 和 `accountlink:discord:used:{state}`，TTL 均为 600 秒。前者保存浏览器及发起用户归属、PKCE verifier、回调配置和登录有效期，在回调时删除；后者通过原子 `cache.add` 防止多个 worker 重复消费同一次授权。Django Session 的 `discord_oauth_browser` 保存浏览器随机标识。缓存不保存 Client Secret 或访问令牌；清除临时状态只会要求用户重新授权，不影响已绑定记录。配置和验证边界见 `back_end/saolei/accountlink/discord/README.md`。
 
 ## 服务器监控快照
 
@@ -755,7 +753,7 @@ Redis 连接和读写异常记录日志，计算及数据库摘要不回滚，�
 
 录像压缩仅改变 `file`、`original_filename`、`stored_file_size`、`compression_format`、`compression_failed` 等存储字段。原始 `file_size`、`original_hash` 和解析结果保持不变，不升级前端录像缓存版本，也不将压缩容器写入 IndexedDB。
 
-服务器磁盘摘要汇总 `stored_file_size`；尚未补齐的原始录像回退到 `file_size`。新上传和导入在创建录像前尝试压缩校验，成功保存压缩文件，失败保存源文件并记录 `compression_format=0`、`stored_file_size=file_size` 及失败标记，两种情况均走原有创建信号；历史文件由管理员运行 `compress_video_files` 手动转换，不注册 APScheduler 压缩任务。
+服务器磁盘摘要和 `UserMS` 文件空间均汇总 `stored_file_size`；尚未补齐的原始录像回退到 `file_size`。新上传和导入在创建录像前尝试压缩校验，成功保存压缩文件，失败保存源文件并记录 `compression_format=0`、`stored_file_size=file_size` 及失败标记，两种情况均走原有创建信号；历史文件由管理员运行 `compress_video_files` 手动转换，并在文件切换事务中同步用户空间差额，不注册 APScheduler 压缩任务。
 
 preview 仅凭数字 ID 返回当前存储的文件，客户端按容器版本解压；download 在请求中恢复原始录像字节，复用 `original_file` 的输出大小及内存限制，不写临时文件、不缓存解压结果、不改动存储文件。两者每 IP 分别限流 `20/m` 和 `5/m`；生产 preview 及未压缩文件下载继续走 `X-Accel-Redirect`，压缩文件下载由 Django 以内存字节响应发送解压结果。
 

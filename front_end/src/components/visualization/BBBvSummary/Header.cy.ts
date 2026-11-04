@@ -45,7 +45,7 @@ describe('<BBBvSummary Header />', () => {
     it('updates the software selection while keeping all software icons available', () => {
         BBBvSummaryConfig.value.softwareFilter = ['e', 'a', 'r', 'm'];
         mountHeader();
-        cy.get('.checkbox-buttons--compact img').should('have.length', 4);
+        cy.get('.checkbox-buttons--compact img').should('have.length', 5);
         cy.get('.checkbox-buttons--compact label').first().click();
         cy.wrap(BBBvSummaryConfig).its('value.softwareFilter').should('deep.equal', ['a', 'r', 'm']);
         cy.get('.checkbox-buttons--compact input[value=e]').should('not.be.checked').focus();

@@ -7,11 +7,6 @@ import { userRoutes } from '@/views/UserView/routes';
 
 const routes: RouteRecordRaw[] = [
     {
-        path: '/discord',
-        name: 'discord-result',
-        component: () => import('../views/DiscordResultView.vue'),
-    },
-    {
         path: '/',
         name: 'home',
         component: () => import('../views/HomeView/App.vue'),

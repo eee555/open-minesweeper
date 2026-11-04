@@ -61,12 +61,14 @@ describe('analyzer replay position', () => {
         expect(state.probabilityBoard.value).toBeNull();
         expect(state.currentEventIndex.value).toBeNull();
         expect(state.cursorPosition.value).toBeNull();
+        expect(state.mouseState.value).toBe(0);
         state.currentMs.value = 5000;
         state.video.value = loadFixture();
         await nextTick();
         expect(openedCells(state.gameBoard.value)).toBe(180);
         expect(state.gameBoard.value).toEqual(state.video.value.game_board);
         expect(state.probabilityBoard.value).toEqual(state.video.value.game_board_poss);
+        expect(state.mouseState.value).toBe(state.video.value.mouse_state);
     });
 
     it('does not initially display the analysed terminal board', () => {

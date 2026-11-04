@@ -1,5 +1,6 @@
 from datetime import datetime
 import logging
+import re
 from typing import List
 
 from django.core.exceptions import ObjectDoesNotExist
@@ -9,12 +10,14 @@ from django_ratelimit.decorators import ratelimit
 from ninja import Form, Router, Schema
 from ninja.decorators import decorate_view
 from ninja.orm import create_schema
+from pydantic import field_validator, ValidationInfo
 
 from userprofile.decorators import login_required_error, staff_required
 from userprofile.models import UserProfile
 from utils.response import HttpResponseConflict
+from .classic.services import classic_bind_status, handle_classic_callback, handle_classic_replay_push, start_classic_bind
 from .mineracer.sessions import poll_mineracer_account_link_session, start_mineracer_account_link
-from .models import AccountBilibili, AccountDiscord, AccountLinkQueue, AccountMineracer, AccountMinesweeperGames, AccountQQ, AccountSaolei, AccountWorldOfMinesweeper, Platform, PLATFORM_CONFIG
+from .models import AccountBilibili, AccountClassicMinesweeper, AccountDiscord, AccountLinkQueue, AccountMineracer, AccountMinesweeperGames, AccountQQ, AccountSaolei, AccountWorldOfMinesweeper, Platform, PLATFORM_CONFIG
 from .services import unverify_account_link, update_account, verify_account_link
 from .utils import private_platforms
 
@@ -38,6 +41,7 @@ AccountMSGamesOut = create_schema(AccountMinesweeperGames)
 AccountWoMOut = create_schema(AccountWorldOfMinesweeper)
 AccountBiliOut = create_schema(AccountBilibili)
 AccountMineracerOut = create_schema(AccountMineracer)
+AccountClassicOut = create_schema(AccountClassicMinesweeper)
 AccountDiscordOut = create_schema(AccountDiscord)
 AccountQQOut = create_schema(AccountQQ)
 
@@ -48,6 +52,7 @@ class AccountLinkCompleteOut(Schema):
     c: AccountSaoleiOut | None = None
     a: AccountMSGamesOut | None = None
     m: AccountMineracerOut | None = None
+    x: AccountClassicOut | None = None
     d: AccountDiscordOut | None = None
     w: AccountWoMOut | None = None
     q: AccountQQOut | None = None
@@ -56,6 +61,13 @@ class AccountLinkCompleteOut(Schema):
 class AccountLinkCreateIn(Schema):
     platform: str
     identifier: str
+
+    @field_validator('identifier')
+    @classmethod
+    def valid_identifier(cls, value: str, info: ValidationInfo):
+        if info.data.get('platform') == Platform.DISCORD and not re.fullmatch(r'[1-9][0-9]{0,19}', value):
+            raise ValueError('Expected a Discord numeric User ID of up to 20 digits.')
+        return value
 
 
 class AccountLinkVerifyIn(AccountLinkCreateIn):
@@ -145,6 +157,7 @@ def get_account_links(request, user_id: int):
         Platform.SAOLEI.value: None,
         Platform.MSGAMES.value: None,
         Platform.MINERACER.value: None,
+        Platform.CLASSIC.value: None,
         Platform.DISCORD.value: None,
         Platform.WOM.value: None,
         Platform.QQ.value: None,
@@ -173,7 +186,7 @@ def create_account_link(request, data: AccountLinkCreateIn = Form(...)):  # noqa
     """
     if data.platform not in Platform.values or not data.identifier:
         return HttpResponseBadRequest()
-    if data.platform in (Platform.MINERACER, Platform.DISCORD):
+    if data.platform in (Platform.MINERACER, Platform.CLASSIC):
         return HttpResponseBadRequest()
     if AccountLinkQueue.objects.filter(platform=data.platform, userprofile=request.user).exists():
         return HttpResponseConflict()
@@ -215,6 +228,91 @@ def get_mineracer_account_link_session(request, session_id: str):
     if session is None:
         return HttpResponseNotFound()
     return session
+
+
+class ClassicBindOut(Schema):
+    status: str
+    uid: int | None = None
+    request_id: int | None = None
+    expires_at: datetime | None = None
+    error_category: str = ''
+
+
+class ClassicBindStartIn(Schema):
+    uid: int
+
+
+def _classic_bind_out(record) -> dict:
+    if record is None:
+        return {'status': 'none'}
+    return {
+        'status': record.status,
+        'uid': record.uid,
+        'request_id': record.request_id,
+        'expires_at': record.expires_at,
+        'error_category': record.error_category,
+    }
+
+
+@router.post('/classic/start/', response=ClassicBindOut)
+@decorate_view(
+    never_cache,
+    login_required_error,
+    ratelimit(key='user', rate='6/h'),
+)
+def create_classic_account_link(request, data: ClassicBindStartIn = Form(...)):  # noqa: B008
+    """
+    - never_cache
+    - login_required_error
+    - ratelimit(key='user', rate='6/h')
+
+    Submit an 8-digit 95 Classic UID. The player confirms inside the mini game,
+    and the binding is created only by the signed callback.
+    """
+    return _classic_bind_out(start_classic_bind(request.user, data.uid))
+
+
+@router.get('/classic/status/', response=ClassicBindOut)
+@decorate_view(
+    never_cache,
+    login_required_error,
+    ratelimit(key='user', rate='30/m'),
+)
+def get_classic_account_link(request):
+    """
+    - never_cache
+    - login_required_error
+    - ratelimit(key='user', rate='30/m')
+
+    Return the current user's latest 95 Classic request so the page can poll it.
+    """
+    return _classic_bind_out(classic_bind_status(request.user))
+
+
+@router.post('/classic/callback')
+@decorate_view(
+    never_cache,
+    ratelimit(key='ip', rate='300/m', block=True),
+)
+def classic_callback(request):
+    """
+    - never_cache
+    - ratelimit(key='ip', rate='300/m', block=True)
+
+    Receive signed callbacks from 95 Classic Minesweeper on one URL. JSON bodies
+    are allow / deny / revoke events; octet-stream bodies are player-approved EVF
+    replays, imported synchronously within the remote's 10-second budget.
+    """
+    content_type = (request.content_type or '').lower()
+    if content_type == 'application/octet-stream' or request.headers.get('X-Ext-Event') == 'replay':
+        handle_classic_replay_push(request)
+    else:
+        handle_classic_callback(
+            request.body,
+            request.headers.get('X-Ext-Timestamp', ''),
+            request.headers.get('X-Ext-Signature', ''),
+        )
+    return HttpResponse()
 
 
 @router.get('/admin/queue', response=List[AccountLinkOut])

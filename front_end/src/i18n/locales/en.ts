@@ -87,6 +87,7 @@ export default {
         a: '@:website.msgames',
         B: '@:website.bilibili',
         c: '@:website.saolei',
+        x: '95 Classic Minesweeper',
         m: 'Mineracer',
         q: 'Tencent QQ',
     },
@@ -162,6 +163,7 @@ export default {
     show: 'Show',
     softwareName: {
         e: 'Metasweeper',
+        x: '95 Classic',
     },
     state: {
         a: 'Pending',
@@ -389,6 +391,7 @@ export default {
     software: {
         software_download: 'Software Downloads',
         arbiter: 'Minesweeper Arbiter',
+        x: '95',
         download: 'Download',
         expireDate: 'Expired',
         feature: 'Features',

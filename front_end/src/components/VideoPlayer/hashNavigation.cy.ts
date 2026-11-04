@@ -9,6 +9,7 @@ import $axios from '@/http';
 import i18n from '@/i18n';
 import { videoplayerstore } from '@/store';
 import { hashRouter, installHashHistoryCleanup } from '@cy/support/hashHistory';
+import { mockVideoInfo } from '@cy/support/videoInfo';
 
 function Page(label: string) {
     return { render: () => h('div', { 'data-cy': 'page' }, label) };
@@ -50,6 +51,7 @@ describe('hash navigation after opening a replay', () => {
     beforeEach(() => {
         videoplayerstore.visible = false;
         cy.mockPlayerNameFallback();
+        mockVideoInfo([{ id: 42 }]);
     });
 
     afterEach(() => {

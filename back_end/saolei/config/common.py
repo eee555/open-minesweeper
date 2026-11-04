@@ -3,6 +3,10 @@ from datetime import timedelta
 
 TASK_CLEANUP_CONFIGS = [
     {
+        'task_path': 'accountlink.saolei.tasks.task_import_saolei_hourly',
+        'expires': timedelta(days=7),
+    },
+    {
         'task_path': 'videomanager.tasks.task_video_pluck',
         'expires': timedelta(days=1),
     },

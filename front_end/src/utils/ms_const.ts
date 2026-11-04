@@ -7,7 +7,7 @@ export function isStandardLevel(level: unknown): level is MS_Level {
     return typeof level === 'string' && (MS_Levels as readonly string[]).includes(level);
 }
 
-export const MS_Softwares = ['e', 'a', 'r', 'm'] as const;
+export const MS_Softwares = ['e', 'a', 'r', 'm', 'x'] as const;
 export type MS_Software = typeof MS_Softwares[number];
 
 export const STNB_const = useLocalStorage('stnb_const', {

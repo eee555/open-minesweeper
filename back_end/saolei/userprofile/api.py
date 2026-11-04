@@ -288,6 +288,24 @@ def get_user_videos(request, user_id: int):
     return queryset.only(*VIDEO_METADATA_FIELDS)
 
 
+class NamePrivacyIn(Schema):
+    hide_realname: bool
+
+
+@router.post('/name-privacy', response=create_schema(UserProfile, name='NamePrivacyOut', fields=['hide_realname']))
+@decorate_view(ratelimit(key='user', rate='30/m'), banned_blocked, login_required_error)
+def update_name_privacy(request: HttpRequest, data: NamePrivacyIn = Form(...)):  # noqa: B008
+    """
+    - login_required_error
+    - banned_blocked
+    - ratelimit(key='user', rate='30/m')
+
+    Save the current user's name privacy without consuming the profile update quota.
+    Hiding requires an existing real name and eligibility; no name fields are changed.
+    """
+    return update_user_names(request.user.pk, {}, request.META.get('REMOTE_ADDR', ''), data.hide_realname)
+
+
 class UpdateUserProfileIn(Schema):
     realname: str = None
     signature: str = None

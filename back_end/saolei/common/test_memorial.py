@@ -16,6 +16,7 @@ from django.db import IntegrityError, transaction
 from django.test import Client, override_settings, TestCase
 from django.utils import timezone
 
+from accountlink.models import AccountLinkQueue, AccountMinesweeperGames, AccountSaolei, AccountWorldOfMinesweeper, Platform
 from config.text_choices import MS_TextChoices
 from identifier.models import Identifier
 from msuser.models import UserMS
@@ -170,7 +171,7 @@ class MemorialUploadTests(MemorialFixtures, TestCase):
         video = VideoModel.objects.get()
         self.assertEqual((video.player_id, video.state, video.upload_time), (42, MS_TextChoices.State.OFFICIAL, self.when))
         userms = UserMS.objects.get(pk=70)
-        self.assertEqual((userms.video_num_total, userms.video_size_total), (1, video.file_size))
+        self.assertEqual((userms.video_num_total, userms.video_size_total), (1, video.stored_file_size))
         with patch('common.services.MSVideoParser') as parse:
             self.assertEqual(self.upload(self.when + timedelta(days=1)).status_code, 200)
             self.assertEqual(self.upload(self.when - timedelta(days=1)).status_code, 200)
@@ -214,3 +215,93 @@ class MemorialUploadTests(MemorialFixtures, TestCase):
         self.assertFalse(VideoModel.objects.exists())
         self.assertEqual(self.upload().status_code, 200)
         self.assertEqual(VideoModel.objects.get().state, MS_TextChoices.State.OFFICIAL)
+
+
+class MemorialAccountLinkTests(MemorialFixtures, TestCase):
+    LINKS = f'{BASE}/users/42/account-links'
+
+    def setUp(self):
+        super().setUp()
+        self.create()
+
+    def post(self, platform, identifier):
+        return self.client.post(self.LINKS, {'platform': platform, 'identifier': str(identifier)})
+
+    def test_superuser_assigns_and_lists_saolei_msgames_and_wom_links(self):
+        for platform, identifier, model in (
+            (Platform.SAOLEI, 901, AccountSaolei),
+            (Platform.MSGAMES, 902, AccountMinesweeperGames),
+            (Platform.WOM, 903, AccountWorldOfMinesweeper),
+        ):
+            with self.subTest(platform=platform):
+                response = self.post(platform.value, identifier)
+                self.assertEqual(response.status_code, 200, response.content)
+                self.assertEqual(response.json()['identifier'], str(identifier))
+                self.assertTrue(model.objects.filter(pk=identifier, parent_id=42).exists())
+                self.assertTrue(AccountLinkQueue.objects.filter(platform=platform, identifier=str(identifier), userprofile_id=42, verified=True).exists())
+        listed = self.client.get(self.LINKS)
+        self.assertEqual(listed.status_code, 200, listed.content)
+        self.assertEqual({item['platform'] for item in listed.json()['links']}, {'c', 'a', 'w'})
+        self.assertIn('csrf_token', listed.json())
+
+    def test_only_assignable_platforms_are_accepted(self):
+        for platform in (Platform.DISCORD, Platform.BILIBILI, Platform.QQ, Platform.MINERACER, Platform.CLASSIC, 'z', ''):
+            with self.subTest(platform=platform):
+                value = platform.value if hasattr(platform, 'value') else platform
+                self.assertEqual(self.post(value, 904).status_code, 400)
+        self.assertFalse(AccountLinkQueue.objects.exists())
+
+    def test_target_must_be_a_memorial_account(self):
+        for user_id in (1000, 999):
+            for method, path in (('post', f'{BASE}/users/{user_id}/account-links'), ('get', f'{BASE}/users/{user_id}/account-links')):
+                with self.subTest(user_id=user_id, method=method):
+                    response = getattr(self.client, method)(path, {'platform': 'c', 'identifier': '905'} if method == 'post' else None)
+                    self.assertEqual(response.status_code, 409 if user_id == 1000 else 404)
+        self.assertFalse(AccountLinkQueue.objects.exists())
+
+    def test_staff_and_ordinary_users_cannot_assign_links(self):
+        staff = UserProfile.objects.create_user(username='staff-link', email='staff-link@example.com', is_staff=True)
+        ordinary = UserProfile.objects.create_user(username='ordinary-link', email='ordinary-link@example.com')
+        for viewer in (staff, ordinary):
+            with self.subTest(viewer=viewer.username):
+                self.client.force_login(viewer)
+                self.assertEqual(self.post('c', 906).status_code, 401)
+                self.assertEqual(self.client.get(self.LINKS).status_code, 401)
+        self.assertFalse(AccountLinkQueue.objects.exists())
+
+    def test_reassign_replaces_identifier_and_rejects_another_owners_account(self):
+        self.assertEqual(self.post('c', 907).status_code, 200)
+        self.assertEqual(self.post('c', 908).status_code, 200)
+        self.assertEqual(list(AccountLinkQueue.objects.filter(platform='c', userprofile_id=42).values_list('identifier', flat=True)), ['908'])
+        self.assertFalse(AccountSaolei.objects.filter(pk=907).exists())
+        owner = UserProfile.objects.create_user(username='saolei-owner', email='saolei-owner@example.com')
+        AccountSaolei.objects.create(pk=909, parent=owner)
+        self.assertEqual(self.post('c', 909).status_code, 409)
+        self.assertEqual(AccountSaolei.objects.get(pk=909).parent_id, owner.pk)
+
+    def test_pending_application_of_another_user_is_replaced_not_verified(self):
+        other = UserProfile.objects.create_user(username='pending-owner', email='pending-owner@example.com')
+        AccountLinkQueue.objects.create(platform=Platform.SAOLEI, identifier='910', userprofile=other)
+        self.assertEqual(self.post('c', 910).status_code, 200)
+        self.assertFalse(AccountLinkQueue.objects.filter(userprofile=other, identifier='910').exists())
+        self.assertTrue(AccountLinkQueue.objects.filter(userprofile_id=42, identifier='910', verified=True).exists())
+
+    def test_unlink_removes_only_the_requested_platform(self):
+        self.assertEqual(self.post('c', 911).status_code, 200)
+        self.assertEqual(self.post('a', 912).status_code, 200)
+        response = self.client.delete(f'{self.LINKS}?platform=c')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(response.json()['removed'])
+        self.assertFalse(AccountSaolei.objects.filter(pk=911).exists())
+        self.assertFalse(AccountLinkQueue.objects.filter(platform='c').exists())
+        self.assertTrue(AccountMinesweeperGames.objects.filter(pk=912, parent_id=42).exists())
+        self.assertEqual(self.client.delete(f'{self.LINKS}?platform=c').status_code, 404)
+
+    def test_assigning_links_requires_csrf(self):
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(self.actor)
+        self.assertEqual(client.post(self.LINKS, {'platform': 'c', 'identifier': '913'}).status_code, 403)
+        token = client.get(self.LINKS).json()['csrf_token']
+        response = client.post(self.LINKS, {'platform': 'c', 'identifier': '913'}, HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(AccountLinkQueue.objects.filter(identifier='913', verified=True).exists())

@@ -86,31 +86,27 @@
 </template>
 
 <script setup lang="ts">
-import { useElementSize, useRafFn } from '@vueuse/core';
+import { toRefs, useElementSize, useRafFn } from '@vueuse/core';
 import { ElDialog } from 'element-plus';
 import { computed, ref, useTemplateRef, watch } from 'vue';
-import type { PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Tippy } from 'vue-tippy';
 
-import { counterError, displayCounter, moveCounterRow, parseCounterConfig, prepareCounters } from './counter';
-import type { CounterConfig, CounterEvent, CounterRow, PreparedCounter } from './counter';
+import { counterError, displayCounter, moveCounterRow, parseCounterConfig } from './counter';
+import type { CounterRow } from './counter';
 import CounterRowEditor from './CounterRowEditor.vue';
+import { addTimelineTrack } from './timeline';
+import { useAnalyzerState } from './useAnalyzerState';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
 import InputNumber from '@/components/common/InputNumber.vue';
 import { copyToClipboard } from '@/components/widgets/CopyToClipboard';
 
-const props = defineProps({
-    events: { type: Array as PropType<CounterEvent[]>, required: true },
-    currentMs: { type: Number, required: true },
-    durationMs: { type: Number, default: undefined },
-    counters: { type: Object as PropType<Map<string, PreparedCounter>>, default: null },
-    slotNames: { type: Array as PropType<string[]>, default: () => [] },
-});
-const emit = defineEmits<{ sendToSlot: [target: { key: string; slotIndex: number }] }>();
-const config = defineModel<CounterConfig>({ required: true });
+const { config: analyzerConfig, counterEvents: events, preparedCounters: prepared, playback } = useAnalyzerState();
+const { counter: config } = toRefs(analyzerConfig, { replaceRef: false });
+const { currentMs, durationMs } = playback;
+const slotNames = computed(() => analyzerConfig.value.timeline.slotSettings.map((slot) => slot.name));
 const rowsViewport = useTemplateRef('rowsViewport');
 const { height } = useElementSize(rowsViewport);
 const rowsPerColumn = ref(1);
@@ -119,11 +115,10 @@ const { resume: updateColumns } = useRafFn(() => {
     rowsPerColumn.value = Math.max(1, Math.floor((height.value - 20) / 28));
 }, { immediate: false, once: true });
 watch(height, updateColumns, { immediate: true });
-const prepared = computed(() => props.counters ?? prepareCounters(config.value.rows, props.events, props.durationMs));
 const columns = computed(() => {
     const rows = config.value.rows.map((row) => {
         const counter = prepared.value.get(row.key);
-        return { ...row, ...props.events.length && counter ? displayCounter(counter, props.currentMs) : { value: '--', error: false } };
+        return { ...row, ...events.value.length && counter ? displayCounter(counter, currentMs.value) : { value: '--', error: false } };
     });
     const result: typeof rows[] = [];
     for (let index = 0; index < rows.length; index += rowsPerColumn.value) result.push(rows.slice(index, index + rowsPerColumn.value));
@@ -144,7 +139,7 @@ let movingKey = '';
 
 function sendToSlot(event: Event, key: string) {
     const select = event.target as HTMLSelectElement;
-    emit('sendToSlot', { key, slotIndex: Number(select.value) });
+    addTimelineTrack(analyzerConfig.value.timeline, Number(select.value), key);
     select.value = '';
 }
 

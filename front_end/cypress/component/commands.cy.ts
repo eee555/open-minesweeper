@@ -1,4 +1,3 @@
-/* eslint-disable vue/one-component-per-file -- Each test mounts its own render-only fixture. */
 import { ElNotification } from 'element-plus';
 import { defineComponent, h, onMounted, ref } from 'vue';
 

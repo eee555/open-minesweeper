@@ -133,7 +133,7 @@ video.save(update_fields=['pluck'])
 
 ### 文件和解析字段
 
-录像文件已接入 MSRC 存储及前端按需解压。新上传和导入立即压缩，历史文件使用 `compress_video_files` 手动转换，不注册定时压缩任务。字段、协议和部署步骤见 [录像文件压缩方案](./VIDEO_FILE_COMPRESSION_PLAN.md)。
+录像文件已接入 MSRC 存储及前端按需解压，生产部署及历史录像全量转换已完成，本计划已结项。新上传和导入立即压缩，后续格式升级使用 `compress_video_files` 手动转换，不注册定时压缩任务。字段、协议和维护说明见 [录像文件压缩方案](./VIDEO_FILE_COMPRESSION_PLAN.md)。
 
 `refresh_video(video)` 会重新解析文件并刷新所有文件包含的数据。
 
@@ -277,4 +277,4 @@ video.save(update_fields=['pluck'])
 
 生产的公开 API CORS 由 `default.conf` 按原始请求 URI 统一管理，保持既有白名单，仅开放跨域 GET 且不允许跨域凭据；OPTIONS 仅处理 GET 的预检，其他方法不返回允许跨域的响应头。Nginx 同时恢复内部重定向会丢失的录像版本头。DEBUG 开发及 Cypress 直连 Django 时保留原有 CORS 中间件策略。部署时先同步 Nginx 配置并校验、重载，再更新后端；内部媒体 location 依赖 server 层响应头继承，不单独定义 `add_header`。
 
-`original_hash`、`file_size` 仍描述原始文件；物理大小记录在 `stored_file_size`。失败保留来源文件与实际格式，设置 `compression_failed`；磁盘空间、只读存储及依赖配置错误停止整批。手动重试使用 `compress_video_files --retry-failed`。没有 APScheduler 压缩任务。
+`original_hash`、`file_size` 仍描述原始文件；物理大小记录在 `stored_file_size`。`UserMS` 空间统计使用物理大小，空值回退到 `file_size`；手动转换在同一事务通过 `video_storage_changed` 更新空间差额，不触发普通保存信号及排行重算。部署此统计口径变更后运行一次 `refresh_video_counts` 修正已有统计。失败保留来源文件与实际格式，设置 `compression_failed`；磁盘空间、只读存储及依赖配置错误停止整批。手动重试使用 `compress_video_files --retry-failed`。没有 APScheduler 压缩任务。

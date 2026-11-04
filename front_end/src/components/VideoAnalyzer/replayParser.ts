@@ -9,7 +9,7 @@ export interface ReplaySource {
     software: MS_Software;
 }
 
-const parsers = { a: AvfVideo, e: EvfVideo, m: MvfVideo, r: RmvVideo };
+const parsers = { a: AvfVideo, e: EvfVideo, m: MvfVideo, r: RmvVideo, x: EvfVideo };
 
 export function parseReplay(data: ArrayBuffer, filename: string, software: MS_Software, features: string[] = []): ReplayVideo {
     const video = new parsers[software](new Uint8Array(data), filename);

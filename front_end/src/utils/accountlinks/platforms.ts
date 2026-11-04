@@ -5,9 +5,12 @@ const qqProfile = (id: string | number): string => 'https://user.qzone.qq.com/' 
 const bilibiliProfile = (id: string | number): string => 'https://space.bilibili.com/' + id;
 const mineracerProfile = (): string => 'https://mineracer.com/';
 const discordProfile = (id: string | number): string => 'https://discord.com/users/' + id;
+// 95经典扫雷是微信小游戏，没有公开的个人主页。
+const classicProfile = (): string => 'https://mg.xiean.net:6789/';
 
 export const AccountLinkPlatform = {
     Bilibili: 'B',
+    Classic: 'x',
     Discord: 'd',
     Mineracer: 'm',
     MSGames: 'a',
@@ -19,11 +22,14 @@ export type AccountLinkPlatform = typeof AccountLinkPlatform[keyof typeof Accoun
 
 export const manualAccountLinkPlatforms = [
     AccountLinkPlatform.Bilibili,
+    AccountLinkPlatform.Discord,
     AccountLinkPlatform.MSGames,
     AccountLinkPlatform.QQ,
     AccountLinkPlatform.Saolei,
     AccountLinkPlatform.WoM,
 ] as const;
+
+export const privateAccountLinkPlatforms = [AccountLinkPlatform.QQ, AccountLinkPlatform.Discord] as const;
 
 interface AccountLinkPlatformProfile {
     url: string;
@@ -33,6 +39,7 @@ interface AccountLinkPlatformProfile {
 export const platformlist: Record<AccountLinkPlatform, AccountLinkPlatformProfile> = {
     [AccountLinkPlatform.Discord]: { url: 'https://discord.com/', profile: discordProfile },
     [AccountLinkPlatform.Bilibili]: { url: 'https://www.bilibili.com/', profile: bilibiliProfile },
+    [AccountLinkPlatform.Classic]: { url: 'https://mg.xiean.net:6789/', profile: classicProfile },
     [AccountLinkPlatform.Mineracer]: { url: 'https://mineracer.com/', profile: mineracerProfile },
     [AccountLinkPlatform.MSGames]: { url: 'https://minesweepergame.com/', profile: msgamesProfile },
     [AccountLinkPlatform.Saolei]: { url: 'http://saolei.wang/', profile: saoleiProfile },

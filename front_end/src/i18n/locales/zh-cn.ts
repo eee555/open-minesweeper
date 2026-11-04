@@ -86,6 +86,7 @@ export default {
         a: '@:website.msgames',
         B: '@:website.bilibili',
         c: '@:website.saolei',
+        x: '95经典扫雷',
         m: 'Mineracer',
         q: '腾讯QQ',
     },
@@ -161,6 +162,7 @@ export default {
     show: '显示',
     softwareName: {
         e: '元扫雷',
+        x: '95经典扫雷',
     },
     state: {
         a: '审核中',
@@ -380,6 +382,7 @@ export default {
     software: {
         software_download: '软件下载',
         arbiter: 'Minesweeper Arbiter',
+        x: '95',
         download: '下载',
         expireDate: '失效日期',
         feature: '功能',

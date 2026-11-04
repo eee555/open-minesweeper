@@ -1,5 +1,10 @@
 # Analyzer 更新记录 / Analyzer changelog
 
+## 0.2.1 — 2026-11-01
+
+- 棋盘显示鼠标按下反馈：左键按下时压下光标所在格，双键按下时压下周围 3×3 格，旗格保持不变；视频导出保留相同效果。
+- Show pressed-cell feedback under the cursor for left presses and in the surrounding 3x3 area for chord presses, leaving flagged cells unchanged. Video exports retain the same feedback.
+
 ## 0.2.0 — 2026-10-19
 
 - 升级 ms-toollib 至 1.5.20，包含 RMV race_identifier 解析修复，并核对离线包许可证。

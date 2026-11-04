@@ -1,4 +1,4 @@
-/* eslint-disable vue/one-component-per-file */
+
 import { defineComponent, h } from 'vue';
 import type { Component, PropType } from 'vue';
 

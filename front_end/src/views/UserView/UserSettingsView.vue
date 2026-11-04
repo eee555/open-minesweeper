@@ -1,13 +1,16 @@
 <template>
     <div v-if="canEdit" class="layout-stack user-settings">
-        <section>
-            <h2 class="text-large">
-                {{ t('local.profile') }}
-            </h2>
-            <ProfileQualification />
-            <EditProfile :key="user.id" v-model:user="user" :exp-time-ms="store.expTimeMs" :qualification-status="store.qualificationStatus" />
+        <section class="card">
+            <EditProfile :key="user.id" v-model:user="user" :exp-time-ms="store.expTimeMs" :qualification-status="store.qualificationStatus">
+                <template #heading>
+                    <h2 class="text-large">
+                        {{ t('local.profile') }}
+                    </h2>
+                    <ProfileQualification />
+                </template>
+            </EditProfile>
         </section>
-        <section>
+        <section class="card">
             <h2 class="text-large">
                 {{ t('identifierManager.title') }}
                 <BaseOverlay>
@@ -23,6 +26,7 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/cards.css';
 import '@/styles/layout.css';
 import { computed, defineAsyncComponent, watch } from 'vue';
 import { useI18n } from 'vue-i18n';

@@ -3,6 +3,7 @@ export default {
     nf: 'NF',
     platform: {
         d: 'Discord',
+        x: '95经典扫雷',
         m: 'Mineracer',
         w: 'Minesweeper.Online',
     },
@@ -48,10 +49,12 @@ export default {
         e: 'Evf',
         r: 'Rmv',
         m: 'Mvf',
+        x: '95',
     },
     softwareName: {
         a: 'Minesweeper Arbiter',
         r: 'Viennasweeper',
         m: 'Clone 2007',
+        x: '95 Classic',
     },
 };

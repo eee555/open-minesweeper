@@ -257,13 +257,14 @@ else:
     CSRF_COOKIE_SAMESITE = 'Lax'
     CSRF_COOKIE_SECURE = True     # https时候改成True
 
-# 发送邮箱验证码
-EMAIL_HOST = 'smtp.88.com'     # 服务器
-EMAIL_PORT = 25                 # 一般情况下都为25
-EMAIL_HOST_USER = 'wangjianing@88.com'     # 账号
-EMAIL_HOST_PASSWORD = 'TdS2ZPt2izAkY25b'   # 密码 (注意：这里的密码指的是授权码)
-# EMAIL_USE_SSL = True
-# EMAIL_FROM = 'wangjianing@88.com'      # 邮箱来自
+# 发送邮箱验证码（敏感凭据从 secrets.json 读取，不要写死在代码里）
+EMAIL_HOST = _read_project_secret('email_host', 'smtpdm.aliyun.com')
+EMAIL_PORT = int(_read_project_secret('email_port', '465') or 465)
+EMAIL_HOST_USER = _read_project_secret('email_host_user', '')
+EMAIL_HOST_PASSWORD = _read_project_secret('email_host_password', '')
+EMAIL_USE_SSL = True
+EMAIL_TIMEOUT = 10              # 避免 SMTP 无响应时请求一直挂起
+DEFAULT_FROM_EMAIL = _read_project_secret('email_from', EMAIL_HOST_USER)
 
 SESSION_COOKIE_NAME = 'session_id'        # Session的cookie保存在浏览器上时的key
 SESSION_COOKIE_PATH = '/'                # Session的cookie保存的路径(默认)
@@ -311,8 +312,17 @@ MINERACER_POLL_URL = os.environ.get('MINERACER_ACCOUNT_LINK_POLL_URL', 'https://
 MINERACER_TIMEOUT = float(os.environ.get('MINERACER_ACCOUNT_LINK_TIMEOUT', '5'))
 MINERACER_POLL_INTERVAL_MS = max(1, int(os.environ.get('MINERACER_ACCOUNT_LINK_POLL_INTERVAL_MS', '2500')))
 
-DISCORD_OAUTH_CLIENT_ID = '1566049116339965972'
-DISCORD_OAUTH_REDIRECT_URI = 'https://openms.top/api/accountlink/discord/callback'
+# 95经典扫雷外部应用绑定。api_key 存 secrets.json 的 classic_bind_api_key，
+# 回调验签密钥存 classic_callback_app_secret；回调地址必须是对方报备白名单内的 https 域名。
+# 发起绑定同步等待对方受理，网关为该路径预留 8s（default.conf）。
+# CLASSIC_TIMEOUT 是整次调用的截止时间，必须短于网关预算，否则浏览器会先收到 504。
+CLASSIC_BIND_URL = os.environ.get('CLASSIC_BIND_URL', 'https://mg.xiean.net:6789/v1/ext/bind/request')
+CLASSIC_BIND_CALLBACK_URL = os.environ.get('CLASSIC_BIND_CALLBACK_URL', 'https://openms.top/api/accountlink/classic/callback')
+CLASSIC_BIND_EXPIRES_IN = min(604800, max(60, int(os.environ.get('CLASSIC_BIND_EXPIRES_IN', '86400'))))
+CLASSIC_TIMEOUT = float(os.environ.get('CLASSIC_BIND_TIMEOUT', '5'))
+CLASSIC_CONNECT_TIMEOUT = min(CLASSIC_TIMEOUT, float(os.environ.get('CLASSIC_BIND_CONNECT_TIMEOUT', '2')))
+CLASSIC_CALLBACK_TOLERANCE_SECONDS = 300
+
 
 # WOM（Minesweeper.Online）公开资料。令牌存在 secrets.json 的 wom_api_token，不写入代码或环境变量。
 WOM_API_BASE_URL = os.environ.get('WOM_API_BASE_URL', 'https://api.lockhart.ren')

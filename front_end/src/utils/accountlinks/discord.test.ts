@@ -2,53 +2,48 @@ import { describe, expect, it } from 'vitest';
 
 import { AccountLinks } from './collection';
 import type { AccountLinksResponse } from './collection';
-import { AccountDiscord } from './discord';
+import { AccountDiscord, isDiscordUserId } from './discord';
+import { AccountLinkPlatform, manualAccountLinkPlatforms, privateAccountLinkPlatforms } from './platforms';
 
-describe('Discord account links', () => {
-    const base = { id: '803511102246789123', parent: 1, username: 'player', global_name: '', update_time: '2026-10-31T12:00:00Z' };
-
-    it('uses official CDN paths for static and animated images', () => {
-        const account = new AccountDiscord({ ...base, avatar: 'a_' + 'a'.repeat(32), banner: 'b'.repeat(32) });
-        expect(account.avatarUrl).toBe(`https://cdn.discordapp.com/avatars/${base.id}/a_${'a'.repeat(32)}.gif?size=128`);
-        expect(account.bannerUrl).toBe(`https://cdn.discordapp.com/banners/${base.id}/${'b'.repeat(32)}.png?size=512`);
-        expect(new AccountDiscord({ ...base, avatar: '../image' }).avatarUrl).toBeUndefined();
-    });
-
-    it('handles omitted and cleared optional fields without inventing a color or badge', () => {
-        const account = new AccountDiscord(base);
-        expect(account.avatarUrl).toBeUndefined();
-        expect(account.bannerUrl).toBeUndefined();
-        expect(account.accentColor).toBeUndefined();
-        expect(account.badgeNames).toEqual([]);
-        const cleared = new AccountDiscord({ ...base, avatar: null, banner: null, accent_color: null, public_flags: null });
-        expect(cleared.avatarUrl).toBeUndefined();
-        expect(cleared.bannerUrl).toBeUndefined();
-    });
-
-    it('preserves zero colors and flags while keeping unknown bits', () => {
-        const black = new AccountDiscord({ ...base, accent_color: 0, public_flags: 0 });
-        expect(black.accentColor).toBe('#000000');
-        expect(black.badgeNames).toEqual([]);
-        const account = new AccountDiscord({ ...base, accent_color: 0x5865F2, public_flags: 2 ** 40 + 64 + 512 });
-        expect(account.accentColor).toBe('#5865f2');
-        expect(account.badgeNames).toEqual(['bravery', 'earlySupporter']);
-        expect(account.public_flags).toBe(2 ** 40 + 64 + 512);
-    });
-
-    it('preserves snowflake precision throughout the aggregate response', () => {
+describe('manual Discord account links', () => {
+    it('preserves numeric IDs beyond JavaScript integer precision', () => {
+        const id = '18446744073709551615';
+        expect(isDiscordUserId(id)).toBe(true);
         const response: AccountLinksResponse = {
-            summary: [{ id: 1, platform: 'd', identifier: '18446744073709551615', userprofile: 1, verified: true }],
+            summary: [{ id: 1, platform: 'd', identifier: id, userprofile: 1, verified: true }],
             B: null,
+            x: null,
             m: null,
             c: null,
             a: null,
             w: null,
             q: null,
-            d: { id: '18446744073709551615', parent: 1, username: 'player', global_name: '', update_time: '2026-10-31T12:00:00Z' },
+            d: { id, parent: 1 },
         };
         const links = new AccountLinks(response);
-        expect(links.d?.id).toBe('18446744073709551615');
-        expect(links.getSummary('d')?.identifier).toBe(links.d?.id);
-        expect(links.d?.update_time.toISOString()).toBe('2026-10-31T12:00:00.000Z');
+        expect(links.d?.id).toBe(id);
+        expect(links.d?.parent).toBe(1);
+        expect(links.getSummary('d')?.identifier).toBe(id);
+    });
+
+    it('rejects names, noncanonical numbers and identifiers that exceed storage', () => {
+        for (const id of ['', '0', '01', '-1', '1.5', '1e18', 'player', '１２３', '123 ', ' 123', '1'.repeat(21)]) {
+            expect(isDiscordUserId(id), id).toBe(false);
+        }
+    });
+
+    it('uses the same manual and private platform categories as QQ', () => {
+        for (const platform of [AccountLinkPlatform.Discord, AccountLinkPlatform.QQ]) {
+            expect(manualAccountLinkPlatforms).toContain(platform);
+            expect(privateAccountLinkPlatforms).toContain(platform);
+        }
+        expect(manualAccountLinkPlatforms).not.toContain(AccountLinkPlatform.Mineracer);
+        expect(manualAccountLinkPlatforms).not.toContain(AccountLinkPlatform.Classic);
+    });
+
+    it('handles absent account details and ignores obsolete OAuth profile fields', () => {
+        expect(new AccountDiscord().id).toBe('');
+        const oldResponse = { id: '123', parent: 1, username: 'obsolete', avatar: 'old-avatar' };
+        expect(new AccountDiscord(oldResponse)).toEqual({ id: '123', parent: 1 });
     });
 });

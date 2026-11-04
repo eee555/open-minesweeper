@@ -1,10 +1,12 @@
+from collections import Counter
+from itertools import batched
 import logging
 
 from django.core.files import File
 from django.core.files.base import ContentFile
-from django.db import transaction
+from django.db import close_old_connections, transaction
 from django.utils import timezone
-from saolei_api import Client, ResponseError, VideoInfo, VideoListResponse
+from saolei_api import AuthenticationError, Client, RateLimitError, ResponseError, VideoInfo, VideoListResponse
 
 from config.global_settings import MaxSizes
 from config.text_choices import MS_TextChoices
@@ -17,6 +19,7 @@ from utils.ranking_lock import ranking_access
 from videomanager.models import VideoModel
 from videomanager.services import find_identical_video, set_import_upload_time
 from videomanager.utils import calculate_original_hash
+from .client import saolei_client
 from .utils import SUPPORTED_SOFTWARE, video_defaults
 from ..models import AccountLinkQueue, AccountSaolei, Platform, SaoleiApiVideo
 
@@ -54,11 +57,17 @@ def save_catalogue_page(account: AccountSaolei, page: VideoListResponse, *, curs
     ids = [item.id for item in page.items]
     if page.cursor != cursor or ids != sorted(set(ids)) or any(value <= cursor for value in ids):
         raise ResponseError('Invalid video_list ordering or cursor')
-    if page.next_cursor < max([cursor, *ids]) or (page.has_more and page.next_cursor <= cursor):
-        raise ResponseError('video_list next_cursor precedes its records or does not advance')
+    # 末页的上游游标为 null，表示没有下一页；有下一页时必须给出可前进的游标。
+    if page.next_cursor is None:
+        if page.has_more:
+            raise ResponseError('video_list returned hasMore=true without a next_cursor')
+        following = max([cursor, *ids])
+    else:
+        if page.next_cursor < max([cursor, *ids]) or (page.has_more and page.next_cursor <= cursor):
+            raise ResponseError('video_list next_cursor precedes its records or does not advance')
+        # cursor 是已处理的 ID，下一页返回 ID > cursor；跨过本轮上界时不能跳过 upper_bound + 1。
+        following = min(page.next_cursor, upper_bound)
     records = [(item.id, video_defaults(item, account.pk)) for item in page.items if item.id <= upper_bound]
-    # cursor 是已处理的 ID，下一页返回 ID > cursor；跨过本轮上界时不能跳过 upper_bound + 1。
-    following = min(page.next_cursor, upper_bound)
     with transaction.atomic():
         current = lock_account(account)
         for remote_id, defaults in records:
@@ -78,44 +87,140 @@ def sync_saolei_catalogue(account: AccountSaolei, client: Client, *, upper_bound
     current = AccountSaolei.objects.get(pk=account.pk)
     check_binding(current, account.parent_id)
     cursor = 0 if full else current.video_sync_cursor
-    while cursor < upper_bound:
-        page = client.video_list(player_id=account.pk, cursor=cursor, size=page_size)
-        cursor = save_catalogue_page(account, page, cursor=cursor, upper_bound=upper_bound)
+    while True:
+        cursor, has_more = sync_saolei_page(account, client, cursor=cursor, upper_bound=upper_bound, page_size=page_size)
         if progress:
             progress(f'账号#{account.pk} 目录游标：{cursor}')
-        if not page.has_more:
+        if not has_more:
             break
+
+
+def sync_saolei_page(account: AccountSaolei, client: Client, *, cursor: int, upper_bound: int, page_size=200):
+    """一次请求只同步一页，前端负责决定是否继续调用下一页。"""
+    if cursor >= upper_bound:
+        following, has_more = cursor, False
+    else:
+        page = client.video_list(player_id=account.pk, cursor=cursor, size=page_size)
+        following = save_catalogue_page(account, page, cursor=cursor, upper_bound=upper_bound)
+        has_more = page.has_more and following < upper_bound
+    if not has_more:
+        with transaction.atomic():
+            current = lock_account(account)
+            current.video_update_time = timezone.now()
+            current.save(update_fields=['video_update_time'])
+    return following, has_more
+
+
+def pending_saolei_videos(account=None, upper_bound=None, *, ready=False):
+    videos = SaoleiApiVideo.objects.filter(import_video__isnull=True, import_rejected=False, software__in=SUPPORTED_SOFTWARE)
+    if account is not None:
+        videos = videos.filter(user=account)
+    if upper_bound is not None:
+        videos = videos.filter(remote_id__lte=upper_bound)
+    if ready:
+        videos = videos.filter(file_url__isnull=False).exclude(file_url='')
+    return videos
+
+
+def sync_saolei_metadata(account, client, *, upper_bound, counts, report_failure, full=False, page_size=200, progress=None):
+    """只更新资料、目录及文件 URL，不下载录像；每日调度与命令共用。"""
+    for stage, action, kwargs in [
+        ('资料', update_saolei_account_info, {}),
+        ('目录', sync_saolei_catalogue, {'upper_bound': upper_bound, 'full': full, 'page_size': page_size, 'progress': progress}),
+        ('详情', refresh_saolei_details, {'upper_bound': upper_bound, 'counts': counts, 'report_failure': report_failure, 'progress': progress}),
+    ]:
+        try:
+            action(account, client, **kwargs)
+        except (AuthenticationError, RateLimitError):
+            raise
+        except Exception as exc:
+            report_failure(f'账号#{account.pk} {stage}', exc, counts)
+    counts['accounts'] += 1
+
+
+def refresh_saolei_details(account, client, *, upper_bound, counts, report_failure, progress=None):
+    # 扫描本地未完成来源，目录游标已提交后发生的详情失败也能在下次补取。
+    sources = pending_saolei_videos(account, upper_bound).order_by('remote_id').iterator(chunk_size=50)
+    for batch in batched(sources, 50):
+        try:
+            details = client.video_info([source.remote_id for source in batch]).items
+            saved = save_video_details(account, batch, details)
+        except (AuthenticationError, RateLimitError):
+            raise
+        except Exception as exc:
+            report_failure(f'账号#{account.pk} 详情批次#{batch[0].remote_id}', exc, counts)
+            continue
+        counts['details'] += len(saved)
+        available = {source.remote_id for source in saved}
+        for source in batch:
+            if source.remote_id not in available:
+                report_failure(f'来源录像#{source.remote_id}', ExceptionToResponse('saolei', 'detail_unavailable', 503), counts)
+        if progress:
+            progress(f'账号#{account.pk} 详情已更新：{len(saved)}/{len(batch)}')
+
+
+def import_pending_saolei_videos(sources, client, *, counts, report_failure, limit=None, progress=None, automatic=False):
+    """仅下载已保存 URL 的来源；上限按尝试数计算，失败也占用本轮额度。"""
+    snapshots = list(sources.order_by('remote_id').values_list('pk', 'user__parent_id')[:limit])
+    for source_id, parent_id in snapshots:
+        rows = pending_saolei_videos(ready=True).filter(pk=source_id)
+        if automatic:
+            rows = rows.filter(user__auto_sync=True)
+        source = rows.select_related('user').first()
+        if source is None:
+            continue
+        counts['attempted'] += 1
+        try:
+            check_binding(source.user, parent_id)
+            result = import_saolei_video(source, client, refresh_detail=False)
+            counts[result] += 1
+            if progress:
+                progress(f'来源录像#{source.remote_id}：{result}')
+        except (AuthenticationError, RateLimitError):
+            raise
+        except Exception as exc:
+            report_failure(f'来源录像#{source.remote_id}', exc, counts)
+
+
+def save_video_details(account, sources, details):
+    requested = {source.remote_id: source.pk for source in sources}
+    ids = [detail.id for detail in details]
+    if len(ids) != len(set(ids)) or any(remote_id not in requested for remote_id in ids):
+        raise ResponseError('Unexpected or duplicate video detail ID')
+    defaults = {detail.id: {**video_defaults(detail, account.pk), 'file_url': detail.file_url} for detail in details}
     with transaction.atomic():
-        current = lock_account(account)
-        current.video_update_time = timezone.now()
-        current.save(update_fields=['video_update_time'])
+        current_account = lock_account(account)
+        current = list(SaoleiApiVideo.objects.select_for_update().filter(pk__in=requested.values(), user=current_account))
+        updated = []
+        for source in current:
+            if source.remote_id not in defaults:
+                continue
+            for field, value in defaults[source.remote_id].items():
+                setattr(source, field, value)
+            source.user = current_account
+            updated.append(source)
+        if updated:
+            SaoleiApiVideo.objects.bulk_update(updated, fields=list(defaults[updated[0].remote_id]))
+        return updated
 
 
 def save_video_detail(source: SaoleiApiVideo, detail: VideoInfo) -> SaoleiApiVideo:
     if detail.id != source.remote_id:
         raise ResponseError('Mismatched video detail ID')
-    defaults = video_defaults(detail, source.user_id)
-    defaults['file_url'] = detail.file_url
-    with transaction.atomic():
-        account = lock_account(source.user)
-        current = SaoleiApiVideo.objects.select_for_update().get(pk=source.pk, user=account)
-        for field, value in defaults.items():
-            setattr(current, field, value)
-        current.save(update_fields=list(defaults))
-        current.user = account
-        return current
+    updated, = save_video_details(source.user, [source], [detail])
+    return updated
 
 
-def import_saolei_video(source: SaoleiApiVideo, client: Client) -> str:
+def import_saolei_video(source: SaoleiApiVideo, client: Client, *, refresh_detail=True) -> str:
     if source.import_video_id:
         return 'existing'
     if source.import_rejected or source.software not in SUPPORTED_SOFTWARE:
         return 'skipped'
-    details = [item for item in client.video_info(source.remote_id).items if item.id == source.remote_id]
-    if len(details) != 1:
-        raise ExceptionToResponse('saolei', 'detail_unavailable', status_code=503)
-    detail = details[0]
-    source = save_video_detail(source, detail)
+    if refresh_detail:
+        details = [item for item in client.video_info(source.remote_id).items if item.id == source.remote_id]
+        if len(details) != 1:
+            raise ExceptionToResponse('saolei', 'detail_unavailable', status_code=503)
+        source = save_video_detail(source, details[0])
     if source.software not in SUPPORTED_SOFTWARE:
         return 'skipped'
     if not source.file_url:
@@ -133,6 +238,39 @@ def import_saolei_video(source: SaoleiApiVideo, client: Client) -> str:
             SaoleiApiVideo.objects.filter(pk=source.pk, import_video__isnull=True).update(import_rejected=True)
         raise
     return 'imported'
+
+
+def report_saolei_sync_failure(target, exc, counts):
+    counts['failed'] += 1
+    if isinstance(exc, ExceptionToResponse):
+        logger.error('扫雷网同步 %s 失败：%s/%s', target, exc.obj, exc.category)
+    else:
+        logger.exception('扫雷网同步 %s 失败：%s', target, type(exc).__name__)
+
+
+def sync_saolei_metadata_daily():
+    """由 APScheduler 直接调用，只更新元数据，不占用 Django Task worker。"""
+    account_ids = list(AccountSaolei.objects.filter(auto_sync=True).order_by('pk').values_list('pk', flat=True))
+    if not account_ids:
+        return {}
+    counts = Counter()
+    with saolei_client() as client:
+        upper_bound = client.stats().max_video_id
+        for account_id in account_ids:
+            close_old_connections()
+            account = AccountSaolei.objects.filter(pk=account_id, auto_sync=True).first()
+            if account is None:
+                continue
+            try:
+                check_binding(account, account.parent_id)
+            except ExceptionToResponse as exc:
+                report_saolei_sync_failure(f'账号#{account.pk} 绑定', exc, counts)
+                continue
+            sync_saolei_metadata(account, client, upper_bound=upper_bound, counts=counts, report_failure=report_saolei_sync_failure)
+    logger.info('扫雷网每日目录同步完成：%s', dict(counts))
+    if counts['failed']:
+        raise ExceptionToResponse('saolei', 'partial_sync', 500)
+    return dict(counts)
 
 
 @ranking_access(operation='accountlink.saolei_import')
@@ -160,7 +298,8 @@ def saolei_video_import_one(source: SaoleiApiVideo, file: File) -> VideoModel:
             source.import_video = collision
             source.save(update_fields=['import_video'])
             return collision
-        parser = MSVideoParser(file)
+        logger.info('解析扫雷网来源录像#%s account_id=%s file_url=%s', source.remote_id, account.pk, source.file_url)
+        parser = MSVideoParser(file, isolate=True)
         if not user.userms_id:
             user.userms = UserMS.objects.create()
             user.save(update_fields=['userms'])

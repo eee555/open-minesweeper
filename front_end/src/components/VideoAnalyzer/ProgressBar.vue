@@ -66,27 +66,24 @@
 <script setup lang="ts">
 import { useEventListener } from '@vueuse/core';
 import { computed, onBeforeUnmount } from 'vue';
-import type { PropType, VNode } from 'vue';
+import type { VNode } from 'vue';
 import { useI18n } from 'vue-i18n';
 
-import type { KeyframeNavigation } from './keyframes';
+import { useAnalyzerState } from './useAnalyzerState';
 import { playbackRates } from './usePlayback';
-import type { LoopMode, PlaybackController } from './usePlayback';
+import type { LoopMode } from './usePlayback';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 
-const props = defineProps({
-    playback: { type: Object as PropType<PlaybackController>, required: true },
-    keyframeNavigation: { type: Object as PropType<KeyframeNavigation | null>, default: null },
-});
+const { playback, keyframeNavigation } = useAnalyzerState();
 defineSlots<{ export?: () => VNode[] }>();
-const currentMs = computed(() => props.playback.currentMs.value);
-const durationMs = computed(() => props.playback.durationMs.value);
-const isPlaying = computed(() => props.playback.isPlaying.value);
-const playbackRate = computed(() => props.playback.playbackRate.value);
-const loopMode = computed(() => props.playback.loopMode.value);
-const rangeStartMs = computed(() => props.playback.rangeStartMs.value);
-const rangeEndMs = computed(() => props.playback.rangeEndMs.value);
+const currentMs = computed(() => playback.currentMs.value);
+const durationMs = computed(() => playback.durationMs.value);
+const isPlaying = computed(() => playback.isPlaying.value);
+const playbackRate = computed(() => playback.playbackRate.value);
+const loopMode = computed(() => playback.loopMode.value);
+const rangeStartMs = computed(() => playback.rangeStartMs.value);
+const rangeEndMs = computed(() => playback.rangeEndMs.value);
 const hasDuration = computed(() => durationMs.value > 0);
 const rangeDisabled = computed(() => !hasDuration.value || (isPlaying.value && loopMode.value === 'range'));
 const loopModes: { value: LoopMode; label: string; icon: string }[] = [
@@ -100,28 +97,28 @@ const slowerRate = computed(() => [...playbackRates].reverse().find((rate) => ra
 const fasterRate = computed(() => playbackRates.find((rate) => rate > playbackRate.value));
 
 function beginSeek(event: PointerEvent) {
-    if (event.button === 0) props.playback.beginSeek();
+    if (event.button === 0) playback.beginSeek();
 }
 
 function seekFromInput(event: Event) {
-    props.playback.seek((event.target as HTMLInputElement).valueAsNumber);
+    playback.seek((event.target as HTMLInputElement).valueAsNumber);
 }
 
 function changeRate(rate: number | undefined) {
-    if (rate !== undefined) props.playback.setPlaybackRate(rate);
+    if (rate !== undefined) playback.setPlaybackRate(rate);
 }
 
 useEventListener('pointerup', () => {
-    props.playback.endSeek();
+    playback.endSeek();
 });
 useEventListener('pointercancel', () => {
-    props.playback.endSeek();
+    playback.endSeek();
 });
 useEventListener('blur', () => {
-    props.playback.endSeek();
+    playback.endSeek();
 });
 onBeforeUnmount(() => {
-    props.playback.endSeek();
+    playback.endSeek();
 });
 
 const i18nMessages = {

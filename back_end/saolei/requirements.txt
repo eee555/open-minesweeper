@@ -1,4 +1,3 @@
-Authlib==1.9.1
 beautifulsoup4==4.15.0
 bilibili-api-python==17.4.2
 curl_cffi==0.16.3
@@ -24,7 +23,7 @@ pyo3_runtime==0.0.1
 redis==8.1.0
 requests==2.34.2
 msgames-api==0.1.1
-saolei-api==0.4.0
+saolei-api==0.4.1
 cryptography==50.0.2
 timeout-decorator==0.5.0
 dataclasses_json==0.6.7

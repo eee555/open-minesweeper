@@ -12,7 +12,7 @@
                 <div class="video-analyzer-board__viewport" :class="{ 'video-analyzer-board__viewport--auto': cellSizeMode === 'auto' }">
                     <MinesweeperBoard class="video-analyzer-board__main" :board="board" :size="boardSize">
                         <template #background>
-                            <BoardBackground ref="backgroundLayer" class="video-analyzer-board__background" />
+                            <BoardBackground ref="backgroundLayer" class="video-analyzer-board__background" :board="backgroundBoard" />
                         </template>
                         <template #foreground="{ size }">
                             <div class="video-analyzer-board__stack">
@@ -109,9 +109,9 @@
                 </div>
             </div>
         </div>
-        <ProgressBar :playback="playback" :keyframe-navigation="keyframeNavigation">
+        <ProgressBar>
             <template #export>
-                <VideoExportControls v-model:settings="exportSettings" v-model:exporting="exporting" v-model:pinned-size="pinnedSize" :cell-size="actualCellSize" :create-renderer="createExportRenderer" :rows="board?.length ?? 0" :columns="board?.[0]?.length ?? 0" :playback="playback" :filename="filename" />
+                <VideoExportControls v-model:pinned-size="pinnedSize" :cell-size="actualCellSize" :create-renderer="createExportRenderer" :rows="board?.length ?? 0" :columns="board?.[0]?.length ?? 0" />
             </template>
         </ProgressBar>
     </section>
@@ -122,89 +122,55 @@ import './panels.css';
 import '@putianyi888/vue3-minesweeper-board/style.css';
 import { BoardBackground, BoardForeground, BoardProbability, MinesweeperBoard, MouseTrace } from '@putianyi888/vue3-minesweeper-board';
 import type { LayerRenderHandle } from '@putianyi888/vue3-minesweeper-board';
-import { computed, reactive, ref, useTemplateRef } from 'vue';
-import type { PropType } from 'vue';
+import { toRefs } from '@vueuse/core';
+import { computed, ref, useTemplateRef } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import BoardCursorLayer from './BoardCursorLayer.vue';
 import BoardEventLayer from './BoardEventLayer.vue';
-import { defaultBoardEventSettings } from './boardEvents';
-import type { BoardEventSettings as EventLayerSettings } from './boardEvents';
 import BoardEventSettings from './BoardEventSettings.vue';
 import { createBoardFrameRenderer } from './boardExportFrame';
 import type { BoardFrameRenderer, ExportCursor } from './boardExportFrame';
 import BoardLayerControl from './BoardLayerControl.vue';
 import BoardSettingsControl from './BoardSettingsControl.vue';
 import BoardSizeControls from './BoardSizeControls.vue';
-import type { CellSizeMode, CursorShape } from './config';
-import { defaultAnalyzerConfig } from './config';
-import type { CustomEventDefinition, PreparedCustomEvent } from './customEvents';
+import type { CursorShape } from './config';
 import type { ExportBoardSettings } from './exportReplayState';
 import { createExportStateReader } from './exportReplayState';
-import type { KeyframeNavigation } from './keyframes';
-import { defaultMouseTraceAppearance, mouseTraceAppearanceProps, mouseTraceRange, sliderToTailSeconds, tailSecondsToSlider } from './mouseTrace';
-import type { MouseTraceAppearance, ReplayMouseTraceEvent } from './mouseTrace';
+import { mouseTraceAppearanceProps, mouseTraceRange, sliderToTailSeconds, tailSecondsToSlider } from './mouseTrace';
 import MouseTraceSettings from './MouseTraceSettings.vue';
 import ProgressBar from './ProgressBar.vue';
-import type { ReplayVideo } from './replayParser';
-import type { PlaybackController } from './usePlayback';
+import { useAnalyzerState } from './useAnalyzerState';
 import type { CursorPosition } from './useReplayPosition';
-import type { VideoExportSettings } from './videoExport';
 import VideoExportControls from './VideoExportControls.vue';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import ColorSchemeSetting from '@/components/visualization/ColorSchemeSetting.vue';
 import { PiecewiseColorScheme } from '@/utils/colors';
-import type { PiecewiseColorSchemeInterface } from '@/utils/colors';
+import { replayPressedBackground } from '@/utils/replayBoardPress';
 
-const props = defineProps({
-    board: { type: Array as PropType<number[][] | null>, default: null },
-    globalBoard: { type: Array as PropType<number[][] | null>, default: null },
-    probabilityBoard: { type: Array as PropType<number[][] | null>, default: null },
-    playback: { type: Object as PropType<PlaybackController>, required: true },
-    keyframeNavigation: { type: Object as PropType<KeyframeNavigation | null>, default: null },
-    loading: { type: Boolean, required: true },
-    errorMessage: { type: String, default: '' },
-    traceEvents: { type: Array as PropType<ReplayMouseTraceEvent[]>, default: () => [] },
-    customEvents: { type: Array as PropType<CustomEventDefinition[]>, default: () => [] },
-    preparedEvents: { type: Object as PropType<Map<string, PreparedCustomEvent>>, default: () => new Map() },
-    currentEventIndex: { type: Number as PropType<number | null>, default: null },
-    nativeCellSize: { type: Number as PropType<number | null>, default: null },
-    cursorPosition: { type: Object as PropType<CursorPosition | null>, default: null },
-    filename: { type: String, default: 'replay' },
-    createExportVideo: { type: Function as PropType<() => ReplayVideo>, default: null },
-});
 defineSlots<{ settings?: () => unknown }>();
 
-const exporting = defineModel('exporting', { type: Boolean, default: false });
-const exportSettings = defineModel<VideoExportSettings>('exportSettings', { default: () => reactive(defaultAnalyzerConfig().videoExport) });
-const probabilityColorSettings = defineModel<PiecewiseColorSchemeInterface>('probabilityColorScheme', { required: true });
+const { config, frame, playback, exporting, probabilityColorScheme: probabilityColorSettings, traceEvents, preparedEvents, loading, errorMessage, createExportVideo } = useAnalyzerState();
+const { board, globalBoard, probabilityBoard, cursorPosition, mouseState, currentEventIndex, nativeCellSize } = toRefs(frame);
+const { cellSizeMode, fixedCellSize, cellScale, globalVisible, probabilityVisible, globalOpacity, probabilityOpacity, traceVisible, traceOpacity, traceTailSeconds: storedTraceTailSeconds, traceMaskOpacity, traceAppearance, cursorVisible, cursorShape, cursorSize, eventLayer, customEvents } = toRefs(config, { replaceRef: false });
 const pinnedSize = ref<number | null>(null);
 const backgroundLayer = useTemplateRef<LayerRenderHandle>('backgroundLayer');
 const cursorLayer = useTemplateRef<{ snapshot: (position?: CursorPosition | null, size?: number) => ExportCursor | null }>('cursorLayer');
 const actualCellSize = computed(() => backgroundLayer.value?.cellSize ?? null);
-const cellSizeMode = defineModel<CellSizeMode>('cellSizeMode', { default: 'auto' });
-const fixedCellSize = defineModel('fixedCellSize', { type: Number, default: 32 });
-const cellScale = defineModel('cellScale', { type: Number, default: 1 });
+const backgroundBoard = computed(() => (board.value === null ? undefined : replayPressedBackground(board.value, mouseState.value, cursorPosition.value)));
 const boardSize = computed(() => {
     if (pinnedSize.value !== null) return pinnedSize.value;
     if (cellSizeMode.value === 'fixed') return fixedCellSize.value;
-    if (cellSizeMode.value === 'relative' && props.nativeCellSize !== null) return props.nativeCellSize * cellScale.value;
+    if (cellSizeMode.value === 'relative' && nativeCellSize.value !== null) return nativeCellSize.value * cellScale.value;
     return 'auto';
 });
-const globalVisible = defineModel('globalVisible', { type: Boolean, default: false });
-const probabilityVisible = defineModel('probabilityVisible', { type: Boolean, default: true });
-const globalOpacity = defineModel('globalOpacity', { type: Number, default: 1 });
-const probabilityOpacity = defineModel('probabilityOpacity', { type: Number, default: 1 });
-const traceVisible = defineModel('traceVisible', { type: Boolean, default: false });
-const traceOpacity = defineModel('traceOpacity', { type: Number, default: 1 });
-const traceTailSeconds = defineModel('traceTailSeconds', { type: Number, default: 1 });
-const traceMaskOpacity = defineModel('traceMaskOpacity', { type: Number, default: 0.5 });
-const traceAppearance = defineModel<MouseTraceAppearance>('traceAppearance', { default: () => reactive(defaultMouseTraceAppearance()) });
-const cursorVisible = defineModel('cursorVisible', { type: Boolean, default: true });
-const cursorShape = defineModel<CursorShape>('cursorShape', { default: 'dot' });
-const cursorSize = defineModel('cursorSize', { type: Number, default: 32 });
-const eventLayer = defineModel<EventLayerSettings>('eventLayer', { default: defaultBoardEventSettings });
+const traceTailSeconds = computed({
+    get: () => (storedTraceTailSeconds.value === 'infinite' ? Infinity : storedTraceTailSeconds.value),
+    set: (value: number) => {
+        storedTraceTailSeconds.value = value === Infinity ? 'infinite' : value;
+    },
+});
 const cursorShapes: { value: CursorShape; icon: string }[] = [
     { value: 'dot', icon: 'pi-circle-fill' }, { value: 'windows', icon: 'pi-arrow-up-left' },
     { value: 'ring', icon: 'pi-circle' }, { value: 'crosshair', icon: 'pi-plus' },
@@ -216,7 +182,7 @@ const traceTailSlider = computed({
         traceTailSeconds.value = sliderToTailSeconds(value);
     },
 });
-const traceRange = computed(() => mouseTraceRange(props.traceEvents, props.playback.currentMs.value, traceTailSeconds.value, props.playback.isPlaying.value || exporting.value ? props.currentEventIndex : null));
+const traceRange = computed(() => mouseTraceRange(traceEvents.value, playback.currentMs.value, traceTailSeconds.value, playback.isPlaying.value || exporting.value ? currentEventIndex.value : null));
 const probabilityColorScheme = computed(() => PiecewiseColorScheme.createFromTheme(probabilityColorSettings.value));
 const probabilityColor = computed(() => {
     const scheme = probabilityColorScheme.value;
@@ -239,10 +205,9 @@ function createExportRenderer(size: number, signal: AbortSignal): BoardFrameRend
         probabilityColors: { colors: [...probabilityColorSettings.value.colors], thresholds: [...probabilityColorSettings.value.thresholds] },
         cursor: cursor === null ? null : { size: cursor.size, anchor: { x: -cursor.x / cursor.size, y: -cursor.y / cursor.size } },
     };
-    if (props.createExportVideo === null) throw new Error('Replay is not loaded');
-    const replay = props.createExportVideo();
+    const replay = createExportVideo();
     try {
-        const read = createExportStateReader(replay, settings, props.traceEvents);
+        const read = createExportStateReader(replay, settings, traceEvents.value);
         return createBoardFrameRenderer((ms) => {
             const state = read(ms);
             return { ...state, cursor: state.cursor !== null && cursor !== null ? { ...state.cursor, svg: cursor.svg } : null };
