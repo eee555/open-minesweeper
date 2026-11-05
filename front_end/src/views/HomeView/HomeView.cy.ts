@@ -90,6 +90,7 @@ const newsEvents = [
         player_id: 8,
         payload: {
             video_id: 301,
+            video_ids: [301, 302],
             old: { lsf: 3200.5, rank: 40 },
             new: { lsf: 4100.25, rank: 28 },
         },
@@ -179,12 +180,25 @@ describe('HomeView components', () => {
         mountHomeView();
 
         cy.get('.home-news-tabs .el-tabs__item').should('have.length', 3);
-        cy.contains('.home-news-tabs .el-tabs__item', 'All').should('be.visible');
+        cy.get('.home-news-tabs .el-tabs__item button').should('not.exist');
+        cy.get('.home-news-refresh').should('have.length', 1).and('be.visible');
+        cy.get('.home-news-refresh').then(($button) => {
+            cy.get('.home-news-tabs .el-tabs__item').last().should(($tab) => {
+                const [button] = $button.toArray();
+                const [tab] = $tab.toArray();
+                const buttonRect = button.getBoundingClientRect();
+                const tabRect = tab.getBoundingClientRect();
+                expect(Math.abs(buttonRect.top - tabRect.top), '与 tab 同一行').to.be.lessThan(12);
+                expect(buttonRect.left, '位于 tab 项右侧').to.be.greaterThan(tabRect.right);
+            });
+        });
+        cy.contains('.home-news-tabs .el-tabs__item', 'News').should('be.visible');
         cy.contains('.home-news-tabs .el-tabs__item', 'PB').should('be.visible');
         cy.contains('.home-news-tabs .el-tabs__item', 'LSF').should('be.visible');
         cy.wait('@newsEvents');
-        cy.get('[data-cy=news-pb]').should('contain.text', 'improved their STD B BV10 PB from 12.340 to 9.876, rank 8 → 3');
-        cy.get('[data-cy=news-lsf]').should('contain.text', 'LSF rose from 3200.50 to 4100.25, rank 40 → 28');
+        cy.get('[data-cy=news-pb]').should('contain.text', 'broke the Beginner 10 PB: 12.340(8) → 9.876(3)');
+        cy.get('[data-cy=news-lsf]').should('contain.text', '\'s LSF: 3200.50(40) → 4100.25(28)');
+        cy.get('[data-cy=news-lsf] .news-sentence .video-preview-link').should('have.length', 2);
         cy.contains('.normal-tournament-card', 'Active Tournaments').should('be.visible');
         cy.contains('.el-tabs__item', 'Latest').should('have.class', 'is-active');
         cy.wait('@normalTournaments');
@@ -238,5 +252,44 @@ describe('HomeView components', () => {
         cy.contains('table:visible', '3.139').should('be.visible');
         cy.contains('table:visible', '65.432').should('be.visible');
         cy.contains('table:visible', '2.308').should('be.visible');
+    });
+
+    it('loads news lazily, only for tabs that have been opened', () => {
+        mountHomeView();
+
+        cy.wait('@newsEvents');
+        cy.get('@newsEvents.all').should('have.length', 1);
+
+        cy.contains('.home-news-tabs .el-tabs__item', 'PB').click();
+        cy.wait('@newsEvents');
+        cy.get('@newsEvents.all').should('have.length', 2);
+
+        cy.contains('.home-news-tabs .el-tabs__item', 'LSF').click();
+        cy.wait('@newsEvents');
+        cy.get('@newsEvents.all').should('have.length', 3);
+
+        cy.contains('.home-news-tabs .el-tabs__item', 'News').click();
+        cy.get('.home-news-tabs .el-tabs__item.is-active').should('contain.text', 'News');
+        cy.get('[data-cy=news-pb]').should('exist');
+        cy.get('@newsEvents.all').should('have.length', 3);
+    });
+
+    it('refreshes only the active news tab from the header button', () => {
+        mountHomeView();
+
+        cy.wait('@newsEvents').its('request.query.category').should('eq', 'all');
+        cy.get('@newsEvents.all').should('have.length', 1);
+        cy.get('.home-news-refresh').should('be.visible');
+        cy.get('.home-news-refresh').click();
+        cy.wait('@newsEvents').its('request.query.category').should('eq', 'all');
+        cy.get('@newsEvents.all').should('have.length', 2);
+
+        cy.contains('.home-news-tabs .el-tabs__item', 'PB').click();
+        cy.wait('@newsEvents').its('request.query.category').should('eq', 'pb');
+        cy.get('@newsEvents.all').should('have.length', 3);
+        cy.get('.home-news-refresh').should('not.be.disabled');
+        cy.get('.home-news-refresh').click();
+        cy.wait('@newsEvents').its('request.query.category').should('eq', 'pb');
+        cy.get('@newsEvents.all').should('have.length', 4);
     });
 });
