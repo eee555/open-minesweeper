@@ -496,7 +496,7 @@ export default {
             [MedalSeries.REVIEWED]: '至少一条录像过审。',
             [MedalSeries.LEVELS]: '初级、中级、高级各有过审录像。',
             [MedalSeries.LEVELS_NF]: '三个级别各有过审盲扫。',
-            [MedalSeries.MODES]: '在标准、竞速无猜、强无猜、弱可猜这4种模式中，每种各有至少1条已通过审核的录像。仅EVF录像区分模式，其他格式均按标准模式计入。按模式统计，不要求每种模式集齐初、中、高三个难度。',
+            [MedalSeries.MODES]: '在@:{\'mode.code00\'}、@:{\'mode.code05\'}、@:{\'mode.code06\'}、@:{\'mode.code10\'}这4种模式中，每种各有至少1条已通过审核的录像。仅EVF录像区分模式，其他格式均按标准模式计入。按模式统计，不要求每种模式集齐初、中、高三个难度。',
             [MedalSeries.SAOLEI]: '扫雷网（saolei.wang）账号关联已通过认证。',
             [MedalSeries.SHAREHOLDER]: '名下最小录像编号低于{value}。',
         },

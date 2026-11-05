@@ -501,6 +501,14 @@ describe('bounded synchronization after uploads', () => {
 });
 
 describe('medalCaption', () => {
+    it.each([
+        ['en', 'Standard (00), Speed NG (05), Hardcore NG (06), and Lucky (10)'],
+        ['zh-cn', '标准、无猜、强无猜、弱可猜'],
+    ])('resolves linked mode names in %s', async (locale, modes) => {
+        const { medalCaption } = await import('./medalService');
+        expect(medalCaption(MedalSeries.MODES, 'novice.modes', 1, locale).meaning).toContain(modes);
+    });
+
     it('uses the same separator for Chinese precision and speed titles', async () => {
         const { medalCaption } = await import('./medalService');
         expect(medalCaption(MedalSeries.FLAGLESS_PRECISION, 'ability.thrp.nf.i', 80000, 'zh-cn').title).toBe('中级盲扫精工·0.8');
@@ -512,7 +520,7 @@ describe('medalCaption', () => {
         for (const series of Object.values(MedalSeries)) {
             const caption = medalCaption(series, 'catalog.item.e', 95000, locale);
             expect(caption.meaning).not.toBe('');
-            expect(caption.meaning).not.toMatch(/\{\w+\}/);
+            expect(caption.meaning).not.toMatch(/\{\w+\}|@:/);
         }
     });
 
