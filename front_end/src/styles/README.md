@@ -22,6 +22,8 @@ CSS 与 Less 的选型由实施代理自行决定，根据实际重复程度和�
 
 `select.css` 由 `setup.ts` 全局加载，提供原生单选的 `.base-select`，不新增 Vue 组件。默认最小高度 28px、14px 字号、直角边框与紧凑内边距，尺寸和状态颜色使用 `--ui-select-*` 参数，可在调用方局部覆盖；颜色继续引用深浅主题变量。普通悬停使用灰色边框，鼠标或键盘聚焦时使用主色边框并优先于悬停，不叠加 outline 或 box-shadow。保留系统原生箭头、选项菜单及键盘操作，样式仅作用于显式 class。宽度由调用方控制，公共样式提供 `min-width: 0` / `max-width: 100%`；关联 label 或本地化 aria-label 由调用方提供。后续保留的复杂选择器通过 vendors 适配复用这些参数，原生选项菜单仍遵循浏览器及系统外观限制，见 [MDN Select](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/select#styling_with_css)。
 
+`.base-select--small` 复用上述状态与主题，将最小高度和字号调整为 24px / 12px，左右内边距使用上下内边距的基准值，默认为 2px。小尺寸方框相对布局位置下移 1px，同时顶部内边距减少 1px、底部增加 1px，补偿内部文字位置并保持与外部文字的对齐；纵向内边距总量及布局占用高度不变。`MSStatSelect` 保留原有指标 props 与字符串模型，前缀通过关联 label 展示，attrs 转交原生 select，change 继续传所选字符串且不因程序更新模型而触发。散点图的三个选择器在原有 24em 区域内按可用宽度伸缩和换行；原生选项菜单无需原有 ElSelect 的全屏 Popper 配置，其他 Tippy 的全屏处理继续保留。
+
 `layout.css` 的 `.layout-row` 用于已有的可换行定位行，`.layout-columns` 用于弹性分栏；`.layout-stack` 提供纵向 flex 布局及默认 1rem 间距，调用方可只覆盖 gap。不要仅因同样使用 flex 就替换专用布局，需保留换行、定位、尺寸及子项约束。样式按组件显式导入，不依赖其他路由先加载。
 
 `vendors/element-plus-tabs.less` 由 setup.ts 加载，统一将顶部 / 底部 ElTabs 标签按容器宽度换行，隐藏滚动箭头并覆盖库写入的横向位移。选中标签使用自身的主色底线，底部标签改为顶线，保留库的焦点样式、切换事件及面板生命周期；单个过长标签可在自身宽度内折行。规则限定于直接所属的水平标签头，不改变左侧 / 右侧纵向 Tabs。公共 Analyzer 与离线页面当前不使用 ElTabs，不受此规则影响。

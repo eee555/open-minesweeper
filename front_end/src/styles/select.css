@@ -35,6 +35,18 @@
     cursor: pointer;
 }
 
+.base-select--small {
+    --ui-select-min-height: 24px;
+    --ui-select-font-size: var(--ui-font-size-extra-small);
+    --ui-select-padding-inline: var(--ui-select-padding-block);
+
+    /* Lower the frame while compensating the text position inside it. */
+    position: relative;
+    inset-block-start: 1px;
+    padding-block-start: calc(var(--ui-select-padding-block) - 1px);
+    padding-block-end: calc(var(--ui-select-padding-block) + 1px);
+}
+
 .base-select:enabled:hover {
     border-color: var(--ui-select-hover-border-color);
 }

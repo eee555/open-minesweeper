@@ -21,8 +21,7 @@ describe('<BBBvSummary Header />', () => {
     it('persists template changes and exposes custom sorting controls', () => {
         mountHeader();
 
-        cy.get('.el-select').first().click();
-        cy.contains('.el-select-dropdown__item', 'Custom').click();
+        cy.get('select[aria-label="Template"]').select('custom');
 
         cy.contains('Find min').should('be.visible');
         cy.contains('and display by').should('be.visible');
@@ -33,13 +32,14 @@ describe('<BBBvSummary Header />', () => {
         cy.contains('Find max').should('be.visible');
         cy.wrap(BBBvSummaryConfig).its('value.sortDesc').should('eq', true);
 
-        cy.get('.el-select').eq(1).click();
-        cy.get('.el-select-dropdown:visible').contains('IOE').click();
-        cy.get('.el-select').eq(2).click();
-        cy.get('.el-select-dropdown:visible').contains('File Size').click();
+        cy.get('select[aria-label="Sort by"]').select('ioe');
+        cy.get('select[aria-label="Display by"]').select('file_size');
 
         cy.wrap(BBBvSummaryConfig).its('value.sortBy').should('eq', 'ioe');
         cy.wrap(BBBvSummaryConfig).its('value.displayBy').should('eq', 'file_size');
+        cy.get('select[aria-label="Template"]').select('time');
+        cy.get('select[aria-label="Sort by"]').should('not.exist');
+        cy.get('select[aria-label="Display by"]').should('not.exist');
     });
 
     it('updates the software selection while keeping all software icons available', () => {
@@ -56,9 +56,10 @@ describe('<BBBvSummary Header />', () => {
     it('persists icon mode, new highlight settings, and zoom', () => {
         mountHeader();
 
-        cy.contains('Icon').next().click();
-        cy.get('.el-select-dropdown:visible').contains('State').click();
+        cy.get('select[aria-label="Icon"]').select('state');
         cy.wrap(BBBvSummaryConfig).its('value.showIcon').should('eq', 'state');
+        cy.get('select[aria-label="Icon"]').select('');
+        cy.wrap(BBBvSummaryConfig).its('value.showIcon').should('eq', '');
 
         cy.contains('uploaded').click();
         cy.wrap(BBBvSummaryConfig).its('value.newDateField').should('eq', 'end_time');
