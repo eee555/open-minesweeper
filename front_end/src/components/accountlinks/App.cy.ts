@@ -123,11 +123,14 @@ describe('<AccountLinksApp />', () => {
         mountAccountLink(App, { userId: 1 }, { Ticket });
         cy.wait('@fetchAccountLinks');
 
-        cy.get('@vue').then((wrapper: ComponentWrapper<typeof App>) => {
-            const card = wrapper.findComponent(CardBilibili) as unknown as { vm: { $emit: (event: 'refresh') => void } };
+        cy.get<ComponentWrapper<typeof App>>('@vue').should((wrapper) => {
+            expect(wrapper.findComponent(CardBilibili).exists(), 'Bilibili card is mounted').to.equal(true);
+        }).then((wrapper) => {
+            const card = wrapper.getComponent(CardBilibili) as unknown as { vm: { $emit: (event: 'refresh') => void } };
             card.vm.$emit('refresh');
         });
         cy.wait('@fetchAccountLinks');
+        cy.get('@fetchAccountLinks.all').should('have.length', 2);
     });
 
     it('does not show the add card when viewing another user', () => {

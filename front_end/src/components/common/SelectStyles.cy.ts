@@ -118,10 +118,22 @@ describe('retained Select styles and interactions', () => {
         ]));
         matchesNative('.el-pagination .el-select__wrapper');
         matchesNative('.p-paginator-rpp-dropdown');
+        // Test native keyboard focus before pointer selection queues PrimeVue's delayed blur.
+        cy.get('.p-datatable-tbody tr').should('have.length', 10);
+        cy.get('.p-paginator-rpp-dropdown [role=combobox]').realClick();
+        cy.document().invoke('hasFocus').should('be.true');
+        cy.get('.p-paginator-rpp-dropdown [role=combobox]').should('be.focused').and('have.attr', 'aria-expanded', 'true');
+        cy.realPress('End');
+        cy.contains('.p-select-overlay [role=option]', /^20$/).then(($option) => {
+            cy.get('.p-paginator-rpp-dropdown [role=combobox]').should('have.attr', 'aria-activedescendant', $option[0].id);
+        });
+        cy.realPress('Enter');
+        cy.get('.p-datatable-tbody tr').should('have.length', 20);
+        cy.shouldBeAbsentOrHidden('.p-select-overlay');
+
         cy.get('.el-pagination .el-select').click();
         cy.contains('.el-select-dropdown__item:visible', '20').click();
         cy.then(() => expect(elRows.value).to.equal(20));
-        cy.get('.p-datatable-tbody tr').should('have.length', 10);
         cy.get('.p-paginator-rpp-dropdown').click();
         cy.get('.p-select-overlay').should('be.visible').and('have.css', 'border-radius', '0px');
         for (const dark of [false, true]) {
@@ -131,18 +143,7 @@ describe('retained Select styles and interactions', () => {
                 cy.get('.p-select-overlay').should('have.css', 'background-color', expected.backgroundColor).and('have.css', 'color', expected.color);
             });
         }
-        cy.contains('.p-select-overlay .p-select-option', /^20$/).click();
-        cy.get('.p-datatable-tbody tr').should('have.length', 20);
-        cy.shouldBeAbsentOrHidden('.p-select-overlay');
-        cy.get('.p-paginator-rpp-dropdown').click();
-        cy.get('.p-paginator-rpp-dropdown [role=combobox]').should('be.focused').and('have.attr', 'aria-expanded', 'true');
-        cy.get('.p-select-overlay').should('be.visible');
-        // Reopening can leave no active option; Home always targets the first choice.
-        cy.realPress('Home');
-        cy.contains('.p-select-overlay [role=option]', /^10$/).then(($option) => {
-            cy.get('.p-paginator-rpp-dropdown [role=combobox]').should('have.attr', 'aria-activedescendant', $option[0].id);
-        });
-        cy.realPress('Enter');
+        cy.contains('.p-select-overlay .p-select-option', /^10$/).click();
         cy.get('.p-datatable-tbody tr').should('have.length', 10);
     });
 });
