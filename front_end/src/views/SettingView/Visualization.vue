@@ -56,6 +56,7 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/element-plus.css';
 import '@/styles/cards.css';
 import '@/styles/layout.css';
 

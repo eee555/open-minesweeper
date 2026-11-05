@@ -17,6 +17,7 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/element-plus-select.css';
 import { ElAlert, ElPagination } from 'element-plus';
 import { computed, onMounted, onScopeDispose, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';

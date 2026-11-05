@@ -21,6 +21,7 @@
 </template>
 
 <script setup lang="ts" generic="TParticipant extends TournamentParticipant">
+import '@/styles/vendors/element-plus-tabs.less';
 import { ElTabPane, ElTabs } from 'element-plus';
 import { ref, shallowRef } from 'vue';
 import type { PropType } from 'vue';

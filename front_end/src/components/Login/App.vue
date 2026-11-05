@@ -10,6 +10,7 @@
 </template>
 
 <script lang="ts" setup>
+import '@/styles/vendors/element-plus.css';
 // 认证状态、表单弹窗及提供给导航的操作。
 import { ElDialog, ElMessage, ElMessageBox } from 'element-plus';
 import { defineAsyncComponent, onMounted, ref } from 'vue';

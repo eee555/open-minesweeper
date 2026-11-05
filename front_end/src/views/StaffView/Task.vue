@@ -106,6 +106,7 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/primevue-table.css';
 import { FilterMatchMode } from '@primevue/core/api';
 import { ElDescriptions, ElDescriptionsItem, vLoading } from 'element-plus';
 import PrColumn from 'primevue/column';

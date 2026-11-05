@@ -6,8 +6,3 @@ import './styles/text.css';
 import './styles/checkbox.css';
 import './styles/checkbox-buttons.css';
 import './styles/select.css';
-import './styles/vendors/element-plus.css';
-import './styles/vendors/element-plus-tabs.less';
-import './styles/vendors/element-plus-table.css';
-import './styles/vendors/primevue-table.css';
-import './styles/vendors/primevue-table-controls.css';

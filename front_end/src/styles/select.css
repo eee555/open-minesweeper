@@ -13,6 +13,17 @@
     --ui-select-disabled-color: var(--ui-disabled-text-color);
     --ui-select-disabled-background: var(--ui-disabled-bg-color);
     --ui-select-disabled-border-color: var(--ui-disabled-border-color);
+    --ui-select-small-min-height: 24px;
+    --ui-select-small-font-size: var(--ui-font-size-extra-small);
+    --ui-select-gap: 4px;
+    --ui-select-icon-size: 14px;
+    --ui-select-placeholder-color: var(--ui-text-color-placeholder);
+    --ui-select-hover-background: var(--ui-fill-color-light);
+    --ui-select-selected-color: var(--ui-color-primary);
+    --ui-select-selected-background: var(--ui-color-primary-light-9);
+    --ui-select-tag-background: var(--ui-fill-color-light);
+    --ui-select-overlay-background: var(--ui-bg-color-overlay);
+    --ui-select-overlay-shadow: 0 2px 8px rgb(0 0 0 / 12%);
 }
 
 /* Keep the native arrow and option menu, including their keyboard behavior. */
@@ -36,8 +47,8 @@
 }
 
 .base-select--small {
-    --ui-select-min-height: 24px;
-    --ui-select-font-size: var(--ui-font-size-extra-small);
+    --ui-select-min-height: var(--ui-select-small-min-height);
+    --ui-select-font-size: var(--ui-select-small-font-size);
     --ui-select-padding-inline: var(--ui-select-padding-block);
 
     /* Lower the frame while compensating the text position inside it. */

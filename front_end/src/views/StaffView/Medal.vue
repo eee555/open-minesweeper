@@ -110,6 +110,7 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/element-plus-select.css';
 import { ElInput, ElInputNumber, ElOption, ElSelect } from 'element-plus';
 import { computed, onActivated, onDeactivated, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';

@@ -93,6 +93,7 @@
 </template>
 
 <script lang="ts" setup>
+import '@/styles/vendors/element-plus-select.css';
 import '@/styles/layout.css';
 // 个人主页的个人所有录像部分
 import { ElDialog, ElOption, ElScrollbar, ElSelect } from 'element-plus';

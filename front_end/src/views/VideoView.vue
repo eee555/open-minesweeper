@@ -71,6 +71,8 @@
 </template>
 
 <script lang="ts" setup>
+import '@/styles/vendors/element-plus-select.css';
+import '@/styles/vendors/element-plus-table.css';
 import '@/styles/descriptions.css';
 import '@/styles/layout.css';
 // 全网录像的检索器，根据三个维度排序

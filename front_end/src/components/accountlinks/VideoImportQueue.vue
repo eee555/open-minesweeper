@@ -72,6 +72,7 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/primevue-table.css';
 import { FilterMatchMode } from '@primevue/core/api';
 import { promiseTimeout } from '@vueuse/core';
 import { isAxiosError } from 'axios';

@@ -8,6 +8,7 @@
             class="log-file-select"
             filterable
             :placeholder="t('local.selectFile')"
+            :aria-label="t('local.selectFile')"
             @change="viewLog"
         >
             <ElOption
@@ -73,6 +74,7 @@
 </template>
 
 <script lang="ts" setup>
+import '@/styles/vendors/element-plus-select.css';
 import { ElInputNumber, ElOption, ElSelect } from 'element-plus';
 import { nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -330,6 +332,7 @@ const { t, locale } = useI18n({ messages: i18nMessages });
 
 .log-option {
     display: grid;
+    width: 100%;
     grid-template-columns: minmax(10rem, 1fr) 6rem 12rem;
     align-items: center;
     gap: 1rem;

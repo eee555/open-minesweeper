@@ -28,6 +28,8 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/element-plus.css';
+import '@/styles/vendors/element-plus-select.css';
 import { ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElOption, ElSelect } from 'element-plus';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';

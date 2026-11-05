@@ -3,7 +3,7 @@
         <label>用户 ID <input v-model.number="userId" type="number" min="1" :disabled="busy || participantId !== undefined" data-cy="history-user-id"></label>
         <label data-cy="history-upload-anchor">上传时间锚点 <ElDatePicker v-model="anchor" type="datetime" :disabled="busy || participantId !== undefined" /></label>
         <input type="file" accept=".avf,.evf,.rmv,.mvf" multiple :disabled="busy || participantId !== undefined" aria-label="选择录像" data-cy="history-video-files" @change="selectFiles">
-        <ElSelect v-model="selectedIdentifiers" multiple :disabled="busy || participantId !== undefined" placeholder="录像标识" data-cy="history-identifiers">
+        <ElSelect v-model="selectedIdentifiers" multiple :disabled="busy || participantId !== undefined" placeholder="录像标识" aria-label="录像标识" data-cy="history-identifiers">
             <ElOption v-for="identifier in identifiers" :key="identifier" :label="identifier || '(空标识)'" :value="identifier" />
         </ElSelect>
         <BaseButton :loading="busy" :disabled="!userId || !selectedIdentifiers.length || !anchor" data-cy="history-videos-submit" @click="upload">
@@ -38,6 +38,8 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/element-plus.css';
+import '@/styles/vendors/element-plus-select.css';
 import { ElDatePicker, ElOption, ElSelect } from 'element-plus';
 import { computed, onBeforeUnmount, ref, shallowRef } from 'vue';
 

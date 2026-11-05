@@ -10,7 +10,15 @@ CSS 与 Less 的选型由实施代理自行决定，根据实际重复程度和�
 
 提取后的颜色写入本地色值或引用其他项目变量，不直接读取组件库颜色变量。浅色和深色值一起提取，保留必要的状态、尺寸及局部作用域；新增共享文件通过应用与 Cypress 共用的样式入口接入。
 
-全局样式由入口统一加载，组件和其他 CSS / Less 不再重复导入。网站、Cypress 组件测试与离线 Analyzer 使用 `setup.ts`；离线小游戏在 `local-minigame/main.ts` 加载主题、文字和 Checkbox 按钮样式。卡片、布局、链接、表格及图标等未由所有入口统一加载的样式，仍按组件需要导入；不能仅因其他组件也导入就删除。
+全局主题、参数、文字及原生控件样式由入口统一加载，组件和其他 CSS / Less 不再重复导入。网站、Cypress 组件测试与离线 Analyzer 使用 `setup.ts`；离线小游戏在 `local-minigame/main.ts` 加载主题、文字和 Checkbox 按钮样式。卡片、布局、链接、表格及图标等未由所有入口统一加载的样式，仍按组件需要导入；不能仅因其他组件也导入就删除。
+
+`vendors/` 的项目适配样式全部由实际使用方按需导入，不在 `setup.ts`、应用启动入口或 Cypress support 统一加载。组件自己声明依赖，保证直接进入路由、单独挂载和异步加载时可用，不依赖之前访问过的页面。样式载入后仍使用普通全局 CSS，以覆盖挂载到 body 的浮层；按需导入不等于 Vue scoped，也不保证离开路由后卸载样式。项目主题与 `--ui-*` 参数继续全局提供，组件库原版基础 CSS 的现有加载方式保留。
+
+按需加载的代表性组件回归覆盖 Select、首页 Tabs、两种表格及导航确认框。在 front_end 下由用户运行：
+
+```powershell
+npx.cmd cypress run --component --browser chrome --headless --spec "src/components/common/SelectStyles.cy.ts,src/views/HomeView/HomeView.cy.ts,src/components/VideoUpload/Table.cy.ts,src/components/widgets/IdentifierManager.cy.ts,src/views/Menu.cy.ts"
+```
 
 正式项目变量位于 `theme/`，通过 `setup.ts` 加载 `theme/index.css`，应用与 Cypress 组件测试共用。`colors.css` 定义文字、背景、边框与禁用色，`accents.css` 定义主色及状态色，`metrics.css` 定义当前字号、圆角与过渡参数。初值沿用 Element Plus 2.14.6，深色主题继续由 `html.dark` 切换；此批只替换变量来源，不调整尺寸和密度。
 
@@ -20,13 +28,19 @@ CSS 与 Less 的选型由实施代理自行决定，根据实际重复程度和�
 
 `button.css` 保持原有导入路径，按顺序汇总 `buttons/base.css`、`buttons/variants.css`、`buttons/states.css`，分别负责基础布局、类型配色、尺寸与交互状态。
 
-`select.css` 由 `setup.ts` 全局加载，提供原生单选的 `.base-select`，不新增 Vue 组件。默认最小高度 28px、14px 字号、直角边框与紧凑内边距，尺寸和状态颜色使用 `--ui-select-*` 参数，可在调用方局部覆盖；颜色继续引用深浅主题变量。普通悬停使用灰色边框，鼠标或键盘聚焦时使用主色边框并优先于悬停，不叠加 outline 或 box-shadow。保留系统原生箭头、选项菜单及键盘操作，样式仅作用于显式 class。宽度由调用方控制，公共样式提供 `min-width: 0` / `max-width: 100%`；关联 label 或本地化 aria-label 由调用方提供。后续保留的复杂选择器通过 vendors 适配复用这些参数，原生选项菜单仍遵循浏览器及系统外观限制，见 [MDN Select](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/select#styling_with_css)。
+`select.css` 由 `setup.ts` 全局加载，提供原生单选的 `.base-select`，不新增 Vue 组件。默认最小高度 28px、14px 字号、直角边框与紧凑内边距，尺寸和状态颜色使用 `--ui-select-*` 参数，可在调用方局部覆盖；颜色继续引用深浅主题变量。普通悬停使用灰色边框，鼠标或键盘聚焦时使用主色边框并优先于悬停，不叠加 outline 或 box-shadow。保留系统原生箭头、选项菜单及键盘操作，样式仅作用于显式 class。宽度由调用方控制，公共样式提供 `min-width: 0` / `max-width: 100%`；关联 label 或本地化 aria-label 由调用方提供。保留的复杂选择器通过 vendors 适配复用这些参数，原生选项菜单仍遵循浏览器及系统外观限制，见 [MDN Select](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/select#styling_with_css)。
+
+`vendors/element-plus-select.css` 汇总 `element-plus-select-tags.css`、`element-plus-select-dropdown.css`，分别负责 ElSelect 的闭合控件、多选标签及下拉浮层。使用 ElSelect 或带 `sizes` 的 ElPagination 的组件导入该入口，固定页容量的分页器无需导入。控件复用普通 / 小尺寸参数，标签和搜索输入同步紧凑化，保留标签删除、折叠计数与自然换行增高；浮层统一使用 14px 字号、28px 最小选项高度和项目背景、选中及禁用配色，保留原有滚动高度和键盘行为。浮层通过公开的 `.el-select__popper` 接入，脱离业务容器后仍直接引用全局项目参数；调用方局部覆盖的参数不会自动继承到 body 下的浮层，需要同时通过 `popper-style` 设置。接口与覆盖方式参考 [Element Plus Select](https://element-plus.org/en-US/component/select.html) 与[主题说明](https://element-plus.org/en-US/guide/theming)。
+
+`vendors/primevue-select.css` 由 `primevue-table.css` 汇总加载，使用安装版本 PrimeVue 4 的公开设计参数统一 DataTable 分页器内的 `.p-paginator-rpp-dropdown`，并在 `.p-select-overlay` 上单独设置浮层参数，避免 body 挂载后丢失主题色。当前所有直接使用的 PrimeVue Select 均已迁移，剩余 Select 浮层均来自分页器；不对 Listbox、列筛选浮层或其他表单控件扩展这组规则。保留数值页容量、分页事件和键盘选择，组件样式与动态插入的 Aura 主题共存，见 [Select 文档](https://primevue.org/select/) 和 [Paginator 文档](https://primevue.org/paginator/)。
 
 `.base-select--small` 复用上述状态与主题，将最小高度和字号调整为 24px / 12px，左右内边距使用上下内边距的基准值，默认为 2px。小尺寸方框相对布局位置下移 1px，同时顶部内边距减少 1px、底部增加 1px，补偿内部文字位置并保持与外部文字的对齐；纵向内边距总量及布局占用高度不变。`MSStatSelect` 保留原有指标 props 与字符串模型，前缀通过关联 label 展示，attrs 转交原生 select，change 继续传所选字符串且不因程序更新模型而触发。散点图的三个选择器在原有 24em 区域内按可用宽度伸缩和换行；原生选项菜单无需原有 ElSelect 的全屏 Popper 配置，其他 Tippy 的全屏处理继续保留。
 
 `layout.css` 的 `.layout-row` 用于已有的可换行定位行，`.layout-columns` 用于弹性分栏；`.layout-stack` 提供纵向 flex 布局及默认 1rem 间距，调用方可只覆盖 gap。不要仅因同样使用 flex 就替换专用布局，需保留换行、定位、尺寸及子项约束。样式按组件显式导入，不依赖其他路由先加载。
 
-`vendors/element-plus-tabs.less` 由 setup.ts 加载，统一将顶部 / 底部 ElTabs 标签按容器宽度换行，隐藏滚动箭头并覆盖库写入的横向位移。选中标签使用自身的主色底线，底部标签改为顶线，保留库的焦点样式、切换事件及面板生命周期；单个过长标签可在自身宽度内折行。规则限定于直接所属的水平标签头，不改变左侧 / 右侧纵向 Tabs。公共 Analyzer 与离线页面当前不使用 ElTabs，不受此规则影响。
+`vendors/element-plus.css` 由使用 ElButton 的组件导入；ElMessageBox、ElDatePicker、ElColorPicker 的使用方也导入它，覆盖这些组件隐式创建的按钮，不改变原生 BaseButton 的样式。
+
+`vendors/element-plus-tabs.less` 由包含 ElTabs 的组件导入，统一将顶部 / 底部 ElTabs 标签按容器宽度换行，隐藏滚动箭头并覆盖库写入的横向位移。选中标签使用自身的主色底线，底部标签改为顶线，保留库的焦点样式、切换事件及面板生命周期；单个过长标签可在自身宽度内折行。规则限定于直接所属的水平标签头，不改变左侧 / 右侧纵向 Tabs。公共 Analyzer 与离线页面当前不使用 ElTabs，不受此规则影响。
 
 `navigation/layout.css`、`navigation/items.css` 与 `vendors/element-plus-navigation.css` 由网站 Menu.vue 加载，组件测试使用相同入口，不影响公共 Analyzer 或离线包。前两者负责外壳、Logo、原生链接及焦点状态，组件库变量和菜单浮层适配集中在 vendors。
 
@@ -56,7 +70,7 @@ CSS 与 Less 的选型由实施代理自行决定，根据实际重复程度和�
 
 `theme/tables.css` 提供三种表格共用的 `--ui-table-*` 参数，由 `setup.ts` 直接加载，应用与 Cypress 共用。初值保持 BaseTable 现有外观：14px 字号、1.4 行高、4px × 8px 单元格内边距、1px 网格边框及 500 表头字重；颜色引用项目主题，随 `html.dark` 切换。
 
-`vendors/element-plus-table.css` 与 `vendors/primevue-table.css` 将同一参数映射到保留的 ElTable / DataTable，并补齐网格线、表头字重和空状态样式。优先使用安装版本的公开变量，必要规则限定在组件内部，不合并组件库分离的表头/正文表格，不改变滚动、固定列、列宽或业务事件。排序箭头、筛选、选择、展开和焦点反馈保留；选中行与普通悬停行使用不同颜色。缓存设置等已有页面局部尺寸覆盖继续优先。
+`vendors/element-plus-table.css` 与 `vendors/primevue-table.css` 由包含完整 ElTable / DataTable 的组件导入，将同一参数映射到保留的表格，并补齐网格线、表头字重和空状态样式。`primevue-table.css` 同时汇总 `primevue-table-controls.css` 与 `primevue-select.css`，覆盖其分页与页容量选择器，使用方不再逐个导入子文件。优先使用安装版本的公开变量，必要规则限定在组件内部，不合并组件库分离的表头/正文表格，不改变滚动、固定列、列宽或业务事件。排序箭头、筛选、选择、展开和焦点反馈保留；选中行与普通悬停行使用不同颜色。缓存设置等已有页面局部尺寸覆盖继续优先。
 
 `vendors/primevue-table-controls.css` 仅紧凑化 DataTable 内的分页及展开按钮，并使用项目颜色和直角；不覆盖独立分页器、表单及传送到表外的筛选弹层。复杂行仍由其输入控件和展开内容决定实际高度，不强制所有表格行等高。适配接口参考 [Element Plus Table](https://element-plus.org/en-US/component/table.html) 与 [PrimeVue DataTable](https://primevue.dev/datatable/)，变量名称以项目安装包为准。
 

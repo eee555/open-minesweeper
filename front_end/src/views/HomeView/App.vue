@@ -25,6 +25,7 @@
 </template>
 
 <script setup lang='ts'>
+import '@/styles/vendors/element-plus-tabs.less';
 import { ElTabs } from 'element-plus';
 import { ref, useTemplateRef } from 'vue';
 import { useI18n } from 'vue-i18n';
