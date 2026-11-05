@@ -72,7 +72,9 @@ describe('retained Select styles and interactions', () => {
                     expect(rect.bottom).to.be.at.most(bounds.bottom);
                 }
             });
-            cy.get('.el-select__input').type('identifier 5');
+            // An idle multiple Select hides its search input behind the tags until activated.
+            cy.get('.el-select__wrapper').click();
+            cy.get('.el-select__input').should('be.focused').type('identifier 5');
             cy.contains('.el-select-dropdown__item:visible', 'Player identifier 5').click();
             cy.then(() => expect(selected.value).to.deep.equal(['', 'id-1', 'id-2', 'id-5']));
             cy.get('.el-select__input').type('{esc}');
@@ -132,10 +134,12 @@ describe('retained Select styles and interactions', () => {
         cy.contains('.p-select-overlay .p-select-option', /^20$/).click();
         cy.get('.p-datatable-tbody tr').should('have.length', 20);
         cy.shouldBeAbsentOrHidden('.p-select-overlay');
-        cy.get('.p-paginator-rpp-dropdown [role=combobox]').focus();
-        cy.get('.p-paginator-rpp-dropdown [role=combobox]').type('{enter}');
+        cy.get('.p-paginator-rpp-dropdown').click();
+        cy.get('.p-paginator-rpp-dropdown [role=combobox]').should('be.focused').and('have.attr', 'aria-expanded', 'true');
         cy.get('.p-select-overlay').should('be.visible');
-        cy.get('.p-paginator-rpp-dropdown [role=combobox]').type('{uparrow}{enter}');
+        cy.realPress('ArrowUp');
+        cy.contains('.p-select-overlay .p-select-option', /^10$/).should('have.class', 'p-focus');
+        cy.realPress('Enter');
         cy.get('.p-datatable-tbody tr').should('have.length', 10);
     });
 });

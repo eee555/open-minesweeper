@@ -13,7 +13,8 @@ describe('staff account-link platform selection', () => {
         cy.intercept('POST', '/api/accountlink/verify/', { body: '' }).as('verify');
         cy.mount(AccountLink, { global: { plugins: [i18n, PrimeVue], config: { globalProperties: { $axios } } } });
         cy.wait('@queue');
-        cy.get('select[aria-label="Platform"]').should('have.value', '');
+        cy.get('select[aria-label="Platform"]').should('have.prop', 'value', '');
+        cy.get('select[aria-label="Platform"]').should('have.prop', 'selectedIndex', 0);
         cy.get('.el-form input[type=number]').clear();
         cy.get('.el-form input[type=number]').type('42');
         cy.get('select[aria-label="Platform"]').select(AccountLinkPlatform.Discord);
@@ -23,7 +24,8 @@ describe('staff account-link platform selection', () => {
             expect(Object.fromEntries(new URLSearchParams(body))).to.deep.equal({ id: '42', platform: AccountLinkPlatform.Discord, identifier });
         });
         cy.wait('@queue');
-        cy.get('select[aria-label="Platform"]').should('have.value', '');
+        cy.get('select[aria-label="Platform"]').should('have.prop', 'value', '');
+        cy.get('select[aria-label="Platform"]').should('have.prop', 'selectedIndex', 0);
         cy.contains('.el-form-item__label', 'Platform ID').next().find('input').should('have.value', '');
         cy.get('@queue.all').should('have.length', 2);
     });

@@ -36,6 +36,8 @@ npx.cmd cypress run --component --browser chrome --headless --spec "src/componen
 
 `.base-select--small` 复用上述状态与主题，将最小高度和字号调整为 24px / 12px，左右内边距使用上下内边距的基准值，默认为 2px。小尺寸方框相对布局位置下移 1px，同时顶部内边距减少 1px、底部增加 1px，补偿内部文字位置并保持与外部文字的对齐；纵向内边距总量及布局占用高度不变。`MSStatSelect` 保留原有指标 props 与字符串模型，前缀通过关联 label 展示，attrs 转交原生 select，change 继续传所选字符串且不因程序更新模型而触发。散点图的三个选择器在原有 24em 区域内按可用宽度伸缩和换行；原生选项菜单无需原有 ElSelect 的全屏 Popper 配置，其他 Tippy 的全屏处理继续保留。
 
+测试原生 Select 的禁用空字符串占位时，使用 `should('have.prop', 'value', '')` 并核对 `selectedIndex`；`have.value` 通过 jQuery 取值，会跳过禁用选项而得到 null，见 [jQuery Select 取值实现](https://github.com/jquery/jquery/blob/3.7.1/src/attributes/val.js)。Vue 绑定 null / undefined 的选项，其原生 DOM value 不保证为空字符串，应按标签或选中项判断，不将 DOM 字符串等同于 Vue 模型。
+
 `layout.css` 的 `.layout-row` 用于已有的可换行定位行，`.layout-columns` 用于弹性分栏；`.layout-stack` 提供纵向 flex 布局及默认 1rem 间距，调用方可只覆盖 gap。不要仅因同样使用 flex 就替换专用布局，需保留换行、定位、尺寸及子项约束。样式按组件显式导入，不依赖其他路由先加载。
 
 `vendors/element-plus.css` 由使用 ElButton 的组件导入；ElMessageBox、ElDatePicker、ElColorPicker 的使用方也导入它，覆盖这些组件隐式创建的按钮，不改变原生 BaseButton 的样式。

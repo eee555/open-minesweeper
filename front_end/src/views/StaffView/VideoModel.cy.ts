@@ -24,7 +24,8 @@ describe('staff video freezing', () => {
     it('keeps the field unselected until staff chooses the value to save', () => {
         cy.intercept('POST', '**/video/set/', { body: {} }).as('saveField');
         loadVideo();
-        cy.get('select[aria-label="Field"]').should('have.value', '');
+        cy.get('select[aria-label="Field"]').should('have.prop', 'value', '');
+        cy.get('select[aria-label="Field"]').should('have.prop', 'selectedIndex', 0);
         cy.get('select[aria-label="Field"]').select('state');
         cy.get('select[aria-label="Field"]').parent().next().find('input').type('c');
         cy.contains('button', 'Save').click();
