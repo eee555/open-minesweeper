@@ -1,0 +1,53 @@
+:root {
+    --ui-select-min-height: 28px;
+    --ui-select-padding-block: 2px;
+    --ui-select-padding-inline: 8px;
+    --ui-select-font-size: var(--ui-font-size-base);
+    --ui-select-line-height: 1.4;
+    --ui-select-border-radius: 0px;
+    --ui-select-color: var(--ui-text-color-regular);
+    --ui-select-background: var(--ui-fill-color-blank);
+    --ui-select-border-color: var(--ui-border-color);
+    --ui-select-hover-border-color: var(--ui-border-color-hover);
+    --ui-select-focus-color: var(--ui-color-primary);
+    --ui-select-disabled-color: var(--ui-disabled-text-color);
+    --ui-select-disabled-background: var(--ui-disabled-bg-color);
+    --ui-select-disabled-border-color: var(--ui-disabled-border-color);
+}
+
+/* Keep the native arrow and option menu, including their keyboard behavior. */
+.base-select {
+    appearance: auto;
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+    min-height: var(--ui-select-min-height);
+    margin: 0;
+    border: 1px solid var(--ui-select-border-color);
+    border-radius: var(--ui-select-border-radius);
+    padding: var(--ui-select-padding-block) var(--ui-select-padding-inline);
+    background-color: var(--ui-select-background);
+    color: var(--ui-select-color);
+    font-family: inherit;
+    font-size: var(--ui-select-font-size);
+    line-height: var(--ui-select-line-height);
+    vertical-align: middle;
+    cursor: pointer;
+}
+
+.base-select:enabled:hover {
+    border-color: var(--ui-select-hover-border-color);
+}
+
+.base-select:enabled:focus {
+    border-color: var(--ui-select-focus-color);
+    outline: none;
+    box-shadow: none;
+}
+
+.base-select:disabled {
+    border-color: var(--ui-select-disabled-border-color);
+    background-color: var(--ui-select-disabled-background);
+    color: var(--ui-select-disabled-color);
+    cursor: not-allowed;
+}
