@@ -137,8 +137,11 @@ describe('retained Select styles and interactions', () => {
         cy.get('.p-paginator-rpp-dropdown').click();
         cy.get('.p-paginator-rpp-dropdown [role=combobox]').should('be.focused').and('have.attr', 'aria-expanded', 'true');
         cy.get('.p-select-overlay').should('be.visible');
-        cy.realPress('ArrowUp');
-        cy.contains('.p-select-overlay .p-select-option', /^10$/).should('have.class', 'p-focus');
+        // Reopening can leave no active option; Home always targets the first choice.
+        cy.realPress('Home');
+        cy.contains('.p-select-overlay [role=option]', /^10$/).then(($option) => {
+            cy.get('.p-paginator-rpp-dropdown [role=combobox]').should('have.attr', 'aria-activedescendant', $option[0].id);
+        });
         cy.realPress('Enter');
         cy.get('.p-datatable-tbody tr').should('have.length', 10);
     });
