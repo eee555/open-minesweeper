@@ -8,9 +8,15 @@
         </template>
         <template #autoUploaderFilter>
             <select v-model="filterLevel" class="base-select base-select--small" style="width: 250px" :aria-label="t('filter')">
-                <option value="tournament">{{ t('local.tournament') }}</option>
-                <option value="supported">{{ t('local.supported') }}</option>
-                <option value="scoreRefreshing">{{ t('local.scoreRefreshing') }}</option>
+                <option value="tournament">
+                    {{ t('local.tournament') }}
+                </option>
+                <option value="supported">
+                    {{ t('local.supported') }}
+                </option>
+                <option value="scoreRefreshing">
+                    {{ t('local.scoreRefreshing') }}
+                </option>
             </select>
         </template>
         <template #allSummary="{ data, onParticipantSelect }">

@@ -42,11 +42,11 @@
                 </p>
                 <label>
                     {{ t('local.action') }}
-                    <ElSelect v-model="mode" :disabled="saving" :aria-label="t('local.action')">
-                        <ElOption value="grant" :label="t('local.grant')" :disabled="!definition?.active" />
-                        <ElOption value="revoke" :label="t('local.revoke')" :disabled="!definition" />
-                        <ElOption value="auto" :label="t('local.auto')" :disabled="!currentOverride" />
-                    </ElSelect>
+                    <select v-model="mode" class="base-select" :disabled="saving" :aria-label="t('local.action')">
+                        <option value="grant" :disabled="!definition?.active">{{ t('local.grant') }}</option>
+                        <option value="revoke" :disabled="!definition">{{ t('local.revoke') }}</option>
+                        <option value="auto" :disabled="!currentOverride">{{ t('local.auto') }}</option>
+                    </select>
                 </label>
                 <p class="help">
                     {{ t(`local.${mode}Help`) }}
@@ -54,9 +54,10 @@
                 <template v-if="mode === 'grant'">
                     <label>
                         {{ t('local.stage') }}
-                        <ElSelect v-model="stage" :disabled="saving" :aria-label="t('local.stage')">
-                            <ElOption v-for="threshold in stages" :key="threshold" :value="threshold" :label="stageLabel(code, threshold)" />
-                        </ElSelect>
+                        <select v-model="stage" class="base-select" :disabled="saving" :aria-label="t('local.stage')">
+                            <option disabled :value="undefined">{{ t('local.selectStage') }}</option>
+                            <option v-for="threshold in stages" :key="threshold" :value="threshold">{{ stageLabel(code, threshold) }}</option>
+                        </select>
                     </label>
                     <label>
                         {{ t('local.grantedOn') }}
@@ -276,6 +277,7 @@ const i18nMessages = {
         revokeHelp: '撤销当前授予，并禁止自动发放；尚未获得时也可提前禁发，直到恢复自动。',
         autoHelp: '解除该范围的人工决定，等待后台任务按真实进度重算。',
         stage: '档位',
+        selectStage: '选择档位',
         grantedOn: '授予日期',
         reason: '原因（必填）',
         apply: '应用操作',
@@ -308,6 +310,7 @@ const i18nMessages = {
         revokeHelp: 'Revokes the current award and blocks automatic grants, including before a medal is earned, until automatic awards are restored.',
         autoHelp: 'Removes the manual decision for this scope. A background task will recalculate from actual progress.',
         stage: 'Stage',
+        selectStage: 'Select a stage',
         grantedOn: 'Award date',
         reason: 'Reason (required)',
         apply: 'Apply action',

@@ -16,9 +16,14 @@
         </BaseButton>
     </div>
     <div>
-        {{ t('local.field') }}<ElSelect v-model="videofield">
-            <ElOption v-for="field in videofieldlist" :key="field" :label="t(`prop.${field}`)" :value="field" />
-        </ElSelect>
+        {{ t('local.field') }}<select v-model="videofield" class="base-select" style="width: 100%" :aria-label="t('local.field')">
+            <option disabled value="">
+                {{ t('local.selectField') }}
+            </option>
+            <option v-for="field in videofieldlist" :key="field" :value="field">
+                {{ t(`prop.${field}`) }}
+            </option>
+        </select>
     </div>
     <div>
         {{ t('prop.value') }}<ElInput v-model="videovalue" />
@@ -44,7 +49,7 @@
 
 <script lang="ts" setup>
 import type { AxiosResponse } from 'axios';
-import { ElDescriptions, ElDescriptionsItem, ElInput, ElInputNumber, ElOption, ElSelect } from 'element-plus';
+import { ElDescriptions, ElDescriptionsItem, ElInput, ElInputNumber } from 'element-plus';
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -126,6 +131,7 @@ const i18nMessages = {
     'zh-cn': { local: {
         removeNewest: '从最新录像中移除',
         field: '字段',
+        selectField: '选择字段',
         videoModel: '录像信息（VideoModel）',
         freezeReason: '冻结原因',
         freezeVideo: '冻结录像 / 更新冻结原因',
@@ -133,6 +139,7 @@ const i18nMessages = {
     en: { local: {
         removeNewest: 'Remove from latest videos',
         field: 'Field',
+        selectField: 'Select a field',
         videoModel: 'Video information (VideoModel)',
         freezeReason: 'Freeze reason',
         freezeVideo: 'Freeze video / update reason',

@@ -642,7 +642,7 @@ describe('Weekly tournament', () => {
         // The form renders before session restoration; staff navigation requires CSRF setup to finish.
         cy.get('[data-navigation-id=staff]').should('exist');
         cy.contains('比赛类型');
-        cy.contains('.el-select', '2高5中').should('be.visible');
+        cy.get('select[aria-label="比赛类型"]').should('be.visible').and('have.value', 'c');
         cy.contains('button', '创建下周打卡赛').click();
         cy.wait('@createWeeklyTournament').should(({ request, response }) => {
             expect(request.headers['x-csrftoken'], 'administrator CSRF header').to.be.a('string').and.not.equal('');

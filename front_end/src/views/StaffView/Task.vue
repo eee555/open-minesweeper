@@ -52,7 +52,14 @@
                 </template>
             </template>
             <template #filter="{ filterModel, filterCallback }">
-                <PrSelect v-model="filterModel.value" :options="[...DjangoTaskResultStatusOptions]" :option-label="taskStatusLabel" @change="filterCallback()" />
+                <select v-model="filterModel.value" class="base-select" :aria-label="t('prop.status')" @change="filterCallback()">
+                    <option :value="null">
+                        {{ t('all') }}
+                    </option>
+                    <option v-for="status in DjangoTaskResultStatusOptions" :key="status" :value="status">
+                        {{ taskStatusLabel(status) }}
+                    </option>
+                </select>
             </template>
         </PrColumn>
         <PrColumn field="enqueued_at" :header="t('local.enqueuedAt')" sortable>
@@ -103,7 +110,6 @@ import { FilterMatchMode } from '@primevue/core/api';
 import { ElDescriptions, ElDescriptionsItem, vLoading } from 'element-plus';
 import PrColumn from 'primevue/column';
 import PrDataTable from 'primevue/datatable';
-import PrSelect from 'primevue/select';
 import PrToolbar from 'primevue/toolbar';
 import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';

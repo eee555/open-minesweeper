@@ -4,9 +4,14 @@
             <ElInput v-model="form.id" type="number" />
         </ElFormItem>
         <ElFormItem :label="t('accountlink.platform')">
-            <ElSelect v-model="form.platform">
-                <ElOption v-for="platform of manualAccountLinkPlatforms" :key="platform" :label="t(`platform.${platform}`)" :value="platform" />
-            </ElSelect>
+            <select v-model="form.platform" class="base-select" style="width: 100%" :aria-label="t('accountlink.platform')">
+                <option disabled value="">
+                    {{ t('local.selectPlatform') }}
+                </option>
+                <option v-for="platform of manualAccountLinkPlatforms" :key="platform" :value="platform">
+                    {{ t(`platform.${platform}`) }}
+                </option>
+            </select>
         </ElFormItem>
         <ElFormItem :label="t('local.platformId')">
             <ElInput v-model="form.identifier" />
@@ -46,7 +51,7 @@
 </template>
 
 <script setup lang="ts">
-import { ElForm, ElFormItem, ElInput, ElOption, ElSelect, vLoading } from 'element-plus';
+import { ElForm, ElFormItem, ElInput, vLoading } from 'element-plus';
 import PrColumn from 'primevue/column';
 import PrDataTable from 'primevue/datatable';
 import { onMounted, reactive, ref } from 'vue';
@@ -116,10 +121,12 @@ onMounted(refresh);
 const i18nMessages = {
     'zh-cn': { local: {
         platformId: '平台 ID',
+        selectPlatform: '选择平台',
         unverified: '未验证',
     } },
     en: { local: {
         platformId: 'Platform ID',
+        selectPlatform: 'Select a platform',
         unverified: 'Unverified',
     } },
 };

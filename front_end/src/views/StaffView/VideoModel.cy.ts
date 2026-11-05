@@ -21,6 +21,19 @@ function loadVideo(reason = '') {
 }
 
 describe('staff video freezing', () => {
+    it('keeps the field unselected until staff chooses the value to save', () => {
+        cy.intercept('POST', '**/video/set/', { body: {} }).as('saveField');
+        loadVideo();
+        cy.get('select[aria-label="Field"]').should('have.value', '');
+        cy.get('select[aria-label="Field"]').select('state');
+        cy.get('select[aria-label="Field"]').parent().next().find('input').type('c');
+        cy.contains('button', 'Save').click();
+        cy.wait('@saveField').its('request.body').should((body: string) => {
+            expect(Object.fromEntries(new URLSearchParams(body))).to.deep.equal({ id: '12', field: 'state', value: 'c' });
+        });
+        cy.closeElNotifications();
+    });
+
     it('automatically supplies CSRF for an existing staff action through the website interceptor', () => {
         cy.clearCookie('csrftoken');
         csrfInterceptor = installAdminCsrfInterceptor($axios, () => true);

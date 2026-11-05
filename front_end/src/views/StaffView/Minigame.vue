@@ -7,9 +7,9 @@
             </label>
             <label>
                 {{ t('minigame.title') }}
-                <ElSelect v-model="game" :disabled="working" data-cy="minigame-game">
-                    <ElOption v-for="item in trainingGames" :key="item" :value="item" :label="t(`minigame.${item}`)" />
-                </ElSelect>
+                <select v-model="game" class="base-select" :disabled="working" :aria-label="t('minigame.title')" data-cy="minigame-game">
+                    <option v-for="item in trainingGames" :key="item" :value="item">{{ t(`minigame.${item}`) }}</option>
+                </select>
             </label>
             <BaseButton native-type="submit" :disabled="!validPlayer" :loading="working" data-cy="minigame-query">
                 {{ t('button.query') }}
@@ -34,7 +34,7 @@
 </template>
 
 <script setup lang="ts">
-import { ElInputNumber, ElMessageBox, ElOption, ElSelect } from 'element-plus';
+import { ElInputNumber, ElMessageBox } from 'element-plus';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
