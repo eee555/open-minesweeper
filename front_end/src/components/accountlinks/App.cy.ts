@@ -1,7 +1,7 @@
 import { Ticket } from '@element-plus/icons-vue';
+import type { ComponentPublicInstance } from 'vue';
 
 import App from './App.vue';
-import CardBilibili from './CardBilibili.vue';
 import { mockAccountLinksResponse, mockSaoleiImportSummary, mountAccountLink, resetAccountLinkStore } from './testUtils';
 
 import { store } from '@/store';
@@ -124,9 +124,9 @@ describe('<AccountLinksApp />', () => {
         cy.wait('@fetchAccountLinks');
 
         cy.get<ComponentWrapper<typeof App>>('@vue').should((wrapper) => {
-            expect(wrapper.findComponent(CardBilibili).exists(), 'Bilibili card is mounted').to.equal(true);
+            expect(wrapper.findComponent<ComponentPublicInstance>({ name: 'CardBilibili' }).exists(), 'Bilibili card is mounted').to.equal(true);
         }).then((wrapper) => {
-            const card = wrapper.getComponent(CardBilibili) as unknown as { vm: { $emit: (event: 'refresh') => void } };
+            const card = wrapper.getComponent<ComponentPublicInstance>({ name: 'CardBilibili' });
             card.vm.$emit('refresh');
         });
         cy.wait('@fetchAccountLinks');
