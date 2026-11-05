@@ -178,7 +178,10 @@ describe('HomeView components', () => {
     it('renders the real home queue components in the expected tab layout', () => {
         mountHomeView();
 
-        cy.contains('.home-news-tabs .el-tabs__item', 'News').should('be.visible');
+        cy.get('.home-news-tabs .el-tabs__item').should('have.length', 3);
+        cy.contains('.home-news-tabs .el-tabs__item', 'All').should('be.visible');
+        cy.contains('.home-news-tabs .el-tabs__item', 'PB').should('be.visible');
+        cy.contains('.home-news-tabs .el-tabs__item', 'LSF').should('be.visible');
         cy.wait('@newsEvents');
         cy.get('[data-cy=news-pb]').should('contain.text', 'improved their STD B BV10 PB from 12.340 to 9.876, rank 8 → 3');
         cy.get('[data-cy=news-lsf]').should('contain.text', 'LSF rose from 3200.50 to 4100.25, rank 40 → 28');
