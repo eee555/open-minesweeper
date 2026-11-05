@@ -149,6 +149,23 @@ class SpeedRankingTests(TestCase):
             self.assertEqual(self.record()['bb_id'], expected.id)
             self.assertEqual(cache.zscore(SpeedRankingCache('saolei').rank_key('bb'), self.user.id), encode_zset_score('bb', 0.04, upload_microseconds(minute)))
 
+    def test_generated_bvs_preserves_small_values_and_handles_zero_and_null(self):
+        video = self.create_video(bv=4, timems=100000)
+        for bv, timems, expected in (
+            (4, 100000, 0.04),
+            (1, 99999999, 1000 / 99999999),
+            (4, 3000, 4 / 3),
+            (4, 0, 0),
+            (None, 1000, None),
+        ):
+            with self.subTest(bv=bv, timems=timems):
+                self.save_video(video, bv=bv, timems=timems)
+                video.refresh_from_db()
+                if expected is None:
+                    self.assertIsNone(video.bvs)
+                else:
+                    self.assertAlmostEqual(video.bvs, expected, places=12)
+
     def test_over_limit_records_stay_in_hash_and_totals_rank_independently(self):
         video = self.create_video()
         self.create_video(level='i', bv=30, timems=1000)
