@@ -505,7 +505,7 @@ export default {
             [MedalSeries.REVIEWED]: 'At least one approved replay.',
             [MedalSeries.LEVELS]: 'Approved replay on each level.',
             [MedalSeries.LEVELS_NF]: 'Approved no-flag replay on each level.',
-            [MedalSeries.MODES]: 'Approved replay in every open mode.',
+            [MedalSeries.MODES]: 'At least one approved replay in each of these 4 modes: Standard (00), Speed No Guess (05), Strong No Guess (06), and Weak Guess (10). Only EVF replays retain their mode; all other formats count as Standard. Each mode counts separately; completing all three difficulty levels in each mode is not required.',
             [MedalSeries.SAOLEI]: 'Your saolei.wang account link has been verified.',
             [MedalSeries.SHAREHOLDER]: 'Smallest replay id under {value}.',
         },
