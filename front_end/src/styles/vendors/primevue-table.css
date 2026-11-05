@@ -1,3 +1,6 @@
+@import './primevue-table-controls.css';
+@import './primevue-select.css';
+
 /* Local public tokens win over the dynamically inserted Aura theme. */
 .p-datatable {
     --p-datatable-header-cell-background: var(--ui-table-header-background);

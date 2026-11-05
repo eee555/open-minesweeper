@@ -2,17 +2,21 @@
     <BaseButton :loading="isDownloading" @click="handleDownload">
         <slot />
     </BaseButton>
-    <ElSelect v-model="format" style="width: 5rem">
-        <ElOption label="CSV" value="csv" />
-        <ElOption label="JSON" value="json" />
-    </ElSelect>
+    <select v-model="format" class="base-select" style="width: 5rem" :aria-label="t('prop.format')">
+        <option value="csv">
+            CSV
+        </option>
+        <option value="json">
+            JSON
+        </option>
+    </select>
 </template>
 
 <script setup lang="ts" generic="TData extends object">
-import { ElOption, ElSelect } from 'element-plus';
 import { jsonToCsv } from 'jtcsv/browser';
 import { ref } from 'vue';
 import type { PropType } from 'vue';
+import { useI18n } from 'vue-i18n';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 
@@ -42,6 +46,7 @@ defineSlots<{
 
 const data = defineModel<TData[]>({ default: () => [] });
 
+const { t } = useI18n();
 const format = ref<DataExportFormat>('csv');
 const isDownloading = ref(false);
 

@@ -66,6 +66,7 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/element-plus.css';
 import { isAxiosError } from 'axios';
 import { ElDatePicker, ElDescriptions, ElDescriptionsItem, ElInput, ElSwitch } from 'element-plus';
 import { ref, watch } from 'vue';

@@ -7,11 +7,17 @@
             <TokenGuide :identifier="participant?.arbiter_identifier__identifier ?? ''" :participant="participant" :order="tournament.gscData?.order" :token="token" @refresh="refresh" />
         </template>
         <template #autoUploaderFilter>
-            <ElSelect v-model="filterLevel" size="small" style="width: 250px">
-                <ElOption :label="t('local.tournament')" value="tournament" />
-                <ElOption :label="t('local.supported')" value="supported" />
-                <ElOption :label="t('local.bv')" value="bv" />
-            </ElSelect>
+            <select v-model="filterLevel" class="base-select base-select--small" style="width: 250px" :aria-label="t('filter')">
+                <option value="tournament">
+                    {{ t('local.tournament') }}
+                </option>
+                <option value="supported">
+                    {{ t('local.supported') }}
+                </option>
+                <option value="bv">
+                    {{ t('local.bv') }}
+                </option>
+            </select>
         </template>
         <template #allSummary="{ data, onParticipantSelect }">
             <AllSummary v-if="state === TournamentState.Awarded" :data="data" @row-click="onParticipantSelect" />
@@ -25,7 +31,6 @@
 </template>
 
 <script setup lang="ts">
-import { ElOption, ElSelect } from 'element-plus';
 import { ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 

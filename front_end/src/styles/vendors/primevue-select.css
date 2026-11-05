@@ -1,0 +1,72 @@
+/* Direct PrimeVue Select callers are gone; only paginator Selects remain. */
+.p-paginator-rpp-dropdown,
+.p-select-overlay.p-component {
+    --p-select-background: var(--ui-select-background);
+    --p-select-border-color: var(--ui-select-border-color);
+    --p-select-hover-border-color: var(--ui-select-hover-border-color);
+    --p-select-focus-border-color: var(--ui-select-focus-color);
+    --p-select-color: var(--ui-select-color);
+    --p-select-placeholder-color: var(--ui-select-placeholder-color);
+    --p-select-disabled-background: var(--ui-select-disabled-background);
+    --p-select-disabled-color: var(--ui-select-disabled-color);
+    --p-select-border-radius: var(--ui-select-border-radius);
+    --p-select-padding-x: var(--ui-select-padding-inline);
+    --p-select-padding-y: var(--ui-select-padding-block);
+    --p-select-dropdown-color: var(--ui-select-placeholder-color);
+    --p-select-dropdown-width: calc(var(--ui-select-icon-size) + var(--ui-select-gap) * 2);
+    --p-select-shadow: none;
+    --p-select-focus-ring-width: 0px;
+    --p-select-focus-ring-shadow: none;
+    --p-select-overlay-background: var(--ui-select-overlay-background);
+    --p-select-overlay-border-color: var(--ui-select-border-color);
+    --p-select-overlay-border-radius: var(--ui-select-border-radius);
+    --p-select-overlay-color: var(--ui-select-color);
+    --p-select-overlay-shadow: var(--ui-select-overlay-shadow);
+    --p-select-list-padding: var(--ui-select-padding-block) 0;
+    --p-select-list-gap: 0;
+    --p-select-option-padding: var(--ui-select-padding-block) var(--ui-select-padding-inline);
+    --p-select-option-border-radius: var(--ui-select-border-radius);
+    --p-select-option-color: var(--ui-select-color);
+    --p-select-option-focus-background: var(--ui-select-hover-background);
+    --p-select-option-focus-color: var(--ui-select-color);
+    --p-select-option-selected-background: var(--ui-select-selected-background);
+    --p-select-option-selected-color: var(--ui-select-selected-color);
+    --p-select-option-selected-focus-background: var(--ui-select-selected-background);
+    --p-select-option-selected-focus-color: var(--ui-select-selected-color);
+    font-size: var(--ui-select-font-size);
+    line-height: var(--ui-select-line-height);
+}
+
+.p-paginator-rpp-dropdown {
+    box-sizing: border-box;
+    min-height: var(--ui-select-min-height);
+    max-width: 100%;
+}
+
+.p-paginator-rpp-dropdown .p-select-label {
+    display: flex;
+    align-items: center;
+    font-size: inherit;
+    line-height: inherit;
+}
+
+.p-paginator-rpp-dropdown .p-select-dropdown-icon {
+    width: var(--ui-select-icon-size);
+    height: var(--ui-select-icon-size);
+}
+
+.p-paginator-rpp-dropdown:not(.p-disabled):is(.p-focus, .p-select-open) {
+    --p-select-hover-border-color: var(--ui-select-focus-color);
+    border-color: var(--ui-select-focus-color);
+}
+
+.p-paginator-rpp-dropdown.p-disabled {
+    border-color: var(--ui-select-disabled-border-color);
+    opacity: 1;
+}
+
+.p-select-overlay .p-select-option {
+    box-sizing: border-box;
+    min-height: var(--ui-select-min-height);
+    font-size: inherit;
+}

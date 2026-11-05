@@ -1,8 +1,8 @@
 <template>
     <div class="video-scatter-toolbar">
-        <div style="display: flex; gap: 1em; justify-content: flex-end; align-items: center">
+        <div class="video-scatter-toolbar__primary">
             <!-- 选择xy用的数据 -->
-            <div style="width: 24em; display: flex; gap: 1em;">
+            <div class="video-scatter-toolbar__metrics">
                 <MSStatSelect v-model="VideoScatterConfig.x" label="x" :options="[...VideoScatterAxisChoice]" />
                 <MSStatSelect v-model="VideoScatterConfig.y" label="y" :options="[...VideoScatterAxisChoice]" />
                 <MSStatSelect v-model="VideoScatterConfig.colorBy" :label="t('local.colorBy')" :options="[...VideoScatterColorByChoice]" />
@@ -147,6 +147,23 @@ const { t } = useI18n({ messages: i18nMessages });
     display: flex;
     flex-direction: column;
     gap: 0.5em;
+}
+
+.video-scatter-toolbar__primary {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.5em 1em;
+}
+
+.video-scatter-toolbar__metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    width: 24em;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .selection-panel-secondary {

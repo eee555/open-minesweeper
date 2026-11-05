@@ -1,9 +1,11 @@
 <template>
     <section class="minigame-ranking">
         <div class="ranking-toolbar">
-            <ElSelect v-model="selectedGame" class="ranking-selector" :aria-label="t('local.game')">
-                <ElOption v-for="game in trainingGames" :key="game" :value="game" :label="t(`minigame.${game}`)" />
-            </ElSelect>
+            <select v-model="selectedGame" class="base-select ranking-selector" :aria-label="t('local.game')">
+                <option v-for="game in trainingGames" :key="game" :value="game">
+                    {{ t(`minigame.${game}`) }}
+                </option>
+            </select>
             <RouterLink class="link text-primary" data-cy="minigame-play-link" :to="{ name: `minigame-${selectedGame}` }">
                 {{ t('local.playGame') }}
             </RouterLink>
@@ -25,7 +27,6 @@
 <script setup lang="ts">
 import '@/styles/link.css';
 
-import { ElOption, ElSelect } from 'element-plus';
 import { computed, useTemplateRef } from 'vue';
 import type { PropType } from 'vue';
 import { useI18n } from 'vue-i18n';

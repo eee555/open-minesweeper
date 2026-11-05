@@ -17,6 +17,7 @@
 </template>
 
 <script lang="ts" setup>
+import '@/styles/vendors/element-plus-tabs.less';
 import { useElementSize } from '@vueuse/core';
 import type { TabsPaneContext } from 'element-plus';
 import { ElTabPane, ElTabs, vLoading } from 'element-plus';

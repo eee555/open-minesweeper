@@ -18,9 +18,11 @@
                         <span class="text-regular text-small">
                             {{ t('prop.shape') }}
                         </span>
-                        <ElSelect v-model="shape">
-                            <ElOption label="Circle" value="circle" />
-                        </ElSelect>
+                        <select v-model="shape" class="base-select" :aria-label="t('prop.shape')">
+                            <option value="circle">
+                                Circle
+                            </option>
+                        </select>
                     </div>
                     <div v-if="hasOption('radius')" class="marker-setting__item">
                         <span class="text-regular text-small">
@@ -49,7 +51,7 @@
 <script setup lang="ts">
 import '@/styles/cards.css';
 
-import { ElInputNumber, ElOption, ElSelect, ElSlider } from 'element-plus';
+import { ElInputNumber, ElSlider } from 'element-plus';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Tippy } from 'vue-tippy';

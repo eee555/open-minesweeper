@@ -1,9 +1,11 @@
 <template>
     <section class="efficiency-ranking">
         <div class="efficiency-toolbar">
-            <ElSelect v-model="selectedRankingName" :aria-label="t('local.rankingName')" class="efficiency-selector">
-                <ElOption v-for="name in rankingNames" :key="name" :label="t(`local.label.${name}`)" :value="name" />
-            </ElSelect>
+            <select v-model="selectedRankingName" :aria-label="t('local.rankingName')" class="base-select efficiency-selector">
+                <option v-for="name in rankingNames" :key="name" :value="name">
+                    {{ t(`local.label.${name}`) }}
+                </option>
+            </select>
             <Tippy>
                 <BaseIconInfo />
                 <template #content>
@@ -39,7 +41,6 @@
 
 <script setup lang="ts">
 import '@/styles/cards.css';
-import { ElOption, ElSelect } from 'element-plus';
 import { computed, useTemplateRef } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterView, useRoute, useRouter } from 'vue-router';
