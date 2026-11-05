@@ -50,3 +50,16 @@ export function touchAt(row: number, column: number, type: 'pointerdown' | 'poin
         cy.wrap($board).trigger(type, x, y, { eventConstructor: 'PointerEvent', pointerId, pointerType, isPrimary: pointerId === 1, clientX: rect.left + x, clientY: rect.top + y, scrollBehavior: false });
     });
 }
+
+/**
+ * Trigger a contact at fixed screen coordinates. Unlike touchAt it neither snaps to cell centres nor
+ * scrolls the board into view, so a drag keeps the same anchor while the containers scroll underneath.
+ * `force` skips actionability checks: the board may be covered by frame borders or outside the
+ * viewport, and scrolling it into view would itself change the scroll position under test.
+ */
+export function touchClientAt(clientX: number, clientY: number, type: 'pointerdown' | 'pointermove' | 'pointerup' | 'pointercancel', pointerId = 1, pointerType = 'touch'): void {
+    cy.get('[data-cy="minigame-board"]').then(($board) => {
+        const rect = $board[0].getBoundingClientRect();
+        cy.wrap($board).trigger(type, clientX - rect.left, clientY - rect.top, { eventConstructor: 'PointerEvent', pointerId, pointerType, isPrimary: pointerId === 1, clientX, clientY, scrollBehavior: false, force: true });
+    });
+}

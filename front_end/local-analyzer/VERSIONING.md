@@ -6,7 +6,7 @@
 
 当前版本只维护在 [version.json](./version.json) 的 `version` 字段，格式为 `MAJOR.MINOR.PATCH`，初始基线为 `0.1.0`。离线网页直接导入该文件，打包脚本将同一份文件放进 ZIP 根目录；禁止在组件、README 或脚本中手写另一份版本号。
 
-网站软件下载弹窗是发布历史展示的例外：[AnalyzerHelper.vue](../src/components/dialogs/AnalyzerHelper.vue) 的 `tableData` 按用户要求硬编码版本、日期及文件名，手动更新，不随 `version.json` 自动变化。它不作为当前构建版本的来源；提供新版本下载后，将实际可下载的条目手动添加到表格，最新版本放在前面，历史链接只在文件仍可下载时保留。
+网站资源页的 Analyzer 发布历史是展示上的例外：[AnalyzerHelper.vue](../src/views/ResourcesView/AnalyzerHelper.vue) 的 `tableData` 按用户要求硬编码版本、日期及文件名，手动更新，不随 `version.json` 自动变化。它不作为当前构建版本的来源；提供新版本下载后，将实际可下载的条目手动添加到表格，最新版本放在前面，历史链接只在文件仍可下载时保留。
 
 只有用户明确要求升级 Analyzer 版本号时，才修改 `version.json`。功能开发、修复、依赖升级、构建和网站发布均不主动递增版本；不使用网站 tag、commit 次数、日期或整个仓库的改动作为递增依据。ZIP 命名为 `OpenMinesweeperVideoAnalyzer-${version}.zip`；本地生成、网站 assets 中的文件和下载按钮的文件名均从 `version.json` 的版本派生，用户要求更新版本后同步构建网站下载资源。
 

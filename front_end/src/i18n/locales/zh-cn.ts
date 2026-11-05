@@ -403,6 +403,8 @@ export default {
         supportedLanguages: '语言',
         version: '版本',
         viennasweeper: 'Viennasweeper',
+        webPage: '网页',
+        wechat: '微信',
     },
     staff: {
         batch: {

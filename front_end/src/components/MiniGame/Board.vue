@@ -33,6 +33,7 @@ import type { ClassicMouseAction, ClassicMouseEvent } from '@/utils/classicMouse
 import { pressedBackground } from '@/utils/minigame/boardPress';
 import type { BoardPress } from '@/utils/minigame/boardPress';
 import type { TrainingMouseInput } from '@/utils/minigame/replay';
+import { minigameSettings } from '@/utils/minigame/settings';
 import type { TouchAction, TrainingTouchInput } from '@/utils/minigame/touchRecording';
 import { scrollTouchAncestors, SingleTouchScroll } from '@/utils/minigame/touchScroll';
 
@@ -200,7 +201,7 @@ function pointerDown(event: PointerEvent) {
 useEventListener(window, 'pointermove', (event) => {
     suppressMouse = event.pointerType !== 'mouse';
     if (props.input === 'touch' && event.pointerType === 'touch' && surface.value !== null) {
-        const movement = touchScroll.move(event.pointerId, event.clientX, event.clientY);
+        const movement = touchScroll.move(event.pointerId, event.clientX, event.clientY, minigameSettings.value.scrollThreshold);
         if (movement !== null) scrollTouchAncestors(surface.value, movement.x, movement.y);
     }
     // Resolve board coordinates after scrolling so traces stay aligned.

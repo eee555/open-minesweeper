@@ -45,8 +45,8 @@ import { ArbiterIcon, Classic95Icon, MetasweeperIcon } from '@/utils/assets';
 import { MS_Softwares } from '@/utils/ms_const';
 import type { VideoAbstract } from '@/utils/videoabstract';
 
-const MetasweeperHelper = defineAsyncComponent(() => import('@/components/dialogs/MetasweeperHelper.vue'));
-const ArbiterHelper = defineAsyncComponent(() => import('@/components/dialogs/ArbiterHelper.vue'));
+const MetasweeperHelper = defineAsyncComponent(() => import('@/views/ResourcesView/MetasweeperHelper.vue'));
+const ArbiterHelper = defineAsyncComponent(() => import('@/views/ResourcesView/ArbiterHelper.vue'));
 
 const { t } = useI18n();
 </script>

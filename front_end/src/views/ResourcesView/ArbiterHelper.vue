@@ -4,7 +4,7 @@
             {{ t('local.description') }}
         </span>
         <div style="height: 1em" />
-        <div class="description-layout" style="max-width: 600px">
+        <div class="description-layout">
             <dl class="descriptions descriptions-bordered">
                 <div class="description-item description-span-2">
                     <dt>{{ t('software.operatingSystem') }}</dt>
@@ -69,7 +69,7 @@
             </dl>
         </div>
         <div style="height: 1em" />
-        <BaseTable style="max-width: 600px">
+        <BaseTable>
             <template #head>
                 <tr>
                     <th scope="col">

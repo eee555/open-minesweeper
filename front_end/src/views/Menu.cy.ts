@@ -34,7 +34,7 @@ function mountMenu(width: number, options: { layout?: 'top' | 'sidebar'; setting
     const { sessionRevision } = store;
     const router = createRouter({
         history: createMemoryHistory(),
-        routes: ['/', '/ranking', '/ranking/pb', '/database', '/database/identifiers', '/video/:id', '/tournament', '/minigame/left-click', '/server', '/player/:id', '/staff', '/settings'].
+        routes: ['/', '/ranking', '/ranking/pb', '/database', '/database/identifiers', '/video/:id', '/tournament', '/minigame/left-click', '/server', '/resources', '/player/:id', '/staff', '/settings'].
             map((path) => ({ path, component: PageState })),
     });
     void router.push('/');
@@ -225,21 +225,11 @@ describe('<Menu /> navigation layouts', () => {
         }
     });
 
-    it('opens downloads from About, switches to Analyzer and closes the dialog', () => {
+    it('keeps software downloads out of About now that Resources is a page', () => {
         mountMenu(1600);
         cy.get('[data-navigation-id=about] > .el-sub-menu__title').click();
-
-        cy.get('[data-navigation-id=downloads] button:visible').click();
-        cy.get('.el-dialog').should('be.visible');
-        cy.get('.el-dialog img[alt="Analyzer"]').closest('[role="tab"]').click();
-        cy.get('.analyzer-helper').should('be.visible').and('contain.text', 'OpenMinesweeper Video Analyzer');
-        cy.get('.analyzer-helper a[download]').first().should(($link) => {
-            const filename = $link.attr('download');
-            expect(filename).to.match(/^OpenMinesweeperVideoAnalyzer-\d+\.\d+\.\d+\.zip$/u);
-            expect($link.attr('href')).to.eq(`${import.meta.env.BASE_URL}assets/${filename}`);
-        });
-
+        cy.get('.site-navigation-popper:visible [data-navigation-id=downloads]').should('not.exist');
         cy.get('body').click(0, 0);
-        cy.shouldBeAbsentOrHidden('.el-dialog');
+        cy.get('[data-navigation-id=resources] a').should('have.attr', 'href').and('match', /\/resources$/);
     });
 });

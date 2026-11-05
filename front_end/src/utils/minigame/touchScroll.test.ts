@@ -6,28 +6,56 @@ describe('single-finger scrolling', () => {
     it('suspends scrolling with multiple contacts and resumes without accumulated movement', () => {
         const scroll = new SingleTouchScroll();
         scroll.down(1, 100, 100, true);
-        expect(scroll.move(1, 70, 80)).toEqual({ x: 30, y: 20 });
+        expect(scroll.move(1, 96, 98, 10)).toBeNull();
         scroll.down(2, 200, 200, true);
-        expect(scroll.move(1, 20, 30)).toBeNull();
-        expect(scroll.move(2, 180, 170)).toBeNull();
+        expect(scroll.move(1, 70, 80, 10)).toBeNull();
+        expect(scroll.move(2, 180, 170, 10)).toBeNull();
         scroll.up(2);
-        expect(scroll.move(1, 15, 25)).toEqual({ x: 5, y: 5 });
+        expect(scroll.move(1, 65, 75, 10)).toEqual({ x: 5, y: 5 });
         scroll.up(1);
-        expect(scroll.move(1, 0, 0)).toBeNull();
+        expect(scroll.move(1, 0, 0, 0)).toBeNull();
+    });
+
+    it('scrolls immediately when the threshold is zero', () => {
+        const scroll = new SingleTouchScroll();
+        scroll.down(1, 100, 100, true);
+
+        expect(scroll.move(1, 99, 100, 0)).toEqual({ x: 1, y: 0 });
     });
 
     it('counts outside contacts without starting a board scroll, and clears cancelled gestures', () => {
         const scroll = new SingleTouchScroll();
         scroll.down(9, 50, 50, false);
-        expect(scroll.move(9, 20, 20)).toBeNull();
+        expect(scroll.move(9, 20, 20, 0)).toBeNull();
         scroll.down(1, 50, 50, true);
-        expect(scroll.move(1, 20, 20)).toBeNull();
+        expect(scroll.move(1, 20, 20, 0)).toBeNull();
         scroll.up(9);
-        expect(scroll.move(1, 10, 10)).toEqual({ x: 10, y: 10 });
+        expect(scroll.move(1, 10, 10, 0)).toEqual({ x: 10, y: 10 });
         scroll.reset();
-        expect(scroll.move(1, 0, 0)).toBeNull();
+        expect(scroll.move(1, 0, 0, 0)).toBeNull();
         scroll.down(1, 10, 10, true);
-        expect(scroll.move(1, 20, 20)).toEqual({ x: -10, y: -10 });
+        expect(scroll.move(1, 20, 20, 0)).toEqual({ x: -10, y: -10 });
+    });
+
+    it('waits for the threshold, then applies the full crossing movement', () => {
+        const scroll = new SingleTouchScroll();
+        scroll.down(1, 100, 100, true);
+
+        expect(scroll.move(1, 103, 104, 10)).toBeNull();
+        // The threshold is met exactly; the initial movement is intentionally applied in full.
+        expect(scroll.move(1, 106, 108, 10)).toEqual({ x: -6, y: -8 });
+        expect(scroll.move(1, 104, 105, 10)).toEqual({ x: 2, y: 3 });
+    });
+
+    it('re-arms the threshold on the next touch down', () => {
+        const scroll = new SingleTouchScroll();
+        scroll.down(1, 100, 100, true);
+        expect(scroll.move(1, 80, 100, 30)).toBeNull();
+        expect(scroll.move(1, 60, 100, 30)).toEqual({ x: 40, y: 0 });
+        scroll.up(1);
+        scroll.down(1, 100, 100, true);
+        expect(scroll.move(1, 80, 100, 30)).toBeNull();
+        expect(scroll.move(1, 60, 100, 30)).toEqual({ x: 40, y: 0 });
     });
 });
 

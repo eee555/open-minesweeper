@@ -332,9 +332,9 @@ export default defineConfig({
 }, {
     files: [
         'src/components/widgets/VideoAbstractDisplay.vue',
-        'src/components/dialogs/ArbiterHelper.vue',
-        'src/components/dialogs/MetasweeperHelper.vue',
-        'src/components/dialogs/ViennaSweeperHelper.vue',
+        'src/views/ResourcesView/ArbiterHelper.vue',
+        'src/views/ResourcesView/MetasweeperHelper.vue',
+        'src/views/ResourcesView/ViennaSweeperHelper.vue',
         'src/views/SettingView/Appearance.vue',
         'src/views/SettingView/App.vue',
         'src/views/VideoView.vue',

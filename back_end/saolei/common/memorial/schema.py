@@ -30,3 +30,35 @@ class IdentifierOut(Schema):
 class UploadResultOut(Schema):
     video: VideoBaseOut
     bindings: list[IdentifierOut]
+
+
+class AccountLinkIn(Schema):
+    platform: str
+    identifier: str = ''
+
+
+class AccountLinkOut(Schema):
+    platform: str
+    identifier: str
+    verified: bool
+
+
+class AccountUnlinkOut(Schema):
+    platform: str
+    removed: bool
+
+
+class MemorialAccountLinkOut(Schema):
+    platform: str
+    identifier: str
+    verified: bool
+    name: str = ''
+
+
+class MemorialLinksOut(Schema):
+    csrf_token: str
+    user: MemorialUserOut
+    links: list[MemorialAccountLinkOut]
+
+
+AssignablePlatformOut = Annotated[str, Field(max_length=1)]
