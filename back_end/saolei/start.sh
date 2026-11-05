@@ -7,8 +7,6 @@ echo "静态文件搜集完成。"
 # 前端文件的打包结果来自github工作流
 python3 manage.py makemigrations
 python3 manage.py migrate
-python3 manage.py correct_medal_modes || exit 1
-python3 manage.py normalize_video_modes || exit 1
 
 mkdir -p logs
 

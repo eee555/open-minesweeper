@@ -23,7 +23,7 @@ All medals includes public unearned goals; Earned medals includes only current v
 - **Reviewed**: at least one replay belonging to you has passed review.
 - **First Glimpse**: you have approved replays on Beginner, Intermediate and Expert.
 - **Another Path**: you have approved flagless replays on all three levels.
-- **Grand Tour**: you have an approved replay in each open mode required by the medal. Modes and difficulty levels are different; covering three levels alone does not meet this requirement.
+- **Grand Tour**: you have at least one approved replay in each of four modes: Standard, Speed NG, Hardcore NG and Lucky. Only EVF replays distinguish modes; all other formats count as Standard. Each mode counts separately; you do not need all three difficulty levels in every mode, and covering three levels in a single mode does not meet this requirement.
 - **Old Traces**: your saolei.wang account link has been verified. See [Account Links](./account-links.md). The current requirement is verified linking; importing another replay is not required. Profile refresh and replay synchronization are disabled during the saolei.wang migration.
 
 Novice replay requirements follow their individual rules; they do not all require Standard mode.

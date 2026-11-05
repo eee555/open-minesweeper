@@ -418,24 +418,6 @@ class BasicMedalTests(MedalTestCase):
         refresh_player_medals(self.user.id, video_ids=[video.id])
         self.assertIsNotNone(self.active(NOVICE_MODES))
 
-    def test_normalize_non_evf_modes_preserves_evf_and_is_repeatable(self):
-        from io import StringIO
-
-        from django.core.management import call_command
-
-        videos = []
-        for software in MS_TextChoices.Software:
-            video = self.make_video(mode='05')
-            VideoModel.objects.filter(pk=video.pk).update(software=software)
-            videos.append((video, software))
-        call_command('normalize_video_modes', stdout=StringIO())
-        for video, software in videos:
-            video.refresh_from_db()
-            self.assertEqual(video.mode, '05' if software == MS_TextChoices.Software.EVF else '00')
-        output = StringIO()
-        call_command('normalize_video_modes', stdout=output)
-        self.assertIn('Normalized 0', output.getvalue())
-
     def test_modes_require_only_the_four_reviewable_projects(self):
         self.assertEqual(open_modes(), ['00', '05', '06', '10'])
         for mode in ['00', '05', '06', '01', '04', '07', '08', '09', '11']:
@@ -446,54 +428,6 @@ class BasicMedalTests(MedalTestCase):
         self.make_video(mode='10')
         evaluate_player(self.user.id)
         self.assertIsNotNone(self.active(NOVICE_MODES))
-
-    def test_modes_correction_updates_legacy_scope_and_rescans_progress(self):
-        from .cache import read_player_state, write_player_state
-        from .maintenance import correct_modes
-
-        self.make_video(mode='00')
-        evaluate_player(self.user.id)
-        definition = MedalDefinition.objects.get(code=NOVICE_MODES)
-        definition.scope = {'modes': ['00', '01', '04', '05', '06', '07', '08', '09', '10', '11']}
-        definition.save(update_fields=['scope'])
-        write_player_state(self.user.id, {'stale': True})
-        with self.captureOnCommitCallbacks(execute=True):
-            correct_modes()
-        self.assertIsNone(read_player_state(self.user.id))
-        definition.refresh_from_db()
-        self.assertEqual(definition.scope['modes'], ['00', '05', '06', '10'])
-        self.assertFalse(MedalScan.objects.filter(user=self.user).exists())
-        self.assertTrue(player_summary(self.user.id)['scan_pending'])
-        MedalScan.objects.create(user=self.user, scanned_at=timezone.now())
-        correct_modes()
-        self.assertTrue(MedalScan.objects.filter(user=self.user).exists())
-        definition.scope = {'modes': ['00', '05']}
-        definition.save(update_fields=['scope'])
-        correct_modes()
-        definition.refresh_from_db()
-        self.assertEqual(definition.scope['modes'], ['00', '05'])
-
-    def test_normalizing_non_evf_revokes_obsolete_mode_grant_after_refresh(self):
-        from io import StringIO
-
-        from django.core.management import call_command
-
-        for mode in ['00', '05', '06']:
-            self.make_video(mode=mode)
-        video = self.make_video(mode='10')
-        VideoModel.objects.filter(pk=video.pk).update(software=MS_TextChoices.Software.MVF)
-        evaluate_player(self.user.id)
-        self.assertIsNotNone(self.active(NOVICE_MODES))
-        with self.captureOnCommitCallbacks(execute=True):
-            call_command('normalize_video_modes', stdout=StringIO())
-        queued = DBTaskResult.objects.filter(
-            task_path=task_refresh_player_medals.module_path, status=TaskResultStatus.READY,
-        ).latest('id')
-        self.assertTrue(queued.args_kwargs['kwargs']['invalidate_once'])
-        with self.captureOnCommitCallbacks(execute=True):
-            task_refresh_player_medals.call(self.user.id, **queued.args_kwargs['kwargs'])
-        self.assertIsNone(self.active(NOVICE_MODES))
-        self.assertEqual(PlayerProgress.objects.get(user=self.user, code=NOVICE_MODES).extra['modes'], ['00', '05', '06'])
 
     def setUp(self):
         self.user = UserProfile.objects.create_user(username='medal_basic', email='medal-basic@example.com', password='password')

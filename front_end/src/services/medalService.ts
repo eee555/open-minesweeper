@@ -4,6 +4,7 @@ import { shallowReactive } from 'vue';
 import { serviceConfig } from './store';
 
 import $axios from '@/http';
+import i18n from '@/i18n';
 import en from '@/i18n/locales/en';
 import zhCn from '@/i18n/locales/zh-cn';
 import { MedalSeries } from '@/utils/medal_const';
@@ -329,10 +330,6 @@ export function medalLevel(code: string): 'b' | 'i' | 'e' | '' {
     return '';
 }
 
-function fillMedalText(template: string, values: Record<string, string>) {
-    return template.replace(/\{(\w+)\}/g, (_, key: string) => values[key] ?? '');
-}
-
 function medalPlainStage(series: string, stage: number | null) {
     if (stage == null) return '';
     if (series === MedalSeries.BREAKTHROUGH || series === MedalSeries.FLAGLESS_BREAKTHROUGH) return String(stage / 1000);
@@ -363,7 +360,7 @@ export function medalCaption(series: string, code: string, stage: number | null,
     const values = { level, value: medalPlainStage(series, stage) };
     return {
         title,
-        meaning: Object.hasOwn(copy.meaning, series) ? fillMedalText(copy.meaning[series as MedalSeries], values) : '',
+        meaning: Object.hasOwn(copy.meaning, series) ? i18n.global.t(`medal.meaning.${series}`, values, { locale: chinese ? 'zh-cn' : 'en' }) : '',
         flavor: Object.hasOwn(copy.flavor, series) ? copy.flavor[series as keyof typeof copy.flavor] : '',
     };
 }
