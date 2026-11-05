@@ -7,11 +7,11 @@
             <TokenGuide :token="participant?.token ?? ''" :participant="participant" :registration-open="state === TournamentState.Ongoing" :tournament-id="tournament.id" @registered="registered" />
         </template>
         <template #autoUploaderFilter>
-            <ElSelect v-model="filterLevel" size="small" style="width: 250px">
-                <ElOption :label="t('local.tournament')" value="tournament" />
-                <ElOption :label="t('local.supported')" value="supported" />
-                <ElOption :label="t('local.scoreRefreshing')" value="scoreRefreshing" />
-            </ElSelect>
+            <select v-model="filterLevel" class="base-select base-select--small" style="width: 250px" :aria-label="t('filter')">
+                <option value="tournament">{{ t('local.tournament') }}</option>
+                <option value="supported">{{ t('local.supported') }}</option>
+                <option value="scoreRefreshing">{{ t('local.scoreRefreshing') }}</option>
+            </select>
         </template>
         <template #allSummary="{ data, onParticipantSelect }">
             <AllSummary v-if="state === TournamentState.Awarded" :data="data" @row-click="onParticipantSelect" />
@@ -24,7 +24,6 @@
 </template>
 
 <script setup lang="ts">
-import { ElOption, ElSelect } from 'element-plus';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
