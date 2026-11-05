@@ -153,6 +153,7 @@ Thank you for considering supporting our open-source project. When sponsoring, p
 
 | Sponsor | Amount | Date | Channel | Target | Allocation |
 | :------: | :-----:  | :----------: | :------: | :------:| :------: |
+| xiean             | ¥99.00 | 2026-11-5 | QQ | Website | -- |
 | 18875             | ¥63.00 | 2026-10-31 | Alipay | Website | -- |
 | Vostok             | ¥5.00 | 2026-10-31 | WeChat | Website | -- |
 | *树             | ¥200.00 | 2026-10-26 | WeChat | Website | -- |
@@ -187,7 +188,7 @@ Thank you for considering supporting our open-source project. When sponsoring, p
 | Domain        | ¥1.00  | 2023-12-11   | Huawei Cloud | fff666.top |
 | Server      | ¥89.14 | 2023-12-03   | Huawei Cloud | East China - Shanghai 1, 2 cores, 2 GiB, 40 GiB system disk, 400 GB traffic package, 3 Mbit/s peak bandwidth |
 
-Current account balance: ¥529.18
+Current account balance: ¥628.18
 
 Resource expiry dates and next payment amounts:
 
