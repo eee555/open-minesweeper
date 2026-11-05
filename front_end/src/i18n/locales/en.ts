@@ -344,9 +344,6 @@ export default {
         usernamePasswordInvalid: 'Invalid username or password',
         usernameRequired: '@:form.username required',
     },
-    news: {
-        breakRecordTo: ' breaks their {mode} {level} {stat} record with ',
-    },
     profile: {
         exportJSON: 'Export as JSON',
         exportJSONTooltip: 'Raw data fetched from the server.',

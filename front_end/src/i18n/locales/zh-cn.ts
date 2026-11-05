@@ -343,9 +343,6 @@ export default {
         usernamePasswordInvalid: '用户名或密码不正确',
         usernameRequired: '请输入@:form.username',
     },
-    news: {
-        breakRecordTo: '将{mode}{level}{stat}纪录刷新为',
-    },
     profile: {
         exportJSON: '导出JSON',
         exportJSONTooltip: '从服务器获取的源数据',

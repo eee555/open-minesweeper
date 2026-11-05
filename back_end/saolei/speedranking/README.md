@@ -261,6 +261,8 @@ npx cypress run --component --spec "src/views/RankingView/PBRanking.cy.ts,src/vi
 
 个人主页默认 top 和独立 PB tab 的职责、双雷达及五条明细表、请求生命周期和组件测试统一见 [UserView README](../../../front_end/src/views/UserView/README.md)。
 
+首页新闻事件由 `speedranking` 的两条链路产生，只记录当次变化、不做全量重建。`speedranking/services.py:_write_records` 在写入前用 `TopRankingCache.lsf_snapshot` 备好待修改玩家的旧 LSF 与名次（PB 的旧记录来自同一批写入前的 `_read_records` 快照），`top/services.py:complete_update` 写入软实力索引之后、刷新锚点之前再取一次新快照；`_publish_pb_news` 在 `refresh_changed_ranks` 之后读取新名次，仅当终点在前 10（`PB_NEWS_TOP_N`）时发布旧/新 `timems`、`video_id`、`rank`，且只要成绩进步（终点名次可保持不变）就发布，不要求名次一定刷新；`_publish_lsf_news` 仅当真实 LSF 值变化且新名次进入前 36（`LSF_NEWS_TOP_N`）时发布。新闻按变动项逐条发布：一条 PB 纪录变动、一条 LSF 变化各对应一条事件，批量刷榜时由 `_news_targets` 从本批 `pb_changes` 与 top 明细变化中收集，触发录像取真正改变明细或纪录的录像 id，不再用全批最小 id 归因；其中仅 PB 成绩进步、综合素质大榜（LSF）未变的玩家不会出现在 `top_records` 中，仍会以其 `pb_changes` 触发的录像 id 纳入 `news_targets`，确保名次仍在范围内时照常发布 PB 新闻；单录像路径直接用该录像 id。删除路径不传 `news_targets`，不发布新闻；锚点变化后的 `soft_refresh_requested`、后台 `rebuild_soft`、`force=True` 的管理员修复与全量重建也都不发布。事件经 `news_event_detected` 信号写入 `news` app 的缓存，键与过期规则见 cache.md。
+
 后端 `top/tests.py` 覆盖准入、前五选优、分类迁移与补位、批量及原子重建、锚点、局部/全量软实力和任务合并；`top/test_lock.py` 覆盖跨进程共享、独占等待、HTTP 拒绝、后台恢复及进程终止后的准入。`common/test_loginauto.py` 覆盖启动响应，前端工具测试覆盖均值、单位、归一化、等价 et 及定阶边界；组件测试覆盖展示、交互、请求生命周期及上传拒绝后的重试。
 
 Cypress 与真实规模性能仍需开发者验收：除运行下列测试外，应记录用户规模、全量刷新耗时、写入拒绝窗口及 Redis 延迟，再决定是否需要更细粒度的重建。

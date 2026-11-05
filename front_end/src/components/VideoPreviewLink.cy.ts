@@ -17,6 +17,45 @@ function mountLink(id: number | null | undefined, software?: MS_Software, showTo
     }), { global: { plugins: [i18n] } });
 }
 
+function mountLinkInText(id: number, software?: MS_Software) {
+    const video = software !== undefined ? new VideoAbstract({ id, software, level: 'b', mode: '00', timems: 12345, bv: 4, state: 'c' }) : undefined;
+    cy.mount(defineComponent({
+        expose: [],
+        render: () => h('p', { 'data-cy': 'sentence' }, [
+            'before ',
+            h(VideoPreviewLink, { id, software, video }, () => '12.345'),
+            ' after',
+        ]),
+    }), { global: { plugins: [i18n] } });
+}
+
+function expectLinkOnTextBaseline() {
+    cy.get('[data-cy=sentence]').should(($sentence) => {
+        const [root] = $sentence.toArray();
+        const link = root.querySelector('.video-preview-link');
+        let plain: Text | undefined;
+        for (const node of Array.from(root.childNodes)) {
+            if (node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim()) {
+                plain = node as Text;
+                break;
+            }
+        }
+        let linkText: Text | undefined;
+        if (link !== null) {
+            for (const node of Array.from(link.childNodes)) {
+                if (node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim()) linkText = node as Text;
+            }
+        }
+        if (plain === undefined || linkText === undefined) throw new Error('缺少可比较的文字');
+        const plainRange = document.createRange();
+        plainRange.selectNodeContents(plain);
+        const linkRange = document.createRange();
+        linkRange.selectNodeContents(linkText);
+        const offset = Math.abs(plainRange.getBoundingClientRect().bottom - linkRange.getBoundingClientRect().bottom);
+        expect(offset, '链接文字与普通文字的基线偏移').to.be.lessThan(2);
+    });
+}
+
 describe('<VideoPreviewLink />', () => {
     beforeEach(() => {
         videoplayerstore.visible = false;
@@ -25,6 +64,24 @@ describe('<VideoPreviewLink />', () => {
     afterEach(() => {
         videoplayerstore.visible = false;
         Reflect.deleteProperty(local.value, 'tooltip_show');
+    });
+
+    it('aligns with surrounding text on the same baseline', () => {
+        mountLinkInText(43, 'r');
+        cy.get('.video-preview-link').should('have.css', 'vertical-align', 'baseline');
+        expectLinkOnTextBaseline();
+    });
+
+    it('keeps the baseline when the software icon is loaded from the API', () => {
+        mockVideoInfo([{ id: 91002, software: 'e' }]);
+        mountLinkInText(91002);
+        cy.get('.video-preview-software').should('be.visible');
+        expectLinkOnTextBaseline();
+    });
+
+    it('keeps the non-interactive placeholder on the same baseline', () => {
+        mountLinkInText(0);
+        cy.get('.video-preview-placeholder').should('have.css', 'vertical-align', 'baseline');
     });
 
     it('opens the existing player by keyboard without navigating away', () => {
