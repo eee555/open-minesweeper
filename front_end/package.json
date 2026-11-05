@@ -99,7 +99,7 @@
     "eslint-plugin-import-x": "4.17.1",
     "eslint-plugin-vue": "10.11.1",
     "fake-indexeddb": "6.2.7",
-    "globals": "17.13.0",
+    "globals": "17.14.0",
     "less": "4.9.1",
     "markdown-it": "15.0.3",
     "path": "0.12.7",
