@@ -1,36 +1,30 @@
 <template>
-    <BaseCardNormal>
-        <div style="margin-bottom: 0.5em;">
-            <PrToolbar>
-                <template #start>
-                    <span class="text-medium text-regular">
-                        {{ t('platform.x') }}&nbsp;#{{ id }}
-                    </span>
-                </template>
-            </PrToolbar>
+    <div class="account-panel">
+        <div class="description-layout">
+            <dl class="descriptions descriptions-bordered">
+                <div class="description-item">
+                    <dt>{{ t('prop.update_time') }}</dt><dd>
+                        {{ toISODateTimeString(info.update_time) }}
+                    </dd>
+                </div>
+            </dl>
         </div>
-        <ElDescriptions border>
-            <ElDescriptionsItem :label="t('prop.update_time')" :span="3">
-                {{ toISODateTimeString(info.update_time) }}
-            </ElDescriptionsItem>
-        </ElDescriptions>
         <p class="classic-hint text-regular">
             {{ t('local.unlinkHint') }}
         </p>
-    </BaseCardNormal>
+    </div>
 </template>
 
 <script setup lang="ts">
-import { ElDescriptions, ElDescriptionsItem } from 'element-plus';
-import PrToolbar from 'primevue/toolbar';
+import '@/styles/descriptions.css';
+import '../page.css';
+
 import { useI18n } from 'vue-i18n';
 
-import BaseCardNormal from '@/components/common/BaseCardNormal.vue';
 import { AccountClassic } from '@/utils/accountlinks';
 import { toISODateTimeString } from '@/utils/datetime';
 
 defineProps({
-    id: { type: Number, default: 0 },
     info: { type: AccountClassic, default: () => new AccountClassic() },
 });
 

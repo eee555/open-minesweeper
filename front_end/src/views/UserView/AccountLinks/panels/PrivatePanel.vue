@@ -1,8 +1,5 @@
 <template>
-    <BaseCardNormal>
-        <h3 class="text-medium text-regular">
-            {{ t(`platform.${platform}`) }} #{{ id }}
-        </h3>
+    <div class="account-panel">
         <p class="text-secondary text-small">
             {{ t('local.privateNotice') }}
         </p>
@@ -10,20 +7,16 @@
         <p v-else class="text-success">
             {{ t('accountlink.verified') }}
         </p>
-    </BaseCardNormal>
+    </div>
 </template>
 
 <script setup lang="ts">
-import type { PropType } from 'vue';
+import '../page.css';
 import { useI18n } from 'vue-i18n';
 
-import UnverifiedNotice from './UnverifiedNotice.vue';
-
-import BaseCardNormal from '@/components/common/BaseCardNormal.vue';
+import UnverifiedNotice from '@/components/accountlinks/UnverifiedNotice.vue';
 
 defineProps({
-    platform: { type: String as PropType<'d' | 'q'>, required: true },
-    id: { type: String, required: true },
     verified: { type: Boolean, default: false },
 });
 

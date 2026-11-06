@@ -41,18 +41,13 @@ const LINKS = {
 
 function linkNewAccount(platform: string, identifier: string) {
     cy.intercept('POST', '/api/accountlink/create/').as('addAccountLink');
-    cy.get('.account-link-main').find('.pi-plus').click();
-    cy.contains('添加关联账号');
-    cy.get('.el-dialog__body').within(() => {
-        cy.contains('平台').next().contains('Select').click();
-    });
-    cy.contains('.el-select-dropdown__item:visible', platform).click();
+    cy.contains('.account-platform-grid button', platform).click();
     if (platform === LINKS.bilibili.platform) {
         cy.contains('隐私提醒');
         cy.contains('关联 Bilibili 后');
     }
-    cy.get('.el-dialog__body').contains('ID').next().find('input').type(identifier);
-    cy.get('.el-dialog__footer').contains('确认').click();
+    cy.get('[data-cy=account-link-form] input').type(identifier);
+    cy.get('[data-cy=account-link-form] button[type=submit]').click();
     cy.wait('@addAccountLink').then(({ response }) => {
         expect(response?.statusCode).to.equal(200);
         expect(response?.body).to.include({
@@ -61,11 +56,11 @@ function linkNewAccount(platform: string, identifier: string) {
             verified: false,
         });
     });
-    cy.get('.el-dialog__body:visible').should('not.exist');
+    cy.get('[data-cy=account-link-form]').should('not.exist');
 }
 
 function expectUnverifiedAccount(platform: string, identifier: string) {
-    cy.contains('.account-link-main > :visible', `#${identifier}`).within(() => {
+    cy.get('[data-cy=account-details]').within(() => {
         cy.contains(platform);
         cy.contains(`#${identifier}`);
         cy.contains('账号未验证');
@@ -74,6 +69,7 @@ function expectUnverifiedAccount(platform: string, identifier: string) {
 
 function waitForLoading() {
     cy.get('.el-loading-mask:visible').should('not.exist');
+    cy.get('.account-links-page[aria-busy=true]').should('not.exist');
 }
 
 function visitStaffAccountLink() {
@@ -146,7 +142,8 @@ describe('Account Link', () => {
 
     it('Guest View - No Account Links', () => {
         cy.visitUser(USER.id, 'accountlink');
-        cy.get('.account-link-main').children().should('not.exist');
+        cy.get('.account-platform-grid button').should('have.length', 8);
+        cy.contains('暂无可展示的关联').should('be.visible');
     });
 
     it('Link Public Accounts', () => {
@@ -168,13 +165,14 @@ describe('Account Link', () => {
 
     it('Guest View - Should Not See Unverified Accounts', () => {
         cy.visitUser(USER.id, 'accountlink');
-        cy.get('.account-link-main').children().should('not.exist');
+        cy.contains('暂无可展示的关联').should('be.visible');
+        cy.get('[data-cy=account-link-form]').should('not.exist');
     });
 
     it('Staff View - Should Not See The Add Button', () => {
         cy.login(STAFF.username, STAFF.password);
         cy.visitUser(USER.id, 'accountlink');
-        cy.get('.account-link-main').find('.pi-plus').should('not.exist');
+        cy.get('[data-cy=account-link-form]').should('not.exist');
     });
 
     it('Link Private Accounts', () => {
@@ -186,7 +184,7 @@ describe('Account Link', () => {
         linkNewAccount(LINKS.discord.platform, LINKS.discord.identifier);
         expectUnverifiedAccount(LINKS.discord.platform, LINKS.discord.identifier);
 
-        cy.get('.account-link-main').find('.pi-plus').should('not.exist');
+        cy.get('[data-cy=account-link-form]').should('not.exist');
     });
 
     it('Staff View - Should Render Account Link Table', () => {
@@ -228,14 +226,15 @@ describe('Account Link', () => {
         cy.visitUser(USER.id, 'accountlink');
         cy.wait('@fetchAccountLinks').its('response.statusCode').should('eq', 200);
         waitForLoading();
-        cy.get('.account-link-main').children().filter(':visible').should('have.length', 4);
-        cy.get('.account-link-main').children().filter(':visible').should(($cards) => {
-            const cardTexts = [...$cards].map((card) => card.textContent);
-
-            expect(cardTexts[0]).to.contain(`${LINKS.saolei.platform}\u00a0#${LINKS.saolei.identifier}`);
-            expect(cardTexts[1]).to.contain(`${LINKS.msgames.platform}\u00a0#${LINKS.msgames.identifier}`);
-            expect(cardTexts[2]).to.contain(`${LINKS.wom.platform}\u00a0#${LINKS.wom.identifier}`);
-            expect(cardTexts[3]).to.contain(`${LINKS.bilibili.platform}\u00a0#${LINKS.bilibili.identifier}`);
-        });
+        cy.get('.account-platform-grid button').should('have.length', 8);
+        for (const link of [LINKS.saolei, LINKS.msgames, LINKS.wom, LINKS.bilibili]) {
+            cy.contains('.account-platform-grid button', link.platform).click();
+            cy.get('[data-cy=account-details] h2').should('contain', `#${link.identifier}`);
+            cy.get('[data-cy=account-details] > .account-panel').should('have.length', 1);
+        }
+        for (const link of [LINKS.qq, LINKS.discord]) {
+            cy.contains('.account-platform-grid button', link.platform).click();
+            cy.get('[data-cy=account-details]').should('contain', '私密关联').and('not.contain', link.identifier);
+        }
     });
 });

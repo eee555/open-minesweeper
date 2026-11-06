@@ -1,27 +1,14 @@
 <template>
-    <BaseCardNormal>
+    <div class="account-panel">
         <div class="classic-link">
-            <PrToolbar>
-                <template #start>
-                    <span class="text-medium text-regular">
-                        {{ t('platform.x') }}
-                    </span>
-                </template>
-                <template v-if="link.status !== 'none'" #end>
-                    <ElTag :type="statusTagType">
-                        {{ t(`local.status.${link.status}`) }}
-                    </ElTag>
-                </template>
-            </PrToolbar>
-
             <template v-if="showForm">
                 <div class="classic-guide">
                     <b>{{ t('local.title') }}</b><br>
                     {{ t('local.howTo') }}
-                    <img src="../../assets/IdGuide95Classic.png" :alt="t('local.title')" width="100%">
+                    <img src="@/assets/IdGuide95Classic.png" :alt="t('local.title')" width="100%">
                 </div>
                 <div class="classic-form">
-                    <ElInput v-model="uid" maxlength="8" :placeholder="t('local.uidPlaceholder')" @keyup.enter="submit" />
+                    <input v-model="uid" class="account-input" type="text" maxlength="8" :placeholder="t('local.uidPlaceholder')" @keyup.enter="submit">
                     <BaseButton type="primary" :disabled="!uidValid" :loading="startLoading" @click="submit">
                         {{ t('local.request') }}
                     </BaseButton>
@@ -29,14 +16,20 @@
             </template>
 
             <template v-else>
-                <ElDescriptions border :column="1" size="small">
-                    <ElDescriptionsItem :label="t('local.uid')">
-                        {{ link.uid }}
-                    </ElDescriptionsItem>
-                    <ElDescriptionsItem v-if="link.status === 'pending'" :label="t('local.expiresIn')">
-                        {{ remainingTimeText }}
-                    </ElDescriptionsItem>
-                </ElDescriptions>
+                <div class="description-layout">
+                    <dl class="descriptions descriptions-bordered">
+                        <div class="description-item">
+                            <dt>{{ t('local.uid') }}</dt><dd>
+                                {{ link.uid }}
+                            </dd>
+                        </div>
+                        <div v-if="link.status === 'pending'" class="description-item">
+                            <dt>{{ t('local.expiresIn') }}</dt><dd>
+                                {{ remainingTimeText }}
+                            </dd>
+                        </div>
+                    </dl>
+                </div>
 
                 <div v-if="link.status === 'pending'" class="classic-actions">
                     <span class="text-regular">{{ t('local.waiting') }}</span>
@@ -49,135 +42,43 @@
                 </div>
             </template>
 
-            <ElAlert v-if="messageKey" :title="t(`local.msg.${messageKey}`)" :type="messageType" show-icon :closable="false" />
+            <p v-if="messageKey" role="status" :class="messageType === 'success' ? 'text-success' : 'text-danger'">
+                {{ t(`local.msg.${messageKey}`) }}
+            </p>
         </div>
-    </BaseCardNormal>
+    </div>
 </template>
 
 <script setup lang="ts">
-import { ElAlert, ElDescriptions, ElDescriptionsItem, ElInput, ElTag } from 'element-plus';
-import PrToolbar from 'primevue/toolbar';
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import '@/styles/descriptions.css';
+import '../page.css';
+import { computed } from 'vue';
+import type { PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
 
+import type { useClassicLink } from './useClassicLink';
+
 import BaseButton from '@/components/common/BaseButton.vue';
-import BaseCardNormal from '@/components/common/BaseCardNormal.vue';
 import { BaseIconRefresh } from '@/components/common/icon';
-import { httpErrorNotification } from '@/components/Notifications';
-import { fetchClassicAccountLink, getClassicAccountLinkHttpErrorCategory, startClassicAccountLink } from '@/services/classicService';
-import { ClassicAccountLink } from '@/utils/accountlinks';
 import { globalNow } from '@/utils/datetime';
 
-const emit = defineEmits<{
-    refresh: [];
-}>();
-
-const CLASSIC_POLL_INTERVAL_MS = 5000;
-const statusMessageKeys: Record<string, string> = { conflict: 'conflict', deny: 'denied', expired: 'expired', revoke: 'revoked' };
-
-const link = ref(new ClassicAccountLink());
-const uid = ref('');
-const startLoading = ref(false);
-const statusLoading = ref(false);
-const httpErrorMessageKey = ref('');
-let pollTimer: number | undefined;
-let unmounted = false;
-
+const props = defineProps({ flow: { type: Object as PropType<ReturnType<typeof useClassicLink>>, required: true } });
+const { link, uid, startLoading, statusLoading, httpErrorMessageKey, refreshStatus, submit } = props.flow;
 const uidValid = computed(() => (/^[1-9]\d{7}$/).test(uid.value));
 const showForm = computed(() => !['pending', 'allow'].includes(link.value.status));
-const statusTagType = computed(() => {
-    if (link.value.status === 'allow') return 'success';
-    if (link.value.status === 'pending') return 'warning';
-    return 'info';
+const remainingTimeText = computed(() => {
+    const seconds = Math.max(0, Math.ceil(((link.value.expires_at?.getTime() ?? 0) - globalNow.value.getTime()) / 1000));
+    return Math.floor(seconds / 3600) + ':' + Math.floor(seconds % 3600 / 60).toString().padStart(2, '0');
 });
-const remainingTimeText = computed(() => formatRemainingTime((link.value.expires_at?.getTime() ?? 0) - globalNow.value.getTime()));
-const messageKey = computed(() => {
-    if (httpErrorMessageKey.value) return httpErrorMessageKey.value;
-    if (link.value.status === 'pending' || link.value.status === 'none') return '';
-    if (link.value.status === 'allow') return 'linkSuccess';
-    if (link.value.error_category) return link.value.error_category;
-    return statusMessageKeys[link.value.status];
-});
+const statusMessageKeys: Record<string, string> = { conflict: 'conflict', deny: 'denied', expired: 'expired', revoke: 'revoked' };
+const messageKey = computed(() => httpErrorMessageKey.value || (link.value.status === 'allow' ? 'linkSuccess' : ['pending', 'none'].includes(link.value.status) ? '' : link.value.error_category || statusMessageKeys[link.value.status]));
 const messageType = computed(() => (link.value.status === 'allow' ? 'success' : 'error'));
-
-function applyLink(nextLink: ClassicAccountLink) {
-    // 卸载后到达的响应不能再改状态，也不能重启轮询。
-    if (unmounted) return;
-    link.value = nextLink;
-    if (nextLink.status === 'pending') {
-        schedulePoll();
-    } else {
-        clearPollTimer();
-    }
-    if (nextLink.status === 'allow') emit('refresh');
-}
-
-async function loadStatus() {
-    statusLoading.value = true;
-    try {
-        applyLink(await fetchClassicAccountLink());
-    } catch (error) {
-        httpErrorNotification(error);
-    } finally {
-        statusLoading.value = false;
-    }
-}
-
-async function refreshStatus() {
-    httpErrorMessageKey.value = '';
-    await loadStatus();
-}
-
-async function submit() {
-    if (!uidValid.value) return;
-    httpErrorMessageKey.value = '';
-    startLoading.value = true;
-    try {
-        applyLink(await startClassicAccountLink(uid.value));
-    } catch (error) {
-        const category = getClassicAccountLinkHttpErrorCategory(error);
-        if (category === undefined) {
-            httpErrorNotification(error);
-        } else {
-            httpErrorMessageKey.value = category;
-        }
-    } finally {
-        startLoading.value = false;
-    }
-}
-
-function schedulePoll() {
-    clearPollTimer();
-    pollTimer = window.setTimeout(() => {
-        void refreshStatus();
-    }, CLASSIC_POLL_INTERVAL_MS);
-}
-
-function clearPollTimer() {
-    if (pollTimer === undefined) return;
-    window.clearTimeout(pollTimer);
-    pollTimer = undefined;
-}
-
-function formatRemainingTime(milliseconds: number): string {
-    const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    return `${hours}:${minutes.toString().padStart(2, '0')}`;
-}
-
-onMounted(() => {
-    void loadStatus();
-});
-onBeforeUnmount(() => {
-    unmounted = true;
-    clearPollTimer();
-});
 
 const i18nMessages = {
     'zh-cn': { local: {
-        expiresIn: '剩余时间',
         howTo: '在「95经典扫雷」小游戏里打开「我的荣誉」，点击右上角的 UID 即可复制，粘贴到下方提交。提交后回到小游戏内确认绑定。',
+        title: '如何找到ID',
+        expiresIn: '剩余时间',
         msg: {
             already_bound: '该账号已经绑定过本应用。',
             already_linked: '已经关联了 95 经典扫雷账号。',
@@ -203,23 +104,14 @@ const i18nMessages = {
         },
         refreshStatus: '刷新状态',
         request: '提交申请',
-        status: {
-            allow: '已关联',
-            conflict: '关联冲突',
-            deny: '已拒绝',
-            expired: '已过期',
-            none: '未申请',
-            pending: '等待小游戏确认',
-            revoke: '已解绑',
-        },
-        title: '如何找到ID',
         uid: '95 经典扫雷 UID',
         uidPlaceholder: '8 位 UID',
         waiting: '请在小游戏内点击确认，确认后本页会自动更新。',
     } },
     en: { local: {
-        expiresIn: 'Expires in',
         howTo: 'Open “My Honours” in the 95 Classic Minesweeper mini game, tap the UID at the top right to copy it, then paste it below. Confirm the request inside the game afterwards.',
+        title: 'How to locate the ID',
+        expiresIn: 'Expires in',
         msg: {
             already_bound: 'This account is already bound to the app.',
             already_linked: 'A 95 Classic Minesweeper account is already linked.',
@@ -245,16 +137,6 @@ const i18nMessages = {
         },
         refreshStatus: 'Refresh status',
         request: 'Send request',
-        status: {
-            allow: 'Linked',
-            conflict: 'Conflict',
-            deny: 'Denied',
-            expired: 'Expired',
-            none: 'Not requested',
-            pending: 'Waiting for confirmation',
-            revoke: 'Unlinked',
-        },
-        title: 'How to locate the ID',
         uid: '95 Classic Minesweeper UID',
         uidPlaceholder: '8-digit UID',
         waiting: 'Confirm the request inside the mini game. This page updates automatically.',
@@ -281,7 +163,7 @@ const { t } = useI18n({ messages: i18nMessages });
     line-height: 1.5;
 
     img {
-        border-radius: 0.25rem;
+        border-radius: 0;
         display: block;
         margin-top: 0.5rem;
     }

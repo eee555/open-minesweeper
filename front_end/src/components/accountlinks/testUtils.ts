@@ -3,7 +3,6 @@ import type { Component } from 'vue';
 
 import $axios from '@/http';
 import i18n from '@/i18n';
-import type { AccountLinkUpdateResponse } from '@/services/accountLinkService';
 import { store } from '@/store';
 import { pinia } from '@/store/create';
 import type {
@@ -18,12 +17,11 @@ import type {
 import { AccountLinkPlatform } from '@/utils/accountlinks';
 import { UserProfile } from '@/utils/userprofile';
 
-function mountOptions(props: Record<string, unknown>, components: Record<string, Component>) {
+function mountOptions(props: Record<string, unknown>) {
     return {
         props,
         global: {
             plugins: [i18n, pinia, PrimeVue],
-            components,
             config: {
                 globalProperties: {
                     $axios,
@@ -33,8 +31,8 @@ function mountOptions(props: Record<string, unknown>, components: Record<string,
     };
 }
 
-export function mountAccountLink(component: Component, props: Record<string, unknown> = {}, components: Record<string, Component> = {}): Cypress.Chainable<unknown> {
-    return cy.mount(component as never, mountOptions(props, components) as never) as Cypress.Chainable<unknown>;
+export function mountAccountLink(component: Component, props: Record<string, unknown> = {}): Cypress.Chainable<unknown> {
+    return cy.mount(component as never, mountOptions(props) as never) as Cypress.Chainable<unknown>;
 }
 
 export function resetAccountLinkStore(userId = 1, playerId = 1): void {
@@ -176,12 +174,12 @@ export function mockAccountLinksResponse(): AccountLinksResponse {
             { id: 4, platform: AccountLinkPlatform.Saolei, identifier: '101', userprofile: 1, verified: true },
             { id: 5, platform: AccountLinkPlatform.Mineracer, identifier: '123456789', userprofile: 1, verified: true },
         ],
-        B: mockBilibiliResponse(),
+        B: mockBilibiliResponse({ parent: 1 }),
         x: null,
-        m: mockMineracerResponse(),
+        m: mockMineracerResponse({ parent: 1 }),
         c: mockSaoleiResponse(),
-        a: mockMSGamesResponse(),
-        w: mockWoMResponse(),
+        a: mockMSGamesResponse({ parent: 1 }),
+        w: mockWoMResponse({ parent: 1 }),
         q: null,
     };
 }
@@ -200,11 +198,4 @@ export function mockSaoleiImportSummary(): void {
             video_update_time: null,
         },
     }).as('importSummary');
-}
-
-export function mockUpdateAccountLink(body: AccountLinkUpdateResponse = { type: 'success' }): void {
-    cy.intercept('POST', '**/accountlink/update/', {
-        statusCode: 200,
-        body,
-    }).as('updateAccountLink');
 }
