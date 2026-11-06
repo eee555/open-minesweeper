@@ -34,7 +34,7 @@ LSF 是竞速页面的首位和默认选项，由 top 纪录派生。规则、�
 
 这是与扫雷网规则并列的另一套规则，形式相同但准入不同。`strict_ng/` 是独立子包，不复用扫雷网的 `RULES`、补位复用和总分函数。前端该规则使用 `StrictNgRanking.vue`、`StrictNgCard.vue`、`strictNgRankingService.ts` 及 `StrictNg*` 类型。
 
-- `strict_ng` 接收 `QWC`（强无猜）、OFFICIAL、`ongoing_tournament=False` 且 `bv` 非空的普通三等级录像；没有 3BV 下限。
+- `strict_ng` 接收 `QWC`（强无猜）、OFFICIAL、`ongoing_tournament=False` 且 `bv` 非空的普通三等级录像；初级要求 `bv >= 2`（Time 与 Bvs 两项相同），中级、高级没有下限。
 - `strict_ng_nf` 是独立榜，额外要求 `right_ce == 0`；未知值不属于 NF。普通榜包含 NF 录像。
 - 八项小榜为三级别 Time/Bvs 及 `sumt` / `sumb`。单项先比较成绩再比较 `upload_time`，上传更早优先；`sumt` 缺项按 999999 毫秒补齐，`sumb` 缺项按 0 补齐，总分同分时使用组成项中最晚的上传时间。至少有一项有效纪录才进入总榜。
 - zset score 编码、范围限制、hash 字段和 `plan_strict_ng_record_update` 与扫雷网规则同构，但作用于独立的 `speedranking:strict_ng*` key。

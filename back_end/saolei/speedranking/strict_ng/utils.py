@@ -6,8 +6,9 @@ from config.text_choices import MS_TextChoices
 RankingName = Literal['strict_ng', 'strict_ng_nf']
 RankStat = Literal['bt', 'bb', 'it', 'ib', 'et', 'eb', 'sumt', 'sumb']
 RANKING_NAMES = ('strict_ng', 'strict_ng_nf')
-# Strict NG only requires a non-null 3BV, so the rules keep the level and the
-# ranking field without a lower bound on bv.
+# Every level needs a non-null 3BV; only Beginner has a lower bound. The other
+# levels are absent from this mapping on purpose, not set to zero.
+MINIMUM_BV = {MS_TextChoices.Level.BEGINNER: 2}
 RULES = {
     'bt': (MS_TextChoices.Level.BEGINNER, 'timems'),
     'bb': (MS_TextChoices.Level.BEGINNER, 'bvs'),

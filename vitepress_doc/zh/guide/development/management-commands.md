@@ -153,7 +153,7 @@ python manage.py rebuild_speed_ranks --ranking-name saolei_nf --batch-size 1000
 
 位置：`speedranking/management/commands/rebuild_strict_ng_ranks.py`
 
-从 `VideoModel` 重建强无猜竞速榜，只接收强无猜模式且 3BV 非空的录像。`--ranking-name` 可选 `strict_ng` 或 `strict_ng_nf`，省略则重建两者；`--batch-size` 默认 1000，必须为正数。
+从 `VideoModel` 重建强无猜竞速榜，只接收强无猜模式、3BV 非空且初级 3BV ≥ 2 的录像；中级、高级没有下限。`--ranking-name` 可选 `strict_ng` 或 `strict_ng_nf`，省略则重建两者；`--batch-size` 默认 1000，必须为正数。
 
 ```bash
 python manage.py rebuild_strict_ng_ranks

@@ -9,7 +9,7 @@ from config.text_choices import MS_TextChoices
 from utils.querysets import player_batches
 from videomanager.models import VideoModel
 from .cache import SpeedRankingCache
-from .utils import empty_record, is_better, plan_strict_ng_record_update, public_record, RANK_STATS, RANKING_NAMES, RankingName, RankStat, RULES, set_stat, TOTAL_PARTS
+from .utils import empty_record, is_better, MINIMUM_BV, plan_strict_ng_record_update, public_record, RANK_STATS, RANKING_NAMES, RankingName, RankStat, RULES, set_stat, TOTAL_PARTS
 from ..utils import log_update_errors, upload_microseconds
 
 VIDEO_FIELDS = ('id', 'player_id', 'level', 'mode', 'state', 'ongoing_tournament', 'bv', 'timems', 'bvs', 'right_ce', 'upload_time')
@@ -78,6 +78,8 @@ def get_player_records(player_id: int):
 def eligible_videos(videos: QuerySet, ranking_name: str, stat: str):
     level, _ = RULES[stat]
     videos = videos.filter(level=level, bv__isnull=False, mode=MS_TextChoices.Mode.QWC, state=MS_TextChoices.State.OFFICIAL, ongoing_tournament=False)
+    if level in MINIMUM_BV:
+        videos = videos.filter(bv__gte=MINIMUM_BV[level])
     if ranking_name == 'strict_ng_nf':
         videos = videos.filter(right_ce=0)
     return videos
@@ -88,6 +90,8 @@ def candidate_for_video(video: dict | None, ranking_name: str, stat: str):
         return None
     level, field = RULES[stat]
     if video['level'] != level or video['bv'] is None:
+        return None
+    if level in MINIMUM_BV and video['bv'] < MINIMUM_BV[level]:
         return None
     if video['mode'] != MS_TextChoices.Mode.QWC or video['state'] != MS_TextChoices.State.OFFICIAL or video['ongoing_tournament']:
         return None

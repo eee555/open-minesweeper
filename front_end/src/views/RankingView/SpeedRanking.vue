@@ -78,7 +78,7 @@ const i18nMessages = {
             top: '上传更低用时、更高 Bvs 或更高 Stnb 的录像，初级 3BV ≥ 10、中级 ≥ 30、高级 ≥ 100。每项独立取最佳五条：已有五条时，新成绩需优于自己的第五条；不足五条时先补齐，不要求五条来自不同 3BV。',
             pb: '上传与所选级别、3BV 完全一致且用时比自己该项 PB 更短的录像。该项尚无成绩时，上传一条合格录像即可建立 PB。',
             saolei: '上传用时比个人最佳更短，或 Bvs 比个人最佳更高的录像。初级用时要求 3BV ≥ 2，初级 Bvs 要求 ≥ 4，中级 ≥ 30，高级 ≥ 100。三级别单项改善后，对应用时总和或 Bvs 总和会自动更新，无需单独上传合计成绩。',
-            strict_ng: '上传强无猜模式、3BV 非空的录像，用时更短或 Bvs 更高即可刷新个人最佳；没有 BV 下限。三级别单项改善后，Time 总和或 Bvs 总和自动更新，无需单独上传合计成绩。',
+            strict_ng: '上传强无猜模式、3BV 非空的录像，用时更短或 Bvs 更高即可刷新个人最佳；初级要求 3BV ≥ 2，中级、高级没有 BV 下限。三级别单项改善后，Time 总和或 Bvs 总和自动更新，无需单独上传合计成绩。',
         },
         label: {
             lsf: 'LSF 榜',
@@ -92,7 +92,7 @@ const i18nMessages = {
             top: '标准模式、已审核且非隐藏比赛录像，取每项最佳五条的均值。初级 3BV ≥ 10，中级 ≥ 30，高级 ≥ 100；缺项用时按 999.999 秒补齐，其他指标补 0。',
             pb: '仅限@:{\'mode.std\'}@:{\'prop.mode\'}，按@:{\'prop.level\'}和@:{\'prop.bv\'}分榜',
             saolei: '仅限@:{\'mode.std\'}@:{\'prop.mode\'}。@:{\'level.b\'}@:{\'prop.time\'}要求@:{\'prop.bv\'} ≥ 2，@:{\'level.b\'}@:{\'prop.bvs\'}要求@:{\'prop.bv\'} ≥ 4，@:{\'level.i\'}要求@:{\'prop.bv\'} ≥ 30，@:{\'level.e\'}要求@:{\'prop.bv\'} ≥ 100',
-            strict_ng: '仅限强无猜模式。3BV 必须非空，没有下限；普通榜包含 NF 录像。',
+            strict_ng: '仅限强无猜模式。3BV 必须非空，初级要求 3BV ≥ 2，中级和高级没有下限；普通榜包含 NF 录像。',
         },
     } },
     en: { local: {
@@ -105,7 +105,7 @@ const i18nMessages = {
             top: 'Upload lower Time, higher Bvs or higher Stnb results with at least 10 3BV on Beginner, 30 on Intermediate or 100 on Expert. Each metric selects its own best five: beat your own fifth-best, or fill missing slots if you have fewer than five. Repeated 3BV values are allowed.',
             pb: 'Upload a replay with exactly the selected level and 3BV, and a lower time than your own PB in that category. If you have no result there, one qualifying replay establishes your PB.',
             saolei: 'Upload a lower Time or higher Bvs than your personal best. Minimum 3BV: Beginner Time 2, Beginner Bvs 4, Intermediate 30, Expert 100. Improving a level record automatically updates its Time or Bvs sum; no separate total-score replay is needed.',
-            strict_ng: 'Upload Strict No Guessing replays with a non-null 3BV and a lower Time or higher Bvs than your personal best; there is no minimum 3BV. Improving a level record automatically updates its Time or Bvs sum; no separate total-score replay is needed.',
+            strict_ng: 'Upload Strict No Guessing replays with a non-null 3BV and a lower Time or higher Bvs than your personal best; Beginner requires 3BV ≥ 2 while Intermediate and Expert have no lower bound. Improving a level record automatically updates its Time or Bvs sum; no separate total-score replay is needed.',
         },
         label: {
             lsf: 'LSF',
@@ -119,7 +119,7 @@ const i18nMessages = {
             top: 'Mean of the best five official, public Standard replays. Minimum 3BV: Beginner 10, Intermediate 30, Expert 100. Missing times count as 999.999 seconds; other missing values count as zero.',
             pb: 'Standard mode, grouped by level and 3BV. NF additionally requires zero effective right clicks.',
             saolei: '@:mode.std mode only. @:level.b @:prop.time requires @:prop.bv ≥ 2. @:level.b @:prop.bvs requires @:prop.bv ≥ 4. @:level.i requires @:prop.bv ≥ 30. @:level.e requires @:prop.bv ≥ 100.',
-            strict_ng: 'Strict No Guessing mode only. 3BV must be present; there is no lower bound. The ordinary ranking includes NF replays.',
+            strict_ng: 'Strict No Guessing mode only. 3BV must be present and at least 2 for Beginner; Intermediate and Expert have no lower bound. The ordinary ranking includes NF replays.',
         },
     } },
 };

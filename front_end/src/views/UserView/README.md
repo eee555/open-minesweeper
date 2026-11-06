@@ -48,7 +48,7 @@ top 和 PB 的业务规则、缓存与接口统一见 [竞速排行榜 README](.
 
 ## 强无猜纪录
 
-纪录 tab 的 `StrictNgCard.vue` 与 `SaoleiCard.vue` 形式相同，但请求 `/api/speedranking/strict_ng/player/{id}`，在 `profileDataService` 中使用独立缓存和失效通道，不共用扫雷网纪录。表格按初、中、高级、总和四列及 Time、Bvs、Time (NF)、Bvs (NF) 四行展示 `成绩(排名)`；普通/NF 两榜分别为 `strict_ng` 与 `strict_ng_nf`。仅强无猜模式、已审核、非隐藏比赛且 3BV 非空的录像入榜，没有 3BV 下限。组件测试位于 `UserRecordView/StrictNgCard.cy.ts`。
+纪录 tab 的 `StrictNgCard.vue` 与 `SaoleiCard.vue` 形式相同，但请求 `/api/speedranking/strict_ng/player/{id}`，在 `profileDataService` 中使用独立缓存和失效通道，不共用扫雷网纪录。表格按初、中、高级、总和四列及 Time、Bvs、Time (NF)、Bvs (NF) 四行展示 `成绩(排名)`；普通/NF 两榜分别为 `strict_ng` 与 `strict_ng_nf`。仅强无猜模式、已审核、非隐藏比赛且 3BV 非空的录像入榜；初级要求 3BV ≥ 2，中级、高级没有下限。组件测试位于 `UserRecordView/StrictNgCard.cy.ts`。
 
 ## 录像选择与展示
 

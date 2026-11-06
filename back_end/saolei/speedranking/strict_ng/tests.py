@@ -79,16 +79,33 @@ class StrictNgRankingTests(TestCase):
         self.save_video(standard, mode=MS_TextChoices.Mode.QWC, bv=2, timems=1500)
         self.assertEqual(self.record()['bt_id'], standard.id)
         self.assertEqual(self.record('strict_ng_nf')['bt_id'], standard.id)
-        self.save_video(null_bv, bv=1, timems=1200)
+        self.save_video(null_bv, bv=2, timems=1200)
         self.assertEqual(self.record()['bt_id'], null_bv.id)
-        # No lower bound: bv=1 qualifies even though saolei.wang requires bv >= 2.
+        # Beginner requires bv >= 2, in both the ordinary and the NF ranking.
         self.save_video(low_bv, state=MS_TextChoices.State.OFFICIAL, timems=1100, right_ce=0)
+        self.assertEqual(self.record()['bt_id'], null_bv.id)
+        self.assertEqual(self.record('strict_ng_nf')['bt_id'], null_bv.id)
+        self.save_video(low_bv, bv=2)
         self.assertEqual(self.record()['bt_id'], low_bv.id)
         self.assertEqual(self.record('strict_ng_nf')['bt_id'], low_bv.id)
         self.save_video(low_bv, state=MS_TextChoices.State.IDENTIFIER)
         self.assertEqual(self.record()['bt_id'], null_bv.id)
         self.save_video(low_bv, state=MS_TextChoices.State.OFFICIAL, ongoing_tournament=True)
         self.assertEqual(self.record()['bt_id'], null_bv.id)
+
+    def test_only_beginner_has_a_bv_lower_bound(self):
+        self.create_video(bv=1, timems=1000)
+        self.assertIsNone(self.record()['bt'])
+        self.assertIsNone(self.record()['bb'])
+        self.assertIsNone(best_candidate(self.user.id, 'strict_ng', 'bt'))
+        self.create_video(level='i', bv=1, timems=10000)
+        self.create_video(level='e', bv=1, timems=100000)
+        record = self.record()
+        self.assertIsNone(record['bt'])
+        self.assertIsNone(record['bb'])
+        for stat in ('it', 'ib', 'et', 'eb'):
+            self.assertIsNotNone(record[stat])
+        self.assertEqual(best_candidate(self.user.id, 'strict_ng', 'it')['value'], 10000)
 
     def test_nf_is_a_separate_ranking_but_the_standard_one_includes_it(self):
         flagged = self.create_video(timems=2000, right_ce=1)
@@ -100,16 +117,16 @@ class StrictNgRankingTests(TestCase):
         self.assertEqual(self.client.get('/api/speedranking/strict_ng/rank', {'ranking_name': 'strict_ng_nf', 'stat': 'bt'}).json()['count'], 1)
 
     def test_three_levels_totals_and_missing_parts(self):
-        self.create_video(bv=1, timems=1000, right_ce=None)
+        self.create_video(bv=2, timems=1000, right_ce=None)
         self.assertEqual(self.record()['bt'], 1000)
-        self.assertEqual(self.record()['bb'], 1)
+        self.assertEqual(self.record()['bb'], 2)
         self.assertEqual(self.record()['sumt'], 1000 + 2 * 999999)
-        self.assertEqual(self.record()['sumb'], 1)
+        self.assertEqual(self.record()['sumb'], 2)
         self.assertIsNone(self.record('strict_ng_nf')['bt'])
         self.create_video(level='i', bv=10, timems=10000)
         self.create_video(level='e', bv=100, timems=100000)
         self.assertEqual(self.record()['sumt'], 111000)
-        self.assertEqual(self.record()['sumb'], 3)
+        self.assertEqual(self.record()['sumb'], 4)
 
     def test_upload_time_breaks_ties(self):
         older = self.create_video(bv=8, timems=2000)
