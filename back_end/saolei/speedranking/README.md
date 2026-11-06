@@ -151,7 +151,7 @@ python manage.py rebuild_strict_ng_ranks
 python manage.py rebuild_strict_ng_ranks --ranking-name strict_ng_nf --batch-size 1000
 ```
 
-命令构建独立临时榜，单个大榜成功后原子替换正式榜，最后清理临时 key；构建失败保留旧榜，进程被强制终止时可能遗留 `speedranking:rebuild:*` 临时 key。与 `rebuild_speed_ranks` 相互独立，互不清空对方缓存，两个大榜依次发布。执行期间同样暂停上传、审核、绑定、删除及比赛公开等写入。
+命令构建独立临时榜，单个大榜成功后原子替换正式榜，最后清理临时 key；构建失败保留旧榜，进程被强制终止时可能遗留 `speedranking:rebuild:*` 临时 key。与 `rebuild_speed_ranks` 相互独立，互不清空对方缓存，两个大榜依次发布。执行期间同样暂停上传、审核、绑定、删除及比赛公开等写入。本地快照初始化 `python -m dangerzone.init_local_test` 在 `bulk_create` 导入后调用此命令，无需再手动建立强无猜缓存。
 
 - `GET /api/speedranking/strict_ng/rank?ranking_name=strict_ng&stat=sumt&start=0&end=20`：左闭右开、最多 100 条，返回 `count` 和 `players`；`ranking_name` 可取 `strict_ng`、`strict_ng_nf`。
 - `GET /api/speedranking/strict_ng/player/{player_id}`：一次返回 `strict_ng` 和 `strict_ng_nf` 的原始纪录与八项 `ranks`，字段和缺省值与扫雷网规则一致。
@@ -186,7 +186,7 @@ python manage.py rebuild_pb_ranks --batch-size 100
 
 执行前暂停 PB 相关读取以及上传、审核、绑定、删除、比赛公开等写入。此命令直接清空后重建，不构建临时榜，也不原子切换；失败可能留下部分数据，应排除错误后重新运行。数据库不受影响，扫雷网缓存不会被清空。`rebuild_speed_ranks` 仍仅重建扫雷网规则，不能替代 PB 重建。
 
-本地快照初始化 `python -m dangerzone.init_local_test` 在导入数据后依次调用 `rebuild_speed_ranks` 和 `rebuild_pb_ranks`，无需再手动建立 PB 缓存。
+本地快照初始化 `python -m dangerzone.init_local_test` 在导入数据后依次调用 `rebuild_speed_ranks`、`rebuild_strict_ng_ranks` 和 `rebuild_pb_ranks`，无需再手动建立 PB 缓存。
 
 - `GET /api/speedranking/pb/rank?level=b&bv=4&nf=false&start=0&end=20`：左闭右开，最多 100 条，返回人数及用户、录像 id、原始毫秒用时和分钟级 `upload_time`；上传时间直接由 score 解码，不查数据库或用户 hash。区间排名由调用方按起点计算。
 - `GET /api/speedranking/pb/counts`：一次读取人数 hash，返回普通/NF 各小榜人数的 field 到整数映射；未出现的 field 由调用方按 0 处理。

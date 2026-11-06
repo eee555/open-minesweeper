@@ -111,7 +111,7 @@ class ProcessMemoryTests(SimpleTestCase):
 
 
 class RedisMemoryTests(SimpleTestCase):
-    NON_MINIGAME_RANKING_KEYS = 75
+    NON_MINIGAME_RANKING_KEYS = 93
 
     def redis_client(self, fields=None, sizes=None, total=1000):
         client = MagicMock()
@@ -138,6 +138,7 @@ class RedisMemoryTests(SimpleTestCase):
         sizes = {
             'speedranking:pb:counts': 10, 'speedranking:pb:std:b:4': 20, 'speedranking:pb:nf:e:381': 30,
             'speedranking:pb:player:7': 40, 'speedranking:saolei:records': 50,
+            'speedranking:strict_ng:records': 25, 'speedranking:strict_ng_nf:sumb': 15,
             'customranking:pluck:c8_8_40:detail': 60, 'tournament:user:score_current': 70, 'newest_queue': 80,
             'speedranking:top:records': 90, 'speedranking:top:anchors': 10,
             'effranking:thrp:records': 10, 'effranking:thrp:b': 20, 'effranking:thrp:i': 30,
@@ -155,7 +156,8 @@ class RedisMemoryTests(SimpleTestCase):
         self.assertTrue(all(count == 1 for count in measured.values()))
         self.assertEqual(len([key for key in measured if not key.startswith('speedranking:pb:') and key != 'newest_queue']), self.NON_MINIGAME_RANKING_KEYS + 3 * len(RANKINGS))
         self.assertEqual(result['groups']['pb_rankings'], 100)
-        self.assertEqual(result['groups']['other_rankings'], 692)
+        self.assertEqual(result['groups']['other_rankings'], 732)
+        self.assertEqual(len([key for key in measured if key.startswith('speedranking:strict_ng')]), 18)
         self.assertEqual(len([key for key in measured if key.startswith('minigame:')]), 3 * len(RANKINGS))
         self.assertEqual(result['groups']['latest_videos'], 80)
         self.assertEqual(sum(result['groups'].values()), result['total_bytes'])

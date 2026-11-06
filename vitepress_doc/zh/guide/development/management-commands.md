@@ -112,7 +112,7 @@ python -m dangerzone.init_local_test --no-weekly
 
 默认快照目录为 `tmp/public-data`。下载使用 `--output-dir`，导入使用 `--snapshot-dir` 指定其他目录。下载仅请求公开 API，每次响应完成后至少等待 1.25 秒；`--interval` 可增加间隔。已完成的快照不会刷新已有数据，获取新数据需换目录；旧版快照可通过重新运行下载入口补齐用户标识。
 
-导入保留用户/录像 ID、公开属性及用户标识归属，并自动重建录像计数、上传额度、竞速榜、效率 Thrp 榜、pluck 纪录缓存和录像状态队列。`--no-weekly` 仅跳过创建周赛，不影响重建。
+导入保留用户/录像 ID、公开属性及用户标识归属，并自动重建录像计数、上传额度、竞速榜（含强无猜普通/NF）、效率 Thrp 榜、pluck 纪录缓存和录像状态队列。`--no-weekly` 仅跳过创建周赛，不影响重建。
 
 - 管理员：ID `2`，密码 `admin123456`；普通账号：ID `48`，密码 `user123456`。用户名保留生产数据；可通过 `--admin-password` / `--user-password` 指定其他密码。
 - 其他用户禁用密码登录；仅 ID `2` 获得本地管理员权限，邮箱统一为 `user-{id}@example.invalid`。
@@ -160,7 +160,7 @@ python manage.py rebuild_strict_ng_ranks
 python manage.py rebuild_strict_ng_ranks --ranking-name strict_ng_nf --batch-size 1000
 ```
 
-与 `rebuild_speed_ranks` 相互独立，互不清空对方的缓存；同样先构建临时榜，单个大榜成功后原子替换，最后清理临时 key。执行前暂停录像上传、修改、删除、标识绑定/解绑及比赛公开等写入。规则见 `back_end/saolei/speedranking/README.md`。
+与 `rebuild_speed_ranks` 相互独立，互不清空对方的缓存；同样先构建临时榜，单个大榜成功后原子替换，最后清理临时 key。执行前暂停录像上传、修改、删除、标识绑定/解绑及比赛公开等写入。规则见 `back_end/saolei/speedranking/README.md`。本地快照初始化 `init_local_test` 在导入数据后调用此命令，无需手动重建强无猜榜。
 
 ### `rebuild_pb_ranks`
 
