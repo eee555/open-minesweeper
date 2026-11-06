@@ -5,6 +5,8 @@
             <select v-model="rankingName" class="base-select" :aria-label="t('local.ranking')" :disabled="working">
                 <option value="saolei">{{ t('local.standard') }}</option>
                 <option value="saolei_nf">{{ t('local.nf') }}</option>
+                <option value="strict_ng">{{ t('local.strictNg') }}</option>
+                <option value="strict_ng_nf">{{ t('local.strictNgNF') }}</option>
                 <option value="thrp">{{ t('prop.thrp') }}</option>
                 <option value="nf_ioe">NF IOE</option>
             </select>
@@ -18,7 +20,7 @@
                 <option v-for="field in nfIOEStats" :key="field" :value="field">{{ t(`level.${field}`) }}</option>
             </select>
             <select v-else v-model="stat" class="base-select" :aria-label="t('local.stat')" :disabled="working">
-                <option v-for="field in saoleiFields" :key="field" :value="field">{{ t(`local.${field}`) }}</option>
+                <option v-for="field in fields" :key="field" :value="field">{{ t(`local.${field}`) }}</option>
             </select>
         </label>
         <label>
@@ -49,10 +51,12 @@ import { formatNFIOEValue, nfIOEStats, nfIOEVideoId, rebuildNFIOERecord } from '
 import type { NFIOEStat } from '@/services/nfIOERankingService';
 import type { SaoleiField, SaoleiRankingName } from '@/services/saoleiRankingService';
 import { formatSaoleiValue, rebuildSaoleiRecord, saoleiFields, saoleiVideoId } from '@/services/saoleiRankingService';
+import type { StrictNgRankingName } from '@/services/strictNgRankingService';
+import { formatStrictNgValue, rebuildStrictNgRecord, strictNgFields, strictNgVideoId } from '@/services/strictNgRankingService';
 import { formatThrpValue, rebuildThrpRecord, thrpStats, thrpVideoId } from '@/services/thrpRankingService';
 import type { ThrpStat } from '@/services/thrpRankingService';
 
-const rankingName = ref<SaoleiRankingName | 'thrp' | 'nf_ioe'>('saolei');
+const rankingName = ref<SaoleiRankingName | StrictNgRankingName | 'thrp' | 'nf_ioe'>('saolei');
 const stat = ref<SaoleiField>('bt');
 const thrpStat = ref<ThrpStat>('b');
 const ioeStat = ref<NFIOEStat>('b');
@@ -60,6 +64,8 @@ const userId = ref<number>();
 const working = ref(false);
 const result = ref<{ value: string; videoId?: number }>();
 const canRebuild = computed(() => userId.value !== undefined && Number.isSafeInteger(userId.value) && userId.value > 0);
+const isStrictNg = computed(() => rankingName.value === 'strict_ng' || rankingName.value === 'strict_ng_nf');
+const fields = computed(() => (isStrictNg.value ? strictNgFields : saoleiFields));
 const selectedLabel = computed(() => {
     if (rankingName.value === 'nf_ioe') return t(`level.${ioeStat.value}`);
     if (rankingName.value === 'thrp') return thrpStat.value === 'e_nf' ? `${t('level.e')} NF` : t(`level.${thrpStat.value}`);
@@ -81,6 +87,9 @@ async function rebuild() {
         } else if (rankingName.value === 'nf_ioe') {
             const record = await rebuildNFIOERecord(userId.value, ioeStat.value);
             result.value = { value: formatNFIOEValue(record, ioeStat.value), videoId: nfIOEVideoId(record, ioeStat.value) };
+        } else if (rankingName.value === 'strict_ng' || rankingName.value === 'strict_ng_nf') {
+            const record = await rebuildStrictNgRecord(userId.value, rankingName.value, stat.value);
+            result.value = { value: formatStrictNgValue(record, stat.value), videoId: strictNgVideoId(record, stat.value) };
         } else {
             const record = await rebuildSaoleiRecord(userId.value, rankingName.value, stat.value);
             result.value = { value: formatSaoleiValue(record, stat.value), videoId: saoleiVideoId(record, stat.value) };
@@ -99,6 +108,8 @@ const i18nMessages = {
         stat: '小榜',
         standard: '扫雷网规则（普通）',
         nf: '扫雷网规则（NF）',
+        strictNg: '强无猜（普通）',
+        strictNgNF: '强无猜（NF）',
         rebuild: '重建纪录',
         completed: '重建完成：{stat} {value}',
         videoId: '，录像 ID {id}',
@@ -116,6 +127,8 @@ const i18nMessages = {
         stat: 'Statistic',
         standard: 'Saolei.wang rules (Standard)',
         nf: 'Saolei.wang rules (NF)',
+        strictNg: 'Strict NG (Standard)',
+        strictNgNF: 'Strict NG (NF)',
         rebuild: 'Rebuild record',
         completed: 'Rebuild complete: {stat} {value}',
         videoId: ', video ID {id}',

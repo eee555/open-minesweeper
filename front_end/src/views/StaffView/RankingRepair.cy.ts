@@ -43,4 +43,36 @@ describe('<RankingRepair /> efficiency rankings', () => {
         });
         cy.get('output').should('contain.text', 'Beginner 1.000 (0.500)').and('contain.text', 'video ID 9001');
     });
+
+    it('repairs a strict NG ranking through its own endpoint', () => {
+        const record = {
+            player_id: 42,
+            bt: 1234,
+            bb: 4.567,
+            it: null,
+            ib: null,
+            et: null,
+            eb: null,
+            sumt: 2001232,
+            sumb: 4.567,
+            bt_id: 8001,
+            bb_id: 8002,
+            it_id: null,
+            ib_id: null,
+            et_id: null,
+            eb_id: null,
+        };
+        cy.intercept('POST', '/api/speedranking/strict_ng/admin/rebuild_record', record).as('strictNgRepair');
+        cy.mount(RankingRepair, { global: { plugins: [i18n], config: { globalProperties: { $axios } } } });
+        cy.get('select[aria-label="Ranking"]').select('strict_ng_nf');
+        cy.get('select[aria-label="Statistic"] option').should('have.length', 8);
+        cy.get('select[aria-label="Statistic"]').select('sumb');
+        cy.get('.ranking-repair .el-input-number input').type('42');
+        cy.get('.ranking-repair button[type=submit]').click();
+        cy.wait('@strictNgRepair').its('request.body').should((body: string) => {
+            expect(Object.fromEntries(new URLSearchParams(body))).to.deep.equal({ player_id: '42', ranking_name: 'strict_ng_nf', stat: 'sumb' });
+        });
+        cy.get('output').should('contain.text', '3BV/s Sum 4.567').and('not.contain.text', 'video ID');
+        cy.closeElNotifications();
+    });
 });

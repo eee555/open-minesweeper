@@ -149,6 +149,19 @@ python manage.py rebuild_speed_ranks --ranking-name saolei_nf --batch-size 1000
 
 首次建榜或缓存丢失后执行，API 不自动回源。执行前暂停录像上传、修改、删除、标识绑定/解绑及比赛公开等写入。命令先构建临时榜，成功后依次原子替换各大榜，失败保留尚未发布的大榜原缓存。编码和升级要求见 `back_end/saolei/speedranking/README.md`。
 
+### `rebuild_strict_ng_ranks`
+
+位置：`speedranking/management/commands/rebuild_strict_ng_ranks.py`
+
+从 `VideoModel` 重建强无猜竞速榜，只接收强无猜模式且 3BV 非空的录像。`--ranking-name` 可选 `strict_ng` 或 `strict_ng_nf`，省略则重建两者；`--batch-size` 默认 1000，必须为正数。
+
+```bash
+python manage.py rebuild_strict_ng_ranks
+python manage.py rebuild_strict_ng_ranks --ranking-name strict_ng_nf --batch-size 1000
+```
+
+与 `rebuild_speed_ranks` 相互独立，互不清空对方的缓存；同样先构建临时榜，单个大榜成功后原子替换，最后清理临时 key。执行前暂停录像上传、修改、删除、标识绑定/解绑及比赛公开等写入。规则见 `back_end/saolei/speedranking/README.md`。
+
 ### `rebuild_pb_ranks`
 
 位置：`speedranking/management/commands/rebuild_pb_ranks.py`

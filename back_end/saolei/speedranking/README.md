@@ -9,11 +9,12 @@ LSF 是竞速页面的首位和默认选项，由 top 纪录派生。规则、�
 ## 代码组织
 
 - `saolei/`：扫雷网规则的缓存、选优、补位、API 和测试，原有公开 API 路径不变。
+- `strict_ng/`：强无猜规则的缓存、选优、补位、API 和测试。与扫雷网规则形式相同，但独立实现、独立 Redis key，不复用其规则常量或业务函数。
 - `pb/`：PB 专用的缓存、选优、补位、API 和测试，不套用扫雷网的成绩结构。
 - `top/`：top 的前五明细、补位、锚点、软实力、后台任务、API 和测试，不依赖 PB 缓存。
 - 根目录 `cache.py`：共享 Redis 连接与 pipeline；`utils.py`：错误日志和 UTC 时间换算。玩家分段工具为跨 app 共用的 `utils.querysets.player_batches`。
-- 根目录 `services.py`：协调各大榜的共同读取、独立判断、共同写入；`signals.py`：录像事件入口；`api.py`：聚合各大榜的 router。
-- 前端 `RankingView/routes.ts`：各大榜子路由。`SpeedRanking.vue` 提供大榜选择器、规则提示、“How to improve”上传建议，以及统一的颜色和刷新按钮。子榜通过 `defineExpose` 提供 `refresh`、`loading`，接收 `colored` prop；PB 刷新同时更新人数和榜单。切换大榜使用 push，支持浏览器返回；选项依次为 LSF、top、扫雷网、PB，`/ranking/speed` 默认跳转 `/ranking/speed/lsf`。项目使用 hash history，浏览器地址对应 `/#/ranking/speed/...`。
+- 根目录 `services.py`：协调各大榜的共同读取、独立判断、共同写入；`signals.py`：录像事件入口；`api.py`：聚合各大榜的 router，扫雷网挂在根路径，强无猜挂在 `/strict_ng`。
+- 前端 `RankingView/routes.ts`：各大榜子路由。`SpeedRanking.vue` 提供大榜选择器、规则提示、“How to improve”上传建议，以及统一的颜色和刷新按钮。子榜通过 `defineExpose` 提供 `refresh`、`loading`，接收 `colored` prop；PB 刷新同时更新人数和榜单。切换大榜使用 push，支持浏览器返回；选项依次为 LSF、top、扫雷网、强无猜、PB，`/ranking/speed` 默认跳转 `/ranking/speed/lsf`。项目使用 hash history，浏览器地址对应 `/#/ranking/speed/...`。
 
 各大榜的排序、筛选、明细和分页选项写入 URL query，支持直接定位及浏览器历史恢复；参数说明见 [排行榜 URL](../../../front_end/src/views/RankingView/README.md)。上色统一使用 `store/local.ts` 的 `local.colored`，默认关闭，在 localStorage 持久化；竞速榜工具栏与设置页共享开关。top、PB、扫雷网单级别成绩复用 `store/color.ts` 的分段色阶，top 同时着色均值与真实明细，缺失成绩及扫雷网 sum 不着色。LSF 只给定阶着色，按等价 et 秒数使用 `colorTheme.grade`。色阶默认值来自 `utils/config.ts`，可在设置页编辑或还原当前项；彩色背景文字使用纯黑/白，透明背景继承文字色。原本没有开关的固定配色不受影响。
 
@@ -29,9 +30,18 @@ LSF 是竞速页面的首位和默认选项，由 top 纪录派生。规则、�
 - 总分同分时，使用组成该总分的现有纪录中最晚的上传时间，即当前成绩组合的达成时间。
 - `is_lucky` 当前不参与准入判断。头像和签名资格读取标准榜 `et < 200000`，因此包含高级 3BV >= 100 的门槛。
 
+## 强无猜（Strict NG）规则
+
+这是与扫雷网规则并列的另一套规则，形式相同但准入不同。`strict_ng/` 是独立子包，不复用扫雷网的 `RULES`、补位复用和总分函数。前端该规则使用 `StrictNgRanking.vue`、`StrictNgCard.vue`、`strictNgRankingService.ts` 及 `StrictNg*` 类型。
+
+- `strict_ng` 接收 `QWC`（强无猜）、OFFICIAL、`ongoing_tournament=False` 且 `bv` 非空的普通三等级录像；没有 3BV 下限。
+- `strict_ng_nf` 是独立榜，额外要求 `right_ce == 0`；未知值不属于 NF。普通榜包含 NF 录像。
+- 八项小榜为三级别 Time/Bvs 及 `sumt` / `sumb`。单项先比较成绩再比较 `upload_time`，上传更早优先；`sumt` 缺项按 999999 毫秒补齐，`sumb` 缺项按 0 补齐，总分同分时使用组成项中最晚的上传时间。至少有一项有效纪录才进入总榜。
+- zset score 编码、范围限制、hash 字段和 `plan_strict_ng_record_update` 与扫雷网规则同构，但作用于独立的 `speedranking:strict_ng*` key。
+
 ## 缓存
 
-当前两个 Saolei.wang 榜各使用一个 `speedranking:{ranking_name}:records` hash，field 为玩家 id；JSON 包含八项成绩、六个录像 id 和内部 `_uploads` 排序时间。
+扫雷网与强无猜的普通/NF 共四个榜各使用一个 `speedranking:{ranking_name}:records` hash，field 为玩家 id；JSON 包含八项成绩、六个录像 id 和内部 `_uploads` 排序时间。
 
 zset 舍弃部分精度并限制数值范围，是为了简化缓存逻辑：将成绩与上传时间合并进一个 score 后，member 只需使用玩家 id，更新成绩可直接覆盖，无需查找、删除旧的复合 member。zset 仅作为排名和排名区间查询的索引，允许近似排序，不从 score 恢复数据用于纪录比较；hash 仍保存原始纪录，个人选优、补位及求和逻辑不受影响。
 
@@ -41,13 +51,13 @@ zset 舍弃部分精度并限制数值范围，是为了简化缓存逻辑：将
 
 范围限制仅作用于 zset：Time 单项最多 999999 毫秒，Bvs 单项最多 99.9999；`sumt` 最多 2999997 毫秒，`sumb` 最多 299.9997。编码前按原始值判断，超限不写入对应 zset，并移除已有条目；恢复范围后可重新入榜。超限纪录照常参与个人选优、保存至 hash 和求和，不以较差的录像替代。总榜按总值独立判断，单项超限不一定导致总榜超限。
 
-`saolei.cache.SpeedRankingCache` 不执行排行规则，也不接收 `transform`。`read_records`、`write_record`、`write_score`、`read_rank` 只把基础读写加入调用方传入的 pipeline，不自行执行。清理和全量发布时，通过构造参数 `stats` 显式指定本榜的小榜列表；`get_record` 缓存未命中返回 `None`，缺省纪录由业务层提供。普通/NF 榜通过一个 pipeline 读取纪录，再独立判断，并通过一个 pipeline 提交变更。`plan_saolei_record_update` 按扫雷网规则重算总分和 score，只刷新变化的索引；管理员强制重建仍刷新目标大榜该用户的全部索引。
+`saolei.cache.SpeedRankingCache` 与 `strict_ng.cache.SpeedRankingCache` 都不执行排行规则，也不接收 `transform`。`read_records`、`write_record`、`write_score`、`read_rank` 只把基础读写加入调用方传入的 pipeline，不自行执行。清理和全量发布时，通过构造参数 `stats` 显式指定本榜的小榜列表；`get_record` 缓存未命中返回 `None`，缺省纪录由业务层提供。普通/NF 榜通过一个 pipeline 读取纪录，再独立判断，并通过一个 pipeline 提交变更。`plan_saolei_record_update` 和 `plan_strict_ng_record_update` 分别按各自规则重算总分和 score，只刷新变化的索引；管理员强制重建仍刷新目标大榜该用户的全部索引。
 
 不使用 WATCH 或重试。并发更新同一用户时可能覆盖彼此的更新，后续破纪录也不保证恢复正确状态；可通过管理员单项重建或全量重建修复。分页读取允许人数、排名顺序和纪录在并发更新时短暂不一致，并跳过已缺失的纪录。不要在缓存类外直接修改这些 key。
 
 ## 更新机制
 
-不同大榜可能采用不同的准入、选优、补位、总分和 score 编码规则，不能用一个通用的 `transform(record)` 更新管线承载所有业务。当前协调扫雷网普通/NF 榜、PB 榜和 top 榜；`_read_saolei_records`、`_write_saolei_records` 和 `plan_saolei_record_update` 属于扫雷网规则，新增其他大榜时不得直接套用其纪录结构或业务判断。
+不同大榜可能采用不同的准入、选优、补位、总分和 score 编码规则，不能用一个通用的 `transform(record)` 更新管线承载所有业务。当前协调扫雷网普通/NF 榜、强无猜普通/NF 榜、PB 榜和 top 榜；`_read_saolei_records`、`_write_saolei_records` 和 `plan_saolei_record_update` 属于扫雷网规则，强无猜对应的 `_read_strict_ng_records`、`_write_strict_ng_records` 和 `plan_strict_ng_record_update` 是独立实现，新增其他大榜时不得直接套用任一既有大榜的纪录结构或业务判断。
 
 ### 职责划分
 
@@ -134,7 +144,21 @@ python manage.py rebuild_speed_ranks --ranking-name saolei_nf --batch-size 1000
 - `POST /api/speedranking/admin/rebuild_record`：仅管理员可用，表单参数为 `player_id`、`ranking_name`、`stat`，返回该用户的大榜纪录。普通/NF 两榜的八个小榜均可独立手动刷新：`bt`、`bb`、`it`、`ib`、`et`、`eb`、`sumt`、`sumb`。从数据库重建指定单项，并重算总成绩；选择 `sumt` 或 `sumb` 时仅使用缓存中的三个组成项求和，不回源数据库、不重建组成项。没有合格录像则清除对应单项。即使成绩未变也重新写入排序索引，其他单项不回源重建。管理员页面的“排行纪录重建” tab 提供此操作。该操作不锁定录像或缓存，仍可能受并发写入影响。
 - 前端扫雷网规则榜使用 `BaseTable` 和 `ElPagination`，通过 `start/end` 请求后端分页，并提供 NF checkbox；个人纪录使用原生 HTML table 和 Element Plus 配色，按初级、中级、高级、总和四列及 Time、Bvs、Time (NF)、Bvs (NF) 四行显示 `score(rank)`。
 
-测试：`python manage.py test speedranking common.tests.VideoUploadRankingIntegrationTest identifier tournament --keepdb --noinput`。
+### 强无猜规则
+
+```bash
+python manage.py rebuild_strict_ng_ranks
+python manage.py rebuild_strict_ng_ranks --ranking-name strict_ng_nf --batch-size 1000
+```
+
+命令构建独立临时榜，单个大榜成功后原子替换正式榜，最后清理临时 key；构建失败保留旧榜，进程被强制终止时可能遗留 `speedranking:rebuild:*` 临时 key。与 `rebuild_speed_ranks` 相互独立，互不清空对方缓存，两个大榜依次发布。执行期间同样暂停上传、审核、绑定、删除及比赛公开等写入。
+
+- `GET /api/speedranking/strict_ng/rank?ranking_name=strict_ng&stat=sumt&start=0&end=20`：左闭右开、最多 100 条，返回 `count` 和 `players`；`ranking_name` 可取 `strict_ng`、`strict_ng_nf`。
+- `GET /api/speedranking/strict_ng/player/{player_id}`：一次返回 `strict_ng` 和 `strict_ng_nf` 的原始纪录与八项 `ranks`，字段和缺省值与扫雷网规则一致。
+- `POST /api/speedranking/strict_ng/admin/rebuild_record`：仅管理员可用，表单参数为 `player_id`、`ranking_name`、`stat`，语义与扫雷网规则相同。管理员“排行纪录重建” tab 已接入强无猜的普通/NF 两榜。
+- 前端强无猜榜使用 `StrictNgRanking.vue`、`StrictNgCard.vue` 和 `strictNgRankingService.ts`，请求上述独立路径；个人页在 `profileDataService` 中使用独立缓存，不共用扫雷网纪录。
+
+测试：`python manage.py test speedranking common.tests.VideoUploadRankingIntegrationTest identifier tournament --keepdb --noinput`；强无猜专属用例在 `speedranking/strict_ng/tests.py`。
 
 ## PB 榜
 
@@ -169,7 +193,7 @@ python manage.py rebuild_pb_ranks --batch-size 100
 - `GET /api/speedranking/pb/player/{player_id}`：单次返回该用户全部普通/NF PB 的等级、3BV、毫秒用时、录像 id 和缓存 rank。缓存未命中返回空列表。
 - `POST /api/speedranking/pb/admin/rebuild_record`：管理员表单请求，参数 `player_id`、`level`、`bv`、`nf`。数据库重建这一项、清理残留 member 并刷新该小榜 rank；无候选返回 `null`。
 
-当前管理员“排行纪录重建”页面仅接入扫雷网规则；PB 已提供上述修复 API，但尚无对应前端入口。
+当前管理员“排行纪录重建”页面接入扫雷网规则与强无猜规则；PB 已提供上述修复 API，但尚无对应前端入口。
 
 ### 前端
 
