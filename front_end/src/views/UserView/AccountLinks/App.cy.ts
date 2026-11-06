@@ -1,4 +1,4 @@
-import { defineComponent, h, KeepAlive, ref } from 'vue';
+import { defineComponent, h, KeepAlive, nextTick, ref } from 'vue';
 
 import App from './App.vue';
 import { emptyLinks } from './testFixtures';
@@ -113,14 +113,18 @@ describe('<AccountLinks page />', () => {
         cy.wait('@links');
         cy.get('[data-platform=x]').click();
         cy.wait('@classic');
-        cy.then(() => {
+        cy.then(async () => {
             visible.value = false;
+            await nextTick();
         });
+        cy.get('.account-link-main').should('not.exist');
         cy.tick(6000);
         cy.get('@classic.all').should('have.length', 1);
-        cy.then(() => {
+        cy.then(async () => {
             visible.value = true;
+            await nextTick();
         });
+        cy.get('.account-link-main').should('exist');
         cy.wait('@links');
         cy.get('[data-platform=c]').should('have.attr', 'aria-pressed', 'true');
     });
