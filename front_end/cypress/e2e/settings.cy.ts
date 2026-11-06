@@ -96,6 +96,21 @@ describe('Navigation position', () => {
 });
 
 describe('General Settings', () => {
+    it('restores local switches and experimental sections after reloading', () => {
+        cy.visit('/#/settings');
+        cy.get('[data-cy=experimental-switch] input').should('not.be.checked');
+        cy.get('select[aria-label="分段色阶"]').should('not.exist');
+        cy.get('[data-cy=experimental-switch]').click();
+        cy.get('select[aria-label="分段色阶"]').should('be.visible');
+        cy.get('[data-cy=vienna-logo-switch]').click();
+        cy.get('[data-cy=coloring-switch]').click();
+        cy.reload();
+        cy.get('[data-cy=experimental-switch] input').should('be.checked');
+        cy.get('[data-cy=vienna-logo-switch] input').should('be.checked');
+        cy.get('[data-cy=coloring-switch] input').should('be.checked');
+        cy.get('select[aria-label="分段色阶"]').should('be.visible');
+    });
+
     it('persists player avatar and name-format preferences', () => {
         cy.visit('/#/settings');
         cy.get('[data-cy=player-name-show-avatar]').should('not.be.checked');
