@@ -4,6 +4,10 @@ import $axios from '@/http';
 import i18n from '@/i18n';
 
 describe('<RankingRepair /> efficiency rankings', () => {
+    beforeEach(() => {
+        cy.closeElNotifications();
+    });
+
     it('selects the efficiency ranking and repairs sum or an individual level', () => {
         const record = { player_id: 42, b: { value: 1.25, video_id: 8001, upload_time: '2026-10-19T12:00:00Z' }, i: null, e: null, e_nf: { value: 1, video_ids: [8003, 8004, 8005] } };
         cy.intercept('POST', '/api/effranking/thrp/admin/rebuild_record', record).as('repair');
