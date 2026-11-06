@@ -1,6 +1,6 @@
 # 账号关联页面
 
-`UserAccountLinkView.vue` 为路由入口，本目录维护页面、平台表单、资料面板及专用样式。视觉约定和浏览器回归范围见[重构收尾计划](../../../../ACCOUNT_LINK_REFACTOR_PLAN.md)。
+`UserAccountLinkView.vue` 为路由入口，本目录维护页面、平台表单、资料面板及专用样式。
 
 ## 文件职责
 
