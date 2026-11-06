@@ -28,6 +28,7 @@ from utils.ranking_lock import ranking_access
 from videomanager.models import VideoModel
 from videomanager.services import find_identical_video, set_import_upload_time
 from videomanager.utils import calculate_original_hash
+from .schema import TaskQuery
 
 
 TASK_CLEANUP_BATCH_SIZE = 200
@@ -143,6 +144,24 @@ def new_video_by_file(user, file):
     video.save(update_fields=['ongoing_tournament'])
     video.update_redis()
     return video
+
+
+def query_tasks_page(filters: TaskQuery):
+    tasks = DBTaskResult.objects.all()
+    if filters.status:
+        tasks = tasks.filter(status=filters.status)
+    if filters.task_path:
+        tasks = tasks.filter(task_path__contains=filters.task_path)
+    if filters.reverse:
+        tasks = tasks.order_by(F(filters.sort).desc(), 'id')
+    else:
+        tasks = tasks.order_by(filters.sort, 'id')
+    count = tasks.count()
+    start = (filters.page - 1) * filters.page_size
+    return {
+        'count': count, 'page': filters.page, 'page_size': filters.page_size,
+        'items': list(tasks[start:start + filters.page_size]),
+    }
 
 
 def cleanup_expired_tasks(*, delete_all=False):

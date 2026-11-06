@@ -57,6 +57,11 @@ interface BackgroundTaskRow {
     run_after: string;
 }
 
+interface TaskPage {
+    count: number;
+    items: BackgroundTaskRow[];
+}
+
 function createTournament(order: number, state: string) {
     return cy.dangerzonePost<DangerzoneTournament>('create_gsc_tournament', {
         order,
@@ -794,13 +799,13 @@ describe('Tournament background tasks', () => {
     it('shows the scheduled finish tasks at the end', () => {
         let expectedTasks: BackgroundTaskRow[] = [];
 
-        cy.intercept('GET', '**/api/common/tasks/detail').as('taskDetail');
+        cy.intercept('GET', '**/api/common/tasks/detail*').as('taskDetail');
         cy.login(STAFF.username, STAFF.password);
         cy.visit('/#/staff/task');
         cy.contains('button', '加载任务').click();
-        cy.wait('@taskDetail').then(({ response }) => {
+        cy.wait<unknown, TaskPage>('@taskDetail').then(({ response }) => {
             expect(response?.statusCode).to.eq(200);
-            expectedTasks = (response?.body ?? []) as BackgroundTaskRow[];
+            expectedTasks = response?.body.items ?? [];
             expect(expectedTasks).to.have.length.greaterThan(0);
         });
         cy.get('.p-datatable').find('.el-loading-mask:visible').should('not.exist');
