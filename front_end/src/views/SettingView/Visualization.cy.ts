@@ -63,9 +63,9 @@ describe('<Visualization />', () => {
         local.value.colored = false;
         cy.mount(Visualization, { global: { plugins: [i18n, pinia] } });
         cy.get('select[aria-label="Piecewise Palette"]').should('not.exist');
-        cy.get('[data-cy=coloring-switch]').should('be.visible').find('[role=switch]').should('have.attr', 'aria-checked', 'false');
+        cy.get('[data-cy=coloring-switch]').should('be.visible').find('input[role=switch]').should('not.be.checked');
         cy.get('[data-cy=coloring-switch]').click();
-        cy.get('[data-cy=coloring-switch] [role=switch]').should('have.attr', 'aria-checked', 'true');
+        cy.get('[data-cy=coloring-switch] input[role=switch]').should('be.checked');
         cy.window().its('localStorage').invoke('getItem', 'local').should((value: string | null) => {
             const settings = JSON.parse(value ?? '{}') as { colored?: boolean };
             expect(settings.colored).to.equal(true);
@@ -73,6 +73,8 @@ describe('<Visualization />', () => {
         cy.then(() => {
             local.value.colored = false;
         });
-        cy.get('[data-cy=coloring-switch] [role=switch]').should('have.attr', 'aria-checked', 'false');
+        cy.get('[data-cy=coloring-switch] input[role=switch]').should('not.be.checked').focus();
+        cy.realPress('Space');
+        cy.get('[data-cy=coloring-switch] input[role=switch]').should('be.checked');
     });
 });

@@ -3,6 +3,7 @@
 </template>
 
 <script setup lang="ts">
-import AccountLinks from '@/components/accountlinks/App.vue';
+import AccountLinks from './AccountLinks/App.vue';
+
 import { store } from '@/store';
 </script>

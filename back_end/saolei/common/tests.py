@@ -321,7 +321,11 @@ class TaskDeletionTests(TestCase):
         response = self.client.get('/api/common/tasks/detail')
 
         self.assertEqual(response.status_code, 200)
-        data = next(item for item in response.json() if item['id'] == str(task.id))
+        page = response.json()
+        self.assertEqual(page['count'], 1)
+        self.assertEqual(page['page'], 1)
+        self.assertEqual(page['page_size'], 20)
+        [data] = page['items']
         self.assertEqual(data['id'], str(task.id))
         self.assertEqual(data['status'], TaskResultStatus.FAILED)
         self.assertEqual(data['args_kwargs'], {'args': [100001, 'new'], 'kwargs': {'source': 'test'}})
@@ -331,6 +335,63 @@ class TaskDeletionTests(TestCase):
         self.assertEqual(data['queue_name'], 'default')
         self.assertEqual(data['backend_name'], 'default')
         self.assertIn('traceback', data)
+
+    def test_task_detail_requires_staff(self):
+        self.client.logout()
+        self.assertEqual(self.client.get('/api/common/tasks/detail').status_code, 403)
+        self.staff.is_staff = False
+        self.staff.save(update_fields=['is_staff'])
+        self.client.force_login(self.staff)
+        self.assertEqual(self.client.get('/api/common/tasks/detail').status_code, 403)
+
+    def test_task_detail_paginates_without_overlap_or_gaps(self):
+        task_ids = {str(self.create_task().id) for _ in range(5)}
+
+        pages = [
+            self.client.get('/api/common/tasks/detail', {'page': page, 'page_size': 2}).json()
+            for page in (1, 2, 3)
+        ]
+
+        self.assertEqual([page['count'] for page in pages], [5, 5, 5])
+        self.assertEqual([len(page['items']) for page in pages], [2, 2, 1])
+        returned_ids = [item['id'] for page in pages for item in page['items']]
+        self.assertEqual(len(returned_ids), len(set(returned_ids)))
+        self.assertSetEqual(set(returned_ids), task_ids)
+
+    def test_task_detail_orders_by_enqueued_at_by_default(self):
+        now = timezone.now()
+        older = self.create_task(task_path='older.task')
+        newer = self.create_task(task_path='newer.task')
+        DBTaskResult.objects.filter(id=older.id).update(enqueued_at=now - timedelta(minutes=5))
+        DBTaskResult.objects.filter(id=newer.id).update(enqueued_at=now)
+
+        descending = self.client.get('/api/common/tasks/detail').json()
+        self.assertEqual([item['task_path'] for item in descending['items']], ['newer.task', 'older.task'])
+
+        ascending = self.client.get('/api/common/tasks/detail', {'reverse': 'false'}).json()
+        self.assertEqual([item['task_path'] for item in ascending['items']], ['older.task', 'newer.task'])
+
+    def test_task_detail_filters_by_status_and_task_path(self):
+        failed = self.create_task(
+            status=TaskResultStatus.FAILED,
+            task_path='accountlink.tasks.task_saolei_video_import_bulk',
+        )
+        self.create_task(status=TaskResultStatus.FAILED, task_path='videomanager.tasks.task_video_pluck')
+        self.create_task(status=TaskResultStatus.READY, task_path='accountlink.tasks.task_saolei_video_import_bulk')
+
+        filtered = self.client.get(
+            '/api/common/tasks/detail',
+            {'status': 'FAILED', 'task_path': 'task_saolei_video_import'},
+        ).json()
+
+        self.assertEqual(filtered['count'], 1)
+        self.assertEqual([item['id'] for item in filtered['items']], [str(failed.id)])
+
+    def test_task_detail_rejects_invalid_query(self):
+        self.assertEqual(self.client.get('/api/common/tasks/detail', {'status': 'UNKNOWN'}).status_code, 422)
+        self.assertEqual(self.client.get('/api/common/tasks/detail', {'sort': 'traceback'}).status_code, 422)
+        self.assertEqual(self.client.get('/api/common/tasks/detail', {'page': 0}).status_code, 422)
+        self.assertEqual(self.client.get('/api/common/tasks/detail', {'page_size': 101}).status_code, 422)
 
     def test_cleanup_tasks_deletes_only_one_batch_per_config(self):
         old_finished_at = timezone.now() - TASK_CLEANUP_CONFIGS[0]['expires'] - timedelta(days=1)

@@ -1,0 +1,14 @@
+:root {
+    --ui-slider-thumb-width: 12px;
+    --ui-slider-thumb-height: 20px;
+    --ui-slider-thumb-shape: polygon(0 0, 100% 0, 60% 50%, 100% 100%, 0 100%, 40% 50%);
+    --ui-slider-thumb-color: var(--ui-color-primary);
+    --ui-slider-thumb-disabled-color: var(--ui-disabled-text-color);
+}
+
+@media (forced-colors: active) {
+    :root {
+        --ui-slider-thumb-color: ButtonText;
+        --ui-slider-thumb-disabled-color: GrayText;
+    }
+}

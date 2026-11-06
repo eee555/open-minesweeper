@@ -376,6 +376,9 @@ export default {
         saolei: {
             title: '@:website.saolei Rule',
         },
+        strict_ng: {
+            title: '@:mode.sng Rule',
+        },
         empty: 'No records',
         loadFailed: 'Unable to load ranking',
         refreshBusy: 'Ranking anchors are being refreshed. This operation is temporarily unavailable. Please wait a moment and retry.',

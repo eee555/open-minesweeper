@@ -12,6 +12,7 @@ export const rankingRoutes: RouteRecordRaw[] = [
             { path: 'lsf', name: 'ranking_speed_lsf', component: () => import('./LSFRanking.vue') },
             { path: 'top', name: 'ranking_speed_top', component: () => import('./TopRanking.vue') },
             { path: 'saolei', name: 'ranking_speed_saolei', component: () => import('./SaoleiRanking.vue') },
+            { path: 'strict_ng', name: 'ranking_speed_strict_ng', component: () => import('./StrictNgRanking.vue') },
             { path: 'pb', name: 'ranking_speed_pb', component: () => import('./PBRanking.vue') },
         ],
     },

@@ -1,5 +1,5 @@
 import './setup.js';
-import { ArrowLeft, ArrowRight, Key, Lock, Message, QuestionFilled, Ticket, User } from '@element-plus/icons-vue';
+import { ArrowLeft, ArrowRight, Key, Lock, Message, QuestionFilled, User } from '@element-plus/icons-vue';
 import { definePreset } from '@primeuix/themes';
 import Aura from '@primeuix/themes/aura';
 import type { AxiosInstance } from 'axios';
@@ -31,7 +31,7 @@ if (import.meta.env.DEV) {
 app.config.globalProperties.$axios = $axios;
 
 // Transitional registry for bare tags and input prefix-icon strings.
-const globalIcons = { ArrowLeft, ArrowRight, Key, Lock, Message, QuestionFilled, Ticket, User };
+const globalIcons = { ArrowLeft, ArrowRight, Key, Lock, Message, QuestionFilled, User };
 for (const [key, component] of Object.entries(globalIcons)) {
     app.component(key, component);
 }

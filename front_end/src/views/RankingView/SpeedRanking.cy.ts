@@ -124,4 +124,32 @@ describe('<SpeedRanking /> child routes', () => {
         });
         cy.get('[data-cy=ranking-color]').should('have.attr', 'aria-pressed', 'true');
     });
+
+    it('opens strict NG directly, shows its rules and follows history back', () => {
+        cy.intercept({ method: 'GET', pathname: '/api/speedranking/strict_ng/rank' }, { body: { count: 0, players: [] } }).as('strictNg');
+        cy.intercept({ method: 'GET', pathname: '/api/speedranking/rank' }, { body: { count: 0, players: [] } }).as('saolei');
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: [{ path: '/ranking', component: RankingApp, redirect: '/ranking/speed', children: rankingRoutes }],
+        });
+        void router.push({ name: 'ranking_speed_strict_ng' });
+        cy.wrap(router.isReady()).then(() => {
+            cy.mount(defineComponent({ expose: [], render: () => h(RouterView) }), { global: { plugins: [i18n, pinia, router], config: { globalProperties: { $axios } } } });
+        });
+        cy.wait('@strictNg').its('request.query').should('include', { ranking_name: 'strict_ng', stat: 'sumt', start: '0', end: '20' });
+        cy.get('.ranking-selector').should('have.value', 'strict_ng');
+        cy.get('.strict-ng-ranking-table').should('exist');
+        cy.get('[data-cy=ranking-improve]').focus();
+        cy.get('[data-cy=ranking-improve-content]').should('be.visible').and('contain.text', 'Strict No Guessing replays');
+        cy.get('[data-cy=ranking-improve]').blur();
+        cy.shouldBeAbsentOrHidden('[data-cy=ranking-improve-content]');
+        cy.get('.ranking-selector').select('saolei');
+        cy.wait('@saolei');
+        cy.get('.saolei-ranking-table').should('exist');
+        cy.then(() => {
+            router.back();
+        });
+        cy.wrap(router).its('currentRoute.value.path').should('eq', '/ranking/speed/strict_ng');
+        cy.get('.strict-ng-ranking-table').should('exist');
+    });
 });

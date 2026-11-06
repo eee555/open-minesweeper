@@ -68,7 +68,7 @@ Redis 分类只读取业务代码直接确定的 DB 0 key，不执行 `SCAN`、`
 | 分类 | key 来源 |
 | --- | --- |
 | PB 榜 | `PBRankingCache.counts_key`；固定 hash 的 `HKEYS` 经校验后构造小榜 key；从 `UserProfile` 主键顺序每批最多 1,000 个 ID 构造用户 hash key。元数据缺失不发现 key、不触发重建。 |
-| 其他排行榜 | `SpeedRankingCache(name, stats=RANK_STATS).keys`、`TopRankingCache().keys`、`ThrpRankingCache().keys`、`NFIOERankingCache().keys`、`MiniGameRankingCache().keys`、四种自定义 pluck 配置的 rank/detail key、比赛用户榜 key 和积分时间 key；当前共 144 个 key。 |
+| 其他排行榜 | 扫雷网与强无猜各自的 `SpeedRankingCache(name, stats=RANK_STATS).keys`（各两个大榜，共 36 个 key）、`TopRankingCache().keys`、`ThrpRankingCache().keys`、`NFIOERankingCache().keys`、`MiniGameRankingCache().keys`、四种自定义 pluck 配置的 rank/detail key、比赛用户榜 key 和积分时间 key；当前共 162 个 key。 |
 | 最新录像 | `newest_cache.key`（`newest_queue`）。 |
 | 其他 | `INFO memory.used_memory` 减去前三类；包含其他业务、会话、同实例 DB 1 通用缓存、孤立/历史/临时 key 和 Redis 开销，不枚举 DB 1。 |
 
@@ -94,7 +94,7 @@ Redis 分类只读取业务代码直接确定的 DB 0 key，不执行 `SCAN`、`
 
 前端 `user-info` 的姓名列直接兼容隐藏标记 `hidden`，无需调整数据库版本或检查间隔。资料保存成功后，`invalidateUserInfo(id)` 删除该用户的本地缓存并通知已挂载的 `PlayerName` 重新读取公开姓名；失效前发出的响应不会写回旧值。缓存删除失败时不影响已保存的设置，跳过该用户的旧缓存并重置检查时间以便重试。资格及隐藏状态变更更新 `date_updated`，其他浏览器仍由现有 `infoupdated` 流程按正常周期更新。Redis 排行继续只引用用户 ID。缓存流程见仓库 `front_end/src/services/userService.md`；授权、展示与迁移约定见 `back_end/saolei/userprofile/README.md`。
 
-独立的本地初始化脚本 `dangerzone/init_local_test.py` 会清空本地 `saolei_website` Redis 数据库（包含会话），然后根据导入的公开录像重建竞速榜（扫雷网普通/NF、PB 普通/NF、top 十八项及锚点）、效率 Thrp 榜、pluck 纪录缓存和录像状态队列。在 `back_end/saolei` 目录使用 `python -m dangerzone.init_local_test` 启动。只允许本地测试配置，并拒绝存在 `.production` 标记的环境；不注册 `import_public_data` 管理命令。详情及数据缺失限制见[本地公开数据快照](./management-commands.md#本地公开数据快照)。
+独立的本地初始化脚本 `dangerzone/init_local_test.py` 会清空本地 `saolei_website` Redis 数据库（包含会话），然后根据导入的公开录像重建竞速榜（扫雷网普通/NF、强无猜普通/NF、PB 普通/NF、top 十八项及锚点）、效率 Thrp 榜、pluck 纪录缓存和录像状态队列。在 `back_end/saolei` 目录使用 `python -m dangerzone.init_local_test` 启动。只允许本地测试配置，并拒绝存在 `.production` 标记的环境；不注册 `import_public_data` 管理命令。详情及数据缺失限制见[本地公开数据快照](./management-commands.md#本地公开数据快照)。
 
 ### 标识管理
 

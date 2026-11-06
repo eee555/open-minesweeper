@@ -67,14 +67,14 @@ export interface CustomCounterConfig {
 }
 
 export const defaultCustomCounterTable: CustomCounterTableRow[] = [
-    ['time', 'roundTo(bbbv_solved / bbbv_s, 3) || "@" || roundTo(etime, 3) || "/" || roundTo(rtime, 3)'],
-    ['bvs', 'bbbv_solved || "/" || bbbv || "~" || roundTo(bbbv_s, 3)'],
-    ['ce', 'ce || "@" || roundTo(ce_s,3)'],
-    ['cl', 'cl || "@" || roundTo(cl_s,3)'],
-    ['stnb', 'roundTo(stnb, 3)'],
+    ['time', 'toFixed(bbbv_solved / bbbv_s, 3) || "@" || toFixed(etime, 3) || "/" || toFixed(rtime, 3)'],
+    ['bvs', 'bbbv_solved || "/" || bbbv || "~" || toFixed(bbbv_s, 3)'],
+    ['ce', 'ce || "@" || toFixed(ce_s, 3)'],
+    ['cl', 'cl || "@" || toFixed(cl_s, 3)'],
+    ['stnb', 'toFixed(stnb, 3)'],
     ['opis', 'op || "op " || isl || "is"'],
-    ['ioe', 'roundTo(corr, 3) || "*" || roundTo(thrp, 3) || "=" || roundTo(ioe, 3)'],
-    ['mov', 'roundTo(path / 16, 3) || "@" || roundTo(path / 16 / bbbv_solved * bbbv_s, 3)'],
+    ['ioe', 'toFixed(corr, 3) || "*" || toFixed(thrp, 3) || "=" || toFixed(ioe, 3)'],
+    ['mov', 'toFixed(path / 16, 3) || "@" || toFixed(path / 16 / bbbv_solved * bbbv_s, 3)'],
     ['cell0-2', 'cell0 || "/" || cell1 || "/" || cell2'],
     ['cell3-5', 'cell3 || "/" || cell4 || "/" || cell5'],
     ['cell6-8', 'cell6 || "/" || cell7 || "/" || cell8'],

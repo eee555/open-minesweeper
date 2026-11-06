@@ -198,3 +198,30 @@ class PublicIdentifierImportTests(TestCase):
                     initialize_local_data(root, 'admin-password', 'user-password', stdout=StringIO())
                 command.assert_not_called()
                 reset.assert_not_called()
+
+
+class PublicSnapshotInitializationTests(SimpleTestCase):
+    def test_initialization_rebuilds_the_strict_ng_rankings(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_snapshot(root)
+            with (
+                override_settings(PRODUCTION_MARK=root / '.production', DEBUG=True, E2E_TEST=True),
+                patch.dict(connection.settings_dict, HOST='127.0.0.1'),
+                patch('dangerzone.public_snapshot.MigrationExecutor') as executor,
+                patch('dangerzone.public_snapshot.get_local_snapshot_cache'),
+                patch('dangerzone.public_snapshot.reset_local_snapshot_cache'),
+                patch('dangerzone.public_snapshot.import_snapshot_rows'),
+                patch('dangerzone.public_snapshot.UserProfile') as profiles,
+                patch('dangerzone.public_snapshot.add_videos_to_custom_pluck_ranks'),
+                patch('dangerzone.public_snapshot.snapshot_pages', return_value=[]),
+                patch('dangerzone.public_snapshot.call_command') as command,
+            ):
+                executor.return_value.migration_plan.return_value = []
+                profiles.objects.select_related.return_value.iterator.return_value = []
+                stdout = StringIO()
+                initialize_local_data(root, 'admin-password', 'user-password', stdout=stdout, create_weekly=False)
+                self.assertEqual([item.args[0] for item in command.call_args_list], [
+                    'flush', 'refresh_video_counts', 'rebuild_speed_ranks', 'rebuild_strict_ng_ranks',
+                    'rebuild_pb_ranks', 'rebuild_top_ranks', 'rebuild_eff_ranks', 'rebuild_eff_ranks',
+                ])

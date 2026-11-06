@@ -206,7 +206,6 @@ export default defineConfig({
                 'ArrowLeft',
                 'ArrowRight',
                 'Check',
-                'Ticket',
                 'QuestionFilled',
                 'router-view',
             ] },
@@ -316,12 +315,6 @@ export default defineConfig({
     // Deferred components keep the existing layout, text and card restrictions.
     ignores: [
         'src/views/HomeView/NormalTournamentQueue.vue',
-        'src/components/accountlinks/CardAdd.vue',
-        'src/components/accountlinks/CardAddMineracer.vue',
-        'src/components/accountlinks/CardBilibili.vue',
-        'src/components/accountlinks/CardSaolei.vue',
-        'src/components/accountlinks/CardWoM.vue',
-        'src/components/accountlinks/CarouselControl.vue',
         'src/components/accountlinks/VideoImportQueue.vue',
     ],
     rules: {

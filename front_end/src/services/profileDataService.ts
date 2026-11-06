@@ -1,11 +1,13 @@
 import { reactive } from 'vue';
 
 import { fetchSaoleiRecords } from './saoleiRankingService';
+import { fetchStrictNgRecords } from './strictNgRankingService';
 import { fetchThrpRecord } from './thrpRankingService';
 
 // Revisions invalidate page data without starting background video downloads.
 const revisions = reactive(new Map<number, number>());
 const saoleiRecords = new Map<number, ReturnType<typeof fetchSaoleiRecords>>();
+const strictNgRecords = new Map<number, ReturnType<typeof fetchStrictNgRecords>>();
 const thrpRecords = new Map<number, ReturnType<typeof fetchThrpRecord>>();
 
 export function profileDataRevision(playerId: number): number {
@@ -14,6 +16,7 @@ export function profileDataRevision(playerId: number): number {
 
 export function invalidateProfileData(playerId: number): void {
     saoleiRecords.delete(playerId);
+    strictNgRecords.delete(playerId);
     thrpRecords.delete(playerId);
     revisions.set(playerId, profileDataRevision(playerId) + 1);
 }
@@ -26,6 +29,17 @@ export function fetchProfileSaoleiRecords(playerId: number): ReturnType<typeof f
         throw error;
     });
     saoleiRecords.set(playerId, request);
+    return request;
+}
+
+export function fetchProfileStrictNgRecords(playerId: number): ReturnType<typeof fetchStrictNgRecords> {
+    const existing = strictNgRecords.get(playerId);
+    if (existing) return existing;
+    const request = fetchStrictNgRecords(playerId).catch((error: unknown) => {
+        if (strictNgRecords.get(playerId) === request) strictNgRecords.delete(playerId);
+        throw error;
+    });
+    strictNgRecords.set(playerId, request);
     return request;
 }
 

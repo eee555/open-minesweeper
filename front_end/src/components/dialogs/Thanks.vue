@@ -24,8 +24,8 @@
         <GitHubUser username="Threeeee" />
         <GitHubUser username="ljzloser" />
         <GitHubUser username="hwatson381" />
-        <GitHubUser username="hgraceb" />
         <GitHubUser username="LockhartANR" />
+        <GitHubUser username="hgraceb" />
         <GitHubUser username="Corday-nkusky" />
     </div>
     <div class="section-label">
@@ -76,7 +76,6 @@ const acknowledgements = [
     { text: '冰糖雪梨' },
     { text: '生命★是┗ 〓┛是☆什么' },
     { text: 'Arya' },
-    { text: 'StrangeDust' },
     { text: 'jabajop' },
     { text: 'qqwref' },
     { text: 'gacord' },
@@ -84,6 +83,8 @@ const acknowledgements = [
     { text: '购置拆解' },
     { text: '毛毛虫' },
     { text: '铧嵇' },
+    { text: 'Vostok' },
+    { text: 'Oskain' },
 ];
 
 /* 本地化 Localization */

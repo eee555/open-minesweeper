@@ -12,7 +12,9 @@ from .cache import pipeline
 from .pb import services as pb
 from .pb.cache import PBRankingCache
 from .saolei import services as saolei
-from .saolei.utils import RANKING_NAMES
+from .saolei.utils import RANKING_NAMES as SAOLEI_RANKING_NAMES
+from .strict_ng import services as strict_ng
+from .strict_ng.utils import RANKING_NAMES as STRICT_NG_RANKING_NAMES
 from .top import services as top
 from .top.cache import TopRankingCache
 from .utils import log_update_errors
@@ -22,11 +24,18 @@ def _read_records(players):
     players = list(players)
     with pipeline() as pipe:
         saolei.read_records(pipe, players)
+        strict_ng.read_records(pipe, players)
         PBRankingCache().read_records(pipe, players)
         TopRankingCache().read_records(pipe, players)
         results = pipe.execute()
-    split = len(RANKING_NAMES)
-    return saolei.unpack_records(results[:split], players), PBRankingCache().unpack_records(results[split:split + len(players)], players), TopRankingCache.unpack_records(results[-1], players)
+    split = len(SAOLEI_RANKING_NAMES)
+    strict_split = split + len(STRICT_NG_RANKING_NAMES)
+    return (
+        saolei.unpack_records(results[:split], players),
+        strict_ng.unpack_records(results[split:strict_split], players),
+        PBRankingCache().unpack_records(results[strict_split:strict_split + len(players)], players),
+        TopRankingCache.unpack_records(results[-1], players),
+    )
 
 
 def _publish_pb_news(old_pb, pb_changes, ranking, news_targets):
@@ -101,15 +110,16 @@ def _news_targets(old_top, top_records, pb_changes):
     return targets
 
 
-def _write_records(previous, saolei_records, pb_changes, top_records, news_targets=None):
+def _write_records(previous, saolei_records, strict_ng_records, pb_changes, top_records, news_targets=None):
     """写入前备好待修改玩家的旧快照，写入后再取一次，新闻由调用路径决定是否发布。"""
-    old_saolei, old_pb, old_top = previous
+    old_saolei, old_strict_ng, old_pb, old_top = previous
     ranking = PBRankingCache()
     top_ranking = TopRankingCache()
     previous_ranks = ranking.read_previous_ranks(old_pb, pb_changes) if pb_changes else {}
     lsf_before = top_ranking.lsf_snapshot(news_targets) if news_targets else {}
     with pipeline() as pipe:
         saolei.write_records(pipe, old_saolei, saolei_records)
+        strict_ng.write_records(pipe, old_strict_ng, strict_ng_records)
         ranking.write_changes(pipe, old_pb, pb_changes)
         affected = top.write_records(pipe, old_top, top_records)
         pipe.execute()
@@ -130,10 +140,11 @@ def _sync_video(video_id: int, previous_player_id: int):
             players.add(video['player_id'])
         previous = _read_records(players)
         saolei_records = saolei.prepare_video_update(video, video_id, previous[0])
-        pb_changes = pb.prepare_video_update(video, video_id, previous[1])
-        top_records = top.prepare_video_update(video, video_id, previous[2])
+        strict_ng_records = strict_ng.prepare_video_update(video, video_id, previous[1])
+        pb_changes = pb.prepare_video_update(video, video_id, previous[2])
+        top_records = top.prepare_video_update(video, video_id, previous[3])
         news_targets = {video['player_id']: [video_id]} if video else None
-        _write_records(previous, saolei_records, pb_changes, top_records, news_targets=news_targets)
+        _write_records(previous, saolei_records, strict_ng_records, pb_changes, top_records, news_targets=news_targets)
 
 
 def sync_video(video_id: int, previous_player_id: int):
@@ -153,15 +164,17 @@ def _update_videos(videos, remove: bool):
                     video_ids.setdefault(player_id, []).append(video_id)
                 ids_by_player = {player_id: set(ids) for player_id, ids in video_ids.items()}
                 saolei_records = saolei.prepare_remove_videos(ids_by_player, previous[0])
-                pb_changes = pb.prepare_remove_videos(ids_by_player, previous[1])
-                top_records = top.prepare_remove_videos(ids_by_player, previous[2])
+                strict_ng_records = strict_ng.prepare_remove_videos(ids_by_player, previous[1])
+                pb_changes = pb.prepare_remove_videos(ids_by_player, previous[2])
+                top_records = top.prepare_remove_videos(ids_by_player, previous[3])
                 news_targets = None
             else:
                 saolei_records = saolei.prepare_add_videos(subset, previous[0])
-                pb_changes = pb.prepare_add_videos(subset, previous[1])
-                top_records = top.prepare_add_videos(subset, previous[2])
-                news_targets = _news_targets(previous[2], top_records, pb_changes)
-            _write_records(previous, saolei_records, pb_changes, top_records, news_targets=news_targets)
+                strict_ng_records = strict_ng.prepare_add_videos(subset, previous[1])
+                pb_changes = pb.prepare_add_videos(subset, previous[2])
+                top_records = top.prepare_add_videos(subset, previous[3])
+                news_targets = _news_targets(previous[3], top_records, pb_changes)
+            _write_records(previous, saolei_records, strict_ng_records, pb_changes, top_records, news_targets=news_targets)
 
 
 def add_videos_to_speed_ranks(videos):

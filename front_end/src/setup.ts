@@ -5,4 +5,6 @@ import './styles/theme/tables.css';
 import './styles/text.css';
 import './styles/checkbox.css';
 import './styles/checkbox-buttons.css';
+import './styles/switch.css';
 import './styles/select.css';
+import './styles/slider.css';

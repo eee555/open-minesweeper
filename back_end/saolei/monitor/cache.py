@@ -14,6 +14,8 @@ from speedranking.pb.cache import PBRankingCache
 from speedranking.pb.utils import LEVELS, parse_field, record_field
 from speedranking.saolei.cache import SpeedRankingCache
 from speedranking.saolei.utils import RANK_STATS, RANKING_NAMES
+from speedranking.strict_ng.cache import SpeedRankingCache as StrictNgRankingCache
+from speedranking.strict_ng.utils import RANK_STATS as STRICT_NG_RANK_STATS, RANKING_NAMES as STRICT_NG_RANKING_NAMES
 from speedranking.top.cache import TopRankingCache
 from tournament.cache import TOURNAMENT_USER_CACHE_KEYS, TOURNAMENT_USER_SCORE_CURRENT_TIME_KEY
 from videomanager.cache import newest_cache
@@ -38,6 +40,9 @@ def _known_memory_keys(ranking, fields, player_ids):
         yield 'pb_rankings', ranking.rank_key(field)
     for name in RANKING_NAMES:
         for key in SpeedRankingCache(name, stats=RANK_STATS).keys:
+            yield 'other_rankings', key
+    for name in STRICT_NG_RANKING_NAMES:
+        for key in StrictNgRankingCache(name, stats=STRICT_NG_RANK_STATS).keys:
             yield 'other_rankings', key
     for key in TopRankingCache().keys:
         yield 'other_rankings', key
