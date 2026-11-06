@@ -49,6 +49,7 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/element-plus-slider.css';
 import '@/styles/cards.css';
 
 import { ElInputNumber, ElSlider } from 'element-plus';

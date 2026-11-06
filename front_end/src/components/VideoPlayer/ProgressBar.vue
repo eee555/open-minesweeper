@@ -29,6 +29,7 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/element-plus-slider.css';
 import '@/styles/button.css';
 import 'primeicons/primeicons.css';
 

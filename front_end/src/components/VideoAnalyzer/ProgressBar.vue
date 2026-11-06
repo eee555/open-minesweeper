@@ -195,7 +195,7 @@ const { t } = useI18n({ messages: i18nMessages });
 }
 
 .analyzer-progress-bar__track {
-    --thumb-size: 12px;
+    --thumb-size: var(--ui-slider-thumb-width);
     position: relative;
     flex: 1;
     min-width: 0;
@@ -227,19 +227,23 @@ const { t } = useI18n({ messages: i18nMessages });
 .analyzer-progress-bar__slider::-webkit-slider-thumb {
     appearance: none;
     width: var(--thumb-size);
-    height: var(--thumb-size);
-    margin-top: -4px;
+    height: var(--ui-slider-thumb-height);
+    margin-top: calc((4px - var(--ui-slider-thumb-height)) / 2);
     border: 0;
-    border-radius: 50%;
-    background: var(--ui-color-primary);
+    border-radius: 0;
+    background: var(--ui-slider-thumb-color);
+    clip-path: var(--ui-slider-thumb-shape);
+    forced-color-adjust: none;
 }
 
 .analyzer-progress-bar__slider::-moz-range-thumb {
     width: var(--thumb-size);
-    height: var(--thumb-size);
+    height: var(--ui-slider-thumb-height);
     border: 0;
-    border-radius: 50%;
-    background: var(--ui-color-primary);
+    border-radius: 0;
+    background: var(--ui-slider-thumb-color);
+    clip-path: var(--ui-slider-thumb-shape);
+    forced-color-adjust: none;
 }
 
 .analyzer-progress-bar__slider:disabled {

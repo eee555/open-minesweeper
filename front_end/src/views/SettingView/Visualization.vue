@@ -4,10 +4,11 @@
             {{ t('local.visualizationColorScheme') }}
         </h2>
         <div class="layout-stack">
-            <div class="coloring-setting">
+            <label class="coloring-setting switch" data-cy="coloring-switch">
                 <span class="text-regular">{{ t('local.colored') }}</span>
-                <ElSwitch v-model="local.colored" :aria-label="t('local.colored')" data-cy="coloring-switch" />
-            </div>
+                <input v-model="local.colored" class="switch-input" type="checkbox" role="switch">
+                <span class="switch-track" aria-hidden="true" />
+            </label>
             <div style="display: flex; flex-wrap: wrap; gap: 2rem; align-items: center">
                 <div class="text-regular">
                     {{ t('local.level') }}
@@ -60,7 +61,7 @@ import '@/styles/vendors/element-plus.css';
 import '@/styles/cards.css';
 import '@/styles/layout.css';
 
-import { ElColorPicker, ElSwitch } from 'element-plus';
+import { ElColorPicker } from 'element-plus';
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -103,8 +104,6 @@ const { t } = useI18n({
 
 <style lang="less" scoped>
 .coloring-setting {
-    display: flex;
-    align-items: center;
     gap: 8px;
 }
 .color-scheme-toolbar {

@@ -39,7 +39,7 @@ describe('<VideoView />', () => {
         cy.get('@videos.all').should('have.length', 3);
     });
 
-    it('toggles the NF switch and resets pagination when the filter changes', () => {
+    it('requests the updated NF filter once per mouse or keyboard activation and only then resets pagination', () => {
         videofilter.value.pagesize = 20;
         cy.intercept({ method: 'GET', pathname: '/api/video/query' }, {
             body: { count: 21, videos: [] },
@@ -47,18 +47,34 @@ describe('<VideoView />', () => {
         cy.mount(VideoView, { global: { plugins: [i18n, pinia, hashRouter()], config: { globalProperties: { $axios } } } });
 
         cy.wait('@videos').its('request.query').should('include', { nf: 'false', page: '1' });
-        cy.get('[role="switch"]').should('have.attr', 'aria-checked', 'false');
+        cy.get('[data-cy=nf-only] input').should('not.be.checked');
         cy.get('.el-pagination .btn-next').click();
         cy.wait('@videos').its('request.query').should('include', { nf: 'false', page: '2' });
 
-        cy.get('.el-switch').click();
-        cy.wait('@videos').its('request.query').should('include', { nf: 'true', page: '1' });
-        cy.get('[role="switch"]').should('have.attr', 'aria-checked', 'true');
-        cy.get('.el-pagination .btn-next').click();
-        cy.wait('@videos').its('request.query').should('include', { nf: 'true', page: '2' });
+        cy.get<{ vm: { nfOnly: boolean } }>('@vue').then((wrapper) => {
+            const { vm } = wrapper;
+            vm.nfOnly = true;
+        });
+        cy.get('[data-cy=nf-only] input').should('be.checked');
+        cy.get('.el-pagination .el-pager .is-active').should(($page) => {
+            expect($page.text().trim()).to.equal('2');
+        });
+        cy.get('@videos.all').should('have.length', 2);
 
-        cy.get('.el-switch').click();
+        cy.get('[data-cy=nf-only]').click();
         cy.wait('@videos').its('request.query').should('include', { nf: 'false', page: '1' });
-        cy.get('[role="switch"]').should('have.attr', 'aria-checked', 'false');
+        cy.get('[data-cy=nf-only] input').should('not.be.checked');
+        cy.get('@videos.all').should('have.length', 3);
+        cy.get('.el-pagination .btn-next').click();
+        cy.wait('@videos').its('request.query').should('include', { nf: 'false', page: '2' });
+
+        cy.get('[data-cy=nf-only] input').focus();
+        cy.realPress('Space');
+        cy.wait('@videos').its('request.query').should('include', { nf: 'true', page: '1' });
+        cy.get('[data-cy=nf-only] input').should('be.checked');
+        cy.get('.el-pagination .el-pager .is-active').should(($page) => {
+            expect($page.text().trim()).to.equal('1');
+        });
+        cy.get('@videos.all').should('have.length', 5);
     });
 });

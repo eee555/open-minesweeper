@@ -58,7 +58,13 @@ npx.cmd cypress run --component --browser chrome --headless --spec "src/componen
 
 `.checkbox--small` 提供 12px 字号与 20px 最小高度，文本 span 允许在受限宽度内收缩并按全局文字规则换行。注册协议等交互链接放在 label 外并排显示，避免与勾选操作混在一起；保留 input 的完整可访问名称。上传选项的 `@click.stop` 放在 label 上，同时覆盖方框与文字的点击。
 
-`checkbox-buttons.css` 同样由 setup.ts 加载，提供 `.checkbox-buttons`、`.checkbox-button`、`.checkbox-button-input` 与 `.checkbox-button-content`。底层仍是可聚焦的原生 input，选中、禁用和键盘焦点映射到可见的内容框；鼠标点击 label，键盘使用 Tab / Space。`.checkbox-buttons--compact` 保留软件图标按钮的 1px × 3px 内边距，普通变体使用 12px 字号、2px × 6px 内边距；两者均为直角，并按容器宽度换行。强制颜色模式用系统选中色。筛选组件在 nextTick 后显式发出一次数组 change，组件事件不透传为原生 DOM Event，避免重复请求。
+当 `.checkbox` 是描述列表 dd 的唯一直接子元素时，使用内容宽度的块级 flex，交由 dd 居中；避免 inline-flex 的行盒基线影响它与前方 dt 标签的垂直对齐，不使用固定像素偏移。其他上下文继续使用行内布局。
+
+`checkbox-buttons.css` 由 setup.ts 加载，并汇总 `choice-buttons.css` 的 Checkbox / Radio 公共外观；离线小游戏沿原有 Checkbox 按钮入口加载同一依赖。`.checkbox-buttons`、`.checkbox-button`、`.checkbox-button-input` 与 `.checkbox-button-content` 保持原有 API，组件不再重复导入共用样式。底层仍是可聚焦的原生 input，选中、禁用和键盘焦点映射到可见的内容框；鼠标点击 label，键盘使用 Tab / Space。`.checkbox-buttons--compact` 保留软件图标按钮的 1px × 3px 内边距，普通变体使用 12px 字号、2px × 6px 内边距；两者均为直角，并按容器宽度换行。强制颜色模式用系统选中色。筛选组件在 nextTick 后显式发出一次数组 change，组件事件不透传为原生 DOM Event，避免重复请求。
+
+原生 Radio 复用 `.radio-buttons`、`.radio-button`、`.radio-button-input`、`.radio-button-content`，无 BaseRadio 组件：外层带 `role="radiogroup"` 与可访问名称，内部每项为 `<label class="radio-button"><input v-model="value" class="radio-button-input" type="radio" :name="groupName" :value="option"><span class="radio-button-content">标签</span></label>`。组内共用 name，不同组件实例使用带 useId() 的独立组名；数字选项通过 :value 保持 number。互斥、Tab / 方向键 / Space 由原生控件处理，不编写自定义键盘状态层；选中、禁用、焦点和深浅主题与 Checkbox 按钮共用外观规则，参见 [Vue 值绑定](https://vuejs.org/guide/essentials/forms.html#value-bindings)及 [MDN Radio](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/radio)。
+
+`switch.css` 由 `setup.ts` 全局加载，无 BaseSwitch：`<label class="switch"><input v-model="enabled" class="switch-input" type="checkbox" role="switch" aria-label="开关名称"><span class="switch-track" aria-hidden="true"></span></label>`。可把选项文字放在同一 label 中代替 aria-label；轨道紧随 input，checked / focus-visible / disabled 直接驱动外观。label 整体可点击并触发悬停反馈，底层 input 可聚焦，使用原生 Tab / Space；状态取原生 checked，不额外维护 aria-checked，参见 [WAI checkbox 开关示例](https://www.w3.org/WAI/ARIA/apg/patterns/switch/examples/switch-checkbox/)。默认轨道 32px × 18px、最小交互高度 24px；`.switch--small` 为 28px × 16px、最小高度 20px；轨道与滑块均直角，颜色引用主题，禁用时变淡并保留当前状态，强制颜色模式使用系统色。本地布尔配置直接 v-model；请求、异步受控值与 change 事件按调用方语义单独处理。
 
 `descriptions.css` 提供原生描述列表模板，无独立 Vue 组件：外层 `.description-layout` 为命名查询容器，内部 `<dl class="descriptions">` 每项使用 `<div class="description-item"><dt>标签</dt><dd>值或控件</dd></div>`。调用方直接导入 `@/styles/descriptions.css`，保持条件显示、v-model 与事件绑定。
 
@@ -95,3 +101,5 @@ npx.cmd cypress run --component --browser chrome --headless --spec "src/componen
 在对应的原生 `<th>` 和 `<td>` 上使用同一个类，例如 `<th class="table-col-number">Bvs</th>` 与 `<td class="table-col-number">{{ value }}</td>`。这些类只定义外观，不负责计算排名、数值格式化或渲染 PlayerName，也不需要新增列组件。width 为表格自动布局的列宽基准，实际宽度仍受内容和容器影响；只需居中且保留原列宽时使用 `table-col-center`。特殊表格按需要局部覆盖，不通过列的位置推断语义。保留组件库的表格后续按其样式接口单独接入。
 
 按实际使用范围小步提取，不整体搬入组件库参数，也不建立依赖本地存档的统一入口。实施进度见[前端 UI 重构计划](../../UI_REFACTOR_PLAN.md)。
+
+`slider.css` 由 `setup.ts` 加载，提供 `--ui-slider-thumb-*` 参数：12px × 20px 的纵向沙漏，polygon 两侧中部收窄并保留连接处，主色及禁用色引用项目主题，强制颜色模式使用系统色。`vendors/element-plus-slider.css` 仅由三处 ElSlider 使用方导入，只裁剪可见滑块，不改变库的外层拖动命中区域；Analyzer 原生 range 的 WebKit / Firefox thumb 使用同一组参数，并按实际滑块高度居中，原有横向宽度及区间标记位置保持一致。实现参考 [CSS clip-path](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/clip-path)；原有拖动、键盘、提示及双滑块模型继续由各自实现处理。
