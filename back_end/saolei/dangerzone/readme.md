@@ -10,7 +10,7 @@
 
 - `public_snapshot.py`：导入及初始化编排，保留生产标记和本地测试环境检查。
 - `download_public_data.py`：公开元数据快照下载入口，支持断点续传，下载所有已知公开用户的标识列表。
-- `init_local_test.py`：本地快照导入及测试数据初始化入口，会清空本地数据库和对应 Redis 数据库，导入后自动重建扫雷网普通/NF 榜和 PB 普通/NF 榜。
+- `init_local_test.py`：本地快照导入及测试数据初始化入口，会清空本地数据库和对应 Redis 数据库，导入后自动重建扫雷网普通/NF 榜、强无猜普通/NF 榜、PB 普通/NF 榜等派生缓存。
 - `cache.py`：本地快照的 Redis 检查与清理。
 - `utils.py`：快照路径、JSON 读写及完整性校验，不依赖 Django 初始化。
 

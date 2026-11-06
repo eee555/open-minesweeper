@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | top | `UserTopView.vue` | `TopSummary.vue` 请求完整 top 纪录、读取 Pinia 锚点；`TopRadar.vue`、`TopRecordTable.vue` 只渲染 props |
 | PB | `UserPBView.vue` | 一次获取用户全部 PB，`PBRecordGrid.vue` 按等级展示网格 |
-| 纪录 | `UserRecordView/App.vue` | 扫雷网、Thrp 及自定义 pluck 纪录 |
+| 纪录 | `UserRecordView/App.vue` | 扫雷网、强无猜、Thrp 及自定义 pluck 纪录 |
 | 账号关联 | `UserAccountLinkView.vue` → `AccountLinks/App.vue` | 全平台图标网格、单个平台详情及内联关联入口；验证和人工导入流程按平台独立维护 |
 | 录像 | `UserVideoView.vue` | 全部可见录像、日历/BV 选择、表格/散点图 |
 | 上传、设置 | `UserUploadView.vue`、`UserSettingsView.vue` | 仅本人可见；设置包含资料编辑和标识管理 |
@@ -45,6 +45,10 @@ top 和 PB 的业务规则、缓存与接口统一见 [竞速排行榜 README](.
 纪录 tab 的 `ThrpCard.vue` 接收用户 id，单次请求 `/api/effranking/thrp/player/{id}` 获取完整纪录与排名。按初、中、高级、sum、高级 NF 的顺序始终展示五列，格式为三位小数成绩加括号排名，缺项或缺失排名显示 `--`。高级 NF 多局时以 `details` 的 `1 x N` summary 收起显示，展开后才创建逐局预览链接；只有一局时直接展示该局链接。高级 NF 独立于 sum，sum 仅按普通三项缺项 0 求和，不生成录像链接。成绩与展开逻辑由 `components/visualization/ThrpRecordValue.vue` 统一处理，与 Thrp 排行榜共用。
 
 请求复用 `profileDataService` 的个人页缓存与失效通知，用户切换或失活后不接受旧响应。全局上色启用时使用 IOE 共用色阶，sum 固定按总值除以 3 上色。组件测试位于 `UserRecordView/ThrpCard.cy.ts`。
+
+## 强无猜纪录
+
+纪录 tab 的 `StrictNgCard.vue` 与 `SaoleiCard.vue` 形式相同，但请求 `/api/speedranking/strict_ng/player/{id}`，在 `profileDataService` 中使用独立缓存和失效通道，不共用扫雷网纪录。表格按初、中、高级、总和四列及 Time、Bvs、Time (NF)、Bvs (NF) 四行展示 `成绩(排名)`；普通/NF 两榜分别为 `strict_ng` 与 `strict_ng_nf`。仅强无猜模式、已审核、非隐藏比赛且 3BV 非空的录像入榜；初级要求 3BV ≥ 2，中级、高级没有下限。组件测试位于 `UserRecordView/StrictNgCard.cy.ts`。
 
 ## 录像选择与展示
 
