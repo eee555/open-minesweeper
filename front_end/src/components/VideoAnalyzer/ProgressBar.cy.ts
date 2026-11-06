@@ -164,26 +164,37 @@ describe('<AnalyzerProgressBar />', () => {
         cy.get('.analyzer-progress-bar__play').should('have.attr', 'aria-label', 'Play');
     });
 
-    it('uses preset speeds, stops at their limits, and restores normal speed', () => {
+    it('accepts custom rates and adjusts by 0.05 without floating point drift or exceeding limits', () => {
         const advance = mountProgress(10000);
-        for (const rate of [1.5, 2, 4, 8]) {
+        cy.get('.analyzer-progress-bar__rate').should('have.value', '1').and('have.attr', 'step', '0.05');
+        for (const rate of [1.05, 1.1, 1.15]) {
             cy.get('.analyzer-progress-bar__faster').click();
-            cy.get('.analyzer-progress-bar__normal').should('contain.text', `${rate}x`);
+            cy.get('.analyzer-progress-bar__rate').should('have.value', String(rate));
         }
-        cy.get('.analyzer-progress-bar__faster').should('be.disabled');
-        for (const rate of [4, 2, 1.5, 1, 0.75, 0.5, 0.25]) {
+        for (const rate of [1.1, 1.05, 1]) {
             cy.get('.analyzer-progress-bar__slower').click();
-            cy.get('.analyzer-progress-bar__normal').should('contain.text', `${rate}x`);
+            cy.get('.analyzer-progress-bar__rate').should('have.value', String(rate));
         }
+        cy.get('.analyzer-progress-bar__rate').invoke('val', 0.375).trigger('input');
+        cy.get('.analyzer-progress-bar__faster').click();
+        cy.get('.analyzer-progress-bar__rate').should('have.value', '0.425');
+        cy.get('.analyzer-progress-bar__slower').click();
+        cy.get('.analyzer-progress-bar__rate').should('have.value', '0.375');
+        cy.get('.analyzer-progress-bar__rate').invoke('val', 7.99).trigger('input');
+        cy.get('.analyzer-progress-bar__faster').click();
+        cy.get('.analyzer-progress-bar__rate').should('have.value', '8');
+        cy.get('.analyzer-progress-bar__faster').should('be.disabled');
+        cy.get('.analyzer-progress-bar__rate').invoke('val', 0.26).trigger('input');
+        cy.get('.analyzer-progress-bar__slower').click();
+        cy.get('.analyzer-progress-bar__rate').should('have.value', '0.25');
         cy.get('.analyzer-progress-bar__slower').should('be.disabled');
-        cy.get('.analyzer-progress-bar__normal').click();
-        cy.get('.analyzer-progress-bar__normal').should('contain.text', '1x');
+        cy.get('.analyzer-progress-bar__rate').invoke('val', 1).trigger('input');
         cy.get('.analyzer-progress-bar__play').click();
         advance(100);
         assertTime(100);
         cy.get('.analyzer-progress-bar__faster').click();
         advance(100);
-        assertTime(250);
+        assertTime(205);
     });
 
     it('loops the full recording and stops after looping is disabled', () => {
