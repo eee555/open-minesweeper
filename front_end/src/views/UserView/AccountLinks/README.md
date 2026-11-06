@@ -1,6 +1,6 @@
 # 账号关联页面
 
-`UserAccountLinkView.vue` 为路由入口，本目录维护页面、平台表单、资料面板及专用样式。视觉约定和浏览器回归范围见[重构收尾计划](../../../../ACCOUNT_LINK_REFACTOR_PLAN.md)。
+`UserAccountLinkView.vue` 为路由入口，本目录维护页面、平台表单、资料面板及专用样式。
 
 ## 文件职责
 
@@ -11,9 +11,9 @@
 | `PlatformGrid.vue`、`platforms.ts` | 全平台按钮、顺序、图标来源和私密平台标记 |
 | `linking/*Link.vue` | 各平台的表单、指引、本地化和局部样式；手动提交事件交给 AccountPage |
 | `linking/useClassicLink.ts`、`useMineracerLink.ts` | 分别管理确认状态和轮询；仅当前平台轮询，切换回来复用会话，卸载后忽略响应 |
-| `panels/` | 连续显示平台资料和操作；扫雷网导入说明位于 `SaoleiImportHelper.vue` |
+| `panels/` | 连续显示平台资料和操作；扫雷网导入说明合并在录像列表的小字中，操作说明分别放在按钮及自动同步开关的 title 中 |
 
-`components/accountlinks/` 保留共享的两种导入队列、UnverifiedNotice 和测试工具。扫雷网人工导入复用 `VideoImportQueue.vue` 与 `synchronizeSaolei`，目录逐页同步，录像逐条导入；停止或关闭窗口只停止后续请求，自动同步配置独立保存。管理员纪念账号页也使用该队列。
+`components/accountlinks/` 保留共享的两种导入队列、UnverifiedNotice 和测试工具。扫雷网录像列表提供“全量刷新列表”“增量刷新列表”“导入全部录像”三个独立操作：`refreshSaoleiCatalogue` 仅逐页更新目录，`importPendingSaoleiVideos` 仅逐条导入当前目录中符合条件的待导入录像，已导入录像不重复处理。停止或关闭窗口只停止后续请求，自动同步配置独立保存。管理员纪念账号页也使用该队列。
 
 ## 图标来源
 
@@ -41,7 +41,7 @@
 | `linking/Forms.cy.ts` | 六个独立表单的校验、字符串保留、回车提交、发送中禁用与失败后编辑 |
 | `linking/ConfirmationFlows.cy.ts` | Classic / Mineracer 的确认、冲突/过期重试、跨平台保留会话及完成后只刷新一次 |
 | `panels/Profiles.cy.ts` | 资料、空值格式、国际网资料暂缺、同步错误和未验证状态 |
-| `panels/SaoleiPanel.cy.ts` | 收藏统计、本人导入/访客只读、自动同步受控保存和失败回退 |
+| `panels/SaoleiPanel.cy.ts` | 资料、统一录像列表入口、本人导入/访客只读、自动同步受控保存和失败回退 |
 
 在 `front_end` 下运行；代理不自动执行 Cypress：
 

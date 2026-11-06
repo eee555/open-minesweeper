@@ -2,17 +2,21 @@
     <div class="account-panel">
         <div class="classic-link">
             <template v-if="showForm">
-                <div class="classic-guide">
-                    <b>{{ t('local.title') }}</b><br>
-                    {{ t('local.howTo') }}
-                    <img src="@/assets/IdGuide95Classic.png" :alt="t('local.title')" width="100%">
-                </div>
                 <div class="classic-form">
                     <input v-model="uid" class="account-input" type="text" maxlength="8" :placeholder="t('local.uidPlaceholder')" @keyup.enter="submit">
                     <BaseButton type="primary" :disabled="!uidValid" :loading="startLoading" @click="submit">
                         {{ t('local.request') }}
                     </BaseButton>
                 </div>
+                <details>
+                    <summary>{{ t('local.qrCode') }}</summary>
+                    <img class="classic-qrcode" src="@/assets/classic95link.jpg" :alt="t('local.qrCode')">
+                </details>
+                <details class="classic-guide">
+                    <summary>{{ t('local.title') }}</summary>
+                    {{ t('local.howTo') }}
+                    <img src="@/assets/IdGuide95Classic.png" :alt="t('local.title')">
+                </details>
             </template>
 
             <template v-else>
@@ -76,7 +80,8 @@ const messageType = computed(() => (link.value.status === 'allow' ? 'success' : 
 
 const i18nMessages = {
     'zh-cn': { local: {
-        howTo: '在「95经典扫雷」小游戏里打开「我的荣誉」，点击右上角的 UID 即可复制，粘贴到下方提交。提交后回到小游戏内确认绑定。',
+        howTo: '在「95经典扫雷」小游戏里打开「我的荣誉」，点击右上角的 UID 即可复制，粘贴到上方输入框提交。提交后回到小游戏内确认绑定。',
+        qrCode: '95经典扫雷小游戏二维码',
         title: '如何找到ID',
         expiresIn: '剩余时间',
         msg: {
@@ -109,7 +114,8 @@ const i18nMessages = {
         waiting: '请在小游戏内点击确认，确认后本页会自动更新。',
     } },
     en: { local: {
-        howTo: 'Open “My Honours” in the 95 Classic Minesweeper mini game, tap the UID at the top right to copy it, then paste it below. Confirm the request inside the game afterwards.',
+        howTo: 'Open “My Honours” in the 95 Classic Minesweeper mini game, tap the UID at the top right to copy it, then paste it into the field above. Confirm the request inside the game afterwards.',
+        qrCode: 'QR code for the 95 Classic Minesweeper mini game',
         title: 'How to locate the ID',
         expiresIn: 'Expires in',
         msg: {
@@ -165,8 +171,19 @@ const { t } = useI18n({ messages: i18nMessages });
     img {
         border-radius: 0;
         display: block;
+        width: 100%;
+        max-width: 500px;
+        height: auto;
         margin-top: 0.5rem;
     }
+}
+
+.classic-qrcode {
+    display: block;
+    width: 100%;
+    max-width: 300px;
+    height: auto;
+    margin-top: 0.5rem;
 }
 
 .classic-actions {
