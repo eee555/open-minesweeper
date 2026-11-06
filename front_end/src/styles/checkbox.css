@@ -26,6 +26,12 @@
     min-width: 0;
 }
 
+/* A lone control in a description value does not need an inline text baseline. */
+:where(.description-item > dd) > .checkbox:only-child {
+    display: flex;
+    width: fit-content;
+}
+
 .checkbox-input {
     appearance: none;
     box-sizing: border-box;

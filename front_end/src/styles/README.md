@@ -58,6 +58,8 @@ npx.cmd cypress run --component --browser chrome --headless --spec "src/componen
 
 `.checkbox--small` 提供 12px 字号与 20px 最小高度，文本 span 允许在受限宽度内收缩并按全局文字规则换行。注册协议等交互链接放在 label 外并排显示，避免与勾选操作混在一起；保留 input 的完整可访问名称。上传选项的 `@click.stop` 放在 label 上，同时覆盖方框与文字的点击。
 
+当 `.checkbox` 是描述列表 dd 的唯一直接子元素时，使用内容宽度的块级 flex，交由 dd 居中；避免 inline-flex 的行盒基线影响它与前方 dt 标签的垂直对齐，不使用固定像素偏移。其他上下文继续使用行内布局。
+
 `checkbox-buttons.css` 由 setup.ts 加载，并汇总 `choice-buttons.css` 的 Checkbox / Radio 公共外观；离线小游戏沿原有 Checkbox 按钮入口加载同一依赖。`.checkbox-buttons`、`.checkbox-button`、`.checkbox-button-input` 与 `.checkbox-button-content` 保持原有 API，组件不再重复导入共用样式。底层仍是可聚焦的原生 input，选中、禁用和键盘焦点映射到可见的内容框；鼠标点击 label，键盘使用 Tab / Space。`.checkbox-buttons--compact` 保留软件图标按钮的 1px × 3px 内边距，普通变体使用 12px 字号、2px × 6px 内边距；两者均为直角，并按容器宽度换行。强制颜色模式用系统选中色。筛选组件在 nextTick 后显式发出一次数组 change，组件事件不透传为原生 DOM Event，避免重复请求。
 
 原生 Radio 复用 `.radio-buttons`、`.radio-button`、`.radio-button-input`、`.radio-button-content`，无 BaseRadio 组件：外层带 `role="radiogroup"` 与可访问名称，内部每项为 `<label class="radio-button"><input v-model="value" class="radio-button-input" type="radio" :name="groupName" :value="option"><span class="radio-button-content">标签</span></label>`。组内共用 name，不同组件实例使用带 useId() 的独立组名；数字选项通过 :value 保持 number。互斥、Tab / 方向键 / Space 由原生控件处理，不编写自定义键盘状态层；选中、禁用、焦点和深浅主题与 Checkbox 按钮共用外观规则，参见 [Vue 值绑定](https://vuejs.org/guide/essentials/forms.html#value-bindings)及 [MDN Radio](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/radio)。
