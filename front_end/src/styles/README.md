@@ -101,3 +101,5 @@ npx.cmd cypress run --component --browser chrome --headless --spec "src/componen
 在对应的原生 `<th>` 和 `<td>` 上使用同一个类，例如 `<th class="table-col-number">Bvs</th>` 与 `<td class="table-col-number">{{ value }}</td>`。这些类只定义外观，不负责计算排名、数值格式化或渲染 PlayerName，也不需要新增列组件。width 为表格自动布局的列宽基准，实际宽度仍受内容和容器影响；只需居中且保留原列宽时使用 `table-col-center`。特殊表格按需要局部覆盖，不通过列的位置推断语义。保留组件库的表格后续按其样式接口单独接入。
 
 按实际使用范围小步提取，不整体搬入组件库参数，也不建立依赖本地存档的统一入口。实施进度见[前端 UI 重构计划](../../UI_REFACTOR_PLAN.md)。
+
+`slider.css` 由 `setup.ts` 加载，提供 `--ui-slider-thumb-*` 参数：12px × 20px 的纵向沙漏，polygon 两侧中部收窄并保留连接处，主色及禁用色引用项目主题，强制颜色模式使用系统色。`vendors/element-plus-slider.css` 仅由三处 ElSlider 使用方导入，只裁剪可见滑块，不改变库的外层拖动命中区域；Analyzer 原生 range 的 WebKit / Firefox thumb 使用同一组参数，并按实际滑块高度居中，原有横向宽度及区间标记位置保持一致。实现参考 [CSS clip-path](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/clip-path)；原有拖动、键盘、提示及双滑块模型继续由各自实现处理。
