@@ -90,6 +90,8 @@ const drawerId = `navigation-${useId()}`;
 const route = useRoute();
 const language = useLanguage();
 const colorMode = useColorMode();
+// useColorMode() returns a Ref with extra properties; keep store separate to avoid vue/no-ref-as-operand false positives.
+const { store: colorModeStore } = colorMode;
 
 watch(() => local.value.navigation_layout, (value) => {
     if (value !== 'top' && value !== 'sidebar') local.value.navigation_layout = 'top';
@@ -184,9 +186,9 @@ function navigationItems(controls: LoginControls): NavigationItem[] {
             id: `theme-${mode}`,
             label: t(`local.${mode}`),
             icon: mode === 'auto' ? 'pi-desktop' : mode === 'light' ? 'pi-sun' : 'pi-moon',
-            checked: colorMode.store.value === mode,
+            checked: colorModeStore.value === mode,
             action: () => {
-                colorMode.store.value = mode;
+                colorModeStore.value = mode;
             },
         })),
     });
