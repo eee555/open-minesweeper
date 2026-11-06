@@ -1,9 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import fixtures from '../../../../back_end/saolei/minigame/fixtures/replay-archives.json';
 
 import { loadReplayArchiveCodec } from './archive';
 import type { TrainingRecording } from './recording';
+
+// Exercise the real codec and cross-language fixtures without network access.
+vi.mock('7z-wasm/7zz.wasm?url', () => import('7z-wasm/7zz.wasm?url&inline'));
 
 describe('7z replay storage', () => {
     it.each(['python', 'browser'] as const)('reads the %s archive using the shared format fixture', async (writer) => {
