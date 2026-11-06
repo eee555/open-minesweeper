@@ -14,6 +14,7 @@ from minigame.api import router as minigame_router
 from minigame.utils import MiniGameError
 from monitor.api import router as monitor_router
 from msuser.api import router as msuser_router
+from news.api import router as news_router
 from speedranking.api import router as speedranking_router
 from tournament.api import router as tournament_router
 from tournament.gsc.api import router as tournament_gsc_router
@@ -26,6 +27,7 @@ api = NinjaAPI(docs=Redoc())
 
 api.add_router('/common/', common_router)
 api.add_router('/monitor/', monitor_router)
+api.add_router('/news/', news_router)
 api.add_router('/userprofile/', userprofile_router)
 api.add_router('/accountlink/', accountlink_router)
 api.add_router('/accountlink/msgames/', accountlink_msgames_router)

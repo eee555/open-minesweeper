@@ -51,6 +51,7 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/element-plus-table.css';
 import { ElTable, ElTableColumn } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 

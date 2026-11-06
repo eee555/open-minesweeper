@@ -161,10 +161,8 @@ describe('Staff requests against the backend', () => {
         cy.visit('/#/staff/userprofile');
         cy.contains('[role="tab"]', '排行纪录重建').click();
         cy.contains('button', '重建纪录').should('be.disabled');
-        cy.get('.ranking-repair .el-select').eq(0).click();
-        cy.contains('.el-select-dropdown__item:visible', '扫雷网规则（NF）').click();
-        cy.get('.ranking-repair .el-select').eq(1).click();
-        cy.contains('.el-select-dropdown__item:visible', 'Time 总和').click();
+        cy.get('.ranking-repair select').eq(0).select('saolei_nf');
+        cy.get('.ranking-repair select').eq(1).select('sumt');
         cy.get('.ranking-repair .el-input-number input').type(String(USER.id));
         cy.contains('button', '重建纪录').click();
         cy.wait('@rebuildRecord').then(({ request, response }) => {

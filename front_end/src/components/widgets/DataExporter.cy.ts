@@ -3,6 +3,8 @@ import type { Component, PropType } from 'vue';
 
 import DataExporter from './DataExporter.vue';
 
+import i18n from '@/i18n';
+
 interface TestRecord {
     id: number;
     name: string;
@@ -94,6 +96,7 @@ function mountDataExporter(options: {
             initialData: options.initialData ?? [],
             lazy: options.lazy ?? false,
         },
+        global: { plugins: [i18n] },
     } as never);
 }
 
@@ -129,8 +132,8 @@ function clickExportButton() {
 }
 
 function selectFormat(format: 'CSV' | 'JSON') {
-    cy.get('.el-select').click();
-    cy.contains('.el-select-dropdown__item', format).click();
+    cy.get('select[aria-label="Format"]').focus();
+    cy.get('select[aria-label="Format"]').should('have.focus').select(format.toLowerCase());
 }
 
 function expectDownload(downloads: DownloadRecorder, index: number, expected: ExpectedDownload) {

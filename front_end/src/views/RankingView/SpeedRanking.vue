@@ -1,9 +1,11 @@
 <template>
     <section class="speed-ranking">
         <div class="ranking-toolbar">
-            <ElSelect v-model="selectedRankingName" :aria-label="t('local.rankingName')" class="ranking-selector">
-                <ElOption v-for="rankingName in rankingNames" :key="rankingName" :label="t(`local.label.${rankingName}`)" :value="rankingName" :title="t(`local.tooltip.${rankingName}`)" />
-            </ElSelect>
+            <select v-model="selectedRankingName" :aria-label="t('local.rankingName')" class="base-select ranking-selector">
+                <option v-for="rankingName in rankingNames" :key="rankingName" :value="rankingName" :title="t(`local.tooltip.${rankingName}`)">
+                    {{ t(`local.label.${rankingName}`) }}
+                </option>
+            </select>
             <div class="ranking-help">
                 <Tippy>
                     <BaseIconInfo />
@@ -44,7 +46,6 @@
 <script setup lang="ts">
 import '@/styles/cards.css';
 
-import { ElOption, ElSelect } from 'element-plus';
 import { computed, useTemplateRef } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterView, useRoute, useRouter } from 'vue-router';

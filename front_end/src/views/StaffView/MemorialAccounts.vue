@@ -98,6 +98,7 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/element-plus.css';
 import { ElDatePicker } from 'element-plus';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';

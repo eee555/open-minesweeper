@@ -8,7 +8,7 @@
             </div>
         </template>
     </Tippy>
-    <span v-else>--</span>
+    <span v-else class="video-preview-placeholder">--</span>
 </template>
 
 <script setup lang="ts">
@@ -79,14 +79,23 @@ function handleClick(event: MouseEvent) {
 </script>
 
 <style scoped>
+/* .link 默认是 inline-flex + vertical-align: middle，放进文字流会偏离基线；
+   这里恢复为普通行内盒子，软件图标单独做视觉居中，不参与基线计算。 */
 .video-preview-link {
     color: inherit;
-    font: inherit;
     cursor: pointer;
+    display: inline;
+    font: inherit;
+    overflow-wrap: anywhere;
+    vertical-align: baseline;
 }
 
 .video-preview-software {
-    vertical-align: text-bottom;
     margin-inline-end: 0.25em;
+    vertical-align: middle;
+}
+
+.video-preview-placeholder {
+    vertical-align: baseline;
 }
 </style>

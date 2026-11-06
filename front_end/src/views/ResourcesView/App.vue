@@ -16,6 +16,7 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/element-plus-tabs.less';
 import { ElTabPane, ElTabs } from 'element-plus';
 import type { TabsPaneContext } from 'element-plus';
 import { computed, defineAsyncComponent } from 'vue';

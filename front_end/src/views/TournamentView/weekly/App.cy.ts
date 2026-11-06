@@ -135,11 +135,11 @@ describe('<Weekly App />', () => {
     it('applies the inline weekly token, supported and score-improving filters', () => {
         mountWeekly({ loginStatus: LoginStatus.IsLogin, registered: true });
         cy.wait('@participantVideos');
+        cy.get('.auto-uploader select[aria-label="Filter"]').should('have.value', 'supported');
         cy.get<ComponentWrapper<typeof App>>('@vue').then((wrapper) => {
             const filter: (video: AutoUploadVideo) => boolean = wrapper.findComponent<typeof AutoUploader>('.auto-uploader').props('filter');
-            ['All tournament videos', 'Supported tournament videos', 'Score-improving videos'].forEach((label, stage) => {
-                cy.get('.auto-uploader .el-select').click();
-                cy.contains('.el-select-dropdown:visible .el-select-dropdown__item', label).click();
+            ['tournament', 'supported', 'scoreRefreshing'].forEach((filterLevel, stage) => {
+                cy.get('.auto-uploader select[aria-label="Filter"]').select(filterLevel);
                 cy.then(() => {
                     const video: AutoUploadVideo = { filename: 'test.evf', identifier: '', tokens: ['WEEKLY-TOKEN'], stat: new VideoAbstract({ level: 'e', mode: MS_Mode.Standard, timems: 40000, bv: 100, software: 'e' }) };
                     expect(filter(video)).to.equal(true);

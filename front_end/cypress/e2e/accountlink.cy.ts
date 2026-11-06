@@ -114,8 +114,7 @@ function staffVerifyAccount(platform: string, identifier: string) {
 
     cy.contains('.el-form-item__label', '用户 ID').next().find('input').clear();
     cy.contains('.el-form-item__label', '用户 ID').next().find('input').type(`${USER.id}{enter}`);
-    cy.contains('.el-form-item__label', /^平台$/).next().find('.el-select').click();
-    cy.contains('.el-select-dropdown__item:visible', platform).click();
+    cy.contains('.el-form-item__label', /^平台$/).next().find('select').select(platform);
     cy.contains('.el-form-item__label', '平台 ID').next().find('input').type(`${identifier}{enter}`);
     cy.contains('button', /^\s*绑定\s*$/).click();
     cy.wait('@verifyAccountLink').its('response.statusCode').should('eq', 200);
