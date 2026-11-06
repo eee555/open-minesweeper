@@ -107,9 +107,11 @@ describe('General Settings', () => {
         cy.get('[data-cy=player-name-format]').select('name1 (name2)');
         cy.get('[data-cy=player-name-1]').select('international');
         cy.get('[data-cy=player-name-2]').should('be.visible').select('realname');
+        cy.get('[data-cy=player-name-order] input[value=first-last]').should('be.checked');
+        cy.contains('[data-cy=player-name-order] label', '姓, 名').click();
         cy.window().its('localStorage').invoke('getItem', 'local').should((value: string | null) => {
             const settings = JSON.parse(value ?? '{}') as Record<string, unknown>;
-            expect(settings).to.include({ playerNameShowAvatar: true, playerNameFormat: 'name1 (name2)', playerName1: 'international', playerName2: 'realname' });
+            expect(settings).to.include({ playerNameShowAvatar: true, playerNameFormat: 'name1 (name2)', playerName1: 'international', playerName2: 'realname', nameFormat: 'last-first' });
         });
 
         cy.reload();
@@ -117,6 +119,7 @@ describe('General Settings', () => {
         cy.get('[data-cy=player-name-format]').should('have.value', 'name1 (name2)');
         cy.get('[data-cy=player-name-1]').should('have.value', 'international');
         cy.get('[data-cy=player-name-2]').should('have.value', 'realname');
+        cy.get('[data-cy=player-name-order] input[value=last-first]').should('be.checked');
         cy.get('[data-cy=player-name-format]').select('name1');
         cy.get('[data-cy=player-name-2]').should('not.be.visible');
     });

@@ -27,12 +27,12 @@
             </span>
             <div v-if="remember_me" style="margin-left: 0.5rem;">
                 <span>{{ t('local.forDays1') }}</span>
-                <ElRadioGroup v-model="setExpiry" size="small" style="vertical-align: middle; padding: 0 5px">
-                    <ElRadioButton label="1" :value="1" />
-                    <ElRadioButton label="7" :value="7" />
-                    <ElRadioButton label="30" :value="30" />
-                    <ElRadioButton label="90" :value="90" />
-                </ElRadioGroup>
+                <span class="radio-buttons" role="radiogroup" :aria-label="t('local.loginExpiry')" style="padding: 0 5px" data-cy="login-expiry">
+                    <label v-for="days in [1, 7, 30, 90]" :key="days" class="radio-button">
+                        <input v-model="setExpiry" class="radio-button-input" type="radio" :name="expiryRadioName" :value="days">
+                        <span class="radio-button-content">{{ days }}</span>
+                    </label>
+                </span>
                 <span>{{ t('local.forDays2') }}</span>
             </div>
         </ElFormItem>
@@ -56,8 +56,8 @@
 import '@/styles/cards.css';
 
 import type { FormInstance, FormRules } from 'element-plus';
-import { ElForm, ElFormItem, ElInput, ElRadioButton, ElRadioGroup } from 'element-plus';
-import { onUnmounted, reactive, ref, useTemplateRef } from 'vue';
+import { ElForm, ElFormItem, ElInput } from 'element-plus';
+import { onUnmounted, reactive, ref, useId, useTemplateRef } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import BaseIconInfo from '../common/icons/BaseIconInfo.vue';
@@ -75,6 +75,7 @@ const { proxy } = useCurrentInstance();
 const refValidCode = useTemplateRef('refValidCode');
 const remember_me = ref(false);
 const setExpiry = ref(7);
+const expiryRadioName = `login-expiry-${useId()}`;
 const captchaError = ref('');
 const passwordError = ref('');
 
@@ -132,6 +133,7 @@ const i18nMessages = {
         forDays2: '天',
         forgetPassword: '忘记密码',
         keepMeLoggedIn: '记住我',
+        loginExpiry: '登录有效期',
         keepMeLoggedInTooltip: '连续多天不上线则自动退出登录',
     } },
     en: { local: {
@@ -140,6 +142,7 @@ const i18nMessages = {
         forDays2: 'days',
         forgetPassword: 'Forget password?',
         keepMeLoggedIn: 'Keep me logged in',
+        loginExpiry: 'Login duration',
         keepMeLoggedInTooltip: 'Automatically log out after a few days of inactivity',
     } },
     de: { local: {
