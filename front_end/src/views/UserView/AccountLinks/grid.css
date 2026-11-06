@@ -1,0 +1,62 @@
+.account-platform-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 6rem), 1fr));
+    gap: 8px;
+}
+
+.account-platform-grid > .account-platform-button.base-button {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 6px;
+    min-width: 0;
+    margin: 0;
+    border: 1px solid transparent;
+    border-radius: 0;
+    padding: 8px 4px;
+    background: transparent;
+    color: var(--ui-text-color-regular);
+    font-size: var(--ui-font-size-base);
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.account-platform-grid > .account-platform-button.base-button:hover {
+    border-color: transparent;
+    background: var(--ui-fill-color-light);
+    color: var(--ui-color-primary);
+}
+
+.account-platform-grid > .account-platform-button.base-button[aria-pressed='true'] {
+    border-color: var(--ui-color-primary);
+    background: var(--ui-color-primary-light-9);
+    color: var(--ui-color-primary);
+}
+
+.account-platform-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    flex: 0 0 48px;
+}
+
+.account-platform-icon.is-unlinked {
+    opacity: 0.5;
+}
+
+.account-platform-icon > img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.account-platform-mask {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: currentColor;
+    mask: var(--account-platform-mask) center / contain no-repeat;
+}

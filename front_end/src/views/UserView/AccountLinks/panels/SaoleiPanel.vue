@@ -1,39 +1,42 @@
 <template>
-    <BaseCardNormal>
-        <PrToolbar style="margin-bottom: 0.5em">
-            <template #start>
-                <span class="text-medium text-regular">{{ t('platform.c') }}&nbsp;#{{ id }}</span>
-            </template>
-            <template #end>
-                <CarouselControl :ref-carousel="refCarousel!" :length="ownsAccount ? 2 : 1" />
-            </template>
-        </PrToolbar>
-        <ElCarousel v-if="verified" ref="refCarousel" trigger="click" :autoplay="false" indicator-position="none" :loop="false" arrow="never">
-            <ElCarouselItem>
-                <ElDescriptions border>
-                    <ElDescriptionsItem :label="t('prop.update_time')" :span="3">
-                        {{ toISODateTimeString(info.update_time) }}
-                    </ElDescriptionsItem>
-                    <ElDescriptionsItem :label="t('local.name')" :span="3">
-                        {{ info.name }}
-                    </ElDescriptionsItem>
-                    <ElDescriptionsItem :label="t('local.catalogueUpdated')" :span="3">
-                        {{ summary.video_update_time ? toISODateTimeString(new Date(summary.video_update_time)) : '--' }}
-                    </ElDescriptionsItem>
-                    <ElDescriptionsItem :label="t('local.collected')" :span="3">
-                        {{ summary.total }}
-                    </ElDescriptionsItem>
-                </ElDescriptions>
+    <div class="account-panel">
+        <div v-if="verified" class="account-sections">
+            <section class="account-section">
+                <div class="description-layout">
+                    <dl class="descriptions descriptions-bordered">
+                        <div class="description-item">
+                            <dt>{{ t('prop.update_time') }}</dt><dd>
+                                {{ toISODateTimeString(info.update_time) }}
+                            </dd>
+                        </div>
+                        <div class="description-item">
+                            <dt>{{ t('local.name') }}</dt><dd>
+                                {{ info.name }}
+                            </dd>
+                        </div>
+                        <div class="description-item">
+                            <dt>{{ t('local.catalogueUpdated') }}</dt><dd>
+                                {{ summary.video_update_time ? toISODateTimeString(new Date(summary.video_update_time)) : '--' }}
+                            </dd>
+                        </div>
+                        <div class="description-item">
+                            <dt>{{ t('local.collected') }}</dt><dd>
+                                {{ summary.total }}
+                            </dd>
+                        </div>
+                    </dl>
+                </div>
                 <BaseButton size="small" @click="queueVisible = true">
                     {{ t('accountlink.synchronizeManage') }}
                 </BaseButton>
                 <BaseButton v-if="ownsAccount" size="small" :loading="refreshing" @click="refreshProfile">
                     {{ t('local.refreshProfile') }}
                 </BaseButton>
-            </ElCarouselItem>
-            <ElCarouselItem v-if="ownsAccount" style="display: flex; flex-direction: column; gap: 0.5em">
-                <label class="text-regular">
-                    <ElSwitch :model-value="autoSync" :disabled="saving" data-cy="saolei-auto-sync" @change="toggleAutoSync" />
+            </section>
+            <section v-if="ownsAccount" class="account-section">
+                <label class="switch">
+                    <input class="switch-input" type="checkbox" role="switch" :checked="autoSync" :disabled="saving" data-cy="saolei-auto-sync" @change="toggleAutoSync">
+                    <span class="switch-track" aria-hidden="true" />
                     {{ t('local.autoSync') }}
                 </label>
                 <span class="text-regular text-small">{{ t('local.autoHint') }}</span>
@@ -52,32 +55,33 @@
                     </BaseOverlay>
                 </div>
                 <StackBar :data="stackBarData" legend />
-            </ElCarouselItem>
-        </ElCarousel>
+            </section>
+        </div>
         <UnverifiedNotice v-else />
         <ElDialog v-if="queueVisible" v-model="queueVisible" destroy-on-close width="min(70em, 95vw)" :title="t('accountlink.synchronizeManage')" @closed="refreshSummary">
             <VideoImportQueue :saolei-id="info.id" :owner="ownsAccount" />
         </ElDialog>
-    </BaseCardNormal>
+    </div>
 </template>
 
 <script setup lang="ts">
+import '@/styles/descriptions.css';
+import '../page.css';
 import 'vue-data-ui/style.css';
 
-import { ElCarousel, ElCarouselItem, ElDescriptions, ElDescriptionsItem, ElDialog, ElSwitch } from 'element-plus';
-import PrToolbar from 'primevue/toolbar';
-import { computed, ref, useTemplateRef, watch } from 'vue';
+import { ElDialog } from 'element-plus';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
-import CarouselControl from './CarouselControl.vue';
-import UnverifiedNotice from './UnverifiedNotice.vue';
-import VideoImportQueue from './VideoImportQueue.vue';
+import { useActivePanel } from '../useActivePanel';
 
+import SaoleiImportHelper from './SaoleiImportHelper.vue';
+
+import UnverifiedNotice from '@/components/accountlinks/UnverifiedNotice.vue';
+import VideoImportQueue from '@/components/accountlinks/VideoImportQueue.vue';
 import BaseButton from '@/components/common/BaseButton.vue';
-import BaseCardNormal from '@/components/common/BaseCardNormal.vue';
 import BaseOverlay from '@/components/common/BaseOverlay.vue';
 import { BaseIconInfo } from '@/components/common/icon';
-import SaoleiImportHelper from '@/components/dialogs/SaoleiImportHelper.vue';
 import { httpErrorNotification } from '@/components/Notifications';
 import StackBar from '@/components/visualization/StackBar/App.vue';
 import { fetchSaoleiSummary, refreshSaoleiProfile, setSaoleiAutoSync } from '@/services/saoleiSyncService';
@@ -86,13 +90,12 @@ import { AccountSaolei, SaoleiImportSummaryDefault } from '@/utils/accountlinks'
 import { toISODateTimeString } from '@/utils/datetime';
 
 const props = defineProps({
-    id: { type: String, default: '0' },
     verified: { type: Boolean, default: false },
     info: { type: AccountSaolei, default: () => new AccountSaolei() },
 });
 const emit = defineEmits(['refresh']);
-const refCarousel = useTemplateRef<typeof ElCarousel>('refCarousel');
 const queueVisible = ref(false);
+const isActive = useActivePanel();
 const saving = ref(false);
 const refreshing = ref(false);
 const autoSync = ref(props.info.auto_sync);
@@ -110,22 +113,27 @@ async function refreshSummary() {
     if (!props.verified || !id) return;
     try {
         const data = await fetchSaoleiSummary(id);
-        if (id !== props.info.id) return;
+        if (!isActive() || id !== props.info.id) return;
         summary.value = data;
         autoSync.value = data.auto_sync;
     } catch (error) {
-        httpErrorNotification(error);
+        if (isActive()) httpErrorNotification(error);
     }
 }
 
-async function toggleAutoSync(value: string | number | boolean) {
+async function toggleAutoSync(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const enabled = input.checked;
+    input.checked = autoSync.value;
+    if (saving.value) return;
     saving.value = true;
     try {
-        const data = await setSaoleiAutoSync(props.info.id, Boolean(value));
+        const data = await setSaoleiAutoSync(props.info.id, enabled);
+        if (!isActive()) return;
         autoSync.value = data.auto_sync;
         emit('refresh');
     } catch (error) {
-        httpErrorNotification(error);
+        if (isActive()) httpErrorNotification(error);
     } finally {
         saving.value = false;
     }
@@ -134,9 +142,10 @@ async function toggleAutoSync(value: string | number | boolean) {
 async function refreshProfile() {
     refreshing.value = true;
     try {
-        await refreshSaoleiProfile(props.info.id); emit('refresh');
+        await refreshSaoleiProfile(props.info.id);
+        if (isActive()) emit('refresh');
     } catch (error) {
-        httpErrorNotification(error);
+        if (isActive()) httpErrorNotification(error);
     } finally {
         refreshing.value = false;
     }

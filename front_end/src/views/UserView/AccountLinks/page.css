@@ -1,0 +1,70 @@
+.account-links-page,
+.account-panel,
+.account-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+}
+
+.account-details {
+    min-width: 0;
+    border-top: 1px solid var(--ui-border-color);
+    padding-top: 12px;
+}
+
+.account-details h2 {
+    margin: 0 0 12px;
+    font-size: var(--ui-font-size-large);
+}
+
+.account-section {
+    min-width: 0;
+}
+
+.account-panel .account-section > .base-button {
+    margin-top: 6px;
+}
+
+.account-link-form {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    min-width: 0;
+}
+
+.account-link-entry,
+.account-link-entry > label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.account-link-entry > .base-button {
+    flex-shrink: 0;
+}
+
+.account-input {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 28px;
+    border: 1px solid var(--ui-border-color);
+    border-radius: 0;
+    padding: 3px 6px;
+    background: var(--ui-fill-color-blank);
+    color: var(--ui-text-color-regular);
+    font: inherit;
+}
+
+.account-input:focus-visible {
+    outline: 2px solid var(--ui-color-primary);
+    outline-offset: 1px;
+}
+
+.account-link-form .account-guide {
+    max-width: 40rem;
+}

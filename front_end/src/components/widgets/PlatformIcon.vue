@@ -1,5 +1,5 @@
 <template>
-    <a class="link text" :href="platformlist[platform].url" target="_blank" rel="noopener noreferrer" style="vertical-align: bottom;">
+    <a class="link text" :href="platformlist[platform].url" target="_blank" rel="noopener noreferrer" style="vertical-align: baseline;">
         {{ t(`platform.${platform}`) }}
     </a>
 </template>
