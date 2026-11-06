@@ -417,7 +417,7 @@ describe('<VideoAnalyzerView />', () => {
         cy.get('.analyzer-progress-bar__range-start').click();
         cy.get('.analyzer-progress-bar__slider').invoke('val', 8000).trigger('input');
         cy.get('.analyzer-progress-bar__range-end').click();
-        cy.get('.analyzer-progress-bar__faster').click();
+        cy.get('.analyzer-progress-bar__rate').invoke('val', 1.5).trigger('input');
         cy.get('.analyzer-progress-bar__loop-all').click();
         cy.get('.analyzer-progress-bar__slider').invoke('val', 10000).trigger('input');
         cy.get('.analyzer-progress-bar__play').click();
@@ -434,7 +434,7 @@ describe('<VideoAnalyzerView />', () => {
             });
             cy.get('.analyzer-progress-bar').should('have.length', 1);
             cy.get('.analyzer-progress-bar__play').should('have.attr', 'aria-label', 'Pause');
-            cy.get('.analyzer-progress-bar__normal').should('contain.text', '1.5x');
+            cy.get('.analyzer-progress-bar__rate').should('have.value', '1.5');
             cy.get('.analyzer-progress-bar__loop-all').should('have.attr', 'aria-pressed', 'true').and('be.disabled');
             cy.get('.analyzer-progress-bar__range-time').should('have.text', '[2.000, 8.000] s');
             cy.get('.analyzer-progress-bar__slider').should(($input) => {
@@ -852,7 +852,7 @@ describe('<VideoAnalyzerView />', () => {
         cy.get('.video-analyzer-board__cursor-control .board-settings-control__handle').click();
         cy.get('.video-analyzer-board__global-toggle').click();
         cy.get('.video-analyzer-board__probability-toggle').click();
-        cy.get('.analyzer-progress-bar__faster').click();
+        cy.get('.analyzer-progress-bar__rate').invoke('val', 1.5).trigger('input');
         cy.get('.analyzer-progress-bar__loop-range').click();
         cy.get('.analyzer-progress-bar__slider').invoke('val', 2000).trigger('input');
         cy.get('.analyzer-progress-bar__range-start').click();
@@ -898,7 +898,7 @@ describe('<VideoAnalyzerView />', () => {
         });
         cy.get('.video-analyzer-board__global-toggle').should('have.attr', 'aria-pressed', 'true');
         cy.get('.video-analyzer-board__probability-toggle').should('have.attr', 'aria-pressed', 'false');
-        cy.get('.analyzer-progress-bar__normal').should('contain.text', '1.5x');
+        cy.get('.analyzer-progress-bar__rate').should('have.value', '1.5');
         cy.get('.analyzer-progress-bar__loop-range').should('have.attr', 'aria-pressed', 'true');
         cy.get('.analyzer-progress-bar__range-time').should('have.text', '[0.000, 10.732] s');
         cy.get('.analyzer-progress-bar__slider').should('have.value', '0');

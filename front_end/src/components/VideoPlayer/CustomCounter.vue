@@ -40,6 +40,7 @@ const parser = new Parser({
         assignment: false,
     },
 });
+(parser.functions as Record<string, (value: number, digits?: number) => string>).toFixed = (value, digits = 0) => value.toFixed(digits);
 
 const rows = computed(() => {
     // eslint-disable-next-line @typescript-eslint/no-meaningless-void-operator

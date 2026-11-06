@@ -16,7 +16,7 @@ This reference covers the native video player and the counters and custom events
 | Final result | Converted to text; numbers and strings can be concatenated | Must be a single number; `NaN` and positive/negative infinity are allowed | Must be a boolean, number or string |
 | Evaluation | When playback position updates | At samples selected by each row's sampling mode | Continuous sampling: the last native event in each millisecond |
 | Between samples | Does not use analyzer sample interpolation | Linear interpolation over time; outside the sample range, holds the nearest endpoint | Uses sampled occurrence states, not interpolated truth values |
-| Display format | `roundTo`, string concatenation, etc. inside the expression | Separate `d3-format` format input, default `.3f` | Color and marker/line styles; no numeric format |
+| Display format | `toFixed`, `roundTo` or string concatenation inside the expression | Separate `d3-format` format input, default `.3f` | Color and marker/line styles; no numeric format |
 | Errors | Displays the error text | Displays the error in the value cell | Parse/evaluation errors or invalid result types mean the event does not occur |
 | Difference function `d` | Not supported | Supported; predecessors follow the row's sampling mode | Supported; predecessors follow continuous sampling |
 
@@ -160,7 +160,9 @@ Use the keywords `and`, `or` and `not`. Logical results are booleans; use `condi
 
 ## Functions
 
-These built-in functions and function-form unary operators are supported in all three contexts. `x`, `a` and `f` are argument placeholders, not extra replay fields. Angles are in radians.
+The table lists built-in functions, application extensions and function-form unary operators, with their supported contexts. `x`, `a` and `f` are argument placeholders, not extra replay fields. Angles are in radians.
+
+Use `toFixed` in the player to retain trailing zeros. It returns text; `roundTo` still returns a number. New default expressions use three decimal places. Saved expressions are preserved; replace display-only `roundTo` calls with `toFixed` where needed. Analyzer counters continue to use their separate format field, such as `.3f`.
 
 <!-- functions -->
 
@@ -173,6 +175,7 @@ These built-in functions and function-form unary operators are supported in all 
 | `round(x)` | Round to the nearest integer using JavaScript rounding rules | Yes | Yes | Yes |
 | `trunc(x)` | Remove the fractional part towards zero | Yes | Yes | Yes |
 | `roundTo(x, n)` | Round to n decimal places, e.g. `roundTo(time, 3)`; negative n rounds to tens, hundreds, etc.; does not pad trailing zeros | Yes | Yes | Yes |
+| `toFixed(x, n)` | Return text with fixed decimal places, e.g. `toFixed(3.4, 3)` yields `"3.400"`. Omitted n defaults to 0; precision follows JavaScript `Number.toFixed` (0–100). Combine with `\|\|` | Yes | No; use the separate format field | No |
 | `min(a, b, ...)` | Minimum; also accepts an array, e.g. `min([left, right])` | Yes | Yes | Yes |
 | `max(a, b, ...)` | Maximum; also accepts an array, e.g. `max([left, right])` | Yes | Yes | Yes |
 | `sqrt(x)` | Square root | Yes | Yes | Yes |
@@ -260,7 +263,7 @@ The `pluck` pulse occurs when the cumulative value changes from the previous mil
 
 | Context | Expression | Result |
 | --- | --- | --- |
-| Video player | `roundTo(bbbv_s, 3) \|\| "@" \|\| bbbv_solved \|\| "/" \|\| bbbv` | Combine rate, solved BV and total BV as text |
+| Video player | `toFixed(bbbv_s, 3) \|\| "@" \|\| bbbv_solved \|\| "/" \|\| bbbv` | Combine a rate with three decimal places, solved BV and total BV as text |
 | Analyzer counter | `time > 0 ? bbbv_solved / time : 0` | Cumulative 3BV/s; the separate format can be `.3f` |
 | Analyzer counter | `d(bbbv_solved) / d(time)` | 3BV/s between samples; first sample is `NaN` |
 | Pulse custom event | `d(left) > 0` | A pulse when cumulative left clicks increase |
