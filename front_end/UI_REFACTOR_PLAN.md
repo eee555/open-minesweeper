@@ -47,21 +47,20 @@
 
 | 批次 | 工作 | 范围与边界 |
 | --- | --- | --- |
-| 2 | 剩余描述布局 | 剩余 10 个文件共 11 处 ElDescriptions 位于管理员与账号关联区域，按既定范围暂缓 |
+| 2 | 剩余描述布局 | 当前 4 个管理员文件共 4 处 ElDescriptions，随维护处理 |
 | 3 | 剩余表格核对 | 其余 5 个 ElTable 根据实际排序、编辑等依赖决定是否保留 |
 | 7 | 图标注册迁移 | 剩余 7.2：逐模块取消全局图标注册，同步处理 Cypress 注册 |
-| 4 | 其他控件换肤与尺寸细化 | Slider 沙漏外形及 4.2.4 各迁移批次已验收，账号关联受控开关暂留；其余 Slider、输入与表单、Tabs、浮层等继续分批推进 |
+| 4 | 其他控件换肤与尺寸细化 | Slider 沙漏外形及 4.2.4 各迁移批次已验收；其余 Slider、输入与表单、Tabs、浮层等继续分批推进 |
 | 5 | PrimeVue 退出 | 筛选控件、表格替代验证、逐表迁移和依赖清理；随相关模块维护推进 |
 | 6 | 局部收尾 | 随每批删除失效导入、重复样式和已无使用方的兼容项，更新本计划 |
 
-下一步可推进 4.2.5 的不透明度原生迁移及剩余轨道、提示样式；图标 7.2 仍可独立推进。首页比赛卡片、账号关联页面重做和 PrimeVue 全部退出不作为其他批次的前置条件。
+4.2.5 的不透明度原生迁移及剩余轨道、提示样式，以及图标 7.2 仍可独立推进；首页比赛卡片和 PrimeVue 全部退出不作为前置条件。
 
 ### 2. 剩余描述布局
 
-剩余 11 处 ElDescriptions 位于 10 个文件，按既定范围暂缓：
+当前 4 处 ElDescriptions 位于 4 个管理员文件：
 
 - 管理员区域 4 处：`components/GSCAdmin/GeneralInfo.vue`、`views/StaffView/Task.vue`、`VideoModel.vue`、`WeeklyTournament.vue`，随维护迁移；保留动态循环、v-loading 和条件显示。
-- 账号关联区域 7 处：`CardMineracer.vue`、`CardBilibili.vue`、`CardAddMineracer.vue`、`CardWoM.vue`（2 处）、`CardSaolei.vue`、`CardMsgames.vue`，随页面重做处理。
 
 后续直接复用模板，按实际列数与跨列需求完善局部 CSS；不复制 ElDescriptions 的完整 API，也不将子控件的交互重写纳入布局迁移。
 
@@ -92,17 +91,17 @@ BaseTable 的迁移边界保持如下：
 
 当前入口及依赖已核对：
 
-- [`bootstrap.ts`](src/bootstrap.ts) 显式导入剩余 8 个图标，通过有限映射调用 app.component。
+- [`bootstrap.ts`](src/bootstrap.ts) 显式导入剩余 7 个图标，通过有限映射调用 app.component。旧账号关联专用的 Ticket 注册及豁免已随旧文件删除。
 - [`Menu.cy.ts`](src/views/Menu.cy.ts) 仅注册登录、注册及找回密码渲染链需要的 Key、Lock、Message、User，共 4 个图标；不再为导航注入图标。
 - prefix-icon 等字符串 props 仍需逐项检查，不能只搜索图标标签。
 - 已核对当前安装包：ElMenu 子菜单箭头直接导入 `ArrowDown` / `ArrowRight`；ElFormItem 相关状态图标由 ElInput 的校验状态映射承接，加载、成功、失败及密码显隐图标已在库内部导入。这些内部使用本身不要求项目全局注册；`prefix-icon="User"` 等项目传入的字符串仍需全局解析。
 
-7.2 需要逐模块消除的全局依赖如下，去重后共 8 个；历史注释与 ESLint ignorePatterns 不作为实际使用依据：
+7.2 需要逐模块消除的全局依赖如下，去重后共 7 个；历史注释与 ESLint ignorePatterns 不作为实际使用依据：
 
 | 调用来源 | 图标 |
 | --- | --- |
 | `Login/LoginForm.vue`、`Login/RegisterForm.vue`、`formItems/EmailFormItem.vue`、`EmailCodeBlock.vue`、`PasswordConfirmBlock.vue` 的输入前缀；找回密码表单复用后面三个组件 | User、Lock、Key、Message |
-| `visualization/ColorSchemeSetting.vue`、`accountlinks/CardWoM.vue`、`widgets/UserArbiterCSV.vue` 的裸标签 | ArrowLeft、ArrowRight、Ticket、QuestionFilled |
+| `visualization/ColorSchemeSetting.vue`、`widgets/UserArbiterCSV.vue` 的裸标签 | ArrowLeft、ArrowRight、QuestionFilled |
 
 7.2 需要同步移除的测试注册如下：
 
@@ -111,7 +110,6 @@ BaseTable 的迁移边界保持如下：
 | `views/Menu.cy.ts` | 登录、注册、找回密码弹窗需要的 Key、Lock、Message、User，共 4 个 |
 | `Login/LoginForm.cy.ts` / `Login/RegisterForm.cy.ts` | Key、Lock、User / Key、Lock、Message、User |
 | `formItems/EmailCodeBlock.cy.ts` / `PasswordConfirmBlock.cy.ts` | Key / Lock |
-| `accountlinks/CardWoM.cy.ts` / `App.cy.ts` | Ticket；现有 `mountAccountLink` 允许调用方传入有限的组件映射，其他账号关联测试默认不注册图标 |
 | `VideoPlayer/NativePlayer.cy.ts` / `views/UserView/UserVideoView.cy.ts` | ArrowLeft、ArrowRight / QuestionFilled |
 
 #### 7.2 后续目标：不全局注册任何图标
@@ -136,11 +134,10 @@ ESLint 公共规则禁止所有参与 lint 的 Vue 文件新增 ElCheckbox、ElC
 
 | 子批次 | 当前范围 | 实施边界 |
 | --- | --- | --- |
-| 4.2.4 Switch 保留范围 | 仅剩 accountlinks/CardSaolei.vue 的 1 处 ElSwitch | 账号关联中的受控开关暂留实现，随页面重做处理 |
 | 4.2.5 Slider | 3 个文件、3 处 ElSlider；与 Analyzer 原生进度滑块共用的沙漏外形已验收 | 简单不透明度单独迁移；双滑块及播放器拖动保留组件交互，继续细化轨道和提示样式 |
-| 4.2.6 输入与表单 | ElInput 为 19 个文件、35 处，ElInputNumber 为 17 个文件、27 处；另有 6 处 ElForm、22 处 ElFormItem | 先盘点能力和校验依赖，再以登录/注册为换肤试点；不批量替换表单和数值处理 |
+| 4.2.6 输入与表单 | ElInput 为 17 个文件、33 处，ElInputNumber 为 17 个文件、27 处；另有 5 处 ElForm、19 处 ElFormItem | 先盘点能力和校验依赖，再以登录/注册为换肤试点；不批量替换表单和数值处理 |
 | 4.2.7 Tabs | 11 个业务文件、12 处 ElTabs；另有 1 个测试包装组件 | 先验收已有水平换行与逐项选中指示，再细化高度、间距、边框；保留纵向布局和路由状态 |
-| 4.2.8 弹窗、通知与加载 | 19 处 ElDialog、2 处 ElDrawer，以及通知和加载调用 | 以 BaseOverlay、登录弹窗、Notifications 为代表，逐类调整内部间距、边角与浮层 |
+| 4.2.8 弹窗、通知与加载 | 18 处 ElDialog、2 处 ElDrawer，以及通知和加载调用 | 以 BaseOverlay、登录弹窗、Notifications 为代表，逐类调整内部间距、边角与浮层 |
 
 以上数量按 src 下 Vue 模板声明统计，循环产生的实例不重复计数，组件库内部调用不计入。Radio 和 Switch 优先复用原生表单行为，不新增 BaseRadio / BaseSwitch 状态层；输入与表单是否原生迁移，以逐项盘点结果为准。
 
@@ -156,7 +153,7 @@ UserVideoView 的模式多选、HistoryVideos 的录像标识多选、Logs 的�
 
 后续维护继续保留模型值类型、有效空字符串、null / undefined 未选择值、disabled、computed 路由读写和 change 的参数及模型更新顺序。多选、折叠、清空、搜索、键盘及滚动行为按原实现保留，不能因样式复用改变请求或筛选结果。
 
-CardAdd 的平台单选随账号关联页面重做，列入第 6 节暂缓范围；PrimeVue Listbox 筛选器及全部退出按第 5 节独立推进。
+账号关联页面在当前平台的详情区显示关联表单，不增加第二个平台选择器。PrimeVue Listbox 筛选器及全部退出按第 5 节独立推进。
 
 #### 4.2.3 Radio 复用约定（已验收）
 
@@ -168,7 +165,7 @@ CardAdd 的平台单选随账号关联页面重做，列入第 6 节暂缓范围
 
 后续维护保留布尔模型、label 关联、键盘操作和原有更新语义：本地配置由 v-model 和 store 维护；录像筛选只在用户 change 时重置页码并请求一次；allowEmptyToken 仅控制空标识的提交条件，切换本身不请求。原生 change 传 Event，不能照搬 ElSwitch 的值参数。
 
-仅 accountlinks/CardSaolei.vue 的 autoSync 暂留 ElSwitch：保存时禁用，成功后采用服务端返回状态并刷新，失败保留原值。随共用适配维护视觉，原生迁移随账号关联页面重做；不机械改成提前写入模型的 v-model。
+应用模板中的 ElSwitch 已归零。账号关联 autoSync 使用受控原生开关：保存时禁用，成功后采用服务端返回状态并刷新，失败保留原值，不提前用 v-model 承诺保存成功。
 
 #### 4.2.5 Slider：剩余迁移与样式
 
@@ -208,7 +205,7 @@ Slider 使用方涉及公共播放器；实施前检查 Analyzer 与离线入口
 | --- | --- |
 | DataTable / Column | `components/VideoList/App.vue`、`components/VideoUpload/Table.vue`、`components/accountlinks/VideoImportQueue.vue`、`components/accountlinks/MSGamesVideoImportQueue.vue`、`views/DatabaseView/IdentifierView.vue`、`views/StaffView/AccountLink.vue`、`views/StaffView/Task.vue`，共 7 个表格入口；VideoList 下还有复用列组件 |
 | Listbox | VideoList 的模式、软件、状态、难度列，以及上传表格、录像导入队列的筛选器 |
-| Toolbar | 6 个账号关联卡片及 `views/StaffView/Task.vue`，共 7 处 |
+| Toolbar | 仅 `views/StaffView/Task.vue` 的 1 处；账号关联旧 Toolbar 已随卡片删除 |
 | 注册、主题与类型 | main.ts 中 PrimeVue / Aura preset，`@primevue/core/api`、DataTable 事件类型及相关 Cypress 测试的注册 |
 
 按以下小步骤推进：
@@ -216,7 +213,7 @@ Slider 使用方涉及公共播放器；实施前检查 Analyzer 与离线入口
 1. 随模块维护逐个替换外围筛选控件，保留值类型、单选/多选、筛选回调和筛选清空语义；优先复用已有控件，不同时重写表格状态。
 2. 单独验证表格与分页的替代组合。先核对项目现有 Element Plus 表格与分页组件能否满足需求，验证完成后再决定实现，不预先迁移全部表格。
 3. 选择交互较少的表格试点，再逐表替换；每个表格单独核对排序、筛选、分页、展开、选择及行操作的处理顺序和语义。
-4. Toolbar 随账号关联页面重做或管理员任务页维护处理；新布局采用原生容器与 CSS，不为旧页面复制整套 Toolbar API。
+4. 管理员任务页的 Toolbar 随维护处理，不复制整套 Toolbar API；不删除仍被导入队列等表格和其他页面使用的依赖。
 5. 最后一个使用方退出后，再清理注册、preset、过渡样式、测试配置以及 `primevue`、`@primevue/core`、`@primeuix/themes` 依赖和锁文件。PrimeIcons 保留。
 
 现有 `vendors/primevue-table*.css` 已完成必要的表格过渡适配，不再重复安排建立这些文件，也不建设完整的 PrimeVue 主题体系。是否提取 main.ts 中的 preset，按实际维护需要决定。
@@ -225,18 +222,18 @@ Slider 使用方涉及公共播放器；实施前检查 Analyzer 与离线入口
 
 `components/visualization/VideoScatter/Toolbar.vue` 是项目组件，不能仅凭名称将其列入 PrimeVue 移除清单。
 
-### 6. 暂缓范围与局部收尾
+### 6. 暂缓范围、独立页面计划与局部收尾
 
 以下范围保持暂缓：
 
 - 首页比赛卡片 `views/HomeView/NormalTournamentQueue.vue`：当前唯一 ElCard，带 header；按既定范围保留。
-- 账号关联页面：将来重做时整体处理旧卡片、Toolbar、CardAdd 的平台 ElSelect 及 CardSaolei 受控开关的原生迁移；共用适配只做必要的视觉兼容。当前残留的 ElButton / ElLink 主要在该目录，ElLink 另在首页比赛卡片中使用。
 - PrimeVue 全量退出：按上一节独立推进，不阻塞本轮其他样式工作。
 
-当前参与 lint 的页面限制新增 ElText、Element Plus 布局组件、ElCard、ElDivider 及 ElCheckbox / ElCheckboxGroup / ElCheckboxButton；ElButton / ElLink 限制在 `src/**/*.vue` 中有以下 8 个文件例外：
+
+当前参与 lint 的页面限制新增 ElText、Element Plus 布局组件、ElCard、ElDivider 及 ElCheckbox / ElCheckboxGroup / ElCheckboxButton；ElButton / ElLink 限制在 `src/**/*.vue` 中有以下 2 个文件例外：
 
 - `views/HomeView/NormalTournamentQueue.vue`。
-- `components/accountlinks/` 下的 `CardAdd.vue`、`CardAddMineracer.vue`、`CardBilibili.vue`、`CardSaolei.vue`、`CardWoM.vue`、`CarouselControl.vue`、`VideoImportQueue.vue`。
+- `components/accountlinks/VideoImportQueue.vue`。
 
 这些是按文件保留的兼容范围，不扩展为目录豁免；首页比赛卡片另有既存 ElCard 的局部 disable。迁移某个暂留文件后，同批清理其已不需要的规则例外。
 
