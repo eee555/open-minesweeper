@@ -194,17 +194,30 @@ describe('<GeneralInfo />', () => {
         cy.wait('@getGSCInfo');
         cy.wait('@getGSCTask');
         cy.contains('标识：G33333').should('be.visible');
+        cy.get('[data-cy=allow-empty-token] input').should('not.be.checked');
         cy.contains('button', '修改！').click();
         cy.then(() => {
             expect(setTournamentRequests).to.equal(0);
         });
 
-        cy.get('.el-switch').click();
+        cy.get('[data-cy=allow-empty-token]').click();
+        cy.get('[data-cy=allow-empty-token] input').should('be.checked');
+        cy.then(() => {
+            expect(setTournamentRequests).to.equal(0);
+        });
         cy.contains('button', '修改！').click();
         cy.wait('@setTournament');
         cy.then(() => {
             expect(setTournamentRequests).to.equal(1);
         });
         cy.contains('标识：未设置').should('be.visible');
+        cy.closeElNotifications();
+        cy.get('[data-cy=allow-empty-token] input').focus();
+        cy.realPress('Space');
+        cy.get('[data-cy=allow-empty-token] input').should('not.be.checked');
+        cy.contains('button', '修改！').click();
+        cy.then(() => {
+            expect(setTournamentRequests).to.equal(1);
+        });
     });
 });
