@@ -45,8 +45,7 @@ describe('staff minigame record deletion', () => {
         cy.closeElNotifications();
 
         cy.intercept('GET', '/api/minigame/flag-chord/player/42', { player_id: 42, records: { 'flag-chord-b-v1': score } }).as('chordRecords');
-        cy.get('[data-cy=minigame-game]').click();
-        cy.get('.el-select-dropdown__item').filter(':visible').contains(i18n.global.t('minigame.flag-chord')).click();
+        cy.get('[data-cy=minigame-game]').select('flag-chord');
         cy.get('[data-cy=minigame-records]').should('not.exist');
         cy.get('[data-cy=minigame-query]').click();
         cy.wait('@chordRecords');

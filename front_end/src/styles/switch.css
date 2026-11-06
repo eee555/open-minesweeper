@@ -1,0 +1,96 @@
+.switch {
+    --ui-switch-width: 32px;
+    --ui-switch-height: 18px;
+    --ui-switch-thumb-size: 12px;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: fit-content;
+    max-width: 100%;
+    min-height: 24px;
+    color: var(--ui-text-color-regular);
+    font-size: var(--ui-font-size-base);
+    line-height: 1.4;
+    vertical-align: middle;
+    cursor: pointer;
+}
+
+.switch--small {
+    --ui-switch-width: 28px;
+    --ui-switch-height: 16px;
+    --ui-switch-thumb-size: 10px;
+    min-height: 20px;
+    font-size: var(--ui-font-size-extra-small);
+}
+
+.switch-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    opacity: 0;
+    cursor: inherit;
+}
+
+.switch-track {
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
+    flex: 0 0 auto;
+    width: var(--ui-switch-width);
+    height: var(--ui-switch-height);
+    border: 1px solid var(--ui-border-color);
+    border-radius: 0;
+    padding: 0 2px;
+    background: var(--ui-border-color);
+    pointer-events: none;
+}
+
+.switch-track::before {
+    content: '';
+    flex: 0 0 auto;
+    width: var(--ui-switch-thumb-size);
+    height: var(--ui-switch-thumb-size);
+    background: var(--ui-color-white);
+}
+
+.switch:hover .switch-input:enabled + .switch-track {
+    border-color: var(--ui-color-primary);
+}
+
+.switch-input:checked + .switch-track {
+    border-color: var(--ui-color-primary);
+    background: var(--ui-color-primary);
+}
+
+.switch-input:checked + .switch-track::before {
+    margin-left: auto;
+}
+
+.switch-input:focus-visible + .switch-track {
+    outline: 2px solid var(--ui-color-primary);
+    outline-offset: 2px;
+}
+
+.switch:has(> .switch-input:disabled) {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+@media (forced-colors: active) {
+    .switch-track {
+        border-color: ButtonText;
+        background: Canvas;
+    }
+    .switch-track::before {
+        background: ButtonText;
+    }
+    .switch-input:checked + .switch-track {
+        border-color: Highlight;
+        background: Highlight;
+    }
+    .switch-input:checked + .switch-track::before {
+        background: HighlightText;
+    }
+}

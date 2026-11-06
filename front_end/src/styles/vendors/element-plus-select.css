@@ -1,0 +1,80 @@
+@import './element-plus-select-tags.css';
+@import './element-plus-select-dropdown.css';
+
+/* The teleported dropdown needs the same project colors as the control. */
+.el-select,
+.el-select__popper.el-popper {
+    --el-color-primary: var(--ui-select-selected-color);
+    --el-text-color-regular: var(--ui-select-color);
+    --el-text-color-placeholder: var(--ui-select-placeholder-color);
+    --el-border-color: var(--ui-select-border-color);
+    --el-border-color-hover: var(--ui-select-hover-border-color);
+    --el-border-radius-base: var(--ui-select-border-radius);
+    --el-fill-color-blank: var(--ui-select-background);
+    --el-fill-color-light: var(--ui-select-hover-background);
+    --el-select-font-size: var(--ui-select-font-size);
+    --el-select-input-font-size: var(--ui-select-icon-size);
+    --el-select-input-color: var(--ui-select-placeholder-color);
+    --el-input-text-color: var(--ui-select-color);
+    --el-input-icon-color: var(--ui-select-placeholder-color);
+    --el-select-multiple-input-color: var(--ui-select-color);
+    --el-select-disabled-color: var(--ui-select-disabled-color);
+    --el-select-disabled-border: var(--ui-select-disabled-border-color);
+    --el-select-close-hover-color: var(--ui-select-selected-color);
+}
+
+.el-select {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.el-select--small {
+    --ui-select-min-height: var(--ui-select-small-min-height);
+    --ui-select-font-size: var(--ui-select-small-font-size);
+    --ui-select-padding-inline: var(--ui-select-padding-block);
+    --ui-select-gap: 2px;
+}
+
+.el-select .el-select__wrapper {
+    min-height: var(--ui-select-min-height);
+    padding: var(--ui-select-padding-block) var(--ui-select-padding-inline);
+    border: 1px solid var(--ui-select-border-color);
+    border-radius: var(--ui-select-border-radius);
+    background-color: var(--ui-select-background);
+    font-size: var(--ui-select-font-size);
+    line-height: var(--ui-select-line-height);
+    gap: var(--ui-select-gap);
+    box-shadow: none;
+}
+
+.el-select .el-select__wrapper:is(:hover, .is-focused, .is-disabled) {
+    box-shadow: none;
+}
+
+.el-select .el-select__wrapper:not(.is-disabled):is(:hover, .is-hovering) {
+    border-color: var(--ui-select-hover-border-color);
+}
+
+.el-select .el-select__wrapper:not(.is-disabled).is-focused {
+    border-color: var(--ui-select-focus-color);
+}
+
+.el-select .el-select__wrapper.is-disabled {
+    --el-select-multiple-input-color: var(--ui-select-disabled-color);
+    border-color: var(--ui-select-disabled-border-color);
+    background-color: var(--ui-select-disabled-background);
+    color: var(--ui-select-disabled-color);
+}
+
+.el-select :is(.el-select__selection, .el-select__prefix, .el-select__suffix) {
+    gap: var(--ui-select-gap);
+}
+
+.el-select .el-select__selection.is-near {
+    margin-left: 0;
+}
+
+.el-select .el-select__input {
+    height: calc(var(--ui-select-font-size) * var(--ui-select-line-height));
+    line-height: var(--ui-select-line-height);
+}

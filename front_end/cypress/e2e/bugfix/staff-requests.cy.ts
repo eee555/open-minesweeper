@@ -25,6 +25,28 @@ interface TaskPage {
     items: TaskDetail[];
 }
 
+interface TaskInterception {
+    response?: {
+        statusCode?: number;
+        body: TaskPage;
+    };
+}
+
+// The staff table loads on mount and after every mutation, so several detail requests can be in flight.
+// Assert on the response of a request issued after the click instead of the next unconsumed interception.
+function checkTaskPageAfterReload(check: (items: TaskDetail[]) => void) {
+    cy.get<TaskInterception[]>('@loadTasks.all').then((previous) => {
+        const requestCount = previous.length;
+        cy.contains('button', '加载任务').click();
+        cy.get<TaskInterception[]>('@loadTasks.all').should((interceptions) => {
+            expect(interceptions.length).to.be.greaterThan(requestCount);
+            const last = interceptions[interceptions.length - 1];
+            expect(last?.response?.statusCode).to.eq(200);
+            check(last?.response?.body?.items ?? []);
+        });
+    });
+}
+
 describe('Staff requests against the backend', () => {
     it('Before All', () => {
         cy.flushDatabase();
@@ -137,22 +159,18 @@ describe('Staff requests against the backend', () => {
                 // Clicking the rightmost action can scroll the ID column out of view.
                 cy.contains('td', restartedTask.id).should('exist');
 
-                cy.contains('button', '加载任务').click();
-                cy.wait<unknown, TaskPage>('@loadTasks').then(({ response: loaded }) => {
-                    expect(loaded?.statusCode).to.eq(200);
-                    expect(loaded?.body.items).to.deep.include(restartedTask);
-                    expect(loaded?.body.items).to.deep.include(failedTask);
+                checkTaskPageAfterReload((items) => {
+                    expect(items).to.deep.include(restartedTask);
+                    expect(items).to.deep.include(failedTask);
                 });
 
                 cy.contains('tr', failedTask.id).find('input[type="checkbox"]').check();
                 cy.contains('button', '删除选中任务').click();
                 cy.wait('@deleteTask').its('response.statusCode').should('eq', 200);
                 cy.contains('td', failedTask.id).should('not.exist');
-                cy.contains('button', '加载任务').click();
-                cy.wait<unknown, TaskPage>('@loadTasks').then(({ response: loaded }) => {
-                    expect(loaded?.statusCode).to.eq(200);
-                    expect(loaded?.body.items.map((task) => task.id)).not.to.include(failedTask.id);
-                    expect(loaded?.body.items).to.deep.include(restartedTask);
+                checkTaskPageAfterReload((items) => {
+                    expect(items.map((task) => task.id)).not.to.include(failedTask.id);
+                    expect(items).to.deep.include(restartedTask);
                 });
                 cy.contains('td', failedTask.id).should('not.exist');
                 cy.contains('td', restartedTask.id).should('exist');
@@ -166,10 +184,8 @@ describe('Staff requests against the backend', () => {
         cy.visit('/#/staff/userprofile');
         cy.contains('[role="tab"]', '排行纪录重建').click();
         cy.contains('button', '重建纪录').should('be.disabled');
-        cy.get('.ranking-repair .el-select').eq(0).click();
-        cy.contains('.el-select-dropdown__item:visible', '扫雷网规则（NF）').click();
-        cy.get('.ranking-repair .el-select').eq(1).click();
-        cy.contains('.el-select-dropdown__item:visible', 'Time 总和').click();
+        cy.get('.ranking-repair select').eq(0).select('saolei_nf');
+        cy.get('.ranking-repair select').eq(1).select('sumt');
         cy.get('.ranking-repair .el-input-number input').type(String(USER.id));
         cy.contains('button', '重建纪录').click();
         cy.wait('@rebuildRecord').then(({ request, response }) => {

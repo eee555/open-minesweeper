@@ -143,6 +143,7 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/primevue-table.css';
 import '@/styles/descriptions.css';
 import { FilterMatchMode } from '@primevue/core/api';
 import PrColumn from 'primevue/column';

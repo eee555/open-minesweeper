@@ -1,0 +1,13 @@
+.el-slider__button {
+    width: var(--ui-slider-thumb-width);
+    height: var(--ui-slider-thumb-height);
+    border: 0;
+    border-radius: 0;
+    background: var(--ui-slider-thumb-color);
+    clip-path: var(--ui-slider-thumb-shape);
+    forced-color-adjust: none;
+}
+
+.el-slider__runway.is-disabled .el-slider__button {
+    background: var(--ui-slider-thumb-disabled-color);
+}

@@ -2,24 +2,24 @@
     <form class="ranking-repair" @submit.prevent="rebuild">
         <label>
             {{ t('local.ranking') }}
-            <ElSelect v-model="rankingName" :aria-label="t('local.ranking')" :disabled="working">
-                <ElOption :label="t('local.standard')" value="saolei" />
-                <ElOption :label="t('local.nf')" value="saolei_nf" />
-                <ElOption :label="t('prop.thrp')" value="thrp" />
-                <ElOption label="NF IOE" value="nf_ioe" />
-            </ElSelect>
+            <select v-model="rankingName" class="base-select" :aria-label="t('local.ranking')" :disabled="working">
+                <option value="saolei">{{ t('local.standard') }}</option>
+                <option value="saolei_nf">{{ t('local.nf') }}</option>
+                <option value="thrp">{{ t('prop.thrp') }}</option>
+                <option value="nf_ioe">NF IOE</option>
+            </select>
         </label>
         <label>
             {{ t('local.stat') }}
-            <ElSelect v-if="rankingName === 'thrp'" v-model="thrpStat" :aria-label="t('local.stat')" :disabled="working">
-                <ElOption v-for="field in thrpStats" :key="field" :label="field === 'e_nf' ? `${t('level.e')} NF` : t(`level.${field}`)" :value="field" />
-            </ElSelect>
-            <ElSelect v-else-if="rankingName === 'nf_ioe'" v-model="ioeStat" :aria-label="t('local.stat')" :disabled="working">
-                <ElOption v-for="field in nfIOEStats" :key="field" :label="t(`level.${field}`)" :value="field" />
-            </ElSelect>
-            <ElSelect v-else v-model="stat" :aria-label="t('local.stat')" :disabled="working">
-                <ElOption v-for="field in saoleiFields" :key="field" :label="t(`local.${field}`)" :value="field" />
-            </ElSelect>
+            <select v-if="rankingName === 'thrp'" v-model="thrpStat" class="base-select" :aria-label="t('local.stat')" :disabled="working">
+                <option v-for="field in thrpStats" :key="field" :value="field">{{ field === 'e_nf' ? `${t('level.e')} NF` : t(`level.${field}`) }}</option>
+            </select>
+            <select v-else-if="rankingName === 'nf_ioe'" v-model="ioeStat" class="base-select" :aria-label="t('local.stat')" :disabled="working">
+                <option v-for="field in nfIOEStats" :key="field" :value="field">{{ t(`level.${field}`) }}</option>
+            </select>
+            <select v-else v-model="stat" class="base-select" :aria-label="t('local.stat')" :disabled="working">
+                <option v-for="field in saoleiFields" :key="field" :value="field">{{ t(`local.${field}`) }}</option>
+            </select>
         </label>
         <label>
             {{ t('prop.userId') }}
@@ -39,7 +39,7 @@
 </template>
 
 <script setup lang="ts">
-import { ElInputNumber, ElOption, ElSelect } from 'element-plus';
+import { ElInputNumber } from 'element-plus';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 

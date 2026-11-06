@@ -37,7 +37,9 @@
             <div class="description-item">
                 <dt>{{ t('nf') }}</dt>
                 <dd>
-                    <ElSwitch v-model="nfOnly" @change="state.CurrentPage = 1; request_videos();" />
+                    <label class="checkbox" data-cy="nf-only">
+                        <input v-model="nfOnly" class="checkbox-input" type="checkbox" :aria-label="t('nf')" @change="state.CurrentPage = 1; request_videos();">
+                    </label>
                 </dd>
             </div>
             <div class="description-item">
@@ -71,11 +73,13 @@
 </template>
 
 <script lang="ts" setup>
+import '@/styles/vendors/element-plus-select.css';
+import '@/styles/vendors/element-plus-table.css';
 import '@/styles/descriptions.css';
 import '@/styles/layout.css';
 // 全网录像的检索器，根据三个维度排序
 import type { TableColumnCtx } from 'element-plus';
-import { ElPagination, ElSwitch, ElTable, ElTableColumn } from 'element-plus';
+import { ElPagination, ElTable, ElTableColumn } from 'element-plus';
 import { onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 

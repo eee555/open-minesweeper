@@ -57,6 +57,7 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/element-plus.css';
 import { ElAlert, ElButton, ElDescriptions, ElDescriptionsItem, ElLink, ElStep, ElSteps, ElTag } from 'element-plus';
 import PrToolbar from 'primevue/toolbar';
 import { computed, onBeforeUnmount, ref } from 'vue';

@@ -49,7 +49,7 @@ describe('<SpeedRanking /> child routes', () => {
         cy.wait('@pb').its('request.query').should('include', { level: 'e', bv: '381', nf: 'true', start: '50', end: '100' });
         cy.get('.nf-toggle input').should('be.checked');
         cy.get('.pb-pagination .el-pager .is-active').should('have.text', '2');
-        cy.get('.ranking-selector').should('contain.text', 'PB');
+        cy.get('.ranking-selector').should('have.value', 'pb');
         cy.get('.el-tabs__item.is-active').should('have.text', 'Speed');
         cy.get('.el-tabs__item.is-active').click();
         cy.wrap(router).its('currentRoute.value.query').should('deep.equal', pbQuery);
@@ -82,11 +82,10 @@ describe('<SpeedRanking /> child routes', () => {
         cy.get('@counts.all').should('have.length', 2);
         checkColorPropagation('PBRanking');
 
-        cy.get('.ranking-selector').click();
-        cy.get('.el-select-dropdown__item').filter(':visible').contains('Rule').click();
+        cy.get('.ranking-selector').select('saolei');
         cy.wait('@saolei');
         cy.wrap(router).its('currentRoute.value.path').should('eq', '/ranking/speed/saolei');
-        cy.get('.ranking-selector').should('contain.text', 'Rule');
+        cy.get('.ranking-selector').should('have.value', 'saolei');
         cy.get('.el-tabs__item.is-active').should('have.text', 'Speed');
         cy.get('.saolei-ranking-table').should('exist');
         cy.get('.pb-ranking-table').should('not.exist');
@@ -98,7 +97,7 @@ describe('<SpeedRanking /> child routes', () => {
         });
         cy.wrap(router).its('currentRoute.value.path').should('eq', '/ranking/speed/pb');
         cy.wrap(router).its('currentRoute.value.query').should('deep.equal', pbQuery);
-        cy.get('.ranking-selector').should('contain.text', 'PB');
+        cy.get('.ranking-selector').should('have.value', 'pb');
         cy.get('.pb-ranking-table').should('exist');
         cy.get('.nf-toggle input').should('be.checked');
         cy.get('.pb-pagination .el-pager .is-active').should('have.text', '2');
@@ -106,12 +105,12 @@ describe('<SpeedRanking /> child routes', () => {
         cy.then(() => router.push({ name: 'ranking_speed' }));
         cy.wait('@lsf');
         cy.wrap(router).its('currentRoute.value.path').should('eq', '/ranking/speed/lsf');
-        cy.get('.ranking-selector').should('contain.text', 'LSF');
+        cy.get('.ranking-selector').should('have.value', 'lsf');
         cy.get('.lsf-ranking-table').should('exist');
         checkImprovementHelp('Improve your top-five means');
         checkColorPropagation('LSFRanking');
 
-        cy.then(() => router.push({ name: 'ranking_speed_top' }));
+        cy.get('.ranking-selector').select('top');
         cy.wait('@top');
         checkImprovementHelp('Each metric selects its own best five');
         checkColorPropagation('TopRanking');

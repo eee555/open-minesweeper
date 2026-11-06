@@ -1,0 +1,29 @@
+/* Tags keep their remove controls and can grow onto additional lines. */
+.el-select .el-tag {
+    --el-tag-text-color: var(--ui-select-color);
+    --el-tag-bg-color: var(--ui-select-tag-background);
+    --el-tag-border-color: transparent;
+    --el-tag-hover-color: var(--ui-select-selected-background);
+    --el-tag-border-radius: var(--ui-select-border-radius);
+    --el-tag-font-size: var(--ui-select-font-size);
+    height: calc(var(--ui-select-min-height) - 2px - var(--ui-select-padding-block) * 2);
+    padding-inline: var(--ui-select-gap);
+}
+
+.el-select .el-tag .el-tag__close {
+    width: var(--ui-select-icon-size);
+    height: var(--ui-select-icon-size);
+    margin-left: var(--ui-select-gap);
+    border-radius: var(--ui-select-border-radius);
+    font-size: var(--ui-select-icon-size);
+}
+
+.el-select .el-tag .el-tag__close:hover {
+    color: var(--ui-select-selected-color);
+    background-color: var(--ui-select-selected-background);
+}
+
+.el-select .el-select__wrapper.is-disabled .el-tag {
+    --el-tag-text-color: var(--ui-select-disabled-color);
+    --el-tag-bg-color: var(--ui-select-disabled-background);
+}

@@ -20,17 +20,20 @@
             v-model="currentMs" class="progress-bar__slider" :min="0" :max="durationMs"
             :step="step" :format-tooltip="formatSeconds" @pointerdown.capture="beginSeek" @change="finishSeek"
         />
-        <ElSelect v-model="playbackRate" class="progress-bar__speed" :title="t('local.speed')">
-            <ElOption v-for="rate in playbackRates" :key="rate" :value="rate" :label="`${rate}x`" />
-        </ElSelect>
+        <select v-model="playbackRate" class="base-select progress-bar__speed" :title="t('local.speed')" :aria-label="t('local.speed')">
+            <option v-for="rate in playbackRates" :key="rate" :value="rate">
+                {{ rate }}x
+            </option>
+        </select>
     </div>
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/element-plus-slider.css';
 import '@/styles/button.css';
 import 'primeicons/primeicons.css';
 
-import { ElOption, ElSelect, ElSlider } from 'element-plus';
+import { ElSlider } from 'element-plus';
 import { onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 

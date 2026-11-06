@@ -59,12 +59,11 @@ describe('<ProgressBar />', () => {
         modelUpdate(0).should('eq', 50);
     });
 
-    it('emits current time updates while playing', () => {
+    it('advances playback at the selected fractional and faster rates', () => {
         let animationCallback: FrameRequestCallback | undefined = undefined;
-        let testWindow: Window | undefined = undefined;
 
         cy.window().then((win) => {
-            testWindow = win;
+            cy.stub(win.performance, 'now').returns(1000);
             cy.stub(win, 'requestAnimationFrame').callsFake((callback: FrameRequestCallback) => {
                 animationCallback = callback;
                 return 1;
@@ -73,17 +72,19 @@ describe('<ProgressBar />', () => {
         });
         mountProgressBar(0, 1000);
 
+        cy.get('select[aria-label="Playback speed"]').should('have.value', '1').select('0.5');
         cy.get('.progress-bar .pi-play').closest('button').click();
         cy.then(() => {
             expect(animationCallback).not.to.equal(undefined);
-            expect(testWindow).not.to.equal(undefined);
-            animationCallback?.((testWindow?.performance.now() ?? 0) + 250);
+            animationCallback?.(1250);
         });
+        lastModelUpdate().should('eq', 125);
 
-        lastModelUpdate().then((value) => {
-            expect(Number(value)).to.be.greaterThan(0);
-            expect(Number(value)).to.be.lessThan(1000);
-        });
+        cy.get('.progress-bar .pi-pause').closest('button').click();
+        cy.get('select[aria-label="Playback speed"]').select('2');
+        cy.get('.progress-bar .pi-play').closest('button').click();
+        cy.then(() => animationCallback?.(1250));
+        lastModelUpdate().should('eq', 625);
     });
 
     for (const { playing, fraction, expected, fromTrack } of [

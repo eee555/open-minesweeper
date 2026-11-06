@@ -34,8 +34,7 @@ describe('<Visualization />', () => {
             expect(colorSchemeTemplates.ArbiterStatsAuto.bvs.thresholds[0]).to.equal(0.01);
         });
 
-        cy.get('.color-scheme-toolbar .el-select').click();
-        cy.get('.el-select-dropdown__item:visible').contains('Tier').click();
+        cy.get('select[aria-label="Piecewise Palette"]').select('grade');
         cy.contains('button', 'Restore Default').click();
         cy.then(() => {
             expect(colorTheme.value.grade).to.deep.equal(colorSchemeTemplates.ArbiterStatsAuto.grade);
@@ -43,8 +42,7 @@ describe('<Visualization />', () => {
             colorTheme.value.ioe = { thresholds: [1], colors: ['#000000', '#ffffff'] };
         });
 
-        cy.get('.color-scheme-toolbar .el-select').click();
-        cy.get('.el-select-dropdown__item:visible').contains('IOE / Thrp / Corr / IOME').click();
+        cy.get('select[aria-label="Piecewise Palette"]').select('ioe');
         cy.get('.color-scheme-setting__threshold:not([readonly])').first().invoke('val', '1.5').trigger('input');
         cy.then(() => {
             expect(colorTheme.value.ioe.thresholds).to.deep.equal([1.5]);
@@ -64,9 +62,10 @@ describe('<Visualization />', () => {
         local.value.experimental = false;
         local.value.colored = false;
         cy.mount(Visualization, { global: { plugins: [i18n, pinia] } });
-        cy.get('[data-cy=coloring-switch]').should('be.visible').find('[role=switch]').should('have.attr', 'aria-checked', 'false');
+        cy.get('select[aria-label="Piecewise Palette"]').should('not.exist');
+        cy.get('[data-cy=coloring-switch]').should('be.visible').find('input[role=switch]').should('not.be.checked');
         cy.get('[data-cy=coloring-switch]').click();
-        cy.get('[data-cy=coloring-switch] [role=switch]').should('have.attr', 'aria-checked', 'true');
+        cy.get('[data-cy=coloring-switch] input[role=switch]').should('be.checked');
         cy.window().its('localStorage').invoke('getItem', 'local').should((value: string | null) => {
             const settings = JSON.parse(value ?? '{}') as { colored?: boolean };
             expect(settings.colored).to.equal(true);
@@ -74,6 +73,8 @@ describe('<Visualization />', () => {
         cy.then(() => {
             local.value.colored = false;
         });
-        cy.get('[data-cy=coloring-switch] [role=switch]').should('have.attr', 'aria-checked', 'false');
+        cy.get('[data-cy=coloring-switch] input[role=switch]').should('not.be.checked').focus();
+        cy.realPress('Space');
+        cy.get('[data-cy=coloring-switch] input[role=switch]').should('be.checked');
     });
 });

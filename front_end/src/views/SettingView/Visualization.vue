@@ -4,10 +4,11 @@
             {{ t('local.visualizationColorScheme') }}
         </h2>
         <div class="layout-stack">
-            <div class="coloring-setting">
+            <label class="coloring-setting switch" data-cy="coloring-switch">
                 <span class="text-regular">{{ t('local.colored') }}</span>
-                <ElSwitch v-model="local.colored" :aria-label="t('local.colored')" data-cy="coloring-switch" />
-            </div>
+                <input v-model="local.colored" class="switch-input" type="checkbox" role="switch">
+                <span class="switch-track" aria-hidden="true" />
+            </label>
             <div style="display: flex; flex-wrap: wrap; gap: 2rem; align-items: center">
                 <div class="text-regular">
                     {{ t('local.level') }}
@@ -22,15 +23,29 @@
                     {{ t('local.piecewise') }}
                 </div>
                 <div class="color-scheme-toolbar">
-                    <ElSelect v-model="colorSchemeName">
-                        <ElOption label="Bvs / CES / CLS" value="bvs" />
-                        <ElOption label="IOE / Thrp / Corr / IOME" value="ioe" />
-                        <ElOption label="Beg Time" value="btime" />
-                        <ElOption label="Int Time" value="itime" />
-                        <ElOption label="Exp Time" value="etime" />
-                        <ElOption label="STNB" value="stnb" />
-                        <ElOption :label="t('local.grade')" value="grade" />
-                    </ElSelect>
+                    <select v-model="colorSchemeName" class="base-select color-scheme-select" :aria-label="t('local.piecewise')">
+                        <option value="bvs">
+                            Bvs / CES / CLS
+                        </option>
+                        <option value="ioe">
+                            IOE / Thrp / Corr / IOME
+                        </option>
+                        <option value="btime">
+                            Beg Time
+                        </option>
+                        <option value="itime">
+                            Int Time
+                        </option>
+                        <option value="etime">
+                            Exp Time
+                        </option>
+                        <option value="stnb">
+                            STNB
+                        </option>
+                        <option value="grade">
+                            {{ t('local.grade') }}
+                        </option>
+                    </select>
                     <BaseButton size="small" :title="t('local.restoreDefault')" @click="restoreDefault">
                         <i class="pi pi-replay" aria-hidden="true" />{{ t('local.restoreDefault') }}
                     </BaseButton>
@@ -42,10 +57,11 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/element-plus.css';
 import '@/styles/cards.css';
 import '@/styles/layout.css';
 
-import { ElColorPicker, ElOption, ElSelect, ElSwitch } from 'element-plus';
+import { ElColorPicker } from 'element-plus';
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -88,8 +104,6 @@ const { t } = useI18n({
 
 <style lang="less" scoped>
 .coloring-setting {
-    display: flex;
-    align-items: center;
     gap: 8px;
 }
 .color-scheme-toolbar {
@@ -98,8 +112,7 @@ const { t } = useI18n({
     align-items: center;
     gap: 8px;
 }
-.color-scheme-toolbar > .el-select {
+.color-scheme-select {
     width: 240px;
-    max-width: 100%;
 }
 </style>

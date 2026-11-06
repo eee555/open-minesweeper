@@ -1,5 +1,5 @@
 <template>
-    <BaseTooltip ref="tooltip" :append-to="appendMedalTooltip" :before-show="allowMedalTooltip" interactive :interactive-border="12" :show-delay="200" :show-animation="0" :hide-animation="0">
+    <BaseTooltip ref="tooltip" class="player-name-root" :append-to="appendMedalTooltip" :before-show="allowMedalTooltip" interactive :interactive-border="12" :show-delay="200" :show-animation="0" :hide-animation="0">
         <span class="player-name" :title="nameTitle" @click="interactive && $event.stopPropagation()" @pointerenter="pointerOver = true" @pointerleave="pointerOver = false">
             <RouterLink v-if="interactive" :to="playerProfileTo" class="link link--no-underline text">
                 <PlayerBadge :user-id="userId" :name="nameShown" :show-avatar="local.playerNameShowAvatar" />
@@ -222,6 +222,28 @@ const activeCaption = computed(() => {
 </script>
 
 <style scoped lang="less">
+/* 组件放进普通文字流时按文本基线对齐：全局 :where(span)、.link 和 .text 都会把
+   行内盒子设为 vertical-align: middle，使名称相对周围文字偏下。头像单独做视觉居中，
+   不参与基线计算。 */
+.player-name-root,
+.player-name {
+    vertical-align: baseline;
+}
+
+.player-name :deep(a) {
+    display: inline;
+    vertical-align: baseline;
+}
+
+.player-name :deep(span) {
+    overflow-wrap: anywhere;
+    vertical-align: baseline;
+}
+
+.player-name :deep(img) {
+    vertical-align: middle;
+}
+
 .player-name-medals {
     display: flex;
     flex-wrap: wrap;

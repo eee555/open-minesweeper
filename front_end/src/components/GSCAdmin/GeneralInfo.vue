@@ -30,7 +30,11 @@
             修改！
         </BaseButton>
         <br>
-        <span>想设置空标识需打开此开关</span><ElSwitch v-model="allowEmptyToken" />
+        <label class="switch" data-cy="allow-empty-token">
+            <span>想设置空标识需打开此开关</span>
+            <input v-model="allowEmptyToken" class="switch-input" type="checkbox" role="switch">
+            <span class="switch-track" aria-hidden="true" />
+        </label>
         <br>
         <br>
         <ElDescriptions title="结算后台任务" border :column="2">
@@ -66,8 +70,9 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/element-plus.css';
 import { isAxiosError } from 'axios';
-import { ElDatePicker, ElDescriptions, ElDescriptionsItem, ElInput, ElSwitch } from 'element-plus';
+import { ElDatePicker, ElDescriptions, ElDescriptionsItem, ElInput } from 'element-plus';
 import { ref, watch } from 'vue';
 
 import { httpErrorNotification, successNotification } from '../Notifications';

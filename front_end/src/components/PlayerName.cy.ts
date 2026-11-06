@@ -48,6 +48,43 @@ function expectName(name: string, title?: string) {
     });
 }
 
+function mountPlayerNameInText(userId: number) {
+    const router = hashRouter({ initialPath: '/' });
+    cy.wrap(router.isReady()).then(() => {
+        cy.mount({
+            render: () => h('p', { 'data-cy': 'sentence' }, [
+                'before ',
+                h(PlayerName, { userId }),
+                ' after',
+            ]),
+        }, {
+            global: {
+                plugins: [i18n, router],
+                config: { globalProperties: { $axios } },
+            },
+        });
+    });
+}
+
+function expectNameOnTextBaseline() {
+    cy.get('[data-cy=sentence]').should(($sentence) => {
+        const [root] = $sentence.toArray();
+        const name = root.querySelector('.player-name a span');
+        let plain: Text | undefined;
+        for (const node of Array.from(root.childNodes)) {
+            if (node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim()) {
+                plain = node as Text;
+                break;
+            }
+        }
+        if (name === null || plain === undefined) throw new Error('缺少可比较的文字');
+        const range = document.createRange();
+        range.selectNodeContents(plain);
+        const offset = Math.abs(range.getBoundingClientRect().bottom - name.getBoundingClientRect().bottom);
+        expect(offset, '玩家名与普通文字的基线偏移').to.be.lessThan(2);
+    });
+}
+
 describe('PlayerName', () => {
     installHashHistoryCleanup();
     const originalSettings = { ...local.value };
@@ -132,6 +169,24 @@ describe('PlayerName', () => {
 
         expectName(user.username, 'alice#42\nAlice (Alicia Mines)');
         cy.get('.player-name img').should('not.exist');
+    });
+
+    it('aligns with surrounding text on the same baseline', () => {
+        mockUserInfo();
+        mountPlayerNameInText(user.id);
+        cy.contains('a', user.username);
+        expectNameOnTextBaseline();
+        cy.get('.player-name-root').should('have.css', 'vertical-align', 'baseline');
+    });
+
+    it('keeps the same baseline when the avatar is shown', () => {
+        mockUserInfo();
+        cy.then(() => {
+            local.value.playerNameShowAvatar = true;
+        });
+        mountPlayerNameInText(user.id);
+        cy.get('.player-name img').should('be.visible');
+        expectNameOnTextBaseline();
     });
 
     it('hides the whole name and title regardless of name preferences', () => {

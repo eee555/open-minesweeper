@@ -3,44 +3,92 @@
         <div style="display: flex; flex-wrap: wrap; justify-content: space-between; column-gap: 2rem; row-gap: 0.25rem; align-items: center;">
             <!-- 选择排序模板 -->
             <div>
-                <ElSelect v-model="BBBvSummaryConfig.template" size="small" style="width: 80px">
-                    <ElOption :label="t('prop.bvs')" value="bvs" />
-                    <ElOption :label="t('prop.time')" value="time" />
-                    <ElOption :label="t('prop.stnb')" value="stnb" />
-                    <ElOption :label="t('prop.ioe')" value="ioe" />
-                    <ElOption :label="t('prop.thrp')" value="thrp" />
-                    <ElOption :label="t('prop.path')" value="path" />
-                    <ElOption :label="t('local.customTemplate')" value="custom" />
-                </ElSelect>
+                <select v-model="BBBvSummaryConfig.template" class="base-select base-select--small" style="width: 80px" :aria-label="t('local.template')">
+                    <option value="bvs">
+                        {{ t('prop.bvs') }}
+                    </option>
+                    <option value="time">
+                        {{ t('prop.time') }}
+                    </option>
+                    <option value="stnb">
+                        {{ t('prop.stnb') }}
+                    </option>
+                    <option value="ioe">
+                        {{ t('prop.ioe') }}
+                    </option>
+                    <option value="thrp">
+                        {{ t('prop.thrp') }}
+                    </option>
+                    <option value="path">
+                        {{ t('prop.path') }}
+                    </option>
+                    <option value="custom">
+                        {{ t('local.customTemplate') }}
+                    </option>
+                </select>
                 <template v-if="BBBvSummaryConfig.template === 'custom'">
                     &nbsp;
                     <BaseTextButton size="small" underline="always" @click="BBBvSummaryConfig.sortDesc = !BBBvSummaryConfig.sortDesc">
                         {{ BBBvSummaryConfig.sortDesc ? t('local.settingMax') : t('local.settingMin') }}
                     </BaseTextButton>
-                    <ElSelect v-model="BBBvSummaryConfig.sortBy" size="small" style="width:65px; margin-left: 0.2em; margin-right: 0.2em">
-                        <ElOption :label="t('prop.time')" value="timems" />
-                        <ElOption :label="t('prop.ioe')" value="ioe" />
-                        <ElOption :label="t('prop.thrp')" value="thrp" />
-                        <ElOption :label="t('prop.path')" value="path" />
-                        <ElOption :label="t('prop.cls')" value="cls" />
-                        <ElOption :label="t('prop.ces')" value="ces" />
-                        <ElOption :label="t('prop.iome')" value="iome" />
-                    </ElSelect>
+                    <select v-model="BBBvSummaryConfig.sortBy" class="base-select base-select--small" style="width:65px; margin-left: 0.2em; margin-right: 0.2em" :aria-label="t('local.sortBy')">
+                        <option value="timems">
+                            {{ t('prop.time') }}
+                        </option>
+                        <option value="ioe">
+                            {{ t('prop.ioe') }}
+                        </option>
+                        <option value="thrp">
+                            {{ t('prop.thrp') }}
+                        </option>
+                        <option value="path">
+                            {{ t('prop.path') }}
+                        </option>
+                        <option value="cls">
+                            {{ t('prop.cls') }}
+                        </option>
+                        <option value="ces">
+                            {{ t('prop.ces') }}
+                        </option>
+                        <option value="iome">
+                            {{ t('prop.iome') }}
+                        </option>
+                    </select>
                     <span class="text-regular text-small">
                         {{ t('local.settingDisplayBy') }}
                     </span>
-                    <ElSelect v-model="BBBvSummaryConfig.displayBy" size="small" style="width:6em; margin-left: 0.2em">
-                        <ElOption :label="t('prop.bvs')" value="bvs" />
-                        <ElOption :label="t('prop.time')" value="time" />
-                        <ElOption :label="t('prop.stnb')" value="stnb" />
-                        <ElOption :label="t('prop.ioe')" value="ioe" />
-                        <ElOption :label="t('prop.thrp')" value="thrp" />
-                        <ElOption :label="t('prop.cls')" value="cls" />
-                        <ElOption :label="t('prop.ces')" value="ces" />
-                        <ElOption :label="t('prop.iome')" value="iome" />
-                        <ElOption :label="t('prop.path')" value="path" />
-                        <ElOption :label="t('prop.file_size')" value="file_size" />
-                    </ElSelect>
+                    <select v-model="BBBvSummaryConfig.displayBy" class="base-select base-select--small" style="width:8em; margin-left: 0.2em" :aria-label="t('local.displayBy')">
+                        <option value="bvs">
+                            {{ t('prop.bvs') }}
+                        </option>
+                        <option value="time">
+                            {{ t('prop.time') }}
+                        </option>
+                        <option value="stnb">
+                            {{ t('prop.stnb') }}
+                        </option>
+                        <option value="ioe">
+                            {{ t('prop.ioe') }}
+                        </option>
+                        <option value="thrp">
+                            {{ t('prop.thrp') }}
+                        </option>
+                        <option value="cls">
+                            {{ t('prop.cls') }}
+                        </option>
+                        <option value="ces">
+                            {{ t('prop.ces') }}
+                        </option>
+                        <option value="iome">
+                            {{ t('prop.iome') }}
+                        </option>
+                        <option value="path">
+                            {{ t('prop.path') }}
+                        </option>
+                        <option value="file_size">
+                            {{ t('prop.file_size') }}
+                        </option>
+                    </select>
                 </template>
             </div>
             <!-- 软件筛选 -->
@@ -50,11 +98,17 @@
                 <span class="text-regular text-small">
                     {{ t('local.iconLabel') }}
                 </span>
-                <ElSelect v-model="BBBvSummaryConfig.showIcon" size="small" placeholder="" style="width: 4em">
-                    <ElOption :label="t('local.noIcon')" value="" />
-                    <ElOption :label="t('prop.software')" value="software" />
-                    <ElOption :label="t('prop.state')" value="state" />
-                </ElSelect>
+                <select v-model="BBBvSummaryConfig.showIcon" class="base-select base-select--small" style="width: 7em" :aria-label="t('local.iconLabel').trim()">
+                    <option value="">
+                        {{ t('local.noIcon') }}
+                    </option>
+                    <option value="software">
+                        {{ t('prop.software') }}
+                    </option>
+                    <option value="state">
+                        {{ t('prop.state') }}
+                    </option>
+                </select>
             </div>
             <!-- 高亮新录像 -->
             <div>
@@ -79,7 +133,7 @@
 </template>
 
 <script setup lang="ts">
-import { ElInputNumber, ElOption, ElSelect } from 'element-plus';
+import { ElInputNumber } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 
 import BaseTextButton from '@/components/common/BaseTextButton.vue';
@@ -99,6 +153,9 @@ function switchNewDateField() {
 const i18nMessage = {
     'zh-cn': { local: {
         customTemplate: '自定义',
+        template: '模板',
+        sortBy: '排序指标',
+        displayBy: '显示指标',
         settingDisplayBy: '录像的',
         settingMax: '最大',
         settingMin: '最小',
@@ -114,6 +171,9 @@ const i18nMessage = {
     } },
     en: { local: {
         customTemplate: 'Custom',
+        template: 'Template',
+        sortBy: 'Sort by',
+        displayBy: 'Display by',
         settingDisplayBy: 'and display by',
         settingMax: 'Find max',
         settingMin: 'Find min',
@@ -133,11 +193,6 @@ const { t } = useI18n({ messages: i18nMessage });
 </script>
 
 <style lang="less" scoped>
-.el-select-dropdown__item {
-    height: 25px;
-    line-height: 25px;
-}
-
 :deep(.el-input__inner) {
     field-sizing: content;
 }

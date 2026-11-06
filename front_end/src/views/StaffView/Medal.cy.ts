@@ -35,8 +35,8 @@ function loadPlayer(id = 42) {
     cy.get('.player-label').should('contain', `Player ${id}`);
 }
 
-function selectOption(index: number, label: string) {
-    cy.get('.override-form .el-select').eq(index).click();
+function selectMedal(label: string) {
+    cy.get('.override-form .el-select').click();
     cy.get('.el-select-dropdown__item').filter(':visible').contains(label).click();
 }
 
@@ -54,11 +54,12 @@ describe('staff medal management', () => {
         cy.intercept('POST', '/api/medal/staff/overrides', { grant_id: 1, mode: 'grant', enqueued: false }).as('save');
         mountMedals();
         loadPlayer();
-        selectOption(0, 'time.b');
+        selectMedal('time.b');
         cy.get('.override-form input[aria-label="Edition / scope key (optional)"]').should('be.disabled');
         cy.get('.override-form').should('contain', 'Locks the selected stage');
         cy.get('.override-form button[type=submit]').should('be.disabled');
-        selectOption(2, '(10000)');
+        cy.get('select[aria-label="Stage"]').should('have.prop', 'selectedIndex', 0);
+        cy.get('select[aria-label="Stage"]').select('10000');
         cy.get('input[type=date]').type('2026-10-23');
         cy.get('.override-form textarea').type('Reviewed manual award');
         cy.get('.override-form button[type=submit]').should('be.enabled').click();
@@ -82,8 +83,8 @@ describe('staff medal management', () => {
         cy.intercept('POST', '/api/medal/staff/overrides', { grant_id: null, mode: 'revoke', enqueued: false }).as('save');
         mountMedals();
         loadPlayer();
-        selectOption(0, 'time.b');
-        selectOption(1, 'Revoke / block grants');
+        selectMedal('time.b');
+        cy.get('select[aria-label="Action"]').select('revoke');
         cy.get('.override-form input[aria-label="Edition / scope key (optional)"]').type('2026-autumn');
         cy.get('.override-form textarea').type('Disqualified for this edition');
         cy.get('input[type=date]').should('not.exist');
@@ -97,8 +98,8 @@ describe('staff medal management', () => {
         cy.intercept('GET', '/api/medal/staff/catalog', [{ ...definition, code: 'manual.award', series: 'Manual award', kind: MedalKind.MANUAL, thresholds: [] }]);
         mountMedals();
         loadPlayer();
-        selectOption(0, 'manual.award');
-        selectOption(2, '1');
+        selectMedal('manual.award');
+        cy.get('select[aria-label="Stage"]').select('1');
         cy.get('input[type=date]').type('2026-10-23');
         cy.get('.override-form textarea').type('Manual award at its default stage');
         cy.get('.override-form button[type=submit]').should('be.enabled');
@@ -126,9 +127,8 @@ describe('staff medal management', () => {
     it('does not offer restoration for a naturally earned medal without an override', () => {
         mountMedals();
         loadPlayer();
-        selectOption(0, 'time.b');
-        cy.get('.override-form .el-select').eq(1).click();
-        cy.contains('.el-select-dropdown__item:visible', 'Restore automatic').should('have.class', 'is-disabled');
+        selectMedal('time.b');
+        cy.get('select[aria-label="Action"] option[value=auto]').should('be.disabled');
     });
 
     for (const failed of [false, true]) {
