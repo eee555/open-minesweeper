@@ -9,15 +9,16 @@ describe('<Saolei account panel />', () => {
         mockSaoleiImportSummary();
     });
 
-    it('renders the profile and collected replay count, and opens manual import for the owner', () => {
+    it('renders the profile and opens the replay list with import controls for the owner', () => {
         cy.intercept('GET', '**/api/accountlink/saolei/101/videos*', { body: { items: [], next_after: null } }).as('savedVideos');
         mountAccountLink(SaoleiPanel, { verified: true, info: new AccountSaolei(mockSaoleiResponse()) });
         cy.wait('@importSummary');
         cy.contains('Saolei Player').should('be.visible');
-        cy.contains('.description-item', 'Collected replays').should('contain', '3');
-        cy.contains('button', 'Manual sync and import').click();
+        cy.get('[data-cy=saolei-auto-sync]').parent().should('have.attr', 'title').and('include', 'update their catalogue daily');
+        cy.contains('.description-item', 'Collected replays').should('not.exist');
+        cy.get('.account-panel button').filter(':contains("Replay list")').should('have.length', 1).click();
         cy.wait('@savedVideos');
-        cy.get('[data-cy=saolei-sync]').should('be.enabled');
+        cy.get('[data-cy=saolei-refresh-full], [data-cy=saolei-refresh-incremental], [data-cy=saolei-import-all]').should('have.length', 3).and('be.enabled');
     });
 
     it('only offers saved replay browsing on another player account', () => {
@@ -27,9 +28,9 @@ describe('<Saolei account panel />', () => {
         cy.wait('@importSummary');
         cy.get('[data-cy=saolei-auto-sync]').should('not.exist');
         cy.contains('button', 'Refresh profile').should('not.exist');
-        cy.contains('button', 'Manage').click();
+        cy.contains('button', 'Replay list').click();
         cy.wait('@savedVideos');
-        cy.get('[data-cy=saolei-sync]').should('not.exist');
+        cy.get('[data-cy=saolei-refresh-full], [data-cy=saolei-refresh-incremental], [data-cy=saolei-import-all]').should('not.exist');
     });
 
     it('adopts the server value after a successful save, without changing checked while saving', () => {

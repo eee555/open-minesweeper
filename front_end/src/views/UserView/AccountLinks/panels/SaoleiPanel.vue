@@ -19,46 +19,26 @@
                                 {{ summary.video_update_time ? toISODateTimeString(new Date(summary.video_update_time)) : '--' }}
                             </dd>
                         </div>
-                        <div class="description-item">
-                            <dt>{{ t('local.collected') }}</dt><dd>
-                                {{ summary.total }}
-                            </dd>
-                        </div>
                     </dl>
                 </div>
                 <BaseButton size="small" @click="queueVisible = true">
-                    {{ t('accountlink.synchronizeManage') }}
+                    {{ t('local.videos') }}
                 </BaseButton>
                 <BaseButton v-if="ownsAccount" size="small" :loading="refreshing" @click="refreshProfile">
                     {{ t('local.refreshProfile') }}
                 </BaseButton>
             </section>
             <section v-if="ownsAccount" class="account-section">
-                <label class="switch">
+                <label class="switch" :title="t('local.autoSyncHint')">
                     <input class="switch-input" type="checkbox" role="switch" :checked="autoSync" :disabled="saving" data-cy="saolei-auto-sync" @change="toggleAutoSync">
                     <span class="switch-track" aria-hidden="true" />
                     {{ t('local.autoSync') }}
                 </label>
-                <span class="text-regular text-small">{{ t('local.autoHint') }}</span>
-                <div>
-                    <BaseButton size="small" @click="queueVisible = true">
-                        {{ t('local.manualSync') }}
-                    </BaseButton>
-                    <BaseOverlay>
-                        <BaseIconInfo />
-                        <template #header>
-                            {{ t('accountlink.synchronizeVideos') }}
-                        </template>
-                        <template #overlay>
-                            <SaoleiImportHelper />
-                        </template>
-                    </BaseOverlay>
-                </div>
                 <StackBar :data="stackBarData" legend />
             </section>
         </div>
         <UnverifiedNotice v-else />
-        <ElDialog v-if="queueVisible" v-model="queueVisible" destroy-on-close width="min(70em, 95vw)" :title="t('accountlink.synchronizeManage')" @closed="refreshSummary">
+        <ElDialog v-if="queueVisible" v-model="queueVisible" destroy-on-close width="min(70em, 95vw)" :title="t('local.videos')" @closed="refreshSummary">
             <VideoImportQueue :saolei-id="info.id" :owner="ownsAccount" />
         </ElDialog>
     </div>
@@ -75,13 +55,9 @@ import { useI18n } from 'vue-i18n';
 
 import { useActivePanel } from '../useActivePanel';
 
-import SaoleiImportHelper from './SaoleiImportHelper.vue';
-
 import UnverifiedNotice from '@/components/accountlinks/UnverifiedNotice.vue';
 import VideoImportQueue from '@/components/accountlinks/VideoImportQueue.vue';
 import BaseButton from '@/components/common/BaseButton.vue';
-import BaseOverlay from '@/components/common/BaseOverlay.vue';
-import { BaseIconInfo } from '@/components/common/icon';
 import { httpErrorNotification } from '@/components/Notifications';
 import StackBar from '@/components/visualization/StackBar/App.vue';
 import { fetchSaoleiSummary, refreshSaoleiProfile, setSaoleiAutoSync } from '@/services/saoleiSyncService';
@@ -162,11 +138,10 @@ const { t } = useI18n({ messages: {
     'zh-cn': { local: {
         name: '姓名',
         catalogueUpdated: '目录更新时间',
-        collected: '已收藏录像',
+        videos: '录像列表',
         refreshProfile: '刷新资料',
         autoSync: '自动同步目录和录像',
-        autoHint: '每日更新目录，每小时最多导入100个录像。关闭后仍可手动同步。',
-        manualSync: '手动同步与导入',
+        autoSyncHint: '已绑定账号默认每日更新目录，每小时最多自动导入100个录像，可自行关闭。',
         imported: '已导入',
         pending: '待导入',
         rejected: '本站拒收',
@@ -175,11 +150,10 @@ const { t } = useI18n({ messages: {
     en: { local: {
         name: 'Name',
         catalogueUpdated: 'Catalogue updated',
-        collected: 'Collected replays',
+        videos: 'Replay list',
         refreshProfile: 'Refresh profile',
         autoSync: 'Automatic catalogue and replay sync',
-        autoHint: 'The catalogue updates daily; up to 100 replays are imported each hour. Manual sync remains available when disabled.',
-        manualSync: 'Manual sync and import',
+        autoSyncHint: 'Linked accounts update their catalogue daily and import up to 100 replays each hour by default. You can disable this.',
         imported: 'Imported',
         pending: 'Pending',
         rejected: 'Rejected locally',
