@@ -67,6 +67,7 @@ import { httpErrorNotification } from '@/components/Notifications';
 import { submitMinigameScore } from '@/services/minigameRankingService';
 import { store } from '@/store';
 import { LoginStatus } from '@/utils/common/structInterface';
+import { loadReplayArchiveCodec } from '@/utils/minigame/archive';
 import { trainingGames } from '@/utils/minigame/games';
 import type { TrainingGame } from '@/utils/minigame/games';
 import { minigameHistoryMigration } from '@/utils/minigame/history';
@@ -93,6 +94,10 @@ const drawerId = `minigame-drawer-${useId()}`;
 const header = shallowRef<HTMLElement | null>(null);
 onMounted(() => {
     header.value = document.querySelector<HTMLElement>('.site-header');
+    // Prepare compression in the background without blocking the training UI.
+    void loadReplayArchiveCodec().catch((error: unknown) => {
+        console.warn('Could not prepare minigame replay compression; the next operation will retry.', error);
+    });
 });
 const { bottom: headerBottom } = useElementBounding(header);
 const drawerTop = computed(() => Math.max(0, headerBottom.value));
