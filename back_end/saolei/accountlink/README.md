@@ -40,7 +40,7 @@ GitHub 使用 OAuth App 网页授权，只关联已有 OpenMS 账号，不提供
 
 ### 配置与部署
 
-部署需安装 `Authlib==1.9.1`，由部署脚本自动生成并执行结构迁移，配置服务器 `secrets.json` 的 `github_oauth_client_id`、`github_oauth_client_secret`、`github_oauth_redirect_uri`。这些凭证由 Django settings 启动时读取，修改后需重启 Web 进程。回调路径必须精确为 `/api/accountlink/github/callback`，生产使用 HTTPS；与 GitHub OAuth App 登记值一致，不启用回调通配。开发环境应使用独立应用，保持登录后端与回调主机名一致；前端返回地址由环境变量 `GITHUB_OAUTH_FRONTEND_URL` 配置，默认开发 `http://localhost:8080`、生产 `https://openms.top`，不接受来自授权请求的任意返回地址。不扩展公共 CORS。
+部署需安装 `Authlib==1.9.1`，由部署脚本自动生成并执行结构迁移，配置服务器 `secrets.json` 的 `github_oauth_client_id`、`github_oauth_client_secret`。仅这两项是密钥，由 Django settings 启动时读取，修改后需重启 Web 进程。回调地址不是密钥，无需写入 `secrets.json`：由 `GITHUB_OAUTH_FRONTEND_URL` 与源码常量 `GITHUB_OAUTH_CALLBACK_PATH` 拼接生成，路径精确为 `/api/accountlink/github/callback`，生产使用 HTTPS，与 GitHub OAuth App 登记值一致，不启用回调通配；前后端不同源的部署可用环境变量 `GITHUB_OAUTH_REDIRECT_URI` 覆盖。开发环境应使用独立应用，保持登录后端与回调主机名一致；前端返回地址由环境变量 `GITHUB_OAUTH_FRONTEND_URL` 配置，默认开发 `http://localhost:8080`、生产 `https://openms.top`，不接受来自授权请求的任意返回地址。不扩展公共 CORS。
 
 `default.conf` 对回调设置 5 秒读取等待；harakiri 沿用原配置。两次外部请求均不重试，使用 1 秒连接、1.5 秒读取空闲超时，不能将它们视为完整调用的硬性总时限。Nginx 关闭该回调的 access log，uWSGI 使用 `donotlog` 路由避免授权 code 进入访问日志；Authlib 禁止 DEBUG 级别日志，应用只记录 ID、受控结果类别或意外异常类型。部署时运行 `nginx -t` 后 reload Nginx，并重启 uWSGI；排查 Nginx 错误日志时仍应遮盖可能出现的回调查询参数。
 

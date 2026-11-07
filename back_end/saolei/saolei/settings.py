@@ -307,8 +307,10 @@ SESSION_CACHE_ALIAS = 'saolei_website'
 # GitHub OAuth App: public identity linking only, no stored access token.
 GITHUB_OAUTH_CLIENT_ID = _read_project_secret('github_oauth_client_id')
 GITHUB_OAUTH_CLIENT_SECRET = _read_project_secret('github_oauth_client_secret')
-GITHUB_OAUTH_REDIRECT_URI = _read_project_secret('github_oauth_redirect_uri')
 GITHUB_OAUTH_FRONTEND_URL = os.environ.get('GITHUB_OAUTH_FRONTEND_URL', 'http://localhost:8080' if DEBUG else 'https://openms.top')
+# redirect_uri 会出现在浏览器授权地址中，是公开值；由站点地址与固定回调路径生成，不写入 secrets.json。
+GITHUB_OAUTH_CALLBACK_PATH = '/api/accountlink/github/callback'
+GITHUB_OAUTH_REDIRECT_URI = os.environ.get('GITHUB_OAUTH_REDIRECT_URI', f'{GITHUB_OAUTH_FRONTEND_URL.rstrip("/")}{GITHUB_OAUTH_CALLBACK_PATH}')
 
 
 APSCHEDULER_DATETIME_FORMAT = 'N j, Y, f:s a'  # 定时任务格式

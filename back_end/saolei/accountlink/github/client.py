@@ -10,7 +10,7 @@ from utils.exceptions import ExceptionToResponse
 AUTHORIZE_URL = 'https://github.com/login/oauth/authorize'
 TOKEN_URL = 'https://github.com/login/oauth/access_token'
 USER_URL = 'https://api.github.com/user'
-CALLBACK_PATH = '/api/accountlink/github/callback'
+CALLBACK_PATH = settings.GITHUB_OAUTH_CALLBACK_PATH
 REQUEST_TIMEOUT = (1, 1.5)
 
 
