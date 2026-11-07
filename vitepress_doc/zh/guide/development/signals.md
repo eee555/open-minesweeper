@@ -5,7 +5,7 @@ description: 开源扫雷网后端Django信号触发关系详解，包括录像�
 
 # 信号触发关系
 
-旧竞速纪录及旧的 `news_queue` 新闻信号已移除。首页新闻改由独立的 `news` APP 承担：`speedranking` 在写入排行前后各取一次快照，符合条件时调用 `news.services.emit` 发送 `news.events.news_event_detected`；`news.signals.record_news_event` 接收后把事件写入 `news/cache.py` 的 hash 与分类 zset，写入失败只记录日志，不影响排行榜更新。删除批量路径、`force=True` 的管理员修复、锚点变化后的后台重建和全量重建都不发送该信号。事件键与过期规则见 [cache.md](./cache.md)。
+旧竞速纪录及旧的 `news_queue` 新闻信号已移除。首页新闻改由独立的 `news` APP 承担：`speedranking` 在写入排行前后各取一次快照、`effranking` 在写入前后比较个人纪录与名次，符合条件时调用 `news.services.emit` 发送 `news.events.news_event_detected`；`news.signals.record_news_event` 接收后把事件写入 `news/cache.py` 的 hash 与分类 zset，写入失败只记录日志，不影响排行榜更新。删除批量路径、`force=True` 的管理员修复、锚点变化后的后台重建和全量重建都不发送该信号。事件键与过期规则见 [cache.md](./cache.md)。
 
 `msuser` 维护比赛、非比赛录像数量及文件空间统计与上传额度；新竞速榜由 `speedranking` 接收 `VideoModel.post_save/post_delete`，在事务提交后增量更新 Redis 或补位失效纪录。
 
@@ -19,7 +19,7 @@ top 原始十八项统一参与用户集合，并以变换后的均值作为降�
 
 NF 是独立维度，由 `VideoModel.right_ce == 0` 判断，不再使用模式 `12`；`right_ce` 为空不视为 NF。`UserMS` 不维护 NF 或原模式的子计数。`videomanager` 捕获 `right_ce` 变化并更新队列；`customranking` 不需要 NF 信息，不监听此字段。批量转换旧模式后需显式刷新统计及缓存，步骤见 `back_end/saolei/msuser/refactor.md`。
 
-效率榜由独立 `effranking.signals` 监听录像保存和删除，复用 `_old_values` 及 `update_fields` 分别判断两榜影响范围：Thrp 监控有效点击、BV 和上传时间；NF IOE 监控实际 `left/right/double`、BV 和用时，另用 `right_ce=0` 判断 NF 资格。提交后只读取一次持久化录像，两榜共用 Redis 读取/写入 pipeline，各自处理选优和必要补位。Thrp 的高级 NF 项重建满分录像 ID 列表或最佳一局；NF IOE 满分单项比较用时，满分 sum 只比较高级用时。回滚不更新 Redis。绑定/解绑标识和比赛公开显式调用批量 service。异常记录上下文和堆栈后继续抛出，见 `back_end/saolei/effranking/README.md`。
+效率榜由独立 `effranking.signals` 监听录像保存和删除，复用 `_old_values` 及 `update_fields` 分别判断两榜影响范围：Thrp 监控有效点击、BV 和上传时间；NF IOE 监控实际 `left/right/double`、BV 和用时，另用 `right_ce=0` 判断 NF 资格。提交后只读取一次持久化录像，两榜共用 Redis 读取/写入 pipeline，各自处理选优和必要补位。Thrp 的高级 NF 项重建满分录像 ID 列表或最佳一局；NF IOE 满分单项比较用时，满分 sum 只比较高级用时。回滚不更新 Redis。绑定/解绑标识和比赛公开显式调用批量 service。异常记录上下文和堆栈后继续抛出，见 `back_end/saolei/effranking/README.md`。单录像与批量加入路径在写入后按成绩变优的单项发布 `eff` 分区新闻；补位变差、批量移除、管理员单项修复和全量重建不发送该信号。
 
 录像删除时，`videomanager.signals.delete_video_expansion` 在当前事务内清理扩展记录；从扩展记录发起的删除沿用 Django 级联，避免重复处理。`customranking.signals.refresh_custom_pluck_rank_on_video_delete` 在提交后从剩余录像补选数据库纪录并更新 Redis；`CustomPluckRecord` 删除后的缓存同步提交后重读当前纪录，回滚不发布删除或补位结果。
 

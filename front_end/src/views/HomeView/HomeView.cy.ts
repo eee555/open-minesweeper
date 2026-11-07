@@ -95,6 +95,17 @@ const newsEvents = [
             new: { lsf: 4100.25, rank: 28 },
         },
     },
+    {
+        id: 'news-eff-1',
+        category: 'eff',
+        occurred_at: fixedNow - 10800000,
+        player_id: 7,
+        payload: {
+            field: 'thrp:i',
+            old: { value: 0.8, video_id: 101, rank: 8, count: null, timems: null },
+            new: { value: 0.9, video_id: 102, rank: 3, count: null, timems: null },
+        },
+    },
 ];
 
 function normalTournamentResponse() {
@@ -179,7 +190,7 @@ describe('HomeView components', () => {
     it('renders the real home queue components in the expected tab layout', () => {
         mountHomeView();
 
-        cy.get('.home-news-tabs .el-tabs__item').should('have.length', 3);
+        cy.get('.home-news-tabs .el-tabs__item').should('have.length', 4);
         cy.get('.home-news-tabs .el-tabs__item button').should('not.exist');
         cy.get('.home-news-refresh').should('have.length', 1).and('be.visible');
         cy.get('.home-news-refresh').then(($button) => {
@@ -195,9 +206,11 @@ describe('HomeView components', () => {
         cy.contains('.home-news-tabs .el-tabs__item', 'News').should('be.visible');
         cy.contains('.home-news-tabs .el-tabs__item', 'PB').should('be.visible');
         cy.contains('.home-news-tabs .el-tabs__item', 'LSF').should('be.visible');
+        cy.contains('.home-news-tabs .el-tabs__item', 'Eff').should('be.visible');
         cy.wait('@newsEvents');
         cy.get('[data-cy=news-pb]').should('contain.text', 'broke the Beginner 10 PB: 12.340(8) → 9.876(3)');
         cy.get('[data-cy=news-lsf]').should('contain.text', '\'s LSF: 3200.50(40) → 4100.25(28)');
+        cy.get('[data-cy=news-eff]').should('contain.text', 'broke the ThrP Intermediate record: 0.800(8) → 0.900(3)');
         cy.get('[data-cy=news-lsf] .news-sentence .video-preview-link').should('have.length', 2);
         cy.contains('.normal-tournament-card', 'Active Tournaments').should('be.visible');
         cy.contains('.el-tabs__item', 'Latest').should('have.class', 'is-active');
@@ -268,10 +281,14 @@ describe('HomeView components', () => {
         cy.wait('@newsEvents');
         cy.get('@newsEvents.all').should('have.length', 3);
 
+        cy.contains('.home-news-tabs .el-tabs__item', 'Eff').click();
+        cy.wait('@newsEvents');
+        cy.get('@newsEvents.all').should('have.length', 4);
+
         cy.contains('.home-news-tabs .el-tabs__item', 'News').click();
         cy.get('.home-news-tabs .el-tabs__item.is-active').should('contain.text', 'News');
         cy.get('[data-cy=news-pb]').should('exist');
-        cy.get('@newsEvents.all').should('have.length', 3);
+        cy.get('@newsEvents.all').should('have.length', 4);
     });
 
     it('refreshes only the active news tab from the header button', () => {

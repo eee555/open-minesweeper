@@ -6,6 +6,7 @@
                     <NewsQueue ref="newsAll" category="all" :is-active="active_news_tab === 'all'" />
                     <NewsQueue ref="newsPb" category="pb" :is-active="active_news_tab === 'pb'" />
                     <NewsQueue ref="newsLsf" category="lsf" :is-active="active_news_tab === 'lsf'" />
+                    <NewsQueue ref="newsEff" category="eff" :is-active="active_news_tab === 'eff'" />
                 </ElTabs>
                 <BaseTextButton
                     class="home-news-refresh" size="small" underline="never"
@@ -48,11 +49,13 @@ const active_news_tab = ref('all');
 const newsAll = useTemplateRef<NewsQueueHandle>('newsAll');
 const newsPb = useTemplateRef<NewsQueueHandle>('newsPb');
 const newsLsf = useTemplateRef<NewsQueueHandle>('newsLsf');
+const newsEff = useTemplateRef<NewsQueueHandle>('newsEff');
 const refreshing = ref(false);
 
 function currentQueue(): NewsQueueHandle | null {
     if (active_news_tab.value === 'pb') return newsPb.value;
     if (active_news_tab.value === 'lsf') return newsLsf.value;
+    if (active_news_tab.value === 'eff') return newsEff.value;
     return newsAll.value;
 }
 
