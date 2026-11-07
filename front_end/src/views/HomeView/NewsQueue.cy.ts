@@ -5,7 +5,7 @@ import i18n from '@/i18n';
 import type { NewsEvent } from '@/services/newsService';
 import { pinia } from '@/store/create';
 import { hashRouter, installHashHistoryCleanup } from '@cy/support/hashHistory';
-import { mockVideoInfo } from '@cy/support/videoInfo';
+import { mockVideoInfo, seedVideoInfoCache } from '@cy/support/videoInfo';
 
 // NewsQueue 的根元素是 <ElTabPane>，强制要求父级为 <ElTabs>。这里用一个 .vue 包裹组件
 // （模板 <ElTabs><NewsQueue/></ElTabs>，与生产 HomeView/App.vue 同结构，由 Vite 编译），
@@ -15,7 +15,8 @@ import { mockVideoInfo } from '@cy/support/videoInfo';
 // PlayerName 的 RouterLink 还需要 vue-router 实例，故用 hashRouter 注入并清理 history。
 
 // VideoPreviewLink 默认开启软件图标，会批量拉取录像信息；这里按事件里出现的 video id
-// 提供 mock，覆盖 PB 的前后两个成绩与 LSF 的多个共同提升录像。
+// 提供 mock，覆盖 PB 的前后两个成绩与 LSF 的多个共同提升录像。同时把这些录像预写进
+// 缓存，避免软件图标依赖跨用例共享、带 250ms 延时的批量请求队列。
 function newsVideoRows(events: unknown[]): Record<string, unknown>[] {
     const ids = new Set<number>();
     const add = (value: unknown) => {
@@ -37,7 +38,9 @@ function newsVideoRows(events: unknown[]): Record<string, unknown>[] {
 }
 
 function mountNews(events: unknown[]) {
-    mockVideoInfo(newsVideoRows(events));
+    const rows = newsVideoRows(events);
+    mockVideoInfo(rows);
+    seedVideoInfoCache(rows);
     cy.intercept('GET', '**/api/news/events**', { statusCode: 200, body: events }).as('news');
     cy.mockPlayerNameFallback();
     const router = hashRouter({ initialPath: '/' });
@@ -256,8 +259,7 @@ describe('<NewsQueue />', () => {
     });
 
     it('shows software icons and aligns player names, replay links and text on one baseline', () => {
-        // fetchVideoInfo 的 infoRequests / pending 是模块级缓存；用一个其它用例从未用过的 id，
-        // 确保本用例真的发起 staticdetailbatch 请求，而不是复用上一用例挂起的 promise。
+        // 软件图标由 mountNews 预写入的缓存解析，不经过 staticdetailbatch 批量队列。
         const events: NewsEvent[] = [{
             id: 'pb-icons',
             occurred_at: 1_000_000,
