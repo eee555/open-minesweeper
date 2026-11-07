@@ -102,7 +102,7 @@ class VideoModel(models.Model):
     # 0-32767
     bv = models.PositiveSmallIntegerField(null=True)
     bvs = models.GeneratedField(expression=models.Case(models.When(timems=0, then=models.Value(0.0)), default=models.F(
-        'bv') * models.Value(1000.0) / models.F('timems'), output_field=models.FloatField()), output_field=models.FloatField(), db_persist=True)
+        'bv') / models.F('timems') * models.Value(1000), output_field=models.FloatField()), output_field=models.FloatField(), db_persist=True)
     iqg = models.GeneratedField(expression=models.Case(models.When(timems=0, then=models.Value(0.0)), default=models.F(
         'bv') / Power(models.F('timems') / models.Value(1000.0), models.Value(1.7)), output_field=models.FloatField()), output_field=models.FloatField(), db_persist=True)
 
