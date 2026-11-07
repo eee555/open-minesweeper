@@ -123,6 +123,7 @@ export default defineConfig({
                             text: '扫雷教程',
                             items: [
                                 { text: '操作方式和规则', link: '/zh/guide/minesweeper/mouse-event' },
+                                { text: '元扫雷使用教程', link: '/zh/guide/minesweeper/metasweeper' },
                                 { text: '术语', link: '/zh/guide/minesweeper/terminology' },
                                 { text: '数据', link: '/zh/guide/minesweeper/stat' },
                                 { text: 'evf 标准', link: '/zh/guide/minesweeper/evf-standard' },
@@ -202,6 +203,7 @@ export default defineConfig({
                             text: 'Minesweeper Tutorials',
                             items: [
                                 { text: 'Controls and Rules', link: '/en/guide/minesweeper/mouse-event' },
+                                { text: 'MetaSweeper User Guide', link: '/en/guide/minesweeper/metasweeper' },
                                 { text: 'Terminology', link: '/en/guide/minesweeper/terminology' },
                                 { text: 'Data', link: '/en/guide/minesweeper/stat' },
                                 { text: 'evf Format', link: '/en/guide/minesweeper/evf-standard' },
