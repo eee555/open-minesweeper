@@ -19,10 +19,11 @@ from userprofile.models import UserProfile
 from utils.exceptions import ExceptionToResponse
 from utils.test_parser import abort_parser_process
 from videomanager.models import VideoModel
-from .models import AccountLinkQueue, AccountSaolei, SaoleiApiVideo
+from .models import AccountLinkQueue, AccountSaolei, Platform, SaoleiApiVideo
 from .saolei.client import ThrottledTransport
 from .saolei.services import save_video_details, sync_saolei_metadata_daily
-from .saolei.tasks import enqueue_saolei_hourly_import, task_import_saolei_hourly
+from .saolei.tasks import enqueue_missing_initial_sync, enqueue_saolei_hourly_import, task_import_saolei_hourly, task_saolei_initial_full_sync
+from .services import verify_account_link
 from .test_saolei_api import bound_account, FIXTURE, remote_page, remote_video
 
 BASE = '/api/accountlink/saolei'
@@ -217,6 +218,56 @@ class SharedQuotaTests(TestCase):
         self.assertEqual(len(requests), 3)
         sleep.assert_called_once_with(0.1)
         self.assertEqual([call.args[0] for call in redis.set.call_args_list], ['saolei:throttle:data'] * 3 + ['saolei:throttle:download'])
+
+
+@override_settings(RATELIMIT_ENABLE=False, BAIDU_VERIFY_SKIP=True)
+class SaoleiInitialSyncTests(TestCase):
+    """绑定审核通过后的一次性全量同步：入队、占坑幂等与兜底补队。"""
+
+    def setUp(self):
+        self.user, self.account = bound_account()
+        self.remote = Mock()
+        self.remote.stats.return_value.max_video_id = 1
+        self.remote.user_info.side_effect = lambda account_id: SimpleNamespace(users=[SimpleNamespace(id=account_id, name='API name', banned=False)])
+        self.remote.video_list.return_value = VideoListResponse.model_validate(remote_page([remote_video(1)]))
+        self.remote.video_info.return_value.items = [VideoInfo.model_validate({**remote_video(), 'fileUrl': '2023/04/16/sample.evf', 'signature': None, 'metrics': None})]
+
+    def run_initial_sync(self):
+        with patch('accountlink.saolei.tasks.saolei_client', return_value=nullcontext(self.remote)):
+            return task_saolei_initial_full_sync.call(101)
+
+    def test_verify_enqueues_initial_full_sync_once_via_on_commit(self):
+        newcomer = UserProfile.objects.create_user(username='initial_newcomer', email='initial_newcomer@example.com')
+        with patch('accountlink.api.enqueue_saolei_initial_sync') as enqueue:
+            with self.captureOnCommitCallbacks(execute=True):
+                _, created = verify_account_link(newcomer.pk, Platform.SAOLEI, '301', 1)
+            self.assertTrue(created)
+            enqueue.assert_called_once_with(301)
+            with self.captureOnCommitCallbacks(execute=True):
+                _, created = verify_account_link(newcomer.pk, Platform.SAOLEI, '301', 1)
+            self.assertFalse(created)
+        enqueue.assert_called_once()
+
+    def test_initial_sync_runs_full_catalogue_once_and_claims_the_account(self):
+        self.assertEqual(self.run_initial_sync()['accounts'], 1)
+        self.remote.video_list.assert_called_once_with(player_id=101, cursor=0, size=200)
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.video_sync_cursor, 1)
+        self.assertIsNotNone(self.account.initial_sync_at)
+        self.assertEqual(SaoleiApiVideo.objects.get(remote_id=1).file_url, '2023/04/16/sample.evf')
+        self.remote.reset_mock()
+        self.assertEqual(self.run_initial_sync(), {})
+        self.remote.stats.assert_not_called()
+
+    def test_backfill_enqueues_only_unclaimed_auto_sync_accounts(self):
+        claimed_user, claimed_account = bound_account(102, 'initial_claimed')
+        claimed_account.initial_sync_at = timezone.now()
+        claimed_account.save(update_fields=['initial_sync_at'])
+        bound_account(103, 'initial_opted_out')
+        AccountSaolei.objects.filter(pk=103).update(auto_sync=False)
+        with patch.object(type(task_saolei_initial_full_sync), 'enqueue') as enqueue:
+            enqueue_missing_initial_sync()
+            enqueue.assert_called_once_with(101)
 
 
 @override_settings(BAIDU_VERIFY_SKIP=True)

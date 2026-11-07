@@ -4,6 +4,7 @@ import re
 from typing import List
 
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import transaction
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFound
 from django.views.decorators.cache import never_cache
 from django_ratelimit.decorators import ratelimit
@@ -19,6 +20,7 @@ from .classic.services import classic_bind_status, handle_classic_callback, hand
 from .github.schema import GitHubAccountOut
 from .mineracer.sessions import poll_mineracer_account_link_session, start_mineracer_account_link
 from .models import AccountBilibili, AccountClassicMinesweeper, AccountDiscord, AccountLinkQueue, AccountMineracer, AccountMinesweeperGames, AccountQQ, AccountSaolei, AccountWorldOfMinesweeper, Platform, PLATFORM_CONFIG
+from .saolei.tasks import enqueue_saolei_initial_sync
 from .services import unverify_account_link, update_account, verify_account_link
 from .utils import private_platforms
 
@@ -93,6 +95,10 @@ def verify_link(request, data: AccountLinkVerifyIn = Form(...)):  # noqa: B008
             update_account(data.platform, user)
         except Exception:
             logger.exception('Account binding succeeded for user #%s on platform %s; profile synchronization failed', user.pk, data.platform)
+    if data.platform == Platform.SAOLEI and created:
+        # 绑定审核通过即入队一次性全量同步（initial_sync_at 原子占坑保证仅执行一次）。
+        # on_commit 保证绑定事务回滚时不出队；入队失败只记日志，不撤销已提交的绑定。
+        transaction.on_commit(lambda: enqueue_saolei_initial_sync(int(data.identifier)))
     return HttpResponse()
 
 

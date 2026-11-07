@@ -8,7 +8,7 @@ from django_apscheduler import util
 from django_apscheduler.models import DjangoJob, DjangoJobExecution
 
 from accountlink.saolei.services import sync_saolei_metadata_daily
-from accountlink.saolei.tasks import enqueue_saolei_hourly_import
+from accountlink.saolei.tasks import enqueue_missing_initial_sync, enqueue_saolei_hourly_import
 from monitor.services import publish_monitor_snapshot
 from tournament.cache import TournamentCache
 from userprofile.models import EmailVerifyRecord
@@ -26,6 +26,11 @@ def sync_saolei_daily_catalogue():
 @util.close_old_connections
 def queue_saolei_hourly_import():
     enqueue_saolei_hourly_import()
+
+
+@util.close_old_connections
+def queue_saolei_initial_sync_backfill():
+    enqueue_missing_initial_sync()
 
 
 @util.close_old_connections
@@ -74,6 +79,13 @@ def register_jobs(scheduler):
         queue_saolei_hourly_import,
         trigger=CronTrigger(minute=0, timezone=scheduler.timezone),
         id='import_saolei_hourly', misfire_grace_time=600, coalesce=True, max_instances=1, replace_existing=True,
+    )
+    # 绑定后初始全量同步的兜底补队：入队失败或功能上线前的存量绑定由这里补齐；
+    # 任务内 initial_sync_at 原子占坑，重复入队的任务立即退出。放在每日增量之后，错开上游配额。
+    scheduler.add_job(
+        queue_saolei_initial_sync_backfill,
+        trigger=CronTrigger(hour=3, minute=40, timezone=scheduler.timezone),
+        id='saolei_initial_sync_backfill', misfire_grace_time=3600, coalesce=True, max_instances=1, replace_existing=True,
     )
 
     scheduler.add_job(
