@@ -405,6 +405,30 @@ class ShareholderTests(MedalShellFixture):
     CACHES={'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache', 'LOCATION': 'medal-basic'}},
 )
 class BasicMedalTests(MedalTestCase):
+    def test_custom_mode_scope_is_used_by_incremental_refresh(self):
+        from .services import refresh_player_medals
+
+        ensure_basic_definitions()
+        definition = MedalDefinition.objects.get(code=NOVICE_MODES)
+        definition.scope = {'modes': ['00', '01']}
+        definition.save(update_fields=['scope'])
+        self.make_video(mode='00')
+        evaluate_player(self.user.id)
+        video = self.make_video(mode='01')
+        refresh_player_medals(self.user.id, video_ids=[video.id])
+        self.assertIsNotNone(self.active(NOVICE_MODES))
+
+    def test_modes_require_only_the_four_reviewable_projects(self):
+        self.assertEqual(open_modes(), ['00', '05', '06', '10'])
+        for mode in ['00', '05', '06', '01', '04', '07', '08', '09', '11']:
+            self.make_video(mode=mode)
+        self.make_video(mode='10', state=MS_TextChoices.State.PLAIN)
+        evaluate_player(self.user.id)
+        self.assertIsNone(self.active(NOVICE_MODES))
+        self.make_video(mode='10')
+        evaluate_player(self.user.id)
+        self.assertIsNotNone(self.active(NOVICE_MODES))
+
     def setUp(self):
         self.user = UserProfile.objects.create_user(username='medal_basic', email='medal-basic@example.com', password='password')
         self.ids = iter(range(3_000_000, 4_000_000))

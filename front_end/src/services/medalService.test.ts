@@ -501,6 +501,26 @@ describe('bounded synchronization after uploads', () => {
 });
 
 describe('medalCaption', () => {
+    it.each([
+        [MedalSeries.LEVELS, 'Minesweeper Rookie'],
+        [MedalSeries.LEVELS_NF, 'NF Rookie'],
+        [MedalSeries.FLAGLESS_BREAKTHROUGH, 'NF Breakthrough'],
+        [MedalSeries.FLAGLESS_SPEED, 'NF Speed'],
+        [MedalSeries.FLAGLESS_MASTERY, 'NF Mastery'],
+        [MedalSeries.FLAGLESS_PRECISION, 'NF Precision'],
+    ])('uses the aligned English title for %s', async (series, title) => {
+        const { medalCaption } = await import('./medalService');
+        expect(medalCaption(series, '', null, 'en').title).toBe(title);
+    });
+
+    it.each([
+        ['en', 'Standard (00), Speed NG (05), Hardcore NG (06), and Lucky (10)'],
+        ['zh-cn', '标准、无猜、强无猜、弱可猜'],
+    ])('resolves linked mode names in %s', async (locale, modes) => {
+        const { medalCaption } = await import('./medalService');
+        expect(medalCaption(MedalSeries.MODES, 'novice.modes', 1, locale).meaning).toContain(modes);
+    });
+
     it('uses the same separator for Chinese precision and speed titles', async () => {
         const { medalCaption } = await import('./medalService');
         expect(medalCaption(MedalSeries.FLAGLESS_PRECISION, 'ability.thrp.nf.i', 80000, 'zh-cn').title).toBe('中级盲扫精工·0.8');
@@ -512,7 +532,8 @@ describe('medalCaption', () => {
         for (const series of Object.values(MedalSeries)) {
             const caption = medalCaption(series, 'catalog.item.e', 95000, locale);
             expect(caption.meaning).not.toBe('');
-            expect(caption.meaning).not.toMatch(/\{\w+\}/);
+            expect(caption.meaning).not.toMatch(/\{\w+\}|@:/);
+            if (locale === 'en') expect(`${caption.title} ${caption.meaning}`).not.toMatch(/flagless|no-flag/i);
         }
     });
 
@@ -527,9 +548,9 @@ describe('medalCaption', () => {
     });
 
     it.each([
-        [MedalSeries.THREE_FLAGLESS_PRECISION, 'ability.thrp.nf.three', 'Three-Tier Flagless Precision · 0.95', 'no-flag thrp on all 3 levels reached 0.95.'],
-        [MedalSeries.THREE_FLAGGED_PRECISION, 'ability.thrp.fl.three', 'Three-Tier Flagged Precision · 0.95', 'Thrp on all 3 levels reached 0.95.'],
-    ])('formats three-tier series %s without adding a level', async (series, code, title, meaning) => {
+        [MedalSeries.THREE_FLAGLESS_PRECISION, 'ability.thrp.nf.three', 'Three-Level NF Precision · 0.95', 'NF thrp on all 3 levels reached 0.95.'],
+        [MedalSeries.THREE_FLAGGED_PRECISION, 'ability.thrp.fl.three', 'Three-Level Precision · 0.95', 'FL thrp on all 3 levels reached 0.95.'],
+    ])('formats three-level series %s without adding a single-level prefix', async (series, code, title, meaning) => {
         const { medalCaption } = await import('./medalService');
         expect(medalCaption(series, code, 95000, 'en')).toEqual({ title, meaning, flavor: '' });
     });
