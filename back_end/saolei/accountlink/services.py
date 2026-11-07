@@ -16,6 +16,7 @@ from utils.ranking_lock import ranking_access
 from videomanager.models import VideoModel
 from videomanager.services import find_identical_video, set_import_upload_time
 from videomanager.utils import calculate_original_hash
+from .github.services import unlink_github_account
 from .models import AccountLinkQueue, AccountMinesweeperGames, AccountWorldOfMinesweeper, Platform, PLATFORM_CONFIG, VideoMSGames
 from .msgames.client import download_replay as download_msgames_replay, fetch_profile as fetch_msgames_profile, fetch_replays as fetch_msgames_replays
 from .msgames.utils import upload_date_upper_bound
@@ -63,6 +64,8 @@ def verify_account_link(user_id: int, platform: str, identifier: str, actor_id: 
         raise ExceptionToResponse('mineracer', 'manual_link_not_supported', status_code=400)
     if platform == Platform.CLASSIC:
         raise ExceptionToResponse('classic', 'manual_link_not_supported', status_code=400)
+    if platform == Platform.GITHUB:
+        raise ExceptionToResponse('github', 'manual_link_not_supported', status_code=400)
     if platform not in Platform.values:
         raise ExceptionToResponse('platform', 'invalid', status_code=400)
     links = list(AccountLinkQueue.objects.select_for_update().filter(platform=platform, identifier=identifier).order_by('pk'))
@@ -96,6 +99,9 @@ def unverify_account_link(user_id: int, platform: str, identifier: str):
     link = AccountLinkQueue.objects.select_for_update().filter(userprofile=user, platform=platform, identifier=identifier).first()
     if link is None:
         raise ExceptionToResponse('accountlink', 'not_found', status_code=404)
+    if platform == Platform.GITHUB:
+        unlink_github_account(user.pk)
+        return
     if link.verified:
         delete_account(user, platform)
     link.delete()
@@ -114,6 +120,8 @@ def update_account(platform: Platform, user: UserProfile):
         raise ExceptionToResponse('mineracer', 'update_not_supported', status_code=400)
     elif platform == Platform.CLASSIC:
         raise ExceptionToResponse('classic', 'update_not_supported', status_code=400)
+    elif platform == Platform.GITHUB:
+        raise ExceptionToResponse('github', 'update_not_supported', status_code=400)
 
 
 def update_wom_account(account: AccountWorldOfMinesweeper):

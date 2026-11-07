@@ -7,6 +7,12 @@ description: 开源扫雷网Redis/Django缓存结构详解，包括录像队列�
 
 本文记录项目当前使用的 Redis / Django cache 结构，以及缓存与数据库、API 之间的读写流向。数据库字段结构以各 app 的 `models.py` 为准，这里只记录缓存中实际保存的数据结构。
 
+## GitHub 授权临时状态
+
+GitHub 使用默认 Django cache（当前 Redis DB 1），所有键 TTL 为 600 秒，不保存访问令牌或公开资料。`accountlink:github:flow:{state}` 保存用户 ID、登录会话 HMAC 指纹和 PKCE verifier；`accountlink:github:active:{user_id}` 保存该用户最新的 state，新授权覆盖旧流程；`accountlink:github:used:{state}` 通过 `cache.add` 原子占用，防止多个 worker 重复消费同一回调。只有匹配本人及会话的请求能占用状态。有效回调消费后立即移除 flow 数据，used 标记自然到期；解绑或删除账号时移除 active 指针，使尚在等待 GitHub 的旧回调也不能提交。清理缓存只会使未完成授权失效，用户重新发起即可，不影响已验证的数据库关联。
+
+## 录像与账号数据
+
 扫雷网首批迁移由 [sync_saolei_api](./management-commands.md#sync-saolei-api) 串行执行。迁移后开放前端逐页、逐条手动同步；`AccountSaolei.auto_sync=True` 的账号（默认开启）每日由 APScheduler 直接同步目录并每批最多 50 条取得详情及 URL，每小时由 Django Task 按已存 URL 最多尝试导入 100 条。没有专用 Redis 进度或任务缓存；目录与 `AccountSaolei.video_sync_cursor` 同数据库事务提交，`video_update_time` 仅标记目录扫描完成，不代表全部详情或文件成功；游标不等待详情或文件导入，未完成来源独立补取。旧账号成绩、人气、三级录像数量及任务指针字段随迁移删除，不再维护对应历史值。创建本站录像和同主重复文件的更早上传时间仍经过既有保存信号及排行缓存更新，不清理本站录像缓存来重建来源目录。
 
 `saolei:throttle:data` 和 `saolei:throttle:download` 是网页、worker 和命令共享的上游节流键，只存常量 `1`，由 Redis `SET NX PX` 原子占用，分别在 2100ms、400ms 后自动过期。没有用户数据或密钥。各客户端竞争同一额度，最多等待 6 秒；不要手动清除正在使用的键。

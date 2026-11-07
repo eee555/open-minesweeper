@@ -10,6 +10,20 @@ Discord 和 QQ 共用填写数字 ID、提交申请、管理员审核及管理�
 
 `POST /api/accountlink/unverify/` 以表单接收 `id`、`platform`、`identifier`。管理员解绑时同事务删除关联账号和申请队列行，待验证申请也可取消；用户随后可以用正确 ID 重新申请。已有隐藏资格与选择保留，Mineracer 仍禁止人工解绑。旧 `/accountlink/unverify/` 已移除。
 
+## GitHub
+
+GitHub 使用 OAuth App 网页授权，入口是 `POST /api/accountlink/github/start`，回调是 `GET /api/accountlink/github/callback`。仅登录用户本人可发起，管理员不能通过通用创建或验证接口手填 GitHub 身份。授权成功后复用现有冲突校验，同时保存 `AccountGitHub` 与已验证的 `AccountLinkQueue`；数字 ID 与本站账号均唯一对应。
+
+后端只保存 GitHub 数字 ID 和本站用户归属，聚合接口的 `g.id` 为十进制字符串，公开可见；不保存用户名、头像、邮箱或访问令牌。前端在用户点击按钮后直接匿名调用支持 CORS 的 `https://api.github.com/user/{id}`，校验返回 ID 后展示当前用户名和主页。不使用本站 axios 或 Cookie，不在本站缓存公开资料；失败时保留已验证 ID。匿名 API 每 IP 每小时 60 次，不轮询。
+
+本人通过 `POST /api/accountlink/github/unlink` 解除关联后可重新授权其他账号，管理员沿用带 CSRF 校验的 `POST /api/accountlink/unverify/`。解绑只移除本站关联，不撤销 GitHub 侧的应用授权；GitHub 设置中的撤销授权也不会自动删除本站历史验证结果。专用解绑、旧通用解绑、QuerySet 删除及用户级联删除都会使未完成的授权失效。
+
+部署需安装 `Authlib==1.9.1`，执行自动生成的结构迁移，配置服务器 `secrets.json` 的 `github_oauth_client_id`、`github_oauth_client_secret`、`github_oauth_redirect_uri`，重启 Web 进程。回调路径必须精确为 `/api/accountlink/github/callback`，生产使用 HTTPS；与 GitHub OAuth App 登记值一致，不启用回调通配。开发环境应使用独立应用，保持登录后端与回调主机名一致；前端返回地址由 `settings.GITHUB_OAUTH_FRONTEND_URL` 固定配置，默认开发 `http://localhost:8080`、生产 `https://openms.top`。
+
+`default.conf` 对回调设置 5 秒读取等待；harakiri 沿用原配置。两次外部请求均不重试，使用 1 秒连接、1.5 秒读取空闲超时，不能将它们视为完整调用的硬性总时限。Nginx 关闭该回调的 access log，uWSGI 使用 `donotlog` 路由避免授权 code 进入访问日志；Authlib 禁止 DEBUG 级别日志，应用只记录 ID 和受控结果类别。部署时运行 `nginx -t` 后 reload Nginx，并重启 uWSGI；排查 Nginx 错误日志时仍应遮盖可能出现的回调查询参数。
+
+授权状态和 PKCE verifier 在默认 Django cache 中保留 600 秒，与用户、会话指纹及当前授权绑定。`cache.add` 一次性占用标记阻止并发消费；新授权、解绑或到期使旧流程失效。回调在外部请求后、数据库提交前再次检查登录会话及当前授权，网络等待在写事务之外。成功或失败都跳回固定的本人关联页，只携带受控结果码，不把 code、state、token 带回前端。协议与准备记录见 [GitHub 账号关联](GITHUB_ACCOUNT_LINK_RESEARCH.md)。
+
 ## 扫雷网同步
 
 首批迁移已由站长执行完成，使用 `saolei-api==0.4.0` 的官方 Release wheel，版本与 SHA256 固定在依赖文件中。完整业务约定见[扫雷网官方 API 接入方案](SAOLEI_API_IMPORT_PLAN.md)。

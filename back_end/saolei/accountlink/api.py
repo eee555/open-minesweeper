@@ -16,6 +16,7 @@ from userprofile.decorators import login_required_error, staff_required
 from userprofile.models import UserProfile
 from utils.response import HttpResponseConflict
 from .classic.services import classic_bind_status, handle_classic_callback, handle_classic_replay_push, start_classic_bind
+from .github.schema import GitHubAccountOut
 from .mineracer.sessions import poll_mineracer_account_link_session, start_mineracer_account_link
 from .models import AccountBilibili, AccountClassicMinesweeper, AccountDiscord, AccountLinkQueue, AccountMineracer, AccountMinesweeperGames, AccountQQ, AccountSaolei, AccountWorldOfMinesweeper, Platform, PLATFORM_CONFIG
 from .services import unverify_account_link, update_account, verify_account_link
@@ -56,6 +57,7 @@ class AccountLinkCompleteOut(Schema):
     d: AccountDiscordOut | None = None
     w: AccountWoMOut | None = None
     q: AccountQQOut | None = None
+    g: GitHubAccountOut | None = None
 
 
 class AccountLinkCreateIn(Schema):
@@ -161,6 +163,7 @@ def get_account_links(request, user_id: int):
         Platform.DISCORD.value: None,
         Platform.WOM.value: None,
         Platform.QQ.value: None,
+        Platform.GITHUB.value: None,
     }
 
     for accountlink in accountlinks:
@@ -186,7 +189,7 @@ def create_account_link(request, data: AccountLinkCreateIn = Form(...)):  # noqa
     """
     if data.platform not in Platform.values or not data.identifier:
         return HttpResponseBadRequest()
-    if data.platform in (Platform.MINERACER, Platform.CLASSIC):
+    if data.platform in (Platform.MINERACER, Platform.CLASSIC, Platform.GITHUB):
         return HttpResponseBadRequest()
     if AccountLinkQueue.objects.filter(platform=data.platform, userprofile=request.user).exists():
         return HttpResponseConflict()

@@ -1,4 +1,5 @@
 beautifulsoup4==4.15.0
+Authlib==1.9.1
 bilibili-api-python==17.4.2
 curl_cffi==0.17.0
 Django==6.1.2

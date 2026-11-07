@@ -5,6 +5,8 @@ description: 开源扫雷网后端Django信号触发关系详解，包括录像�
 
 # 信号触发关系
 
+`accountlink.signals.invalidate_github_authorizations_on_delete` 接收 `AccountGitHub.pre_delete`，在删除事务内锁定对应 `UserProfile` 并清除 GitHub 当前授权指针。本人专用解绑、旧通用解绑、管理员解绑、QuerySet 删除和用户级联删除均生效，防止等待外部请求的旧回调在解绑后恢复关联。只影响未完成的 GitHub 授权，不撤销 GitHub 网站上的应用授权；相关临时键见 [缓存结构](./cache.md#github-授权临时状态)。
+
 旧竞速纪录及旧的 `news_queue` 新闻信号已移除。首页新闻改由独立的 `news` APP 承担：`speedranking` 在写入排行前后各取一次快照、`effranking` 在写入前后比较个人纪录与名次，符合条件时调用 `news.services.emit` 发送 `news.events.news_event_detected`；`news.signals.record_news_event` 接收后把事件写入 `news/cache.py` 的 hash 与分类 zset，写入失败只记录日志，不影响排行榜更新。删除批量路径、`force=True` 的管理员修复、锚点变化后的后台重建和全量重建都不发送该信号。事件键与过期规则见 [cache.md](./cache.md)。
 
 `msuser` 维护比赛、非比赛录像数量及文件空间统计与上传额度；新竞速榜由 `speedranking` 接收 `VideoModel.post_save/post_delete`，在事务提交后增量更新 Redis 或补位失效纪录。

@@ -12,6 +12,7 @@ export const AccountLinkPlatform = {
     Bilibili: 'B',
     Classic: 'x',
     Discord: 'd',
+    GitHub: 'g',
     Mineracer: 'm',
     MSGames: 'a',
     QQ: 'q',
@@ -37,6 +38,7 @@ interface AccountLinkPlatformProfile {
 }
 
 export const platformlist: Record<AccountLinkPlatform, AccountLinkPlatformProfile> = {
+    [AccountLinkPlatform.GitHub]: { url: 'https://github.com/', profile: (id) => `https://api.github.com/user/${id}` },
     [AccountLinkPlatform.Discord]: { url: 'https://discord.com/', profile: discordProfile },
     [AccountLinkPlatform.Bilibili]: { url: 'https://www.bilibili.com/', profile: bilibiliProfile },
     [AccountLinkPlatform.Classic]: { url: 'https://mg.xiean.net:6789/', profile: classicProfile },
