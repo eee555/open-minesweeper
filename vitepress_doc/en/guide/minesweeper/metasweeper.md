@@ -7,7 +7,7 @@ description: Download and install MetaSweeper, migrate settings and replays, con
 
 [MetaSweeper](https://github.com/eee555/Metasweeper) is an open-source Minesweeper application for Windows 10 and Windows 11.
 
-This guide uses the original tutorial's 3.3.x interface and screenshots. Menus, options, and data directories may differ between versions. The screenshots show the Chinese interface.
+This guide uses the original tutorial's 3.3.x interface and screenshots. Menus, options, and data directories may differ between versions. Chinese screenshots are collapsed below; contributions of English screenshots are welcome.
 
 ## Download and Installation
 
@@ -17,35 +17,59 @@ Download the installer from the [GitHub releases page](https://github.com/eee555
 
 Double-click the installer. If Windows reports an unrecognized application, confirm that the file came from the project's releases page, then click **More info** (更多信息).
 
-<img src="/metasweeper/install-1.png" alt="More info in the Windows SmartScreen prompt" width="600" />
+<details>
+    <summary>Chinese screenshot — please contribute an English version</summary>
+    <img src="/metasweeper/install-1.png" alt="More info in the Windows SmartScreen prompt" width="600" />
+</details>
 
 Click **Run anyway** (仍要运行).
 
-<img src="/metasweeper/install-2.png" alt="Run anyway in the Windows SmartScreen prompt" width="600" />
+<details>
+    <summary>Chinese screenshot — please contribute an English version</summary>
+    <img src="/metasweeper/install-2.png" alt="Run anyway in the Windows SmartScreen prompt" width="600" />
+</details>
 
 Choose the language for the installer.
 
-<img src="/metasweeper/install-3.png" alt="Choose the installer language" width="600" />
+<details>
+    <summary>Chinese screenshot — please contribute an English version</summary>
+    <img src="/metasweeper/install-3.png" alt="Choose the installer language" width="600" />
+</details>
 
 Choose an installation directory. If you have an older Metaminesweeper installation, use a different directory.
 
-<img src="/metasweeper/install-4.png" alt="Choose the MetaSweeper installation directory" width="600" />
+<details>
+    <summary>Chinese screenshot — please contribute an English version</summary>
+    <img src="/metasweeper/install-4.png" alt="Choose the MetaSweeper installation directory" width="600" />
+</details>
 
 Choose the file associations. Selected file types will open in MetaSweeper by default.
 
-<img src="/metasweeper/install-5.png" alt="Choose replay file associations" width="600" />
+<details>
+    <summary>Chinese screenshot — please contribute an English version</summary>
+    <img src="/metasweeper/install-5.png" alt="Choose replay file associations" width="600" />
+</details>
 
 Choose whether to create a desktop shortcut.
 
-<img src="/metasweeper/install-6.png" alt="Choose whether to create a desktop shortcut" width="600" />
+<details>
+    <summary>Chinese screenshot — please contribute an English version</summary>
+    <img src="/metasweeper/install-6.png" alt="Choose whether to create a desktop shortcut" width="600" />
+</details>
 
 Review the options, then click **Install**.
 
-<img src="/metasweeper/install-7.png" alt="Review the installation options" width="600" />
+<details>
+    <summary>Chinese screenshot — please contribute an English version</summary>
+    <img src="/metasweeper/install-7.png" alt="Review the installation options" width="600" />
+</details>
 
 Click **Finish** when installation is complete.
 
-<img src="/metasweeper/install-8.png" alt="MetaSweeper installation complete" width="600" />
+<details>
+    <summary>Chinese screenshot — please contribute an English version</summary>
+    <img src="/metasweeper/install-8.png" alt="MetaSweeper installation complete" width="600" />
+</details>
 
 ### Migrating from an Older Version
 
@@ -66,7 +90,10 @@ If migration still fails, report the problem through [GitHub Issues](https://git
 
 Open **Settings → Game Settings** (设置 → 游戏设置), or press `S`. Settings are saved in `gameSetting.ini`.
 
-<img src="/metasweeper/settings.png" alt="MetaSweeper game settings in Chinese" width="600" />
+<details>
+    <summary>Chinese screenshot — please contribute an English version</summary>
+    <img src="/metasweeper/settings.png" alt="MetaSweeper game settings in Chinese" width="600" />
+</details>
 
 ### Basic Options
 
@@ -132,7 +159,10 @@ Without additional constraints, the mine-placement algorithm does not exclude ex
 
 The counter window has multiple rows and two columns. Each row contains an indicator: its name in the first column and its value in the second. Configuration is saved in `scoreBoardSetting.ini`.
 
-<img src="/metasweeper/counters.png" alt="MetaSweeper counters and an editable formula" height="550" />
+<details>
+    <summary>Chinese screenshot — please contribute an English version</summary>
+    <img src="/metasweeper/counters.png" alt="MetaSweeper counters and an editable formula" height="550" />
+</details>
 
 - Double-click the first column to edit an indicator's name. To delete a row, clear its name and click elsewhere.
 - Double-click the second column to edit its formula.
