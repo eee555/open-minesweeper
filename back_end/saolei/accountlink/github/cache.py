@@ -26,8 +26,9 @@ def create_flow(user_id, session_key):
 
 def consume_flow(state, user_id, session_key):
     flow = cache.get(f'accountlink:github:flow:{state}')
-    if not flow or flow['user_id'] != user_id or flow['session'] != session_fingerprint(session_key) or cache.get(active_key(user_id)) != state:
+    if not flow or flow['user_id'] != user_id or flow['session'] != session_fingerprint(session_key):
         raise ExceptionToResponse('github', 'expired', 409)
+    require_active_flow(state, user_id)
     if not cache.add(f'accountlink:github:used:{state}', True, timeout=FLOW_TTL):
         raise ExceptionToResponse('github', 'expired', 409)
     cache.delete(f'accountlink:github:flow:{state}')
@@ -35,9 +36,22 @@ def consume_flow(state, user_id, session_key):
 
 
 def require_active_flow(state, user_id):
-    if cache.get(active_key(user_id)) != state:
+    if cache.get(active_key(user_id)) != state or cache.get(f'accountlink:github:used:{state}') == 'revoked':
         raise ExceptionToResponse('github', 'expired', 409)
 
 
 def invalidate_flow(user_id):
-    cache.delete(active_key(user_id))
+    revoke_flow(cache.get(active_key(user_id)))
+
+
+def revoke_flow(state):
+    if state:
+        # 按 state 撤销，不删除 active 指针，避免提交回调误删新发起的授权。
+        cache.set(f'accountlink:github:used:{state}', 'revoked', timeout=FLOW_TTL)
+        cache.delete(f'accountlink:github:flow:{state}')
+
+
+def cancel_flow(state, user_id, session_key):
+    flow = cache.get(f'accountlink:github:flow:{state}')
+    if flow and flow['user_id'] == user_id and flow['session'] == session_fingerprint(session_key):
+        revoke_flow(state)

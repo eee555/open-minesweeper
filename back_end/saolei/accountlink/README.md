@@ -12,17 +12,43 @@ Discord 和 QQ 共用填写数字 ID、提交申请、管理员审核及管理�
 
 ## GitHub
 
-GitHub 使用 OAuth App 网页授权，入口是 `POST /api/accountlink/github/start`，回调是 `GET /api/accountlink/github/callback`。仅登录用户本人可发起，管理员不能通过通用创建或验证接口手填 GitHub 身份。授权成功后复用现有冲突校验，同时保存 `AccountGitHub` 与已验证的 `AccountLinkQueue`；数字 ID 与本站账号均唯一对应。
+### 业务规则与公开资料
 
-后端只保存 GitHub 数字 ID 和本站用户归属，聚合接口的 `g.id` 为十进制字符串，公开可见；不保存用户名、头像、邮箱或访问令牌。前端在用户点击按钮后直接匿名调用支持 CORS 的 `https://api.github.com/user/{id}`，校验返回 ID 后展示当前用户名和主页。不使用本站 axios 或 Cookie，不在本站缓存公开资料；失败时保留已验证 ID。匿名 API 每 IP 每小时 60 次，不轮询。
+GitHub 使用 OAuth App 网页授权，只关联已有 OpenMS 账号，不提供 GitHub 登录、注册或邮箱合并。仅登录用户本人可发起，管理员不能通过通用创建或验证接口手填 GitHub 身份。授权成功后复用现有冲突校验，同时保存 `AccountGitHub` 与已验证的 `AccountLinkQueue`；数字 ID 与本站账号均唯一对应，归属冲突时拒绝，不转移原关联。
 
-本人通过 `POST /api/accountlink/github/unlink` 解除关联后可重新授权其他账号，管理员沿用带 CSRF 校验的 `POST /api/accountlink/unverify/`。解绑只移除本站关联，不撤销 GitHub 侧的应用授权；GitHub 设置中的撤销授权也不会自动删除本站历史验证结果。专用解绑、旧通用解绑、QuerySet 删除及用户级联删除都会使未完成的授权失效。
+后端只保存 GitHub 数字 ID 和本站用户归属，聚合接口的 `g.id` 为十进制字符串，公开可见，避免 JavaScript 整数精度损失；不保存用户名、头像、邮箱、访问令牌或刷新令牌。前端在用户点击按钮后直接匿名调用支持 CORS 的 `https://api.github.com/user/{id}`，校验返回 ID 后从 login 构造主页地址。不使用本站 axios 或 Cookie，不向公开资料接口发送 OAuth token，不在本站缓存公开资料；限流、网络故障或账号不存在时仍保留已验证 ID。匿名 API 每 IP 每小时 60 次，不轮询。协议参考：[OAuth 网页授权](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps)、[按数字 ID 查询用户](https://docs.github.com/en/rest/users/users#get-a-user-using-their-id)、[REST API CORS](https://docs.github.com/en/rest/using-the-rest-api/using-cors-and-jsonp-to-make-cross-origin-requests)。
 
-部署需安装 `Authlib==1.9.1`，执行自动生成的结构迁移，配置服务器 `secrets.json` 的 `github_oauth_client_id`、`github_oauth_client_secret`、`github_oauth_redirect_uri`，重启 Web 进程。回调路径必须精确为 `/api/accountlink/github/callback`，生产使用 HTTPS；与 GitHub OAuth App 登记值一致，不启用回调通配。开发环境应使用独立应用，保持登录后端与回调主机名一致；前端返回地址由 `settings.GITHUB_OAUTH_FRONTEND_URL` 固定配置，默认开发 `http://localhost:8080`、生产 `https://openms.top`。
+本人通过 `POST /api/accountlink/github/unlink` 解除关联后可重新授权其他账号，管理员沿用带 CSRF 校验的 `POST /api/accountlink/unverify/`，只处理传入 identifier 对应的队列行；待审核的残留行不删除另一个已验证账号。解绑只移除本站关联，不撤销 GitHub 侧的应用授权；GitHub 设置中的撤销授权也不会自动删除本站历史验证结果。专用解绑、旧通用解绑、QuerySet 删除及用户级联删除都会使未完成的授权失效。
 
-`default.conf` 对回调设置 5 秒读取等待；harakiri 沿用原配置。两次外部请求均不重试，使用 1 秒连接、1.5 秒读取空闲超时，不能将它们视为完整调用的硬性总时限。Nginx 关闭该回调的 access log，uWSGI 使用 `donotlog` 路由避免授权 code 进入访问日志；Authlib 禁止 DEBUG 级别日志，应用只记录 ID 和受控结果类别。部署时运行 `nginx -t` 后 reload Nginx，并重启 uWSGI；排查 Nginx 错误日志时仍应遮盖可能出现的回调查询参数。
+### 实现与授权流程
 
-授权状态和 PKCE verifier 在默认 Django cache 中保留 600 秒，与用户、会话指纹及当前授权绑定。`cache.add` 一次性占用标记阻止并发消费；新授权、解绑或到期使旧流程失效。回调在外部请求后、数据库提交前再次检查登录会话及当前授权，网络等待在写事务之外。成功或失败都跳回固定的本人关联页，只携带受控结果码，不把 code、state、token 带回前端。协议与准备记录见 [GitHub 账号关联](GITHUB_ACCOUNT_LINK_RESEARCH.md)。
+| 位置 | 职责 |
+| --- | --- |
+| `models.py`、`github/schema.py` | 平台配置、`AccountGitHub` 和公开 ID 输出 |
+| `github/client.py` | Authlib 授权地址、令牌交换及授权者 ID 查询 |
+| `github/cache.py` | 临时授权状态、会话指纹、一次性占用和撤销 |
+| `github/api.py` | Ninja 接口、本人及会话校验、固定返回地址和结果码 |
+| `github/services.py`、`signals.py` | 解绑与删除后的授权撤销，不处理操作者权限 |
+| `services.py` | 已验证关联的事务、冲突校验及禁止手工验证 GitHub |
+| `front_end/src/views/UserView/AccountLinks/`、`front_end/src/services/githubService.ts` | 授权入口、ID 面板、返回提示与手动公开资料请求；路径相对仓库根目录 |
+
+`POST /api/accountlink/github/start` 在校验配置后生成授权地址，不访问 GitHub。授权使用随机 state、PKCE S256 和空 scope，不申请邮箱或仓库权限。`GET /api/accountlink/github/callback` 校验本人及登录会话，原子占用一次性状态，再交换 code 并通过已认证的 `GET https://api.github.com/user` 确认实际授权者；不能用手填用户名或前端传入的 ID 建立绑定。外部 HTTP 不持有写事务。
+
+授权状态和 PKCE verifier 在默认 Django cache 中保留 600 秒，与用户、会话指纹及当前授权绑定；新授权替代旧授权。`cache.add` 一次性占用标记阻止并发消费；撤销时把该 state 的 used 标记改为 `revoked`，不删除可能已被新授权覆盖的 active 指针。删除已绑定账号时，提交后仅撤销删除时捕获的 state；回滚保留原授权。无关联可删除的本人取消请求立即撤销未完成授权。授权请求返回前页面已失活时，前端通过 `POST /api/accountlink/github/cancel` 取消返回的 state；后端校验本人及会话，不影响较新的授权，取消失败时仍会自然过期。清除授权缓存只会要求未完成授权重新开始，不移除已验证关联。键结构和删除信号见[缓存结构](../../../vitepress_doc/zh/guide/development/cache.md#github-授权临时状态)与[信号说明](../../../vitepress_doc/zh/guide/development/signals.md)。
+
+回调在外部请求后、数据库提交前取得用户行锁，再次检查登录会话及当前授权。成功或失败都跳回固定的本人关联页，只携带 `linked`、`cancelled`、`conflict`、`expired`、`remote_failed` 或 `not_configured`，不把 code、state、verifier 或 token 带入前端结果地址和应用日志。Authlib 的正常授权错误统一转换为受控 `remote_failed`，回调按分类记录 WARNING；意外异常仅记录异常类型。
+
+### 配置与部署
+
+部署需安装 `Authlib==1.9.1`，由部署脚本自动生成并执行结构迁移，配置服务器 `secrets.json` 的 `github_oauth_client_id`、`github_oauth_client_secret`、`github_oauth_redirect_uri`。这些凭证由 Django settings 启动时读取，修改后需重启 Web 进程。回调路径必须精确为 `/api/accountlink/github/callback`，生产使用 HTTPS；与 GitHub OAuth App 登记值一致，不启用回调通配。开发环境应使用独立应用，保持登录后端与回调主机名一致；前端返回地址由环境变量 `GITHUB_OAUTH_FRONTEND_URL` 配置，默认开发 `http://localhost:8080`、生产 `https://openms.top`，不接受来自授权请求的任意返回地址。不扩展公共 CORS。
+
+`default.conf` 对回调设置 5 秒读取等待；harakiri 沿用原配置。两次外部请求均不重试，使用 1 秒连接、1.5 秒读取空闲超时，不能将它们视为完整调用的硬性总时限。Nginx 关闭该回调的 access log，uWSGI 使用 `donotlog` 路由避免授权 code 进入访问日志；Authlib 禁止 DEBUG 级别日志，应用只记录 ID、受控结果类别或意外异常类型。部署时运行 `nginx -t` 后 reload Nginx，并重启 uWSGI；排查 Nginx 错误日志时仍应遮盖可能出现的回调查询参数。
+
+### 回归与联调
+
+后端回归位于 `github/tests.py`，通过模拟 GitHub HTTP 响应验证真实 Authlib 参数和交换逻辑，覆盖成功、取消、过期、重复回调、会话切换、在途解绑、归属冲突、错误分类、事务回滚、延迟撤销不影响新授权及管理员 CSRF。前端服务测试位于 `front_end/src/services/githubService.test.ts`，组件测试位于 `front_end/src/views/UserView/AccountLinks/GitHub.cy.ts` 与 `panels/GitHubPanel.cy.ts`，覆盖授权入口、公开 ID 和资料请求失败降级。
+
+离线回归和匿名公开资料请求不等于真实 OAuth 联调。真实 GitHub 授权、服务器连通性、Secrets 实际值与 OAuth App 后台配置，以及 Nginx/uWSGI 配置，需部署后核对验证；Cypress 组件及 E2E 测试由用户运行。
 
 ## 扫雷网同步
 

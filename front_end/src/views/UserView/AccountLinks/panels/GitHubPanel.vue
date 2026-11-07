@@ -17,8 +17,11 @@
                 {{ t('local.unlink') }}
             </BaseButton>
         </div>
-        <p v-if="failed" class="text-danger" role="alert">
-            {{ t('local.failed') }}
+        <p v-if="profileFailed" class="text-danger" role="alert">
+            {{ t('local.profileFailed') }}
+        </p>
+        <p v-if="unlinkFailed" class="text-danger" role="alert">
+            {{ t('local.unlinkFailed') }}
         </p>
     </div>
 </template>
@@ -41,11 +44,12 @@ const isActive = useActivePanel();
 const profile = ref<GitHubPublicProfile>();
 const loading = ref(false);
 const unlinking = ref(false);
-const failed = ref(false);
+const profileFailed = ref(false);
+const unlinkFailed = ref(false);
 let controller: AbortController | undefined;
 
 watch(() => props.info.id, () => {
-    controller?.abort(); profile.value = undefined; failed.value = false; loading.value = false;
+    controller?.abort(); profile.value = undefined; profileFailed.value = false; unlinkFailed.value = false; loading.value = false;
 });
 onBeforeUnmount(() => controller?.abort());
 
@@ -55,12 +59,12 @@ async function refreshProfile() {
     controller = new AbortController();
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(10000)]);
     loading.value = true;
-    failed.value = false;
+    profileFailed.value = false;
     try {
         const result = await fetchGitHubProfile(id, signal);
         if (isActive() && id === props.info.id) profile.value = result;
     } catch {
-        if (isActive() && id === props.info.id) failed.value = true;
+        if (isActive() && id === props.info.id) profileFailed.value = true;
     } finally {
         if (isActive() && id === props.info.id) loading.value = false;
     }
@@ -69,12 +73,12 @@ async function refreshProfile() {
 async function confirmUnlink() {
     if (unlinking.value || !props.owner || !window.confirm(t('local.confirm'))) return;
     unlinking.value = true;
-    failed.value = false;
+    unlinkFailed.value = false;
     try {
         await unlinkGitHub();
         if (isActive()) emit('refresh');
     } catch {
-        if (isActive()) failed.value = true;
+        if (isActive()) unlinkFailed.value = true;
     } finally {
         if (isActive()) unlinking.value = false;
     }
@@ -86,7 +90,8 @@ const i18nMessages = {
         refresh: '获取／刷新 GitHub 资料',
         unlink: '解除关联',
         profileHint: '公开资料由浏览器直接从 GitHub 获取，不保存到本站。',
-        failed: '操作失败，请稍后重试。GitHub 资料不可用不影响已验证的数字 ID。',
+        profileFailed: '获取 GitHub 资料失败，请稍后重试。不影响已验证的数字 ID。',
+        unlinkFailed: '解除关联失败，请稍后重试。',
         confirm: '解除 GitHub 关联？之后可以重新授权绑定。此操作不会撤销 GitHub 网站中的应用授权。',
     } },
     en: { local: {
@@ -94,7 +99,8 @@ const i18nMessages = {
         refresh: 'Load / refresh GitHub profile',
         unlink: 'Unlink account',
         profileHint: 'Your browser loads public profile information directly from GitHub. OpenMS does not store it.',
-        failed: 'The operation failed. Please retry later. Unavailable profile data does not affect the verified numeric ID.',
+        profileFailed: 'Could not load GitHub profile data. This does not affect the verified numeric ID.',
+        unlinkFailed: 'Could not unlink the account. Please retry later.',
         confirm: 'Unlink GitHub? You can authorize again later. This does not revoke the application authorization on GitHub.',
     } },
 };

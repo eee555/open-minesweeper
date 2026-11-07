@@ -34,11 +34,12 @@ export const privateAccountLinkPlatforms = [AccountLinkPlatform.QQ, AccountLinkP
 
 interface AccountLinkPlatformProfile {
     url: string;
-    profile: (id: string | number) => string;
+    profile?: (id: string | number) => string;
 }
 
-export const platformlist: Record<AccountLinkPlatform, AccountLinkPlatformProfile> = {
-    [AccountLinkPlatform.GitHub]: { url: 'https://github.com/', profile: (id) => `https://api.github.com/user/${id}` },
+export const platformlist = {
+    // GitHub 主页需先按数字 ID 获取当前 login；不能把公开 JSON 接口当作个人主页。
+    [AccountLinkPlatform.GitHub]: { url: 'https://github.com/' },
     [AccountLinkPlatform.Discord]: { url: 'https://discord.com/', profile: discordProfile },
     [AccountLinkPlatform.Bilibili]: { url: 'https://www.bilibili.com/', profile: bilibiliProfile },
     [AccountLinkPlatform.Classic]: { url: 'https://mg.xiean.net:6789/', profile: classicProfile },
@@ -47,4 +48,4 @@ export const platformlist: Record<AccountLinkPlatform, AccountLinkPlatformProfil
     [AccountLinkPlatform.Saolei]: { url: 'http://saolei.wang/', profile: saoleiProfile },
     [AccountLinkPlatform.QQ]: { url: 'https://im.qq.com/index/', profile: qqProfile },
     [AccountLinkPlatform.WoM]: { url: 'https://minesweeper.online/', profile: womProfile },
-};
+} satisfies Record<AccountLinkPlatform, AccountLinkPlatformProfile>;

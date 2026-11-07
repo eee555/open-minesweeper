@@ -17,6 +17,10 @@ export async function unlinkGitHub(): Promise<void> {
     await $axios.post('/api/accountlink/github/unlink');
 }
 
+export async function cancelGitHubLink(state: string): Promise<void> {
+    await $axios.post('/api/accountlink/github/cancel', { state }, { headers: { 'Content-Type': 'application/json' } });
+}
+
 export async function fetchGitHubProfile(id: string, signal?: AbortSignal): Promise<GitHubPublicProfile> {
     if (!(/^[1-9][0-9]*$/).test(id)) throw new Error('Invalid GitHub ID');
     // 使用原生 fetch，避免本站 axios 的 Cookie、认证头和拦截器进入第三方请求。

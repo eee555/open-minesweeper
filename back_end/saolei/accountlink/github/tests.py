@@ -5,11 +5,14 @@ from urllib.parse import parse_qs, urlsplit
 
 from django.conf import settings
 from django.core.cache import cache
+from django.db import transaction
 from django.test import Client, override_settings, TestCase
 import requests
 
 from userprofile.models import UserProfile
-from .cache import active_key, create_flow
+from utils.exceptions import ExceptionToResponse
+from .cache import active_key, create_flow, require_active_flow
+from .client import authorized_user_id
 from ..models import AccountGitHub, AccountLinkQueue, Platform
 from ..services import save_verified_account_link
 
@@ -37,6 +40,7 @@ class GitHubAccountLinkTests(TestCase):
         self.client = Client(enforce_csrf_checks=True)
         self.client.force_login(self.user)
         self.requests = []
+        self.token_response = {'access_token': 'test-access-token', 'token_type': 'bearer', 'scope': ''}
         self.user_info = {'id': 123456789, 'login': 'IgnoredName', 'avatar_url': 'https://example.test/avatar', 'email': 'ignored@example.test'}
         network = patch('requests.sessions.Session.send', side_effect=self.remote_response)
         self.network = network.start()
@@ -51,7 +55,7 @@ class GitHubAccountLinkTests(TestCase):
         response.request = request
         response.headers['Content-Type'] = 'application/json'
         if request.url == 'https://github.com/login/oauth/access_token':
-            data = {'access_token': 'test-access-token', 'token_type': 'bearer', 'scope': ''}
+            data = self.token_response
         elif request.url == 'https://api.github.com/user':
             self.assertEqual(request.headers['Authorization'], 'Bearer test-access-token')
             data = self.user_info
@@ -201,8 +205,11 @@ class GitHubAccountLinkTests(TestCase):
         self.assertFalse(AccountLinkQueue.objects.filter(platform='g').exists())
 
     def test_missing_config_and_anonymous_start_do_not_make_network_requests(self):
+        old, _ = self.start()
         with override_settings(GITHUB_OAUTH_CLIENT_SECRET=''):
-            self.assertEqual(self.client.post(f'{BASE}/start').status_code, 503)
+            with patch('accountlink.github.api.create_flow', side_effect=AssertionError('Configuration must be checked first')):
+                self.assertEqual(self.client.post(f'{BASE}/start').status_code, 503)
+        self.assertEqual(cache.get(active_key(self.user.pk)), old)
         self.client.logout()
         self.assertEqual(self.client.post(f'{BASE}/start').status_code, 403)
         self.network.assert_not_called()
@@ -247,6 +254,76 @@ class GitHubAccountLinkTests(TestCase):
     def test_deleting_linked_account_invalidates_outstanding_flows(self):
         save_verified_account_link(self.user, Platform.GITHUB, '123')
         state, _ = create_flow(self.user.pk, self.client.session.session_key)
-        AccountGitHub.objects.all().delete()
-        self.assertIsNone(cache.get(active_key(self.user.pk)))
+        with self.captureOnCommitCallbacks(execute=True):
+            AccountGitHub.objects.all().delete()
         self.assertEqual(self.result(self.callback(state)), 'expired')
+
+    def test_authlib_errors_are_controlled_failures_without_credential_logs(self):
+        for payload in [
+            {'error': 'bad_verification_code', 'error_description': 'test-secret test-code'},
+            {'token_type': 'bearer'}, {'access_token': 'test-access-token', 'token_type': 'unsupported'},
+        ]:
+            with self.subTest(payload=payload):
+                self.token_response = payload
+                with self.assertRaises(ExceptionToResponse) as error:
+                    authorized_user_id('test-code', 'v' * 64)
+                self.assertEqual(error.exception.body, {'type': 'error', 'object': 'github', 'category': 'remote_failed'})
+                self.assertEqual(error.exception.status_code, 502)
+                state, _ = self.start()
+                with self.assertLogs('accountlink', level='WARNING') as logs:
+                    self.assertEqual(self.result(self.callback(state)), 'remote_failed')
+                self.assertTrue(all(record.levelname == 'WARNING' for record in logs.records))
+                self.assertNotIn('test-secret', str(logs.output))
+                self.assertNotIn('test-code', str(logs.output))
+        self.assertFalse(AccountGitHub.objects.exists())
+
+    def test_rolled_back_deletion_preserves_binding_and_pending_authorization(self):
+        save_verified_account_link(self.user, Platform.GITHUB, '123')
+        state, _ = create_flow(self.user.pk, self.client.session.session_key)
+        with self.captureOnCommitCallbacks(execute=True) as callbacks:
+            with self.assertRaises(RuntimeError), transaction.atomic():
+                AccountGitHub.objects.all().delete()
+                raise RuntimeError('Rollback deletion')
+        self.assertEqual(callbacks, [])
+        self.assertTrue(AccountGitHub.objects.filter(pk=123).exists())
+        require_active_flow(state, self.user.pk)
+
+    def test_deletion_commit_does_not_revoke_a_newer_authorization(self):
+        save_verified_account_link(self.user, Platform.GITHUB, '123')
+        old, _ = create_flow(self.user.pk, self.client.session.session_key)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.assertEqual(self.client.post(f'{BASE}/unlink').status_code, 200)
+            new, _ = self.start()
+        require_active_flow(new, self.user.pk)
+        self.assertEqual(self.result(self.callback(old)), 'expired')
+        self.assertEqual(self.result(self.callback(new)), 'linked')
+
+    def test_admin_only_unlinks_the_requested_identifier_and_preserves_unrelated_rows(self):
+        save_verified_account_link(self.user, Platform.GITHUB, '123')
+        stale = AccountLinkQueue.objects.create(userprofile=self.user, platform='g', identifier='456', verified=False)
+        self.client.force_login(self.staff)
+        token = self.client.get('/api/userprofile/admin/csrf').json()['csrf_token']
+        body = {'id': self.user.pk, 'platform': 'g', 'identifier': '456'}
+        self.assertEqual(self.client.post('/api/accountlink/unverify/', body, HTTP_X_CSRFTOKEN=token).status_code, 200)
+        self.assertFalse(AccountLinkQueue.objects.filter(pk=stale.pk).exists())
+        self.assertEqual(AccountGitHub.objects.get().pk, 123)
+        self.assertTrue(AccountLinkQueue.objects.filter(userprofile=self.user, platform='g', identifier='123', verified=True).exists())
+        survivor = AccountLinkQueue.objects.create(userprofile=self.user, platform='g', identifier='789', verified=False)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.assertEqual(self.client.post('/api/accountlink/unverify/', {**body, 'identifier': '123'}, HTTP_X_CSRFTOKEN=token).status_code, 200)
+        self.assertFalse(AccountGitHub.objects.exists())
+        self.assertTrue(AccountLinkQueue.objects.filter(pk=survivor.pk).exists())
+
+    def test_cancelling_an_old_flow_does_not_cancel_the_latest_or_another_browser(self):
+        old, _ = self.start()
+        new, _ = self.start()
+        browser = Client()
+        browser.force_login(self.user)
+        self.assertEqual(browser.post(f'{BASE}/cancel', {'state': new}, content_type='application/json').status_code, 200)
+        require_active_flow(new, self.user.pk)
+        self.assertEqual(self.client.post(f'{BASE}/cancel', {'state': old}, content_type='application/json').status_code, 200)
+        require_active_flow(new, self.user.pk)
+        self.assertEqual(self.result(self.callback(old)), 'expired')
+        self.assertEqual(self.client.post(f'{BASE}/cancel', {'state': new}, content_type='application/json').status_code, 200)
+        self.assertEqual(self.result(self.callback(new)), 'expired')
+        self.network.assert_not_called()

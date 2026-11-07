@@ -1,7 +1,7 @@
 from urllib.parse import urlsplit
 
+from authlib.common.errors import AuthlibBaseError
 from authlib.integrations.requests_client import OAuth2Session
-from authlib.oauth2.rfc6749 import OAuth2Error
 from django.conf import settings
 import requests
 
@@ -28,9 +28,8 @@ def oauth_client():
     )
 
 
-def authorization_url(state, verifier):
-    with oauth_client() as client:
-        url, _ = client.create_authorization_url(AUTHORIZE_URL, state=state, code_verifier=verifier, prompt='select_account')
+def authorization_url(client, state, verifier):
+    url, _ = client.create_authorization_url(AUTHORIZE_URL, state=state, code_verifier=verifier, prompt='select_account')
     return url
 
 
@@ -42,7 +41,7 @@ def authorized_user_id(code, verifier):
             response = client.get(USER_URL, timeout=REQUEST_TIMEOUT, allow_redirects=False, headers={'Accept': 'application/vnd.github+json'})
             response.raise_for_status()
             data = response.json()
-    except (requests.RequestException, OAuth2Error, ValueError):
+    except (requests.RequestException, AuthlibBaseError, ValueError):
         # OAuth 异常的 description 及 HTTP 异常可能含凭据或 URL，不写入日志。
         raise ExceptionToResponse('github', 'remote_failed', 502) from None
     value = data.get('id') if isinstance(data, dict) else None

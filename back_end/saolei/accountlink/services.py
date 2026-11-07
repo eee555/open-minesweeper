@@ -100,7 +100,7 @@ def unverify_account_link(user_id: int, platform: str, identifier: str):
     if link is None:
         raise ExceptionToResponse('accountlink', 'not_found', status_code=404)
     if platform == Platform.GITHUB:
-        unlink_github_account(user.pk)
+        unlink_github_account(user.pk, identifier)
         return
     if link.verified:
         delete_account(user, platform)

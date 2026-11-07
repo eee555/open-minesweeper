@@ -2,9 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { fetchGitHubProfile, startGitHubLink } from './githubService';
 
-import $axios from '@/http';
-
-vi.mock('@/http', () => ({ default: { post: vi.fn() } }));
+const { post } = vi.hoisted(() => ({ post: vi.fn() }));
+vi.mock('@/http', () => ({ default: { post } }));
 afterEach(() => {
     vi.unstubAllGlobals(); vi.clearAllMocks();
 });
@@ -16,7 +15,7 @@ describe('GitHub public profile', () => {
         const { signal } = new AbortController();
         expect(await fetchGitHubProfile('42', signal)).toEqual({ id: '42', login: 'Renamed-user', url: 'https://github.com/Renamed-user' });
         expect(remote).toHaveBeenCalledWith('https://api.github.com/user/42', { credentials: 'omit', signal });
-        expect($axios.post).not.toHaveBeenCalled();
+        expect(post).not.toHaveBeenCalled();
     });
 
     it('rejects rate limits and responses for a different identity', async () => {
@@ -41,10 +40,10 @@ describe('GitHub public profile', () => {
 
 describe('GitHub authorization URL', () => {
     it('accepts only the GitHub authorization endpoint', async () => {
-        vi.mocked($axios.post).mockResolvedValueOnce({ data: { authorization_url: 'https://github.com/login/oauth/authorize?state=test' } });
+        post.mockResolvedValueOnce({ data: { authorization_url: 'https://github.com/login/oauth/authorize?state=test' } });
         expect(await startGitHubLink()).toBe('https://github.com/login/oauth/authorize?state=test');
         for (const url of ['https://attacker.test/login/oauth/authorize', 'https://github.com.evil.test/login/oauth/authorize', 'https://github.com/login']) {
-            vi.mocked($axios.post).mockResolvedValueOnce({ data: { authorization_url: url } });
+            post.mockResolvedValueOnce({ data: { authorization_url: url } });
             await expect(startGitHubLink()).rejects.toThrow('Invalid authorization URL');
         }
     });

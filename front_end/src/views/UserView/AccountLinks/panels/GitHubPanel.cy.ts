@@ -33,4 +33,14 @@ describe('GitHub public ID and profile', () => {
         cy.wait('@unlink');
         cy.get('@refresh').should('have.been.calledOnce');
     });
+
+    it('reports unlink failures separately from public profile failures', () => {
+        cy.intercept('POST', '**/api/accountlink/github/unlink', { statusCode: 503 }).as('unlink');
+        cy.on('window:confirm', () => true);
+        mountAccountLink(GitHubPanel, { info: new AccountGitHub({ id: '42', parent: 1 }), owner: true });
+        cy.contains('button', 'Unlink account').click();
+        cy.wait('@unlink');
+        cy.get('[role=alert]').should('contain', 'Could not unlink the account').and('not.contain', 'profile data');
+        cy.contains('.description-item', 'GitHub ID').should('contain', '42');
+    });
 });

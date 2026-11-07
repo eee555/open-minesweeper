@@ -17,7 +17,7 @@ import { useI18n } from 'vue-i18n';
 import { useActivePanel } from '../useActivePanel';
 
 import BaseButton from '@/components/common/BaseButton.vue';
-import { startGitHubLink } from '@/services/githubService';
+import { cancelGitHubLink, startGitHubLink } from '@/services/githubService';
 
 const sending = ref(false);
 const failed = ref(false);
@@ -30,10 +30,14 @@ async function authorize() {
     try {
         const url = await startGitHubLink();
         if (isActive()) window.location.assign(url);
+        else {
+            const state = new URL(url).searchParams.get('state');
+            if (state !== null) await cancelGitHubLink(state);
+        }
     } catch {
         if (isActive()) failed.value = true;
     } finally {
-        if (isActive()) sending.value = false;
+        sending.value = false;
     }
 }
 

@@ -308,7 +308,7 @@ SESSION_CACHE_ALIAS = 'saolei_website'
 GITHUB_OAUTH_CLIENT_ID = _read_project_secret('github_oauth_client_id')
 GITHUB_OAUTH_CLIENT_SECRET = _read_project_secret('github_oauth_client_secret')
 GITHUB_OAUTH_REDIRECT_URI = _read_project_secret('github_oauth_redirect_uri')
-GITHUB_OAUTH_FRONTEND_URL = 'http://localhost:8080' if DEBUG else 'https://openms.top'
+GITHUB_OAUTH_FRONTEND_URL = os.environ.get('GITHUB_OAUTH_FRONTEND_URL', 'http://localhost:8080' if DEBUG else 'https://openms.top')
 
 
 APSCHEDULER_DATETIME_FORMAT = 'N j, Y, f:s a'  # 定时任务格式

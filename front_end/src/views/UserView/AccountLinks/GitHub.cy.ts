@@ -35,4 +35,28 @@ describe('GitHub account-link entry', () => {
         cy.contains('button', 'Unlink account').should('not.exist');
         cy.contains('button', 'Link with GitHub').should('not.exist');
     });
+
+    it('cancels the returned authorization when the user has switched away before start completes', () => {
+        const state = 's'.repeat(43);
+        let release!: () => void;
+        const gate = new Promise<void>((resolve) => {
+            release = resolve;
+        });
+        cy.intercept('GET', '**/api/accountlink/1', { body: emptyLinks }).as('links');
+        cy.intercept('POST', '**/api/accountlink/github/start', (request) => gate.then(() => {
+            request.reply({ body: { authorization_url: `https://github.com/login/oauth/authorize?state=${state}` } });
+        })).as('start');
+        cy.intercept('POST', '**/api/accountlink/github/cancel', { statusCode: 200 }).as('cancel');
+        mountAccountLink(App, { userId: 1 });
+        cy.wait('@links');
+        cy.get('[data-platform=g]').click();
+        cy.contains('button', 'Link with GitHub').click();
+        cy.get('[data-platform=B]').click();
+        cy.then(() => {
+            release();
+        });
+        cy.wait('@start');
+        cy.wait('@cancel').its('request.body').should('deep.equal', { state });
+        cy.get('[data-platform=B]').should('have.attr', 'aria-pressed', 'true');
+    });
 });

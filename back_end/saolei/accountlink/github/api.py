@@ -12,12 +12,13 @@ from django.views.decorators.cache import never_cache
 from django_ratelimit.decorators import ratelimit
 from ninja import Router, Schema
 from ninja.decorators import decorate_view
+from pydantic import Field
 
 from userprofile.decorators import admin_csrf_required, login_required_error
 from userprofile.models import UserProfile
 from utils.exceptions import ExceptionToResponse
-from .cache import consume_flow, create_flow, invalidate_flow, require_active_flow
-from .client import authorization_url, authorized_user_id
+from .cache import cancel_flow, consume_flow, create_flow, invalidate_flow, require_active_flow
+from .client import authorization_url, authorized_user_id, oauth_client
 from .services import unlink_github_account
 from ..models import AccountGitHub, Platform
 from ..services import save_verified_account_link
@@ -28,6 +29,10 @@ logger = logging.getLogger('accountlink')
 
 class AuthorizationOut(Schema):
     authorization_url: str
+
+
+class CancelIn(Schema):
+    state: str = Field(pattern=r'^[A-Za-z0-9_-]{43}$')
 
 
 def current_session_user(request):
@@ -44,7 +49,7 @@ def current_session_user(request):
 
 def result_redirect(user_id, result):
     # 前端地址来自服务端配置，不接受 return_url；code/state 不带回 SPA。
-    origin = getattr(settings, 'GITHUB_OAUTH_FRONTEND_URL', 'http://localhost:8080' if settings.DEBUG else 'https://openms.top')
+    origin = settings.GITHUB_OAUTH_FRONTEND_URL
     response = HttpResponseRedirect(f'{origin.rstrip("/")}/#/player/{user_id}/accountlink?{urlencode({"github": result})}')
     response['Referrer-Policy'] = 'no-referrer'
     return response
@@ -60,13 +65,27 @@ def start(request):
     - ratelimit(key='user', rate='6/h', block=True)
     """
     user = current_session_user(request)
-    with transaction.atomic():
+    with oauth_client() as client, transaction.atomic():
         UserProfile.objects.select_for_update().get(pk=user.pk)
         if AccountGitHub.objects.filter(parent=user).exists():
             raise ExceptionToResponse('github', 'already_linked', 409)
         state, verifier = create_flow(user.pk, request.session.session_key)
-        url = authorization_url(state, verifier)
+        url = authorization_url(client, state, verifier)
     return {'authorization_url': url}
+
+
+@router.post('/cancel')
+@decorate_view(never_cache, login_required_error, admin_csrf_required, ratelimit(key='user', rate='12/h', block=True))
+def cancel(request, data: CancelIn):
+    """
+    - never_cache
+    - login_required_error
+    - admin_csrf_required
+    - ratelimit(key='user', rate='12/h', block=True)
+    """
+    user = current_session_user(request)
+    cancel_flow(data.state, user.pk, request.session.session_key)
+    return HttpResponse()
 
 
 @router.get('/callback')
