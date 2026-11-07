@@ -9,6 +9,8 @@ Open Minesweeper currently supports the `EVF`, `RMV`, `AVF`, and `MVF` replay fo
 
 If you want Open Minesweeper to support more Minesweeper software, you can choose to generate `EVF` or `RMV` files, or help `ms-toollib` support your custom format.
 
+See the [MetaSweeper User Guide](./minesweeper/metasweeper.md) for installation, settings, and keyboard shortcuts.
+
 ## Replay Eligibility
 
 For fairness, Open Minesweeper only accepts Minesweeper replays played under specific rules.

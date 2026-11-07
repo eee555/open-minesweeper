@@ -294,10 +294,10 @@ class SaoleiStageTests(TestCase):
         def reject_file(file, **kwargs):
             raise ExceptionToResponse('file', 'review')
 
-        self.sources(101, file_url='2023/04/16/sample.evf')
-        _, other = bound_account(102, 'hourly_other')
-        SaoleiApiVideo.objects.filter(remote_id__gt=50).update(user=other)
-        SaoleiApiVideo.objects.create(remote_id=102, user=self.account, upload_time=timezone.now(), level='b', status=20, software='Arbiter')
+        self.sources(1001, file_url='2023/04/16/sample.evf')
+        _, other = bound_account(1002, 'hourly_other')
+        SaoleiApiVideo.objects.filter(remote_id__gt=500).update(user=other)
+        SaoleiApiVideo.objects.create(remote_id=1002, user=self.account, upload_time=timezone.now(), level='b', status=20, software='Arbiter')
         self.account.auto_sync = False
         self.account.save(update_fields=['auto_sync'])
         with patch('accountlink.saolei.tasks.saolei_client', return_value=nullcontext(self.remote)):
@@ -305,7 +305,7 @@ class SaoleiStageTests(TestCase):
                 with self.assertLogs('accountlink', level='ERROR'), self.assertRaises(ExceptionToResponse):
                     task_import_saolei_hourly.call()
         # Disabled accounts are excluded from both stages.
-        self.assertEqual(self.remote.download_videos.call_count, 51)
+        self.assertEqual(self.remote.download_videos.call_count, 501)
         self.remote.reset_mock()
         SaoleiApiVideo.objects.update(import_rejected=False)
         self.account.auto_sync = True
@@ -314,13 +314,13 @@ class SaoleiStageTests(TestCase):
             with patch('accountlink.saolei.services.MSVideoParser', side_effect=reject_file):
                 with self.assertLogs('accountlink', level='ERROR'), self.assertRaises(ExceptionToResponse):
                     task_import_saolei_hourly.call()
-        self.assertEqual(self.remote.download_videos.call_count, 100)
+        self.assertEqual(self.remote.download_videos.call_count, 1000)
         self.remote.stats.assert_not_called()
         self.remote.video_list.assert_not_called()
         self.remote.video_info.assert_not_called()
-        self.assertEqual(SaoleiApiVideo.objects.filter(import_rejected=True).count(), 100)
-        self.assertFalse(SaoleiApiVideo.objects.get(remote_id=101).import_rejected)
-        self.assertFalse(SaoleiApiVideo.objects.get(remote_id=102).import_rejected)
+        self.assertEqual(SaoleiApiVideo.objects.filter(import_rejected=True).count(), 1000)
+        self.assertFalse(SaoleiApiVideo.objects.get(remote_id=1001).import_rejected)
+        self.assertFalse(SaoleiApiVideo.objects.get(remote_id=1002).import_rejected)
 
     def test_any_failure_marks_source_as_skipped(self):
         self.sources(2, file_url='2023/04/16/sample.evf')
