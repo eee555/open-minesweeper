@@ -21,8 +21,8 @@ All medals includes public unearned goals; Earned medals includes only current v
 
 - **Registered**: your account has a real name and is no longer anonymous.
 - **Reviewed**: at least one replay belonging to you has passed review.
-- **First Glimpse**: you have approved replays on Beginner, Intermediate and Expert.
-- **Another Path**: you have approved flagless replays on all three levels.
+- **Minesweeper Rookie**: you have approved replays on Beginner, Intermediate and Expert.
+- **NF Rookie**: you have approved NF replays on all three levels.
 - **Grand Tour**: you have at least one approved replay in each of four modes: Standard, Speed NG, Hardcore NG and Lucky. Only EVF replays distinguish modes; all other formats count as Standard. Each mode counts separately; you do not need all three difficulty levels in every mode, and covering three levels in a single mode does not meet this requirement.
 - **Old Traces**: your saolei.wang account link has been verified. See [Account Links](./account-links.md). The current requirement is verified linking; importing another replay is not required. Profile refresh and replay synchronization are disabled during the saolei.wang migration.
 
@@ -35,9 +35,9 @@ Ability titles track Beginner, Intermediate and Expert separately:
 - **Breakthrough** uses your fastest time. Sub10 means strictly below 10 seconds; 10.000 seconds does not qualify.
 - **Speed** uses your highest 3BV/s, the amount of board work completed per second. A tier of 3 requires at least 3 3BV/s.
 - **Mastery** uses your highest STNB, a measure of single-game performance rather than game count or ranking.
-- **Flagless Breakthrough, Flagless Speed and Flagless Mastery** use the corresponding metrics from flagless replays.
-- **Flagless Precision and Flagged Precision** use the highest thrp for that play style. thrp is `3BV / effective clicks`; it differs from IOE, which uses total clicks.
-- **Three-Tier Flagless Precision and Three-Tier Flagged Precision** require all three difficulty levels to meet the threshold in the same play style. Three-Tier refers to difficulty levels, not three games, three awards or a sum. For example, Three-Tier Flagless Precision · 0.9 requires flagless thrp of at least 0.9 on each level, which can come from separate replays.
+- **NF Breakthrough, NF Speed and NF Mastery** use the corresponding metrics from NF replays.
+- **NF Precision and Precision** use the highest thrp for that play style. thrp is `3BV / effective clicks`; it differs from IOE, which uses total clicks.
+- **Three-Level NF Precision and Three-Level Precision** require all three difficulty levels to meet the threshold in the same play style. Three-Level refers to difficulty levels, not three games, three awards or a sum. For example, Three-Level NF Precision · 0.9 requires NF thrp of at least 0.9 on each level, which can come from separate replays.
 
 These titles compare your own eligible results with fixed thresholds. One qualifying result per required metric and level is enough; you do not need five results, a leaderboard position or a better result than another player. See [Data](./minesweeper/stat.md) for more about the metrics.
 
@@ -46,9 +46,9 @@ For single-level ability medals, one, two and three stars indicate Beginner, Int
 Open **Customize medal colors** on a medal page, or **Medal colors** in Settings, to change the five score colors or override an individual threshold. Changes affect your view only and are saved in this browser. Reset and JSON import/export are available.
 
 ::: tip Ordinary, NF and FL
-NF means flagless and FL means flagged play. The site determines the style from effective right-click actions in the replay. Ordinary Breakthrough, Speed and Mastery accept either style, so one flagless replay can qualify for both an ordinary title and its flagless counterpart.
+NF means playing without flags; FL means playing with flags. The site determines the style from effective right-click actions in the replay. Ordinary Breakthrough, Speed and Mastery accept either style, so one NF replay can qualify for both an ordinary title and its NF counterpart.
 
-Precision keeps the two styles separate. A replay cannot count toward both Flagless Precision and Flagged Precision.
+Precision keeps the two styles separate: NF replays count toward NF Precision, while FL replays count toward Precision. A replay cannot count toward both.
 :::
 
 ### Other Titles
@@ -65,7 +65,7 @@ An ability replay must:
 2. **Have passed review.** Upload success does not mean approval. Pending or frozen replays do not count as valid ability results.
 3. **Use Standard mode on Beginner, Intermediate or Expert.** Other modes, including no-guess modes, do not count for these titles.
 4. **No longer be hidden as an ongoing tournament replay.** Such results are checked again after publication.
-5. **Contain valid data for the metric.** Precision needs valid 3BV and click data; Flagless Precision excludes records with fewer effective clicks than 3BV.
+5. **Contain valid data for the metric.** Precision needs valid 3BV and click data; NF Precision excludes records with fewer effective clicks than 3BV.
 
 These ability titles currently have no additional minimum 3BV requirement. Different replays may supply your time, speed and efficiency achievements.
 
@@ -90,7 +90,7 @@ Selections are pending changes until saved. If saving fails, check your sign-in 
 
 ## Upgrades and Other Changes
 
-Each series, difficulty and play style keeps its highest currently achieved tier. If Beginner Breakthrough improves from Sub20 to Sub10, it becomes Sub10 rather than adding another Sub20 medal. An already pinned medal updates with its tier. Different levels and ordinary versus flagless titles remain separate medals.
+Each series, difficulty and play style keeps its highest currently achieved tier. If Beginner Breakthrough improves from Sub20 to Sub10, it becomes Sub10 rather than adding another Sub20 medal. An already pinned medal updates with its tier. Different levels and ordinary versus NF titles remain separate medals.
 
 Automatic awards depend on currently valid results and profile information. Deleting, freezing, rejecting or reassigning a replay, or changing relevant profile details or account links, triggers another check. Other eligible results may preserve the award or support a lower tier. If the requirements are no longer met, the medal can be downgraded or withdrawn and disappear from the pinned display.
 

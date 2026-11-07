@@ -491,7 +491,7 @@ export default {
             [MedalSeries.FLAGLESS_PRECISION]: '{level}盲扫最高thrp达到{value}。',
             [MedalSeries.FLAGGED_PRECISION]: '{level}标雷最高thrp达到{value}。',
             [MedalSeries.THREE_FLAGLESS_PRECISION]: '三级别盲扫thrp达到{value}。',
-            [MedalSeries.THREE_FLAGGED_PRECISION]: '三级别thrp达到{value}。',
+            [MedalSeries.THREE_FLAGGED_PRECISION]: '三级别标雷thrp达到{value}。',
             [MedalSeries.REGISTERED]: '已实名。',
             [MedalSeries.REVIEWED]: '至少一条录像过审。',
             [MedalSeries.LEVELS]: '初级、中级、高级各有过审录像。',
