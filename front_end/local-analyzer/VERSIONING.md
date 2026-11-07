@@ -37,5 +37,5 @@
 1. 判断实际影响范围，有用户可感知的变化时更新 `CHANGELOG.md` 的未发布记录；纯开发改动不新增更新条目。仅当用户明确要求升级版本号时修改 `version.json`，其余情况保持当前版本。
 2. 同步必要的使用说明及中英文界面文本，保持页面、ZIP 内 `version.json` 和变更记录中的版本一致。
 3. 按 [构建与部署说明](./README.md) 在 `front_end` 执行 `npm.cmd run build:offline`，核对 ZIP 的版本文件、页面版本显示及内联资源检查。网站下载内容也需要刷新时使用 `npm.cmd run build:openms`，其 pre hook 会先生成离线包。
-4. 按改动维护相关测试。Cypress 命令留给用户，真实断网 `file://` 打开/解析/导出由用户验收；未运行的验证如实注明。lintfix/typecheck 遵循根目录 [.codex/instructions.md](../../.codex/instructions.md) 的跨轮工作流，不为本约束增加等待或额外审批。
+4. 按改动维护相关测试。Codex 的 Cypress 执行与 lintfix/typecheck 检查遵循根目录 [AGENTS.md](../../AGENTS.md#codex-专用工作流) 的专用流程，不为本约束增加等待或额外审批。真实断网 `file://` 打开/解析/导出由用户验收；未运行的验证如实注明。
 5. 源码、版本文件和变更记录交由 Git 管理；生成的 HTML 目录和 ZIP 沿用 `.gitignore`，不提交二进制产物。需要保留历史包时可发布到独立的 `analyzer-vX.Y.Z` Release；创建 tag/Release 或上传产物必须有用户授权，不由普通更新自动执行。
