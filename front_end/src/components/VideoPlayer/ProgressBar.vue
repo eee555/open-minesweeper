@@ -20,19 +20,28 @@
             v-model="currentMs" class="progress-bar__slider" :min="0" :max="durationMs"
             :step="step" :format-tooltip="formatSeconds" @pointerdown.capture="beginSeek" @change="finishSeek"
         />
-        <ElSelect v-model="playbackRate" class="progress-bar__speed" :title="t('local.speed')">
-            <ElOption v-for="rate in playbackRates" :key="rate" :value="rate" :label="`${rate}x`" />
-        </ElSelect>
+        <div class="button-group button-group--joined progress-bar__rate-controls">
+            <button type="button" class="base-button progress-bar__slower square-button" :disabled="playbackRate <= minRate" :title="t('local.slower')" :aria-label="t('local.slower')" @click="adjustRate(-rateStep)">
+                <i class="pi pi-minus" aria-hidden="true" />
+            </button>
+            <InputNumber class="progress-bar__speed" :model-value="playbackRate" :min="minRate" :max="maxRate" :step="rateStep" :title="t('local.speed')" :aria-label="t('local.speed')" @update:model-value="changeRate" />
+            <button type="button" class="base-button progress-bar__faster square-button" :disabled="playbackRate >= maxRate" :title="t('local.faster')" :aria-label="t('local.faster')" @click="adjustRate(rateStep)">
+                <i class="pi pi-plus" aria-hidden="true" />
+            </button>
+        </div>
     </div>
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/element-plus-slider.css';
 import '@/styles/button.css';
 import 'primeicons/primeicons.css';
 
-import { ElOption, ElSelect, ElSlider } from 'element-plus';
+import { ElSlider } from 'element-plus';
 import { onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+
+import InputNumber from '@/components/common/InputNumber.vue';
 
 const props = defineProps({
     durationMs: { type: Number, required: true },
@@ -43,22 +52,27 @@ const i18nMessages = {
     'zh-cn': { local: {
         restart: '重新开始',
         speed: '播放速度',
+        slower: '减速',
+        faster: '加速',
         step: '前进 0.1 秒',
     } },
     en: { local: {
         restart: 'Restart',
         speed: 'Playback speed',
+        slower: 'Slower',
+        faster: 'Faster',
         step: 'Step 0.1 seconds',
     } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });
 
-const playbackRates = [0.5, 1, 1.5, 2, 4];
-
 const currentMs = defineModel<number>({ required: true });
 const isPlaying = ref(false);
 const playbackRate = ref(1);
+const minRate = 0.5;
+const maxRate = 4;
+const rateStep = 0.1;
 
 let animationFrameId = 0;
 let startedAt = 0;
@@ -143,6 +157,24 @@ function syncPlaybackAnchor(value = currentMs.value) {
     startedFrom = value;
 }
 
+function changeRate(rate: number) {
+    const now = performance.now();
+    const advancing = isPlaying.value && !isSeeking;
+    const nextMs = advancing ? clampTime(startedFrom + (now - startedAt) * playbackRate.value, props.durationMs) : currentMs.value;
+    playbackRate.value = rate;
+    startedAt = now;
+    startedFrom = nextMs;
+    if (advancing) {
+        currentMs.value = nextMs;
+        if (nextMs >= props.durationMs) stopPlayback();
+    }
+}
+
+function adjustRate(delta: number) {
+    const rate = Number((playbackRate.value + delta).toFixed(12));
+    changeRate(Math.min(maxRate, Math.max(minRate, rate)));
+}
+
 function clampTime(value: number, durationMs: number) {
     return Math.min(Math.max(0, value), Math.max(0, durationMs));
 }
@@ -170,7 +202,16 @@ onBeforeUnmount(() => {
     min-width: 160px;
 }
 
+.progress-bar__rate-controls {
+    flex-shrink: 0;
+    align-items: center;
+}
+
 .progress-bar__speed {
-    width: 86px;
+    width: calc(4ch + 10px);
+    flex-shrink: 0;
+    padding-inline: 4px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
 }
 </style>

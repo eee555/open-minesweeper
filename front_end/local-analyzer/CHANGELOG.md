@@ -1,5 +1,14 @@
 # Analyzer 更新记录 / Analyzer changelog
 
+## 0.2.2 — 2026-11-06
+
+- 随包表达式参考补充原生播放器的 `toFixed` 固定小数位函数；分析器计数器仍使用独立 format。
+- Document the native player's `toFixed` function in the bundled expression reference; Analyzer counters still use their separate format field.
+- 变速控件使用紧凑数字框直接输入倍率，加速/减速按钮每次调整 0.05 倍。
+- Enter playback speed in a compact numeric input and adjust it by 0.05 with the faster/slower buttons.
+- 播放进度滑块改用纵向沙漏外形，与网站滑块共用尺寸及主题配色。
+- Use a vertical hourglass thumb for playback seeking, sharing its dimensions and theme colors with site sliders.
+
 ## 0.2.1 — 2026-11-01
 
 - 棋盘显示鼠标按下反馈：左键按下时压下光标所在格，双键按下时压下周围 3×3 格，旗格保持不变；视频导出保留相同效果。

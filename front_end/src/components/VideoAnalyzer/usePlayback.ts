@@ -24,8 +24,6 @@ export interface PlaybackController {
     setRangeEnd: () => void;
 }
 
-export const playbackRates = [0.25, 0.5, 0.75, 1, 1.5, 2, 4, 8];
-
 export function usePlayback(duration: MaybeRefOrGetter<number> = 0): PlaybackController {
     const durationMs = computed(() => {
         const value = toValue(duration);

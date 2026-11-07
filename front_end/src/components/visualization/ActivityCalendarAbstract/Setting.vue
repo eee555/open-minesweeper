@@ -1,8 +1,14 @@
 <template>
-    <span class="text-regular">{{ t('local.showDate') }}</span>&nbsp;
-    <ElSwitch v-model="activityCalendarConfig.showDate" size="small" /><br>
-    <span class="text-regular">{{ t('local.useEndTime') }}</span>&nbsp;
-    <ElSwitch v-model="activityCalendarConfig.useEndTime" size="small" />&nbsp;
+    <label class="switch switch--small" data-cy="calendar-show-date">
+        <span>{{ t('local.showDate') }}</span>
+        <input v-model="activityCalendarConfig.showDate" class="switch-input" type="checkbox" role="switch">
+        <span class="switch-track" aria-hidden="true" />
+    </label><br>
+    <label class="switch switch--small" data-cy="calendar-use-end-time">
+        <span>{{ t('local.useEndTime') }}</span>
+        <input v-model="activityCalendarConfig.useEndTime" class="switch-input" type="checkbox" role="switch">
+        <span class="switch-track" aria-hidden="true" />
+    </label>&nbsp;
     <span :title="t('local.useEndTimeTooltip')">
         <BaseIconQuestion />
     </span><br>
@@ -13,7 +19,7 @@
 </template>
 
 <script setup lang="ts">
-import { ElInputNumber, ElSwitch } from 'element-plus';
+import { ElInputNumber } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 
 import { BaseIconQuestion } from '@/components/common/icon';

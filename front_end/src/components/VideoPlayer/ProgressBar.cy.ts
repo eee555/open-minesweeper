@@ -59,12 +59,12 @@ describe('<ProgressBar />', () => {
         modelUpdate(0).should('eq', 50);
     });
 
-    it('emits current time updates while playing', () => {
+    it('accepts custom rates, steps by 0.1 within bounds and changes speed without jumping', () => {
         let animationCallback: FrameRequestCallback | undefined = undefined;
-        let testWindow: Window | undefined = undefined;
+        let now = 1000;
 
         cy.window().then((win) => {
-            testWindow = win;
+            cy.stub(win.performance, 'now').callsFake(() => now);
             cy.stub(win, 'requestAnimationFrame').callsFake((callback: FrameRequestCallback) => {
                 animationCallback = callback;
                 return 1;
@@ -73,17 +73,40 @@ describe('<ProgressBar />', () => {
         });
         mountProgressBar(0, 1000);
 
+        cy.get('input[aria-label="Playback speed"]').should('have.value', '1').and('have.attr', 'type', 'number');
+        cy.get('.progress-bar__speed').should('have.attr', 'step', '0.1');
+        for (const rate of ['1.1', '1.2', '1.3']) {
+            cy.get('.progress-bar__faster').click();
+            cy.get('.progress-bar__speed').should('have.value', rate);
+        }
+        cy.get('.progress-bar__slower').click();
+        cy.get('.progress-bar__speed').should('have.value', '1.2');
+        cy.get('.progress-bar__speed').invoke('val', 0.65).trigger('input');
         cy.get('.progress-bar .pi-play').closest('button').click();
         cy.then(() => {
             expect(animationCallback).not.to.equal(undefined);
-            expect(testWindow).not.to.equal(undefined);
-            animationCallback?.((testWindow?.performance.now() ?? 0) + 250);
+            now = 1250;
+            animationCallback?.(now);
         });
+        lastModelUpdate().should('eq', 162.5);
 
-        lastModelUpdate().then((value) => {
-            expect(Number(value)).to.be.greaterThan(0);
-            expect(Number(value)).to.be.lessThan(1000);
+        cy.get('.progress-bar__speed').invoke('val', 1.35).trigger('input');
+        lastModelUpdate().should('eq', 162.5);
+        cy.get('.progress-bar .pi-pause').should('exist');
+        cy.then(() => {
+            now = 1500;
+            animationCallback?.(now);
         });
+        lastModelUpdate().should('eq', 500);
+        cy.get('.progress-bar .pi-pause').closest('button').click();
+        cy.get('.progress-bar__speed').invoke('val', 3.95).trigger('input');
+        cy.get('.progress-bar__faster').click();
+        cy.get('.progress-bar__speed').should('have.value', '4');
+        cy.get('.progress-bar__faster').should('be.disabled');
+        cy.get('.progress-bar__speed').invoke('val', 0.55).trigger('input');
+        cy.get('.progress-bar__slower').click();
+        cy.get('.progress-bar__speed').should('have.value', '0.5');
+        cy.get('.progress-bar__slower').should('be.disabled');
     });
 
     for (const { playing, fraction, expected, fromTrack } of [

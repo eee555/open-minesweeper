@@ -45,6 +45,7 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/primevue-table.css';
 import '@/styles/button.css';
 import '@/styles/cards.css';
 

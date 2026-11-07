@@ -8,14 +8,12 @@
                 <div class="description-item">
                     <dt>{{ t('local.viennaLogo') }}</dt>
                     <dd>
-                        <ElSwitch v-model="local.vienna_logo_legacy">
-                            <template #active>
-                                <img style="width: 16px; height: 16px" :src="ViennaIconLegacy" :title="t('old')">
-                            </template>
-                            <template #inactive>
-                                <img style="width: 16px; height: 16px" :src="ViennaIconNew" :title="t('new')">
-                            </template>
-                        </ElSwitch>
+                        <label class="switch" data-cy="vienna-logo-switch">
+                            <img style="width: 16px; height: 16px" :src="ViennaIconNew" :title="t('new')" alt="">
+                            <input v-model="local.vienna_logo_legacy" class="switch-input" type="checkbox" role="switch" :aria-label="t('local.viennaLogo')">
+                            <span class="switch-track" aria-hidden="true" />
+                            <img style="width: 16px; height: 16px" :src="ViennaIconLegacy" :title="t('old')" alt="">
+                        </label>
                     </dd>
                 </div>
                 <div class="description-item">
@@ -49,7 +47,10 @@
                 <div class="description-item description-wide">
                     <dt>{{ t('local.experimentalFeature') }}</dt>
                     <dd>
-                        <ElSwitch v-model="local.experimental" />
+                        <label class="switch" data-cy="experimental-switch">
+                            <input v-model="local.experimental" class="switch-input" type="checkbox" role="switch" :aria-label="t('local.experimentalFeature')">
+                            <span class="switch-track" aria-hidden="true" />
+                        </label>
                     </dd>
                 </div>
             </dl>
@@ -62,7 +63,7 @@
 import '@/styles/descriptions.css';
 import '@/styles/cards.css';
 
-import { ElInputNumber, ElSwitch } from 'element-plus';
+import { ElInputNumber } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 
 import BaseTooltip from '@/components/common/BaseTooltip.vue';

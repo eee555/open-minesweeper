@@ -7,6 +7,7 @@
 | `/ranking/speed/lsf` | `sort`：`lsf`、`std:b/i/e/sum`、`nf:b/i/e/sum` | `lsf` |
 | `/ranking/speed/top` | `sort`、`detail`：等级 `b/i/e` + 指标 `t/b/s`；`nf` | 排序 `et`，明细随排序，普通榜 |
 | `/ranking/speed/saolei` | `sort`：`bt/bb/it/ib/et/eb/sumt/sumb`；`nf` | `sumt`，普通榜 |
+| `/ranking/speed/strict_ng` | `sort`：`bt/bb/it/ib/et/eb/sumt/sumb`；`nf` | `sumt`，普通榜 |
 | `/ranking/speed/pb` | `level`：`b/i/e`；`bv`；`nf` | `b`、`1`，普通榜 |
 | `/ranking/efficiency/thrp` | `sort`：`b/i/e/sum/e_nf` | `sum` |
 | `/ranking/efficiency/nf-ioe` | `sort`：`b/i/e/sum` | `sum` |

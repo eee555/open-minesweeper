@@ -52,8 +52,9 @@ describe('<LoginForm />', () => {
         cy.contains('Invalid username or password').should('not.exist');
     });
 
-    it('keeps the selected login expiry and resets it when remember-me is unchecked', () => {
+    it('keeps the numeric login expiry across remember-me toggles', () => {
         cy.intercept('POST', '/userprofile/login/').as('loginRequest');
+        cy.spy($axios, 'post').as('loginPost');
         cy.mount(LoginForm, mountOptions);
         cy.contains('Username').next().type('test');
         cy.contains('Password').next().type('test');
@@ -61,19 +62,27 @@ describe('<LoginForm />', () => {
         cy.get('.rememberMe input').should('not.be.checked');
         cy.get('.rememberMe').click();
         cy.get('.rememberMe input').should('be.checked');
-        cy.contains('label', /^30$/).click();
+        cy.get('[data-cy=login-expiry] input[value="7"]').should('be.checked');
+        cy.contains('[data-cy=login-expiry] label', /^30$/).click();
+        cy.get('[data-cy=login-expiry] input:checked').should('have.length', 1).and('have.value', '30');
         cy.contains('button', /^Log in$/).click();
         cy.wait('@loginRequest').its('request.body').should((body: string) => {
             expect(new URLSearchParams(body).get('set_expiry')).to.equal('30');
         });
+        cy.get('@loginPost').should('have.been.calledWithMatch', 'userprofile/login/', { set_expiry: 30 });
         cy.get('.rememberMe input').focus();
         cy.realPress('Space');
         cy.get('.rememberMe input').should('not.be.checked');
-        cy.get('.el-radio-group').should('not.exist');
+        cy.get('[data-cy=login-expiry]').should('not.exist');
+        cy.get('.rememberMe').click();
+        cy.get('[data-cy=login-expiry] input[value="30"]').should('be.checked');
+        cy.get('.rememberMe').click();
+        cy.get('[data-cy=login-expiry]').should('not.exist');
         cy.contains('button', /^Log in$/).click();
         cy.wait('@loginRequest').its('request.body').should((body: string) => {
             expect(new URLSearchParams(body).get('set_expiry')).to.equal('0');
         });
+        cy.get('@loginPost').should('have.been.calledWithMatch', 'userprofile/login/', { set_expiry: 0 });
     });
 
     it('opens password recovery with the keyboard without submitting the form', () => {

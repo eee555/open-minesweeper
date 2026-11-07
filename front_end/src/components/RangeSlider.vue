@@ -18,6 +18,8 @@
 </template>
 
 <script setup lang="ts" name="RangeSlider">
+import '@/styles/vendors/element-plus-slider.css';
+
 import { ElInputNumber, ElSlider } from 'element-plus';
 import type { PropType } from 'vue';
 

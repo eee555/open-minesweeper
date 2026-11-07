@@ -1,8 +1,8 @@
 # 前端 UI 风格渐进重构计划
 
-制定日期：2026-10-03。现状核查与整理：2026-10-16。
+制定日期：2026-10-03。4.2 剩余调用点与计划更新：2026-11-06。
 
-本计划以当前代码为实施起点，只列剩余工作和持续适用的约束。按用户约定，已提交或明确验收的改动不再列为实施或测试待办。普通页面描述布局、周赛报名表和 Checkbox 4.1.1 均已提交；图标迁移 7.1、Checkbox 4.1.2 / 4.1.3 / 4.1.4 已验收。Checkbox 迁移已完成，图标迁移剩余 7.2。批次编号保留，避免后续交流中混淆。
+本计划以当前代码为实施起点，只列剩余工作和持续适用的约束。按用户约定，已提交或明确验收的改动不再列为实施或测试待办。普通页面描述布局、周赛报名表和 Checkbox 4.1.1 均已提交；图标迁移 7.1、Checkbox 4.1.2 / 4.1.3 / 4.1.4 已验收。Checkbox 与本轮 Select 迁移及样式统一已完成，图标迁移剩余 7.2。批次编号保留，避免后续交流中混淆。
 
 ## 目标与固定约束
 
@@ -14,7 +14,7 @@
 - 禁止全局注册全量 Element Plus 图标；过渡期仅注册实际依赖全局解析的图标，最终不全局注册任何图标。图标选型继续优先 PrimeIcons，其次 Element Plus。
 - 每批围绕一个可独立审查、合并和回退的结果，避免与业务逻辑修改、文件搬迁或整页重写混在一起。
 
-新增 UI 和业务维护优先遵守[根目录前端规范](../.codex/instructions.md)。管理员页面只承接必要的功能与主题兼容，不安排专门的精细视觉改版。
+新增 UI 和业务维护优先遵守[根目录前端规范](../AGENTS.md)。管理员页面只承接必要的功能与主题兼容，不安排专门的精细视觉改版。
 
 ## 当前可复用的基础
 
@@ -22,7 +22,7 @@
 
 | 基础 | 当前实现与维护入口 |
 | --- | --- |
-| 主题与参数 | [`theme/`](src/styles/theme/) 提供独立颜色、字号、圆角、过渡和表格参数；[`setup.ts`](src/setup.ts) 为应用与 Cypress 加载主题和库适配 |
+| 主题与参数 | [`theme/`](src/styles/theme/) 提供独立颜色、字号、圆角、过渡和表格参数；[`setup.ts`](src/setup.ts) 为应用与 Cypress 加载主题和共用原生样式，vendors 库适配由使用方按需导入 |
 | 全局文字 | [`text.css`](src/styles/text.css) 设置 body 常规文字色、基础字号和换行方式；div / span 默认零 margin、零 padding，span 默认行内居中 |
 | 文字语义 | 普通文本可继承默认样式；需要独立常规文字色时使用 `text-regular`，保留字号与状态色修饰类；标题、链接、控件等仍可使用有实际重置作用的 `text` |
 | 有色数据单元格 | [`PiecewiseColorScheme`](src/utils/colors.ts) 按背景明暗引用浅色 / 深色模式的默认文字色；透明背景继承父容器颜色。两套来源为 `--ui-text-color-regular-light` / `--ui-text-color-regular-dark` |
@@ -34,6 +34,10 @@
 | 图标注册 | [`bootstrap.ts`](src/bootstrap.ts) 显式全局注册剩余的 8 个图标；导航已改用 PrimeIcons，并清理了 6 个仅菜单使用的注册；组件测试按挂载链注册，7.2 其余范围仍待迁移 |
 | 导航布局 | [`Menu.vue`](src/views/Menu.vue) 提供顶栏 / 侧栏设置、单行顶栏溢出菜单与窄容器抽屉；App.vue 将唯一的页面主体放入其插槽，切换布局保留页面实例；导航重做已验收 |
 | 原生 Checkbox | [`checkbox.css`](src/styles/checkbox.css) 与 [`checkbox-buttons.css`](src/styles/checkbox-buttons.css) 由 setup.ts 为应用与 Cypress 加载；原生 input / label + 共用 class，提供直角、主题、选中、半选、悬停、键盘焦点和禁用样式，支持数组多选与按钮外观，无 BaseCheckbox 组件；4.1 已完成 |
+| 原生 Radio | [`choice-buttons.css`](src/styles/choice-buttons.css) 通过 checkbox-buttons.css 加载，提供 radio 按钮 class，与 Checkbox 复用直角、选中、禁用、焦点和主题外观；原生分组与 v-model，无 BaseRadio；4.2.3 已验收 |
+| 原生 Switch | [`switch.css`](src/styles/switch.css) 由 setup.ts 加载，提供原生 checkbox / label 的直角开关外观、普通 / 小尺寸、主题、悬停、焦点及禁用状态，无 BaseSwitch；本地配置及管理员局部开关已验收，录像筛选使用普通 Checkbox 外观 |
+| 原生 Select | [`select.css`](src/styles/select.css) 由 setup.ts 加载，提供 .base-select / --ui-select-*；普通尺寸 28px / 14px，小尺寸 24px / 12px，直角及深浅主题共用，聚焦仅主色边框且优先于 hover，不叠加描边或阴影；无 BaseSelect 组件 |
+| 保留选择器的视觉 | `vendors/element-plus-select.css` 汇总多选标签和浮层适配，使用方按需导入；`primevue-table.css` 汇总分页器 Select 适配，共用 --ui-select-* 参数；复杂选择器与库内部页容量选择器的样式统一已验收 |
 
 已迁移的表格包括密度榜、扫雷榜、PB 榜、比赛积分榜、软件版本列表、个人纪录、自定义计数器和周赛报名表。比赛积分榜由页面管理后端排序，切换字段重置页码，表头不显示排序箭头。
 
@@ -43,21 +47,20 @@
 
 | 批次 | 工作 | 范围与边界 |
 | --- | --- | --- |
-| 2 | 剩余描述布局 | 剩余 10 个文件共 11 处 ElDescriptions 位于管理员与账号关联区域，按既定范围暂缓 |
+| 2 | 剩余描述布局 | 当前 4 个管理员文件共 4 处 ElDescriptions，随维护处理 |
 | 3 | 剩余表格核对 | 其余 5 个 ElTable 根据实际排序、编辑等依赖决定是否保留 |
 | 7 | 图标注册迁移 | 剩余 7.2：逐模块取消全局图标注册，同步处理 Cypress 注册 |
-| 4 | 其他控件换肤与尺寸细化 | Select 4.2.1 尚未实施；其他类别按 4.2 独立成批 |
+| 4 | 其他控件换肤与尺寸细化 | Slider 沙漏外形及 4.2.4 各迁移批次已验收；其余 Slider、输入与表单、Tabs、浮层等继续分批推进 |
 | 5 | PrimeVue 退出 | 筛选控件、表格替代验证、逐表迁移和依赖清理；随相关模块维护推进 |
 | 6 | 局部收尾 | 随每批删除失效导入、重复样式和已无使用方的兼容项，更新本计划 |
 
-下一步可独立推进 Select 4.2.1 或图标 7.2。首页比赛卡片、账号关联页面重做和 PrimeVue 全部退出不作为其他批次的前置条件。
+4.2.5 的不透明度原生迁移及剩余轨道、提示样式，以及图标 7.2 仍可独立推进；首页比赛卡片和 PrimeVue 全部退出不作为前置条件。
 
 ### 2. 剩余描述布局
 
-剩余 11 处 ElDescriptions 位于 10 个文件，按既定范围暂缓：
+当前 4 处 ElDescriptions 位于 4 个管理员文件：
 
 - 管理员区域 4 处：`components/GSCAdmin/GeneralInfo.vue`、`views/StaffView/Task.vue`、`VideoModel.vue`、`WeeklyTournament.vue`，随维护迁移；保留动态循环、v-loading 和条件显示。
-- 账号关联区域 7 处：`CardMineracer.vue`、`CardBilibili.vue`、`CardAddMineracer.vue`、`CardWoM.vue`（2 处）、`CardSaolei.vue`、`CardMsgames.vue`，随页面重做处理。
 
 后续直接复用模板，按实际列数与跨列需求完善局部 CSS；不复制 ElDescriptions 的完整 API，也不将子控件的交互重写纳入布局迁移。
 
@@ -88,17 +91,17 @@ BaseTable 的迁移边界保持如下：
 
 当前入口及依赖已核对：
 
-- [`bootstrap.ts`](src/bootstrap.ts) 显式导入剩余 8 个图标，通过有限映射调用 app.component。
+- [`bootstrap.ts`](src/bootstrap.ts) 显式导入剩余 7 个图标，通过有限映射调用 app.component。旧账号关联专用的 Ticket 注册及豁免已随旧文件删除。
 - [`Menu.cy.ts`](src/views/Menu.cy.ts) 仅注册登录、注册及找回密码渲染链需要的 Key、Lock、Message、User，共 4 个图标；不再为导航注入图标。
 - prefix-icon 等字符串 props 仍需逐项检查，不能只搜索图标标签。
 - 已核对当前安装包：ElMenu 子菜单箭头直接导入 `ArrowDown` / `ArrowRight`；ElFormItem 相关状态图标由 ElInput 的校验状态映射承接，加载、成功、失败及密码显隐图标已在库内部导入。这些内部使用本身不要求项目全局注册；`prefix-icon="User"` 等项目传入的字符串仍需全局解析。
 
-7.2 需要逐模块消除的全局依赖如下，去重后共 8 个；历史注释与 ESLint ignorePatterns 不作为实际使用依据：
+7.2 需要逐模块消除的全局依赖如下，去重后共 7 个；历史注释与 ESLint ignorePatterns 不作为实际使用依据：
 
 | 调用来源 | 图标 |
 | --- | --- |
 | `Login/LoginForm.vue`、`Login/RegisterForm.vue`、`formItems/EmailFormItem.vue`、`EmailCodeBlock.vue`、`PasswordConfirmBlock.vue` 的输入前缀；找回密码表单复用后面三个组件 | User、Lock、Key、Message |
-| `visualization/ColorSchemeSetting.vue`、`accountlinks/CardWoM.vue`、`widgets/UserArbiterCSV.vue` 的裸标签 | ArrowLeft、ArrowRight、Ticket、QuestionFilled |
+| `visualization/ColorSchemeSetting.vue`、`widgets/UserArbiterCSV.vue` 的裸标签 | ArrowLeft、ArrowRight、QuestionFilled |
 
 7.2 需要同步移除的测试注册如下：
 
@@ -107,7 +110,6 @@ BaseTable 的迁移边界保持如下：
 | `views/Menu.cy.ts` | 登录、注册、找回密码弹窗需要的 Key、Lock、Message、User，共 4 个 |
 | `Login/LoginForm.cy.ts` / `Login/RegisterForm.cy.ts` | Key、Lock、User / Key、Lock、Message、User |
 | `formItems/EmailCodeBlock.cy.ts` / `PasswordConfirmBlock.cy.ts` | Key / Lock |
-| `accountlinks/CardWoM.cy.ts` / `App.cy.ts` | Ticket；现有 `mountAccountLink` 允许调用方传入有限的组件映射，其他账号关联测试默认不注册图标 |
 | `VideoPlayer/NativePlayer.cy.ts` / `views/UserView/UserVideoView.cy.ts` | ArrowLeft、ArrowRight / QuestionFilled |
 
 #### 7.2 后续目标：不全局注册任何图标
@@ -128,79 +130,72 @@ ESLint 公共规则禁止所有参与 lint 的 Vue 文件新增 ElCheckbox、ElC
 
 #### 4.2 其他复杂组件换肤与尺寸细化
 
-表格共用视觉和按钮直角适配已经完成。本阶段处理尚未统一的类别，每类先选择一个代表实例验证，再推广：
+表格共用视觉、按钮直角适配、Select、Radio 及 4.2.4 各迁移批次已完成。本阶段继续小批推进，每类先选择代表实例验收，再推广。4.2.2 曾用于已验收的导航重做，不复用其编号；4.2.5 的沙漏滑块外形已验收，其余工作及后续批次尚未实施。
 
-| 子批次 | 代表实例 | 重点 |
+| 子批次 | 当前范围 | 实施边界 |
 | --- | --- | --- |
-| 输入与表单 | 登录/注册、EditProfile、播放器设置 | 输入高度、内边距、圆角、标签与校验间距；保留输入、焦点及校验行为 |
-| 选择控件 | Select 按 4.2.1 分批；Radio、Switch、Slider 另行核对 | 控件与下拉浮层尺寸、选中/禁用/焦点状态，保留实际使用的选择和数值范围语义；Checkbox 迁移已完成 |
-| Tabs | 首页或用户页面 | 水平标签换行及逐项选中指示已由 `vendors/element-plus-tabs.less` 接入，待视觉验收；纵向标签保留原样。后续核对高度、内容间距和边框，保留标签切换与路由状态 |
-| 弹窗、通知与加载 | BaseOverlay、登录弹窗、Notifications、v-loading | 内部间距、边角、按钮区域和浮层；保留关闭、滚动、焦点、遮罩和加载行为 |
+| 4.2.5 Slider | 3 个文件、3 处 ElSlider；与 Analyzer 原生进度滑块共用的沙漏外形已验收 | 简单不透明度单独迁移；双滑块及播放器拖动保留组件交互，继续细化轨道和提示样式 |
+| 4.2.6 输入与表单 | ElInput 为 17 个文件、33 处，ElInputNumber 为 17 个文件、27 处；另有 5 处 ElForm、19 处 ElFormItem | 先盘点能力和校验依赖，再以登录/注册为换肤试点；不批量替换表单和数值处理 |
+| 4.2.7 Tabs | 11 个业务文件、12 处 ElTabs；另有 1 个测试包装组件 | 先验收已有水平换行与逐项选中指示，再细化高度、间距、边框；保留纵向布局和路由状态 |
+| 4.2.8 弹窗、通知与加载 | 18 处 ElDialog、2 处 ElDrawer，以及通知和加载调用 | 以 BaseOverlay、登录弹窗、Notifications 为代表，逐类调整内部间距、边角与浮层 |
+
+以上数量按 src 下 Vue 模板声明统计，循环产生的实例不重复计数，组件库内部调用不计入。Radio 和 Switch 优先复用原生表单行为，不新增 BaseRadio / BaseSwitch 状态层；输入与表单是否原生迁移，以逐项盘点结果为准。
 
 按实际需要提取控件高度、间距、行高等项目参数，同时覆盖正常、悬停、焦点、禁用、加载、错误和空状态。不要只将所有控件切为 `small`，也不要直接将所有字号或全局圆角统一缩小来代替逐类检查。
 
 保留主题切换机制。下拉框、弹窗和通知可能挂载到 body，使用组件公开的浮层 class / 样式接口接入，不能只依赖业务页面的 scoped CSS。现有 App.vue 中的浮层层级修复继续保留，确需迁移时单独验证。
 
-#### 4.2.1 Select 调用点与迁移方案（已评估，尚未实施）
+#### 4.2.1 Select 复用约定（本轮已完成）
 
-当前直接调用共 **17 个文件、21 处模板声明**：Element Plus 为 16 个文件、20 处，PrimeVue 为 1 个文件、1 处。数量按模板声明统计，MSStatSelect 在散点图工具栏的三个实例不重复计数。未发现直接使用的多选、远程搜索、自由创建选项、SelectV2 或 OptionGroup；仅日志选择器启用 filterable，其选项由接口一次加载，不是远程搜索。
+原生迁移及保留选择器样式统一均已验收，不再列批次和测试待办。普通单选复用原生 select / option 与 .base-select，不新增 BaseSelect；已有原生控件随模块维护逐步接入同一 class，保留各自尺寸与业务行为。
 
-普通页面及共享组件的调用点如下，路径相对于 src：
+UserVideoView 的模式多选、HistoryVideos 的录像标识多选、Logs 的文件搜索和 Medal 的勋章搜索继续保留 ElSelect，分页器内部的选择器也保留。闭合控件、标签及库浮层共用 --ui-select-* 参数；适配由使用方按需导入，浮层直接引用全局项目参数。具体入口、尺寸和主题约定见[样式 README](src/styles/README.md)。原生选项菜单继续遵循浏览器及系统外观，不为统一浮层外观自建 combobox。
 
-| 使用方 | 处数 | 当前能力与迁移注意点 | 建议 |
-| --- | --- | --- | --- |
-| [widgets/DataExporter.vue](src/components/widgets/DataExporter.vue) | 1 | CSV / JSON 字符串单选；下载时读取当前格式 | 第一批试点 |
-| [VideoPlayer/ProgressBar.vue](src/components/VideoPlayer/ProgressBar.vue) | 1 | 0.5 / 1 / 1.5 / 2 / 4 倍速，模型为 number；不涉及 Slider 迁移 | 第一批试点 |
-| [RankingView/SpeedRanking.vue](src/views/RankingView/SpeedRanking.vue) | 1 | 扫雷榜 / PB 榜，computed 模型读写路由；选项说明已有旁侧 Tippy | 第一批试点 |
-| [BBBvSummary/Header.vue](src/components/visualization/BBBvSummary/Header.vue) | 4 | 模板、排序、显示指标、图标；字符串配置，部分控件条件显示；图标值空字符串表示“不显示图标” | 第二批 |
-| [Filters/MSStatSelect.vue](src/components/Filters/MSStatSelect.vue) | 1 | 字符串指标单选；选中项 label 插槽带前缀。VideoScatter/Toolbar.vue 使用三个实例，轴选项 12 个、颜色选项 8 个 | 第二批，保留现有封装 |
-| [SettingView/Visualization.vue](src/views/SettingView/Visualization.vue) | 1 | 五种配色设置对象的选择，位于实验功能区域 | 第二批，保持实验功能开关 |
-| [Plots/MarkerSetting.vue](src/components/visualization/Plots/MarkerSetting.vue) | 1 | shape 条件分支，目前只有 Circle；现有散点图调用只启用 radius，不显示此 Select | 第二批，只替换已有可选分支 |
-| [VideoPlayer/App.vue](src/components/VideoPlayer/App.vue) | 1 | native / flop / StrangeDust 后端选择，配置决定播放器渲染 | 第三批，保留配置与切换行为 |
-| [gsc/App.vue](src/views/TournamentView/gsc/App.vue) | 1 | 三种自动上传筛选策略，字符串模型由匹配函数读取 | 第三批，保留筛选逻辑 |
-| [weekly/App.vue](src/views/TournamentView/weekly/App.vue) | 1 | 三种自动上传筛选策略，包括刷新成绩；不改 token、格式及成绩判断 | 第三批，保留筛选逻辑 |
-| [accountlinks/CardAdd.vue](src/components/accountlinks/CardAdd.vue) | 1 | 平台单选，已关联平台禁用；初始及关闭弹窗后为未选择，后续引导依赖平台 | 技术上可迁移，随账号关联页面重做 |
+后续维护继续保留模型值类型、有效空字符串、null / undefined 未选择值、disabled、computed 路由读写和 change 的参数及模型更新顺序。多选、折叠、清空、搜索、键盘及滚动行为按原实现保留，不能因样式复用改变请求或筛选结果。
 
-管理员调用点如下；不安排专门的视觉改版：
+账号关联页面在当前平台的详情区显示关联表单，不增加第二个平台选择器。PrimeVue Listbox 筛选器及全部退出按第 5 节独立推进。
 
-| 使用方 | 处数 | 当前能力与迁移注意点 | 建议 |
-| --- | --- | --- | --- |
-| [StaffView/VideoModel.vue](src/views/StaffView/VideoModel.vue) | 1 | player / upload_time / state 字段选择，初始空字符串；不得默认选中首项而改变提交字段 | 随维护迁移 |
-| [StaffView/WeeklyTournament.vue](src/views/StaffView/WeeklyTournament.vue) | 1 | 当前只有一种比赛格式，字符串模型；保留格式字段及表单布局 | 随维护迁移 |
-| [StaffView/AccountLink.vue](src/views/StaffView/AccountLink.vue) | 1 | 平台单选，初始及提交后为空；保留核实操作与请求参数 | 随维护迁移 |
-| [StaffView/RankingRepair.vue](src/views/StaffView/RankingRepair.vue) | 2 | 大榜与指标单选，working 时禁用；变化触发清空结果 | 随维护迁移 |
-| [StaffView/Task.vue](src/views/StaffView/Task.vue) | 1 | PrimeVue 状态筛选，改变后执行 filterCallback；null 表示未筛选，字符串 NULL 是有效状态 | 随维护迁移，不重写 DataTable |
-| [StaffView/Logs.vue](src/views/StaffView/Logs.vue) | 1 | 可搜索的文件选择器，选项展示文件名、大小、修改时间；change 传文件名并加载日志 | 保留 ElSelect，后续仅调整样式 |
+#### 4.2.3 Radio 复用约定（已验收）
 
-ElPagination 和 PrimeVue DataTable 内部的页容量选择器不计入上述直接调用，也不拆改组件库内部实现。PrimeVue Listbox 筛选器另行评估，不混入本次 Select 迁移。
+登录有效期及姓名顺序均使用原生 radio / label，与 Checkbox 按钮复用 choice-buttons.css；应用内 ElRadio / ElRadioGroup / ElRadioButton 调用已归零，不再列实施和验收待办。后续保持数字 / 字符串模型，实例以 useId() 生成独立 name，键盘交互交给原生控件；模板和外观说明见[样式 README](src/styles/README.md)。
 
-**实现选择：原生 select / option + 共用 class，不新增 BaseSelect。** 当前除 Logs 外的 20 处调用在功能上可以采用原生方案；按页面维护边界，先迁移普通区域 10 个文件、13 处，再按需处理管理员 5 个文件、6 处，账号关联 1 处暂缓。
+#### 4.2.4 Switch 复用与保留范围（迁移批次已验收）
 
-共用样式由 setup.ts 同时接入应用与 Cypress，文件组织按 styles 现有约定选择 CSS / Less，每文件不超过 100 个非空行。外框采用直角、紧凑内边距、项目字号与 --ui-* 主题色，覆盖悬停、键盘焦点和禁用状态。只作用于显式 class，不全局覆盖所有 select；保留调用方合理的宽度，通过 min-width / max-width 与容器伸缩防止溢出，不引入全局断点。
+4.2.4.1 本地配置、4.2.4.2 录像筛选及 4.2.4.3 管理员局部开关均已验收，不再列实施和测试待办。原生开关复用 switch.css；录像筛选 nfOnly 使用 checkbox.css 的普通方框外观。模板、普通 / 小尺寸和状态样式见[样式 README](src/styles/README.md)。
 
-传统原生选项菜单的外观受浏览器和操作系统限制，不能保证其圆角、选项高度及高亮与项目完全一致。此批统一闭合控件的视觉；不为完全控制弹出菜单而自建 combobox，也不以新的可定制 select 特性作为运行前提。参见 [MDN：select 样式限制](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/select#styling_with_css)。
+后续维护保留布尔模型、label 关联、键盘操作和原有更新语义：本地配置由 v-model 和 store 维护；录像筛选只在用户 change 时重置页码并请求一次；allowEmptyToken 仅控制空标识的提交条件，切换本身不请求。原生 change 传 Event，不能照搬 ElSwitch 的值参数。
 
-迁移时逐项保留以下契约：
+应用模板中的 ElSwitch 已归零。账号关联 autoSync 使用受控原生开关：保存时禁用，成功后采用服务端返回状态并刷新，失败保留原值，不提前用 v-model 承诺保存成功。
 
-- 普通模型继续使用 Vue v-model；倍速通过 option 的 :value 绑定数字，不改成直接读取 DOM 字符串。原生 select 的值绑定与 change 更新机制见 [Vue 表单文档](https://vuejs.org/guide/essentials/forms.html#select)。
-- 分清有效空字符串、未选择和 null。BBBvSummary 的“无图标”保留为可选空值；平台及录像字段的未选择状态使用明确的占位选项，不隐式选中第一项；Task 的 null 不转换成字符串 NULL。
-- 保留 option 的 disabled、请求中的原值、持久化配置、computed 路由读写和已有条件渲染；补齐关联 label 或本地化 aria-label，不依靠 placeholder 充当可访问名称。
-- 当前涉及 Select 的 ElFormItem 未配置 prop / rules，没有直接依赖其校验触发。实施时再次核对；如后续存在校验依赖，需显式保留校验时机。ElSelect 的 validate-event 默认为 true，不能假设原生控件会自动接管此行为，参见 [Element Plus Select 文档](https://element-plus.org/en-US/component/select.html)。
-- 保留已有 change 参数与模型更新顺序。原生 DOM change 传 Event，而 ElSelect 传值；带回调的调用方需显式适配，不能机械替换标签。Task 必须在模型更新后执行筛选回调；程序更新模型不额外触发用户 change。
-- MSStatSelect 保留现有 props 与字符串模型，不扩展成通用选择器。其选中项前缀改为关联 label 与 select 的紧凑组合，选项内仍只显示指标名；这是一项需验收的局部布局变化。核对根节点 attrs / 事件透传，并检查散点图三个实例在现有 24em 区域内的伸缩。
+#### 4.2.5 Slider：剩余迁移与样式
 
-分批安排如下，各批均尚未实施：
+三处 ElSlider 及 Analyzer 原生进度滑块的 12px × 20px 沙漏外形已验收，不再列实施和测试待办。后续复用 slider.css 的尺寸、polygon 与主题参数；ElSlider 适配由使用方按需导入，原生 range 的 WebKit / Firefox thumb 使用相同参数。入口和维护方式见[样式 README](src/styles/README.md)。Analyzer 的外观变化保留在未发布更新记录中，验收不代表版本发布。
 
-| 子批次 | 实施范围 | 可独立验收的结果 |
-| --- | --- | --- |
-| 4.2.1.1 共用样式与试点 | 共用 Select 样式及入口；DataExporter、ProgressBar、SpeedRanking，共 3 个文件、3 处 | 验证导出格式、数字倍速、路由切换三种绑定；确认深浅主题、键盘与宽度适配 |
-| 4.2.1.2 可视化与设置 | BBBvSummary/Header、MSStatSelect、SettingView/Visualization、MarkerSetting，共 4 个文件、7 处；必要时调整 VideoScatter/Toolbar 的局部布局 | 保留配置更新、空值和条件显示，确认 label 前缀与窄容器布局 |
-| 4.2.1.3 播放器与自动上传 | VideoPlayer/App、gsc/App、weekly/App，共 3 个文件、3 处 | 保留播放器后端选择、配置及自动上传筛选策略，不混入播放或上传逻辑调整 |
-| 4.2.1.4 管理员随维护迁移 | VideoModel、WeeklyTournament、AccountLink、RankingRepair、Task，共 5 个文件、6 处 | 保留未选择、禁用、请求参数、结果清空及表格筛选回调；不作为前三批的完成条件 |
+以下工作仍未实施：
 
-迁移对应调用方时才更新其测试定位：原生 select 使用 cy.get(...).select(value)，保留其他尚未迁移的 .el-select / .p-select 定位，不批量替换共享查询。优先复用 DataExporter.cy.ts、ProgressBar.cy.ts、SpeedRanking.cy.ts、BBBvSummary/Header.cy.ts、gsc/App.cy.ts、weekly/App.cy.ts 及相关管理员 E2E；缺少覆盖时只补模型与回调等关键行为。MSStatSelect 的前缀布局和 MarkerSetting 的可选 shape 分支按需补聚焦验证，不开启新的业务入口。
+1. MarkerSetting.vue 的 opacity 使用范围 0～1、步长 0.05，单独评估并迁移为原生 input[type=range] + CSS，复用已验收的沙漏参数，保持数值模型和即时预览；不连带调整半径、描边数值框。
+2. RangeSlider.vue 保留双滑块与两个数值框的联动，保持上下界、范围约束及 change 契约，继续细化轨道和提示样式。
+3. VideoPlayer/ProgressBar.vue 保留拖动定位、暂停/恢复、毫秒步长与时间提示，单独细化轨道和提示样式，不与播放逻辑维护混在一批。
 
-每批提供实际受影响的 Cypress spec 命令，由用户运行；倍速检查数值与播放推进，排行榜检查路由和回退，Task 检查有效 NULL 与清空筛选的区别。同步删除对应 ElSelect / ElOption / PrSelect 导入及失效样式。Logs 和库内部选择器仍需保留，不提前删除依赖或全局禁止 ElSelect。
+Slider 使用方涉及公共播放器；实施前检查 Analyzer 与离线入口的实际依赖，按版本管理约束记录用户可见影响，不自行递增版本号。
+
+#### 4.2.6 输入与表单：先核对能力再换肤（尚未实施）
+
+先区分普通文本、密码显示、字数提示、textarea、前后缀、校验触发，以及数值框的 min / max、步长、精度、清空值和提交时机。项目已有 common/InputNumber.vue，优先核对它的能力与现有 ElInputNumber 的差异，不再建立重复的数值输入层，也不假定两者可以直接互换。
+
+先以登录/注册为独立试点，保留 ElForm / ElFormItem、现有校验规则、错误状态和输入处理，仅统一输入高度、内边距、直角、文字/背景/边框及焦点反馈，再推广到 EditProfile 等页面。普通 / 小尺寸优先与已验收的 Select 参数协调，textarea 按内容与 rows 设置，不统一压成单行高度；错误信息和交互图标不能被裁切。
+
+数值框另成小批，保留格式化、空值、范围、键盘和 blur / change 语义；管理员页面随实际维护处理。简单输入的原生迁移按调用点决定，不以 ElInput 导入归零为验收目标；前缀图标取消全局注册仍属于 7.2，不混入换肤试点。
+
+#### 4.2.7 Tabs：先验收已有实现（尚未实施）
+
+水平标签换行和逐项选中指示已由 element-plus-tabs.less 提供，本批先核对首页及一个路由驱动页面的多行标签、长文本、方向键切换和选中指示；纵向标签保持原样。确认已有实现后，再通过项目参数调整高度、内边距和内容间距，每次提供独立视觉验收，不重新实现标签注册、面板生命周期或路由状态。
+
+#### 4.2.8 弹窗、通知与加载：逐类推进（尚未实施）
+
+依次以 BaseOverlay、登录弹窗、Notifications 和 v-loading 的代表调用为试点，分别验证关闭方式、焦点返回、滚动锁定、遮罩、加载状态、错误内容与层级。先改内容和操作区域的间距及边角，不重写浮层状态管理。导航抽屉已有验收结果，保留其布局和行为，仅核对共用适配的兼容性。
+
+以上各批的新参数继续使用项目 --ui-*；vendors 样式由实际使用方按需导入，不回到 setup.ts 全局加载。样式文件仍受 100 个非空行限制；代码变更完成后按现有跨轮流程执行检查，Cypress 命令随各批实际改动提供。
 
 ### 5. PrimeVue 退出
 
@@ -208,10 +203,9 @@ ElPagination 和 PrimeVue DataTable 内部的页容量选择器不计入上述�
 
 | 依赖 | 当前使用方 |
 | --- | --- |
-| DataTable / Column | `components/VideoList/App.vue`、`components/VideoUpload/Table.vue`、`components/accountlinks/VideoImportQueue.vue`、`views/StaffView/AccountLink.vue`、`views/StaffView/Task.vue`，共 5 个表格入口；VideoList 下还有复用列组件 |
+| DataTable / Column | `components/VideoList/App.vue`、`components/VideoUpload/Table.vue`、`components/accountlinks/VideoImportQueue.vue`、`components/accountlinks/MSGamesVideoImportQueue.vue`、`views/DatabaseView/IdentifierView.vue`、`views/StaffView/AccountLink.vue`、`views/StaffView/Task.vue`，共 7 个表格入口；VideoList 下还有复用列组件 |
 | Listbox | VideoList 的模式、软件、状态、难度列，以及上传表格、录像导入队列的筛选器 |
-| Select | `views/StaffView/Task.vue` 的状态筛选器；原生替代已纳入 4.2.1.4，尚未实施 |
-| Toolbar | 6 个账号关联卡片及 `views/StaffView/Task.vue`，共 7 处 |
+| Toolbar | 仅 `views/StaffView/Task.vue` 的 1 处；账号关联旧 Toolbar 已随卡片删除 |
 | 注册、主题与类型 | main.ts 中 PrimeVue / Aura preset，`@primevue/core/api`、DataTable 事件类型及相关 Cypress 测试的注册 |
 
 按以下小步骤推进：
@@ -219,7 +213,7 @@ ElPagination 和 PrimeVue DataTable 内部的页容量选择器不计入上述�
 1. 随模块维护逐个替换外围筛选控件，保留值类型、单选/多选、筛选回调和筛选清空语义；优先复用已有控件，不同时重写表格状态。
 2. 单独验证表格与分页的替代组合。先核对项目现有 Element Plus 表格与分页组件能否满足需求，验证完成后再决定实现，不预先迁移全部表格。
 3. 选择交互较少的表格试点，再逐表替换；每个表格单独核对排序、筛选、分页、展开、选择及行操作的处理顺序和语义。
-4. Toolbar 随账号关联页面重做或管理员任务页维护处理；新布局采用原生容器与 CSS，不为旧页面复制整套 Toolbar API。
+4. 管理员任务页的 Toolbar 随维护处理，不复制整套 Toolbar API；不删除仍被导入队列等表格和其他页面使用的依赖。
 5. 最后一个使用方退出后，再清理注册、preset、过渡样式、测试配置以及 `primevue`、`@primevue/core`、`@primeuix/themes` 依赖和锁文件。PrimeIcons 保留。
 
 现有 `vendors/primevue-table*.css` 已完成必要的表格过渡适配，不再重复安排建立这些文件，也不建设完整的 PrimeVue 主题体系。是否提取 main.ts 中的 preset，按实际维护需要决定。
@@ -228,18 +222,18 @@ ElPagination 和 PrimeVue DataTable 内部的页容量选择器不计入上述�
 
 `components/visualization/VideoScatter/Toolbar.vue` 是项目组件，不能仅凭名称将其列入 PrimeVue 移除清单。
 
-### 6. 暂缓范围与局部收尾
+### 6. 暂缓范围、独立页面计划与局部收尾
 
 以下范围保持暂缓：
 
 - 首页比赛卡片 `views/HomeView/NormalTournamentQueue.vue`：当前唯一 ElCard，带 header；按既定范围保留。
-- 账号关联页面：将来重做时整体处理旧卡片与 Toolbar。当前残留的 ElButton / ElLink 主要在该目录，ElLink 另在首页比赛卡片中使用。
 - PrimeVue 全量退出：按上一节独立推进，不阻塞本轮其他样式工作。
 
-当前参与 lint 的页面限制新增 ElText、Element Plus 布局组件、ElCard、ElDivider 及 ElCheckbox / ElCheckboxGroup / ElCheckboxButton；ElButton / ElLink 限制在 `src/**/*.vue` 中有以下 8 个文件例外：
+
+当前参与 lint 的页面限制新增 ElText、Element Plus 布局组件、ElCard、ElDivider 及 ElCheckbox / ElCheckboxGroup / ElCheckboxButton；ElButton / ElLink 限制在 `src/**/*.vue` 中有以下 2 个文件例外：
 
 - `views/HomeView/NormalTournamentQueue.vue`。
-- `components/accountlinks/` 下的 `CardAdd.vue`、`CardAddMineracer.vue`、`CardBilibili.vue`、`CardSaolei.vue`、`CardWoM.vue`、`CarouselControl.vue`、`VideoImportQueue.vue`。
+- `components/accountlinks/VideoImportQueue.vue`。
 
 这些是按文件保留的兼容范围，不扩展为目录豁免；首页比赛卡片另有既存 ElCard 的局部 disable。迁移某个暂留文件后，同批清理其已不需要的规则例外。
 
@@ -250,6 +244,7 @@ ElPagination 和 PrimeVue DataTable 内部的页容量选择器不计入上述�
 - CSS / Less 的选型、styles 下的文件命名及目录组织由实施代理自行决定。每个项目样式目录文件不超过 100 个非空行，注释计入，不通过压缩声明规避限制。
 - `src/styles/parameters/` 是 Git 忽略的本地参考存档，应用、测试、其他样式及构建脚本不得依赖它；需要参数时提取到正式样式文件。新检出项目应不需要该目录也能构建。
 - 项目参数流向原生组件与库适配。库需要的 `--el-*` / `--p-*` 声明集中在 vendors，由项目变量赋值，不反向读取库变量。
+- vendors 样式由实际使用方按需导入，不在 setup.ts、应用启动入口或 Cypress support 全局加载；同时核对库内部的隐式依赖。Select、PrimeVue 表格使用各自的汇总入口，独立路由和组件测试不依赖其他页面预先加载样式。主题及 --ui-* 参数仍全局提供，浮层适配仍用普通全局选择器。
 - 优先使用公开 CSS 变量、组件样式接口，再使用局部内部选择器；覆盖集中在适配文件，避免业务页面散落大量覆盖或 `!important`。
 - 保持现有文件路径、props、事件、slots 和调用方依赖的 attrs 稳定。按钮保留原生语义、键盘操作、disabled、loading、防重复点击及已有事件透传。
 - 每个 PR 限定一个结果和一小组相关文件。共享样式与业务模块迁移可拆开；不同时做本地化调整、搬目录、整文件格式重排或无关逻辑抽离。
@@ -271,9 +266,9 @@ ElPagination 和 PrimeVue DataTable 内部的页容量选择器不计入上述�
 | 浮层 | 关闭、焦点、滚动、层级，以及传送到 body 的内部下拉框 |
 | 业务 | 请求参数、提交次数、状态持久化、权限与删除确认行为保持一致 |
 
-检查遵守[根目录测试规范](../.codex/instructions.md)：每轮开始只读取一次上一轮 lintfix / typecheck 的日志及退出码；代码或样式修改结束后后台启动两项检查，日志、退出码、任务记录及其他检查临时文件统一保存在仓库根目录 `.tmp/checks/<轮次>/`，留待下一轮确认，不散放在前端根目录。仅整理 Markdown 时不重跑这些检查。构建及 Vitest 按实际影响范围选择，不把后台启动或静态检查当作浏览器验证通过。
+Codex 的检查遵守[根目录专用工作流](../AGENTS.md#codex-专用工作流)：每轮开始只读取一次上一轮 lintfix / typecheck 的日志及退出码；代码或样式修改结束后后台启动两项检查，日志、退出码、任务记录及其他检查临时文件统一保存在仓库根目录 `.tmp/checks/<轮次>/`，留待下一轮确认，不散放在前端根目录。仅整理 Markdown 时不重跑这些检查。构建及 Vitest 按实际影响范围选择，不把后台启动或静态检查当作浏览器验证通过。
 
-Cypress 默认由用户运行，每批提供实际受影响的 spec 命令，优先复用现有覆盖。用户明确要求代理执行时仅运行指定的 Chrome 组件测试，不执行 E2E；不主动启动预览或开发服务器。迁移组件时才调整依赖 `.el-*` / `.p-*` 的测试定位，不提前全量改写。
+Codex 不主动运行 Cypress，每批提供实际受影响的 spec 命令，优先复用现有覆盖。用户明确要求 Codex 执行时仅运行指定的 Chrome 组件测试，不执行 E2E；不主动启动预览或开发服务器。迁移组件时才调整依赖 `.el-*` / `.p-*` 的测试定位，不提前全量改写。
 
 复用项目现有表格提取、通知关闭和 `cy.shouldBeAbsentOrHidden()` 断言命令；不为低影响样式调整编写重复实现的测试，也不靠修改预期值掩盖实际行为变化。
 

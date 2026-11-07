@@ -44,8 +44,7 @@ describe('Analyzer video export', () => {
             cy.get('.analyzer-progress-bar__range-start').click();
             seek(5000);
             cy.get('.analyzer-progress-bar__range-end').click();
-            cy.get('.analyzer-progress-bar__faster').click();
-            cy.get('.analyzer-progress-bar__faster').click();
+            cy.get('.analyzer-progress-bar__rate').invoke('val', 2).trigger('input');
             let downloaded: Blob | undefined;
             cy.window().then((win) => {
                 const create = win.URL.createObjectURL.bind(win.URL);

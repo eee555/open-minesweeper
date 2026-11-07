@@ -50,6 +50,7 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/element-plus-tabs.less';
 import { ElDialog, ElTabPane, ElTabs } from 'element-plus';
 import { ref, watch } from 'vue';
 

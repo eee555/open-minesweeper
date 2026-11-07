@@ -14,7 +14,7 @@ from django.utils import timezone as django_timezone
 from django.views.decorators.cache import cache_control
 from django_ratelimit.decorators import ratelimit
 from django_tasks_db.models import DBTaskResult
-from ninja import Form, Router, Schema
+from ninja import Form, Query, Router, Schema
 from ninja.decorators import decorate_view
 from ninja.errors import HttpError
 from ninja.orm import create_schema
@@ -29,8 +29,8 @@ from userprofile.decorators import staff_required
 from videomanager.models import VideoModel
 from videomanager.utils import replay_filename
 from .memorial.api import router as memorial_router
-from .schema import AnalyzerWebsiteInfoOut, AutoLoginOut
-from .services import cleanup_expired_tasks, get_video_rankings
+from .schema import AnalyzerWebsiteInfoOut, AutoLoginOut, TaskQuery
+from .services import cleanup_expired_tasks, get_video_rankings, query_tasks_page
 
 router = Router()
 router.add_router('/admin/memorial', memorial_router)
@@ -141,6 +141,13 @@ TaskDetailOut = create_schema(
 )
 
 
+class TaskPageOut(Schema):
+    count: int
+    page: int
+    page_size: int
+    items: list[TaskDetailOut]
+
+
 class RunningTaskHealthOut(Schema):
     id: str
     task_path: str
@@ -214,13 +221,16 @@ def task_summary(request):
     return get_task_summary()
 
 
-@router.get('/tasks/detail', response=list[TaskDetailOut])
+@router.get('/tasks/detail', response=TaskPageOut)
 @decorate_view(staff_required)
-def task_detail(request):
+def task_detail(request, filters: Query[TaskQuery]):
     """
     - staff_required
+
+    Return one page of background tasks, newest first by default. Filter by exact status or by a
+    task path substring; task ID breaks ties so that paging stays stable.
     """
-    return DBTaskResult.objects.all()
+    return query_tasks_page(filters)
 
 
 @router.get('/tasks/running/health', response=list[RunningTaskHealthOut])

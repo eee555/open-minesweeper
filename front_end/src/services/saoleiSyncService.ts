@@ -35,7 +35,7 @@ export interface SaoleiSyncProgress {
     failed: number;
 }
 
-export async function synchronizeSaolei(id: number, full: boolean, cancelled: () => boolean, progress: (value: SaoleiSyncProgress) => void, failure: (id: number, error: unknown) => void): Promise<void> {
+export async function refreshSaoleiCatalogue(id: number, full: boolean, cancelled: () => boolean, progress: (value: SaoleiSyncProgress) => void): Promise<void> {
     const report: SaoleiSyncProgress = { stage: 'catalogue', pages: 0, completed: 0, failed: 0 };
     progress({ ...report });
     const { data: start } = await $axios.post<{ cursor: number; upper_bound: number }>(`${root}/${id}/sync/start`, { full }, requestOptions);
@@ -50,7 +50,11 @@ export async function synchronizeSaolei(id: number, full: boolean, cancelled: ()
         if (data.cursor <= cursor) throw new Error('Saolei catalogue cursor did not advance');
         ({ cursor } = data);
     }
-    report.stage = 'videos';
+}
+
+export async function importPendingSaoleiVideos(id: number, cancelled: () => boolean, progress: (value: SaoleiSyncProgress) => void, failure: (id: number, error: unknown) => void): Promise<void> {
+    const report: SaoleiSyncProgress = { stage: 'videos', pages: 0, completed: 0, failed: 0 };
+    progress({ ...report });
     let after = 0;
     while (!cancelled()) {
         const page = await fetchSaoleiVideoPage(id, after, true);

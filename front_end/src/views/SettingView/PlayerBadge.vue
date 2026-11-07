@@ -34,11 +34,15 @@
                 <div class="description-item">
                     <dt>{{ t('local.nameFormat') }}</dt>
                     <dd>
-                        <span :title="t('local.nameFormatTooltip')">
-                            <ElRadioGroup v-model="local.nameFormat" size="small" style="vertical-align: middle;">
-                                <ElRadioButton :label="t('local.nameFormatFirstLast')" value="first-last" />
-                                <ElRadioButton :label="t('local.nameFormatLastFirst')" value="last-first" />
-                            </ElRadioGroup>
+                        <span class="radio-buttons" role="radiogroup" :aria-label="t('local.nameFormat')" :title="t('local.nameFormatTooltip')" data-cy="player-name-order">
+                            <label class="radio-button">
+                                <input v-model="local.nameFormat" class="radio-button-input" type="radio" :name="nameOrderRadioName" value="first-last">
+                                <span class="radio-button-content">{{ t('local.nameFormatFirstLast') }}</span>
+                            </label>
+                            <label class="radio-button">
+                                <input v-model="local.nameFormat" class="radio-button-input" type="radio" :name="nameOrderRadioName" value="last-first">
+                                <span class="radio-button-content">{{ t('local.nameFormatLastFirst') }}</span>
+                            </label>
                         </span>
                     </dd>
                 </div>
@@ -51,12 +55,13 @@
 import '@/styles/descriptions.css';
 import '@/styles/cards.css';
 
-import { ElRadioButton, ElRadioGroup } from 'element-plus';
+import { useId } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import { local } from '@/store/local';
 
 const playerNameSlots = ['playerName1', 'playerName2'] as const;
+const nameOrderRadioName = `name-order-${useId()}`;
 
 const i18nMessages = {
     'zh-cn': { local: {

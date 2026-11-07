@@ -154,6 +154,7 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/primevue-table.css';
 import '@/styles/cards.css';
 import { FilterMatchMode } from '@primevue/core/api';
 import { isAxiosError } from 'axios';

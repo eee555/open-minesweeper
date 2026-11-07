@@ -18,6 +18,9 @@ import { rebuildTouchReplay } from './touchReplay';
 
 const databaseName = 'saolei-minigame';
 
+// History and migration tests use the real codec with a bundled local binary.
+vi.mock('7z-wasm/7zz.wasm?url', () => import('7z-wasm/7zz.wasm?url&inline'));
+
 function input(now: number, row: number, column: number, action: TrainingMouseInput['action']): TrainingMouseInput {
     return { now, row: row + 0.5, column: column + 0.5, action, cellSize: 32 };
 }

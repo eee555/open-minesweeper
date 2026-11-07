@@ -122,8 +122,12 @@ def write_records(pipe, previous, records, ranking=None, force_fields=None):
     return affected
 
 
-def complete_update(previous, records, affected, ranking=None, *, force=False):
-    """先按已发布锚点局部更新，再由真实锚点变化触发后台重建。"""
+def complete_update(previous, records, affected, ranking=None, *, force=False, snapshot_players=None):
+    """先按已发布锚点局部更新，再由真实锚点变化触发后台重建。
+
+    在写入软实力索引之后、刷新锚点之前取一次快照，供调用方发布新闻；
+    锚点变化触发的后台重建不计入这次快照。
+    """
     ranking = ranking or TopRankingCache()
     publication = ranking.get_publication()
     anchors = publication['anchors'] if publication else {}
@@ -140,8 +144,10 @@ def complete_update(previous, records, affected, ranking=None, *, force=False):
                 elif not old or force or before[field] != after[field]:
                     pipe.zadd(ranking.soft_key(field), {str(player_id): after[field]})
         pipe.execute()
+    snapshot = ranking.lsf_snapshot(snapshot_players) if snapshot_players else {}
     if ranking.refresh_anchors(affected):
         soft_refresh_requested.send(sender=TopRankingCache)
+    return snapshot
 
 
 @ranking_access(operation='top.rebuild_record')

@@ -1,9 +1,14 @@
 <template>
     <div class="saolei-import text-regular">
         <div v-if="owner" class="controls">
-            <label><input v-model="full" type="checkbox" :disabled="busy"> {{ t('local.full') }}</label>
-            <BaseButton size="small" :disabled="busy" data-cy="saolei-sync" @click="synchronize">
-                {{ t('local.sync') }}
+            <BaseButton size="small" :disabled="busy" :title="t('local.refreshFullHint')" data-cy="saolei-refresh-full" @click="runAction('full')">
+                {{ t('local.refreshFull') }}
+            </BaseButton>
+            <BaseButton size="small" :disabled="busy" :title="t('local.refreshIncrementalHint')" data-cy="saolei-refresh-incremental" @click="runAction('incremental')">
+                {{ t('local.refreshIncremental') }}
+            </BaseButton>
+            <BaseButton size="small" :disabled="busy" :title="t('local.importAllHint')" data-cy="saolei-import-all" @click="runAction('import')">
+                {{ t('local.importAll') }}
             </BaseButton>
             <BaseButton v-if="busy" size="small" :disabled="stopping" @click="stopping = true">
                 {{ t('local.stop') }}
@@ -11,9 +16,12 @@
         </div>
         <p v-if="owner" class="text-small">
             {{ t('local.keepOpen') }}
+            {{ t('local.supportedSoftware') }}
+            <SoftwareIcon software="m" /> <SoftwareIcon software="r" /> <SoftwareIcon software="a" /> <SoftwareIcon software="e" />
+            {{ t('local.importNotes') }}
         </p>
         <p v-if="progress">
-            {{ t('local.progress', { ...progress }) }}
+            {{ t(progress.stage === 'catalogue' ? 'local.catalogueProgress' : 'local.importProgress', { ...progress }) }}
         </p>
         <p v-if="summary">
             {{ t('local.summary', { ...summary }) }}
@@ -72,6 +80,7 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/primevue-table.css';
 import { FilterMatchMode } from '@primevue/core/api';
 import { promiseTimeout } from '@vueuse/core';
 import { isAxiosError } from 'axios';
@@ -85,7 +94,8 @@ import BaseButton from '@/components/common/BaseButton.vue';
 import { httpErrorNotification } from '@/components/Notifications';
 import VideoPreviewLink from '@/components/VideoPreviewLink.vue';
 import GameLevelIcon from '@/components/widgets/GameLevelIcon.vue';
-import { canImportSaoleiVideo, fetchSaoleiSummary, fetchSaoleiVideoPage, importSaoleiVideo, synchronizeSaolei } from '@/services/saoleiSyncService';
+import SoftwareIcon from '@/components/widgets/SoftwareIcon.vue';
+import { canImportSaoleiVideo, fetchSaoleiSummary, fetchSaoleiVideoPage, importPendingSaoleiVideos, importSaoleiVideo, refreshSaoleiCatalogue } from '@/services/saoleiSyncService';
 import type { SaoleiSyncProgress } from '@/services/saoleiSyncService';
 import type { SaoleiImportSummary, SaoleiVideo } from '@/utils/accountlinks';
 import { MS_Levels } from '@/utils/ms_const';
@@ -97,7 +107,6 @@ const props = defineProps({
 });
 const videos = ref<SaoleiVideo[]>([]);
 const summary = ref<SaoleiImportSummary>();
-const full = ref(false);
 const busy = ref(false);
 const stopping = ref(false);
 const progress = ref<SaoleiSyncProgress>();
@@ -138,16 +147,21 @@ function recordFailure(id: number, error: unknown) {
     failures.value[id] = data?.category !== undefined && data.category !== '' ? (data.object ?? 'file') + '/' + data.category : t('local.failed');
 }
 
-async function synchronize() {
+async function runAction(action: 'full' | 'incremental' | 'import') {
     if (busy.value || !props.owner) return;
     const current = context;
+    const id = props.saoleiId;
     busy.value = true;
     stopping.value = false;
     failures.value = {};
+    progress.value = undefined;
+    const cancelled = () => current !== context || stopping.value;
+    const report = (value: SaoleiSyncProgress) => {
+        if (current === context) progress.value = value;
+    };
     try {
-        await synchronizeSaolei(props.saoleiId, full.value, () => current !== context || stopping.value, (value) => {
-            if (current === context) progress.value = value;
-        }, recordFailure);
+        if (action === 'import') await importPendingSaoleiVideos(id, cancelled, report, recordFailure);
+        else await refreshSaoleiCatalogue(id, action === 'full', cancelled, report);
     } catch (error) {
         if (current === context) httpErrorNotification(error);
     } finally {
@@ -190,11 +204,18 @@ onBeforeUnmount(() => {
 
 const { t } = useI18n({ messages: {
     'zh-cn': { local: {
-        full: '重新扫描全部目录',
-        sync: '同步列表并导入录像',
-        stop: '停止后续同步',
-        keepOpen: '手动同步期间请保持窗口打开。关闭窗口或停止后，已完成进度仍会保留。',
-        progress: '已同步 {pages} 页，已处理 {completed} 个录像，失败 {failed} 个',
+        refreshFull: '全量刷新列表',
+        refreshFullHint: '从头逐页扫描全部录像目录，仅刷新列表，不导入录像。',
+        refreshIncremental: '增量刷新列表',
+        refreshIncrementalHint: '从上次保存的进度继续逐页扫描录像目录，仅刷新列表，不导入录像。',
+        importAll: '导入全部录像',
+        importAllHint: '逐个导入当前列表中符合条件的待导入录像；如需获取新录像，请先刷新列表。',
+        stop: '停止后续操作',
+        keepOpen: '操作期间请保持窗口打开；关闭或停止后可继续，已完成进度和已导入录像的关联、审核结果都会保留。',
+        supportedSoftware: '仅接受',
+        importNotes: '。导入失败的录像不再自动重试。',
+        catalogueProgress: '已刷新 {pages} 页列表',
+        importProgress: '已处理 {completed} 个录像，失败 {failed} 个',
         summary: '已收藏 {total}，已导入 {imported}，待导入 {pending}，拒收 {rejected}，不支持 {skipped}',
         software: '软件',
         imported: '已导入',
@@ -206,11 +227,18 @@ const { t } = useI18n({ messages: {
         failed: '导入失败',
     } },
     en: { local: {
-        full: 'Rescan the full catalogue',
-        sync: 'Sync list and import replays',
+        refreshFull: 'Full list refresh',
+        refreshFullHint: 'Scan the entire catalogue page by page from the beginning. Updates the list without importing replays.',
+        refreshIncremental: 'Incremental list refresh',
+        refreshIncrementalHint: 'Resume scanning the catalogue page by page from the saved cursor. Updates the list without importing replays.',
+        importAll: 'Import all replays',
+        importAllHint: 'Import eligible pending replays from the current list one at a time. Refresh the list first to find new replays.',
         stop: 'Stop further requests',
-        keepOpen: 'Keep this window open during manual sync. Completed progress is preserved when you stop or close it.',
-        progress: 'Synced {pages} pages; processed {completed} replays; {failed} failed',
+        keepOpen: 'Keep this window open during the operation. You can resume after stopping or closing it; completed progress, replay links and review results are preserved.',
+        supportedSoftware: 'Only ',
+        importNotes: ' are supported. Replays that fail to import are not retried automatically.',
+        catalogueProgress: 'Refreshed {pages} list pages',
+        importProgress: 'Processed {completed} replays; {failed} failed',
         summary: 'Collected {total}; imported {imported}; pending {pending}; rejected {rejected}; unsupported {skipped}',
         software: 'Software',
         imported: 'Imported',

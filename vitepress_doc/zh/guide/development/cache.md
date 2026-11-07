@@ -68,7 +68,7 @@ Redis 分类只读取业务代码直接确定的 DB 0 key，不执行 `SCAN`、`
 | 分类 | key 来源 |
 | --- | --- |
 | PB 榜 | `PBRankingCache.counts_key`；固定 hash 的 `HKEYS` 经校验后构造小榜 key；从 `UserProfile` 主键顺序每批最多 1,000 个 ID 构造用户 hash key。元数据缺失不发现 key、不触发重建。 |
-| 其他排行榜 | `SpeedRankingCache(name, stats=RANK_STATS).keys`、`TopRankingCache().keys`、`ThrpRankingCache().keys`、`NFIOERankingCache().keys`、`MiniGameRankingCache().keys`、四种自定义 pluck 配置的 rank/detail key、比赛用户榜 key 和积分时间 key；当前共 144 个 key。 |
+| 其他排行榜 | 扫雷网与强无猜各自的 `SpeedRankingCache(name, stats=RANK_STATS).keys`（各两个大榜，共 36 个 key）、`TopRankingCache().keys`、`ThrpRankingCache().keys`、`NFIOERankingCache().keys`、`MiniGameRankingCache().keys`、四种自定义 pluck 配置的 rank/detail key、比赛用户榜 key 和积分时间 key；当前共 162 个 key。 |
 | 最新录像 | `newest_cache.key`（`newest_queue`）。 |
 | 其他 | `INFO memory.used_memory` 减去前三类；包含其他业务、会话、同实例 DB 1 通用缓存、孤立/历史/临时 key 和 Redis 开销，不枚举 DB 1。 |
 
@@ -94,7 +94,7 @@ Redis 分类只读取业务代码直接确定的 DB 0 key，不执行 `SCAN`、`
 
 前端 `user-info` 的姓名列直接兼容隐藏标记 `hidden`，无需调整数据库版本或检查间隔。资料保存成功后，`invalidateUserInfo(id)` 删除该用户的本地缓存并通知已挂载的 `PlayerName` 重新读取公开姓名；失效前发出的响应不会写回旧值。缓存删除失败时不影响已保存的设置，跳过该用户的旧缓存并重置检查时间以便重试。资格及隐藏状态变更更新 `date_updated`，其他浏览器仍由现有 `infoupdated` 流程按正常周期更新。Redis 排行继续只引用用户 ID。缓存流程见仓库 `front_end/src/services/userService.md`；授权、展示与迁移约定见 `back_end/saolei/userprofile/README.md`。
 
-独立的本地初始化脚本 `dangerzone/init_local_test.py` 会清空本地 `saolei_website` Redis 数据库（包含会话），然后根据导入的公开录像重建竞速榜（扫雷网普通/NF、PB 普通/NF、top 十八项及锚点）、效率 Thrp 榜、pluck 纪录缓存和录像状态队列。在 `back_end/saolei` 目录使用 `python -m dangerzone.init_local_test` 启动。只允许本地测试配置，并拒绝存在 `.production` 标记的环境；不注册 `import_public_data` 管理命令。详情及数据缺失限制见[本地公开数据快照](./management-commands.md#本地公开数据快照)。
+独立的本地初始化脚本 `dangerzone/init_local_test.py` 会清空本地 `saolei_website` Redis 数据库（包含会话），然后根据导入的公开录像重建竞速榜（扫雷网普通/NF、强无猜普通/NF、PB 普通/NF、top 十八项及锚点）、效率 Thrp 榜、pluck 纪录缓存和录像状态队列。在 `back_end/saolei` 目录使用 `python -m dangerzone.init_local_test` 启动。只允许本地测试配置，并拒绝存在 `.production` 标记的环境；不注册 `import_public_data` 管理命令。详情及数据缺失限制见[本地公开数据快照](./management-commands.md#本地公开数据快照)。
 
 ### 标识管理
 
@@ -661,6 +661,11 @@ digraph cache {
 | `tournament` | `tournament:user:score_current:last_updated` | string | 带时区的 ISO datetime；当前积分 zset 的年度统一锚点，正常为当年 1 月 1 日 00:00 UTC。由年度 APScheduler 任务更新；普通积分发放不推进。调度任务延迟时继续统一使用旧锚点。 |
 | `tournament` | `tournament:user:score_total` / `gsc_total` / `gsc_best` / `weekly_total` / `weekly_classic_total` / `weekly_classic_best` | zset | `member = user_id`；`score = TournamentUser` 对应字段值。各 total 字段为 `0` 时不写入；`gsc_best`、`weekly_classic_best` 为 `MAX_TOURNAMENT_BEST` 时不写入。 |
 | `article` | `articles` | list | 文章目录项字符串，来自 `assets/article` 或静态目录下的文章文件。 |
+| `news` | `news:events:v1` | hash | `field = 事件 id`；value 为事件 JSON，含 `id`、`category`、`occurred_at`（毫秒）、`player_id` 与 `payload`。hash 的 field 没有 TTL，过期和超量条目由写入方按索引显式回收。 |
+| `news` | `news:idx:all:v1` | zset | `member = 事件 id`，score 为毫秒时间戳；「全部」分类倒序读取。 |
+| `news` | `news:idx:cat:{category}:v1` | zset | 按类别的索引，与全部索引同步写入和回收；首版类别为 `pb`、`lsf`。 |
+
+新闻事件只来自排行榜当次发生的变化，不做全量重建，也不保留历史。默认回收规则：只删除既超出最新 200 条、又早于 7 天的记录，因此 7 天内的新闻全部保留（即使超过 200 条），最新的 200 条也全部保留（即使超过 7 天）：每次写入先把 `news:idx:all:v1` 中排名 200 之后、且早于 TTL 的 id 取出，在同一个 pipeline 里从 hash 与全部索引中删除，再写入新事件并刷新各 key 的 TTL。首版两个事件源是 `speedranking`：写入前备好待修改玩家的旧快照，写入软实力索引后、刷新锚点前再取一次新快照；`pb` 由 PB 榜刷新 rank 后筛选终点前 10 的纪录刷新，`lsf` 仅在真实 LSF 值变化且新名次进入前 36 时发布；批量刷榜按变动项逐条推送，每条变动带造成它的录像 id。删除路径不发布新闻，锚点变化触发的 `soft_refresh_requested` 与后台全局软实力重建也不产生新闻。
 
 `TournamentUser` 是比赛积分的持久化汇总表；Redis 中另用 7 个 sorted set 保存排行榜入口。站内用户创建 `TournamentParticipant` / `GSCParticipant` / `WeeklyParticipant` 时，保存信号会在当前数据库事务内立即创建缺失的 `TournamentUser`；删除 participant 不会跟随删除 `TournamentUser`。无站内用户的 participant 在数据库中保留 `user_id = NULL`，但 API 序列化时统一输出 `user_id = 0`，前端只按 `0` 识别非站内用户。GSC / 周赛 finish 任务先调用 `ensure_tournament_users`，为本场所有站内参赛用户补建缺失的默认 `TournamentUser`，然后才调用 `delete_participants_without_videos` 删除无录像站内 participant。排名积分发放和 best 刷新是独立的非关键后台任务，入口同样先执行 `ensure_tournament_users`，支持独立执行或重跑；随后各自从本场剩余站内 participant 出发，通过 `participant.user.tournamentuser` 取得对应的 `TournamentUser`，并使用 `select_related('user__tournamentuser')` 避免 N+1。积分发放任务读取并衰减既有 `TournamentUser.score_current`，再根据本场 participant 的 `rank_score` 增量写回 `TournamentUser` 和 `TournamentParticipant.rank_score`，随后同步刷新 `score_current`、`score_total` 和对应分类 total 的 zset。历史最好成绩在 participant 保存后只读取当前 participant 和对应比赛子表，并与 `TournamentUser.gsc_best` / `weekly_classic_best` 直接比较；只有当前成绩更好时才改变内存值。结算流程使用 `bulk_update` 写入 `rank_score`，不会触发保存信号，因此 best 刷新通过 `refresh_gsc_best_scores` / `refresh_weekly_best_scores` 作为独立后台任务执行，并在写库后刷新对应 best zset；best 与排名积分发放没有顺序依赖。为了简化结算代码，积分发放和 best 刷新都不筛选字段是否发生变化，会统一 `bulk_update` 候选 participant 和对应 `TournamentUser`。结算链路通过 `tournament` logger 写入 `logs/tournament.log`，记录后台任务、删除无录像 participant、读取 `TournamentUser`、成绩/排名刷新、积分发放、best 刷新、状态切换和录像公开等阶段的处理数量。没有有效历史成绩时，best 字段使用 `MAX_TOURNAMENT_BEST` 作为哨兵值，并且不写入 Redis。participant 删除时，GSC / 周赛各自的信号会在当前事务内按需调用 `calculate_gsc_best_score` / `calculate_weekly_classic_best` 重算该类型历史最好成绩，并同步更新对应 best zset。由于 `TournamentUser` 是数据库汇总数据，participant 信号触发的创建和 best 更新必须在当前事务内立即执行，不使用 `transaction.on_commit`。如果需要修复历史汇总数据，尤其是把旧的 `0` best 值迁移到新的最大值哨兵，可以运行 `manage.py refresh_tournament_user_stats`。该命令会先调用 `tournament.services.refresh_tournament_user_total_fields` 重建 `score_total`、`gsc_total`、`weekly_total` 和 `weekly_classic_total`，再执行命令内的 best 重建步骤写回 `gsc_best` 和 `weekly_classic_best`；`score_current` 依赖实时衰减，不由该命令刷新。如果 Redis 排行缓存丢失或需要按当前数据库状态重建，可以运行 `manage.py rebuild_tournament_user_cache`。
 

@@ -55,6 +55,7 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/element-plus-select.css';
 import '@/styles/link.css';
 
 import { ElAlert, ElPagination, vLoading } from 'element-plus';

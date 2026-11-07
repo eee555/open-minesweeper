@@ -25,10 +25,10 @@ describe('NF IOE efficiency ranking', () => {
         cy.intercept('GET', '**/api/effranking/nf_ioe/rank*', { count: 21, players: [player] }).as('ioe');
         const router = mountRanking('/ranking/efficiency');
         cy.wait('@thrp');
-        cy.get('.efficiency-selector').click();
-        cy.get('.el-select-dropdown__item').filter(':visible').contains('NF IOE').click();
+        cy.get('.efficiency-selector').should('have.value', 'thrp').select('nf_ioe');
         cy.wait('@ioe').its('request.query').should('include', { stat: 'sum', start: '0', end: '20' });
         cy.wrap(router).its('currentRoute.value.path').should('equal', '/ranking/efficiency/nf-ioe');
+        cy.get('.efficiency-selector').should('have.value', 'nf_ioe');
         cy.get('.nf-ioe-ranking-table tbody').extractTableData().should((rows) => {
             expect(rows[0]?.slice(2)).to.deep.equal(['1.000 (1.000)', '0.800', '--', '1.800']);
         });
@@ -40,13 +40,12 @@ describe('NF IOE efficiency ranking', () => {
         cy.wrap(router).its('currentRoute.value.query').should('deep.equal', { sort: 'e', page: '1', page_size: '20' });
         cy.get('[data-cy=ranking-refresh]').click();
         cy.wait('@ioe');
-        cy.get('.efficiency-selector').click();
-        cy.get('.el-select-dropdown__item').filter(':visible').contains(i18n.global.t('prop.thrp')).click();
+        cy.get('.efficiency-selector').select('thrp');
         cy.wait('@thrp');
         cy.then(() => {
             router.back();
         });
         cy.wait('@ioe').its('request.query.stat').should('equal', 'e');
-        cy.get('.efficiency-selector').should('contain.text', 'NF IOE');
+        cy.get('.efficiency-selector').should('have.value', 'nf_ioe');
     });
 });

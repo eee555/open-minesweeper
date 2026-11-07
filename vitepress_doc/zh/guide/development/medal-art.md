@@ -44,4 +44,4 @@ npm run vitest -- run src/services/medalAppearance.test.ts src/services/medalPal
 npm run build:openms
 ```
 
-按本地 `.codex/instructions.md` 的跨轮检查流程启动 lintfix 和 typecheck，日志放在 `.tmp/checks/`。Cypress spec 已维护，只有用户明确要求代理执行时才运行；代理不运行 E2E。源图透明性、发布尺寸、完整文件清单与资源预算由生成脚本测试覆盖。
+Codex 按根目录 `AGENTS.md` 中的专用跨轮检查流程启动 lintfix 和 typecheck，日志放在 `.tmp/checks/`。Cypress spec 已维护，只有用户明确要求代理执行时才运行；代理不运行 E2E。源图透明性、发布尺寸、完整文件清单与资源预算由生成脚本测试覆盖。

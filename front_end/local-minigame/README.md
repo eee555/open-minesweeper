@@ -128,6 +128,10 @@ npm.cmd run build:offline:minigame
 
 `vite.minigame.config.ts` 复用现有 Vite、`vite-plugin-singlefile` 及共享的 `scripts/offline-build.ts`，内联脚本、CSS、棋盘 SVG、PrimeIcons WOFF2 及 7z Wasm，并在合并前收集依赖许可。构建禁止导入网站 HTTP、用户 store、路由、入口初始化及 `ms-toollib`。打包脚本复用 `scripts/offline-package.mjs`，校验无外部资源且压缩器已内联，附带项目和依赖完整许可及 7z／unRAR 许可文件。产物由 Git 忽略。
 
+网站版的 [archive.ts](../src/utils/minigame/archive.ts) 按需加载初始化 JS，训练页挂载后在后台预热 7z，不阻塞训练界面；保存／读取历史或解包回放时复用并等待同一个初始化结果。生产构建的 WASM 优先从 jsDelivr 的固定 npm 版本获取；请求失败、超过 4 秒（包含响应体下载）或 WASM 初始化失败后，自动读取同一次构建的本站副本。成功后复用实例，两处来源均失败则允许下次重试；预热失败不阻止训练。Vite 开发环境及组件测试直接使用本地 WASM，不访问 CDN。版本由已安装的 `7z-wasm/package.json` 派生，不另写版本号。发布需部署完整网站 assets，包含独立 WASM 及其 gzip 文件；压缩回放格式和数据库版本不变，升级数据库前仍先准备编解码器。
+
+离线构建的 `assetsInlineLimit: Infinity` 会把同一个 WASM URL 变成 `data:` 地址，加载器直接解码内联数据，不访问 CDN 或本站。此分支不依赖网络失败来识别离线运行，版本号不因重复构建而改变。网站验收时可在浏览器阻止 `*cdn.jsdelivr.net/npm/7z-wasm@*`，完成一局后检查本站 WASM 回退及历史回放；断网离线验收仍按下文执行。
+
 `npm.cmd run build:offline` 同时生成 Analyzer 与小游戏包；现有网站 dev/build 的 pre hook 会先生成两种 ZIP，再将 `public/assets` 复制到网站产物。直接调用 Vite CLI 前应手动生成离线包。Analyzer 版本独立维护；本地构建不创建 Release 或上传文件。
 
 ## 验证

@@ -1,0 +1,70 @@
+:is(.checkbox-buttons, .radio-buttons) {
+    display: inline-flex;
+    flex-wrap: wrap;
+    max-width: 100%;
+    gap: 2px;
+    vertical-align: middle;
+}
+
+:is(.checkbox-button, .radio-button) {
+    position: relative;
+    display: inline-flex;
+    max-width: 100%;
+    cursor: pointer;
+}
+
+:is(.checkbox-button-input, .radio-button-input) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    opacity: 0;
+}
+
+:is(.checkbox-button-content, .radio-button-content) {
+    display: inline-flex;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    border: 1px solid var(--ui-border-color);
+    border-radius: 0;
+    padding: 2px 6px;
+    background: var(--ui-fill-color-blank);
+    color: var(--ui-text-color-regular);
+    font-size: var(--ui-font-size-extra-small);
+    line-height: 1.4;
+}
+
+:is(.checkbox-button, .radio-button):hover :is(.checkbox-button-input, .radio-button-input):enabled + :is(.checkbox-button-content, .radio-button-content) {
+    border-color: var(--ui-color-primary);
+}
+
+:is(.checkbox-button-input, .radio-button-input):checked + :is(.checkbox-button-content, .radio-button-content) {
+    border-color: var(--ui-color-primary);
+    background: var(--ui-color-primary);
+    color: var(--ui-color-white);
+}
+
+:is(.checkbox-button-input, .radio-button-input):focus-visible + :is(.checkbox-button-content, .radio-button-content) {
+    outline: 2px solid var(--ui-color-primary);
+    outline-offset: 1px;
+}
+
+:is(.checkbox-button, .radio-button):has(> :is(.checkbox-button-input, .radio-button-input):disabled) {
+    cursor: not-allowed;
+}
+
+:is(.checkbox-button-input, .radio-button-input):disabled + :is(.checkbox-button-content, .radio-button-content) {
+    border-color: var(--ui-disabled-border-color);
+    background: var(--ui-disabled-bg-color);
+    color: var(--ui-disabled-text-color);
+}
+
+@media (forced-colors: active) {
+    :is(.checkbox-button-input, .radio-button-input):checked + :is(.checkbox-button-content, .radio-button-content) {
+        background: Highlight;
+        color: HighlightText;
+        forced-color-adjust: none;
+    }
+}

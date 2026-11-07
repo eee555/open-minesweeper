@@ -60,6 +60,29 @@ describe('<CustomCounter />', () => {
         counterCell('bad').should('have.class', 'custom-counter__value--error').and('contain', 'Unknown variable: unknown_key');
     });
 
+    it('pads fixed decimals, keeps roundTo numeric, and updates fixed-width text with playback', () => {
+        const values = { bbbv_s: 3.4 };
+        mountCustomCounter(createVideo(values), [
+            ['fixed', 'toFixed(bbbv_s, 3)'],
+            ['rounded', 'roundTo(bbbv_s, 3)'],
+            ['combined', 'toFixed(bbbv_s, 2) || "x"'],
+            ['integer', 'toFixed(3.6, 0)'],
+            ['badPrecision', 'toFixed(bbbv_s, 101)'],
+        ]);
+        counterCell('fixed').should('have.text', '3.400');
+        counterCell('rounded').should('have.text', '3.4');
+        counterCell('combined').should('have.text', '3.40x');
+        counterCell('integer').should('have.text', '4');
+        counterCell('badPrecision').should('have.class', 'custom-counter__value--error');
+        cy.get('@vue').then((wrapper: ComponentWrapper<typeof CustomCounter>) => {
+            values.bbbv_s = 3;
+            return wrapper.setProps({ currentMs: 100 });
+        });
+        counterCell('fixed').should('have.text', '3.000');
+        counterCell('rounded').should('have.text', '3');
+        counterCell('combined').should('have.text', '3.00x');
+    });
+
     it('keeps long rendered values constrained by cell overflow styles', () => {
         mountCustomCounter(createVideo({}), [
             ['long', '"*" || roundTo'],

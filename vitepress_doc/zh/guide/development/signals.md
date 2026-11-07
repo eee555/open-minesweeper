@@ -5,7 +5,9 @@ description: 开源扫雷网后端Django信号触发关系详解，包括录像�
 
 # 信号触发关系
 
-旧竞速纪录和新闻信号已移除。`msuser` 维护比赛、非比赛录像数量及文件空间统计与上传额度；新竞速榜由 `speedranking` 接收 `VideoModel.post_save/post_delete`，在事务提交后增量更新 Redis 或补位失效纪录。
+旧竞速纪录及旧的 `news_queue` 新闻信号已移除。首页新闻改由独立的 `news` APP 承担：`speedranking` 在写入排行前后各取一次快照，符合条件时调用 `news.services.emit` 发送 `news.events.news_event_detected`；`news.signals.record_news_event` 接收后把事件写入 `news/cache.py` 的 hash 与分类 zset，写入失败只记录日志，不影响排行榜更新。删除批量路径、`force=True` 的管理员修复、锚点变化后的后台重建和全量重建都不发送该信号。事件键与过期规则见 [cache.md](./cache.md)。
+
+`msuser` 维护比赛、非比赛录像数量及文件空间统计与上传额度；新竞速榜由 `speedranking` 接收 `VideoModel.post_save/post_delete`，在事务提交后增量更新 Redis 或补位失效纪录。
 
 `speedranking` 复用 `videomanager` 捕获的旧值。关注 player、level、mode、state、ongoing_tournament、bv、timems、right_ce、upload_time；提高成绩直接比较，变差/失去资格/删除时只重建由该录像保持的单项。类别迁移同时处理原玩家和新玩家，bvs、iqg 使用数据库保存的 GeneratedField；bv 或 timems 变化会触发这些派生指标的判断。标识绑定/解绑与比赛批量公开不触发保存信号，须显式调用 `add_videos_to_speed_ranks` / `remove_videos_from_speed_ranks`。
 

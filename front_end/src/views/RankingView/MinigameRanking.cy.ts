@@ -75,6 +75,7 @@ describe('minigame rankings', () => {
     it('opens a deep link with nine columns, sorts, paginates, refreshes and switches groups', () => {
         const router = mountRanking('/ranking/minigame/left-click?sort=left-click-e-87.5-v1&page=2');
         cy.wait('@rank').its('request.query').should('include', { sort: 'left-click-e-87.5-v1', start: '20', end: '40' });
+        cy.get('.ranking-selector').should('have.value', 'left-click');
         cy.get('.el-tabs__item.is-active').should('have.text', 'Minigames');
         cy.get('[data-cy=minigame-play-link]').should('have.attr', 'href', '/minigame/left-click');
         cy.get('.minigame-ranking-table tbody tr td').should('have.length', 11);
@@ -91,13 +92,25 @@ describe('minigame rankings', () => {
         cy.get('[data-cy=minigame-ranking-refresh]').click();
         cy.wait('@rank');
         for (const [game, label, columns] of [['multi-touch', 'Multi-touch training', 11], ['flag-chord', 'Flag-and-chord training', 4], ['missing-cell', 'Missing cell training', 5]] as const) {
-            cy.get('.ranking-selector').click();
-            cy.get('.el-select-dropdown__item').contains(label).click();
+            cy.get('.ranking-selector').select(game);
             cy.wait('@rank').its('request.query.start').should('equal', '0');
+            cy.get('.ranking-selector').should('have.value', game);
+            cy.get('.ranking-selector option:checked').should('have.text', label);
             cy.get('.minigame-ranking-table tbody tr td').should('have.length', columns);
             cy.get('[data-cy=minigame-play-link]').should('have.attr', 'href', `/minigame/${game}`);
             cy.get('[data-cy=minigame-replay-link]').first().should('have.attr', 'href', `/minigame/${game}?player=42&key=${game === 'multi-touch' ? 'b-50-v1' : 'b-v1'}`);
         }
+        cy.then(() => {
+            router.back();
+        });
+        cy.wait('@rank');
+        cy.get('.ranking-selector').should('have.value', 'flag-chord');
+        cy.get('[data-cy=minigame-play-link]').should('have.attr', 'href', '/minigame/flag-chord');
+        cy.then(() => {
+            router.forward();
+        });
+        cy.wait('@rank');
+        cy.get('.ranking-selector').should('have.value', 'missing-cell');
         cy.get('[data-cy=minigame-play-link]').click();
         cy.wrap(router).its('currentRoute.value.name').should('equal', 'minigame-missing-cell');
     });

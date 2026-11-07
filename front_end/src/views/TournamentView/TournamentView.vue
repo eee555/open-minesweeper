@@ -10,6 +10,7 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/vendors/element-plus-tabs.less';
 import type { TabPaneName } from 'element-plus';
 import { ElTabPane, ElTabs } from 'element-plus';
 import { computed, ref, watch } from 'vue';

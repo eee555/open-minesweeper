@@ -1,14 +1,11 @@
 <template>
     <ElForm label-width="120px">
         <ElFormItem :label="t('local.format')">
-            <ElSelect v-model="tournamentFormat" style="width: 220px">
-                <ElOption
-                    v-for="option in tournamentFormatOptions"
-                    :key="option.value"
-                    :label="t(option.label)"
-                    :value="option.value"
-                />
-            </ElSelect>
+            <select v-model="tournamentFormat" class="base-select" style="width: 220px" :aria-label="t('local.format')">
+                <option v-for="option in tournamentFormatOptions" :key="option.value" :value="option.value">
+                    {{ t(option.label) }}
+                </option>
+            </select>
         </ElFormItem>
         <ElFormItem>
             <BaseButton type="primary" :loading="creating" @click="createWeeklyTournament">
@@ -33,7 +30,7 @@
 </template>
 
 <script setup lang="ts">
-import { ElDescriptions, ElDescriptionsItem, ElForm, ElFormItem, ElOption, ElSelect } from 'element-plus';
+import { ElDescriptions, ElDescriptionsItem, ElForm, ElFormItem } from 'element-plus';
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 

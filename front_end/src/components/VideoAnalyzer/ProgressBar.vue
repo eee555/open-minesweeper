@@ -41,14 +41,11 @@
                 </BaseButton>
             </div>
             <div class="analyzer-progress-bar__speed button-group button-group--joined">
-                <BaseButton class="analyzer-progress-bar__slower square-button" size="small" :disabled="slowerRate === undefined" :title="t('local.slower')" :aria-label="t('local.slower')" @click="changeRate(slowerRate)">
+                <BaseButton class="analyzer-progress-bar__slower square-button" size="small" :disabled="playbackRate <= minRate" :title="t('local.slower')" :aria-label="t('local.slower')" @click="changeRate(-rateStep)">
                     <i class="pi pi-minus" aria-hidden="true" />
                 </BaseButton>
-                <BaseButton class="analyzer-progress-bar__normal" size="small" :title="t('local.normal')" :aria-label="t('local.normal')" @click="playback.setPlaybackRate(1)">
-                    <i class="pi pi-refresh" aria-hidden="true" />
-                    {{ playbackRate }}x
-                </BaseButton>
-                <BaseButton class="analyzer-progress-bar__faster square-button" size="small" :disabled="fasterRate === undefined" :title="t('local.faster')" :aria-label="t('local.faster')" @click="changeRate(fasterRate)">
+                <InputNumber v-model="playbackRate" class="analyzer-progress-bar__rate" :min="minRate" :max="maxRate" :step="rateStep" :title="t('local.speed')" :aria-label="t('local.speed')" />
+                <BaseButton class="analyzer-progress-bar__faster square-button" size="small" :disabled="playbackRate >= maxRate" :title="t('local.faster')" :aria-label="t('local.faster')" @click="changeRate(rateStep)">
                     <i class="pi pi-plus" aria-hidden="true" />
                 </BaseButton>
             </div>
@@ -70,17 +67,23 @@ import type { VNode } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import { useAnalyzerState } from './useAnalyzerState';
-import { playbackRates } from './usePlayback';
 import type { LoopMode } from './usePlayback';
 
 import BaseButton from '@/components/common/BaseButton.vue';
+import InputNumber from '@/components/common/InputNumber.vue';
 
 const { playback, keyframeNavigation } = useAnalyzerState();
 defineSlots<{ export?: () => VNode[] }>();
 const currentMs = computed(() => playback.currentMs.value);
 const durationMs = computed(() => playback.durationMs.value);
 const isPlaying = computed(() => playback.isPlaying.value);
-const playbackRate = computed(() => playback.playbackRate.value);
+const playbackRate = computed({ get: () => playback.playbackRate.value,
+    set: (rate: number) => {
+        playback.setPlaybackRate(rate);
+    } });
+const minRate = 0.25;
+const maxRate = 8;
+const rateStep = 0.05;
 const loopMode = computed(() => playback.loopMode.value);
 const rangeStartMs = computed(() => playback.rangeStartMs.value);
 const rangeEndMs = computed(() => playback.rangeEndMs.value);
@@ -93,8 +96,6 @@ const loopModes: { value: LoopMode; label: string; icon: string }[] = [
 ];
 const timeText = computed(() => `${(currentMs.value / 1000).toFixed(3)} / ${(durationMs.value / 1000).toFixed(3)} s`);
 const rangeText = computed(() => `[${(rangeStartMs.value / 1000).toFixed(3)}, ${(rangeEndMs.value / 1000).toFixed(3)}] s`);
-const slowerRate = computed(() => [...playbackRates].reverse().find((rate) => rate < playbackRate.value));
-const fasterRate = computed(() => playbackRates.find((rate) => rate > playbackRate.value));
 
 function beginSeek(event: PointerEvent) {
     if (event.button === 0) playback.beginSeek();
@@ -104,8 +105,9 @@ function seekFromInput(event: Event) {
     playback.seek((event.target as HTMLInputElement).valueAsNumber);
 }
 
-function changeRate(rate: number | undefined) {
-    if (rate !== undefined) playback.setPlaybackRate(rate);
+function changeRate(delta: number) {
+    const rate = Number((playbackRate.value + delta).toFixed(12));
+    playback.setPlaybackRate(Math.min(maxRate, Math.max(minRate, rate)));
 }
 
 useEventListener('pointerup', () => {
@@ -131,7 +133,7 @@ const i18nMessages = {
         position: '播放进度',
         slower: '减速',
         faster: '加速',
-        normal: '恢复原速',
+        speed: '播放速度',
         loopMode: '循环模式',
         noLoop: '不循环',
         loopRange: '区间循环',
@@ -149,7 +151,7 @@ const i18nMessages = {
         position: 'Playback position',
         slower: 'Slower',
         faster: 'Faster',
-        normal: 'Normal speed',
+        speed: 'Playback speed',
         loopMode: 'Loop mode',
         noLoop: 'No loop',
         loopRange: 'Loop range',
@@ -195,7 +197,7 @@ const { t } = useI18n({ messages: i18nMessages });
 }
 
 .analyzer-progress-bar__track {
-    --thumb-size: 12px;
+    --thumb-size: var(--ui-slider-thumb-width);
     position: relative;
     flex: 1;
     min-width: 0;
@@ -227,19 +229,23 @@ const { t } = useI18n({ messages: i18nMessages });
 .analyzer-progress-bar__slider::-webkit-slider-thumb {
     appearance: none;
     width: var(--thumb-size);
-    height: var(--thumb-size);
-    margin-top: -4px;
+    height: var(--ui-slider-thumb-height);
+    margin-top: calc((4px - var(--ui-slider-thumb-height)) / 2);
     border: 0;
-    border-radius: 50%;
-    background: var(--ui-color-primary);
+    border-radius: 0;
+    background: var(--ui-slider-thumb-color);
+    clip-path: var(--ui-slider-thumb-shape);
+    forced-color-adjust: none;
 }
 
 .analyzer-progress-bar__slider::-moz-range-thumb {
     width: var(--thumb-size);
-    height: var(--thumb-size);
+    height: var(--ui-slider-thumb-height);
     border: 0;
-    border-radius: 50%;
-    background: var(--ui-color-primary);
+    border-radius: 0;
+    background: var(--ui-slider-thumb-color);
+    clip-path: var(--ui-slider-thumb-shape);
+    forced-color-adjust: none;
 }
 
 .analyzer-progress-bar__slider:disabled {
@@ -294,8 +300,11 @@ const { t } = useI18n({ messages: i18nMessages });
     font-variant-numeric: tabular-nums;
 }
 
-.analyzer-progress-bar__normal {
-    width: 72px;
+.analyzer-progress-bar__rate {
+    width: calc(4ch + 10px);
+    flex-shrink: 0;
+    padding-inline: 4px;
+    text-align: center;
     font-variant-numeric: tabular-nums;
 }
 </style>
