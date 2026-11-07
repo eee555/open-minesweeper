@@ -318,7 +318,7 @@ class SaoleiStageTests(TestCase):
         self.remote.stats.assert_not_called()
         self.remote.video_list.assert_not_called()
         self.remote.video_info.assert_not_called()
-        self.assertEqual(SaoleiApiVideo.objects.filter(import_rejected=True).count(), 100)
+        self.assertEqual(SaoleiApiVideo.objects.filter(import_rejected=True).count(), 1000)
         self.assertFalse(SaoleiApiVideo.objects.get(remote_id=101).import_rejected)
         self.assertFalse(SaoleiApiVideo.objects.get(remote_id=102).import_rejected)
 
