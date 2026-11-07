@@ -1,7 +1,6 @@
 """效率榜新闻：把当次写入前后的个人纪录差异转成 news 分区事件。"""
 
 from news.services import emit
-
 from .cache import pipeline
 from .nf_ioe.utils import record_scores as ioe_record_scores
 from .thrp.utils import NF_STAT, record_scores as thrp_record_scores
