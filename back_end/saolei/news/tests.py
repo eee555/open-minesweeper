@@ -300,23 +300,50 @@ class EffNewsTests(SimpleTestCase):
         records = {1: thrp_record(b=thrp_part(1.0, 11))}
         totals = [item for item in prepare_news([(ranking, previous, records)]) if item[2] == 'sum']
         self.assertEqual(len(totals), 1)
-        self.assertEqual((totals[0][3], totals[0][4], totals[0][5], totals[0][6]), (None, None, 1.0, None))
+        self.assertIsNone(totals[0][3])
+        self.assertEqual(totals[0][4], {'value': 1.0, 'video_id': None, 'count': None, 'timems': None})
+
+    def test_expert_nf_news_keeps_perfect_game_count(self):
+        thrp = ThrpRankingCache()
+        previous = {1: thrp_record(e_nf={'value': 1.0, 'video_ids': [20]})}
+        records = {1: thrp_record(e_nf={'value': 1.0, 'video_ids': [20, 21]})}
+        candidates = prepare_news([(thrp, previous, records)])
+        self.assertEqual([item[2] for item in candidates], ['e_nf'])
+        old, new = candidates[0][3], candidates[0][4]
+        self.assertEqual((old['value'], old['count'], new['value'], new['count']), (1.0, 1, 1.0, 2))
+        self.assertEqual((old['video_id'], new['video_id']), (20, 20))
+
+    def test_nf_ioe_news_keeps_comparison_time(self):
+        ioe = NFIOERankingCache()
+        previous = {2: ioe_record(b=ioe_part(1.0, 10, 10000), i=ioe_part(1.0, 11, 10000), e=ioe_part(1.0, 12, 10000))}
+        records = {2: ioe_record(b=ioe_part(1.0, 10, 10000), i=ioe_part(1.0, 11, 10000), e=ioe_part(1.0, 13, 9000))}
+        candidates = prepare_news([(ioe, previous, records)])
+        self.assertEqual([item[2] for item in candidates], ['e', 'sum'])
+        expert = next(item for item in candidates if item[2] == 'e')
+        total = next(item for item in candidates if item[2] == 'sum')
+        self.assertEqual((expert[3]['timems'], expert[4]['timems']), (10000, 9000))
+        self.assertEqual((total[3]['timems'], total[4]['timems']), (10000, 9000))
+        self.assertEqual((total[3]['value'], total[4]['value']), (3.0, 3.0))
+        self.assertEqual((total[3]['video_id'], total[4]['video_id']), (None, None))
 
     @patch('effranking.news.emit')
     def test_payload_follows_pb_format(self, mocked_emit):
-        publish_news([(ThrpRankingCache(), 1, 'b', 0.9, 10, 1.0, 11)], [6], [2])
+        old = {'value': 0.9, 'video_id': 10, 'count': None, 'timems': None}
+        new = {'value': 1.0, 'video_id': 11, 'count': None, 'timems': None}
+        publish_news([(ThrpRankingCache(), 1, 'b', old, new)], [6], [2])
         category, player_id, payload = mocked_emit.call_args.args
         self.assertEqual((category, player_id), ('eff', 1))
         self.assertEqual(payload['field'], 'thrp:b')
-        self.assertEqual(payload['old'], {'value': 0.9, 'video_id': 10, 'rank': 7})
-        self.assertEqual(payload['new'], {'value': 1.0, 'video_id': 11, 'rank': 3})
+        self.assertEqual(payload['old'], {**old, 'rank': 7})
+        self.assertEqual(payload['new'], {**new, 'rank': 3})
 
     @patch('effranking.news.emit')
     def test_first_record_has_no_old_value(self, mocked_emit):
-        publish_news([(NFIOERankingCache(), 2, 'e', None, None, 1.0, 30)], [None], [0])
+        new = {'value': 1.0, 'video_id': 30, 'count': None, 'timems': 10000}
+        publish_news([(NFIOERankingCache(), 2, 'e', None, new)], [None], [0])
         payload = mocked_emit.call_args.args[2]
         self.assertIsNone(payload['old'])
-        self.assertEqual(payload['new'], {'value': 1.0, 'video_id': 30, 'rank': 1})
+        self.assertEqual(payload['new'], {**new, 'rank': 1})
 
     @patch('effranking.news.emit')
     def test_write_publishes_rank_after_the_write(self, mocked_emit):

@@ -168,8 +168,8 @@ describe('<NewsQueue />', () => {
                 category: 'eff',
                 payload: {
                     field: 'thrp:e',
-                    old: { value: 0.8, video_id: 301, rank: 7 },
-                    new: { value: 0.9, video_id: 302, rank: 6 },
+                    old: { value: 0.8, video_id: 301, rank: 7, count: null, timems: null },
+                    new: { value: 0.9, video_id: 302, rank: 6, count: null, timems: null },
                 },
             },
             {
@@ -180,7 +180,7 @@ describe('<NewsQueue />', () => {
                 payload: {
                     field: 'nf_ioe:sum',
                     old: null,
-                    new: { value: 1.5, video_id: null, rank: 2 },
+                    new: { value: 1.5, video_id: null, rank: 2, count: null, timems: null },
                 },
             },
         ];
@@ -197,6 +197,48 @@ describe('<NewsQueue />', () => {
         cy.get('[data-cy=news-eff]').eq(1).find('.video-preview-link').should('not.exist');
     });
 
+    it('keeps perfect game counts and comparison times in efficiency news', () => {
+        const events: NewsEvent[] = [
+            {
+                id: 'eff-nf-count',
+                occurred_at: 1_000_000,
+                player_id: 9,
+                category: 'eff',
+                payload: {
+                    field: 'thrp:e_nf',
+                    old: { value: 1.0, video_id: 501, rank: 3, count: 1, timems: null },
+                    new: { value: 1.0, video_id: 501, rank: 1, count: 2, timems: null },
+                },
+            },
+            {
+                id: 'eff-ioe-time',
+                occurred_at: 1_000_000,
+                player_id: 10,
+                category: 'eff',
+                payload: {
+                    field: 'nf_ioe:e',
+                    old: { value: 1.0, video_id: 502, rank: 5, count: null, timems: 10000 },
+                    new: { value: 1.0, video_id: 503, rank: 2, count: null, timems: 9000 },
+                },
+            },
+            {
+                id: 'eff-ioe-sum',
+                occurred_at: 1_000_000,
+                player_id: 11,
+                category: 'eff',
+                payload: {
+                    field: 'nf_ioe:sum',
+                    old: { value: 3.0, video_id: null, rank: 5, count: null, timems: 10000 },
+                    new: { value: 3.0, video_id: null, rank: 2, count: null, timems: 9000 },
+                },
+            },
+        ];
+        mountNews(events);
+        cy.get('[data-cy=news-eff]').eq(0).should('contain.text', '1.000(3) → 1 x 2(1)');
+        cy.get('[data-cy=news-eff]').eq(1).should('contain.text', '1.000 (10.000)(5) → 1.000 (9.000)(2)');
+        cy.get('[data-cy=news-eff]').eq(2).should('contain.text', '3.000 (10.000)(5) → 3.000 (9.000)(2)');
+    });
+
     it('formats efficiency field names in English', () => {
         const events: NewsEvent[] = [{
             id: 'eff-en',
@@ -206,7 +248,7 @@ describe('<NewsQueue />', () => {
             payload: {
                 field: 'thrp:e_nf',
                 old: null,
-                new: { value: 1.0, video_id: 401, rank: 1 },
+                new: { value: 1.0, video_id: 401, rank: 1, count: 1, timems: null },
             },
         }];
         mountNews(events);

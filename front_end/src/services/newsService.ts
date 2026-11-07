@@ -1,4 +1,5 @@
 import $axios from '@/http';
+import { ms_to_s } from '@/utils';
 
 export interface NewsRankRecord {
     timems: number;
@@ -28,6 +29,8 @@ export interface EffNewsRecord {
     value: number;
     video_id: number | null;
     rank: number | null;
+    count: number | null;
+    timems: number | null;
 }
 
 export interface EffNewsPayload {
@@ -48,6 +51,16 @@ type EffNewsEvent = NewsEventBase & { category: 'eff'; payload: EffNewsPayload }
 export type NewsEvent = PBNewsEvent | LSFNewsEvent | EffNewsEvent;
 
 export type NewsCategory = 'all' | 'pb' | 'lsf' | 'eff';
+
+export function formatEffValue(record: EffNewsRecord, field: string): string {
+    const [ranking, stat] = field.split(':');
+    const formatted = record.value.toFixed(3);
+    if (ranking === 'thrp' && stat === 'e_nf' && (record.count ?? 0) > 1) return `1 x ${record.count}`;
+    if (ranking === 'nf_ioe' && record.timems !== null && record.value === (stat === 'sum' ? 3 : 1)) {
+        return `${formatted} (${ms_to_s(record.timems)})`;
+    }
+    return formatted;
+}
 
 export async function fetchNews(category: NewsCategory = 'all', limit = 50): Promise<NewsEvent[]> {
     const { data } = await $axios.get<NewsEvent[]>('/api/news/events', { params: { category, limit } });

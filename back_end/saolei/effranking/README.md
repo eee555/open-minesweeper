@@ -186,9 +186,11 @@ python manage.py rebuild_eff_ranks --ranking-name nf_ioe
 
 ## 首页新闻
 
-`effranking` 在单录像与批量加入路径发布 `eff` 分区新闻，覆盖 Thrp 的 `b/i/e/sum/e_nf` 与 NF IOE 的 `b/i/e/sum` 全部小榜。格式与 PB 新闻一致：`field` 为 `{大榜}:{小榜}`，`old`/`new` 各含 `value`、`video_id`、`rank`，首次取得纪录时 `old` 为 `null`。事件经 `news.services.emit` 与信号写入 `news` app 的分类 zset，键与回收规则见[缓存文档](../../../vitepress_doc/zh/guide/development/cache.md)。
+`effranking` 在单录像与批量加入路径发布 `eff` 分区新闻，覆盖 Thrp 的 `b/i/e/sum/e_nf` 与 NF IOE 的 `b/i/e/sum` 全部小榜。格式与 PB 新闻一致：`field` 为 `{大榜}:{小榜}`，`old`/`new` 各含 `value`、`video_id`、`rank`、`count`、`timems`，首次取得纪录时 `old` 为 `null`。事件经 `news.services.emit` 与信号写入 `news` app 的分类 zset，键与回收规则见[缓存文档](../../../vitepress_doc/zh/guide/development/cache.md)。
 
 - 只发布成绩变优的单项（比较写入前后的 score）；补位变差与批量移除不发布。单项变化引起 sum 同步变优时，sum 也单独发布一条事件。
+- `count` 是高级 NF 的满分局数：满分局数增加时 `value` 仍为 1、主录像也可能不变，前端沿用榜单的 `1 x N` 显示，避免新闻出现 `1.000 → 1.000`。
+- `timems` 是 NF IOE 满分单项的用时；`sum` 满分时取该项所用的高级用时。前端沿用榜单的 `1.000 (9.000)` 显示，使满分后的用时改善可见。
 - `sum` 是派生值没有对应录像，`video_id` 为 `null`，前端只显示数值文字而不加录像链接；`e_nf` 取满分录像 id 列表首条作为主链接。
 - 旧名次在写入前用 ZRANK 读取，新名次在写入命令之后排入同一 pipeline，保证事件中的名次对应写入后的榜。事件写入失败只记录日志，不影响排行榜更新。
 - 管理员单项修复与全量重建不发布新闻；新闻是派生数据，不随快照初始化或重建补发。

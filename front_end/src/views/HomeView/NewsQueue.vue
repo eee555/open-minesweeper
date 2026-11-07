@@ -9,7 +9,7 @@
                     <span class="news-time text-secondary text-small">{{ formatTime(event.occurred_at) }}</span>
                     <span class="news-sentence">
                         <template v-if="event.category === 'pb'"><PlayerName class="news-player" :user-id="event.player_id" />{{ pbPrefix(event) }}<template v-if="event.payload.old"><VideoPreviewLink :id="event.payload.old.video_id">{{ formatTimeValue(event.payload.old.timems) }}</VideoPreviewLink>({{ formatRank(event.payload.old.rank) }}) → </template><VideoPreviewLink :id="event.payload.new.video_id">{{ formatTimeValue(event.payload.new.timems) }}</VideoPreviewLink>({{ formatRank(event.payload.new.rank) }})</template>
-                        <template v-else-if="event.category === 'eff'"><PlayerName class="news-player" :user-id="event.player_id" />{{ effPrefix(event) }}<template v-if="event.payload.old"><VideoPreviewLink v-if="event.payload.old.video_id !== null" :id="event.payload.old.video_id">{{ formatEffValue(event.payload.old.value) }}</VideoPreviewLink><template v-else>{{ formatEffValue(event.payload.old.value) }}</template>({{ formatRank(event.payload.old.rank) }}) → </template><VideoPreviewLink v-if="event.payload.new.video_id !== null" :id="event.payload.new.video_id">{{ formatEffValue(event.payload.new.value) }}</VideoPreviewLink><template v-else>{{ formatEffValue(event.payload.new.value) }}</template>({{ formatRank(event.payload.new.rank) }})</template>
+                        <template v-else-if="event.category === 'eff'"><PlayerName class="news-player" :user-id="event.player_id" />{{ effPrefix(event) }}<template v-if="event.payload.old"><VideoPreviewLink v-if="event.payload.old.video_id !== null" :id="event.payload.old.video_id">{{ formatEffValue(event.payload.old, event.payload.field) }}</VideoPreviewLink><template v-else>{{ formatEffValue(event.payload.old, event.payload.field) }}</template>({{ formatRank(event.payload.old.rank) }}) → </template><VideoPreviewLink v-if="event.payload.new.video_id !== null" :id="event.payload.new.video_id">{{ formatEffValue(event.payload.new, event.payload.field) }}</VideoPreviewLink><template v-else>{{ formatEffValue(event.payload.new, event.payload.field) }}</template>({{ formatRank(event.payload.new.rank) }})</template>
                         <template v-else-if="event.category === 'lsf'"><template v-for="(id, index) in lsfReplayIds(event)" :key="id">{{ index ? ' ' : '' }}<VideoPreviewLink :id="id">#{{ id }}</VideoPreviewLink></template>{{ t('local.lsfRaised') }}<PlayerName class="news-player" :user-id="event.player_id" />{{ lsfDescription(event) }}</template>
                     </span>
                 </li>
@@ -26,7 +26,7 @@ import { useI18n } from 'vue-i18n';
 import PlayerName from '@/components/PlayerName.vue';
 import VideoPreviewLink from '@/components/VideoPreviewLink.vue';
 import i18n from '@/i18n';
-import { fetchNews } from '@/services/newsService';
+import { fetchNews, formatEffValue } from '@/services/newsService';
 import type { NewsCategory, NewsEvent } from '@/services/newsService';
 import { utc_to_local_format } from '@/utils/system/tools';
 
@@ -86,10 +86,6 @@ function formatField(field: string): string {
     const levelName = i18n.global.t(`level.${level}`);
     const separator = i18n.global.locale.value.startsWith('zh') ? '' : ' ';
     return `${levelName}${separator}${bv}`;
-}
-
-function formatEffValue(value: number): string {
-    return value.toFixed(3);
 }
 
 function formatEffField(field: string): string {

@@ -102,8 +102,8 @@ const newsEvents = [
         player_id: 7,
         payload: {
             field: 'thrp:i',
-            old: { value: 0.8, video_id: 101, rank: 8 },
-            new: { value: 0.9, video_id: 102, rank: 3 },
+            old: { value: 0.8, video_id: 101, rank: 8, count: null, timems: null },
+            new: { value: 0.9, video_id: 102, rank: 3, count: null, timems: null },
         },
     },
 ];

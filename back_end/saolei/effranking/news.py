@@ -13,18 +13,26 @@ def _scores(ranking, record):
 
 
 def _news_value(ranking, record, stat):
-    """返回纪录展示值与主录像；sum 是派生值没有对应录像，高级 NF 取首条达成录像。"""
+    """返回与榜单口径一致的成绩；没有对应纪录时返回 None。
+
+    count 是高级 NF 的满分局数，timems 是 NF IOE 满分单项（或满分总计的高级）用时。
+    两者让 value 相同但成绩确有进步的纪录在新闻里仍可区分。
+    """
     if stat == 'sum':
         level_fields = (field for field in ranking.record_fields if field != NF_STAT)
         parts = [record[field] for field in level_fields if record.get(field) is not None]
-        return (sum(part['value'] for part in parts), None) if parts else (None, None)
+        if not parts:
+            return None
+        return {'value': sum(part['value'] for part in parts), 'video_id': None, 'count': None, 'timems': (record.get('e') or {}).get('timems')}
     if stat == NF_STAT:
         nf = record.get(NF_STAT)
         if nf is None:
-            return (None, None)
-        return nf['value'], nf['video_ids'][0] if nf['video_ids'] else None
+            return None
+        return {'value': nf['value'], 'video_id': nf['video_ids'][0] if nf['video_ids'] else None, 'count': len(nf['video_ids']), 'timems': None}
     part = record.get(stat)
-    return (part['value'], part['video_id']) if part is not None else (None, None)
+    if part is None:
+        return None
+    return {'value': part['value'], 'video_id': part['video_id'], 'count': None, 'timems': part.get('timems')}
 
 
 def prepare_news(entries):
@@ -42,11 +50,11 @@ def prepare_news(entries):
                 old_score = old_scores[stat]
                 if old_score is not None and new_score >= old_score:
                     continue
-                old_value, old_video_id = _news_value(ranking, old, stat)
-                new_value, new_video_id = _news_value(ranking, record, stat)
+                old_value = _news_value(ranking, old, stat)
+                new_value = _news_value(ranking, record, stat)
                 if new_value is None:
                     continue
-                candidates.append((ranking, player_id, stat, old_value, old_video_id, new_value, new_video_id))
+                candidates.append((ranking, player_id, stat, old_value, new_value))
     return candidates
 
 
@@ -67,12 +75,11 @@ def read_news_ranks(candidates):
 def publish_news(candidates, old_ranks, new_ranks):
     """按 PB 新闻的格式逐条发布：field、旧/新成绩与各自名次。"""
     for candidate, old_rank, new_rank in zip(candidates, old_ranks, new_ranks, strict=True):
-        ranking, player_id, stat, old_value, old_video_id, new_value, new_video_id = candidate
+        ranking, player_id, stat, old, new = candidate
         if new_rank is None:
             continue
-        old = {'value': old_value, 'video_id': old_video_id, 'rank': old_rank + 1 if old_rank is not None else None}
         emit(CATEGORY, player_id, {
             'field': f'{ranking.ranking_name}:{stat}',
-            'old': old if old_value is not None else None,
-            'new': {'value': new_value, 'video_id': new_video_id, 'rank': new_rank + 1},
+            'old': {**old, 'rank': old_rank + 1 if old_rank is not None else None} if old is not None else None,
+            'new': {**new, 'rank': new_rank + 1},
         })
