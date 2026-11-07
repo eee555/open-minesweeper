@@ -46,6 +46,7 @@ class AccountSaolei(models.Model):
     video_sync_cursor = models.PositiveBigIntegerField(default=0)
     video_update_time = models.DateTimeField(null=True)
     auto_sync = models.BooleanField(default=True, help_text='每天自动增量同步扫雷网资料、录像目录及未完成的录像。')
+    initial_sync_at = models.DateTimeField(null=True, blank=True, help_text='绑定审核通过后自动触发的一次性全量同步标记；NULL 表示尚未触发。')
 
 
 class SaoleiApiVideo(models.Model):
