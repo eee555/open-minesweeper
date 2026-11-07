@@ -28,13 +28,13 @@ GitHub 使用 OAuth App 网页授权，只关联已有 OpenMS 账号，不提供
 | `github/client.py` | Authlib 授权地址、令牌交换及授权者 ID 查询 |
 | `github/cache.py` | 临时授权状态、会话指纹、一次性占用和撤销 |
 | `github/api.py` | Ninja 接口、本人及会话校验、固定返回地址和结果码 |
-| `github/services.py`、`signals.py` | 解绑与删除后的授权撤销，不处理操作者权限 |
+| `github/services.py`、`signals.py` | 解绑及删除事务中的授权撤销，不处理操作者权限 |
 | `services.py` | 已验证关联的事务、冲突校验及禁止手工验证 GitHub |
 | `front_end/src/views/UserView/AccountLinks/`、`front_end/src/services/githubService.ts` | 授权入口、ID 面板、返回提示与手动公开资料请求；路径相对仓库根目录 |
 
 `POST /api/accountlink/github/start` 在校验配置后生成授权地址，不访问 GitHub。授权使用随机 state、PKCE S256 和空 scope，不申请邮箱或仓库权限。`GET /api/accountlink/github/callback` 校验本人及登录会话，原子占用一次性状态，再交换 code 并通过已认证的 `GET https://api.github.com/user` 确认实际授权者；不能用手填用户名或前端传入的 ID 建立绑定。外部 HTTP 不持有写事务。
 
-授权状态和 PKCE verifier 在默认 Django cache 中保留 600 秒，与用户、会话指纹及当前授权绑定；新授权替代旧授权。`cache.add` 一次性占用标记阻止并发消费；撤销时把该 state 的 used 标记改为 `revoked`，不删除可能已被新授权覆盖的 active 指针。删除已绑定账号时，提交后仅撤销删除时捕获的 state；回滚保留原授权。无关联可删除的本人取消请求立即撤销未完成授权。授权请求返回前页面已失活时，前端通过 `POST /api/accountlink/github/cancel` 取消返回的 state；后端校验本人及会话，不影响较新的授权，取消失败时仍会自然过期。清除授权缓存只会要求未完成授权重新开始，不移除已验证关联。键结构和删除信号见[缓存结构](../../../vitepress_doc/zh/guide/development/cache.md#github-授权临时状态)与[信号说明](../../../vitepress_doc/zh/guide/development/signals.md)。
+授权状态和 PKCE verifier 在默认 Django cache 中保留 600 秒，与用户、会话指纹及当前授权绑定；新授权替代旧授权。`cache.add` 一次性占用标记阻止并发消费；撤销时把该 state 的 used 标记改为 `revoked`，不删除可能已被新授权覆盖的 active 指针。删除已绑定账号时，在删除事务内持有用户行锁期间立即撤销当前 state，不使用 `on_commit`，防止行锁释放后在途回调抢先恢复关联。删除回滚会保留数据库关联，但不恢复已撤销的授权；需要时重新发起授权。无关联可删除的本人取消请求也立即撤销未完成授权。授权请求返回前页面已失活时，前端通过 `POST /api/accountlink/github/cancel` 取消返回的 state；后端校验本人及会话，不影响较新的授权，取消失败时仍会自然过期。清除授权缓存只会要求未完成授权重新开始，不移除已验证关联。键结构和删除信号见[缓存结构](../../../vitepress_doc/zh/guide/development/cache.md#github-授权临时状态)与[信号说明](../../../vitepress_doc/zh/guide/development/signals.md)。
 
 回调在外部请求后、数据库提交前取得用户行锁，再次检查登录会话及当前授权。成功或失败都跳回固定的本人关联页，只携带 `linked`、`cancelled`、`conflict`、`expired`、`remote_failed` 或 `not_configured`，不把 code、state、verifier 或 token 带入前端结果地址和应用日志。Authlib 的正常授权错误统一转换为受控 `remote_failed`，回调按分类记录 WARNING；意外异常仅记录异常类型。
 
@@ -46,7 +46,7 @@ GitHub 使用 OAuth App 网页授权，只关联已有 OpenMS 账号，不提供
 
 ### 回归与联调
 
-后端回归位于 `github/tests.py`，通过模拟 GitHub HTTP 响应验证真实 Authlib 参数和交换逻辑，覆盖成功、取消、过期、重复回调、会话切换、在途解绑、归属冲突、错误分类、事务回滚、延迟撤销不影响新授权及管理员 CSRF。前端服务测试位于 `front_end/src/services/githubService.test.ts`，组件测试位于 `front_end/src/views/UserView/AccountLinks/GitHub.cy.ts` 与 `panels/GitHubPanel.cy.ts`，覆盖授权入口、公开 ID 和资料请求失败降级。
+后端回归位于 `github/tests.py`，通过模拟 GitHub HTTP 响应验证真实 Authlib 参数和交换逻辑，覆盖成功、取消、过期、重复回调、会话切换、在途解绑、归属冲突、错误分类、删除回滚仍撤销授权、提交钩子执行前旧回调不能恢复关联、解绑后可重新授权及管理员 CSRF。前端服务测试位于 `front_end/src/services/githubService.test.ts`，组件测试位于 `front_end/src/views/UserView/AccountLinks/GitHub.cy.ts` 与 `panels/GitHubPanel.cy.ts`，覆盖授权入口、公开 ID 和资料请求失败降级。
 
 离线回归和匿名公开资料请求不等于真实 OAuth 联调。真实 GitHub 授权、服务器连通性、Secrets 实际值与 OAuth App 后台配置，以及 Nginx/uWSGI 配置，需部署后核对验证；Cypress 组件及 E2E 测试由用户运行。
 

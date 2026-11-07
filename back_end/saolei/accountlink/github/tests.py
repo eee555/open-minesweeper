@@ -258,6 +258,21 @@ class GitHubAccountLinkTests(TestCase):
             AccountGitHub.objects.all().delete()
         self.assertEqual(self.result(self.callback(state)), 'expired')
 
+    def test_unlink_rejects_inflight_callback_before_commit_hooks(self):
+        save_verified_account_link(self.user, Platform.GITHUB, '123')
+        state, _ = create_flow(self.user.pk, self.client.session.session_key)
+
+        def unlink_during_request(*args):
+            self.assertEqual(self.client.post(f'{BASE}/unlink').status_code, 200)
+            return 123
+
+        # 暂不执行提交回调，模拟解绑已释放行锁、缓存提交钩子尚未运行的窗口。
+        with self.captureOnCommitCallbacks(execute=False):
+            with patch('accountlink.github.api.authorized_user_id', side_effect=unlink_during_request):
+                self.assertEqual(self.result(self.callback(state)), 'expired')
+        self.assertFalse(AccountGitHub.objects.exists())
+        self.assertFalse(AccountLinkQueue.objects.filter(platform='g').exists())
+
     def test_authlib_errors_are_controlled_failures_without_credential_logs(self):
         for payload in [
             {'error': 'bad_verification_code', 'error_description': 'test-secret test-code'},
@@ -277,23 +292,24 @@ class GitHubAccountLinkTests(TestCase):
                 self.assertNotIn('test-code', str(logs.output))
         self.assertFalse(AccountGitHub.objects.exists())
 
-    def test_rolled_back_deletion_preserves_binding_and_pending_authorization(self):
+    def test_rolled_back_deletion_preserves_binding_but_revokes_pending_authorization(self):
         save_verified_account_link(self.user, Platform.GITHUB, '123')
         state, _ = create_flow(self.user.pk, self.client.session.session_key)
-        with self.captureOnCommitCallbacks(execute=True) as callbacks:
-            with self.assertRaises(RuntimeError), transaction.atomic():
-                AccountGitHub.objects.all().delete()
-                raise RuntimeError('Rollback deletion')
-        self.assertEqual(callbacks, [])
+        with self.assertRaises(RuntimeError), transaction.atomic():
+            AccountGitHub.objects.all().delete()
+            raise RuntimeError('Rollback deletion')
         self.assertTrue(AccountGitHub.objects.filter(pk=123).exists())
-        require_active_flow(state, self.user.pk)
+        with self.assertRaises(ExceptionToResponse) as error:
+            require_active_flow(state, self.user.pk)
+        self.assertEqual(error.exception.category, 'expired')
+        self.assertEqual(self.result(self.callback(state)), 'expired')
+        self.network.assert_not_called()
 
-    def test_deletion_commit_does_not_revoke_a_newer_authorization(self):
+    def test_new_authorization_after_unlink_remains_usable(self):
         save_verified_account_link(self.user, Platform.GITHUB, '123')
         old, _ = create_flow(self.user.pk, self.client.session.session_key)
-        with self.captureOnCommitCallbacks(execute=True):
-            self.assertEqual(self.client.post(f'{BASE}/unlink').status_code, 200)
-            new, _ = self.start()
+        self.assertEqual(self.client.post(f'{BASE}/unlink').status_code, 200)
+        new, _ = self.start()
         require_active_flow(new, self.user.pk)
         self.assertEqual(self.result(self.callback(old)), 'expired')
         self.assertEqual(self.result(self.callback(new)), 'linked')

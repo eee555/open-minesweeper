@@ -5,7 +5,7 @@ description: 开源扫雷网后端Django信号触发关系详解，包括录像�
 
 # 信号触发关系
 
-`accountlink.signals.invalidate_github_authorizations_on_delete` 接收 `AccountGitHub.pre_delete`，显式读取并锁定对应 `UserProfile`，在删除事务提交后撤销捕获的 GitHub state；回滚不改授权缓存，也不影响提交前已创建的新 state。该用户行锁与 OAuth 提交共用，串行化依赖生产 MySQL 的行锁，SQLite 不提供该保证。本人专用解绑、旧通用解绑、管理员解绑、QuerySet 删除和用户级联删除均经过此信号。只影响未完成的 GitHub 授权，不撤销 GitHub 网站上的应用授权；相关临时键见 [缓存结构](./cache.md#github-授权临时状态)。
+`accountlink.signals.invalidate_github_authorizations_on_delete` 接收 `AccountGitHub.pre_delete`，显式读取并锁定对应 `UserProfile`，在删除事务内、释放用户行锁之前立即撤销当前 GitHub state，不使用 `on_commit`，避免解绑提交后、提交钩子执行前的在途回调重新建立关联。删除回滚时数据库关联保留，但授权仍失效，用户需重新发起授权。该用户行锁与 OAuth 提交共用，串行化依赖生产 MySQL 的行锁，SQLite 不提供该保证。本人专用解绑、旧通用解绑、管理员解绑、QuerySet 删除和用户级联删除均经过此信号。只影响未完成的 GitHub 授权，不撤销 GitHub 网站上的应用授权；相关临时键见 [缓存结构](./cache.md#github-授权临时状态)。
 
 旧竞速纪录及旧的 `news_queue` 新闻信号已移除。首页新闻改由独立的 `news` APP 承担：`speedranking` 在写入排行前后各取一次快照、`effranking` 在写入前后比较个人纪录与名次，符合条件时调用 `news.services.emit` 发送 `news.events.news_event_detected`；`news.signals.record_news_event` 接收后把事件写入 `news/cache.py` 的 hash 与分类 zset，写入失败只记录日志，不影响排行榜更新。删除批量路径、`force=True` 的管理员修复、锚点变化后的后台重建和全量重建都不发送该信号。事件键与过期规则见 [cache.md](./cache.md)。
 

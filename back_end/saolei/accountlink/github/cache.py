@@ -46,7 +46,7 @@ def invalidate_flow(user_id):
 
 def revoke_flow(state):
     if state:
-        # 按 state 撤销，不删除 active 指针，避免提交回调误删新发起的授权。
+        # 按 state 撤销，不删除 active 指针，避免误删较新的授权。
         cache.set(f'accountlink:github:used:{state}', 'revoked', timeout=FLOW_TTL)
         cache.delete(f'accountlink:github:flow:{state}')
 

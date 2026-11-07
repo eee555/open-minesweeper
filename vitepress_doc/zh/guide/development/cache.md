@@ -9,7 +9,7 @@ description: 开源扫雷网Redis/Django缓存结构详解，包括录像队列�
 
 ## GitHub 授权临时状态
 
-GitHub 使用默认 Django cache（当前 Redis DB 1），所有键 TTL 为 600 秒，不保存访问令牌或公开资料。`accountlink:github:flow:{state}` 保存用户 ID、登录会话 HMAC 指纹和 PKCE verifier；`accountlink:github:active:{user_id}` 保存该用户最新的 state，新授权覆盖旧流程；`accountlink:github:used:{state}` 通过 `cache.add` 原子占用为 `True`，防止多个 worker 重复消费同一回调。只有匹配本人及会话的请求能占用状态。撤销时该 state 的 used 标记改为 `revoked` 并删除 flow 数据，不删除 active 指针；指针自然过期或被下一次授权覆盖，避免误删并发创建的新授权。删除已绑定账号在提交后撤销捕获的 state，回滚不动缓存；没有绑定账号可删除的本人取消操作立即撤销，防止在途回调继续提交。前端取消接口按 state、本人及会话校验，不影响较新的授权。清理缓存只会使未完成授权失效，用户重新发起即可，不影响已验证的数据库关联。
+GitHub 使用默认 Django cache（当前 Redis DB 1），所有键 TTL 为 600 秒，不保存访问令牌或公开资料。`accountlink:github:flow:{state}` 保存用户 ID、登录会话 HMAC 指纹和 PKCE verifier；`accountlink:github:active:{user_id}` 保存该用户最新的 state，新授权覆盖旧流程；`accountlink:github:used:{state}` 通过 `cache.add` 原子占用为 `True`，防止多个 worker 重复消费同一回调。只有匹配本人及会话的请求能占用状态。撤销时该 state 的 used 标记改为 `revoked` 并删除 flow 数据，不删除 active 指针；指针自然过期或被下一次授权覆盖，避免误删并发创建的新授权。删除已绑定账号在删除事务内持有用户行锁时立即撤销，不推迟到 `on_commit`，确保在途回调取得同一行锁后无法恢复关联。删除回滚保留数据库关联，但不恢复授权缓存，用户需重新发起授权；没有绑定账号可删除的本人取消操作也立即撤销。前端取消接口按 state、本人及会话校验，不影响较新的授权。清理缓存只会使未完成授权失效，用户重新发起即可，不影响已验证的数据库关联。
 
 ## 录像与账号数据
 
