@@ -5,6 +5,8 @@ import type { AccountClassicResponse } from './classic';
 import type { AccountLinkQueueResponse } from './common';
 import { AccountDiscord } from './discord';
 import type { AccountDiscordResponse } from './discord';
+import { AccountGitHub } from './github';
+import type { AccountGitHubResponse } from './github';
 import { AccountMineracer } from './mineracer';
 import type { AccountMineracerResponse } from './mineracer';
 import { AccountMSGames } from './msgames';
@@ -18,6 +20,7 @@ import { AccountWoM } from './wom';
 import type { AccountWoMResponse } from './wom';
 
 export interface AccountLinksResponse {
+    g?: AccountGitHubResponse | null;
     d?: AccountDiscordResponse | null;
     summary: AccountLinkQueueResponse[];
     B: AccountBilibiliResponse | null;
@@ -30,6 +33,7 @@ export interface AccountLinksResponse {
 }
 
 export class AccountLinks {
+    public g?: AccountGitHub;
     public d?: AccountDiscord;
     public summary: AccountLinkQueueResponse[] = [];
     public B?: AccountBilibili;
@@ -44,6 +48,7 @@ export class AccountLinks {
         if (data === undefined) return;
 
         this.summary = data.summary;
+        this.g = data.g == null ? undefined : new AccountGitHub(data.g);
         this.d = data.d == null ? undefined : new AccountDiscord(data.d);
         this.B = data.B === null ? undefined : new AccountBilibili(data.B);
         this.x = data.x == null ? undefined : new AccountClassic(data.x);

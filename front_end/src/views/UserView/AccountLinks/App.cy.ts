@@ -17,9 +17,9 @@ describe('<AccountLinks page />', () => {
         cy.intercept('GET', '**/api/accountlink/1', { body: emptyLinks }).as('links');
         mountAccountLink(App, { userId: 1 });
         cy.wait('@links');
-        cy.get('.account-platform-grid button').should('have.length', 8);
+        cy.get('.account-platform-grid button').should('have.length', 9);
         cy.get('.account-platform-grid button').should(($buttons) => {
-            expect(Array.from($buttons, (button) => button.dataset.platform)).to.deep.equal(['c', 'a', 'w', 'B', 'm', 'x', 'q', 'd']);
+            expect(Array.from($buttons, (button) => button.dataset.platform)).to.deep.equal(['c', 'a', 'w', 'B', 'm', 'x', 'g', 'q', 'd']);
         });
         cy.get('.account-platform-icon').should('have.css', 'opacity', '0.5');
         cy.get('[data-platform=c]').should('have.attr', 'aria-pressed', 'true');
@@ -85,7 +85,7 @@ describe('<AccountLinks page />', () => {
         cy.get('[data-platform=d] .account-platform-icon, [data-platform=q] .account-platform-icon').each(($icon) => {
             cy.wrap($icon).should('have.css', 'opacity', '1');
         });
-        cy.get('.account-platform-grid button').should('have.length', 8);
+        cy.get('.account-platform-grid button').should('have.length', 9);
     });
 
     it('stops Classic polling when switching away and restores it on return', () => {

@@ -34,7 +34,7 @@ describe('account-link loading and state isolation', () => {
         cy.contains('button', 'Retry').click();
         cy.wait('@retry');
         cy.get('[data-cy=account-link-form] input').should('be.enabled');
-        cy.get('.account-platform-icon.is-unlinked').should('have.length', 8);
+        cy.get('.account-platform-icon.is-unlinked').should('have.length', 9);
     });
 
     it('uses Mineracer and Classic detail records even when summary entries are missing', () => {

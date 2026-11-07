@@ -5,6 +5,9 @@
             <h2 :id="`${panelId}-title`">
                 {{ t(`platform.${selected}`) }}<span v-if="identifier && !privateHidden"> #{{ identifier }}</span>
             </h2>
+            <p v-if="githubResult" role="status" data-cy="github-result">
+                {{ t(`local.github.${githubResult}`) }}
+            </p>
             <p v-if="loading && !loaded" role="status">
                 {{ t('local.loading') }}
             </p>
@@ -30,11 +33,13 @@
                     <BilibiliPanel v-else-if="selected === 'B'" :key="selected" :verified="verified" :info="links.B" :owner="ownPage" @refresh="refresh" />
                     <MineracerPanel v-else-if="selected === 'm'" :info="links.m" />
                     <ClassicPanel v-else-if="selected === 'x'" :info="links.x" />
+                    <GitHubPanel v-else-if="selected === 'g' && links.g" :info="links.g" :owner="ownPage" @refresh="refresh" />
                     <PrivatePanel v-else-if="selected === 'q' || selected === 'd'" :verified="verified" />
                 </template>
                 <template v-else-if="ownPage">
                     <MineracerLink v-if="selected === 'm'" :flow="mineracerFlow" />
                     <ClassicLink v-else-if="selected === 'x'" :flow="classicFlow" />
+                    <GitHubLink v-else-if="selected === 'g'" />
                     <SaoleiLink v-else-if="selected === 'c'" v-model="drafts.c" :sending="sending.c" :error="errors.c" @submit="submitLink('c')" />
                     <MsgamesLink v-else-if="selected === 'a'" v-model="drafts.a" :sending="sending.a" :error="errors.a" @submit="submitLink('a')" />
                     <WomLink v-else-if="selected === 'w'" v-model="drafts.w" :sending="sending.w" :error="errors.w" @submit="submitLink('w')" />
@@ -58,6 +63,7 @@ import { useI18n } from 'vue-i18n';
 import BilibiliLink from './linking/BilibiliLink.vue';
 import ClassicLink from './linking/ClassicLink.vue';
 import DiscordLink from './linking/DiscordLink.vue';
+import GitHubLink from './linking/GitHubLink.vue';
 import MineracerLink from './linking/MineracerLink.vue';
 import MsgamesLink from './linking/MsgamesLink.vue';
 import QQLink from './linking/QQLink.vue';
@@ -67,6 +73,7 @@ import { useMineracerLink } from './linking/useMineracerLink';
 import WomLink from './linking/WomLink.vue';
 import BilibiliPanel from './panels/BilibiliPanel.vue';
 import ClassicPanel from './panels/ClassicPanel.vue';
+import GitHubPanel from './panels/GitHubPanel.vue';
 import MineracerPanel from './panels/MineracerPanel.vue';
 import MsgamesPanel from './panels/MsgamesPanel.vue';
 import PrivatePanel from './panels/PrivatePanel.vue';
@@ -91,6 +98,7 @@ const selected = ref<AccountLinkPlatform>('c');
 const loading = ref(true);
 const loaded = ref(false);
 const loadError = ref(false);
+const githubResult = ref('');
 const drafts = reactive(Object.fromEntries(platforms.map(({ id }) => [id, ''])) as Record<AccountLinkPlatform, string>);
 const errors = reactive({ ...drafts });
 const sending = reactive(Object.fromEntries(platforms.map(({ id }) => [id, false])) as Record<AccountLinkPlatform, boolean>);
@@ -165,6 +173,18 @@ async function submitLink(platform: AccountLinkPlatform) {
 }
 
 onMounted(() => {
+    const [path, query = ''] = window.location.hash.split('?');
+    const params = new URLSearchParams(query);
+    const result = params.get('github');
+    if (ownPage.value && path === `#/player/${props.userId}/accountlink` && result !== null
+        && ['linked', 'cancelled', 'conflict', 'expired', 'remote_failed', 'not_configured'].includes(result)) {
+        selected.value = 'g';
+        manuallySelected = true;
+        githubResult.value = result;
+        params.delete('github');
+        const remainder = params.toString();
+        window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}${path}${remainder ? `?${remainder}` : ''}`);
+    }
     void refresh();
 });
 const i18nMessages = {
@@ -174,6 +194,14 @@ const i18nMessages = {
         addFailed: '关联失败，请核对输入后重试。',
         noPublicLink: '暂无可展示的关联。',
         privateNotice: '私密关联，仅本人和本站管理员可见。',
+        github: {
+            linked: 'GitHub 账号关联成功。',
+            cancelled: '已取消 GitHub 授权。',
+            conflict: '该 GitHub 账号或本站账号已有其他关联，请先解除原关联。',
+            expired: '授权已过期或登录状态已变化，请重新开始。',
+            remote_failed: 'GitHub 授权失败，请重新尝试。',
+            not_configured: 'GitHub 授权暂未配置完成。',
+        },
     } },
     en: { local: {
         loading: 'Loading linked accounts…',
@@ -181,6 +209,14 @@ const i18nMessages = {
         addFailed: 'Could not link the account. Check the ID and retry.',
         noPublicLink: 'No account link is available to display.',
         privateNotice: 'Private links are visible only to the account owner and site moderators.',
+        github: {
+            linked: 'GitHub account linked.',
+            cancelled: 'GitHub authorization cancelled.',
+            conflict: 'The GitHub or OpenMS account is already linked. Unlink the existing account first.',
+            expired: 'Authorization expired or your login session changed. Please start again.',
+            remote_failed: 'GitHub authorization failed. Please try again.',
+            not_configured: 'GitHub authorization is not configured yet.',
+        },
     } },
 };
 const { t } = useI18n({ messages: i18nMessages });
