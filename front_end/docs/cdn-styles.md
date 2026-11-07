@@ -25,6 +25,25 @@
 
 超时不等同于整页最多等待 4 秒；回退后的本地下载仍取决于服务器带宽。可在构建环境设置 `VITE_CDN_STYLES=false` 关闭此功能，恢复全部由 Vite 打包；该设置只在重新构建后生效。
 
+## 本站静态资源缓存
+
+`back_end/saolei/default.conf` 对本站资源设置以下 HTTP 缓存策略：
+
+| 资源 | Cache-Control |
+| --- | --- |
+| `/assets/` 内带 Vite 内容哈希的 JS、CSS、WASM、图片和字体等资源 | `public, max-age=31536000, immutable` |
+| `/assets/vendor/<包名>-<三段版本号>/` 内的上述资源 | `public, max-age=31536000, immutable` |
+| 其他 `/assets/` 资源（包括离线 ZIP） | `no-cache` |
+| `/` 和 `/index.html` | `no-cache` |
+
+长期缓存只用于成功响应（200、206、304），404 等错误不设置该长期缓存头。API、用户媒体及原有 `/static/`、`/download` 策略沿用各自配置。缓存头放在 server 层，避免在资源 location 新增 `add_header` 后覆盖继承的 CORS 响应头；gzip_static 继续提供已有 `.gz` 文件。
+
+`no-cache` 允许保存副本，但每次使用前需要向服务器验证；有 ETag 或 Last-Modified 时，未变化的文件可返回 304。离线 ZIP 允许在版本号不变时重新打包，因此不设置 immutable。HTML 及时重新验证，以获取最新的资源地址；带哈希或固定版本的资源发布后不得原地替换，并应保留旧资源供已打开的页面使用。
+
+部署时将配置复制到 `/etc/nginx/conf.d/default.conf`，执行 `sudo nginx -t && sudo nginx -s reload`；仅重新打包前端不会更新 Nginx 配置。部署后检查实际带哈希资源的响应头，并在关闭“Disable cache”的浏览器中访问一次、再开新标签页：资源应显示磁盘或内存缓存。首次收到新的缓存头后，后续访问才能使用长期缓存；它不会缩短首次下载和每个标签页的 JS 执行时间。
+
+缓存与响应头继承依据：[Nginx map](https://nginx.org/en/docs/http/ngx_http_map_module.html)、[Nginx add_header](https://nginx.org/en/docs/http/ngx_http_headers_module.html)、[Cache-Control](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control)。
+
 ## 方案依据
 
 调查了项目现有导入和 [vite-plugin-cdn-import](https://github.com/mmf-fe/vite-plugin-cdn-import)。该插件面向 JS 全局变量替换；其文档没有覆盖此次需要的样式超时、字体检测和本站副本处理，因此本项目使用 Vite 官方插件接口与浏览器原生资源事件，不新增运行时依赖。
