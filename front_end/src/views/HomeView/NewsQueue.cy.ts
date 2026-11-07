@@ -158,6 +158,61 @@ describe('<NewsQueue />', () => {
         cy.get('[data-cy=news-pb]').should('contain.text', '40.000(2) → 35.000(1)');
     });
 
+    it('renders efficiency news in the PB sentence shape with per-record replay links', () => {
+        i18n.global.locale.value = 'zh-cn';
+        const events: NewsEvent[] = [
+            {
+                id: 'eff-1',
+                occurred_at: 1_000_000,
+                player_id: 9,
+                category: 'eff',
+                payload: {
+                    field: 'thrp:e',
+                    old: { value: 0.8, video_id: 301, rank: 7 },
+                    new: { value: 0.9, video_id: 302, rank: 6 },
+                },
+            },
+            {
+                id: 'eff-2',
+                occurred_at: 1_000_000,
+                player_id: 10,
+                category: 'eff',
+                payload: {
+                    field: 'nf_ioe:sum',
+                    old: null,
+                    new: { value: 1.5, video_id: null, rank: 2 },
+                },
+            },
+        ];
+        mountNews(events);
+        cy.get('[data-cy=news-eff]').eq(0).should('contain.text', '打破了ThrP高级纪录：0.800(7) → 0.900(6)');
+        cy.get('[data-cy=news-eff]').eq(0).find('.video-preview-link').should('have.length', 2);
+        cy.get('[data-cy=news-eff]').eq(0).find('.video-preview-link').eq(0).
+            should('contain.text', '0.800').
+            and('have.attr', 'href', '#/video/301');
+        cy.get('[data-cy=news-eff]').eq(0).find('.video-preview-link').eq(1).
+            should('contain.text', '0.900').
+            and('have.attr', 'href', '#/video/302');
+        cy.get('[data-cy=news-eff]').eq(1).should('contain.text', '首次取得NF IOE总计纪录：1.500(2)');
+        cy.get('[data-cy=news-eff]').eq(1).find('.video-preview-link').should('not.exist');
+    });
+
+    it('formats efficiency field names in English', () => {
+        const events: NewsEvent[] = [{
+            id: 'eff-en',
+            occurred_at: 1_000_000,
+            player_id: 9,
+            category: 'eff',
+            payload: {
+                field: 'thrp:e_nf',
+                old: null,
+                new: { value: 1.0, video_id: 401, rank: 1 },
+            },
+        }];
+        mountNews(events);
+        cy.get('[data-cy=news-eff]').should('contain.text', 'set their first ThrP Expert NF record: 1.000(1)');
+    });
+
     it('shows software icons and aligns player names, replay links and text on one baseline', () => {
         // fetchVideoInfo 的 infoRequests / pending 是模块级缓存；用一个其它用例从未用过的 id，
         // 确保本用例真的发起 staticdetailbatch 请求，而不是复用上一用例挂起的 promise。

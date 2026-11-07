@@ -24,6 +24,18 @@ export interface LSFNewsPayload {
     new: NewsValue;
 }
 
+export interface EffNewsRecord {
+    value: number;
+    video_id: number | null;
+    rank: number | null;
+}
+
+export interface EffNewsPayload {
+    field: string;
+    old: EffNewsRecord | null;
+    new: EffNewsRecord;
+}
+
 interface NewsEventBase {
     id: string;
     occurred_at: number;
@@ -32,9 +44,10 @@ interface NewsEventBase {
 
 type PBNewsEvent = NewsEventBase & { category: 'pb'; payload: PBNewsPayload };
 type LSFNewsEvent = NewsEventBase & { category: 'lsf'; payload: LSFNewsPayload };
-export type NewsEvent = PBNewsEvent | LSFNewsEvent;
+type EffNewsEvent = NewsEventBase & { category: 'eff'; payload: EffNewsPayload };
+export type NewsEvent = PBNewsEvent | LSFNewsEvent | EffNewsEvent;
 
-export type NewsCategory = 'all' | 'pb' | 'lsf';
+export type NewsCategory = 'all' | 'pb' | 'lsf' | 'eff';
 
 export async function fetchNews(category: NewsCategory = 'all', limit = 50): Promise<NewsEvent[]> {
     const { data } = await $axios.get<NewsEvent[]>('/api/news/events', { params: { category, limit } });

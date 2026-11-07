@@ -10,7 +10,7 @@ cache = get_redis_connection('saolei_website')
 EVENTS_KEY = 'news:events:v1'
 ALL_KEY = 'news:idx:all:v1'
 CATEGORY_KEY = 'news:idx:cat:{category}:v1'
-CATEGORIES = ('pb', 'lsf')
+CATEGORIES = ('pb', 'lsf', 'eff')
 TTL_SECONDS = 7 * 24 * 3600
 # 至少保留最新的这么多条；7 天内的记录同样全部保留。二者取并集，
 # 因此只有「超出该窗口 且 早于 TTL」的记录才会被删除。

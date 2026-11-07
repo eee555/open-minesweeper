@@ -184,9 +184,18 @@ python manage.py rebuild_eff_ranks --ranking-name nf_ioe
 
 参数及暂停写入范围统一见[管理命令文档](../../../vitepress_doc/zh/guide/development/management-commands.md#rebuild-eff-ranks)。不提供自动回源、在线双写或定时重建。
 
+## 首页新闻
+
+`effranking` 在单录像与批量加入路径发布 `eff` 分区新闻，覆盖 Thrp 的 `b/i/e/sum/e_nf` 与 NF IOE 的 `b/i/e/sum` 全部小榜。格式与 PB 新闻一致：`field` 为 `{大榜}:{小榜}`，`old`/`new` 各含 `value`、`video_id`、`rank`，首次取得纪录时 `old` 为 `null`。事件经 `news.services.emit` 与信号写入 `news` app 的分类 zset，键与回收规则见[缓存文档](../../../vitepress_doc/zh/guide/development/cache.md)。
+
+- 只发布成绩变优的单项（比较写入前后的 score）；补位变差与批量移除不发布。单项变化引起 sum 同步变优时，sum 也单独发布一条事件。
+- `sum` 是派生值没有对应录像，`video_id` 为 `null`，前端只显示数值文字而不加录像链接；`e_nf` 取满分录像 id 列表首条作为主链接。
+- 旧名次在写入前用 ZRANK 读取，新名次在写入命令之后排入同一 pipeline，保证事件中的名次对应写入后的榜。事件写入失败只记录日志，不影响排行榜更新。
+- 管理员单项修复与全量重建不发布新闻；新闻是派生数据，不随快照初始化或重建补发。
+
 ## 代码组织
 
-- 根目录 `signals.py` 和 `services.py` 协调录像事件与批量操作，`cache.py` 提供连接及 hash/zset 基础读写，`utils.py` 记录更新异常，`api.py` 聚合大榜路由。
+- 根目录 `signals.py` 和 `services.py` 协调录像事件与批量操作，`cache.py` 提供连接及 hash/zset 基础读写，`utils.py` 记录更新异常，`api.py` 聚合大榜路由，`news.py` 负责效率新闻的候选判定、名次读取与发布。
 - `thrp/` 包含本榜的计算、基础缓存、选优与补位、修复、重建、API 和测试；`nf_services.py` 独立负责高级 NF 最佳及局数查询。
 - `nf_ioe/` 独立处理 NF IOE 选优和 score。两榜按各自字段变化决定是否处理，合并 Redis 读取和写入 pipeline，不合并业务判断；IOE 监控 `left/right/double/timems`，Thrp 监控有效点击及上传时间。
 - 按玩家分段的公共工具为 `utils.querysets.player_batches`，不依赖其他大榜的业务模块。
