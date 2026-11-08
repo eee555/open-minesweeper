@@ -61,6 +61,7 @@ class APSchedulerRegistrationTests(TestCase):
                 'refresh_monitor_snapshot',
                 'sync_saolei_metadata_daily',
                 'import_saolei_hourly',
+                'saolei_initial_sync_backfill',
             },
         )
 

@@ -23,7 +23,6 @@ from .models import AccountLinkQueue, AccountSaolei, Platform, SaoleiApiVideo
 from .saolei.client import ThrottledTransport
 from .saolei.services import save_video_details, sync_saolei_metadata_daily
 from .saolei.tasks import enqueue_missing_initial_sync, enqueue_saolei_hourly_import, task_import_saolei_hourly, task_saolei_initial_full_sync
-from .services import verify_account_link
 from .test_saolei_api import bound_account, FIXTURE, remote_page, remote_video
 
 BASE = '/api/accountlink/saolei'
@@ -238,14 +237,19 @@ class SaoleiInitialSyncTests(TestCase):
 
     def test_verify_enqueues_initial_full_sync_once_via_on_commit(self):
         newcomer = UserProfile.objects.create_user(username='initial_newcomer', email='initial_newcomer@example.com')
+        staff = UserProfile.objects.create_user(username='initial_staff', email='initial_staff@example.com', is_staff=True)
+        # 入队发生在审核视图 api.verify_link（staff_required）而非 verify_account_link 服务内，须走完整请求链路。
+        AccountLinkQueue.objects.create(platform=Platform.SAOLEI, identifier='301', userprofile=newcomer)
+        self.client.force_login(staff)
+        verify = lambda: self.client.post('/api/accountlink/verify/', {'id': newcomer.pk, 'platform': Platform.SAOLEI, 'identifier': '301'})
         with patch('accountlink.api.enqueue_saolei_initial_sync') as enqueue:
             with self.captureOnCommitCallbacks(execute=True):
-                _, created = verify_account_link(newcomer.pk, Platform.SAOLEI, '301', 1)
-            self.assertTrue(created)
+                response = verify()
+            self.assertEqual(response.status_code, 200, response.content)
             enqueue.assert_called_once_with(301)
             with self.captureOnCommitCallbacks(execute=True):
-                _, created = verify_account_link(newcomer.pk, Platform.SAOLEI, '301', 1)
-            self.assertFalse(created)
+                response = verify()
+            self.assertEqual(response.status_code, 200, response.content)
         enqueue.assert_called_once()
 
     def test_initial_sync_runs_full_catalogue_once_and_claims_the_account(self):
