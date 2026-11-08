@@ -120,8 +120,10 @@ describe('Media submission', () => {
     });
 
     it('shows the pending work on the author profile works tab', () => {
+        cy.intercept('GET', '**/api/media/user/*').as('userWorks');
         cy.login(USER.username, USER.password);
         cy.visitUser(USER.id, 'works');
-        cy.get('[data-cy^=media-card-] .media-card-title').should('have.attr', 'href', WORK_URL);
+        cy.wait('@userWorks').its('response.statusCode').should('eq', 200);
+        cy.get(`.base-table a.link[href="${WORK_URL}"]`).should('have.length', 1);
     });
 });
