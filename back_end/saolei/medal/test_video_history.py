@@ -14,8 +14,8 @@ from videomanager.models import VideoModel
 from videomanager.services import set_import_upload_time
 from . import tests
 from .cache import delete_player_states
-from .models import MedalDefinition, PlayerProgress
-from .services import ensure_basic_definitions, player_states, player_summary, refresh_player_medals, set_player_override
+from .models import PlayerProgress
+from .services import player_states, player_summary, refresh_player_medals, set_player_override
 from .tasks import task_refresh_player_medals
 from .utils import NOVICE_LEVELS, NOVICE_LEVELS_NF, NOVICE_MODES, NOVICE_REVIEW, SHAREHOLDER_CODE
 
@@ -89,8 +89,8 @@ class MedalVideoHistoryTests(tests.MedalTestCase):
 
     def test_sub50_faster_same_stage_does_not_write_then_sub40_upgrades(self):
         code = 'ability.time.e'
-        ensure_basic_definitions()
-        MedalDefinition.objects.exclude(code=code).update(active=False)
+        self.rule_map = {code: self.rule_map[code]}
+        self.enterContext(patch('medal.definitions.DEFINITIONS', self.rule_map))
         first = self.make_video(level='e', timems=48000, upload_time=self.earlier)
         self.scan()
         faster = self.make_video(level='e', timems=46000, upload_time=self.middle)
@@ -217,9 +217,9 @@ class MedalVideoHistoryTests(tests.MedalTestCase):
 
     def test_backdated_modes_use_configured_set_and_completion_date(self):
         self.scan()
-        definition = MedalDefinition.objects.get(code=NOVICE_MODES)
+        definition = self.get_definition(code=NOVICE_MODES)
         definition.scope = {'modes': ['00', '05']}
-        definition.save(update_fields=['scope'])
+        self.replace_definition(definition)
         standard = self.make_video(mode='00', upload_time=self.earlier)
         self.make_video(mode='05', upload_time=self.later)
         self.scan()

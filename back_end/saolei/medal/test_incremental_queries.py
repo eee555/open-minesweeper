@@ -30,7 +30,7 @@ class MedalIncrementalQueryTests(MedalStateFixture, MedalTestCase):
         self.scan()
         return self.make_video(timems=19500, upload_time=self.later)
 
-    def test_ordinary_refresh_uses_six_selects_and_no_writes_or_cache_access(self):
+    def test_ordinary_refresh_uses_five_selects_and_no_writes_or_cache_access(self):
         video = self.prepare_unchanged()
         # 无缓存、空缓存、旧格式错误快照均不改变计算依据和查询预算。
         for payload in (None, {'grants': []}, {'grants': [{'code': SHAREHOLDER_CODE, 'value': 1, 'locked': True}]}):
@@ -42,27 +42,27 @@ class MedalIncrementalQueryTests(MedalStateFixture, MedalTestCase):
                 with patch('medal.cache._cache', side_effect=AssertionError('calculation accessed cache')), CaptureQueriesContext(connection) as queries:
                     self.refresh(video)
                 sql = selects(queries)
-                self.assertEqual(len(sql), 6, sql)
+                self.assertEqual(len(sql), 5, sql)
                 self.assertFalse(any(query['sql'].lstrip().upper().startswith(('INSERT ', 'UPDATE ', 'DELETE ')) for query in queries))
-                self.assertEqual(sum('FROM `medal_medaldefinition`' in query for query in sql), 1)
+                self.assertEqual(sum('FROM `medal_medaldefinition`' in query for query in sql), 0)
                 self.assertEqual(sum('FROM `videomanager_videomodel`' in query for query in sql), 1)
                 touched = next(query for query in sql if 'FROM `videomanager_videomodel`' in query)
                 self.assertIn(str(video.id), touched)
                 self.assertNotIn('MIN(', touched.upper())
                 self.assertNotIn('MAX(', touched.upper())
 
-    def test_multiple_touched_videos_still_use_six_selects(self):
+    def test_multiple_touched_videos_still_use_five_selects(self):
         first = self.prepare_unchanged()
         second = self.make_video(timems=19900, upload_time=self.later)
         with CaptureQueriesContext(connection) as queries:
             self.refresh(first, second)
         sql = selects(queries)
-        self.assertEqual(len(sql), 6, sql)
+        self.assertEqual(len(sql), 5, sql)
         touched = next(query for query in sql if 'FROM `videomanager_videomodel`' in query)
         self.assertIn(str(first.id), touched)
         self.assertIn(str(second.id), touched)
 
-    def test_backfill_uses_scoped_history_and_eleven_selects_including_publication(self):
+    def test_backfill_uses_scoped_history_and_ten_selects_including_publication(self):
         self.prepare_unchanged()
         self.wear(self.user, ['ability.time.b'])
         older = self.make_video(timems=19000, upload_time=self.earlier - (self.later - self.earlier))
@@ -70,7 +70,7 @@ class MedalIncrementalQueryTests(MedalStateFixture, MedalTestCase):
         with CaptureQueriesContext(connection) as queries:
             self.refresh(older)
         sql = selects(queries)
-        self.assertEqual(len(sql), 11, sql)
+        self.assertEqual(len(sql), 10, sql)
         history = [query for query in sql if 'FROM `videomanager_videomodel`' in query][1:]
         self.assertTrue(history)
         for query in history:
@@ -90,7 +90,7 @@ class MedalIncrementalQueryTests(MedalStateFixture, MedalTestCase):
             self.refresh(second)
         publish.assert_not_called()
         history.assert_not_called()
-        self.assertEqual(len(selects(queries)), 6)
+        self.assertEqual(len(selects(queries)), 5)
         self.assertEqual(PlayerProgress.objects.get(user=self.user, code=NOVICE_MODES).extra, {'modes': ['00', '05']})
 
     def test_display_misses_are_one_batched_select_then_zero_on_hit(self):

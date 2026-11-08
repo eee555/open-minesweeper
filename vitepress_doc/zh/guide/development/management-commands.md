@@ -58,13 +58,34 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 
 位置：`medal/management/commands/enqueue_medal_backfill.py`
 
-给还没有 `MedalScan` 的玩家入队 `task_backfill_player_medals`。命令本身不扫描录像，也不写 Redis。任务优先级是 0，低于上传后的刷新。工人跑完现有 `evaluate_player` 后才写 `MedalScan` 和 `medal:state:{user_id}`；一枚都没有也写 `{"grants":[]}`。已经有 `MedalScan` 的玩家不会入队。同一玩家已经有一条 `READY` 的补发任务时不再插入第二条。
+默认给没有 `MedalScan` 的玩家入队 `task_backfill_player_medals`；`--all` 包含已扫描玩家，用于规则调整后的历史重算。同一玩家已有 `READY` 的补发任务时复用现有任务，不重复插入。任务优先级为 0，低于日常上传刷新。
 
-打开勋章详情时的补发仍然保留，用来盖住命令还没排到的人。
+命令本身只查询玩家并创建任务，不扫描录像、不重建 Redis。工人执行完整的 `evaluate_player`，更新玩家的全部自动勋章及摘要，保留人工覆盖决定。入队结束不代表重算完成；应检查后台任务的完成、失败状态和实际玩家结果。
+
+| 参数 | 用途 |
+| --- | --- |
+| `--all` | 包含已有扫描标记的玩家；上线规则变更时需要此选项。 |
+| `--dry-run` | 只显示候选数量及 ID 上界，不创建任务。 |
+| `--batch-size 200` | 每次读取的玩家 ID 数量，按主键分页，不使用 OFFSET；不代表任务执行限速。 |
+| `--limit 500` | 本次最多处理的玩家数（含已存在待执行任务的玩家），用于分次入队。 |
+| `--after-id ID` | 仅处理大于此 ID 的玩家，用于续跑。 |
+| `--through-id ID` | 玩家 ID 上界；未指定时固定为命令启动时的最大 ID。 |
 
 ```bash
+# 默认仅补发从未扫描的玩家
 python manage.py enqueue_medal_backfill
+
+# 规则更新：先预览全部玩家，再小批入队
+python manage.py enqueue_medal_backfill --all --dry-run
+python manage.py enqueue_medal_backfill --all --limit 500 --batch-size 100
+
+# 待本批任务完成并验收后，按日志给出的 last_user_id 和 through_id 续跑
+python manage.py enqueue_medal_backfill --all --after-id LAST_USER_ID --through-id THROUGH_ID --limit 500 --batch-size 100
 ```
+
+失败时命令报告最后成功处理的玩家 ID，可携带相同筛选选项续跑；已有 READY 任务会去重。重复全量评估不会产生同一勋章的重复授予，但已完成玩家再次入队仍会产生查询负载。分批观察工人积压和数据库负载，不要一次无上限地塞入全部生产玩家；只重复失败任务时也应按实际状态选择范围。
+
+线上“走马观花”从旧十模式切到四模式时，必须覆盖已扫描玩家。部署静态规则和数据库结构迁移后，使用上述 `--all` 流程补发；仅刷新页面、清 Redis 或运行默认命令都不能保证旧玩家被重新评估。按各模式最早过审录像确定首次集齐时间，人工禁止发放仍优先，不自动加入佩戴。
 
 ## 小游戏排行榜
 

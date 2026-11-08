@@ -8,15 +8,9 @@ from tournament.models import TournamentParticipant
 from userprofile.models import UserProfile
 from videomanager.events import videos_bulk_changed
 from videomanager.models import VideoModel
-from .cache import delete_player_states, invalidate_catalog
-from .models import MedalDefinition, MedalGrant, PlayerMedalSummary
+from .cache import delete_player_states
+from .models import MedalGrant, PlayerMedalSummary
 from .tasks import enqueue_player_refresh
-
-
-@receiver(post_save, sender=MedalDefinition)
-@receiver(post_delete, sender=MedalDefinition)
-def invalidate_medal_catalog(sender, **kwargs):
-    invalidate_catalog()
 
 
 @receiver(pre_delete, sender=VideoModel, dispatch_uid='medal.invalidate_summary_on_video_delete')

@@ -13,10 +13,11 @@ from accountlink.models import AccountLinkQueue, Platform
 from config.text_choices import Medal_TextChoices, MS_TextChoices
 from userprofile.models import UserProfile
 from videomanager.models import ExpandVideoModel, STNB_COEFFICIENTS, VideoModel
-from .models import MedalContribution, MedalDefinition, MedalGrant, MedalPins, MedalScan, PlayerProgress
-from .services import active_definitions, ensure_basic_definitions, ensure_shareholder_definition, evaluate_min_video_id, evaluate_player, player_summary, replace_pins, write_stage
+from .models import MedalContribution, MedalGrant, MedalPins, MedalScan, PlayerProgress
+from .services import active_definitions, evaluate_min_video_id, evaluate_player, player_summary, replace_pins, write_stage
 from .signals import enqueue_medal_refresh_on_video
 from .tasks import task_backfill_player_medals, task_refresh_player_medals
+from .testing import DefinitionFixture
 from .utils import BVS_SCALE, MAX_PINS, NOVICE_LEVELS, NOVICE_LEVELS_NF, NOVICE_MODES, NOVICE_REALNAME, NOVICE_REVIEW, NOVICE_SAOLEI, open_modes, reached_asc_stage, REFRESH_COALESCE_DELAY, SHAREHOLDER_CODE, STANDARD_LEVELS, THRP_SCALE, to_units
 
 
@@ -25,7 +26,11 @@ from .utils import BVS_SCALE, MAX_PINS, NOVICE_LEVELS, NOVICE_LEVELS_NF, NOVICE_
     SESSION_ENGINE='django.contrib.sessions.backends.db',
     CACHES={'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache', 'LOCATION': 'medal-tests'}},
 )
-class MedalTestCase(TestCase):
+class MedalTestCase(DefinitionFixture, TestCase):
+    def _pre_setup(self):
+        super()._pre_setup()
+        self.install_definitions()
+
     def delete_video(self, video_id):
         signals = (pre_save, post_save, pre_delete, post_delete)
         saved = [(signal, list(signal.receivers), dict(signal.sender_receivers_cache)) for signal in signals]
@@ -59,7 +64,7 @@ class MedalTestCase(TestCase):
 class MedalShellFixture(MedalTestCase):
     def setUp(self):
         self.user = UserProfile.objects.create_user(username='medal_user', email='medal-user@example.com', password='password')
-        self.definition = MedalDefinition.objects.create(
+        self.definition = self.add_definition(
             code='ability.time.b', series=Medal_TextChoices.Series.BREAKTHROUGH, subseries='破限', kind=Medal_TextChoices.Kind.PB, metric='timems',
             direction=Medal_TextChoices.Direction.DESC, level='b', thresholds=[60000, 50000, 20000], active=True,
         )
@@ -67,6 +72,21 @@ class MedalShellFixture(MedalTestCase):
 
 
 class MedalShellTests(MedalShellFixture):
+    def test_retiring_static_rule_preserves_progress_grants_and_pins(self):
+        grant = write_stage(self.user, self.definition, stage=50000, current_value=49000, granted_at=self.granted_at)
+        replace_pins(self.user, [grant.id])
+        before = {
+            'progress': list(PlayerProgress.objects.filter(user=self.user).values()),
+            'grants': list(MedalGrant.objects.filter(user=self.user).values()),
+            'pins': list(MedalPins.objects.filter(user=self.user).values()),
+        }
+        self.remove_definition(self.definition)
+        result = player_summary(self.user.id)
+        self.assertNotIn(self.definition.code, [item['code'] for group in result['series'] for item in group['items']])
+        self.assertEqual(list(PlayerProgress.objects.filter(user=self.user).values()), before['progress'])
+        self.assertEqual(list(MedalGrant.objects.filter(user=self.user).values()), before['grants'])
+        self.assertEqual(list(MedalPins.objects.filter(user=self.user).values()), before['pins'])
+
     def test_catalog_serializes_compact_enum_values(self):
         response = self.client.get('/api/medal/catalog')
         self.assertEqual(response.status_code, 200)
@@ -98,9 +118,9 @@ class MedalShellTests(MedalShellFixture):
         for item in [items[0], summary['pins'][0]]:
             self.assertEqual((item['series'], item['kind'], item['direction']), expected)
 
-    def test_catalog_cache_hit_does_not_query_definitions(self):
-        expected = active_definitions()
+    def test_static_catalog_does_not_query_database(self):
         with self.assertNumQueries(0):
+            expected = active_definitions()
             self.assertEqual(active_definitions(), expected)
 
     def test_warm_summary_uses_one_query_without_definition_reads(self):
@@ -132,7 +152,7 @@ class MedalShellTests(MedalShellFixture):
         self.assertEqual(ability['next_threshold'], 20000)
 
         self.definition.thresholds = [10000]
-        self.definition.save(update_fields=['thresholds'])
+        self.replace_definition(self.definition)
         rewritten = write_stage(self.user, self.definition, stage=10000, current_value=9000, granted_at=timezone.now(), evidence={'video_id': 4})
         self.assertEqual(rewritten.id, first.id)
         self.assertEqual(rewritten.stage, 10000)
@@ -154,7 +174,7 @@ class MedalShellTests(MedalShellFixture):
         self.assertEqual(PlayerProgress.objects.filter(user=self.user, code=self.definition.code).count(), 1)
 
     def test_manual_grant_is_not_revoked_by_stage_zero(self):
-        manual = MedalDefinition.objects.create(
+        manual = self.add_definition(
             code='manual.sample', series='纪念', kind=Medal_TextChoices.Kind.MANUAL, metric='manual', direction=Medal_TextChoices.Direction.ASC, thresholds=[], active=True,
         )
         grant = write_stage(self.user, manual, stage=1, current_value=1, granted_at=self.granted_at, evidence={'reason': '早期建设'})
@@ -169,10 +189,10 @@ class MedalShellTests(MedalShellFixture):
                 MedalContribution.objects.create(user=self.user, code='practice.count.b', source_key='video:1')
 
     def test_catalog_hides_inactive_and_locked_hidden(self):
-        MedalDefinition.objects.create(
+        self.add_definition(
             code='ability.off', series='能力', kind=Medal_TextChoices.Kind.PB, metric='timems', direction=Medal_TextChoices.Direction.DESC, thresholds=[60000], active=False,
         )
-        hidden = MedalDefinition.objects.create(
+        hidden = self.add_definition(
             code='hidden.sample', series='隐藏', kind=Medal_TextChoices.Kind.ONCE, metric='timems', direction=Medal_TextChoices.Direction.ASC,
             thresholds=[1], hidden=True, active=True, annotation='彩蛋',
         )
@@ -205,7 +225,7 @@ class MedalShellTests(MedalShellFixture):
         self.assertNotIn('ability.off', shown)
 
     def test_locked_hidden_is_absent_from_player_summary(self):
-        MedalDefinition.objects.create(
+        self.add_definition(
             code='hidden.locked', series='隐藏', kind=Medal_TextChoices.Kind.ONCE, metric='timems', direction=Medal_TextChoices.Direction.ASC, thresholds=[1], hidden=True, active=True,
         )
         response = self.client.get(f'/api/medal/players/{self.user.id}')
@@ -220,7 +240,7 @@ class MedalShellTests(MedalShellFixture):
 
     def test_pins_belong_to_the_owner_and_keep_order(self):
         other = UserProfile.objects.create_user(username='medal_other', email='medal-other@example.com', password='password')
-        second = MedalDefinition.objects.create(
+        second = self.add_definition(
             code='ability.bvs.b', series=Medal_TextChoices.Series.SPEED, subseries='神速', kind=Medal_TextChoices.Kind.PB, metric='bvs', direction=Medal_TextChoices.Direction.ASC, thresholds=[10000], active=True,
         )
         own = write_stage(self.user, self.definition, stage=60000, current_value=59000, granted_at=self.granted_at)
@@ -268,7 +288,7 @@ class MedalShellTests(MedalShellFixture):
 
     def test_staff_grant_and_revoke(self):
         staff = UserProfile.objects.create_user(username='medal_staff', email='medal-staff@example.com', password='password', is_staff=True)
-        MedalDefinition.objects.create(
+        self.add_definition(
             code='manual.sample', series='纪念', kind=Medal_TextChoices.Kind.MANUAL, metric='manual', direction=Medal_TextChoices.Direction.ASC, thresholds=[1], active=True,
         )
         body = {'code': 'manual.sample', 'user_id': self.user.id, 'reason': '早期建设', 'granted_on': '2020-01-02'}
@@ -384,12 +404,6 @@ class ShareholderTests(MedalShellFixture):
         self.assertEqual(top.id, middle.id)
         self.assertEqual(top.stage, 1000)
 
-    def test_existing_thresholds_are_kept(self):
-        definition = ensure_shareholder_definition()
-        definition.thresholds = [50]
-        definition.save(update_fields=['thresholds'])
-        self.assertEqual(ensure_shareholder_definition().thresholds, [50])
-
     def test_video_change_enqueues_current_and_previous_player(self):
         other = UserProfile.objects.create_user(username='medal_prev', email='medal-prev@example.com', password='password')
         instance = type('Video', (), {'player_id': self.user.id, '_old_values': {'player_id': other.id}})()
@@ -408,10 +422,9 @@ class BasicMedalTests(MedalTestCase):
     def test_custom_mode_scope_is_used_by_incremental_refresh(self):
         from .services import refresh_player_medals
 
-        ensure_basic_definitions()
-        definition = MedalDefinition.objects.get(code=NOVICE_MODES)
+        definition = self.get_definition(code=NOVICE_MODES)
         definition.scope = {'modes': ['00', '01']}
-        definition.save(update_fields=['scope'])
+        self.replace_definition(definition)
         self.make_video(mode='00')
         evaluate_player(self.user.id)
         video = self.make_video(mode='01')
@@ -460,15 +473,15 @@ class BasicMedalTests(MedalTestCase):
         self.make_video(timems=19000)
         evaluate_player(self.user.id)
         grant = self.active('ability.time.b')
-        definition = MedalDefinition.objects.get(pk='ability.time.b')
+        definition = self.get_definition(pk='ability.time.b')
         definition.thresholds = [10000]
-        definition.save(update_fields=['thresholds'])
+        self.replace_definition(definition)
         evaluate_player(self.user.id)
         grant.refresh_from_db()
         self.assertIsNotNone(grant.revoked_at)
         self.assertEqual(PlayerProgress.objects.get(user=self.user, code=definition.code).current_stage, 0)
         definition.thresholds = [30000]
-        definition.save(update_fields=['thresholds'])
+        self.replace_definition(definition)
         evaluate_player(self.user.id)
         grant.refresh_from_db()
         self.assertIsNone(grant.revoked_at)
@@ -519,28 +532,18 @@ class BasicMedalTests(MedalTestCase):
         progress_reads = [query['sql'] for query in captured if query['sql'].startswith('SELECT ') and 'medal_playerprogress' in query['sql']]
         self.assertEqual(len(progress_reads), 1)
 
-    def test_scaled_thresholds_are_not_overwritten(self):
+    def test_scaled_thresholds_match_static_rules(self):
         self.assertEqual(to_units(1.5, BVS_SCALE), 15000)
         self.assertEqual(to_units(0.95, THRP_SCALE), 95000)
         self.assertEqual(to_units(2.3, THRP_SCALE), 230000)
         self.assertNotEqual(to_units(1.5, BVS_SCALE), 2)
         evaluate_player(self.user.id)
-        definition = MedalDefinition.objects.get(code='ability.bvs.b')
+        definition = self.get_definition(code='ability.bvs.b')
         self.assertEqual(definition.series, Medal_TextChoices.Series.SPEED)
         self.assertEqual(definition.thresholds[1], 15000)
         self.assertTrue(definition.active)
         self.assertFalse(definition.hidden)
         self.assertIsNone(definition.bv_min)
-        definition.thresholds = [1]
-        definition.active = False
-        definition.hidden = True
-        definition.save(update_fields=['thresholds', 'active', 'hidden'])
-        ensure_basic_definitions()
-        kept = MedalDefinition.objects.get(code='ability.bvs.b')
-        self.assertEqual(kept.thresholds, [1])
-        self.assertEqual(kept.series, Medal_TextChoices.Series.SPEED)
-        self.assertFalse(kept.active)
-        self.assertTrue(kept.hidden)
         self.assertTrue(any(index.name == 'video_player_state_level_idx' for index in VideoModel._meta.indexes))
 
     def test_time_upgrades_keeps_evidence_then_drops(self):
@@ -610,7 +613,7 @@ class BasicMedalTests(MedalTestCase):
         evaluate_player(self.user.id)
         reached.refresh_from_db()
         expected = reached_asc_stage(
-            MedalDefinition.objects.get(code='ability.stnb.b').thresholds, STNB_COEFFICIENTS[reached.level] * reached.iqg,
+            self.get_definition(code='ability.stnb.b').thresholds, STNB_COEFFICIENTS[reached.level] * reached.iqg,
         )
         self.assertGreaterEqual(expected, 10)
         self.assertEqual(self.active('ability.stnb.b').stage, expected)
@@ -712,8 +715,8 @@ class BasicMedalTests(MedalTestCase):
         AccountLinkQueue.objects.create(platform=Platform.SAOLEI, identifier='saolei-basic', userprofile=self.user, verified=False)
         evaluate_player(self.user.id)
         self.assertIsNone(self.active(NOVICE_SAOLEI))
-        self.assertFalse(MedalDefinition.objects.exclude(code=NOVICE_SAOLEI).filter(metric='platform').exists())
-        self.assertEqual(MedalDefinition.objects.get(code=NOVICE_SAOLEI).series, Medal_TextChoices.Series.SAOLEI)
+        self.assertFalse(any(row.metric == 'platform' and row.code != NOVICE_SAOLEI for row in self.rule_map.values()))
+        self.assertEqual(self.get_definition(code=NOVICE_SAOLEI).series, Medal_TextChoices.Series.SAOLEI)
         link = AccountLinkQueue.objects.get(platform=Platform.SAOLEI, userprofile=self.user)
         link.verified = True
         link.save(update_fields=['verified'])

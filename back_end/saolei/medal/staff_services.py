@@ -1,13 +1,12 @@
 from userprofile.models import UserProfile
-from .models import MedalDefinition, MedalGrant, MedalOverride, MedalOverrideLog
-from .services import ensure_basic_definitions, ensure_shareholder_definition, MedalError
+from .definitions import all_definitions
+from .models import MedalGrant, MedalOverride, MedalOverrideLog
+from .services import MedalError
 
 
 def staff_catalog():
     """管理员可看到停用和隐藏定义；不复用公开图鉴的可见性过滤。"""
-    ensure_shareholder_definition()
-    ensure_basic_definitions()
-    return list(MedalDefinition.objects.order_by('series', 'subseries', 'code'))
+    return all_definitions()
 
 
 def staff_player_state(user_id):

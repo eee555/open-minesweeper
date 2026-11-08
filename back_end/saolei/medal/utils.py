@@ -8,8 +8,6 @@ from speedranking.saolei.utils import BVS_SCALE
 SHAREHOLDER_CODE = 'shareholder.origin'
 SHAREHOLDER_THRESHOLDS = [100000, 10000, 1000]
 MAX_PINS = 6
-CATALOG_CACHE_KEY = 'medal:catalog:v3'
-CATALOG_CACHE_SECONDS = 300
 STATE_CACHE_KEY = 'medal:display:v4:{user_id}'
 STATE_CACHE_SECONDS = 300
 STATE_ID_LIMIT = 100
@@ -141,7 +139,7 @@ def _ability(code, series, metric, direction, level, style, thresholds):
 
 
 def basic_definitions():
-    """新手和能力定义。已有行的阈值不从这里回写，系列名由 ensure_basic_definitions 对齐。"""
+    """新手和能力勋章的静态规则。"""
     rows = [
         _spec(code=NOVICE_REALNAME, series=Medal_TextChoices.Series.REGISTERED, kind=Medal_TextChoices.Kind.ONCE, metric='realname', direction=Medal_TextChoices.Direction.ASC, thresholds=[1]),
         _spec(code=NOVICE_REVIEW, series=Medal_TextChoices.Series.REVIEWED, kind=Medal_TextChoices.Kind.ONCE, metric='review', direction=Medal_TextChoices.Direction.ASC, thresholds=[1]),

@@ -689,7 +689,7 @@ participant 删除时，`revoke_rank_score_on_participant_delete` 在删除事�
 
 ## 勋章图鉴
 
-`medal/cache.py` 把已启用的成就定义放在 Django `default` 缓存，逻辑 key 为 `medal:catalog:v3`，TTL 300 秒。内容是定义字典，不含玩家是否解锁。先检查缓存，命中时不再查询默认定义是否缺失；未命中才补齐并装回图鉴。定义保存或删除时删掉这个 key。
+勋章规则由 `medal/definitions.py` 与代码中的静态阈值提供，不保存数据库配置，也不使用 Redis 目录缓存。目录按 code 查询与排序均在进程内完成；用户相关的可见性仍读取授予记录。
 
 玩家摘要持久化到MySQL的`medal_playermedalsummary`，每名玩家一行，以玩家ID为主键。JSON只含有效授予的公开事实、进度数值、佩戴顺序和首次扫描状态；定义、隐藏条件和计分读取当前共享图鉴。图鉴缓存命中、摘要已建立时，`player_summary()`通过连接玩家表和摘要表的1次查询返回结果。此计数不包含认证、会话、Redis访问和中间件。
 
@@ -743,7 +743,7 @@ Redis 连接和读写异常记录日志，计算及数据库摘要不回滚，�
 | NORMAL 参赛关系 | `TournamentCache.update_participant` / `remove_participant` | `manage.py rebuild_tournament_cache` 按 `user_id` 分组重建。 |
 | 比赛积分排行 | `TournamentCache.update_tournament_user` / `update_tournament_users`；APScheduler 年度锚点更新 | `manage.py rebuild_tournament_user_cache` 重建全部 7 个 zset；`manage.py rebuild_tournament_current_score_cache` 原子重算当前积分 zset 和年度锚点。 |
 | common 摘要 | 对应 API 内部 `cache.set` | TTL 到期自动失效。 |
-| 勋章图鉴 | `medal.signals.invalidate_medal_catalog` | 定义保存或删除后删除 `medal:catalog:v3`。没有单独的重建命令，下次读取从 `MedalDefinition` 装回。 |
+| 勋章图鉴 | 静态代码规则 | 无目录缓存、数据库定义表或初始化写入；规则随代码发布。 |
 | 勋章状态 | 佩戴列表、佩戴中的公开授予或扫描状态改变后，提交时读取最新摘要写 `medal:display:v4:{user_id}` | 缺键按需批量回填展示，不扫描录像；摘要删除提交后删键。`manage.py enqueue_medal_backfill` 只给未扫描玩家入队首次评估。 |
 | 文章目录 | `article.views.update_list` | 管理员手动调用 `update_list` 全量刷新。 |
 
