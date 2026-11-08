@@ -11,7 +11,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--batch-size', type=int, default=1000)
-        parser.add_argument('--clear', action='store_true', help='只清空五个 key，不重建')
+        parser.add_argument('--clear', action='store_true', help='只清空五个固定 key 与缓存锁，不重建；需暂停写操作')
 
     def handle(self, *args, **options):
         if options['clear']:

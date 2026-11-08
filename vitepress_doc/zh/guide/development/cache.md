@@ -55,11 +55,13 @@ redis-cli -n 0 DEL io_s_old io_r_old io_s_spds io_r_spds cpus
 
 ## 作品排行
 
-作品页热门、精品与排行榜页《作品》tab 使用五个固定 Redis key（DB `saolei_website`）：`media:rank:hot`、`media:rank:likes` 是作品维度 zset，`media:rank:user:hot`、`media:rank:user:likes` 是作者维度求和 zset，`media:hot:anchor` 保存全站统一热度基准 `T`，格式为 ISO 8601 UTC 时间。四个 zset 没有 TTL，只有 `verified` 作品入榜；`pending` 作品可以投喂但只写数据库，审核通过时按当前 `likes` / `hot_value` 一次性 `ZINCRBY` 补齐。审核中 tab 与《最新》tab 直接查库，不新增 Redis key。
+作品页热门、精品与排行榜页《作品》tab 使用五个固定 Redis key（DB `saolei_website`）：`media:rank:hot`、`media:rank:likes` 是作品维度 zset，`media:rank:user:hot`、`media:rank:user:likes` 是作者维度求和 zset，`media:hot:anchor` 保存全站统一热度基准 `T`，格式为 ISO 8601 UTC 时间。四个 zset 没有 TTL，只有 `verified` 作品入榜；`pending` 作品可以投喂但只写数据库，审核通过时按 DB 当前值补齐。审核中 tab 与《最新》tab 直接查库。另有临时锁 key `media:cache:lock`（TTL 300 秒），不纳入固定内存统计。
 
-投喂的增量是 `count / 0.99 ** ((now - T) / 1 天)`，使作品 `hot_value` 在 `T` 基准下保持连续指数衰减；`likes` 不衰减。每月 UTC 1 日 00:00 由月度刷新作业入队 Django Task 幂等刷新：Redis 用 `WATCH` + `ZUNIONSTORE` 把两个 hot zset 整体乘以同一系数并写入新 `T`，数据库分批把每行按自身基准折算到新 `T`。系数为正，不改变榜内顺序，所以两侧短暂不同步不影响页面。任务入队前检查同路径的 READY / RUNNING 任务，避免堆积。
+所有 zset 写入统一走 `media:cache:lock`，并由 `sync_media_scores()` 在锁内**按回调执行时刻的数据库绝对值**一次 `MULTI/EXEC` 覆盖（`ZADD`，作品不存在则 `ZREM`），不再累加增量。这样硬删除后的迟到投喂回调不会把已删除作品重新入榜，作者分数归零与新投喂之间不存在事务外 `ZREM` 窗口，全量重建也不会被重建期间提交的增量覆盖。写入失败只记日志、不回滚数据库，靠后续事件或重建命令修复。
 
-站长硬删除已通过作品时，`transaction.on_commit()` 内 `ZREM` 两个作品榜，并对作者两个 zset 做等值扣减（结果不大于 0 时改为 `ZREM`）；驳回只发生在 `pending`，从未入榜，不需要回退。全量重建用 [rebuild_media_rankings](./management-commands.md#rebuild-media-rankings)，临时 key + `rename` 原子发布，只读取 `verified` 行，失败保留旧榜。五个 key 已纳入服务器监控快照的固定内存统计清单。
+每行 `hot_value` 以自身 `hot_value_updated_at` 为基准，写入 zset 时按 `0.99 ** ((anchor - base) / 1 天)` 折算到 `T`；`likes` 不衰减。每月 UTC 1 日 00:00 由月度刷新作业入队 Django Task 幂等刷新：Redis 用 `WATCH` + `ZUNIONSTORE` 把两个 hot zset 整体乘以同一系数并写入新 `T`，数据库用 SQL 端乘算把每行按自身基准折算到新 `T`。投稿读取基准、插入与复核也持有同一把锁，避免出现长期停留在旧基准的新行。任务入队前检查同路径的 READY / RUNNING 任务，避免堆积。
+
+驳回只发生在 `pending`，从未入榜，不需要回退。全量重建用 [rebuild_media_rankings](./management-commands.md#rebuild-media-rankings)，临时 key + `rename` 原子发布，只读取 `verified` 行；整段快照与发布都持有缓存锁，锁过期会报错并保留旧榜。五个固定 key 已纳入服务器监控快照的固定内存统计清单。
 
 ## 服务器监控快照
 

@@ -36,6 +36,14 @@ def get_balance(user):
     return max(earned - likes_sent, 0)
 
 
+def _sync_media_scores(media_id, author_id):
+    """on_commit 回调：按提交后的 DB 重算 zset；失败只记日志，靠重建命令修复。"""
+    try:
+        cache.sync_media_scores(media_id, author_id)
+    except Exception:
+        logger.exception('Failed to sync media cache scores for media #%s', media_id)
+
+
 def create_media(user, *, media_format, suffix, language, title='', created_at=None, metadata_pending=False):
     """投稿落库：唯一约束防重复外链；外站元数据拉取与归属校验由 API 层完成。
 
@@ -43,13 +51,24 @@ def create_media(user, *, media_format, suffix, language, title='', created_at=N
     外站作者 id 只用于 API 层一次性归属核验，不传给 service、不入库。
     """
     try:
-        with transaction.atomic():
-            return Media.objects.create(
-                user=user, title=title, language=language, created_at=created_at or timezone.now(),
-                format=media_format, suffix=suffix, metadata_pending=metadata_pending,
-                status=MediaStatus.PENDING, likes=0, hot_value=0,
-                hot_value_updated_at=cache.get_hot_reference(),
-            )
+        # 与月度刷新共用缓存锁：不能在读取旧 anchor 后、插入前让刷新完成两次换算。
+        with cache.media_cache_lock():
+            with transaction.atomic():
+                base = cache.get_hot_reference()
+                media = Media.objects.create(
+                    user=user, title=title, language=language, created_at=created_at or timezone.now(),
+                    format=media_format, suffix=suffix, metadata_pending=metadata_pending,
+                    status=MediaStatus.PENDING, likes=0, hot_value=0,
+                    hot_value_updated_at=base,
+                )
+                # 创建完成后校验基准：锚点若已推进，立刻把这一行换算到新基准。
+                current = cache.get_hot_reference()
+                if current != base:
+                    Media.objects.filter(pk=media.pk).update(
+                        hot_value=F('hot_value') * decay(base, current), hot_value_updated_at=current,
+                    )
+                    media.hot_value_updated_at = current
+                return media
     except IntegrityError:
         raise MediaServiceError('该作品已投稿过，不可重复投稿', 409) from None
 
@@ -57,8 +76,8 @@ def create_media(user, *, media_format, suffix, language, title='', created_at=N
 def like_media(user, media_id):
     """投喂 1 个红宝石：先锁作品再锁用户（与驳回/硬删除一致），按 UTC 自然日限 10 次成功投喂。
 
-    热度增量按作品行自己的 hot_value_updated_at 折算，不依赖 Redis anchor，因此月度刷新
-    换算 DB 与发布新 anchor 的先后顺序都不会让增量混用基准。
+    热度增量按作品行自己的 hot_value_updated_at 折算，不依赖 Redis anchor；Redis 写入
+    在 on_commit 回调里按提交后的 DB 绝对值覆盖，迟到回调不会重建已删除作品。
     daily_date / daily_likes 与 likes_sent 在同一事务内更新，事务回滚即不计数。
     驳回与硬删除只退还 likes_sent，不回退当日已用次数（16.1 第 17 条）。
     """
@@ -90,7 +109,7 @@ def like_media(user, media_id):
         )
         if media.status == MediaStatus.VERIFIED:
             author_id = media.user_id
-            transaction.on_commit(lambda: cache.add_media_scores(media_id, author_id, delta_hot, 1, base))
+            transaction.on_commit(lambda: _sync_media_scores(media_id, author_id))
         hot_now = media.hot_value * factor
         result = {'likes': media.likes, 'hot_now': hot_now, 'balance': balance - 1, 'status': media.status}
     return result
@@ -122,8 +141,7 @@ def verify_media(media_id, actor_id, *, title=None, created_at=None):
                 fields.append('created_at')
         media.save(update_fields=fields)
         hot, likes, author_id = media.hot_value, media.likes, media.user_id
-        base = media.hot_value_updated_at
-        transaction.on_commit(lambda: cache.add_media_scores(media_id, author_id, hot, likes, base))
+        transaction.on_commit(lambda: _sync_media_scores(media_id, author_id))
     logger.info('Staff #%s verified media #%s: likes=%s hot_value=%s', actor_id, media_id, likes, hot)
     return media
 
@@ -189,14 +207,13 @@ def hard_delete_media(media_id, actor_id):
             raise MediaServiceError('Only verified media can be hard-deleted', 409)
         refunded = _refund_like_records(media)
         hot, likes, author_id = media.hot_value, media.likes, media.user_id
-        base = media.hot_value_updated_at
         logger.info(
             'Superuser #%s hard-deleted media #%s: format=%s suffix=%s title=%s user_id=%s '
             'likes=%s hot_value=%s refunded_likes=%s',
             actor_id, media_id, media.format, media.suffix, media.title, author_id, likes, hot, refunded,
         )
         media.delete()
-        transaction.on_commit(lambda: cache.remove_media_scores(media_id, author_id, hot, likes, base))
+        transaction.on_commit(lambda: _sync_media_scores(media_id, author_id))
     return True
 
 
@@ -208,24 +225,28 @@ def set_media_banned(user_id, banned):
 
 
 def _fold_db_hot_reference(target):
-    """按不同行基准分组，用 SQL 端乘算换算 DB 热度；F() 避免 Python 快照覆盖已提交的增量。"""
-    with transaction.atomic():
-        references = list(
-            Media.objects.filter(hot_value_updated_at__lt=target)
-            .values_list('hot_value_updated_at', flat=True).distinct(),
-        )
-        for reference in references:
-            Media.objects.filter(hot_value_updated_at=reference).update(
-                hot_value=F('hot_value') * decay(reference, target), hot_value_updated_at=target,
+    """按不同行基准分组，用 SQL 端乘算换算 DB 热度；F() 避免 Python 快照覆盖已提交的增量。
+
+    与投稿共用缓存锁，保证「读到旧 anchor 后暂停的投稿」不会在两次换算之间插入旧基准行。
+    """
+    with cache.media_cache_lock():
+        with transaction.atomic():
+            references = list(
+                Media.objects.filter(hot_value_updated_at__lt=target)
+                .values_list('hot_value_updated_at', flat=True).distinct(),
             )
+            for reference in references:
+                Media.objects.filter(hot_value_updated_at=reference).update(
+                    hot_value=F('hot_value') * decay(reference, target), hot_value_updated_at=target,
+                )
 
 
 def refresh_hot_reference(at_time=None):
     """月度刷新：DB 先按行基准换算并提交，再发布 Redis anchor，最后补齐窗口内新建的行。
 
-    投喂按作品行自己的基准折算，Redis 增量在执行时 WATCH anchor 换算，因此 DB 换算与
-    anchor 发布的先后顺序都不会让增量混用基准；二次换算幂等，用于收敛刷新窗口内以旧
-    anchor 为基准新建的作品，避免用户主页按 hot_value 排序时混用基准。
+    三步各自持有缓存锁：投稿不可能「读到旧 anchor 后等到两次换算都结束才插入」，
+    Redis 写入回调也只会在锁释放后按提交后的 DB 绝对值重算。二次换算幂等，用于
+    收敛刷新窗口内以旧 anchor 为基准新建的作品，避免用户主页按 hot_value 排序混用基准。
     """
     target = cache.media_hot_reference_time(at_time)
     _fold_db_hot_reference(target)

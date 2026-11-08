@@ -1,5 +1,6 @@
 """作品页 Redis 排行：四个 zset 与统一热度基准；见 MEDIA_PLAN.md 第 5.2、6 节。"""
 
+from contextlib import contextmanager
 from datetime import datetime, timezone as datetime_timezone
 from uuid import uuid4
 
@@ -18,8 +19,26 @@ MEDIA_RANK_USER_HOT = 'media:rank:user:hot'
 MEDIA_RANK_USER_LIKES = 'media:rank:user:likes'
 MEDIA_HOT_ANCHOR = 'media:hot:anchor'
 MEDIA_REBUILD_PREFIX = 'media:rebuild:'
+MEDIA_CACHE_LOCK = 'media:cache:lock'
+MEDIA_LOCK_TIMEOUT = 300
+MEDIA_LOCK_BLOCKING_TIMEOUT = 60
 MEDIA_RANK_KEYS = (MEDIA_RANK_HOT, MEDIA_RANK_LIKES, MEDIA_RANK_USER_HOT, MEDIA_RANK_USER_LIKES)
 MEDIA_CACHE_KEYS = (*MEDIA_RANK_KEYS, MEDIA_HOT_ANCHOR)
+
+
+class MediaCacheLockError(RuntimeError):
+    """重建期间缓存锁过期；应暂停写入后重跑重建命令。"""
+
+
+@contextmanager
+def media_cache_lock():
+    """跨进程串行化 zset / anchor 写入、投稿基准读取与月度刷新。
+
+    锁的顺序统一为「先 Redis 锁、后 DB 事务」，避免持 DB 行锁等待 Redis 锁形成死锁。
+    """
+    lock = cache.lock(MEDIA_CACHE_LOCK, timeout=MEDIA_LOCK_TIMEOUT, blocking_timeout=MEDIA_LOCK_BLOCKING_TIMEOUT)
+    with lock:
+        yield lock
 
 
 def media_hot_reference_time(at_time=None):
@@ -44,62 +63,57 @@ def set_hot_reference(reference):
     cache.set(MEDIA_HOT_ANCHOR, reference.isoformat())
 
 
-def _read_hot_reference(pipe):
-    """在 WATCH 事务内读取 anchor，保证换算与发布 anchor 的月度刷新串行。"""
-    raw = pipe.get(MEDIA_HOT_ANCHOR)
-    if raw is None:
-        return media_hot_reference_time()
-    return datetime.fromisoformat(maybe_bytes_to_str(raw))
-
-
-def _to_anchor_score(amount, base, anchor):
+def _to_anchor_score(hot_value, base, anchor):
     """把以 base 为基准的 DB 热度换算成以 anchor 为基准的 zset 分数。"""
-    return amount if base is None else amount * decay(base, anchor)
+    return hot_value * decay(base, anchor)
 
 
-def add_media_scores(media_id, author_id, delta_hot, delta_likes, base=None):
-    """审核补齐或投喂增量：WATCH anchor，把行基准增量折算到当前 anchor 后原子累加四个 zset。
+def set_media_scores(media_id, author_id, media_hot, media_likes, user_hot, user_likes, has_works):
+    """一次 MULTI/EXEC 写入四个 zset 的绝对分数；调用方须持有 media_cache_lock。
 
-    base=None 表示增量已经是 anchor 基准（缓存层直接调用）。月度刷新 WATCH 同一 anchor，
-    因此刷新期间提交的投喂要么按旧 anchor 写入后被整体缩放，要么重试后按新 anchor 写入。
+    media_hot=None 表示作品已不在榜。作者分数直接写绝对值，不存在「扣减到 0 后
+    再在事务外 ZREM」的竞争窗口，期间的新投喂不会被清掉；has_works 与重建命令
+    的 ZINCRBY 语义一致，保证 0 分作品仍能让作者出现在聚合榜。
     """
-    get_hot_reference()
+    with cache.pipeline() as pipe:
+        if media_hot is None:
+            pipe.zrem(MEDIA_RANK_HOT, media_id)
+            pipe.zrem(MEDIA_RANK_LIKES, media_id)
+        else:
+            pipe.zadd(MEDIA_RANK_HOT, {media_id: media_hot})
+            pipe.zadd(MEDIA_RANK_LIKES, {media_id: media_likes})
+        for key, score in ((MEDIA_RANK_USER_HOT, user_hot), (MEDIA_RANK_USER_LIKES, user_likes)):
+            if has_works:
+                pipe.zadd(key, {author_id: score})
+            else:
+                pipe.zrem(key, author_id)
+        pipe.execute()
 
-    def add(pipe):
-        hot = _to_anchor_score(delta_hot, base, _read_hot_reference(pipe))
-        pipe.multi()
-        pipe.zincrby(MEDIA_RANK_HOT, hot, media_id)
-        pipe.zincrby(MEDIA_RANK_LIKES, delta_likes, media_id)
-        pipe.zincrby(MEDIA_RANK_USER_HOT, hot, author_id)
-        pipe.zincrby(MEDIA_RANK_USER_LIKES, delta_likes, author_id)
 
-    cache.transaction(add, MEDIA_HOT_ANCHOR)
+def sync_media_scores(media_id, author_id):
+    """按回调执行时刻的 DB 重算并覆盖四个 zset 的绝对分数。
 
-
-def remove_media_scores(media_id, author_id, hot_value, likes, base=None):
-    """站长硬删除回退：WATCH anchor 下按 zset 实际分数扣减作者榜，结果 <= 0 时删除成员。
-
-    以作品榜的实际分数为准，避免刷新缩放后仍按未缩放的 DB 值扣减而留下漂移；
-    zset 缺失时才用 DB 值按 anchor 折算兜底。
+    不看回调发起时的快照：硬删除后的迟到投喂回调查不到作品行，只会移除而不会重新
+    入榜；重建期间提交的投喂则在锁释放后按 DB 绝对值补齐，既不丢也不重复。
     """
-    get_hot_reference()
-
-    def remove(pipe):
-        anchor = _read_hot_reference(pipe)
-        raw_hot = pipe.zscore(MEDIA_RANK_HOT, media_id)
-        raw_likes = pipe.zscore(MEDIA_RANK_LIKES, media_id)
-        hot = float(raw_hot) if raw_hot is not None else _to_anchor_score(hot_value, base, anchor)
-        likes_score = float(raw_likes) if raw_likes is not None else likes
-        pipe.multi()
-        pipe.zrem(MEDIA_RANK_HOT, media_id)
-        pipe.zrem(MEDIA_RANK_LIKES, media_id)
-        pipe.zincrby(MEDIA_RANK_USER_HOT, -hot, author_id)
-        pipe.zincrby(MEDIA_RANK_USER_LIKES, -likes_score, author_id)
-
-    results = cache.transaction(remove, MEDIA_HOT_ANCHOR)
-    for key, score in ((MEDIA_RANK_USER_HOT, results[2]), (MEDIA_RANK_USER_LIKES, results[3])):
-        if score is not None and score <= 0:
-            cache.zrem(key, author_id)
+    with media_cache_lock():
+        anchor = get_hot_reference()
+        rows = Media.objects.filter(user_id=author_id, status=MediaStatus.VERIFIED).values_list(
+            'pk', 'hot_value', 'likes', 'hot_value_updated_at',
+        )
+        user_hot = 0.0
+        user_likes = 0
+        has_works = False
+        media_hot = None
+        media_likes = 0
+        for pk, hot_value, likes, base in rows:
+            has_works = True
+            score = _to_anchor_score(hot_value, base, anchor)
+            user_hot += score
+            user_likes += likes
+            if pk == media_id:
+                media_hot, media_likes = score, likes
+        set_media_scores(media_id, author_id, media_hot, media_likes, user_hot, user_likes, has_works)
 
 
 def get_ranking(key, start=0, count=50):
@@ -127,62 +141,70 @@ def get_user_ranking(sort_key, start=0, count=50):
 
 
 def refresh_hot_reference(at_time=None):
-    """月度刷新 Redis：WATCH anchor，按同一系数整体缩放两个 hot zset，写新锚点；幂等。"""
-    get_hot_reference()
-    score_time = media_hot_reference_time(at_time)
+    """锁内 WATCH anchor，按同一系数整体缩放两个 hot zset，写新锚点；幂等。"""
+    with media_cache_lock():
+        get_hot_reference()
+        score_time = media_hot_reference_time(at_time)
 
-    def refresh(pipe):
-        raw = pipe.get(MEDIA_HOT_ANCHOR)
-        previous = datetime.fromisoformat(maybe_bytes_to_str(raw))
-        pipe.multi()
-        if previous == score_time:
-            return False
-        factor = decay(previous, score_time)
-        for key in (MEDIA_RANK_HOT, MEDIA_RANK_USER_HOT):
-            pipe.zunionstore(key, {key: factor})
-        pipe.set(MEDIA_HOT_ANCHOR, score_time.isoformat())
-        return True
+        def refresh(pipe):
+            raw = pipe.get(MEDIA_HOT_ANCHOR)
+            previous = datetime.fromisoformat(maybe_bytes_to_str(raw))
+            pipe.multi()
+            if previous == score_time:
+                return False
+            factor = decay(previous, score_time)
+            for key in (MEDIA_RANK_HOT, MEDIA_RANK_USER_HOT):
+                pipe.zunionstore(key, {key: factor})
+            pipe.set(MEDIA_HOT_ANCHOR, score_time.isoformat())
+            return True
 
-    return cache.transaction(refresh, MEDIA_HOT_ANCHOR, value_from_callable=True)
+        return cache.transaction(refresh, MEDIA_HOT_ANCHOR, value_from_callable=True)
 
 
 def rebuild_rankings(batch_size=1000):
-    """从 DB 只取 verified 全量重建四个 zset 与 anchor；临时 key + rename 原子发布，失败保留旧榜。"""
+    """锁内从 DB 只取 verified 全量重建四个 zset 与 anchor；临时 key + rename 原子发布。
+
+    锁覆盖快照与发布全过程：期间提交的 DB 写入，其 on_commit 回调必须等锁释放后
+    才按 DB 绝对值重算，因此不会「先写正式榜、后被旧快照 rename 覆盖」。
+    """
     if batch_size <= 0:
         raise ValueError('batch_size must be positive')
     prefix = MEDIA_REBUILD_PREFIX + uuid4().hex
     temporary = {key: f'{prefix}:{key}' for key in MEDIA_RANK_KEYS}
-    earliest = Media.objects.order_by('hot_value_updated_at').values_list('hot_value_updated_at', flat=True).first()
-    reference = earliest or media_hot_reference_time()
-    try:
-        count = 0
-        with cache.pipeline() as pipe:
-            queryset = Media.objects.filter(status=MediaStatus.VERIFIED).only(
-                'id', 'user_id', 'likes', 'hot_value', 'hot_value_updated_at',
-            )
-            for media in queryset.iterator(chunk_size=batch_size):
-                hot = media.hot_value * decay(media.hot_value_updated_at, reference)
-                pipe.zadd(temporary[MEDIA_RANK_HOT], {media.pk: hot})
-                pipe.zadd(temporary[MEDIA_RANK_LIKES], {media.pk: media.likes})
-                pipe.zincrby(temporary[MEDIA_RANK_USER_HOT], hot, media.user_id)
-                pipe.zincrby(temporary[MEDIA_RANK_USER_LIKES], media.likes, media.user_id)
-                count += 1
-                if count % batch_size == 0:
+    with media_cache_lock() as lock:
+        earliest = Media.objects.order_by('hot_value_updated_at').values_list('hot_value_updated_at', flat=True).first()
+        reference = earliest or media_hot_reference_time()
+        try:
+            count = 0
+            with cache.pipeline() as pipe:
+                queryset = Media.objects.filter(status=MediaStatus.VERIFIED).only(
+                    'id', 'user_id', 'likes', 'hot_value', 'hot_value_updated_at',
+                )
+                for media in queryset.iterator(chunk_size=batch_size):
+                    hot = _to_anchor_score(media.hot_value, media.hot_value_updated_at, reference)
+                    pipe.zadd(temporary[MEDIA_RANK_HOT], {media.pk: hot})
+                    pipe.zadd(temporary[MEDIA_RANK_LIKES], {media.pk: media.likes})
+                    pipe.zincrby(temporary[MEDIA_RANK_USER_HOT], hot, media.user_id)
+                    pipe.zincrby(temporary[MEDIA_RANK_USER_LIKES], media.likes, media.user_id)
+                    count += 1
+                    if count % batch_size == 0:
+                        pipe.execute()
+                if count % batch_size:
                     pipe.execute()
-            if count % batch_size:
+            if not lock.owned():
+                raise MediaCacheLockError('media cache lock expired during rebuild; pause writes and retry')
+            with cache.pipeline() as pipe:
+                for key, temp_key in temporary.items():
+                    if cache.exists(temp_key):
+                        pipe.rename(temp_key, key)
+                    else:
+                        pipe.delete(key)
+                pipe.set(MEDIA_HOT_ANCHOR, reference.isoformat())
                 pipe.execute()
-        with cache.pipeline() as pipe:
-            for key, temp_key in temporary.items():
-                if cache.exists(temp_key):
-                    pipe.rename(temp_key, key)
-                else:
-                    pipe.delete(key)
-            pipe.set(MEDIA_HOT_ANCHOR, reference.isoformat())
-            pipe.execute()
-        return count
-    finally:
-        cache.delete(*temporary.values())
+            return count
+        finally:
+            cache.delete(*temporary.values())
 
 
 def clear_rankings():
-    cache.delete(*MEDIA_CACHE_KEYS)
+    cache.delete(*MEDIA_CACHE_KEYS, MEDIA_CACHE_LOCK)

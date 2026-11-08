@@ -186,6 +186,51 @@ class MediaServiceTests(TestCase):
         self.assertEqual(media.hot_value, 0)
         self.assertFalse(MediaLikes.objects.filter(media=media).exists())
 
+    def test_create_media_validates_base_after_insert(self):
+        """读到旧 anchor 后锚点推进：创建完成后必须把该行换算到新基准。"""
+        anchors = iter([REFERENCE, NEXT_REFERENCE])
+        with patch.object(cache, 'get_hot_reference', side_effect=lambda: next(anchors)):
+            media = self._create_media('BV1basevalid001')
+        self.assertEqual(Media.objects.get(pk=media.pk).hot_value_updated_at, NEXT_REFERENCE)
+
+    def test_late_feed_callback_after_hard_delete_does_not_resurrect(self):
+        media = self._create_media()
+        with self.captureOnCommitCallbacks(execute=True):
+            verify_media(media.pk, self.actor.pk)
+        with self.captureOnCommitCallbacks(execute=True):
+            hard_delete_media(media.pk, self.actor.pk)
+        cache.sync_media_scores(media.pk, self.user.pk)  # 迟到的投喂回调
+        self.assertIsNone(cache.cache.zscore(cache.MEDIA_RANK_LIKES, media.pk))
+        self.assertIsNone(cache.cache.zscore(cache.MEDIA_RANK_HOT, media.pk))
+        self.assertIsNone(cache.cache.zscore(cache.MEDIA_RANK_USER_LIKES, self.user.pk))
+
+    def test_rebuild_is_reconciled_by_late_callback(self):
+        """重建快照期间提交的投喂：迟到回调按 DB 绝对值补齐，既不丢也不重复。"""
+        media = self._create_media()
+        with self.captureOnCommitCallbacks(execute=True):
+            verify_media(media.pk, self.actor.pk)
+        original_decay = cache.decay
+        state = {'done': False}
+
+        def decay_after_write(base, at):
+            if not state['done']:
+                state['done'] = True
+                like_media(self.user, media.pk)
+            return original_decay(base, at)
+
+        with patch.object(cache, 'decay', side_effect=decay_after_write):
+            cache.rebuild_rankings()
+        media.refresh_from_db()
+        cache.sync_media_scores(media.pk, self.user.pk)
+        self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_LIKES, media.pk), media.likes)
+        self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_USER_LIKES, self.user.pk), media.likes)
+        self.assertAlmostEqual(cache.cache.zscore(cache.MEDIA_RANK_HOT, media.pk), media.hot_value)
+
+    def test_rebuild_holds_cache_lock(self):
+        with patch.object(cache, 'media_cache_lock', wraps=cache.media_cache_lock) as locked:
+            cache.rebuild_rankings()
+        locked.assert_called_once_with()
+
     def test_rebuild_rankings_only_verified(self):
         verified = self._create_media('BV1verified0001')
         self._like(verified, 3)
