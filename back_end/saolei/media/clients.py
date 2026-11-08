@@ -10,6 +10,8 @@ from bilibili_api.article import Article
 from bilibili_api.exceptions import ApiException, NetworkException, ResponseCodeException
 from bilibili_api.utils.network import request_settings
 from bilibili_api.video import Video
+from curl_cffi import CurlError
+from curl_cffi.requests.exceptions import Timeout as CurlTimeout
 from django.utils import timezone
 from httpx import TimeoutException
 from saolei_api import AuthenticationError, Client, RateLimitError, ResponseError, TransportError
@@ -24,6 +26,9 @@ SAOLEI_TIMEOUT = 8.0
 MAX_RETRY_WAIT = 1.0
 BILIBILI_RATE_LIMIT_CODE = -509
 DEGRADED_FETCH_CATEGORIES = frozenset({'timeout', 'upstream_error'})
+# bilibili_api 默认 CurlCFFIClient 直接透传 curl_cffi 原生异常，不会包成 NetworkException。
+BILIBILI_TIMEOUT_ERRORS = (TimeoutError, TimeoutException, CurlTimeout)
+BILIBILI_NETWORK_ERRORS = (CurlError, NetworkException, ApiException)
 
 
 class MediaMetadata(NamedTuple):
@@ -73,9 +78,9 @@ def _call_bilibili(coroutine_factory):
                 sleep(_retry_ttl(exc))
                 continue
             raise MediaFetchError('upstream_error', 502) from None
-        except (TimeoutError, TimeoutException):
+        except BILIBILI_TIMEOUT_ERRORS:
             raise MediaFetchError('timeout', 504) from None
-        except (NetworkException, ApiException):
+        except BILIBILI_NETWORK_ERRORS:
             raise MediaFetchError('upstream_error', 502) from None
     raise MediaFetchError('upstream_error', 502)
 

@@ -41,6 +41,8 @@ SUFFIX_PATTERNS = {
     MediaFormat.B_A: re.compile(r'[0-9]+'),
     MediaFormat.C_P: re.compile(r'[0-9]+'),
 }
+# 数字 id 的前导零不代表不同作品，必须归一化后才能用 (format, suffix) 唯一约束防重复投稿。
+NUMERIC_MEDIA_FORMATS = frozenset({MediaFormat.B_A, MediaFormat.C_P})
 EMBED_PREFIX = 'https://player.bilibili.com/player.html?bvid='
 EMBED_SUFFIX = '&page=1&autoplay=0&danmaku=0'
 
@@ -146,4 +148,6 @@ def _validate_suffix(media_format, suffix):
     pattern = SUFFIX_PATTERNS.get(media_format)
     if pattern is None or not pattern.fullmatch(suffix):
         raise ValueError('Invalid media suffix')
+    if media_format in NUMERIC_MEDIA_FORMATS:
+        suffix = suffix.lstrip('0') or '0'
     return media_format, suffix

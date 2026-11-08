@@ -4,6 +4,10 @@ from datetime import datetime, timedelta, timezone as datetime_timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from curl_cffi.requests.exceptions import ConnectionError as CurlConnectionError
+from curl_cffi.requests.exceptions import ConnectTimeout
+from curl_cffi.requests.exceptions import RequestException as CurlRequestException
+from curl_cffi.requests.exceptions import Timeout as CurlTimeout
 from django.test import SimpleTestCase
 from django.utils import timezone
 from saolei_api import TransportError
@@ -15,6 +19,13 @@ from .utils import MediaFormat
 def _raise_timeout(coroutine):
     coroutine.close()
     raise TimeoutError
+
+
+def _raise(exc):
+    def side_effect(coroutine):
+        coroutine.close()
+        raise exc
+    return side_effect
 
 
 class MediaClientsTests(SimpleTestCase):
@@ -70,6 +81,26 @@ class MediaClientsTests(SimpleTestCase):
         self.assertEqual(caught.exception.category, 'timeout')
         self.assertEqual(caught.exception.status_code, 504)
         settings.set_timeout.assert_called_with(30.0)
+
+    def test_bilibili_curl_transport_errors_are_degraded(self):
+        """CurlCFFIClient 直接抛 curl_cffi 原生异常，不能只依赖内置 TimeoutError。"""
+        cases = [
+            (CurlTimeout('read timeout'), 'timeout', 504),
+            (ConnectTimeout('connect timeout'), 'timeout', 504),
+            (CurlConnectionError('dns failure'), 'upstream_error', 502),
+            (CurlRequestException('request failed'), 'upstream_error', 502),
+        ]
+        settings = MagicMock()
+        settings.get_timeout.return_value = 30.0
+        for exc, category, status_code in cases:
+            with self.subTest(exc=type(exc).__name__):
+                with patch('media.clients.sync', side_effect=_raise(exc)), patch('media.clients.request_settings', settings):
+                    with self.assertRaises(MediaFetchError) as caught:
+                        fetch_media_metadata(MediaFormat.B_V, 'BV1xx411c7mD')
+                self.assertEqual(caught.exception.category, category)
+                self.assertEqual(caught.exception.status_code, status_code)
+                with patch('media.clients.sync', side_effect=_raise(exc)), patch('media.clients.request_settings', settings):
+                    self.assertIsNone(fetch_media_metadata_optional(MediaFormat.B_V, 'BV1xx411c7mD'))
 
     def test_saolei_transport_error_is_timeout(self):
         client = MagicMock()

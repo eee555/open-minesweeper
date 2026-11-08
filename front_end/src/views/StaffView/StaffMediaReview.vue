@@ -7,6 +7,9 @@
             <BaseButton :aria-pressed="view === 'rejected'" @click="view = 'rejected'">
                 {{ t('local.rejected') }}
             </BaseButton>
+            <BaseButton :aria-pressed="view === 'verified'" @click="view = 'verified'">
+                {{ t('local.verified') }}
+            </BaseButton>
             <BaseButton @click="load">
                 {{ t('local.refresh') }}
             </BaseButton>
@@ -97,9 +100,9 @@ import BaseButton from '@/components/common/BaseButton.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
 import { actionSuccessNotification, httpErrorNotification } from '@/components/Notifications';
 import PlayerName from '@/components/PlayerName.vue';
-import type { MediaItem } from '@/services/mediaService';
+import type { MediaItem, MediaPage } from '@/services/mediaService';
 import {
-    deleteMediaAdmin, fetchPendingMedia, fetchRejectedMedia, rejectMediaAdmin,
+    deleteMediaAdmin, fetchLatestMedia, fetchPendingMedia, fetchRejectedMedia, rejectMediaAdmin,
     reopenMediaAdmin, setMediaBanned, verifyMediaAdmin,
 } from '@/services/mediaService';
 import { store } from '@/store';
@@ -107,7 +110,8 @@ import { store } from '@/store';
 import '@/components/media/media.css';
 
 const PAGE_SIZE = 20;
-const view = ref<'pending' | 'rejected'>('pending');
+type ReviewView = 'pending' | 'rejected' | 'verified';
+const view = ref<ReviewView>('pending');
 const items = ref<MediaItem[]>([]);
 const total = ref(0);
 const page = ref(1);
@@ -124,7 +128,10 @@ async function load(): Promise<void> {
     const request = ++requestId;
     try {
         const start = (page.value - 1) * PAGE_SIZE;
-        const result = view.value === 'pending' ? await fetchPendingMedia(start, PAGE_SIZE) : await fetchRejectedMedia(start, PAGE_SIZE);
+        let result: MediaPage;
+        if (view.value === 'pending') result = await fetchPendingMedia(start, PAGE_SIZE);
+        else if (view.value === 'rejected') result = await fetchRejectedMedia(start, PAGE_SIZE);
+        else result = await fetchLatestMedia(start, PAGE_SIZE);
         if (request !== requestId) return;
         items.value = result.items;
         total.value = result.total;
@@ -142,14 +149,20 @@ function select(item: MediaItem): void {
     form.value = { title: item.title, externalAuthorId: '', reason: '' };
 }
 
-async function run(action: () => Promise<unknown>): Promise<void> {
+async function run(action: () => Promise<unknown>, nextView?: ReviewView): Promise<void> {
     if (busy.value || !selected.value) return;
     busy.value = true;
     try {
         await action();
         actionSuccessNotification();
-        selected.value = null;
         confirmDelete.value = false;
+        if (nextView) {
+            // 审核通过后切到「已通过」并保留选中项，站长才能直接硬删除刚通过的作品。
+            page.value = 1;
+            view.value = nextView;
+        } else {
+            selected.value = null;
+        }
         await load();
     } catch (error) {
         httpErrorNotification(error);
@@ -166,11 +179,13 @@ function verify(): void {
         ElNotification({ message: t('local.missingVerifyFields'), type: 'error' });
         return;
     }
-    void run(() => verifyMediaAdmin({
-        id: media.id,
-        title: degraded ? form.value.title : undefined,
-        external_author_id: degraded ? form.value.externalAuthorId : undefined,
-    }));
+    void run(async () => {
+        selected.value = await verifyMediaAdmin({
+            id: media.id,
+            title: degraded ? form.value.title : undefined,
+            external_author_id: degraded ? form.value.externalAuthorId : undefined,
+        });
+    }, 'verified');
 }
 
 function reject(): void {
@@ -208,6 +223,7 @@ const i18nMessages = {
     'zh-cn': { local: {
         pending: '待审核',
         rejected: '已驳回',
+        verified: '已通过',
         refresh: '刷新',
         forbidden: '仅管理员可用',
         actions: '操作',
@@ -228,6 +244,7 @@ const i18nMessages = {
     en: { local: {
         pending: 'Pending',
         rejected: 'Rejected',
+        verified: 'Verified',
         refresh: 'Refresh',
         forbidden: 'Moderators only',
         actions: 'Actions',

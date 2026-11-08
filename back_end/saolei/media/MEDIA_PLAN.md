@@ -1,6 +1,6 @@
 # 作品页（media）开发计划
 
-状态：**第 4 阶段（前端）已完成**；第 0-3 阶段（app 外壳、数据层、服务与缓存、API 层）均已落地并通过局部检查，设计已按「外站超时降级投稿」「外站作者 id 不入库」「软删除状态机」口径修订。阶段 4 已接入 `/works` 四 tab、排行榜 / 数据库 / 个人主页 / 后台四个 tab、投稿与投喂组件、`mediaService.ts` 的 25s 投稿超时、全局与 SFC 双语 i18n，并完成 lintfix / typecheck / vitest / `build:openms` 与 9 个 Cypress 组件测试；阶段 5（生产迁移、重建 zset、超时链实测与一次性全量开放，不做灰度）已完成本地可交付部分（E2E spec、部署手册、本地前置检查），生产部署动作待执行。删除路径改为 `status` 状态机（第 16 节），降级投稿与平台扩展约定见第 7.2、17 节；外站作者 id 的一次性核验口径见第 16.1 节第 15 条；每日投喂上限口径见第 17 条。
+状态：**第 4 阶段（前端）已完成**；第 0-3 阶段（app 外壳、数据层、服务与缓存、API 层）均已落地并通过局部检查，设计已按「外站超时降级投稿」「外站作者 id 不入库」「软删除状态机」口径修订。阶段 4 已接入 `/works` 四 tab、排行榜 / 数据库 / 个人主页 / 后台四个 tab、投稿与投喂组件、`mediaService.ts` 的 25s 投稿超时、全局与 SFC 双语 i18n，并完成 lintfix / typecheck / vitest / `build:openms` 与 9 个 Cypress 组件测试；阶段 5（生产迁移、重建 zset、超时链实测与一次性全量开放，不做灰度）已完成本地可交付部分（E2E spec、部署手册、本地前置检查），生产部署动作待执行。删除路径改为 `status` 状态机（第 16 节），降级投稿与平台扩展约定见第 7.2、17 节；外站作者 id 的一次性核验口径见第 16.1 节第 15 条；每日投喂上限口径见第 17 条；代码审查 P1/P2 修复（按行热度基准、anchor 发布时序、真实外站异常降级、数字外链归一化与前端权限/展示）见第 18 条。
 
 本文档是实现的唯一设计基线；实现时若改变第 5 节的衰减不变量或第 9 节的权限口径，应先更新本文档。
 
@@ -69,6 +69,7 @@
 
 - 后端保存**规范化后的 suffix**，不保存完整 URL；`MediaOut` 由 `format` 推导 `url` 与 `embed_url` 两个只读字段（用 `create_schema` 的 `custom_fields` 或 resolver）。
 - 投稿可以粘贴完整 URL 或只填 suffix。`utils.parse_media_url()` 用 `urlsplit` 校验 scheme/host 白名单（`www.bilibili.com`、`bilibili.com`、`m.bilibili.com` 且仅 `/video/`、`/read/` 路径；`saolei.wang` 仅允许 `https` + `/bbs/` 路径），剥离 query/trailing slash，识别 `format`，正则校验 suffix，越界返回 400。**B 站 `/opus/`（动态）链接一律拒绝**；旧 `www.saolei.wang/BBS/Title.asp?Id=` 与 `saolei.wang` 其它路径也一律不接受（Q6）。禁止用户自定义域名、协议或路径，避免开放重定向与 XSS。
+- **数字 suffix 去前导零**：`B_a` / `c_p` 的纯数字 id 由 `_validate_suffix()` 统一为无前导零的规范形式（全零归一为 `0`），例如 `cv01646742` 与 `cv1646742`、`/bbs/09786` 与 `/bbs/9786` 解析后是同一条 `suffix`。否则 `(format, suffix)` 唯一约束不生效，同一作品可被重复投稿；`build_external_url()` 也只输出规范外链。
 - **不支持任何短链**（Q7）：`b23.tv` 等跳转域名直接拒绝，客户端也不跟随重定向（参照 `accountlink/github/client.py:40-41`），避免短链绕过 host 校验。后续扩展平台时增加 `FORMAT_PREFIX` 表项即可。
 - 外链前缀只用于展示跳转与 iframe；作品元数据由 `media/clients.py` 按 `format` 调用两个依赖已提供的详情接口获取（第 7.1 节），不从 HTML 页面爬取，不恢复旧 BBS 爬虫（`accountlink/SAOLEI_API_IMPORT_PLAN.md:13`）。
 - 前端 iframe 必须设置 `sandbox="allow-scripts allow-same-origin allow-presentation"`、`referrerpolicy="no-referrer"`、`loading="lazy"`、固定宽高比与 `allowfullscreen`；只根据后端返回的 `embed_url` 渲染，不接受用户拼接的 src。
@@ -89,15 +90,15 @@
 | `created_at` | `DateTimeField()` | **对方平台的发表时间**，由来源平台 API 返回；统一转 UTC，不得晚于投稿时刻。**降级投稿用本站投稿时刻兜底**，管理员可修正（第 7.2 节） |
 | `submitted_at` | `DateTimeField(auto_now_add=True)` | **新增字段**：本站投稿时间，用于审核队列与审核中 tab 排序；用户原计划未列出，但不加会缺少稳定的审核排序键 |
 | `format` | `CharField(max_length=3, choices=MediaFormat.choices)` | 作品媒介 |
-| `suffix` | `CharField(max_length=128)` | 规范化后的 URL 后缀 |
+| `suffix` | `CharField(max_length=128)` | 规范化后的 URL 后缀；数字 id 去前导零（第 3.3 节） |
 | `status` | `CharField(max_length=8, choices=MediaStatus.choices, default=pending)` | `pending` 未审核 / `verified` 审核通过（**严格终态**，仅站长可硬删除）/ `rejected` 已驳回；**没有删除状态** |
 | `rejected_at` | `DateTimeField(null=True, blank=True)` | 驳回时间；改回 `pending` 时清空 |
 | `rejected_by` | `FK(UserProfile, SET_NULL, null=True, related_name='media_rejections')` | 执行驳回的管理员；账号注销后仍留作品行；**对普通访客可见**（P3） |
 | `reject_reason` | `CharField(max_length=200, blank=True)` | 驳回原因；**对普通访客可见**（P3） |
 | `refunded_likes` | `PositiveBigIntegerField(default=0)` | 本次驳回实际退还的红宝石总数，用于幂等与审计；站长硬删除时该值随作品行消失，改记入 `media.log` |
 | `likes` | `PositiveBigIntegerField(default=0)` | 累计投喂红宝石数；**驳回时随退还立刻清零**（P1） |
-| `hot_value` | `FloatField(default=0)` | 以 `hot_value_updated_at` 为时间基准的热度；**驳回时随退还立刻清零**（P1），`hot_value_updated_at` 不动以保持 anchor 不变量 |
-| `hot_value_updated_at` | `DateTimeField(default=timezone.now)` | 热度时间基准；**全站所有作品恒等于同一个 anchor 值**（第 5.2 节不变量） |
+| `hot_value` | `FloatField(default=0)` | 以 `hot_value_updated_at` 为时间基准的热度；**驳回时随退还立刻清零**（P1），`hot_value_updated_at` 不动以保持该行时间基准 |
+| `hot_value_updated_at` | `DateTimeField(default=timezone.now)` | 该行热度自己的时间基准；稳态下等于全站 anchor，刷新窗口内允许短暂不同（第 5.2 节不变量 I1'） |
 
 **没有 `external_author_id` 字段**（16.1 第 15 条）：外站作者 id 只在投稿时与已验证绑定比对、降级投稿审核时由管理员一次性填入并在 API 层用 `AccountLinkQueue` 核验，两种路径都不写入 `Media`、不写日志、不出现在 `MediaOut`。归属由 `AccountLinkQueue` 的绑定关系保证，无需在作品表冗余保存。
 
@@ -176,21 +177,21 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 
 - 允许 `t1 < t0`（因子 > 1），便于把当前时刻的增量折算回更早的基准。
 - 连续指数，不按自然日跳变；30 天约 `0.7397`，365 天约 `0.0255`。
-- **不变量 I1**：任意时刻，所有 `Media.hot_value_updated_at` 都等于全站 anchor `T`（Redis string `media:hot:anchor`，ISO datetime）。新投稿、投喂、审核通过都不推进该字段；只有月度刷新任务推进 `T`。
-  - 原因：用户主页要「不走 Redis，直接按 `hot_value` 排序」。只有所有作品共用同一基准时，`hot_value` 的降序才等于实时热度的降序；若投喂时把单条作品的 `hot_value_updated_at` 改为 `now`，DB 排序会失真，只能改成无法走索引的表达式排序。
-  - 这也让用户总热度可以用同一个衰减系数做增量更新，与用户计划中的简化思路一致。
+- **不变量 I1'（按行基准折算）**：`Media.hot_value` 永远以**该行自己的** `hot_value_updated_at` 为基准，`real_hot(m, t)` 始终正确；Redis 两个 hot zset 以全站 anchor `T` 为基准。稳态下所有行的基准等于 `T`，只有月度刷新推进它；DB 与 Redis 不能原子切换，因此刷新窗口内允许个别行（尤其窗口内新建的作品）暂时保留旧基准，二次换算会收敛。
+  - 用户主页「不走 Redis，按 `hot_value` 排序」依赖**稳态**的同一基准；投喂绝不把单行基准改成 `now`，否则排序会失真且无法走索引。窗口内的短暂偏差由刷新任务收敛，不做逐行查询修复。
+  - 所有写入 Redis 的 hot 增量都在执行时用 `WATCH media:hot:anchor` 读取当前 `T`，按 `amount * decay(row_base, T)` 折算；anchor 是否提前发布都不会让增量混用基准（第 5.3、5.4 节）。
 - `T` 以 Redis 为准，DB 中每条作品冗余保存一份，用于重建排行和离线校验；`media/cache.py` 提供 `get_hot_reference()`，缺失时以最早作品的 `hot_value_updated_at` 或当月 1 日 UTC 初始化，并写入 Redis。
 
 ### 5.3 投喂 1 个红宝石（时刻 now）
 
 在 `services.like_media()` 的单个 `transaction.atomic()` 内：
 
-1. `select_for_update()` 锁 `UserMedia` 行与 `Media` 行；校验登录、全站封禁、余额 >= 1。**已审核与审核中的作品都可投喂**（Q2），只拒绝不存在的作品。
+1. `select_for_update()` **先锁 `Media` 行、再锁 `UserMedia` 行**（与 `reject_media()` / `hard_delete_media()` 顺序一致，避免死锁）；校验登录、全站封禁、余额 >= 1。**已审核与审核中的作品都可投喂**（Q2），只拒绝不存在的作品与 `rejected` 作品。
 2. 每日计数：`today = timezone.now().date()`（UTC 自然日）；`daily_date != today` 时把 `daily_likes` 视为 0，`daily_likes >= MEDIA_DAILY_LIKE_LIMIT(10)` 返回 429。
-3. `delta_hot = 1 / decay(T, now)`：把「now 时刻的 +1」折算成以 `T` 为基准的等效热度。
-4. `Media.hot_value += delta_hot`，`Media.likes += 1`，`hot_value_updated_at` 保持不变（I1）。
+3. `base = media.hot_value_updated_at`；`delta_hot = 1 / decay(base, now)`：把「now 时刻的 +1」折算成以**该行基准**表示的等效热度，不读 Redis anchor。
+4. `Media.hot_value += delta_hot`，`Media.likes += 1`，`hot_value_updated_at` 保持不变（I1'）。
 5. `MediaLikes` 用 `get_or_create` + `likes += 1`；同一条 `UserMedia.update()` 写 `likes_sent += 1`、`daily_likes += 1`、`daily_date = today`，保证「成功才计数」且并发不超额。
-6. `transaction.on_commit()` 中写 Redis：**仅当 `media.status='verified'`** 时执行 `ZINCRBY media:rank:hot delta_hot {media_id}`、`ZINCRBY media:rank:likes 1 {media_id}`，以及作者的两个用户榜 `ZINCRBY media:rank:user:hot delta_hot {author_id}`、`ZINCRBY media:rank:user:likes 1 {author_id}`。审核中作品只落 DB，等审核通过时由 `verify_media()` 按累计值一次性补齐四个 zset（第 6 节）。
+6. `transaction.on_commit()` 中写 Redis：**仅当 `media.status='verified'`** 时调用 `cache.add_media_scores(..., base)`，由缓存层 `WATCH media:hot:anchor` 把 `delta_hot` 折算成 `delta_hot * decay(base, T)` 后，对 `media:rank:hot`、`media:rank:likes` 与作者的两个用户榜做 `ZINCRBY`。`verify_media()` 补齐、`hard_delete_media()` 回退也传同一 `base`。审核中作品只落 DB，等审核通过时按累计值一次性补齐四个 zset（第 6 节）。
 
 驳回与硬删除只按第 5.5 / 5.6 节退还 `likes_sent`，不回退 `daily_likes`；管理员操作不应重置当日额度。
 
@@ -201,10 +202,11 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 - `common/apscheduler.py` 新增 id `refresh_media_hot_reference`，`CronTrigger(day=1, hour=0, minute=10, second=0, timezone=utc)`，`next_run_time=django_timezone.now()`（启动补跑）、`coalesce=True`、`max_instances=1`、`replace_existing=True`、`misfire_grace_time=None`。避开 `00:00` 的其它作业。
 - 作业只负责入队 `media.tasks.task_refresh_media_hot_reference`（Django 6 Tasks / `django-tasks-db`），入队前按 `DBTaskResult.task_path + READY/RUNNING` 防堆积，参照 `accountlink/saolei/tasks.py:33-38`。worker 由现有 `db_worker_robust` 执行。
 - 任务内 `services.refresh_hot_reference()`：
-  1. `T_new` 取当月 1 日 00:00 UTC；`WATCH media:hot:anchor`，若已等于 `T_new` 直接返回（幂等）。
-  2. `factor = decay(T_old, T_new)`，`ZUNIONSTORE` 把 `media:rank:hot`、`media:rank:user:hot` 两个 zset 按 `factor` 整体缩放，写回新 `T`（参照 `tournament/cache.py:259-274`）。乘以同一正系数**不改变排序**，所以缩放与 DB 刷新短暂的先后差异不影响页面顺序。
-  3. DB 分批（如 1000 条）把 `hot_value *= factor`、`hot_value_updated_at = T_new`，`bulk_update`；只处理 `hot_value_updated_at < T_new` 的行，可中断续跑。
+  1. `T_new` 取当月 1 日 00:00 UTC；先按 `hot_value_updated_at` 分组，用 `UPDATE ... SET hot_value = hot_value * decay(reference, T_new), hot_value_updated_at = T_new` 在 **SQL 端乘算**并提交。不能用 Python 快照 + `bulk_update`：刷新期间的已提交投喂会被旧快照覆盖，已清零的驳回作品也可能被恢复。
+  2. 再调用 `cache.refresh_hot_reference(T_new)`：`WATCH media:hot:anchor`，若已等于 `T_new` 直接返回（幂等）；`factor = decay(T_old, T_new)`，`ZUNIONSTORE` 把两个 hot zset 整体缩放并**最后**写回新 `T`（参照 `tournament/cache.py:259-274`）。乘以同一正系数不改变排序。
+  3. 发布 anchor 后再做一次同样的 DB 分组换算（幂等），收敛「DB 已换基准、anchor 未发布」窗口内按旧 anchor 新建的作品，避免用户主页长期混用基准。
   4. `likes` 榜不衰减，不处理。
+  5. 顺序安全：投喂增量按 DB 行基准计算、由缓存层在 `WATCH anchor` 事务内换算到当前 `T`，所以「先写旧 anchor 后被整体缩放」与「重试后按新 anchor 写入」结果一致；DB 与 Redis 无需跨存储原子切换。
 - 边界：Redis double 与 MySQL `FloatField` 精度；`hot_value < 1e-9` 可在重建时按 0 清理，但**月度任务不做删除**，避免排行人数抖动。
 - 若部署时停机错过月份，启动补跑会一次性按 `decay(T_old, T_new)` 补齐，不按「缺几个月」重复缩放。
 
@@ -217,7 +219,7 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 1. 锁 `Media` 行；校验 `status == 'pending'`，否则拒绝（重复驳回幂等返回 409）；取 `like_records` 的 `(user_id, likes)` 列表与当前 `likes` / `hot_value`。
 2. 置 `status='rejected'`，写 `rejected_at` / `rejected_by` / `reject_reason` / `refunded_likes`；`save()` 显式传 `update_fields`（`DJM100`）。**不删 `Media` 行**。
 3. 红宝石退还：按 `like_records` 逐条把投喂者 `UserMedia.likes_sent -= likes`（下限 0，用 `Greatest` 或先校验），包括作者给自己投喂的部分（Q12）；投喂者多时分批更新，避免长事务。`refunded_likes` 记录实际退还总数。
-4. **立刻清零（P1）**：同一事务内把 `Media.likes = 0`、`Media.hot_value = 0`，并删除该作品全部 `MediaLikes` 行，使退还后的数据库状态与「未投喂过」一致；`hot_value_updated_at` 不动，保持全站 anchor 不变量。**退还与清零必须同事务**，否则中途失败会出现「已退还但仍计数」；删除投喂记录是清零的必要配套，否则恢复后再次投喂会基于旧行累加、与 `Media.likes=0` 不一致。
+4. **立刻清零（P1）**：同一事务内把 `Media.likes = 0`、`Media.hot_value = 0`，并删除该作品全部 `MediaLikes` 行，使退还后的数据库状态与「未投喂过」一致；`hot_value_updated_at` 不动，保持该行时间基准。**退还与清零必须同事务**，否则中途失败会出现「已退还但仍计数」；删除投喂记录是清零的必要配套，否则恢复后再次投喂会基于旧行累加、与 `Media.likes=0` 不一致。
 5. 应用日志：事务内 `logging.getLogger('media').info(...)`（第 4.4 节）。
 6. **Redis 无需操作**：审核中作品按第 6 节只写 DB、从未进入四个 zset，驳回发生在 `pending` 状态，因此不需要 `ZREM` 或 user zset 回退；`rejected` 也不参与 `rebuild_media_rankings`。
 7. `format+suffix` 全表唯一持续生效，该 URL 无法重新投稿；`/submit` 命中时返回 409 与统一提示「该作品已投稿过，不可重复投稿」，不明说曾被驳回（P4）。改回 `pending` 由 `POST /admin/reopen` 完成（P5），复用同一行，因已清零而无需处理红宝石。
@@ -255,8 +257,8 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 - 读取：`ZCARD` 取总数，`ZREVRANGE key start end-1` 取 id 索引，再 `Media.objects.in_bulk(ids)` / `UserProfile.objects.in_bulk(ids)` 回表组装展示字段（参照 `tournament/cache.py:302-315`）。单次返回条数上限 50，响应体远小于 300KB。score 相同按 Redis member 字典序，作为稳定但不承诺业务优先级的次序；API 保持 zset 返回顺序，不二次排序。
 - **审核中作品可以被投喂（Q2 已确认）**，但审核期间**只写 DB**（`Media.likes/hot_value` 与 `MediaLikes`），不写四个 zset：热门/精品/《最新》与排行榜页《作品》tab 只展示 `verified` 作品，不做「写入后再过滤」，否则分页会出现空洞。审核通过时 `verify_media()` 按作品当前 `likes/hot_value` 一次性 `ZADD` 补入 `media:rank:hot`、`media:rank:likes`，并对作者的两个 user zset 做同样的 `ZINCRBY`；驳回只改状态并退还红宝石，因从未入榜而无需 `ZREM`（第 5.5 节）；**站长硬删除 `verified` 作品是唯一例外**，必须回退四个 zset（第 5.6 节）。
 - 审核中 tab 直接查库 `status='pending' ORDER BY -submitted_at`（走 `media_pending_idx`），展示累计 likes 与实时热度并提供投喂按钮，不额外建 zset。作品页《最新》tab 同样直接查库，不额外建 zset（评估见第 6.1 节）。`rejected` 作品不在四个 tab 中，但在作者主页与数据库页对所有人可见（16.1 第 5 条）。
-- 重建：`media/management/commands/rebuild_media_rankings.py` 从 DB 全量重建四个 zset 与 `anchor`，**只取 `status='verified'` 的行**（`pending` / `rejected` 一律排除），使用临时 key（`media:rebuild:*`）+ `rename` 原子发布（参照 `speedranking/top/cache.py:108-138`）；失败保留旧榜。命令供部署、Redis 故障恢复与单测使用，不做请求时懒重建。
-- 一致性：DB 是事实来源，Redis 是排序索引。写 Redis 一律放在 `transaction.on_commit`；Redis 写入失败只记日志、不回滚 DB，靠重建命令修复。月度任务与投喂并发通过 `WATCH media:hot:anchor` 的 `cache.transaction` 协调（`tournament/cache.py:208-227`）；投喂的 `ZINCRBY` 不推进 anchor，无需与月度任务互斥。
+- 重建：`media/management/commands/rebuild_media_rankings.py` 从 DB 全量重建四个 zset 与 `anchor`，**只取 `status='verified'` 的行**（`pending` / `rejected` 一律排除），使用临时 key（`media:rebuild:*`）+ `rename` 原子发布（参照 `speedranking/top/cache.py:108-138`）；失败保留旧榜。anchor 取全表最早的 `hot_value_updated_at`，每行 `hot_value` 先按 `decay(row_base, anchor)` 折算再写入，兼容 I1' 下刷新窗口遗留的混合基准。命令供部署、Redis 故障恢复与单测使用，不做请求时懒重建。
+- 一致性：DB 是事实来源，Redis 是排序索引。写 Redis 一律放在 `transaction.on_commit`；Redis 写入失败只记日志、不回滚 DB，靠重建命令修复。月度刷新与投喂/审核/硬删除并发通过 `WATCH media:hot:anchor` 的 `cache.transaction` 协调（`tournament/cache.py:208-227`）：增量在执行时按当前 anchor 折算，月度任务发布新 anchor 时触发 `WatchError` 重试。`remove_media_scores()` 按作品 zset 的**实际分数**扣减作者榜，避免刷新缩放后按未缩放的 DB 值扣减而留下漂移；结果 <= 0 时 `ZREM` 成员。
 - 文档：新增 key 与增量/衰减策略写入 `vitepress_doc/zh/guide/development/cache.md`；重建命令写入 `vitepress_doc/zh/guide/development/management-commands.md`。本设计不使用信号接收器，`signals.md` 无需改动。
 
 ### 6.1 《最新》tab 是否需要 Redis
@@ -333,6 +335,7 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 **返回与校验**：统一返回 `title`、`created_at`（UTC）、`author_id`（str，**只在本次请求内用于归属比对，不落库**）；`title` 超长或为空、`created_at` 缺失/晚于 `now`、字段类型不符、`post_info` 返回空 `items` 都归入 `parse_error` / `invalid_metadata`，仍拒绝投稿且不落库，不静默截断（参照 `SAOLEI_API_IMPORT_PLAN.md:41`）。`timeout` 与 `upstream_error` 走 7.2 节降级路径。三类 format 上游都有明确标题，无需标题兜底。
 
 **超时与错误分类**：B 站 connect 3s / read 8s，扫雷网 `timeout=8s`（含 2.1s 节流排队最多 6s），总预算 ≤ 15s；只对 429 / 5xx / B 站 `-509` 风控（按 `ttl` 等待 ≤1s）重试一次，`-352` 与其它 `ResponseCodeException` 不重试。异常统一转 `ExceptionToResponse` 分类：`timeout`（504）、`upstream_error`（502，含 -509/-352、401 鉴权失败、429）、`parse_error` / `invalid_metadata`（502）、`author_mismatch`（403）；响应只给分类码与提示，不含外站原始错误或凭据。结构性错误不写 DB；降级路径按 7.2 节落库。
+- **真实 B 站异常族**：`bilibili_api` 默认 `CurlCFFIClient` 直接透传 `curl_cffi` 原生异常，不会包成 `NetworkException`。`curl_cffi.requests.exceptions.Timeout`（含 `ConnectTimeout` / `ReadTimeout`）归 `timeout`；`curl_cffi.CurlError`（含 `ConnectionError` / `RequestException`）归 `upstream_error`；两者都在 `DEGRADED_FETCH_CATEGORIES` 内，可触发降级投稿。仅捕获内置 `TimeoutError` / `httpx.TimeoutException` 会让真实超时落到 500 而不是降级。
 
 **超时链配置**（用户提示需要放宽；以下为必须同步修改的层）：
 
@@ -450,7 +453,7 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 
 投稿表单与语言展示（Q4/Q5）：`SubmitMediaDialog.vue` 只提交 `url` 与 `language`（自由文本，`maxlength=32`）；标题与发表时间由后端拉取后返回，前端只读展示；超时/上游不可用不再报错，改为提示「投稿已保留，标题由管理员审核时补全并核验外站账号」并跳转审核中 tab；结构性错误仍用 `httpErrorNotification` 显示分类错误（元数据非法 / 归属不符）。语言展示用前端已知 locale 映射，未命中（含空字符串）显示 i18n「未知语言 / Unknown language」；用户输入只作为文本渲染，不作为 i18n key 或 HTML。审核中 tab 的投喂按钮旁标注「审核中」，点击走第 11.3 节的单次投喂逻辑。
 
-排行榜页《作品》tab（`ranking_media`）：表头用 `BaseTextButton` 切换 `hot` / `likes` 两个指标，数据来自 `GET /user-ranking`，用 `BaseTable` + `ElPagination` 展示，`useRankingQuery` 管理 `sort/page/page_size` 查询参数（参照 `TournamentRanking.vue`）。榜内只统计已审核作品，行内 `PlayerName` 的组件测试需注入 `$axios` 并 `cy.mockPlayerNameFallback()`。落点已确认（Q11），Redis 数据在阶段 2 已就绪，本 tab 不需要新的后端计算。
+排行榜页《作品》tab（`ranking_media`）：表头用 `BaseTextButton` 切换 `hot` / `likes` 两个指标，数据来自 `GET /user-ranking`，用 `BaseTable` + `ElPagination` 展示，`useRankingQuery` 管理 `sort/page/page_size` 查询参数（参照 `TournamentRanking.vue`）。榜内只统计已审核作品，行内 `PlayerName` 的组件测试需注入 `$axios` 并 `cy.mockPlayerNameFallback()`。落点已确认（Q11），Redis 数据在阶段 2 已就绪，本 tab 不需要新的后端计算。**`hot` 是 anchor 基准的分数，不是实时热度**：前端用响应的 `anchor` 与本地当前时间按 `0.99 ** ((now - anchor) / 1 天)` 衰减后再展示，避免把基准热度直接显示成实时热度。
 
 ### 11.3 单次投喂
 
@@ -477,6 +480,8 @@ send: sending = true，sentAt = Date.now()
 - i18n：新增可复用 messages 放 `src/i18n/locales/{zh-cn,en}.ts`，组件专有 messages 放 SFC 的 `script` 末尾（`AGENTS.md` 的 `i18nMessages` 风格）；至少完整覆盖 zh-cn 与 en，其它 locales 靠 fallback。
 - UI：按 `front_end/UI_REFACTOR_PLAN.md`，直角紧凑、原生 HTML + CSS/`BaseTable` 优先、Element Plus 只用于弹窗/表单/Tabs、深浅主题、`src/styles/text.css`、PrimeIcons、vue-tippy 保持不变。
 - 表格文本断言用 `cy.getTable` / `cy.extractTableData`；关闭通知用 `cy.closeElNotifications()`；渲染 `PlayerName` 的组件测试需注入 `$axios` 并用 `cy.mockPlayerNameFallback()`。
+- `UserMedia.banned` 只禁止投稿：`MediaListPanel.vue` 的 `feedDisabled` 只看 `/me` 是否成功（登录态），**不得**用 `me.banned` 禁用投喂；页面内登录 / 切账号由 `store.sessionRevision` 触发重新拉取 `/me`，并用独立 request id 防止旧会话响应覆盖新会话。
+- 后台审核页提供「待审核 / 已驳回 / 已通过」三个入口；硬删除接口只接受 `verified`，所以「已通过」列表复用 `GET /latest`；审核通过后自动切到「已通过」并保留选中项，站长可直接硬删除刚通过的作品。
 - 本页不涉及公共 VideoAnalyzer 或离线包，正常不触发 `front_end/local-analyzer/version.json` 递增；若实现时改动会实际影响它们的共享 CSS/i18n/工具/依赖，必须先按 `front_end/local-analyzer/VERSIONING.md` 处理。
 
 ## 12. 测试与检查
@@ -494,7 +499,10 @@ send: sending = true，sentAt = Date.now()
   - 驳回口径（Q12 / P1）：`pending → rejected` 不删 `Media` 行、逐条退还 `likes_sent`、同事务把 `likes` / `hot_value` 清零并删除 `MediaLikes`、`hot_value_updated_at` 不变；退还与清零必须同事务，失败一起回滚；`verified` 作品拒绝驳回；`rejected` 的同一外链再次投稿返回 409 且提示统一（P4）；无面向用户的 `POST /delete`。
   - 红宝石：`date_joined` 边界（0/23:59/24:00/48:01）、余额不足、给自己投喂、并发投喂不超支（`select_for_update`）；每日 10 次成功投喂上限（第 11 次 429）、UTC 跨日重置、失败请求不计数、退还不回退当日计数。
   - 站长硬删除（P2）：仅 `verified` 可删、`pending` / `rejected` 拒绝；逐条退还全部投喂者 `likes_sent`（含作者自投）；级联删除 `MediaLikes`；`media.log` 快照字段齐全；四个 zset 回退正确且幂等；删除后同一 `format+suffix` 可重新投稿（与被驳回不可重投形成对比）。
-  - 衰减：`decay` 单位测试（1 天 = 0.99、6 天幂次、逆向 > 1）、I1 不变量、投喂增量示例（第 5.7 节）、月度刷新幂等（同月重跑不再缩放）、跨月停机补跑、用户总热度与逐作品求和一致。
+  - 衰减：`decay` 单位测试（1 天 = 0.99、6 天幂次、逆向 > 1）、I1' 按行基准折算、投喂增量示例（第 5.7 节）、月度刷新幂等（同月重跑不再缩放）、跨月停机补跑、用户总热度与逐作品求和一致。
+  - 刷新并发（P1/P2）：`F()` SQL 端乘算不覆盖已提交的投喂、驳回清零的作品不被快照恢复；DB 换算提交后、anchor 发布前的投喂不丢热度且 DB 与 zset 仍可对齐；窗口内按旧 anchor 新建的作品由二次换算收敛；投喂 / 审核 / 硬删除与月度刷新统一 `WATCH anchor`，锁顺序统一为「先 `Media` 后 `UserMedia`」。
+  - URL 去重：数字 suffix 去前导零后 `cv01646742` 与 `cv1646742`、`/bbs/09786` 与 `/bbs/9786` 命中同一唯一约束，第二次投稿返回 409。
+  - 真实外站异常族：`curl_cffi` 的 `Timeout` / `ConnectTimeout` 归 504 `timeout`，`ConnectionError` / `RequestException` 归 502 `upstream_error`，四类都能经 `fetch_media_metadata_optional()` 降级为 `None`。
   - Redis 排行：投喂/审核通过后的四个 zset 数值与顺序、重建命令只取 `status='verified'` 且与 DB 一致；驳回无需 `ZREM`；站长硬删除必须 `ZREM` 两个作品榜并等值扣减作者两个 user zset，结果 <= 0 改 `ZREM`，重复执行幂等。
   - 排行榜《作品》tab：`/user-ranking` 两个指标与 `media:rank:user:*` 一致、只统计已审核作品、分页边界、空榜。
   - 《最新》tab：`created_at` 倒序、`id` tie-breaker、`pending` / `rejected` 不入列、分页稳定、管理员改 `created_at` 后顺序更新；该接口不读 Redis。
@@ -504,7 +512,7 @@ send: sending = true，sentAt = Date.now()
   - API 层（阶段 3，`media/test_api.py`）：18 个接口路径可由 OpenAPI 生成；读接口的 `MediaOut` 派生字段、anchor、分页与 `rejected` 可见性；投稿的绑定校验、作者不匹配 403、重复 409、结构性错误 502 不落库、超时降级 `metadata_pending=true`；降级审核 `/admin/verify` 的 `external_author_id` 一次性 `AccountLinkQueue` 核验（缺绑定 / id 不符 / 缺 title / 缺 id 分别 403/400）且响应与 `Media` 都不含该值；`staff_required` 权限矩阵、`auth=django_auth_superuser` 仅站长；`Client(enforce_csrf_checks=True)` 覆盖缺 token / 错 token / 不可信 Origin / 合法 token，并把新管理写接口加入 `userprofile/test_admin_csrf.py` 的回归清单。
 - 测试统一 `@override_settings(RATELIMIT_ENABLE=False)`（需要验证限流的用例单独覆盖），Redis key 在 `setUp` 清理并 `addCleanup`。
 
-前端（`front_end/`）：`npm run lintfix`、`npm run typecheck`、`npm run vitest -- run`、`npm run build:openms`；组件测试用 `npx cypress run --component --browser chrome --headless --spec "src/components/media/*.cy.ts,src/views/RankingView/MediaRanking.cy.ts"`（CodeBuddy 环境可直接运行，阶段 4 共 4 个 spec / 9 个用例全部通过）；E2E 与预览/开发服务器由用户按需运行。
+前端（`front_end/`）：`npm run lintfix`、`npm run typecheck`、`npm run vitest -- run`、`npm run build:openms`；组件测试用 `npx cypress run --component --browser chrome --headless --spec "src/components/media/*.cy.ts,src/views/RankingView/MediaRanking.cy.ts,src/views/StaffView/StaffMediaReview.cy.ts"`（CodeBuddy 环境可直接运行）。新增回归：作者榜按 `anchor` 衰减显示实时热度、投稿封禁不禁用投喂、页面内登录后 `/me` 重新拉取、后台「已通过」入口与审核后保留选中项。E2E 与预览/开发服务器由用户按需运行。
 
 CI 参考：`.github/workflows/backend.yml` 会跑 `makemigrations` + `migrate` + `manage.py test`，因此迁移必须与模型同步提交；`.github/workflows/flake8.yml`、`BackendSafety.yml` 同样适用。
 
@@ -590,8 +598,9 @@ CI 参考：`.github/workflows/backend.yml` 会跑 `makemigrations` + `migrate` 
 | 15 | 不需要存外站作者ID；管理员填入该ID是用于在accountlink里验证该作品确实属于该user | 删除 `Media.external_author_id` 字段与迁移列；`clients.MediaMetadata.author_id` 与 `POST /admin/verify` 的 `external_author_id` 都只是请求内的一次性归属核验输入，API 层用 `AccountLinkQueue(platform=format_to_platform(format), identifier=..., userprofile=media.user, verified=True)` 核验；`create_media()` / `verify_media()` 不接收该参数，`Media`、`media.log` 与 `MediaOut` 都不含该值；平台无关流程不变（第 4.1、7.2、8、17 节） |
 | 16 | 不做灰度 | 阶段 5 完成生产迁移、重建 zset、超时链实测与 E2E 后**一次性全量开放投稿入口**，不设灰度名单、白名单或按比例放量；前端入口随代码上线，没有运行期开关；发布前用第 18 节的联调清单与 E2E 兜底，出问题按第 18 节回滚方案整体回退（第 13、15、18 节） |
 | 17 | 放弃「单次离线红宝石上限 15 + `likes_left` 代替 `likes_sent` + 登录时按上次登录时间发放」；改为限制每天投喂数量：去掉 `/like` 的 `count` 参数（每次只投 1 个）、每 UTC 自然日最多 10 次成功投喂，DB 计数按 UTC 重置 | 放弃原方案（需改登录链路、模型语义与迁移）；`UserMedia` 新增 `daily_likes` / `daily_date`，`services.like_media()` 在 `select_for_update()` 事务内做跨日重置、上限 429 与「成功才计数」，`select_for_update()` 保证并发不超额；`1/s` 请求级限流保留做瞬时防护，二者互补防爆发刷数据；不用 `django_ratelimit` 的 `10/d`（固定窗口 + crc32 偏移、只计请求不计成功）也不引新依赖；前端取消批量累计，改为单次点击单请求 + 冷却禁用；驳回 / 硬删除只退还 `likes_sent`，不回退当日计数（第 4.3、5.1、5.3、8、11.3、12 节） |
+| 18 | 代码审查 P1/P2 修复（不改产品口径） | 月度刷新改 SQL 端 `F()` 乘算且不覆盖已提交投喂；新 anchor 在 DB 换算提交后发布、随后幂等补齐窗口内新行；投喂按 DB 行自身基准折算、Redis 增量 `WATCH anchor` 换算；投喂与退款统一「先 `Media` 后 `UserMedia`」锁顺序；数字 suffix 去前导零；后台增加「已通过」入口并保留审核后选中项；`me.banned` 不禁用投喂、页面内登录刷新 `/me`；作者榜按 `anchor` 衰减展示实时热度；`curl_cffi` 原生超时/连接异常纳入降级分类（第 3.3、5.2、5.3、5.4、6、7.1、11、12、18.3 节） |
 
-当前无待定事项。P1-P5（第 8-12 条）、降级投稿、平台扩展、外站作者 id 不入库（第 13-15 条）、不做灰度（第 16 条）与每日投喂上限（第 17 条）均已落到第 4.1、4.3、5.1、5.3、7.1、7.2、8、9、11、12、13、14、15、17、18 节；后续产生新口径时另开条目记录。
+当前无待定事项。P1-P5（第 8-12 条）、降级投稿、平台扩展、外站作者 id 不入库（第 13-15 条）、不做灰度（第 16 条）、每日投喂上限（第 17 条）与审查修复（第 18 条）均已落到第 3.3、4.1、4.3、5.1、5.3、5.4、6、7.1、7.2、8、9、11、12、13、14、15、17、18 节；后续产生新口径时另开条目记录。
 
 
 ## 17. 平台扩展约定（接入 YouTube 时复用）
@@ -651,6 +660,7 @@ CI 参考：`.github/workflows/backend.yml` 会跑 `makemigrations` + `migrate` 
 - 状态机：驳回退还红宝石并清零、写 `logs/media.log`、被驳回外链重投返回 409；`POST /admin/reopen` 恢复 `pending`；站长 `POST /admin/delete` 硬删除后四个 zset 回退且外链可重投。
 - 降级审核：`POST /admin/verify` 必填 `title` 与一次性 `external_author_id`，后者经 `AccountLinkQueue` 核验后不落库；接入 YouTube 时复用（第 17 节）。
 - 性能：单次响应 < 300KB；《最新》不读 Redis、不新增 key。
+- 审查修复回归：真实 B 站超时 / 连接失败应降级为 `metadata_pending=true` 而不是 500；刷新窗口内投喂不丢热度、作者榜与 DB 热度一致；`cv01646742` 与 `cv1646742` 视为同一作品；「禁止投稿」用户仍能投喂、页面内登录后投喂按钮可用；后台「已通过」列表可选中作品硬删除；排行榜《作品》tab 的热度随时间按 `anchor` 衰减。
 
 ### 18.4 回滚方案
 

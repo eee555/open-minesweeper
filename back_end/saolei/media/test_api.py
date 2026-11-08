@@ -157,6 +157,16 @@ class MediaApiTests(TestCase):
             response = self._submit()
         self.assertEqual(response.status_code, 409, response.content)
 
+    def test_submit_normalizes_numeric_suffix(self):
+        self._bind('42')
+        with patch('media.clients.fetch_media_metadata_optional', return_value=self._metadata()):
+            first = self._submit('https://www.bilibili.com/read/cv01646742')
+            second = self._submit('https://www.bilibili.com/read/cv1646742')
+        self.assertEqual(first.status_code, 200, first.content)
+        self.assertEqual(second.status_code, 409, second.content)
+        self.assertEqual(Media.objects.filter(format=MediaFormat.B_A).count(), 1)
+        self.assertEqual(Media.objects.get(format=MediaFormat.B_A).suffix, '1646742')
+
     def test_like_endpoint(self):
         media = self._create_media()
         response = self.client.post('/api/media/like', {'media_id': media.pk}, content_type='application/json')

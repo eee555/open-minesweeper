@@ -28,7 +28,7 @@
 
 <script setup lang="ts">
 import { ElNotification, ElPagination } from 'element-plus';
-import { computed, onMounted, onScopeDispose, ref, watch } from 'vue';
+import { computed, onScopeDispose, ref, watch } from 'vue';
 import type { PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
@@ -40,6 +40,7 @@ import BaseButton from '@/components/common/BaseButton.vue';
 import { httpErrorNotification } from '@/components/Notifications';
 import type { MediaItem, MediaLikeResult, MediaMe, MediaPage, MediaRankSort } from '@/services/mediaService';
 import { fetchLatestMedia, fetchMediaMe, fetchMediaRanking, fetchPendingMedia, fetchRejectedMedia } from '@/services/mediaService';
+import { store } from '@/store';
 
 import '@/components/media/media.css';
 
@@ -61,8 +62,22 @@ const loading = ref(false);
 const me = ref<MediaMe | null>(null);
 const dialogOpen = ref(false);
 let requestId = 0;
+let meRequestId = 0;
 
-const feedDisabled = computed(() => me.value === null || me.value.banned);
+// /me 成功表示当前是登录态；UserMedia.banned 只禁止投稿，不应禁用投喂。
+const feedDisabled = computed(() => me.value === null);
+
+async function loadMe(): Promise<void> {
+    const request = ++meRequestId;
+    try {
+        const value = await fetchMediaMe();
+        if (request !== meRequestId) return;
+        me.value = value;
+    } catch {
+        if (request !== meRequestId) return;
+        me.value = null;
+    }
+}
 
 async function load(): Promise<void> {
     const request = ++requestId;
@@ -102,18 +117,16 @@ function onSubmitted(media: MediaItem): void {
     void load();
 }
 
-onMounted(() => {
-    void fetchMediaMe().then((value) => {
-        me.value = value;
-    }).catch(() => {
-        me.value = null;
-    });
-});
+// 页面内登录 / 切账号会改变 sessionRevision，重新拉取 /me；meRequestId 防止旧会话响应覆盖。
+watch(() => store.sessionRevision, () => {
+    void loadMe();
+}, { immediate: true });
 watch([page, pageSize], () => {
     void load();
 }, { immediate: true });
 onScopeDispose(() => {
     requestId++;
+    meRequestId++;
 });
 
 defineExpose({ refresh: load });

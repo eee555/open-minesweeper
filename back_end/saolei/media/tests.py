@@ -68,6 +68,19 @@ class MediaUtilsTests(SimpleTestCase):
         with self.assertRaises(ValueError):
             parse_media_url('9786', 'B_o')
 
+    def test_numeric_suffix_is_normalized(self):
+        cases = [
+            ('https://www.bilibili.com/read/cv01646742/?from=search', None, MediaFormat.B_A, '1646742'),
+            ('https://saolei.wang/bbs/09786', None, MediaFormat.C_P, '9786'),
+            ('01646742', MediaFormat.B_A, MediaFormat.B_A, '1646742'),
+            ('0009786', MediaFormat.C_P, MediaFormat.C_P, '9786'),
+            ('000', MediaFormat.C_P, MediaFormat.C_P, '0'),
+        ]
+        for url, media_format, expected_format, expected_suffix in cases:
+            with self.subTest(url=url):
+                self.assertEqual(parse_media_url(url, media_format), (expected_format, expected_suffix))
+        self.assertEqual(build_external_url(MediaFormat.C_P, '9786'), 'https://saolei.wang/bbs/9786')
+
     def test_build_urls(self):
         self.assertEqual(build_external_url(MediaFormat.B_V, 'BV1xx411c7mD'), 'https://www.bilibili.com/video/BV1xx411c7mD/')
         self.assertEqual(build_external_url(MediaFormat.B_A, '1646742'), 'https://www.bilibili.com/read/cv1646742')

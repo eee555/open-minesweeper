@@ -1,6 +1,7 @@
 """作品服务层单测：投稿、投喂、审核、驳回清零、恢复、硬删除与刷新；见 MEDIA_PLAN.md 第 12 节。"""
 
 from datetime import datetime, timedelta, timezone as datetime_timezone
+from unittest.mock import patch
 
 from django.test import TestCase
 from django.utils import timezone
@@ -12,7 +13,7 @@ from .services import (
     create_media, get_balance, hard_delete_media, like_media, MediaServiceError,
     refresh_hot_reference, reject_media, reopen_media, set_media_banned, verify_media,
 )
-from .utils import MediaFormat, MediaStatus
+from .utils import decay, MediaFormat, MediaStatus
 
 REFERENCE = datetime(2026, 1, 1, tzinfo=datetime_timezone.utc)
 NEXT_REFERENCE = datetime(2026, 2, 1, tzinfo=datetime_timezone.utc)
@@ -134,6 +135,57 @@ class MediaServiceTests(TestCase):
         self.assertLess(media.hot_value, old_hot)
         self.assertEqual(cache.get_hot_reference(), NEXT_REFERENCE)
 
+    def test_like_between_db_fold_and_anchor_publish_is_consistent(self):
+        """刷新窗口内投喂不丢热度，DB 与四个 zset 仍使用可对齐的时间基准。"""
+        media = self._create_media()
+        with self.captureOnCommitCallbacks(execute=True):
+            verify_media(media.pk, self.actor.pk)
+            self._like(media, 2)
+        media.refresh_from_db()
+        old_hot = media.hot_value
+        factor = decay(REFERENCE, NEXT_REFERENCE)
+        original_refresh = cache.refresh_hot_reference
+
+        def refresh_after_like(at_time=None):
+            like_media(self.user, media.pk)  # DB 换算已提交、anchor 尚未发布
+            return original_refresh(at_time)
+
+        with patch.object(cache, 'refresh_hot_reference', side_effect=refresh_after_like):
+            with self.captureOnCommitCallbacks(execute=True):
+                refresh_hot_reference(NEXT_REFERENCE)
+        media.refresh_from_db()
+        self.assertEqual(media.hot_value_updated_at, NEXT_REFERENCE)
+        self.assertGreater(media.hot_value, old_hot * factor)
+        self.assertEqual(cache.get_hot_reference(), NEXT_REFERENCE)
+        self.assertAlmostEqual(cache.cache.zscore(cache.MEDIA_RANK_HOT, media.pk), media.hot_value)
+        self.assertAlmostEqual(cache.cache.zscore(cache.MEDIA_RANK_USER_HOT, self.user.pk), media.hot_value)
+        self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_LIKES, media.pk), 3)
+
+    def test_media_created_during_refresh_converges_to_new_reference(self):
+        """窗口内按旧 anchor 新建的作品由二次换算收敛，避免 DB 排序混用基准。"""
+        created_ids = []
+        original_refresh = cache.refresh_hot_reference
+
+        def create_then_refresh(at_time=None):
+            created_ids.append(self._create_media('BV1window00001').pk)
+            return original_refresh(at_time)
+
+        with patch.object(cache, 'refresh_hot_reference', side_effect=create_then_refresh):
+            refresh_hot_reference(NEXT_REFERENCE)
+        created = Media.objects.get(pk=created_ids[0])
+        self.assertEqual(created.hot_value_updated_at, NEXT_REFERENCE)
+        self.assertEqual(cache.get_hot_reference(), NEXT_REFERENCE)
+
+    def test_rejected_media_stays_cleared_after_refresh(self):
+        media = self._create_media()
+        self._like(media, 2)
+        reject_media(media.pk, self.actor.pk, 'wrong')
+        refresh_hot_reference(NEXT_REFERENCE)
+        media.refresh_from_db()
+        self.assertEqual(media.likes, 0)
+        self.assertEqual(media.hot_value, 0)
+        self.assertFalse(MediaLikes.objects.filter(media=media).exists())
+
     def test_rebuild_rankings_only_verified(self):
         verified = self._create_media('BV1verified0001')
         self._like(verified, 3)
@@ -148,6 +200,20 @@ class MediaServiceTests(TestCase):
         self.assertEqual(cache.cache.zcard(cache.MEDIA_RANK_LIKES), 1)
         self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_LIKES, verified.pk), 3)
         self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_USER_LIKES, self.user.pk), 3)
+
+    def test_rebuild_rankings_normalizes_mixed_row_bases(self):
+        first = self._create_media('BV1mixed000001')
+        second = self._create_media('BV1mixed000002')
+        older = REFERENCE - timedelta(days=10)
+        Media.objects.filter(pk=first.pk).update(hot_value=2.0, status=MediaStatus.VERIFIED)
+        Media.objects.filter(pk=second.pk).update(
+            hot_value=3.0, status=MediaStatus.VERIFIED, hot_value_updated_at=older,
+        )
+        cache.clear_rankings()
+        self.assertEqual(cache.rebuild_rankings(), 2)
+        self.assertEqual(cache.get_hot_reference(), older)
+        self.assertAlmostEqual(cache.cache.zscore(cache.MEDIA_RANK_HOT, first.pk), 2.0 * decay(REFERENCE, older))
+        self.assertAlmostEqual(cache.cache.zscore(cache.MEDIA_RANK_HOT, second.pk), 3.0)
 
     def test_degraded_submission_requires_title_on_verify(self):
         media = create_media(self.user, media_format=MediaFormat.B_V, suffix='BV1degraded001',

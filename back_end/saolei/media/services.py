@@ -43,39 +43,42 @@ def create_media(user, *, media_format, suffix, language, title='', created_at=N
     外站作者 id 只用于 API 层一次性归属核验，不传给 service、不入库。
     """
     try:
-        return Media.objects.create(
-            user=user, title=title, language=language, created_at=created_at or timezone.now(),
-            format=media_format, suffix=suffix, metadata_pending=metadata_pending,
-            status=MediaStatus.PENDING, likes=0, hot_value=0,
-            hot_value_updated_at=cache.get_hot_reference(),
-        )
+        with transaction.atomic():
+            return Media.objects.create(
+                user=user, title=title, language=language, created_at=created_at or timezone.now(),
+                format=media_format, suffix=suffix, metadata_pending=metadata_pending,
+                status=MediaStatus.PENDING, likes=0, hot_value=0,
+                hot_value_updated_at=cache.get_hot_reference(),
+            )
     except IntegrityError:
         raise MediaServiceError('该作品已投稿过，不可重复投稿', 409) from None
 
 
 def like_media(user, media_id):
-    """投喂 1 个红宝石：锁用户与作品行，按 UTC 自然日限 10 次成功投喂，按 anchor 折算热度。
+    """投喂 1 个红宝石：先锁作品再锁用户（与驳回/硬删除一致），按 UTC 自然日限 10 次成功投喂。
 
+    热度增量按作品行自己的 hot_value_updated_at 折算，不依赖 Redis anchor，因此月度刷新
+    换算 DB 与发布新 anchor 的先后顺序都不会让增量混用基准。
     daily_date / daily_likes 与 likes_sent 在同一事务内更新，事务回滚即不计数。
     驳回与硬删除只退还 likes_sent，不回退当日已用次数（16.1 第 17 条）。
     """
     with transaction.atomic():
         now = timezone.now()
         today = now.date()  # timezone.now() 返回 UTC aware datetime，date() 即 UTC 自然日
-        profile, _ = UserMedia.objects.select_for_update().get_or_create(user=user)
         media = Media.objects.select_for_update().filter(pk=media_id).first()
         if media is None:
             raise MediaServiceError('Media not found', 404)
         if media.status == MediaStatus.REJECTED:
             raise MediaServiceError('Rejected media cannot be liked', 409)
+        profile, _ = UserMedia.objects.select_for_update().get_or_create(user=user)
         daily_likes = 0 if profile.daily_date != today else profile.daily_likes
         if daily_likes >= MEDIA_DAILY_LIKE_LIMIT:
             raise MediaServiceError('Daily like limit reached', 429)
         balance = _balance(profile, user)
         if balance < 1:
             raise MediaServiceError('Insufficient rubies', 400)
-        reference = cache.get_hot_reference()
-        factor = decay(reference, now)
+        base = media.hot_value_updated_at
+        factor = decay(base, now)
         delta_hot = 1 / factor
         media.hot_value += delta_hot
         media.likes += 1
@@ -87,7 +90,7 @@ def like_media(user, media_id):
         )
         if media.status == MediaStatus.VERIFIED:
             author_id = media.user_id
-            transaction.on_commit(lambda: cache.add_media_scores(media_id, author_id, delta_hot, 1))
+            transaction.on_commit(lambda: cache.add_media_scores(media_id, author_id, delta_hot, 1, base))
         hot_now = media.hot_value * factor
         result = {'likes': media.likes, 'hot_now': hot_now, 'balance': balance - 1, 'status': media.status}
     return result
@@ -119,7 +122,8 @@ def verify_media(media_id, actor_id, *, title=None, created_at=None):
                 fields.append('created_at')
         media.save(update_fields=fields)
         hot, likes, author_id = media.hot_value, media.likes, media.user_id
-        transaction.on_commit(lambda: cache.add_media_scores(media_id, author_id, hot, likes))
+        base = media.hot_value_updated_at
+        transaction.on_commit(lambda: cache.add_media_scores(media_id, author_id, hot, likes, base))
     logger.info('Staff #%s verified media #%s: likes=%s hot_value=%s', actor_id, media_id, likes, hot)
     return media
 
@@ -185,13 +189,14 @@ def hard_delete_media(media_id, actor_id):
             raise MediaServiceError('Only verified media can be hard-deleted', 409)
         refunded = _refund_like_records(media)
         hot, likes, author_id = media.hot_value, media.likes, media.user_id
+        base = media.hot_value_updated_at
         logger.info(
             'Superuser #%s hard-deleted media #%s: format=%s suffix=%s title=%s user_id=%s '
             'likes=%s hot_value=%s refunded_likes=%s',
             actor_id, media_id, media.format, media.suffix, media.title, author_id, likes, hot, refunded,
         )
         media.delete()
-        transaction.on_commit(lambda: cache.remove_media_scores(media_id, author_id, hot, likes))
+        transaction.on_commit(lambda: cache.remove_media_scores(media_id, author_id, hot, likes, base))
     return True
 
 
@@ -202,20 +207,29 @@ def set_media_banned(user_id, banned):
     return profile
 
 
-def refresh_hot_reference(at_time=None, batch_size=1000):
-    """月度刷新：Redis 整体缩放 + DB 分批折算；每行按自己的基准折算，可中断续跑且幂等。"""
+def _fold_db_hot_reference(target):
+    """按不同行基准分组，用 SQL 端乘算换算 DB 热度；F() 避免 Python 快照覆盖已提交的增量。"""
+    with transaction.atomic():
+        references = list(
+            Media.objects.filter(hot_value_updated_at__lt=target)
+            .values_list('hot_value_updated_at', flat=True).distinct(),
+        )
+        for reference in references:
+            Media.objects.filter(hot_value_updated_at=reference).update(
+                hot_value=F('hot_value') * decay(reference, target), hot_value_updated_at=target,
+            )
+
+
+def refresh_hot_reference(at_time=None):
+    """月度刷新：DB 先按行基准换算并提交，再发布 Redis anchor，最后补齐窗口内新建的行。
+
+    投喂按作品行自己的基准折算，Redis 增量在执行时 WATCH anchor 换算，因此 DB 换算与
+    anchor 发布的先后顺序都不会让增量混用基准；二次换算幂等，用于收敛刷新窗口内以旧
+    anchor 为基准新建的作品，避免用户主页按 hot_value 排序时混用基准。
+    """
     target = cache.media_hot_reference_time(at_time)
+    _fold_db_hot_reference(target)
     changed = cache.refresh_hot_reference(target)
-    batch = []
-    queryset = Media.objects.filter(hot_value_updated_at__lt=target).only('id', 'hot_value', 'hot_value_updated_at')
-    for media in queryset.iterator(chunk_size=batch_size):
-        media.hot_value *= decay(media.hot_value_updated_at, target)
-        media.hot_value_updated_at = target
-        batch.append(media)
-        if len(batch) >= batch_size:
-            Media.objects.bulk_update(batch, ['hot_value', 'hot_value_updated_at'])
-            batch = []
-    if batch:
-        Media.objects.bulk_update(batch, ['hot_value', 'hot_value_updated_at'])
+    _fold_db_hot_reference(target)
     logger.info('Media hot reference refreshed: redis_changed=%s target=%s', changed, target.isoformat())
     return changed

@@ -44,22 +44,60 @@ def set_hot_reference(reference):
     cache.set(MEDIA_HOT_ANCHOR, reference.isoformat())
 
 
-def add_media_scores(media_id, author_id, delta_hot, delta_likes):
-    """审核通过补齐或投喂增量：四个 zset 用 ZINCRBY 原子累加，避免读-改-写丢更新。"""
-    with cache.pipeline() as pipe:
-        pipe.zincrby(MEDIA_RANK_HOT, delta_hot, media_id)
+def _read_hot_reference(pipe):
+    """在 WATCH 事务内读取 anchor，保证换算与发布 anchor 的月度刷新串行。"""
+    raw = pipe.get(MEDIA_HOT_ANCHOR)
+    if raw is None:
+        return media_hot_reference_time()
+    return datetime.fromisoformat(maybe_bytes_to_str(raw))
+
+
+def _to_anchor_score(amount, base, anchor):
+    """把以 base 为基准的 DB 热度换算成以 anchor 为基准的 zset 分数。"""
+    return amount if base is None else amount * decay(base, anchor)
+
+
+def add_media_scores(media_id, author_id, delta_hot, delta_likes, base=None):
+    """审核补齐或投喂增量：WATCH anchor，把行基准增量折算到当前 anchor 后原子累加四个 zset。
+
+    base=None 表示增量已经是 anchor 基准（缓存层直接调用）。月度刷新 WATCH 同一 anchor，
+    因此刷新期间提交的投喂要么按旧 anchor 写入后被整体缩放，要么重试后按新 anchor 写入。
+    """
+    get_hot_reference()
+
+    def add(pipe):
+        hot = _to_anchor_score(delta_hot, base, _read_hot_reference(pipe))
+        pipe.multi()
+        pipe.zincrby(MEDIA_RANK_HOT, hot, media_id)
         pipe.zincrby(MEDIA_RANK_LIKES, delta_likes, media_id)
-        pipe.zincrby(MEDIA_RANK_USER_HOT, delta_hot, author_id)
+        pipe.zincrby(MEDIA_RANK_USER_HOT, hot, author_id)
         pipe.zincrby(MEDIA_RANK_USER_LIKES, delta_likes, author_id)
-        pipe.execute()
+
+    cache.transaction(add, MEDIA_HOT_ANCHOR)
 
 
-def remove_media_scores(media_id, author_id, hot_value, likes):
-    """站长硬删除回退：移除作品榜并按等值扣减作者榜，结果 <= 0 时改为 ZREM。"""
-    cache.zrem(MEDIA_RANK_HOT, media_id)
-    cache.zrem(MEDIA_RANK_LIKES, media_id)
-    for key, delta in ((MEDIA_RANK_USER_HOT, hot_value), (MEDIA_RANK_USER_LIKES, likes)):
-        score = cache.zincrby(key, -delta, author_id)
+def remove_media_scores(media_id, author_id, hot_value, likes, base=None):
+    """站长硬删除回退：WATCH anchor 下按 zset 实际分数扣减作者榜，结果 <= 0 时删除成员。
+
+    以作品榜的实际分数为准，避免刷新缩放后仍按未缩放的 DB 值扣减而留下漂移；
+    zset 缺失时才用 DB 值按 anchor 折算兜底。
+    """
+    get_hot_reference()
+
+    def remove(pipe):
+        anchor = _read_hot_reference(pipe)
+        raw_hot = pipe.zscore(MEDIA_RANK_HOT, media_id)
+        raw_likes = pipe.zscore(MEDIA_RANK_LIKES, media_id)
+        hot = float(raw_hot) if raw_hot is not None else _to_anchor_score(hot_value, base, anchor)
+        likes_score = float(raw_likes) if raw_likes is not None else likes
+        pipe.multi()
+        pipe.zrem(MEDIA_RANK_HOT, media_id)
+        pipe.zrem(MEDIA_RANK_LIKES, media_id)
+        pipe.zincrby(MEDIA_RANK_USER_HOT, -hot, author_id)
+        pipe.zincrby(MEDIA_RANK_USER_LIKES, -likes_score, author_id)
+
+    results = cache.transaction(remove, MEDIA_HOT_ANCHOR)
+    for key, score in ((MEDIA_RANK_USER_HOT, results[2]), (MEDIA_RANK_USER_LIKES, results[3])):
         if score is not None and score <= 0:
             cache.zrem(key, author_id)
 
@@ -114,22 +152,25 @@ def rebuild_rankings(batch_size=1000):
         raise ValueError('batch_size must be positive')
     prefix = MEDIA_REBUILD_PREFIX + uuid4().hex
     temporary = {key: f'{prefix}:{key}' for key in MEDIA_RANK_KEYS}
+    earliest = Media.objects.order_by('hot_value_updated_at').values_list('hot_value_updated_at', flat=True).first()
+    reference = earliest or media_hot_reference_time()
     try:
         count = 0
         with cache.pipeline() as pipe:
-            queryset = Media.objects.filter(status=MediaStatus.VERIFIED).only('id', 'user_id', 'likes', 'hot_value')
+            queryset = Media.objects.filter(status=MediaStatus.VERIFIED).only(
+                'id', 'user_id', 'likes', 'hot_value', 'hot_value_updated_at',
+            )
             for media in queryset.iterator(chunk_size=batch_size):
-                pipe.zadd(temporary[MEDIA_RANK_HOT], {media.pk: media.hot_value})
+                hot = media.hot_value * decay(media.hot_value_updated_at, reference)
+                pipe.zadd(temporary[MEDIA_RANK_HOT], {media.pk: hot})
                 pipe.zadd(temporary[MEDIA_RANK_LIKES], {media.pk: media.likes})
-                pipe.zincrby(temporary[MEDIA_RANK_USER_HOT], media.hot_value, media.user_id)
+                pipe.zincrby(temporary[MEDIA_RANK_USER_HOT], hot, media.user_id)
                 pipe.zincrby(temporary[MEDIA_RANK_USER_LIKES], media.likes, media.user_id)
                 count += 1
                 if count % batch_size == 0:
                     pipe.execute()
             if count % batch_size:
                 pipe.execute()
-        earliest = Media.objects.order_by('hot_value_updated_at').values_list('hot_value_updated_at', flat=True).first()
-        reference = earliest or media_hot_reference_time()
         with cache.pipeline() as pipe:
             for key, temp_key in temporary.items():
                 if cache.exists(temp_key):

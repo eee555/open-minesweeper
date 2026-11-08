@@ -14,7 +14,7 @@ describe('<MediaRanking />', () => {
                 items: [{ user_id: 42, hot: 9.87, likes: 12 }],
                 total: 1,
                 start: 0,
-                anchor: '2026-01-01T00:00:00Z',
+                anchor: new Date().toISOString(),
             },
         }).as('ranking');
         const router = hashRouter({ initialPath: '/ranking/media' });
@@ -35,6 +35,28 @@ describe('<MediaRanking />', () => {
         cy.get('table a[href="#/player/42"]').should('exist');
         cy.contains('button', 'Total likes').click();
         cy.wait('@ranking').its('request.query').should('include', { sort: 'likes' });
+    });
+
+    it('decays the anchor-based score to the current heat', () => {
+        cy.mockPlayerNameFallback();
+        cy.intercept({ method: 'GET', pathname: '/api/media/user-ranking' }, {
+            body: {
+                items: [{ user_id: 42, hot: 10, likes: 3 }],
+                total: 1,
+                start: 0,
+                anchor: new Date(Date.now() - 10 * 86400000).toISOString(),
+            },
+        }).as('ranking');
+        const router = hashRouter({ initialPath: '/ranking/media' });
+        cy.wrap(router.isReady()).then(() => {
+            cy.mount(MediaRanking, {
+                global: { plugins: [i18n, router], config: { globalProperties: { $axios } } },
+            });
+        });
+        cy.wait('@ranking');
+        cy.get('table tbody').extractTableData().should((data) => {
+            expect(data[0]?.[2]).to.equal((10 * 0.99 ** 10).toFixed(2));
+        });
     });
 
     it('renders the empty state', () => {
