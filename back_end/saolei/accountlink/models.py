@@ -17,6 +17,7 @@ class Platform(models.TextChoices):
     SAOLEI = 'c', ('扫雷网')
     WOM = 'w', ('Minesweeper.Online')
     CLASSIC = 'x', ('95经典扫雷')
+    GITHUB = 'g', ('GitHub')
 
 
 MINERACER_USERID_MAX_LENGTH = 64
@@ -247,12 +248,21 @@ class ClassicBindRequest(models.Model):
 
 
 # 使用QQ互联提供的登录接口需要开发者注册，步骤繁琐，不利于去中心化
+class AccountGitHub(models.Model):
+    id = models.PositiveBigIntegerField(primary_key=True)
+    parent = models.OneToOneField(UserProfile, on_delete=models.CASCADE, related_name='account_github')
+
+
 class AccountQQ(models.Model):
     id = models.PositiveBigIntegerField(primary_key=True)
     parent = models.OneToOneField(UserProfile, on_delete=models.CASCADE, related_name='account_qq')
 
 
 PLATFORM_CONFIG = {
+    Platform.GITHUB: {
+        'model': AccountGitHub,
+        'related_name': 'account_github',
+    },
     Platform.DISCORD: {
         'model': AccountDiscord,
         'related_name': 'account_discord',

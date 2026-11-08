@@ -83,6 +83,7 @@ export default {
     new: '新',
     old: '旧',
     platform: {
+        g: 'GitHub',
         a: '@:website.msgames',
         B: '@:website.bilibili',
         c: '@:website.saolei',

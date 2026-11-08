@@ -84,6 +84,7 @@ export default {
     new: 'New',
     old: 'Old',
     platform: {
+        g: 'GitHub',
         a: '@:website.msgames',
         B: '@:website.bilibili',
         c: '@:website.saolei',
