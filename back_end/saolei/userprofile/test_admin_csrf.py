@@ -60,6 +60,9 @@ class AdminCsrfTests(TestCase):
             ('post', '/api/tournament/gsc/history/participants/1/videos'), ('post', '/api/tournament/gsc/history/scores/users'),
             ('post', '/api/tournament/gsc/history/scores/anonymous'),
             ('post', '/video/set/'), ('post', '/video/update/'), ('post', '/video/update/batch/'),
+            ('post', '/api/media/admin/verify'), ('post', '/api/media/admin/reject'), ('post', '/api/media/admin/reopen'),
+            ('post', '/api/media/admin/ban'), ('post', '/api/media/admin/unban'), ('post', '/api/media/admin/edit'),
+            ('post', '/api/media/admin/delete'),
         ]
         for method, path in paths:
             with self.subTest(method=method, path=path):

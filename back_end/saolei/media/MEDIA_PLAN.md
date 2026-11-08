@@ -1,6 +1,6 @@
 # 作品页（media）开发计划
 
-状态：**第 2 阶段（服务与缓存）已完成，并按「外站超时降级投稿」与「外站作者 id 不入库」口径修订**。阶段 0 的 app 外壳、阶段 1 的三张表与 `0001_initial` 迁移、阶段 2 的 `clients.py` / `services.py` / `cache.py` / 月度任务 / 重建命令 / LOGGING / nginx 与 uWSGI 超时链均已落地并通过局部检查（47 个 `media` 单测 + 调度作业断言）；API、前端页面与前端投稿 25s 超时尚未实现，按第 13 节分阶段落地。删除路径改为 `status` 状态机（第 16 节），降级投稿与平台扩展约定见第 7.2、17 节；外站作者 id 的一次性核验口径见第 16.1 节第 15 条。
+状态：**第 3 阶段（API 层）已完成，并按「外站超时降级投稿」与「外站作者 id 不入库」口径修订**。阶段 0 的 app 外壳、阶段 1 的三张表与 `0001_initial` 迁移、阶段 2 的 `clients.py` / `services.py` / `cache.py` / 月度任务 / 重建命令 / LOGGING / nginx 与 uWSGI 超时链均已落地并通过局部检查（`media` 单测、调度作业断言与既有 CSRF 回归）；阶段 3 的 `schema.py` / `api.py` / `decorators.py` 与 18 个 `/api/media/` 接口同样已完成并通过局部检查；前端页面与前端投稿 25s 超时仍待阶段 4。删除路径改为 `status` 状态机（第 16 节），降级投稿与平台扩展约定见第 7.2、17 节；外站作者 id 的一次性核验口径见第 16.1 节第 15 条。
 
 本文档是实现的唯一设计基线；实现时若改变第 5 节的衰减不变量或第 9 节的权限口径，应先更新本文档。
 
@@ -334,7 +334,7 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 | --- | --- | --- |
 | 应用客户端 | 依赖默认 timeout 30s（扫雷网） | 总预算 ≤ 15s：B 站 connect 3s / read 8s，扫雷网 `timeout=8` + 2.1s 节流排队 ≤6s（见上） |
 | uWSGI | `uwsgi.ini:29` 普通请求 `harakiri:10`，全局 `harakiri=90`（`:22`） | 在 `:29` 白名单正则末尾追加一个匹配 `/api/media/submit$` 的分支（`route` 按 `PATH_INFO` 匹配），使其保留 90s；否则 10s 即被杀 |
-| nginx | `default.conf:152` `^~ /api/` 的 `uwsgi_read_timeout 2` | 新增更精确的 `location = /api/media/submit`：`uwsgi_read_timeout 25s`、`uwsgi_connect_timeout 5s`；location 路径的尾斜杠必须与 Ninja 实际路由一致（本设计为无尾斜杠），否则配置不生效 |
+| nginx | `default.conf:152` `^~ /api/` 的 `uwsgi_read_timeout 2` | 新增更精确的 `location = /api/media/submit`：`uwsgi_read_timeout 25s`、`uwsgi_connect_timeout 5s`；location 路径的尾斜杠必须与 Ninja 实际路由一致（**阶段 3 已确认实际为 `/api/media/submit` 无尾斜杠并据此修正**），否则配置不生效 |
 | 前端 | `src/http.ts:7` `$axios` 全局 `timeout: 20000` | 仅投稿请求单独传 `timeout: 25000`，其它请求不变 |
 | 生效 | `start.sh:31-33` 每次启动复制 `default.conf` | 改仓库内配置；`nginx -s reload`，`uwsgi.ini` 改动必须重启 uWSGI |
 
@@ -359,7 +359,7 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 
 ## 8. API 清单
 
-路径前缀 `/api/media/`。所有接口都要限流（`AGENTS.md`），管理员专用接口例外；所有装饰器用 `decorate_view` 包装并在 docstring 开头注明；权限只在 API 层。
+路径前缀 `/api/media/`，Ninja 实际路由**无尾斜杠**（如 `/api/media/submit`），nginx 精确 location 与 uWSGI harakiri 白名单按此对齐（第 7.1 节）。所有接口都要限流（`AGENTS.md`），管理员专用接口例外；所有装饰器用 `decorate_view` 包装并在 docstring 开头注明；权限只在 API 层。
 
 | 方法 / 路径 | 用途 | 权限与限流 | 备注 |
 | --- | --- | --- | --- |
@@ -368,7 +368,7 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 | `GET /latest?start&count` | 作品页《最新》tab | `ratelimit(key='ip', rate='5/s', group='media-latest')` | **不走 Redis**，直接查库 `status='verified' ORDER BY -created_at, -id`（走 `media_latest_idx`）；`count<=50`；复用 `RankingPageOut`；评估见第 6.1 节 |
 | `GET /pending?start&count` | 审核中 tab | `ratelimit(key='ip', rate='5/s', group='media-pending')` | 直接查库 `status='pending'`，按 `submitted_at` 倒序 |
 | `GET /detailbatch?ids=1,2,3` | 批量详情（卡片、嵌入） | `ratelimit(key='ip', rate='5/s', group='media-detail')` | 返回 `url` / `embed_url` / `hot_now`；`ids` 上限 50 |
-| `GET /query/{mode}?value=&limit=` | 数据库页作品匹配查找 | `ratelimit(key='ip', rate='6/m', group='media-query', block=False)` + 视图内检查 `request.limited` 抛 429 | `mode` 参照 `identifier/api.py:21`；`title`/`suffix` 字段；最多 1000 条，超出 400 `too_many_matches`；regex 用 MySQL ICU，捕获 `DatabaseError` 3684-3700 转 400；`rejected` 作品也可见（16.1 第 5 条） |
+| `GET /query/{mode}?value=&limit=` | 数据库页作品匹配查找 | `ratelimit(key='ip', rate='6/m', group='media-query', block=False)` + 视图内检查 `request.limited` 抛 429 | `mode` 参照 `identifier/api.py:21`，`field=title|suffix`、`limit<=1000`；最多 1000 条，超出 400 `too_many_matches`；regex 用 MySQL ICU，捕获 `DatabaseError` 3684-3700 转 400；`rejected` 作品也可见（16.1 第 5 条） |
 | `GET /user/{user_id}?sort=hot\|likes\|created_at&order=&page=&pageSize` | 个人主页作品 tab | `ratelimit(key='ip', rate='30/m', group='media-user')` | **不走 Redis**，直接查库并用第 4.1 节索引排序；`pageSize<=50`；**展示所有状态且对所有人可见**（16.1 第 5 条） |
 | `GET /me` | 本人红宝石余额、`likes_sent`、`banned` | `login_required_error` + `ratelimit(key='user', rate='30/m')` | 未创建 `UserMedia` 行时返回零值，不写库 |
 | `POST /submit` | 投稿 | `login_required_error` + `banned_blocked` + `media_banned_blocked` + `ratelimit(key='user', rate='10/h', group='media-submit', block=True)` | 表单只有 `url` / `language`；自动拉取 `title`/`created_at`/外站作者 id 并核对归属（外站作者 id 不入库）；**超时/上游不可用降级为待补全投稿**（第 7.2 节），结构性错误仍拒绝且不落库；409 重复外链（含已被驳回的外链）统一提示「该作品已投稿过，不可重复投稿」，不明说曾被驳回（P4）；403 归属不符 |
@@ -387,8 +387,8 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 - 普通用户 API 不新增 CSRF，不启用全局中间件，不修改 `login_required_error` / `banned_blocked`（`ADMIN_API_CSRF.md`）。
 - 错误统一用 `ninja.errors.HttpError`（400/403/404/409/429）或项目 `ExceptionToResponse`；不返回外站原始错误。Q5 的拉取失败按第 7.1 节映射为 504（超时）/ 502（上游、解析、元数据非法）/ 403（作者不匹配）；其中超时与上游错误按第 7.2 节**降级为待补全投稿**，不再返回错误，响应改为 `MediaOut(metadata_pending=true)`；结构性错误仍不落库、不写 Redis。
 - `POST /submit` 的响应包含后端拉取到的 `title` / `created_at`，前端只读展示；正常投稿已在投稿链路自动核对作者归属，管理员只判断「是否与扫雷相关」；**降级投稿**因上游不可用，须由管理员按第 7.2 节凭一次性输入的外站作者 id 补做归属核验。所有响应都不含外站作者 id。
-- `MediaOut` 的 `hot_now` 由后端按 `real_hot()` 计算并返回，避免前端重复实现衰减公式；同时返回 `anchor` 便于展示与调试。
-- 输出 Schema 涉及模型时优先 `create_schema`（`AGENTS.md`），例如 `create_schema(Media, exclude=['suffix'])` + `custom_fields` 提供 `url`、`embed_url`、`hot_now`。`MediaOut` 需输出 `reject_reason` 与 `rejected_by`（P3 已确认对普通访客可见），后者按用户 id 交给前端 `PlayerName` 展示；还需输出 `metadata_pending`，供审核队列标记待补全作品；**不输出外站作者 id**（16.1 第 15 条）；`rejected` 作品也要能返回，不能只在管理接口里可见。
+- `MediaOut` 的 `hot_now` 由后端按 `real_hot()` 计算并返回，避免前端重复实现衰减公式；`anchor` 在 `MediaPageOut` / `UserRankingPageOut` 分页响应中返回一次，便于展示与调试，不在每条作品里重复。
+- 输出 Schema 涉及模型时优先 `create_schema`（`AGENTS.md`），实际实现为 `create_schema(Media, fields=MEDIA_OUT_FIELDS, custom_fields=..., base_class=MediaResolvers)`（不含 `suffix`），用 resolver 提供 `url`、`embed_url`、`hot_now`、`user_id`、`rejected_by`。`MediaOut` 需输出 `reject_reason` 与 `rejected_by`（P3 已确认对普通访客可见），后者按用户 id 交给前端 `PlayerName` 展示；还需输出 `metadata_pending`，供审核队列标记待补全作品；**不输出外站作者 id**（16.1 第 15 条）；`rejected` 作品也要能返回，不能只在管理接口里可见。
 - `GET /latest` 是唯一按 `created_at` 做全站排序的读接口；它与 `/ranking`、`/user-ranking` 共用分页约定，但不读 Redis，也不需要加入 `rebuild_media_rankings`（第 6.1 节）。
 
 ## 9. 权限、限流与 CSRF 的两处口径澄清
@@ -493,6 +493,7 @@ flush: 若 now - lastSentAt < 1050ms，改为延后到该时刻（防止服务�
   - 权限与限流：投稿 `10/h`、投喂 `1/s`、封禁只禁投稿、管理员接口 GET 只读；无面向用户的删除接口，故无 `media-delete` 限流；`POST /admin/delete` 只允许 `is_superuser`，普通 staff / 普通用户一律 403。
   - CSRF 回归：`Client(enforce_csrf_checks=True)` 覆盖管理员缺 token / 错 token / 不可信 Origin / 合法 token / 普通用户无 CSRF 要求；额外覆盖 `auth=django_auth_superuser` 的 `POST /admin/delete`（缺 token 拒绝、合法 token 放行，参照 `videomanager/test_video_delete.py:212-231`），并把新管理写接口加入现有回归清单（`userprofile/test_admin_csrf.py:39-45` 的做法）。
   - `common/tests.py` 的 APScheduler 作业 id 集合更新。
+  - API 层（阶段 3，`media/test_api.py`）：18 个接口路径可由 OpenAPI 生成；读接口的 `MediaOut` 派生字段、anchor、分页与 `rejected` 可见性；投稿的绑定校验、作者不匹配 403、重复 409、结构性错误 502 不落库、超时降级 `metadata_pending=true`；降级审核 `/admin/verify` 的 `external_author_id` 一次性 `AccountLinkQueue` 核验（缺绑定 / id 不符 / 缺 title / 缺 id 分别 403/400）且响应与 `Media` 都不含该值；`staff_required` 权限矩阵、`auth=django_auth_superuser` 仅站长；`Client(enforce_csrf_checks=True)` 覆盖缺 token / 错 token / 不可信 Origin / 合法 token，并把新管理写接口加入 `userprofile/test_admin_csrf.py` 的回归清单。
 - 测试统一 `@override_settings(RATELIMIT_ENABLE=False)`（需要验证限流的用例单独覆盖），Redis key 在 `setUp` 清理并 `addCleanup`。
 
 前端（`front_end/`）：`npm run lintfix`、`npm run typecheck`、`npm run vitest -- run`、`npm run build:openms`；组件测试用 `npx cypress run --component --browser chrome --headless --spec "src/views/WorksView/*.cy.ts,src/views/RankingView/MediaRanking.cy.ts"`（CodeBuddy 环境可直接运行）；E2E 与预览/开发服务器由用户按需运行。
@@ -506,7 +507,7 @@ CI 参考：`.github/workflows/backend.yml` 会跑 `makemigrations` + `migrate` 
 | 0（已完成） | `media` app 外壳、三处项目注册、本文档 | `python manage.py check` 通过；OpenAPI 可加载；`flake8` 通过；无新增迁移 |
 | 1 数据层（已按状态机口径重做完成） | `utils.py` 常量/URL 解析/衰减函数/`MediaStatus`、`models.py` 三张表（`status` 状态机 + 驳回审计字段 + `metadata_pending`，**无 `external_author_id`**、无 `MediaDeletionLog`）、`0001_initial` 迁移、纯函数与模型单测 | `makemigrations --check` 干净；迁移可 `migrate`；约束/索引符合第 4 节；语言字段无枚举；`rejected` 行仍占全表唯一、禁止重投 |
 | 2 服务与缓存（已完成） | `clients.py` 依赖适配与字段映射（三种 format、不新写 HTTP 客户端）、`services.py` 事务流程（驳回退还并清零、改回 `pending`、审核通过补齐 zset、站长硬删除退还与 zset 回退、应用日志）、`cache.py` 五个 key、月度任务与调度、重建命令（只取 `verified`）、LOGGING 与 nginx/uWSGI 超时链、开发文档 | 三类 format 字段映射与超时/错误分类单测通过；衰减/幂等/回退/重建单测通过；驳回清零与硬删除回退单测通过；`common.tests.APSchedulerRegistrationTests` 通过；《最新》不新增 Redis key。**前端投稿 25s 超时随阶段 4 的 `mediaService.ts` 落地** |
-| 3 API 层 | `schema.py`、`api.py`、`decorators.py`、全部读写接口（含 `/submit` 自动拉取与归属校验、`/admin/reject`、`/admin/reopen`、`/admin/delete` 的 `django_auth_superuser`）、限流与 CSRF 回归 | 所有装饰器写入 docstring；管理写接口通过 CSRF 回归；`reject_reason` / `rejected_by` 对普通访客可见；无 GET 写操作；结构性错误不落库、超时降级落库；降级投稿 `/admin/verify` 的一次性 `external_author_id` 经 `AccountLinkQueue` 核验且不落库；无面向用户的 `POST /delete` |
+| 3 API 层（已完成） | `schema.py`、`api.py`、`decorators.py`、全部读写接口（含 `/submit` 自动拉取与归属校验、`/admin/reject`、`/admin/reopen`、`/admin/delete` 的 `django_auth_superuser`）、限流与 CSRF 回归 | 所有装饰器写入 docstring；管理写接口通过 CSRF 回归；`reject_reason` / `rejected_by` 对普通访客可见；无 GET 写操作；结构性错误不落库、超时降级落库；降级投稿 `/admin/verify` 的一次性 `external_author_id` 经 `AccountLinkQueue` 核验且不落库；无面向用户的 `POST /delete`；18 个接口可由 OpenAPI 生成，nginx 精确 location 已按实际无尾斜杠路由修正 |
 | 4 前端 | 路由、作品页四个 tab、排行榜页《作品》tab、投稿表单（URL + 自由语言）、未知语言展示、审核中投喂、作者主页展示所有状态、组件、服务层、i18n、管理员审核页 | lintfix / typecheck / vitest / `MediaRanking.cy.ts` 等组件测试通过；至少 zh-cn + en 可用 |
 | 5 联调与发布 | 部署一次 `makemigrations` + `migrate` → `rebuild_media_rankings` → reload nginx / 重启 uWSGI 与调度器/worker → 实测投稿超时链 → 灰度开放投稿 | 作品页四个 tab 正确（热门/精品走 Redis，审核中/《最新》查库）、排行榜《作品》tab 与两个 user zset 一致；拉取超时降级投稿、结构性错误拒绝；驳回退还清零且日志可查、被驳回外链无法重投；站长硬删除后四个 zset 回退正确且外链可重投；单次响应 < 300KB；回滚方案明确 |
 
@@ -515,6 +516,8 @@ CI 参考：`.github/workflows/backend.yml` 会跑 `makemigrations` + `migrate` 
 阶段 1 验收记录（状态机口径重做后）：`python -m flake8`、`manage.py check`、`makemigrations --check --dry-run`、`migrate media`、`manage.py test media`（18 个测试）均通过；`check` 只剩既有的 `staticfiles.W004`（`dist/` 目录不存在）。全量 `manage.py test` 另有 2 个与本功能无关的既有失败：`accountlink/wom/test/tests.py:198` 的 `test_update_wom`（`update_time` 未变化）与 `videomanager/test_video_hashes.py:11` 的 `test_hashes_entire_memory_or_temporary_upload_and_rewinds_for_parser`（`_safe_remove()` 参数不匹配）。功能尚不完整时不追求全量测试通过，留待后续阶段统一处理。
 
 阶段 2 验收记录（含降级口径修订与「外站作者 id 不入库」修订后）：本地 `migrate media zero` 后重新生成不含 `external_author_id` 的 `0001_initial`；全量 `python -m flake8`、`manage.py check`、`makemigrations --check --dry-run`、`migrate media`、`manage.py test media common.tests.APSchedulerRegistrationTests`（54 个测试：media 48 个、调度作业 6 个）与 `read_lints` 均通过；`check` 只剩既有的 `staticfiles.W004`。`monitor/cache.py` 已把五个 key 纳入固定内存统计清单；`cache.md`、`management-commands.md` 已同步。B 站依赖只有全局 `request_settings`，`clients.py` 在单次调用内临时把 timeout 设为 8s 并在 `finally` 恢复原值，不长期改变 `accountlink` 的 B 站调用行为；该折中在同进程并发请求下仍有短暂影响，部署前应确认 web 进程为单线程。
+
+阶段 3 验收记录：`python -m flake8`、`manage.py check`、`manage.py makemigrations --check --dry-run`、`api.get_openapi_schema()`（178 条路径，其中 `/api/media/` 18 条）、`manage.py test media common.tests.APSchedulerRegistrationTests userprofile.test_admin_csrf.AdminCsrfTests`（84 个测试：media 67、调度作业 6、既有 CSRF 回归 11）与 `read_lints` 均通过；`check` 只剩既有的 `staticfiles.W004`。`default.conf` 的精确 location 由 `/api/media/submit/` 修正为 `/api/media/submit`（Ninja 实际路由无尾斜杠），`uwsgi.ini` 白名单注释同步；前端投稿 25s 超时与页面仍属阶段 4。
 
 `media/migrations/0001_initial.py` 由 `makemigrations` 自动生成，受 `.gitignore` 的 `**/migrations/*` 规则忽略（仅 `migrations/__init__.py` 例外），提交阶段 1 时须 `git add -f back_end/saolei/media/migrations/0001_initial.py`。本地每次模型改动重新生成干净的 `0001`，生产端在阶段 5 生成并执行一次迁移（16.1 第 7 条）。
 
@@ -544,7 +547,7 @@ CI 参考：`.github/workflows/backend.yml` 会跑 `makemigrations` + `migrate` 
 - [ ] `saolei_api_key` 已由站长配置；部署环境验证 `read_secret('saolei_api_key')` 可读取并跑一次真实 `post_info` 联调；`post_info` 401 归入 `upstream_error`（按第 7.2 节走降级路径），部署联调应确认密钥正确；单测用 MockTransport，不依赖真实密钥。
 - [ ] 模型迁移由 `makemigrations` 生成并随代码提交；`migrate` 与 CI 的 `makemigrations` 不产生额外迁移；三张表（`Media` / `MediaLikes` / `UserMedia`）、`status` 状态机、`metadata_pending`、**无 `external_author_id` 字段**（16.1 第 15 条）、无 `MediaDeletionLog`；本地重复生成 `0001` 不影响生产（16.1 第 7 条）。
 - [ ] 《最新》tab 不新增 Redis key、不纳入 `rebuild_media_rankings`，但必须有 `media_latest_idx`；排行榜页《作品》tab 复用两个 user zset 并纳入重建验收；重建只取 `status='verified'`。
-- [ ] 投稿链路超时链落地：应用客户端 ≤15s、`default.conf` 精确 location 25s、`uwsgi.ini:29` harakiri 白名单已配置；前端投稿 timeout 25s 随阶段 4 的 `mediaService.ts` 落地；部署后 reload nginx / 重启 uWSGI 并实测。
+- [ ] 投稿链路超时链落地：应用客户端 ≤15s、`default.conf` 精确 location 25s（阶段 3 已修正为无尾斜杠 `/api/media/submit`）、`uwsgi.ini:29` harakiri 白名单已配置；前端投稿 timeout 25s 随阶段 4 的 `mediaService.ts` 落地；部署后 reload nginx / 重启 uWSGI 并实测。
 - [ ] 驳回日志：`settings.py` 的 `media` logger 与 `logs/media.log` 可写、驳回与站长硬删除时应用日志可查（硬删除含作品快照）；不新增审计表。`rejected` 行仍占全表唯一、禁止重投；站长硬删除释放唯一性后可重投。
 - [ ] `flake8`、`manage.py test`、前端 `lintfix` / `typecheck` / `vitest` / `build:openms` 与指定组件测试全部实际运行并记录结果。
 - [ ] `cache.md`、`management-commands.md` 更新；新增管理写接口加入 CSRF 回归清单；`common/tests.py` 作业集合更新。

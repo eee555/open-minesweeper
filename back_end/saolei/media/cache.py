@@ -71,6 +71,23 @@ def get_ranking(key, start=0, count=50):
     return [int(maybe_bytes_to_str(member)) for member in raw], total
 
 
+def get_user_ranking(sort_key, start=0, count=50):
+    """作者聚合榜分页：返回 [(user_id, hot, likes)] 与总数，主榜按 sort_key 倒序。"""
+    if sort_key not in ('hot', 'likes'):
+        raise ValueError('Unknown media ranking sort')
+    primary = MEDIA_RANK_USER_HOT if sort_key == 'hot' else MEDIA_RANK_USER_LIKES
+    secondary = MEDIA_RANK_USER_LIKES if sort_key == 'hot' else MEDIA_RANK_USER_HOT
+    total = cache.zcard(primary)
+    raw = cache.zrevrange(primary, start, start + count - 1, withscores=True)
+    rows = []
+    for member, score in raw:
+        user_id = int(maybe_bytes_to_str(member))
+        other = cache.zscore(secondary, user_id)
+        hot, likes = (float(score), float(other or 0)) if sort_key == 'hot' else (float(other or 0), float(score))
+        rows.append((user_id, hot, likes))
+    return rows, total
+
+
 def refresh_hot_reference(at_time=None):
     """月度刷新 Redis：WATCH anchor，按同一系数整体缩放两个 hot zset，写新锚点；幂等。"""
     get_hot_reference()
