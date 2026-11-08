@@ -304,6 +304,12 @@ CACHES = {
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
 SESSION_CACHE_ALIAS = 'saolei_website'
 
+# GitHub OAuth App: public identity linking only, no stored access token.
+GITHUB_OAUTH_CLIENT_ID = _read_project_secret('github_oauth_client_id')
+GITHUB_OAUTH_CLIENT_SECRET = _read_project_secret('github_oauth_client_secret')
+GITHUB_OAUTH_REDIRECT_URI = _read_project_secret('github_oauth_redirect_uri')
+GITHUB_OAUTH_FRONTEND_URL = os.environ.get('GITHUB_OAUTH_FRONTEND_URL', 'http://localhost:8080' if DEBUG else 'https://openms.top')
+
 
 APSCHEDULER_DATETIME_FORMAT = 'N j, Y, f:s a'  # 定时任务格式
 APSCHEDULER_RUN_NOW_TIMEOUT = 25  # 定时任务最大执行时间，秒
@@ -425,6 +431,12 @@ LOGGING = {
         },
     },
     'loggers': {
+        # Authlib DEBUG logs can contain token exchange bodies and credentials.
+        'authlib': {
+            'level': 'WARNING',
+            'handlers': ['root'],
+            'propagate': False,
+        },
         # 应用中自定义日志记录器
         'accountlink': {
             'level': 'INFO',

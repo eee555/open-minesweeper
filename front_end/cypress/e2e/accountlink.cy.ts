@@ -142,7 +142,7 @@ describe('Account Link', () => {
 
     it('Guest View - No Account Links', () => {
         cy.visitUser(USER.id, 'accountlink');
-        cy.get('.account-platform-grid button').should('have.length', 8);
+        cy.get('.account-platform-grid button').should('have.length', 9);
         cy.contains('暂无可展示的关联').should('be.visible');
     });
 
@@ -226,7 +226,7 @@ describe('Account Link', () => {
         cy.visitUser(USER.id, 'accountlink');
         cy.wait('@fetchAccountLinks').its('response.statusCode').should('eq', 200);
         waitForLoading();
-        cy.get('.account-platform-grid button').should('have.length', 8);
+        cy.get('.account-platform-grid button').should('have.length', 9);
         for (const link of [LINKS.saolei, LINKS.msgames, LINKS.wom, LINKS.bilibili]) {
             cy.contains('.account-platform-grid button', link.platform).click();
             cy.get('[data-cy=account-details] h2').should('contain', `#${link.identifier}`);

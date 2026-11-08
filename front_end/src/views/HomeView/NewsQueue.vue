@@ -9,7 +9,8 @@
                     <span class="news-time text-secondary text-small">{{ formatTime(event.occurred_at) }}</span>
                     <span class="news-sentence">
                         <template v-if="event.category === 'pb'"><PlayerName class="news-player" :user-id="event.player_id" />{{ pbPrefix(event) }}<template v-if="event.payload.old"><VideoPreviewLink :id="event.payload.old.video_id">{{ formatTimeValue(event.payload.old.timems) }}</VideoPreviewLink>({{ formatRank(event.payload.old.rank) }}) → </template><VideoPreviewLink :id="event.payload.new.video_id">{{ formatTimeValue(event.payload.new.timems) }}</VideoPreviewLink>({{ formatRank(event.payload.new.rank) }})</template>
-                        <template v-else><template v-for="(id, index) in lsfReplayIds(event)" :key="id">{{ index ? ' ' : '' }}<VideoPreviewLink :id="id">#{{ id }}</VideoPreviewLink></template>{{ t('local.lsfRaised') }}<PlayerName class="news-player" :user-id="event.player_id" />{{ lsfDescription(event) }}</template>
+                        <template v-else-if="event.category === 'eff'"><PlayerName class="news-player" :user-id="event.player_id" />{{ effPrefix(event) }}<template v-if="event.payload.old"><VideoPreviewLink v-if="event.payload.old.video_id !== null" :id="event.payload.old.video_id">{{ formatEffValue(event.payload.old, event.payload.field) }}</VideoPreviewLink><template v-else>{{ formatEffValue(event.payload.old, event.payload.field) }}</template>({{ formatRank(event.payload.old.rank) }}) → </template><VideoPreviewLink v-if="event.payload.new.video_id !== null" :id="event.payload.new.video_id">{{ formatEffValue(event.payload.new, event.payload.field) }}</VideoPreviewLink><template v-else>{{ formatEffValue(event.payload.new, event.payload.field) }}</template>({{ formatRank(event.payload.new.rank) }})</template>
+                        <template v-else-if="event.category === 'lsf'"><template v-for="(id, index) in lsfReplayIds(event)" :key="id">{{ index ? ' ' : '' }}<VideoPreviewLink :id="id">#{{ id }}</VideoPreviewLink></template>{{ t('local.lsfRaised') }}<PlayerName class="news-player" :user-id="event.player_id" />{{ lsfDescription(event) }}</template>
                     </span>
                 </li>
             </ul>
@@ -25,7 +26,7 @@ import { useI18n } from 'vue-i18n';
 import PlayerName from '@/components/PlayerName.vue';
 import VideoPreviewLink from '@/components/VideoPreviewLink.vue';
 import i18n from '@/i18n';
-import { fetchNews } from '@/services/newsService';
+import { fetchNews, formatEffValue } from '@/services/newsService';
 import type { NewsCategory, NewsEvent } from '@/services/newsService';
 import { utc_to_local_format } from '@/utils/system/tools';
 
@@ -87,7 +88,23 @@ function formatField(field: string): string {
     return `${levelName}${separator}${bv}`;
 }
 
-// PB 以玩家为主语，前后两个成绩数字各自链接到对应录像；LSF 以录像为主语，句首列出全部相关录像。
+function formatEffField(field: string): string {
+    const [ranking, stat] = field.split(':');
+    const separator = i18n.global.locale.value.startsWith('zh') ? '' : ' ';
+    const rankingName = ranking === 'thrp' ? i18n.global.t('prop.thrp') : t('local.nfIOE');
+    let statName = i18n.global.t(`level.${stat}`);
+    if (stat === 'sum') statName = i18n.global.t('level.sum');
+    if (stat === 'e_nf') statName = `${i18n.global.t('level.e')}${separator}${i18n.global.t('nf')}`;
+    return `${rankingName}${separator}${statName}`;
+}
+
+function effPrefix(event: NewsEvent): string {
+    if (event.category !== 'eff') return '';
+    const field = formatEffField(event.payload.field);
+    return event.payload.old ? t('local.effImproved', { field }) : t('local.effFirst', { field });
+}
+
+// PB 与效率新闻以玩家为主语，前后两个成绩数字各自链接到对应录像；LSF 以录像为主语，句首列出全部相关录像。
 function pbPrefix(event: NewsEvent): string {
     if (event.category !== 'pb') return '';
     const field = formatField(event.payload.field);
@@ -118,9 +135,13 @@ const i18nMessages = {
         news: '新闻',
         pb: 'PB榜',
         lsf: 'LSF',
+        eff: '效率',
+        nfIOE: 'NF IOE',
         empty: '暂无新闻',
         pbImproved: '打破了{field}PB：',
         pbFirst: '首次取得{field}PB：',
+        effImproved: '打破了{field}纪录：',
+        effFirst: '首次取得{field}纪录：',
         lsfRaised: '提升了',
         lsfOfPlayer: '的LSF：{oldLsf}({oldRank}) → {newLsf}({newRank})',
         lsfFirstOfPlayer: '的LSF首次上榜：{newLsf}({newRank})',
@@ -129,9 +150,13 @@ const i18nMessages = {
         news: 'News',
         pb: 'PB',
         lsf: 'LSF',
+        eff: 'Eff',
+        nfIOE: 'NF IOE',
         empty: 'No news yet',
         pbImproved: ' broke the {field} PB: ',
         pbFirst: ' set their first {field} PB: ',
+        effImproved: ' broke the {field} record: ',
+        effFirst: ' set their first {field} record: ',
         lsfRaised: ' raised ',
         lsfOfPlayer: '\'s LSF: {oldLsf}({oldRank}) → {newLsf}({newRank})',
         lsfFirstOfPlayer: '\'s LSF entered the board: {newLsf}({newRank})',
@@ -141,7 +166,7 @@ const i18nMessages = {
 const { t } = useI18n({ messages: i18nMessages });
 const label = computed(() => {
     const c = category.value;
-    return c === 'pb' ? t('local.pb') : c === 'lsf' ? t('local.lsf') : t('local.news');
+    return c === 'pb' ? t('local.pb') : c === 'lsf' ? t('local.lsf') : c === 'eff' ? t('local.eff') : t('local.news');
 });
 </script>
 

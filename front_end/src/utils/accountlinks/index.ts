@@ -3,6 +3,7 @@ export * from './classic';
 export * from './collection';
 export type * from './common';
 export * from './discord';
+export * from './github';
 export * from './mineracer';
 export * from './msgames';
 export * from './platforms';

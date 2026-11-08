@@ -13,7 +13,15 @@ Profile refresh and replay synchronization are disabled while Saolei.wang migrat
 
 ## Linking Process
 
-Mineracer accounts are linked automatically after confirmation on the external site. Discord, Tencent QQ and other platforms require you to enter an ID and have a moderator verify it.
+GitHub accounts are linked automatically through authorization, and Mineracer accounts after confirmation on the external site. Discord, Tencent QQ and other platforms require you to enter an ID and have a moderator verify it.
+
+### GitHub
+
+Select GitHub on your own Account Links page and click **Link with GitHub**. Confirm the GitHub account and authorize; you will return to OpenMS automatically. Moderator approval is unnecessary. This feature does not provide GitHub sign-in.
+
+Your stable numeric GitHub ID is public. Click **Load / refresh GitHub profile** to view your current username and profile link. Your browser retrieves these details directly from GitHub; a failed request does not affect your account link. Changing your GitHub username does not change the linked identity.
+
+Each OpenMS account can link one GitHub account, and each GitHub account can belong to one OpenMS account. You may unlink and authorize again. Unlinking on OpenMS does not revoke the application authorization in GitHub settings.
 
 ### Discord and Tencent QQ
 

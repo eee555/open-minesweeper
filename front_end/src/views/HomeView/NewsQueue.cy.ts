@@ -5,7 +5,7 @@ import i18n from '@/i18n';
 import type { NewsEvent } from '@/services/newsService';
 import { pinia } from '@/store/create';
 import { hashRouter, installHashHistoryCleanup } from '@cy/support/hashHistory';
-import { mockVideoInfo } from '@cy/support/videoInfo';
+import { mockVideoInfo, seedVideoInfoCache } from '@cy/support/videoInfo';
 
 // NewsQueue 的根元素是 <ElTabPane>，强制要求父级为 <ElTabs>。这里用一个 .vue 包裹组件
 // （模板 <ElTabs><NewsQueue/></ElTabs>，与生产 HomeView/App.vue 同结构，由 Vite 编译），
@@ -15,7 +15,8 @@ import { mockVideoInfo } from '@cy/support/videoInfo';
 // PlayerName 的 RouterLink 还需要 vue-router 实例，故用 hashRouter 注入并清理 history。
 
 // VideoPreviewLink 默认开启软件图标，会批量拉取录像信息；这里按事件里出现的 video id
-// 提供 mock，覆盖 PB 的前后两个成绩与 LSF 的多个共同提升录像。
+// 提供 mock，覆盖 PB 的前后两个成绩与 LSF 的多个共同提升录像。同时把这些录像预写进
+// 缓存，避免软件图标依赖跨用例共享、带 250ms 延时的批量请求队列。
 function newsVideoRows(events: unknown[]): Record<string, unknown>[] {
     const ids = new Set<number>();
     const add = (value: unknown) => {
@@ -37,7 +38,9 @@ function newsVideoRows(events: unknown[]): Record<string, unknown>[] {
 }
 
 function mountNews(events: unknown[]) {
-    mockVideoInfo(newsVideoRows(events));
+    const rows = newsVideoRows(events);
+    mockVideoInfo(rows);
+    seedVideoInfoCache(rows);
     cy.intercept('GET', '**/api/news/events**', { statusCode: 200, body: events }).as('news');
     cy.mockPlayerNameFallback();
     const router = hashRouter({ initialPath: '/' });
@@ -158,9 +161,105 @@ describe('<NewsQueue />', () => {
         cy.get('[data-cy=news-pb]').should('contain.text', '40.000(2) → 35.000(1)');
     });
 
+    it('renders efficiency news in the PB sentence shape with per-record replay links', () => {
+        i18n.global.locale.value = 'zh-cn';
+        const events: NewsEvent[] = [
+            {
+                id: 'eff-1',
+                occurred_at: 1_000_000,
+                player_id: 9,
+                category: 'eff',
+                payload: {
+                    field: 'thrp:e',
+                    old: { value: 0.8, video_id: 301, rank: 7, count: null, timems: null },
+                    new: { value: 0.9, video_id: 302, rank: 6, count: null, timems: null },
+                },
+            },
+            {
+                id: 'eff-2',
+                occurred_at: 1_000_000,
+                player_id: 10,
+                category: 'eff',
+                payload: {
+                    field: 'nf_ioe:sum',
+                    old: null,
+                    new: { value: 1.5, video_id: null, rank: 2, count: null, timems: null },
+                },
+            },
+        ];
+        mountNews(events);
+        cy.get('[data-cy=news-eff]').eq(0).should('contain.text', '打破了ThrP高级纪录：0.800(7) → 0.900(6)');
+        cy.get('[data-cy=news-eff]').eq(0).find('.video-preview-link').should('have.length', 2);
+        cy.get('[data-cy=news-eff]').eq(0).find('.video-preview-link').eq(0).
+            should('contain.text', '0.800').
+            and('have.attr', 'href', '#/video/301');
+        cy.get('[data-cy=news-eff]').eq(0).find('.video-preview-link').eq(1).
+            should('contain.text', '0.900').
+            and('have.attr', 'href', '#/video/302');
+        cy.get('[data-cy=news-eff]').eq(1).should('contain.text', '首次取得NF IOE总计纪录：1.500(2)');
+        cy.get('[data-cy=news-eff]').eq(1).find('.video-preview-link').should('not.exist');
+    });
+
+    it('keeps perfect game counts and comparison times in efficiency news', () => {
+        const events: NewsEvent[] = [
+            {
+                id: 'eff-nf-count',
+                occurred_at: 1_000_000,
+                player_id: 9,
+                category: 'eff',
+                payload: {
+                    field: 'thrp:e_nf',
+                    old: { value: 1.0, video_id: 501, rank: 3, count: 1, timems: null },
+                    new: { value: 1.0, video_id: 501, rank: 1, count: 2, timems: null },
+                },
+            },
+            {
+                id: 'eff-ioe-time',
+                occurred_at: 1_000_000,
+                player_id: 10,
+                category: 'eff',
+                payload: {
+                    field: 'nf_ioe:e',
+                    old: { value: 1.0, video_id: 502, rank: 5, count: null, timems: 10000 },
+                    new: { value: 1.0, video_id: 503, rank: 2, count: null, timems: 9000 },
+                },
+            },
+            {
+                id: 'eff-ioe-sum',
+                occurred_at: 1_000_000,
+                player_id: 11,
+                category: 'eff',
+                payload: {
+                    field: 'nf_ioe:sum',
+                    old: { value: 3.0, video_id: null, rank: 5, count: null, timems: 10000 },
+                    new: { value: 3.0, video_id: null, rank: 2, count: null, timems: 9000 },
+                },
+            },
+        ];
+        mountNews(events);
+        cy.get('[data-cy=news-eff]').eq(0).should('contain.text', '1.000(3) → 1 x 2(1)');
+        cy.get('[data-cy=news-eff]').eq(1).should('contain.text', '1.000 (10.000)(5) → 1.000 (9.000)(2)');
+        cy.get('[data-cy=news-eff]').eq(2).should('contain.text', '3.000 (10.000)(5) → 3.000 (9.000)(2)');
+    });
+
+    it('formats efficiency field names in English', () => {
+        const events: NewsEvent[] = [{
+            id: 'eff-en',
+            occurred_at: 1_000_000,
+            player_id: 9,
+            category: 'eff',
+            payload: {
+                field: 'thrp:e_nf',
+                old: null,
+                new: { value: 1.0, video_id: 401, rank: 1, count: 1, timems: null },
+            },
+        }];
+        mountNews(events);
+        cy.get('[data-cy=news-eff]').should('contain.text', 'set their first ThrP Expert NF record: 1.000(1)');
+    });
+
     it('shows software icons and aligns player names, replay links and text on one baseline', () => {
-        // fetchVideoInfo 的 infoRequests / pending 是模块级缓存；用一个其它用例从未用过的 id，
-        // 确保本用例真的发起 staticdetailbatch 请求，而不是复用上一用例挂起的 promise。
+        // 软件图标由 mountNews 预写入的缓存解析，不经过 staticdetailbatch 批量队列。
         const events: NewsEvent[] = [{
             id: 'pb-icons',
             occurred_at: 1_000_000,

@@ -13,7 +13,15 @@ description: 如何关联 Mineracer 账号，以及 Discord、腾讯 QQ、扫雷
 
 ## 关联流程
 
-Mineracer 通过站外确认自动完成关联，Discord、腾讯 QQ 及其他平台需要填写 ID 并由管理员认证。
+GitHub 通过授权自动完成关联，Mineracer 通过站外确认自动完成关联，Discord、腾讯 QQ 及其他平台需要填写 ID 并由管理员认证。
+
+### GitHub
+
+在自己的账号关联页选择 GitHub，点击“通过 GitHub 关联”，确认授权账号后会自动返回本站。关联无需管理员审核，不提供 GitHub 登录功能。
+
+关联后公开展示稳定的 GitHub 数字 ID。点击“获取／刷新 GitHub 资料”可查看当前用户名及主页；资料由浏览器直接从 GitHub 获取，读取失败不影响关联。GitHub 改名不会改变关联身份。
+
+每个本站账号只能关联一个 GitHub 账号，同一个 GitHub 账号也只能关联一个本站账号。本人可以解除后重新关联；本站解除关联不会撤销 GitHub 设置中的应用授权。
 
 ### Discord 与腾讯 QQ
 
