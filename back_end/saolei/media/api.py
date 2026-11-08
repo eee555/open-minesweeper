@@ -250,9 +250,10 @@ def like_media(request, data: LikeIn):
     - banned_blocked
     - ratelimit(key='user', rate='1/s', group='media-like', block=True)
 
-    审核中作品也可投喂，但只写 DB 不写 zset。
+    每次只投 1 个红宝石；审核中作品也可投喂，但只写 DB 不写 zset。
+    每 UTC 自然日最多 10 次成功投喂，由 service 层与余额扣减同事务计数。
     """
-    return _service(services.like_media, request.user, data.media_id, data.count)
+    return _service(services.like_media, request.user, data.media_id)
 
 
 @router.get('/admin/rejected', response=MediaPageOut)

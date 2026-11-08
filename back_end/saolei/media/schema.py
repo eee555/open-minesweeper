@@ -3,7 +3,7 @@
 from datetime import datetime
 
 from django.utils import timezone
-from ninja import Field, Schema
+from ninja import Schema
 from ninja.orm import create_schema
 
 from .models import Media
@@ -109,7 +109,6 @@ class SubmitIn(Schema):
 
 class LikeIn(Schema):
     media_id: int
-    count: int = Field(..., ge=1, le=100)
 
 
 class IdIn(Schema):

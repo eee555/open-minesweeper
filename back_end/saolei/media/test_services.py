@@ -36,6 +36,10 @@ class MediaServiceTests(TestCase):
             created_at=timezone.now() - timedelta(days=1), language='',
         )
 
+    def _like(self, media, times=1):
+        for _ in range(times):
+            like_media(self.user, media.pk)
+
     def test_balance_and_duplicate_submission(self):
         self.assertGreaterEqual(get_balance(self.user), 9)
         self._create_media()
@@ -45,19 +49,18 @@ class MediaServiceTests(TestCase):
 
     def test_like_pending_only_writes_db(self):
         media = self._create_media()
-        result = like_media(self.user, media.pk, 3)
-        self.assertEqual(result['likes'], 3)
-        self.assertEqual(result['status'], MediaStatus.PENDING)
+        self._like(media, 3)
         media.refresh_from_db()
         self.assertEqual(media.likes, 3)
         self.assertGreater(media.hot_value, 3)
         self.assertEqual(MediaLikes.objects.get(user=self.user, media=media).likes, 3)
         self.assertEqual(UserMedia.objects.get(pk=self.user.pk).likes_sent, 3)
+        self.assertEqual(UserMedia.objects.get(pk=self.user.pk).daily_likes, 3)
         self.assertEqual(cache.cache.zcard(cache.MEDIA_RANK_LIKES), 0)
 
     def test_verify_fills_four_zsets(self):
         media = self._create_media()
-        like_media(self.user, media.pk, 2)
+        self._like(media, 2)
         with self.captureOnCommitCallbacks(execute=True):
             verify_media(media.pk, self.actor.pk)
         media.refresh_from_db()
@@ -70,7 +73,7 @@ class MediaServiceTests(TestCase):
 
     def test_reject_refunds_and_clears_everything(self):
         media = self._create_media()
-        like_media(self.user, media.pk, 4)
+        self._like(media, 4)
         self.assertEqual(UserMedia.objects.get(pk=self.user.pk).likes_sent, 4)
         reject_media(media.pk, self.actor.pk, 'not minesweeper related')
         media.refresh_from_db()
@@ -88,7 +91,7 @@ class MediaServiceTests(TestCase):
 
     def test_reopen_reuses_same_row(self):
         media = self._create_media()
-        like_media(self.user, media.pk, 2)
+        self._like(media, 2)
         reject_media(media.pk, self.actor.pk, 'wrong')
         reopen_media(media.pk, self.actor.pk)
         media.refresh_from_db()
@@ -100,7 +103,7 @@ class MediaServiceTests(TestCase):
 
     def test_hard_delete_refunds_and_rolls_back_zsets(self):
         media = self._create_media()
-        like_media(self.user, media.pk, 5)
+        self._like(media, 5)
         with self.captureOnCommitCallbacks(execute=True):
             verify_media(media.pk, self.actor.pk)
         self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_LIKES, media.pk), 5)
@@ -122,7 +125,7 @@ class MediaServiceTests(TestCase):
 
     def test_refresh_hot_reference_folds_db(self):
         media = self._create_media()
-        like_media(self.user, media.pk, 2)
+        self._like(media, 2)
         media.refresh_from_db()
         old_hot = media.hot_value
         refresh_hot_reference(NEXT_REFERENCE)
@@ -133,7 +136,7 @@ class MediaServiceTests(TestCase):
 
     def test_rebuild_rankings_only_verified(self):
         verified = self._create_media('BV1verified0001')
-        like_media(self.user, verified.pk, 3)
+        self._like(verified, 3)
         with self.captureOnCommitCallbacks(execute=True):
             verify_media(verified.pk, self.actor.pk)
         self._create_media('BV1pending00001')
@@ -177,3 +180,44 @@ class MediaServiceTests(TestCase):
     def test_set_media_banned(self):
         self.assertTrue(set_media_banned(self.user.pk, True).banned)
         self.assertFalse(set_media_banned(self.user.pk, False).banned)
+
+    def test_daily_like_limit_is_ten_successful_likes(self):
+        UserProfile.objects.filter(pk=self.user.pk).update(date_joined=timezone.now() - timedelta(days=30))
+        self.user.refresh_from_db()
+        media = self._create_media()
+        self._like(media, 10)
+        self.assertEqual(UserMedia.objects.get(pk=self.user.pk).daily_likes, 10)
+        with self.assertRaises(MediaServiceError) as caught:
+            like_media(self.user, media.pk)
+        self.assertEqual(caught.exception.status_code, 429)
+        media.refresh_from_db()
+        self.assertEqual(media.likes, 10)
+        self.assertEqual(UserMedia.objects.get(pk=self.user.pk).daily_likes, 10)
+
+    def test_daily_counter_resets_on_utc_date_change(self):
+        media = self._create_media()
+        yesterday = timezone.now().date() - timedelta(days=1)
+        UserMedia.objects.create(user=self.user, daily_likes=10, daily_date=yesterday)
+        result = like_media(self.user, media.pk)
+        self.assertEqual(result['likes'], 1)
+        profile = UserMedia.objects.get(pk=self.user.pk)
+        self.assertNotEqual(profile.daily_date, yesterday)
+        self.assertEqual(profile.daily_likes, 1)
+
+    def test_failed_like_does_not_consume_daily_quota(self):
+        media = self._create_media()
+        self._like(media, 1)
+        with self.assertRaises(MediaServiceError) as caught:
+            like_media(self.user, media.pk + 1)
+        self.assertEqual(caught.exception.status_code, 404)
+        profile = UserMedia.objects.get(pk=self.user.pk)
+        self.assertEqual(profile.daily_likes, 1)
+        self.assertEqual(profile.likes_sent, 1)
+
+    def test_refund_does_not_rewind_daily_counter(self):
+        media = self._create_media()
+        self._like(media, 3)
+        reject_media(media.pk, self.actor.pk, 'wrong')
+        profile = UserMedia.objects.get(pk=self.user.pk)
+        self.assertEqual(profile.likes_sent, 0)
+        self.assertEqual(profile.daily_likes, 3)

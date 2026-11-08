@@ -140,8 +140,8 @@ export async function submitMedia(url: string, language: string): Promise<MediaI
     return data;
 }
 
-export async function likeMedia(mediaId: number, count: number): Promise<MediaLikeResult> {
-    const { data } = await $axios.post<MediaLikeResult>(`${ROOT}/like`, { media_id: mediaId, count }, JSON_CONFIG);
+export async function likeMedia(mediaId: number): Promise<MediaLikeResult> {
+    const { data } = await $axios.post<MediaLikeResult>(`${ROOT}/like`, { media_id: mediaId }, JSON_CONFIG);
     return data;
 }
 

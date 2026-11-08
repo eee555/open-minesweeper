@@ -53,4 +53,6 @@ class MediaLikes(models.Model):
 class UserMedia(models.Model):
     user = models.OneToOneField(UserProfile, primary_key=True, on_delete=models.CASCADE, related_name='media_profile')
     likes_sent = models.PositiveBigIntegerField(default=0)
+    daily_likes = models.PositiveSmallIntegerField(default=0)
+    daily_date = models.DateField(null=True, blank=True)
     banned = models.BooleanField(default=False)

@@ -192,4 +192,6 @@ class MediaModelPersistenceTests(TestCase):
         profile = UserMedia.objects.create(user=self.user)
         self.assertEqual(profile.pk, self.user.pk)
         self.assertEqual(profile.likes_sent, 0)
+        self.assertEqual(profile.daily_likes, 0)
+        self.assertIsNone(profile.daily_date)
         self.assertFalse(profile.banned)

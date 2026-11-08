@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from . import cache
 from .models import Media, MediaLikes, UserMedia
-from .utils import decay, MediaStatus
+from .utils import decay, MEDIA_DAILY_LIKE_LIMIT, MediaStatus
 
 logger = logging.getLogger('media')
 
@@ -53,35 +53,43 @@ def create_media(user, *, media_format, suffix, language, title='', created_at=N
         raise MediaServiceError('该作品已投稿过，不可重复投稿', 409) from None
 
 
-def like_media(user, media_id, count):
-    """投喂：锁用户与作品行，按 anchor 折算热度；审核中只写 DB，已审核才同步四个 zset。"""
-    if count <= 0:
-        raise MediaServiceError('count must be positive', 400)
+def like_media(user, media_id):
+    """投喂 1 个红宝石：锁用户与作品行，按 UTC 自然日限 10 次成功投喂，按 anchor 折算热度。
+
+    daily_date / daily_likes 与 likes_sent 在同一事务内更新，事务回滚即不计数。
+    驳回与硬删除只退还 likes_sent，不回退当日已用次数（16.1 第 17 条）。
+    """
     with transaction.atomic():
+        now = timezone.now()
+        today = now.date()  # timezone.now() 返回 UTC aware datetime，date() 即 UTC 自然日
         profile, _ = UserMedia.objects.select_for_update().get_or_create(user=user)
         media = Media.objects.select_for_update().filter(pk=media_id).first()
         if media is None:
             raise MediaServiceError('Media not found', 404)
         if media.status == MediaStatus.REJECTED:
             raise MediaServiceError('Rejected media cannot be liked', 409)
+        daily_likes = 0 if profile.daily_date != today else profile.daily_likes
+        if daily_likes >= MEDIA_DAILY_LIKE_LIMIT:
+            raise MediaServiceError('Daily like limit reached', 429)
         balance = _balance(profile, user)
-        if balance < count:
+        if balance < 1:
             raise MediaServiceError('Insufficient rubies', 400)
         reference = cache.get_hot_reference()
-        now = timezone.now()
         factor = decay(reference, now)
-        delta_hot = count / factor
+        delta_hot = 1 / factor
         media.hot_value += delta_hot
-        media.likes += count
+        media.likes += 1
         media.save(update_fields=['hot_value', 'likes'])
         record, _ = MediaLikes.objects.get_or_create(user=user, media=media)
-        MediaLikes.objects.filter(pk=record.pk).update(likes=F('likes') + count)
-        UserMedia.objects.filter(pk=profile.pk).update(likes_sent=F('likes_sent') + count)
+        MediaLikes.objects.filter(pk=record.pk).update(likes=F('likes') + 1)
+        UserMedia.objects.filter(pk=profile.pk).update(
+            likes_sent=F('likes_sent') + 1, daily_likes=daily_likes + 1, daily_date=today,
+        )
         if media.status == MediaStatus.VERIFIED:
             author_id = media.user_id
-            transaction.on_commit(lambda: cache.add_media_scores(media_id, author_id, delta_hot, count))
+            transaction.on_commit(lambda: cache.add_media_scores(media_id, author_id, delta_hot, 1))
         hot_now = media.hot_value * factor
-        result = {'likes': media.likes, 'hot_now': hot_now, 'balance': balance - count, 'status': media.status}
+        result = {'likes': media.likes, 'hot_now': hot_now, 'balance': balance - 1, 'status': media.status}
     return result
 
 

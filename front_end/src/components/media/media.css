@@ -91,10 +91,6 @@
     outline: 2px solid var(--ui-color-primary);
 }
 
-.media-feed-pending {
-    color: var(--ui-color-primary);
-}
-
 .media-embed-frame {
     display: block;
     width: 100%;

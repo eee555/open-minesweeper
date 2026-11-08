@@ -59,7 +59,8 @@ class MediaApiTests(TestCase):
 
     def test_ranking_and_user_ranking(self):
         media = self._create_media()
-        services.like_media(self.user, media.pk, 3)
+        for _ in range(3):
+            services.like_media(self.user, media.pk)
         with self.captureOnCommitCallbacks(execute=True):
             services.verify_media(media.pk, self.staff.pk)
         response = self.client.get('/api/media/ranking?sort=hot')
@@ -158,11 +159,23 @@ class MediaApiTests(TestCase):
 
     def test_like_endpoint(self):
         media = self._create_media()
-        response = self.client.post('/api/media/like', {'media_id': media.pk, 'count': 3}, content_type='application/json')
+        response = self.client.post('/api/media/like', {'media_id': media.pk}, content_type='application/json')
         self.assertEqual(response.status_code, 200, response.content)
-        self.assertEqual(response.json()['likes'], 3)
+        self.assertEqual(response.json()['likes'], 1)
         self.assertEqual(response.json()['status'], MediaStatus.PENDING)
-        self.assertEqual(self.client.post('/api/media/like', {'media_id': media.pk, 'count': 0}, content_type='application/json').status_code, 422)
+        counted = self.client.post('/api/media/like', {'media_id': media.pk, 'count': 5}, content_type='application/json')
+        self.assertEqual(counted.status_code, 200, counted.content)
+        self.assertEqual(counted.json()['likes'], 2)
+
+    def test_like_daily_limit_returns_429(self):
+        UserProfile.objects.filter(pk=self.user.pk).update(date_joined=timezone.now() - timedelta(days=30))
+        self.user.refresh_from_db()
+        media = self._create_media()
+        for _ in range(10):
+            self.assertEqual(self.client.post('/api/media/like', {'media_id': media.pk}, content_type='application/json').status_code, 200)
+        limited = self.client.post('/api/media/like', {'media_id': media.pk}, content_type='application/json')
+        self.assertEqual(limited.status_code, 429, limited.content)
+        self.assertEqual(UserMedia.objects.get(pk=self.user.pk).daily_likes, 10)
 
     def test_two_level_bans(self):
         self._bind('42')
@@ -171,9 +184,9 @@ class MediaApiTests(TestCase):
             self.assertEqual(self._submit().status_code, 403)
         self.assertEqual(self.client.get('/api/media/ranking').status_code, 200)
         media = self._create_media('BV1banned00001')
-        self.assertEqual(self.client.post('/api/media/like', {'media_id': media.pk, 'count': 1}, content_type='application/json').status_code, 200)
+        self.assertEqual(self.client.post('/api/media/like', {'media_id': media.pk}, content_type='application/json').status_code, 200)
         UserProfile.objects.filter(pk=self.user.pk).update(is_banned=True)
-        self.assertEqual(self.client.post('/api/media/like', {'media_id': media.pk, 'count': 1}, content_type='application/json').status_code, 403)
+        self.assertEqual(self.client.post('/api/media/like', {'media_id': media.pk}, content_type='application/json').status_code, 403)
 
     def test_admin_verify_degraded_checks_link_without_persisting_id(self):
         media = services.create_media(
@@ -200,7 +213,8 @@ class MediaApiTests(TestCase):
 
     def test_admin_reject_reopen_ban_edit(self):
         media = self._create_media()
-        services.like_media(self.user, media.pk, 2)
+        for _ in range(2):
+            services.like_media(self.user, media.pk)
         response = self.staff_client.post('/api/media/admin/reject', {'id': media.pk, 'reason': 'not minesweeper'}, content_type='application/json')
         self.assertEqual(response.status_code, 200, response.content)
         media.refresh_from_db()
