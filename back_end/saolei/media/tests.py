@@ -12,7 +12,7 @@ from userprofile.models import UserProfile
 from .models import Media, MediaLikes, UserMedia
 from .utils import (
     build_embed_url, build_external_url, decay, format_to_platform, MEDIA_HOT_DAILY_RETENTION,
-    MediaFormat, MediaStatus, normalize_language, parse_media_url, real_hot,
+    MediaFormat, MediaStatus, normalize_external_author_id, normalize_language, parse_media_url, real_hot,
 )
 
 
@@ -78,6 +78,13 @@ class MediaUtilsTests(SimpleTestCase):
         with self.assertRaises(ValueError):
             build_external_url('B_o', '1')
 
+    def test_normalize_external_author_id(self):
+        self.assertEqual(normalize_external_author_id(42), '42')
+        self.assertEqual(normalize_external_author_id('  UCxxxxxxxxxxxxxxxxxxxxxx  '), 'UCxxxxxxxxxxxxxxxxxxxxxx')
+        for invalid in (True, '', '   ', None, 1.5, 'x' * 129):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                normalize_external_author_id(invalid)
+
     def test_language_and_platform(self):
         self.assertEqual(normalize_language('  zh-cn  '), 'zh-cn')
         self.assertEqual(normalize_language(''), '')
@@ -110,6 +117,7 @@ class MediaModelDefinitionTests(SimpleTestCase):
         self.assertIn('status', field_names)
         self.assertNotIn('verified', field_names)
         self.assertNotIn('deleted_at', field_names)
+        self.assertNotIn('external_author_id', field_names)
         with self.assertRaises(LookupError):
             apps.get_model('media', 'MediaDeletionLog')
 

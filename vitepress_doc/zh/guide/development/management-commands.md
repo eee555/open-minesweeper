@@ -52,6 +52,22 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 
 文件解析通过独立子进程执行，每条最多 60 秒，原生崩溃或超时计为 `rust/panic`，继续处理下一条，不设置永久拒收标记。`accountlink` 日志在解析前记录来源录像 ID、账号 ID 和文件相对 URL，`utils.parser` 日志记录异常退出码及诊断尾部；下一轮同步会重试这类失败。隔离使用 Python 标准库 [`subprocess.run`](https://docs.python.org/3.12/library/subprocess.html#subprocess.run)，不复制 worker 的数据库连接。
 
+## 作品排行
+
+### `rebuild_media_rankings`
+
+位置：`media/management/commands/rebuild_media_rankings.py`。从数据库全量重建四个作品排行 zset 与 `media:hot:anchor`，只取 `status='verified'` 的作品行，`pending` 与 `rejected` 一律排除。用于部署、Redis 故障恢复和单测；请求时不懒重建。
+
+```bash
+python manage.py rebuild_media_rankings
+python manage.py rebuild_media_rankings --batch-size 500
+python manage.py rebuild_media_rankings --clear
+```
+
+写入先落在 `media:rebuild:<uuid>:*` 临时 key，按 `--batch-size`（默认 1000，必须为正）分批提交，最后用 `rename` 原子发布四个 zset 并写入锚点；中途失败删除临时 key，旧榜保持不变。空表时删除旧的四个 zset。命令结束前调用一次幂等的月度基准刷新，使停机跨月后数据库折算与 Redis 缩放保持一致。`--clear` 只删除五个固定 key，不重建。
+
+每月 UTC 1 日 00:00 的 `refresh_media_hot_reference` 作业只入队 Django Task，不在此命令中直接执行；启动时也会补一次幂等检查。作业失败可重跑，不会重复缩放。
+
 ## 勋章补发
 
 ### `enqueue_medal_backfill`

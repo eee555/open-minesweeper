@@ -430,6 +430,15 @@ LOGGING = {
             'maxBytes': 5242880,  # 1M
             'backupCount': 10,
         },
+        'media': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs/media.log'),
+            'formatter': 'modulehistory',
+            'encoding': 'utf-8',
+            'maxBytes': 5242880,  # 1M
+            'backupCount': 10,
+        },
     },
     'loggers': {
         # Authlib DEBUG logs can contain token exchange bodies and credentials.
@@ -457,6 +466,11 @@ LOGGING = {
         'tournament': {
             'level': 'INFO',
             'handlers': ['tournament'],
+            'propagate': False,
+        },
+        'media': {
+            'level': 'INFO',
+            'handlers': ['media'],
             'propagate': False,
         },
     },

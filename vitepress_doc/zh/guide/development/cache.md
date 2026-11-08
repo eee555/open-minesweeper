@@ -53,6 +53,14 @@ redis-cli -n 0 DEL io_s_old io_r_old io_s_spds io_r_spds cpus
 
 扫雷网旧站爬取及旧来源列表、统计查询已关闭，账号关联保留。首批仅由管理命令使用新来源结构同步目录和导入文件；旧爬取任务不会访问外站或写入业务数据。具体入口见仓库 `back_end/saolei/accountlink/README.md`。
 
+## 作品排行
+
+作品页热门、精品与排行榜页《作品》tab 使用五个固定 Redis key（DB `saolei_website`）：`media:rank:hot`、`media:rank:likes` 是作品维度 zset，`media:rank:user:hot`、`media:rank:user:likes` 是作者维度求和 zset，`media:hot:anchor` 保存全站统一热度基准 `T`，格式为 ISO 8601 UTC 时间。四个 zset 没有 TTL，只有 `verified` 作品入榜；`pending` 作品可以投喂但只写数据库，审核通过时按当前 `likes` / `hot_value` 一次性 `ZINCRBY` 补齐。审核中 tab 与《最新》tab 直接查库，不新增 Redis key。
+
+投喂的增量是 `count / 0.99 ** ((now - T) / 1 天)`，使作品 `hot_value` 在 `T` 基准下保持连续指数衰减；`likes` 不衰减。每月 UTC 1 日 00:00 由月度刷新作业入队 Django Task 幂等刷新：Redis 用 `WATCH` + `ZUNIONSTORE` 把两个 hot zset 整体乘以同一系数并写入新 `T`，数据库分批把每行按自身基准折算到新 `T`。系数为正，不改变榜内顺序，所以两侧短暂不同步不影响页面。任务入队前检查同路径的 READY / RUNNING 任务，避免堆积。
+
+站长硬删除已通过作品时，`transaction.on_commit()` 内 `ZREM` 两个作品榜，并对作者两个 zset 做等值扣减（结果不大于 0 时改为 `ZREM`）；驳回只发生在 `pending`，从未入榜，不需要回退。全量重建用 [rebuild_media_rankings](./management-commands.md#rebuild-media-rankings)，临时 key + `rename` 原子发布，只读取 `verified` 行，失败保留旧榜。五个 key 已纳入服务器监控快照的固定内存统计清单。
+
 ## 服务器监控快照
 
 `GET /api/monitor/summary` 一次返回 `{videosummary, tasksummary, diskusage, memoryusage}`，前端服务器页面只请求一次，再分发给各张卡片。APScheduler 的 `refresh_monitor_snapshot` 启动时立即执行，此后每 5 分钟复用 `monitor/services.py` 的采集函数，发布监控 JSON。开发环境默认写入 `BASE_DIR/runtime/monitor.json`；生产环境写入与 `STATIC_ROOT` 同级的 `runtime/monitor.json`，与源码目录分离。生产 Nginx 直接提供该文件；本地 Ninja 接口也只读文件，不在请求中采集。文件不存在时返回 503。

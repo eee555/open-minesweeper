@@ -9,12 +9,13 @@ from .utils import MediaFormat, MediaStatus
 
 class Media(models.Model):
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='media_works')
-    title = models.CharField(max_length=200)
+    title = models.CharField(max_length=200, blank=True, default='')
     language = models.CharField(max_length=32, blank=True, default='')
     created_at = models.DateTimeField()
     submitted_at = models.DateTimeField(auto_now_add=True)
     format = models.CharField(max_length=3, choices=MediaFormat.choices)
     suffix = models.CharField(max_length=128)
+    metadata_pending = models.BooleanField(default=False)
     status = models.CharField(max_length=8, choices=MediaStatus.choices, default=MediaStatus.PENDING)
     rejected_at = models.DateTimeField(null=True, blank=True)
     rejected_by = models.ForeignKey(UserProfile, on_delete=models.SET_NULL, null=True, blank=True, related_name='media_rejections')

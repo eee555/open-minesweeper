@@ -8,6 +8,7 @@ from django.db import models
 MEDIA_HOT_DAILY_RETENTION = 0.99
 SECONDS_PER_DAY = 86400.0
 MEDIA_LANGUAGE_MAX_LENGTH = 32
+MEDIA_AUTHOR_ID_MAX_LENGTH = 128
 
 
 class MediaFormat(models.TextChoices):
@@ -59,6 +60,16 @@ def normalize_language(value):
     normalized = (value or '').strip()
     if len(normalized) > MEDIA_LANGUAGE_MAX_LENGTH:
         raise ValueError('Language is too long')
+    return normalized
+
+
+def normalize_external_author_id(value):
+    """外站作者 id 归一化为字符串，仅用于一次性归属核验，不写入 Media。"""
+    if isinstance(value, bool) or not isinstance(value, (str, int)):
+        raise ValueError('Invalid external author id')
+    normalized = str(value).strip()
+    if not normalized or len(normalized) > MEDIA_AUTHOR_ID_MAX_LENGTH:
+        raise ValueError('Invalid external author id')
     return normalized
 
 
