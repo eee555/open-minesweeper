@@ -1,6 +1,6 @@
 # 作品页（media）开发计划
 
-状态：**第 3 阶段（API 层）已完成，并按「外站超时降级投稿」与「外站作者 id 不入库」口径修订**。阶段 0 的 app 外壳、阶段 1 的三张表与 `0001_initial` 迁移、阶段 2 的 `clients.py` / `services.py` / `cache.py` / 月度任务 / 重建命令 / LOGGING / nginx 与 uWSGI 超时链均已落地并通过局部检查（`media` 单测、调度作业断言与既有 CSRF 回归）；阶段 3 的 `schema.py` / `api.py` / `decorators.py` 与 18 个 `/api/media/` 接口同样已完成并通过局部检查；前端页面与前端投稿 25s 超时仍待阶段 4。删除路径改为 `status` 状态机（第 16 节），降级投稿与平台扩展约定见第 7.2、17 节；外站作者 id 的一次性核验口径见第 16.1 节第 15 条。
+状态：**第 4 阶段（前端）已完成**；第 0-3 阶段（app 外壳、数据层、服务与缓存、API 层）均已落地并通过局部检查，设计已按「外站超时降级投稿」「外站作者 id 不入库」「软删除状态机」口径修订。阶段 4 已接入 `/works` 四 tab、排行榜 / 数据库 / 个人主页 / 后台四个 tab、投稿与投喂组件、`mediaService.ts` 的 25s 投稿超时、全局与 SFC 双语 i18n，并完成 lintfix / typecheck / vitest / `build:openms` 与 9 个 Cypress 组件测试；阶段 5（生产迁移、重建 zset、超时链实测与灰度开放）未开始。删除路径改为 `status` 状态机（第 16 节），降级投稿与平台扩展约定见第 7.2、17 节；外站作者 id 的一次性核验口径见第 16.1 节第 15 条。
 
 本文档是实现的唯一设计基线；实现时若改变第 5 节的衰减不变量或第 9 节的权限口径，应先更新本文档。
 
@@ -496,7 +496,7 @@ flush: 若 now - lastSentAt < 1050ms，改为延后到该时刻（防止服务�
   - API 层（阶段 3，`media/test_api.py`）：18 个接口路径可由 OpenAPI 生成；读接口的 `MediaOut` 派生字段、anchor、分页与 `rejected` 可见性；投稿的绑定校验、作者不匹配 403、重复 409、结构性错误 502 不落库、超时降级 `metadata_pending=true`；降级审核 `/admin/verify` 的 `external_author_id` 一次性 `AccountLinkQueue` 核验（缺绑定 / id 不符 / 缺 title / 缺 id 分别 403/400）且响应与 `Media` 都不含该值；`staff_required` 权限矩阵、`auth=django_auth_superuser` 仅站长；`Client(enforce_csrf_checks=True)` 覆盖缺 token / 错 token / 不可信 Origin / 合法 token，并把新管理写接口加入 `userprofile/test_admin_csrf.py` 的回归清单。
 - 测试统一 `@override_settings(RATELIMIT_ENABLE=False)`（需要验证限流的用例单独覆盖），Redis key 在 `setUp` 清理并 `addCleanup`。
 
-前端（`front_end/`）：`npm run lintfix`、`npm run typecheck`、`npm run vitest -- run`、`npm run build:openms`；组件测试用 `npx cypress run --component --browser chrome --headless --spec "src/views/WorksView/*.cy.ts,src/views/RankingView/MediaRanking.cy.ts"`（CodeBuddy 环境可直接运行）；E2E 与预览/开发服务器由用户按需运行。
+前端（`front_end/`）：`npm run lintfix`、`npm run typecheck`、`npm run vitest -- run`、`npm run build:openms`；组件测试用 `npx cypress run --component --browser chrome --headless --spec "src/components/media/*.cy.ts,src/views/RankingView/MediaRanking.cy.ts"`（CodeBuddy 环境可直接运行，阶段 4 共 4 个 spec / 9 个用例全部通过）；E2E 与预览/开发服务器由用户按需运行。
 
 CI 参考：`.github/workflows/backend.yml` 会跑 `makemigrations` + `migrate` + `manage.py test`，因此迁移必须与模型同步提交；`.github/workflows/flake8.yml`、`BackendSafety.yml` 同样适用。
 
@@ -506,18 +506,20 @@ CI 参考：`.github/workflows/backend.yml` 会跑 `makemigrations` + `migrate` 
 | --- | --- | --- |
 | 0（已完成） | `media` app 外壳、三处项目注册、本文档 | `python manage.py check` 通过；OpenAPI 可加载；`flake8` 通过；无新增迁移 |
 | 1 数据层（已按状态机口径重做完成） | `utils.py` 常量/URL 解析/衰减函数/`MediaStatus`、`models.py` 三张表（`status` 状态机 + 驳回审计字段 + `metadata_pending`，**无 `external_author_id`**、无 `MediaDeletionLog`）、`0001_initial` 迁移、纯函数与模型单测 | `makemigrations --check` 干净；迁移可 `migrate`；约束/索引符合第 4 节；语言字段无枚举；`rejected` 行仍占全表唯一、禁止重投 |
-| 2 服务与缓存（已完成） | `clients.py` 依赖适配与字段映射（三种 format、不新写 HTTP 客户端）、`services.py` 事务流程（驳回退还并清零、改回 `pending`、审核通过补齐 zset、站长硬删除退还与 zset 回退、应用日志）、`cache.py` 五个 key、月度任务与调度、重建命令（只取 `verified`）、LOGGING 与 nginx/uWSGI 超时链、开发文档 | 三类 format 字段映射与超时/错误分类单测通过；衰减/幂等/回退/重建单测通过；驳回清零与硬删除回退单测通过；`common.tests.APSchedulerRegistrationTests` 通过；《最新》不新增 Redis key。**前端投稿 25s 超时随阶段 4 的 `mediaService.ts` 落地** |
+| 2 服务与缓存（已完成） | `clients.py` 依赖适配与字段映射（三种 format、不新写 HTTP 客户端）、`services.py` 事务流程（驳回退还并清零、改回 `pending`、审核通过补齐 zset、站长硬删除退还与 zset 回退、应用日志）、`cache.py` 五个 key、月度任务与调度、重建命令（只取 `verified`）、LOGGING 与 nginx/uWSGI 超时链、开发文档 | 三类 format 字段映射与超时/错误分类单测通过；衰减/幂等/回退/重建单测通过；驳回清零与硬删除回退单测通过；`common.tests.APSchedulerRegistrationTests` 通过；《最新》不新增 Redis key。**前端投稿 25s 超时已由阶段 4 的 `mediaService.ts` 落地** |
 | 3 API 层（已完成） | `schema.py`、`api.py`、`decorators.py`、全部读写接口（含 `/submit` 自动拉取与归属校验、`/admin/reject`、`/admin/reopen`、`/admin/delete` 的 `django_auth_superuser`）、限流与 CSRF 回归 | 所有装饰器写入 docstring；管理写接口通过 CSRF 回归；`reject_reason` / `rejected_by` 对普通访客可见；无 GET 写操作；结构性错误不落库、超时降级落库；降级投稿 `/admin/verify` 的一次性 `external_author_id` 经 `AccountLinkQueue` 核验且不落库；无面向用户的 `POST /delete`；18 个接口可由 OpenAPI 生成，nginx 精确 location 已按实际无尾斜杠路由修正 |
-| 4 前端 | 路由、作品页四个 tab、排行榜页《作品》tab、投稿表单（URL + 自由语言）、未知语言展示、审核中投喂、作者主页展示所有状态、组件、服务层、i18n、管理员审核页 | lintfix / typecheck / vitest / `MediaRanking.cy.ts` 等组件测试通过；至少 zh-cn + en 可用 |
+| 4 前端（已完成） | `router/index.ts` 的 `/works` 与 `/database/works`、`Menu.vue` 主导航、`WorksView` 四 tab（`ElTabs` + `keep-alive`）、`RankingView/MediaRanking.vue`、`DatabaseView/MediaQueryView.vue`、`UserView/UserMediaView.vue`、`StaffView/StaffMediaReview.vue`、`services/mediaService.ts`（投稿 timeout 25s）、`components/media/` 卡片 / 嵌入 / 投喂 / 投稿 / 列表组件与共享 `media.css`、全局与 SFC 双语 i18n | `lintfix` 0 errors（4 个既有 warning）、`typecheck` 通过、Cypress 组件测试 4 spec / 9 用例通过、`vitest -- run` 退出码 0、`build:openms` 成功；zh-cn + en 文案齐全；降级作品审核时 `title` 与一次性 `external_author_id` 必填且后者不落库 |
 | 5 联调与发布 | 部署一次 `makemigrations` + `migrate` → `rebuild_media_rankings` → reload nginx / 重启 uWSGI 与调度器/worker → 实测投稿超时链 → 灰度开放投稿 | 作品页四个 tab 正确（热门/精品走 Redis，审核中/《最新》查库）、排行榜《作品》tab 与两个 user zset 一致；拉取超时降级投稿、结构性错误拒绝；驳回退还清零且日志可查、被驳回外链无法重投；站长硬删除后四个 zset 回退正确且外链可重投；单次响应 < 300KB；回滚方案明确 |
 
-阶段 1-3 可以先合入后端但**不注册**写接口或前端入口，保证未开放时不影响线上；阶段 5 再开放。
+阶段 1-4 可以先合入代码；在阶段 5 完成生产迁移、重建 zset、超时链实测前不对外开放投稿入口，保证未开放时不影响线上。
 
 阶段 1 验收记录（状态机口径重做后）：`python -m flake8`、`manage.py check`、`makemigrations --check --dry-run`、`migrate media`、`manage.py test media`（18 个测试）均通过；`check` 只剩既有的 `staticfiles.W004`（`dist/` 目录不存在）。全量 `manage.py test` 另有 2 个与本功能无关的既有失败：`accountlink/wom/test/tests.py:198` 的 `test_update_wom`（`update_time` 未变化）与 `videomanager/test_video_hashes.py:11` 的 `test_hashes_entire_memory_or_temporary_upload_and_rewinds_for_parser`（`_safe_remove()` 参数不匹配）。功能尚不完整时不追求全量测试通过，留待后续阶段统一处理。
 
 阶段 2 验收记录（含降级口径修订与「外站作者 id 不入库」修订后）：本地 `migrate media zero` 后重新生成不含 `external_author_id` 的 `0001_initial`；全量 `python -m flake8`、`manage.py check`、`makemigrations --check --dry-run`、`migrate media`、`manage.py test media common.tests.APSchedulerRegistrationTests`（54 个测试：media 48 个、调度作业 6 个）与 `read_lints` 均通过；`check` 只剩既有的 `staticfiles.W004`。`monitor/cache.py` 已把五个 key 纳入固定内存统计清单；`cache.md`、`management-commands.md` 已同步。B 站依赖只有全局 `request_settings`，`clients.py` 在单次调用内临时把 timeout 设为 8s 并在 `finally` 恢复原值，不长期改变 `accountlink` 的 B 站调用行为；该折中在同进程并发请求下仍有短暂影响，部署前应确认 web 进程为单线程。
 
 阶段 3 验收记录：`python -m flake8`、`manage.py check`、`manage.py makemigrations --check --dry-run`、`api.get_openapi_schema()`（178 条路径，其中 `/api/media/` 18 条）、`manage.py test media common.tests.APSchedulerRegistrationTests userprofile.test_admin_csrf.AdminCsrfTests`（84 个测试：media 67、调度作业 6、既有 CSRF 回归 11）与 `read_lints` 均通过；`check` 只剩既有的 `staticfiles.W004`。`default.conf` 的精确 location 由 `/api/media/submit/` 修正为 `/api/media/submit`（Ninja 实际路由无尾斜杠），`uwsgi.ini` 白名单注释同步；前端投稿 25s 超时与页面仍属阶段 4。
+
+阶段 4 验收记录：`front_end` 下 `npm.cmd run lintfix` 最终 0 errors、4 个既有 `vue/one-component-per-file` warning；`npm.cmd run typecheck`（vue-tsc）通过；`npm.cmd run vitest -- run` 与 `npx.cmd vitest run --reporter=verbose` 均退出码 0（输出未给出完整用例汇总，故不记录通过数）；Cypress 组件测试以 `--component --browser chrome --headless` 指定 `src/components/media/MediaCard.cy.ts`、`MediaFeedButton.cy.ts`、`SubmitMediaDialog.cy.ts` 与 `src/views/RankingView/MediaRanking.cy.ts`，共 9 个用例通过（4 + 2 + 1 + 2）；`npm.cmd run build:openms` 成功，生成 `OpenMinesweeperVideoAnalyzer-0.2.2.zip`，仅有既有的 Vite 无扩展名 import、mediabunny BigInt 目标环境与 `module` externalized 警告。首次构建在清空 `dist/assets` 时被 IDE 批量删除守卫拦截（`SAFE_DELETE_BULK_CONFIRM_REQUIRED`，1120 项 > 500 阈值），按 CodeBuddy 约定用 `Move-Item front_end/dist .tmp/dist_stage4_backup` 改名保留后重跑成功；旧 `dist` 备份保留在 `.tmp/dist_stage4_backup`，阶段 5 前可由用户自行清理。按 `front_end/local-analyzer/VERSIONING.md`，本阶段改动不实际影响公共 VideoAnalyzer 或离线包，`version.json` 未递增（仍为 `0.2.2`）。E2E、预览与开发服务器按约定未运行。本阶段新增 `views/WorksView/`（App.vue、routes.ts、HotView / LikesView / LatestView / PendingView）、`views/RankingView/MediaRanking.vue` 与 `.cy.ts`、`views/DatabaseView/MediaQueryView.vue`、`views/UserView/UserMediaView.vue`、`views/StaffView/StaffMediaReview.vue`、`components/media/`（`MediaCard.vue`、`MediaEmbed.vue`、`MediaFeedButton.vue`、`MediaListPanel.vue`、`SubmitMediaDialog.vue`、`media.css` 与 3 个 `.cy.ts`）、`services/mediaService.ts`，并同步 `router/index.ts`、`Menu.vue`、四个 `App.vue` 的 tab / route 与 `i18n/locales/{zh-cn,en}.ts`；`mediaService.ts` 的 `SUBMIT_CONFIG` 已把投稿 timeout 设为 25s，与 `default.conf` 精确 location 的 25s 对齐。
 
 `media/migrations/0001_initial.py` 由 `makemigrations` 自动生成，受 `.gitignore` 的 `**/migrations/*` 规则忽略（仅 `migrations/__init__.py` 例外），提交阶段 1 时须 `git add -f back_end/saolei/media/migrations/0001_initial.py`。本地每次模型改动重新生成干净的 `0001`，生产端在阶段 5 生成并执行一次迁移（16.1 第 7 条）。
 
@@ -547,9 +549,9 @@ CI 参考：`.github/workflows/backend.yml` 会跑 `makemigrations` + `migrate` 
 - [ ] `saolei_api_key` 已由站长配置；部署环境验证 `read_secret('saolei_api_key')` 可读取并跑一次真实 `post_info` 联调；`post_info` 401 归入 `upstream_error`（按第 7.2 节走降级路径），部署联调应确认密钥正确；单测用 MockTransport，不依赖真实密钥。
 - [ ] 模型迁移由 `makemigrations` 生成并随代码提交；`migrate` 与 CI 的 `makemigrations` 不产生额外迁移；三张表（`Media` / `MediaLikes` / `UserMedia`）、`status` 状态机、`metadata_pending`、**无 `external_author_id` 字段**（16.1 第 15 条）、无 `MediaDeletionLog`；本地重复生成 `0001` 不影响生产（16.1 第 7 条）。
 - [ ] 《最新》tab 不新增 Redis key、不纳入 `rebuild_media_rankings`，但必须有 `media_latest_idx`；排行榜页《作品》tab 复用两个 user zset 并纳入重建验收；重建只取 `status='verified'`。
-- [ ] 投稿链路超时链落地：应用客户端 ≤15s、`default.conf` 精确 location 25s（阶段 3 已修正为无尾斜杠 `/api/media/submit`）、`uwsgi.ini:29` harakiri 白名单已配置；前端投稿 timeout 25s 随阶段 4 的 `mediaService.ts` 落地；部署后 reload nginx / 重启 uWSGI 并实测。
+- [ ] 投稿链路超时链落地：应用客户端 ≤15s、`default.conf` 精确 location 25s（阶段 3 已修正为无尾斜杠 `/api/media/submit`）、`uwsgi.ini:29` harakiri 白名单已配置；前端投稿 timeout 25s 已由阶段 4 的 `mediaService.ts` `SUBMIT_CONFIG` 落地；部署后 reload nginx / 重启 uWSGI 并实测。
 - [ ] 驳回日志：`settings.py` 的 `media` logger 与 `logs/media.log` 可写、驳回与站长硬删除时应用日志可查（硬删除含作品快照）；不新增审计表。`rejected` 行仍占全表唯一、禁止重投；站长硬删除释放唯一性后可重投。
-- [ ] `flake8`、`manage.py test`、前端 `lintfix` / `typecheck` / `vitest` / `build:openms` 与指定组件测试全部实际运行并记录结果。
+- [ ] `flake8`、`manage.py test`、前端 `lintfix` / `typecheck` / `vitest` / `build:openms` 与指定组件测试全部实际运行并记录结果（后端见阶段 1-3、前端见阶段 4 验收记录；`vitest` 只记录退出码 0，未记录用例数）。
 - [ ] `cache.md`、`management-commands.md` 更新；新增管理写接口加入 CSRF 回归清单；`common/tests.py` 作业集合更新。
 - [ ] 部署：重建四个 zset 与 anchor，确认月度刷新作业已注册、worker 正常，再开放投稿入口。
 

@@ -1,0 +1,119 @@
+.media-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.media-list > li {
+    min-width: 0;
+}
+
+.media-card {
+    padding: 8px 10px;
+    overflow: visible;
+}
+
+.media-card-head,
+.media-card-meta,
+.media-card-stats,
+.media-card-reject {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+    min-width: 0;
+}
+
+.media-card-head {
+    justify-content: space-between;
+}
+
+.media-card-title {
+    flex: 1 1 240px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: var(--ui-font-size-medium);
+}
+
+.media-card-meta,
+.media-card-reject {
+    margin-top: 4px;
+    font-size: var(--ui-font-size-small);
+}
+
+.media-card-stats {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--ui-border-color-lighter);
+}
+
+.media-card-status {
+    padding: 0 4px;
+    border: 1px solid var(--ui-border-color);
+    color: var(--ui-text-color-regular);
+    font-size: var(--ui-font-size-small);
+}
+
+.media-card-status--pending {
+    border-color: var(--ui-color-warning);
+    color: var(--ui-color-warning);
+}
+
+.media-card-status--rejected {
+    border-color: var(--ui-color-danger);
+    color: var(--ui-color-danger);
+}
+
+.media-card-status--verified {
+    border-color: var(--ui-color-success);
+    color: var(--ui-color-success);
+}
+
+.media-text-button {
+    padding: 2px 6px;
+    border: 1px solid var(--ui-border-color);
+    border-radius: 0;
+    background: var(--ui-bg-color);
+    color: var(--ui-text-color-regular);
+    font: inherit;
+    cursor: pointer;
+}
+
+.media-text-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.media-text-button:focus-visible {
+    outline: 2px solid var(--ui-color-primary);
+}
+
+.media-feed-pending {
+    color: var(--ui-color-primary);
+}
+
+.media-embed-frame {
+    display: block;
+    width: 100%;
+    max-width: 640px;
+    height: 360px;
+    margin-top: 6px;
+    border: 1px solid var(--ui-border-color-lighter);
+}
+
+.media-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.media-empty {
+    padding: 24px 0;
+    text-align: center;
+    color: var(--ui-text-color-secondary);
+}
