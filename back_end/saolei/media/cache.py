@@ -2,15 +2,19 @@
 
 from contextlib import contextmanager
 from datetime import datetime, timezone as datetime_timezone
+import logging
 from uuid import uuid4
 
+from django.db.models import F
 from django.utils import timezone
 from django_redis import get_redis_connection
+from redis.exceptions import LockError
 
 from utils.cache import maybe_bytes_to_str
 from .models import Media
 from .utils import decay, MediaStatus
 
+logger = logging.getLogger('media')
 cache = get_redis_connection('saolei_website')
 
 MEDIA_RANK_HOT = 'media:rank:hot'
@@ -31,14 +35,25 @@ class MediaCacheLockError(RuntimeError):
 
 
 @contextmanager
-def media_cache_lock():
-    """跨进程串行化 zset / anchor 写入、投稿基准读取与月度刷新。
+def media_cache_lock(*, blocking=True):
+    """跨进程串行化 zset / anchor 写入、月度刷新与全量重建。
 
-    锁的顺序统一为「先 Redis 锁、后 DB 事务」，避免持 DB 行锁等待 Redis 锁形成死锁。
+    只允许在后台任务与管理命令里阻塞等待（60s）；请求路径不调用，因为普通 API 的
+    Nginx 只有 2s、uWSGI 只有 10s。blocking=False 时拿不到锁立即 yield None，
+    由后台任务延迟重排，既不占请求预算也不会被陈旧锁卡住 worker。
     """
-    lock = cache.lock(MEDIA_CACHE_LOCK, timeout=MEDIA_LOCK_TIMEOUT, blocking_timeout=MEDIA_LOCK_BLOCKING_TIMEOUT)
-    with lock:
+    lock = cache.lock(MEDIA_CACHE_LOCK, timeout=MEDIA_LOCK_TIMEOUT)
+    acquired = lock.acquire(blocking=blocking, blocking_timeout=MEDIA_LOCK_BLOCKING_TIMEOUT if blocking else None)
+    if not acquired:
+        yield None
+        return
+    try:
         yield lock
+    finally:
+        try:
+            lock.release()
+        except LockError:
+            logger.warning('media cache lock expired before release; a later sync will reconcile')
 
 
 def media_hot_reference_time(at_time=None):
@@ -90,30 +105,61 @@ def set_media_scores(media_id, author_id, media_hot, media_likes, user_hot, user
         pipe.execute()
 
 
-def sync_media_scores(media_id, author_id):
-    """按回调执行时刻的 DB 重算并覆盖四个 zset 的绝对分数。
+def _reconcile_media_bases(author_id, anchor):
+    """把仍停留在旧基准的行折算到当前 anchor（SQL 端乘算，幂等）。
 
-    不看回调发起时的快照：硬删除后的迟到投喂回调查不到作品行，只会移除而不会重新
-    入榜；重建期间提交的投喂则在锁释放后按 DB 绝对值补齐，既不丢也不重复。
+    投稿在请求路径只读一次 anchor，不持有缓存锁；若月度刷新恰好在这期间推进了
+    anchor，这一行可能长期保留旧基准，导致用户主页按 hot_value 排序失真。后台
+    同步任务在锁内完成收敛，因此不需要在请求里等待任何锁。
+    """
+    bases = list(Media.objects.filter(
+        user_id=author_id, hot_value_updated_at__lt=anchor,
+    ).values_list('hot_value_updated_at', flat=True).distinct())
+    for base in bases:
+        Media.objects.filter(user_id=author_id, hot_value_updated_at=base).update(
+            hot_value=F('hot_value') * decay(base, anchor), hot_value_updated_at=anchor,
+        )
+
+
+def _sync_media_scores_locked(media_id, author_id):
+    """调用方已持有 media_cache_lock。"""
+    anchor = get_hot_reference()
+    _reconcile_media_bases(author_id, anchor)
+    rows = Media.objects.filter(user_id=author_id, status=MediaStatus.VERIFIED).values_list(
+        'pk', 'hot_value', 'likes', 'hot_value_updated_at',
+    )
+    user_hot = 0.0
+    user_likes = 0
+    has_works = False
+    media_hot = None
+    media_likes = 0
+    for pk, hot_value, likes, base in rows:
+        has_works = True
+        score = _to_anchor_score(hot_value, base, anchor)
+        user_hot += score
+        user_likes += likes
+        if pk == media_id:
+            media_hot, media_likes = score, likes
+    set_media_scores(media_id, author_id, media_hot, media_likes, user_hot, user_likes, has_works)
+
+
+def sync_media_scores(media_id, author_id):
+    """阻塞版，仅供管理命令与测试使用；后台任务请用 try_sync_media_scores。
+
+    按回调执行时刻的 DB 重算并覆盖四个 zset 的绝对分数：硬删除后的迟到同步查不到
+    作品行只会移除；重建期间提交的投喂在锁释放后按 DB 绝对值补齐，不丢也不重复。
     """
     with media_cache_lock():
-        anchor = get_hot_reference()
-        rows = Media.objects.filter(user_id=author_id, status=MediaStatus.VERIFIED).values_list(
-            'pk', 'hot_value', 'likes', 'hot_value_updated_at',
-        )
-        user_hot = 0.0
-        user_likes = 0
-        has_works = False
-        media_hot = None
-        media_likes = 0
-        for pk, hot_value, likes, base in rows:
-            has_works = True
-            score = _to_anchor_score(hot_value, base, anchor)
-            user_hot += score
-            user_likes += likes
-            if pk == media_id:
-                media_hot, media_likes = score, likes
-        set_media_scores(media_id, author_id, media_hot, media_likes, user_hot, user_likes, has_works)
+        _sync_media_scores_locked(media_id, author_id)
+
+
+def try_sync_media_scores(media_id, author_id):
+    """后台任务入口：非阻塞，拿不到锁立刻返回 False 由任务延迟重排。"""
+    with media_cache_lock(blocking=False) as lock:
+        if lock is None:
+            return False
+        _sync_media_scores_locked(media_id, author_id)
+    return True
 
 
 def get_ranking(key, start=0, count=50):

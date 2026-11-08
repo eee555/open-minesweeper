@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from . import cache
 from .models import Media, MediaLikes, UserMedia
+from .tasks import enqueue_media_score_sync
 from .utils import decay, MEDIA_DAILY_LIKE_LIMIT, MediaStatus
 
 logger = logging.getLogger('media')
@@ -36,14 +37,6 @@ def get_balance(user):
     return max(earned - likes_sent, 0)
 
 
-def _sync_media_scores(media_id, author_id):
-    """on_commit 回调：按提交后的 DB 重算 zset；失败只记日志，靠重建命令修复。"""
-    try:
-        cache.sync_media_scores(media_id, author_id)
-    except Exception:
-        logger.exception('Failed to sync media cache scores for media #%s', media_id)
-
-
 def create_media(user, *, media_format, suffix, language, title='', created_at=None, metadata_pending=False):
     """投稿落库：唯一约束防重复外链；外站元数据拉取与归属校验由 API 层完成。
 
@@ -51,24 +44,25 @@ def create_media(user, *, media_format, suffix, language, title='', created_at=N
     外站作者 id 只用于 API 层一次性归属核验，不传给 service、不入库。
     """
     try:
-        # 与月度刷新共用缓存锁：不能在读取旧 anchor 后、插入前让刷新完成两次换算。
-        with cache.media_cache_lock():
-            with transaction.atomic():
-                base = cache.get_hot_reference()
-                media = Media.objects.create(
-                    user=user, title=title, language=language, created_at=created_at or timezone.now(),
-                    format=media_format, suffix=suffix, metadata_pending=metadata_pending,
-                    status=MediaStatus.PENDING, likes=0, hot_value=0,
-                    hot_value_updated_at=base,
+        with transaction.atomic():
+            # 请求路径不持有缓存锁：读 anchor 只是 Redis GET，基准收敛交给持久化的
+            # 后台任务（同事务入队），因此月度换算再慢也不会占用 2s / 10s 请求预算。
+            base = cache.get_hot_reference()
+            media = Media.objects.create(
+                user=user, title=title, language=language, created_at=created_at or timezone.now(),
+                format=media_format, suffix=suffix, metadata_pending=metadata_pending,
+                status=MediaStatus.PENDING, likes=0, hot_value=0,
+                hot_value_updated_at=base,
+            )
+            # 创建完成后校验基准：锚点若已推进，立刻把这一行换算到新基准。
+            current = cache.get_hot_reference()
+            if current != base:
+                Media.objects.filter(pk=media.pk).update(
+                    hot_value=F('hot_value') * decay(base, current), hot_value_updated_at=current,
                 )
-                # 创建完成后校验基准：锚点若已推进，立刻把这一行换算到新基准。
-                current = cache.get_hot_reference()
-                if current != base:
-                    Media.objects.filter(pk=media.pk).update(
-                        hot_value=F('hot_value') * decay(base, current), hot_value_updated_at=current,
-                    )
-                    media.hot_value_updated_at = current
-                return media
+                media.hot_value_updated_at = current
+            enqueue_media_score_sync(media.pk, user.pk)
+            return media
     except IntegrityError:
         raise MediaServiceError('该作品已投稿过，不可重复投稿', 409) from None
 
@@ -108,8 +102,7 @@ def like_media(user, media_id):
             likes_sent=F('likes_sent') + 1, daily_likes=daily_likes + 1, daily_date=today,
         )
         if media.status == MediaStatus.VERIFIED:
-            author_id = media.user_id
-            transaction.on_commit(lambda: _sync_media_scores(media_id, author_id))
+            enqueue_media_score_sync(media_id, media.user_id)
         hot_now = media.hot_value * factor
         result = {'likes': media.likes, 'hot_now': hot_now, 'balance': balance - 1, 'status': media.status}
     return result
@@ -140,8 +133,8 @@ def verify_media(media_id, actor_id, *, title=None, created_at=None):
                 media.created_at = created_at
                 fields.append('created_at')
         media.save(update_fields=fields)
-        hot, likes, author_id = media.hot_value, media.likes, media.user_id
-        transaction.on_commit(lambda: _sync_media_scores(media_id, author_id))
+        hot, likes = media.hot_value, media.likes
+        enqueue_media_score_sync(media_id, media.user_id)
     logger.info('Staff #%s verified media #%s: likes=%s hot_value=%s', actor_id, media_id, likes, hot)
     return media
 
@@ -213,7 +206,7 @@ def hard_delete_media(media_id, actor_id):
             actor_id, media_id, media.format, media.suffix, media.title, author_id, likes, hot, refunded,
         )
         media.delete()
-        transaction.on_commit(lambda: _sync_media_scores(media_id, author_id))
+        enqueue_media_score_sync(media_id, author_id)
     return True
 
 

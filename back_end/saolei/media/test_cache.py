@@ -56,11 +56,14 @@ class MediaCacheTests(TestCase):
         self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_USER_LIKES, self.user.pk), 7)
         self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_USER_HOT, self.user.pk), 1.0)
 
-    def test_sync_converts_db_base_to_current_anchor(self):
+    def test_sync_reconciles_stale_db_base(self):
         media = self._media(1, hot=2.0, likes=3)
         cache.set_hot_reference(TARGET)
         factor = MEDIA_HOT_DAILY_RETENTION ** 31
         self._sync(media.pk)
+        media.refresh_from_db()
+        self.assertEqual(media.hot_value_updated_at, TARGET)
+        self.assertAlmostEqual(media.hot_value, 2.0 * factor)
         self.assertAlmostEqual(cache.cache.zscore(cache.MEDIA_RANK_HOT, 1), 2.0 * factor)
         self.assertAlmostEqual(cache.cache.zscore(cache.MEDIA_RANK_USER_HOT, self.user.pk), 2.0 * factor)
         self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_LIKES, 1), 3)

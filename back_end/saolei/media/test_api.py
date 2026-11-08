@@ -36,6 +36,13 @@ class MediaApiTests(TestCase):
         self.staff_client = Client()
         self.staff_client.force_login(self.staff)
         self.client.force_login(self.user)
+        # 缓存同步在部署中是后台任务；单测里同步执行以便断言排行榜响应。
+        patcher = patch(
+            'media.services.enqueue_media_score_sync',
+            side_effect=lambda media_id, author_id: cache.sync_media_scores(media_id, author_id),
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def tearDown(self):
         cache.clear_rankings()

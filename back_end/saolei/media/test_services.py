@@ -3,11 +3,14 @@
 from datetime import datetime, timedelta, timezone as datetime_timezone
 from unittest.mock import patch
 
+from django.db import transaction
+from django.tasks import TaskResultStatus
 from django.test import TestCase
 from django.utils import timezone
+from django_tasks_db.models import DBTaskResult
 
 from userprofile.models import UserProfile
-from . import cache
+from . import cache, tasks
 from .models import Media, MediaLikes, UserMedia
 from .services import (
     create_media, get_balance, hard_delete_media, like_media, MediaServiceError,
@@ -27,6 +30,14 @@ class MediaServiceTests(TestCase):
         UserProfile.objects.filter(pk=self.user.pk).update(date_joined=timezone.now() - timedelta(days=10))
         self.user.refresh_from_db()
         self.actor = self.user
+        # 后台任务在单测里同步执行，便于断言 zset；任务入队行为另有用例单独验证。
+        # 已有的 captureOnCommitCallbacks 上下文因此只是无害占位，保留测试结构。
+        patcher = patch(
+            'media.services.enqueue_media_score_sync',
+            side_effect=lambda media_id, author_id: cache.sync_media_scores(media_id, author_id),
+        )
+        self.enqueue = patcher.start()
+        self.addCleanup(patcher.stop)
 
     def tearDown(self):
         cache.clear_rankings()
@@ -189,9 +200,64 @@ class MediaServiceTests(TestCase):
     def test_create_media_validates_base_after_insert(self):
         """读到旧 anchor 后锚点推进：创建完成后必须把该行换算到新基准。"""
         anchors = iter([REFERENCE, NEXT_REFERENCE])
-        with patch.object(cache, 'get_hot_reference', side_effect=lambda: next(anchors)):
+        with patch.object(cache, 'get_hot_reference', side_effect=lambda: next(anchors, NEXT_REFERENCE)):
             media = self._create_media('BV1basevalid001')
         self.assertEqual(Media.objects.get(pk=media.pk).hot_value_updated_at, NEXT_REFERENCE)
+
+    def test_cache_sync_task_is_enqueued_with_business_transaction(self):
+        """任务行与业务数据同事务提交：请求进程在提交后被杀也不会丢缓存更新。"""
+        media = self._create_media()
+        with patch('media.services.enqueue_media_score_sync', side_effect=tasks.enqueue_media_score_sync):
+            verify_media(media.pk, self.actor.pk)
+        ready = DBTaskResult.objects.filter(
+            task_path=tasks.task_sync_media_scores.module_path, status=TaskResultStatus.READY,
+        )
+        self.assertEqual(ready.count(), 1)
+        self.assertIn(media.pk, ready.get().args_kwargs['args'])
+
+    def test_cache_sync_task_rolls_back_with_business_transaction(self):
+        """任务行必须与业务数据同生共死，不能出现「未扣红宝石却同步」或反之。"""
+        media = self._create_media()
+        with patch('media.services.enqueue_media_score_sync', side_effect=tasks.enqueue_media_score_sync):
+            with self.assertRaises(MediaServiceError):
+                with transaction.atomic():
+                    verify_media(media.pk, self.actor.pk)
+                    raise MediaServiceError('rollback', 409)
+        self.assertFalse(DBTaskResult.objects.filter(
+            task_path=tasks.task_sync_media_scores.module_path,
+        ).exists())
+
+    def test_create_media_does_not_wait_for_cache_lock(self):
+        """请求路径不持有也不等待缓存锁；月度换算再慢也不会吃掉 2s / 10s 预算。"""
+        lock = cache.cache.lock(cache.MEDIA_CACHE_LOCK, timeout=30)
+        self.assertTrue(lock.acquire(blocking=False))
+        try:
+            with patch('media.services.enqueue_media_score_sync'):
+                media = self._create_media('BV1nolock00001')
+        finally:
+            lock.release()
+        self.assertIsNotNone(media.pk)
+
+    def test_sync_task_retries_with_delay_when_lock_is_held(self):
+        """锁忙时非阻塞退出并延迟重排，worker 不会被陈旧锁卡住。"""
+        lock = cache.cache.lock(cache.MEDIA_CACHE_LOCK, timeout=30)
+        self.assertTrue(lock.acquire(blocking=False))
+        try:
+            self.assertFalse(cache.try_sync_media_scores(1, self.user.pk))
+            self.assertFalse(tasks.task_sync_media_scores.func(1, self.user.pk, 0))
+        finally:
+            lock.release()
+        delayed = DBTaskResult.objects.filter(
+            task_path=tasks.task_sync_media_scores.module_path, run_after__gt=timezone.now(),
+        )
+        self.assertEqual(delayed.count(), 1)
+        self.assertEqual(delayed.get().args_kwargs['args'][-1], 1)
+
+    def test_sync_task_gives_up_after_bounded_retries(self):
+        with patch.object(cache, 'try_sync_media_scores', return_value=False):
+            result = tasks.task_sync_media_scores.func(1, self.user.pk, tasks.MEDIA_SYNC_MAX_ATTEMPTS)
+        self.assertFalse(result)
+        self.assertFalse(DBTaskResult.objects.filter(task_path=tasks.task_sync_media_scores.module_path).exists())
 
     def test_late_feed_callback_after_hard_delete_does_not_resurrect(self):
         media = self._create_media()
@@ -218,7 +284,8 @@ class MediaServiceTests(TestCase):
                 like_media(self.user, media.pk)
             return original_decay(base, at)
 
-        with patch.object(cache, 'decay', side_effect=decay_after_write):
+        # 模拟真实部署：投喂只入队，worker 在重建锁释放后才执行同步。
+        with patch('media.services.enqueue_media_score_sync'), patch.object(cache, 'decay', side_effect=decay_after_write):
             cache.rebuild_rankings()
         media.refresh_from_db()
         cache.sync_media_scores(media.pk, self.user.pk)
