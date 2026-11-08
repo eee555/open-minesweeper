@@ -31,6 +31,9 @@ class AccountLinkQueue(models.Model):
     identifier = models.CharField(max_length=128, null=False)
     userprofile = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
     verified = models.BooleanField(default=False)
+    # 仅扫雷网（platform='c'）使用：用户申请绑定时在表单勾选的同步偏好，审核通过时带入 AccountSaolei
+    sync_from_saolei = models.BooleanField(default=True, help_text='扫雷网上传录像自动同步本站；仅扫雷网绑定申请使用。')
+    sync_to_saolei = models.BooleanField(default=True, help_text='本站上传录像自动同步扫雷网；仅扫雷网绑定申请使用。')
 
     class Meta:
         indexes = [models.Index(fields=['platform', 'identifier'], name='accountlink_platform_id_idx')]
@@ -47,6 +50,7 @@ class AccountSaolei(models.Model):
     video_sync_cursor = models.PositiveBigIntegerField(default=0)
     video_update_time = models.DateTimeField(null=True)
     auto_sync = models.BooleanField(default=True, help_text='每天自动增量同步扫雷网资料、录像目录及未完成的录像。')
+    sync_to_saolei = models.BooleanField(default=True, help_text='同意将本站上传录像自动同步至扫雷网（实际同步由扫雷网侧执行）。')
 
 
 class SaoleiApiVideo(models.Model):

@@ -15,12 +15,16 @@ def isPrivate(platform) -> bool:
     return platform in private_platforms
 
 
-def link_account(platform: Platform, linkid, user: UserProfile):
+def link_account(platform: Platform, linkid, user: UserProfile, saolei_prefs: tuple[bool, bool] | None = None):
     model = PLATFORM_CONFIG[platform]['model']
     linkid = model._meta.pk.to_python(linkid)
     account = model.objects.select_for_update().filter(id=linkid).first()
     if not account:
         account = model.objects.create(id=linkid, parent=user)
+        if platform == Platform.SAOLEI and saolei_prefs is not None:
+            # 仅在账号首次绑定时应用申请表单勾选的同步偏好；重复审核不覆盖用户已在面板改过的设置
+            account.auto_sync, account.sync_to_saolei = saolei_prefs
+            account.save(update_fields=['auto_sync', 'sync_to_saolei'])
     else:
         if account.parent_id != user.pk:
             raise ExceptionToResponse('accountlink', 'collision', status_code=409)

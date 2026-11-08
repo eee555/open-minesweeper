@@ -77,7 +77,7 @@ def verify_account_link(user_id: int, platform: str, identifier: str, actor_id: 
     link = next((link for link in links if link.userprofile_id == user.pk), None)
     if link is None:
         raise ExceptionToResponse('accountlink', 'not_found', status_code=404)
-    link_account(platform, identifier, user)
+    link_account(platform, identifier, user, saolei_prefs=(link.sync_from_saolei, link.sync_to_saolei))
     link.verified = True
     link.save(update_fields=['verified'])
     if platform == Platform.MSGAMES:

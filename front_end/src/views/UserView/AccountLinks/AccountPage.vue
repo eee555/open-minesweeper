@@ -40,7 +40,7 @@
                     <MineracerLink v-if="selected === 'm'" :flow="mineracerFlow" />
                     <ClassicLink v-else-if="selected === 'x'" :flow="classicFlow" />
                     <GitHubLink v-else-if="selected === 'g'" />
-                    <SaoleiLink v-else-if="selected === 'c'" v-model="drafts.c" :sending="sending.c" :error="errors.c" @submit="submitLink('c')" />
+                    <SaoleiLink v-else-if="selected === 'c'" v-model="drafts.c" v-model:sync-from-saolei="saoleiPrefs.syncFromSaolei" v-model:sync-to-saolei="saoleiPrefs.syncToSaolei" :sending="sending.c" :error="errors.c" @submit="submitLink('c')" />
                     <MsgamesLink v-else-if="selected === 'a'" v-model="drafts.a" :sending="sending.a" :error="errors.a" @submit="submitLink('a')" />
                     <WomLink v-else-if="selected === 'w'" v-model="drafts.w" :sending="sending.w" :error="errors.w" @submit="submitLink('w')" />
                     <BilibiliLink v-else-if="selected === 'B'" v-model="drafts.B" :sending="sending.B" :error="errors.B" @submit="submitLink('B')" />
@@ -100,6 +100,8 @@ const loaded = ref(false);
 const loadError = ref(false);
 const githubResult = ref('');
 const drafts = reactive(Object.fromEntries(platforms.map(({ id }) => [id, ''])) as Record<AccountLinkPlatform, string>);
+// 扫雷网绑定申请的同步偏好勾选（默认全部同意）
+const saoleiPrefs = reactive({ syncFromSaolei: true, syncToSaolei: true });
 const errors = reactive({ ...drafts });
 const sending = reactive(Object.fromEntries(platforms.map(({ id }) => [id, false])) as Record<AccountLinkPlatform, boolean>);
 const ownPage = computed(() => store.user.id > 0 && store.user.id === props.userId);
@@ -159,7 +161,7 @@ async function submitLink(platform: AccountLinkPlatform) {
     sending[platform] = true;
     errors[platform] = '';
     try {
-        const summary = await addAccountLink(platform, submittedId);
+        const summary = await addAccountLink(platform, submittedId, platform === 'c' ? { syncFromSaolei: saoleiPrefs.syncFromSaolei, syncToSaolei: saoleiPrefs.syncToSaolei } : undefined);
         if (!isActive()) return;
         links.value.addSummary(summary);
         drafts[platform] = '';

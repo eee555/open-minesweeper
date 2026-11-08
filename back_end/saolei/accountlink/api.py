@@ -63,6 +63,9 @@ class AccountLinkCompleteOut(Schema):
 class AccountLinkCreateIn(Schema):
     platform: str
     identifier: str
+    # 仅扫雷网（platform='c'）使用：申请绑定时的同步偏好勾选，默认全部同意
+    sync_from_saolei: bool = True
+    sync_to_saolei: bool = True
 
     @field_validator('identifier')
     @classmethod
@@ -197,6 +200,8 @@ def create_account_link(request, data: AccountLinkCreateIn = Form(...)):  # noqa
         platform=data.platform,
         identifier=data.identifier,
         userprofile=request.user,
+        sync_from_saolei=data.sync_from_saolei,
+        sync_to_saolei=data.sync_to_saolei,
     )
 
 
