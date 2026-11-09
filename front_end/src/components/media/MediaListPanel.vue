@@ -40,7 +40,13 @@
             </template>
             <tr v-for="item in items" :key="item.id" :data-cy="`media-row-${item.id}`">
                 <td>
-                    <a class="link" :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title || t('media.titleMissing') }}</a>
+                    <button
+                        v-if="item.embed_url" type="button" class="link media-preview-link"
+                        data-cy="media-preview-link" :title="t('media.preview')" @click="openPreview(item)"
+                    >
+                        {{ item.title || t('media.titleMissing') }}
+                    </button>
+                    <a v-else class="link" data-cy="media-title-link" :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title || t('media.titleMissing') }}</a>
                     <span v-if="item.metadata_pending" class="media-row-note text-secondary text-small">{{ t('media.titleMissing') }}</span>
                 </td>
                 <td class="table-col-player">
@@ -67,11 +73,20 @@
             v-model:current-page="page" v-model:page-size="pageSize"
             layout="total, prev, pager, next" :total="total"
         />
+        <ElDialog v-if="preview" model-value :title="preview?.title || t('media.titleMissing')" width="min(720px, 95vw)" @close="preview = null">
+            <iframe
+                class="media-embed-frame media-preview-frame" :src="preview?.embedUrl"
+                :title="preview?.title || t('media.titleMissing')" loading="lazy" referrerpolicy="no-referrer" allowfullscreen
+            />
+            <a class="link media-preview-external" :href="preview?.url" target="_blank" rel="noopener noreferrer">
+                {{ t('media.openExternal') }}
+            </a>
+        </ElDialog>
     </section>
 </template>
 
 <script setup lang="ts">
-import { ElPagination } from 'element-plus';
+import { ElDialog, ElPagination } from 'element-plus';
 import { computed, onScopeDispose, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -88,6 +103,7 @@ import { store } from '@/store';
 import '@/components/media/media.css';
 
 type WorksSort = 'latest' | 'hot' | 'likes';
+interface PreviewTarget { title: string; url: string; embedUrl: string }
 
 const emit = defineEmits<{ loading: [value: boolean] }>();
 
@@ -98,11 +114,17 @@ const page = ref(1);
 const pageSize = ref(20);
 const loading = ref(false);
 const me = ref<MediaMe | null>(null);
+const preview = ref<PreviewTarget | null>(null);
 let requestId = 0;
 let meRequestId = 0;
 
 // /me 成功表示当前是登录态；UserMedia.banned 只禁止投稿，不应禁用投喂。
 const feedDisabled = computed(() => me.value === null);
+
+function openPreview(item: MediaItem): void {
+    if (item.embed_url === null || item.embed_url === '') return;
+    preview.value = { title: item.title, url: item.url, embedUrl: item.embed_url };
+}
 
 function selectSort(value: WorksSort): void {
     if (sort.value === value) return;

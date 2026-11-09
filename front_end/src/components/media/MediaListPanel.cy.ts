@@ -61,7 +61,7 @@ describe('<MediaListPanel />', () => {
         cy.wait('@ranking');
         cy.get('.base-table thead th').should('have.length', 5);
         cy.get('[data-sort=hot]').should('have.attr', 'aria-pressed', 'true');
-        cy.get('[data-cy=media-row-7] a.link').should('have.attr', 'href', mediaItem.url);
+        cy.get('[data-cy=media-row-7] [data-cy=media-title-link]').should('have.attr', 'href', mediaItem.url);
         cy.get('[data-cy=media-row-7]').should('contain.text', '3.00').and('contain.text', '3');
         cy.get('[data-cy=media-row-7] button.media-text-button').should('not.be.disabled').
             and('have.attr', 'title').and('contain', '5');
@@ -77,6 +77,24 @@ describe('<MediaListPanel />', () => {
         cy.wait('@ranking').its('request.query.sort').should('eq', 'likes');
         cy.get('[data-sort=hot]').click();
         cy.wait('@ranking').its('request.query.sort').should('eq', 'hot');
+    });
+
+    it('opens a preview dialog for embeddable works instead of following the external link', () => {
+        const embeddable = {
+            ...mediaItem,
+            id: 8,
+            title: 'Embeddable work',
+            embed_url: 'https://player.bilibili.com/player.html?bvid=BV1xx411c7mD',
+        };
+        cy.intercept({ method: 'GET', pathname: '/api/media/ranking' }, {
+            body: { ...pageBody, items: [mediaItem, embeddable], total: 2 },
+        });
+        mountPanel();
+        cy.get('[data-cy=media-row-7] [data-cy=media-title-link]').should('have.attr', 'href', mediaItem.url);
+        cy.get('[data-cy=media-row-8] [data-cy=media-title-link]').should('not.exist');
+        cy.get('[data-cy=media-row-8] [data-cy=media-preview-link]').should('contain.text', 'Embeddable work').click();
+        cy.get('.el-dialog:visible iframe.media-preview-frame').should('have.attr', 'src', embeddable.embed_url);
+        cy.get('.el-dialog:visible a.media-preview-external').should('have.attr', 'href', mediaItem.url);
     });
 
     it('reloads /me after an in-page login', () => {

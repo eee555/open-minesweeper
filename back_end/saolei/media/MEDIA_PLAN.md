@@ -448,7 +448,7 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 
 ### 11.2 作品页表格与数据源
 
-表格列固定为：标题（外链）、作者（`PlayerName`）、发表时间、实时热度、累计投喂 + 投喂按钮。前两列不可排序，后三列表头是 `BaseTextButton`，点击切换原来的三种排序，`aria-sort` / `aria-pressed` 标记当前列，切换后页码回到 1；表格上方右端是 `投稿` 与刷新按钮。
+表格列固定为：标题、作者（`PlayerName`）、发表时间、实时热度、累计投喂 + 投喂按钮。标题对有 `embed_url` 的作品渲染为按钮，点击按需打开 `ElDialog` 预览 iframe（dialog 内另给「打开原作品」外链，不跳转出去）；其余作品仍在新窗口打开外链。前两列不可排序，后三列表头是 `BaseTextButton`，点击切换原来的三种排序，`aria-sort` / `aria-pressed` 标记当前列，切换后页码回到 1；表格上方右端是 `投稿` 与刷新按钮。
 
 | 表头 | 数据源 | 排序 | 可见性 |
 | --- | --- | --- | --- |
