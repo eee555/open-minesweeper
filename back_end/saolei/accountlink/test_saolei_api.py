@@ -13,6 +13,7 @@ from django.db.migrations import DeleteModel
 from django.db.migrations.executor import MigrationExecutor
 from django.test import Client as DjangoClient, override_settings, TestCase, TransactionTestCase
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 import httpx
 from saolei_api import Client, RateLimitError, ResponseError, VideoInfo, VideoListResponse
 
@@ -23,7 +24,7 @@ from userprofile.models import UserProfile
 from utils.exceptions import ExceptionToResponse
 from utils.parser import MSVideoParser
 from videomanager.files import original_file
-from videomanager.models import VideoModel
+from videomanager.models import ExpandVideoModel, VideoModel
 from .models import AccountLinkQueue, AccountSaolei, Platform, SaoleiApiVideo
 from .saolei.services import import_saolei_video, save_catalogue_page, sync_saolei_catalogue, update_saolei_account_info
 
@@ -508,3 +509,63 @@ class SaoleiSourceMigrationTests(TransactionTestCase):
                 self.assertNotIn('accountlink_videosaolei', connection.introspection.table_names())
         finally:
             MigrationExecutor(connection).migrate(after)
+
+
+EXPORT_BASE = '/api/accountlink/saolei'
+
+
+@override_settings(RATELIMIT_ENABLE=False, BAIDU_VERIFY_SKIP=True)
+class SaoleiExportApiTests(TestCase):
+    def setUp(self):
+        self.user, self.account = bound_account()
+        self.other_user, self.other_account = bound_account(102, 'saolei_export_other')
+        self.unlinked = UserProfile.objects.create_user(username='saolei_export_unlinked')
+
+    def create_video(self, player):
+        return VideoModel.objects.create(
+            player=player, video=ExpandVideoModel.objects.create(), file='export.evf', software='e', level='b', mode='00',
+        )
+
+    def unmapped(self, **params):
+        response = self.client.get(f'{EXPORT_BASE}/unmapped_videos', params)
+        self.assertEqual(response.status_code, 200, response.content)
+        return response.json()
+
+    def test_unmapped_videos_skip_mapped_and_unlinked_and_paginate_by_local_id(self):
+        first = self.create_video(self.user)
+        mapped = self.create_video(self.other_user)
+        self.create_video(self.unlinked)
+        other = self.create_video(self.other_user)
+        last = self.create_video(self.user)
+        SaoleiApiVideo.objects.create(remote_id=1, user=self.other_account, upload_time=timezone.now(), level='b', software='Arbiter', status=20, import_video=mapped)
+
+        items = self.unmapped()
+        self.assertEqual([item['video_id'] for item in items], [first.pk, other.pk, last.pk])
+        self.assertEqual([item['saolei_id'] for item in items], [101, 102, 101])
+        self.assertEqual(parse_datetime(items[0]['upload_time']).replace(microsecond=0), first.upload_time.replace(microsecond=0))
+        self.assertEqual([item['video_id'] for item in self.unmapped(cursor=other.pk)], [other.pk, last.pk])
+        self.assertEqual([item['video_id'] for item in self.unmapped(count=2)], [first.pk, other.pk])
+        self.assertEqual([item['video_id'] for item in self.unmapped(user_id=self.user.pk)], [first.pk, last.pk])
+        self.assertEqual([item['video_id'] for item in self.unmapped(user_id=self.other_user.pk)], [other.pk])
+        self.assertEqual(self.unmapped(user_id=self.unlinked.pk), [])
+        self.assertEqual(self.unmapped(user_id=999999), [])
+        self.assertEqual(self.unmapped(cursor=last.pk + 1), [])
+
+    def test_account_mapping_accepts_either_id_list_and_omits_unknown_ids(self):
+        response = self.client.get(f'{EXPORT_BASE}/account_mapping', {'saolei_ids': '102,101,999,101'})
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json(), [
+            {'saolei_id': 101, 'user_id': self.user.pk},
+            {'saolei_id': 102, 'user_id': self.other_user.pk},
+        ])
+        response = self.client.get(f'{EXPORT_BASE}/account_mapping', {'user_ids': f'{self.other_user.pk},{self.unlinked.pk}'})
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json(), [{'saolei_id': 102, 'user_id': self.other_user.pk}])
+
+    def test_account_mapping_rejects_ambiguous_or_invalid_id_lists(self):
+        for params in [
+            {}, {'saolei_ids': '101', 'user_ids': '1'}, {'saolei_ids': ','.join(map(str, range(1, 102)))},
+            {'user_ids': 'abc'}, {'saolei_ids': ''},
+        ]:
+            with self.subTest(params=params):
+                self.assertEqual(self.client.get(f'{EXPORT_BASE}/account_mapping', params).status_code, 400)

@@ -14,6 +14,7 @@ from saolei_api import RateLimitError, SaoleiError
 
 from userprofile.decorators import admin_csrf_required, login_required_error
 from utils.exceptions import ExceptionToResponse
+from videomanager.models import VideoModel
 from .bind import router as bind_router
 from .client import saolei_client
 from .services import check_binding, import_saolei_video, pending_saolei_videos, sync_saolei_page, update_saolei_account_info
@@ -24,6 +25,8 @@ router.add_router('/bind', bind_router)
 logger = logging.getLogger('accountlink')
 SaoleiVideoOut = create_schema(SaoleiApiVideo, exclude=['user', 'file_url'])
 SaoleiAccountOut = create_schema(AccountSaolei)
+UNMAPPED_VIDEO_MAX_COUNT = 2000
+ACCOUNT_MAPPING_MAX_IDS = 100
 
 
 class SummaryOut(Schema):
@@ -68,6 +71,17 @@ class SyncSettingsIn(Schema):
 class ImportOut(Schema):
     status: Literal['imported', 'existing', 'skipped']
     import_video: int | None
+
+
+class UnmappedVideoOut(Schema):
+    saolei_id: int
+    video_id: int
+    upload_time: datetime
+
+
+class AccountMappingOut(Schema):
+    saolei_id: int
+    user_id: int
 
 
 def account_for_request(request, account_id, *, owner=False):
@@ -208,3 +222,50 @@ def import_video(request, source_id: int):
         raise ExceptionToResponse(exc.obj, exc.category, exc.status_code if exc.status_code >= 400 else 400) from exc
     source.refresh_from_db()
     return {'status': result, 'import_video': source.import_video_id}
+
+
+def _parse_account_ids(raw: str):
+    parts = raw.split(',')
+    if len(parts) > ACCOUNT_MAPPING_MAX_IDS or any(len(part) > 19 or not part.isascii() or not part.isdecimal() or int(part) < 1 or int(part) > 2**63 - 1 for part in parts):
+        raise HttpError(400, f'Expected 1 to {ACCOUNT_MAPPING_MAX_IDS} comma-separated positive IDs.')
+    return list(dict.fromkeys(map(int, parts)))
+
+
+@router.get('/unmapped_videos', response=list[UnmappedVideoOut])
+@decorate_view(ratelimit(group='saolei-unmapped-videos', key='ip', rate='1/2s', block=True))
+def unmapped_videos(request, cursor: int = 1, count: int = 1000, user_id: int | None = None):
+    """- ratelimit(group='saolei-unmapped-videos', key='ip', rate='1/2s', block=True)
+
+    Local videos of Saolei-linked users that no SaoleiApiVideo maps to, in ascending local video ID order.
+    `cursor` is an inclusive lower bound on the video ID; continue with the last returned `video_id` plus one.
+    `count` defaults to 1000 and is capped at 2000; fewer rows are returned when the cursor reaches the end.
+    `user_id` is the local UserProfile ID; omit it to cover every linked user.
+    Videos from users without an AccountSaolei are excluded, as they have no Saolei user ID.
+    """
+    count = max(1, min(UNMAPPED_VIDEO_MAX_COUNT, count))
+    videos = VideoModel.objects.filter(
+        id__gte=max(1, cursor), player__account_saolei__isnull=False, saoleiapivideo__isnull=True,
+    )
+    if user_id is not None:
+        videos = videos.filter(player_id=user_id)
+    rows = videos.order_by('id').values('id', 'upload_time', 'player__account_saolei__id')[:count]
+    return [
+        {'saolei_id': row['player__account_saolei__id'], 'video_id': row['id'], 'upload_time': row['upload_time']}
+        for row in rows
+    ]
+
+
+@router.get('/account_mapping', response=list[AccountMappingOut])
+@decorate_view(ratelimit(group='saolei-account-mapping', key='ip', rate='1/s', block=True))
+def account_mapping(request, saolei_ids: str | None = None, user_ids: str | None = None):
+    """- ratelimit(group='saolei-account-mapping', key='ip', rate='1/s', block=True)
+
+    AccountSaolei pairs for up to 100 comma-separated IDs. Supply exactly one of `saolei_ids` or `user_ids`.
+    Unknown IDs are omitted; results are ordered by Saolei user ID.
+    """
+    if (saolei_ids is None) == (user_ids is None):
+        raise HttpError(400, 'Provide exactly one of saolei_ids or user_ids.')
+    ids = _parse_account_ids(saolei_ids if saolei_ids is not None else user_ids)
+    lookup = 'id__in' if saolei_ids is not None else 'parent_id__in'
+    rows = AccountSaolei.objects.filter(**{lookup: ids}).order_by('id').values('id', 'parent_id')
+    return [{'saolei_id': row['id'], 'user_id': row['parent_id']} for row in rows]
