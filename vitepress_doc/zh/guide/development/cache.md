@@ -697,7 +697,7 @@ participant 删除时，`revoke_rank_score_on_participant_delete` 在删除事�
 
 勋章规则由 `medal/definitions.py` 与代码中的静态阈值提供，不保存数据库配置，也不使用 Redis 目录缓存。目录按 code 查询与排序均在进程内完成；用户相关的可见性仍读取授予记录。
 
-玩家摘要持久化到MySQL的`medal_playermedalsummary`，每名玩家一行，以玩家ID为主键。JSON只含有效授予的公开事实、进度数值、佩戴顺序和首次扫描状态；定义、隐藏条件和计分读取当前共享图鉴。图鉴缓存命中、摘要已建立时，`player_summary()`通过连接玩家表和摘要表的1次查询返回结果。此计数不包含认证、会话、Redis访问和中间件。
+玩家摘要持久化到MySQL的`medal_playermedalsummary`，每名玩家一行，以玩家ID为主键。JSON只含有效授予的公开事实、进度数值、佩戴顺序和首次扫描状态；定义、隐藏条件和计分读取当前静态规则。摘要已建立时，`player_summary()`通过连接玩家表和摘要表的1次查询返回结果。此计数不包含认证、会话、Redis访问和中间件。
 
 后台评估、单项授予、人工决定和佩戴服务在同一玩家锁、同一数据库事务中更新业务记录和摘要；内容相同时不改写摘要。首次读取旧玩家时从现有勋章表补齐，不扫描录像。录像或比赛参加记录删除前，在同一玩家锁和删除事务内移除关联摘要。事务提交后再删掉该玩家的 `medal:display:v4:{user_id}`；删除回滚时摘要和键都还在。下次读取从完成外键置空的记录补齐摘要。维护原始勋章表的脚本必须使用服务入口，或在相同玩家锁和事务中删除受影响摘要；现有管理员重算入口也会同步重建摘要。
 
@@ -750,7 +750,7 @@ Redis 连接和读写异常记录日志，计算及数据库摘要不回滚，�
 | 比赛积分排行 | `TournamentCache.update_tournament_user` / `update_tournament_users`；APScheduler 年度锚点更新 | `manage.py rebuild_tournament_user_cache` 重建全部 7 个 zset；`manage.py rebuild_tournament_current_score_cache` 原子重算当前积分 zset 和年度锚点。 |
 | common 摘要 | 对应 API 内部 `cache.set` | TTL 到期自动失效。 |
 | 勋章图鉴 | 静态代码规则 | 无目录缓存、数据库定义表或初始化写入；规则随代码发布。 |
-| 勋章状态 | 佩戴列表、佩戴中的公开授予或扫描状态改变后，提交时读取最新摘要写 `medal:display:v4:{user_id}` | 缺键按需批量回填展示，不扫描录像；摘要删除提交后删键。`manage.py enqueue_medal_backfill` 只给未扫描玩家入队首次评估。 |
+| 勋章状态 | 佩戴列表、佩戴中的公开授予或扫描状态改变后，提交时读取最新摘要写 `medal:display:v4:{user_id}` | 缺键按需批量回填展示，不扫描录像；摘要删除提交后删键。`manage.py enqueue_medal_backfill` 默认给未扫描玩家入队，使用 `--all` 时也包括已扫描玩家。 |
 | 文章目录 | `article.views.update_list` | 管理员手动调用 `update_list` 全量刷新。 |
 
 ## 读取约定

@@ -515,7 +515,7 @@ describe('medalCaption', () => {
 
     it.each([
         ['en', 'Standard (00), Speed NG (05), Hardcore NG (06), and Lucky (10)'],
-        ['zh-cn', '标准、无猜、强无猜、弱可猜'],
+        ['zh-cn', '标准（00）、竞速无猜（05）、强无猜（06）、弱可猜（10）'],
     ])('resolves linked mode names in %s', async (locale, modes) => {
         const { medalCaption } = await import('./medalService');
         expect(medalCaption(MedalSeries.MODES, 'novice.modes', 1, locale).meaning).toContain(modes);
@@ -548,8 +548,8 @@ describe('medalCaption', () => {
     });
 
     it.each([
-        [MedalSeries.THREE_FLAGLESS_PRECISION, 'ability.thrp.nf.three', 'Three-Level NF Precision · 0.95', 'NF thrp on all 3 levels reached 0.95.'],
-        [MedalSeries.THREE_FLAGGED_PRECISION, 'ability.thrp.fl.three', 'Three-Level Precision · 0.95', 'FL thrp on all 3 levels reached 0.95.'],
+        [MedalSeries.THREE_FLAGLESS_PRECISION, 'ability.thrp.nf.three', 'Three-Level NF Precision · 0.95', 'Reach a thrp of 0.95 without flags on each of the beginner, intermediate, and expert levels.'],
+        [MedalSeries.THREE_FLAGGED_PRECISION, 'ability.thrp.fl.three', 'Three-Level Precision · 0.95', 'Reach a thrp of 0.95 with flags on each of the beginner, intermediate, and expert levels.'],
     ])('formats three-level series %s without adding a single-level prefix', async (series, code, title, meaning) => {
         const { medalCaption } = await import('./medalService');
         expect(medalCaption(series, code, 95000, 'en')).toEqual({ title, meaning, flavor: '' });
