@@ -9,6 +9,7 @@ from config.customranking import CUSTOM_PLUCK_LEVELS
 from customranking.cache import get_custom_pluck_detail_key, get_custom_pluck_rank_key
 from effranking.nf_ioe.cache import NFIOERankingCache
 from effranking.thrp.cache import ThrpRankingCache
+from media.cache import MEDIA_CACHE_KEYS
 from minigame.cache import MiniGameRankingCache
 from speedranking.pb.cache import PBRankingCache
 from speedranking.pb.utils import LEVELS, parse_field, record_field
@@ -56,6 +57,8 @@ def _known_memory_keys(ranking, fields, player_ids):
         yield 'other_rankings', get_custom_pluck_rank_key(level)
         yield 'other_rankings', get_custom_pluck_detail_key(level)
     for key in (*TOURNAMENT_USER_CACHE_KEYS.values(), TOURNAMENT_USER_SCORE_CURRENT_TIME_KEY):
+        yield 'other_rankings', key
+    for key in MEDIA_CACHE_KEYS:
         yield 'other_rankings', key
     yield 'latest_videos', newest_cache.key
     for player_id in player_ids:

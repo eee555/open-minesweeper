@@ -35,6 +35,7 @@ const tabItems = [
     { name: 'batchpluck' },
     { name: 'ranking-repair' },
     { name: 'minigame' },
+    { name: 'media' },
     { name: 'medals' },
 ] as const;
 const validTabs = tabItems.map((item) => item.name);
@@ -67,6 +68,7 @@ const i18nMessages = {
         batchpluck: '批量刷新pLuck纪录',
         'ranking-repair': '排行纪录重建',
         minigame: '小游戏纪录',
+        media: '作品审核',
     } },
     en: { local: {
         medals: 'Medal management',
@@ -82,6 +84,7 @@ const i18nMessages = {
         batchpluck: 'Batch refresh pLuck records',
         'ranking-repair': 'Rebuild ranking records',
         minigame: 'Minigame records',
+        media: 'Media review',
     } },
 };
 

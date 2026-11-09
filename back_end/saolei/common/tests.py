@@ -59,6 +59,7 @@ class APSchedulerRegistrationTests(TestCase):
                 'delete_overdue_tasks',
                 'refresh_tournament_score_reference',
                 'refresh_monitor_snapshot',
+                'refresh_media_hot_reference',
                 'sync_saolei_metadata_daily',
                 'import_saolei_hourly',
             },

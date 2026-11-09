@@ -11,6 +11,7 @@ from customranking.api import router as customranking_router
 from effranking.api import router as effranking_router
 from identifier.api import router as identifier_router
 from medal.api import router as medal_router
+from media.api import router as media_router
 from minigame.api import router as minigame_router
 from minigame.utils import MiniGameError
 from monitor.api import router as monitor_router
@@ -39,6 +40,7 @@ api.add_router('/video/', videomanager_router)
 api.add_router('/customranking/', customranking_router)
 api.add_router('/identifier/', identifier_router)
 api.add_router('/medal/', medal_router)
+api.add_router('/media/', media_router)
 api.add_router('/msuser/', msuser_router)
 api.add_router('/speedranking/', speedranking_router)
 api.add_router('/effranking/', effranking_router)
