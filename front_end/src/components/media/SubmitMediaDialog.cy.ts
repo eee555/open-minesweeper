@@ -26,7 +26,7 @@ const submitted = {
 };
 
 describe('<SubmitMediaDialog />', () => {
-    it('posts only the URL and free-text language', () => {
+    it('posts the selected format, suffix and free-text language', () => {
         cy.intercept('POST', '/api/media/submit', (request) => {
             request.reply(submitted);
         }).as('submit');
@@ -35,11 +35,13 @@ describe('<SubmitMediaDialog />', () => {
             props: { onSubmitted },
             global: { plugins: [i18n], config: { globalProperties: { $axios } } },
         });
-        cy.get('form input[type=url]').type('https://www.bilibili.com/video/BV1xx411c7mD/');
-        cy.get('form input[type=text]').type('zh-cn');
+        cy.get('form [data-cy=submit-format]').should('have.value', 'B_v');
+        cy.get('form [data-cy=submit-suffix]').type('BV1xx411c7mD');
+        cy.get('form [data-cy=submit-language]').type('zh-cn');
         cy.get('form button[type=submit]').click();
         cy.wait('@submit').its('request.body').should('deep.equal', {
-            url: 'https://www.bilibili.com/video/BV1xx411c7mD/',
+            format: 'B_v',
+            suffix: 'BV1xx411c7mD',
             language: 'zh-cn',
         });
         cy.get('@submittedSpy').should('have.been.calledOnce');

@@ -61,8 +61,12 @@ class MediaApiTests(TestCase):
     def _metadata(self, author_id='42'):
         return MediaMetadata(title='auto title', created_at=timezone.now() - timedelta(days=2), author_id=author_id)
 
-    def _submit(self, url=VIDEO_URL):
-        return self.client.post('/api/media/submit', {'url': url, 'language': ''}, content_type='application/json')
+    def _submit(self, suffix='BV1xx411c7mD', media_format=MediaFormat.B_V):
+        return self.client.post(
+            '/api/media/submit',
+            {'format': media_format, 'suffix': suffix, 'language': ''},
+            content_type='application/json',
+        )
 
     def test_ranking_and_user_ranking(self):
         media = self._create_media()
@@ -82,6 +86,18 @@ class MediaApiTests(TestCase):
         self.assertEqual(user_rank.status_code, 200, user_rank.content)
         self.assertEqual(user_rank.json()['items'][0]['user_id'], self.user.pk)
         self.assertEqual(user_rank.json()['items'][0]['likes'], 3)
+
+    def test_verified_zero_score_work_is_ranked_in_hot_and_likes(self):
+        """审核通过但未投喂的 0 分作品必须同时进入热门与精品，避免只在《最新》可见。"""
+        media = self._create_media()
+        services.verify_media(media.pk, self.staff.pk)
+        for sort in ('hot', 'likes'):
+            with self.subTest(sort=sort):
+                response = self.client.get(f'/api/media/ranking?sort={sort}')
+                self.assertEqual(response.status_code, 200, response.content)
+                body = response.json()
+                self.assertEqual(body['total'], 1)
+                self.assertEqual([item['id'] for item in body['items']], [media.pk])
 
     def test_latest_pending_and_detailbatch(self):
         verified = self._create_media('BV1verified001')
@@ -149,9 +165,8 @@ class MediaApiTests(TestCase):
         self.assertEqual(degraded.status_code, 200, degraded.content)
         self.assertEqual(degraded.json()['title'], '')
         self.assertTrue(degraded.json()['metadata_pending'])
-        other_url = VIDEO_URL.replace('BV1xx411c7mD', 'BV1xx411c7mE')
         with patch('media.clients.fetch_media_metadata_optional', side_effect=MediaFetchError('parse_error', 502)):
-            rejected = self._submit(other_url)
+            rejected = self._submit('BV1xx411c7mE')
         self.assertEqual(rejected.status_code, 502, rejected.content)
         self.assertFalse(Media.objects.filter(suffix='BV1xx411c7mE').exists())
 
@@ -165,12 +180,29 @@ class MediaApiTests(TestCase):
     def test_submit_normalizes_numeric_suffix(self):
         self._bind('42')
         with patch('media.clients.fetch_media_metadata_optional', return_value=self._metadata()):
-            first = self._submit('https://www.bilibili.com/read/cv01646742')
-            second = self._submit('https://www.bilibili.com/read/cv1646742')
+            first = self._submit('01646742', MediaFormat.B_A)
+            second = self._submit('1646742', MediaFormat.B_A)
         self.assertEqual(first.status_code, 200, first.content)
         self.assertEqual(second.status_code, 409, second.content)
         self.assertEqual(Media.objects.filter(format=MediaFormat.B_A).count(), 1)
         self.assertEqual(Media.objects.get(format=MediaFormat.B_A).suffix, '1646742')
+
+    def test_submit_rejects_unknown_format_or_mismatched_suffix(self):
+        self._bind('42')
+        with patch('media.clients.fetch_media_metadata_optional', return_value=self._metadata()):
+            unknown = self.client.post(
+                '/api/media/submit',
+                {'format': 'B_o', 'suffix': '9786', 'language': ''},
+                content_type='application/json',
+            )
+            mismatch = self.client.post(
+                '/api/media/submit',
+                {'format': MediaFormat.B_V, 'suffix': 'https://www.bilibili.com/read/cv1646742', 'language': ''},
+                content_type='application/json',
+            )
+        self.assertEqual(unknown.status_code, 400, unknown.content)
+        self.assertEqual(mismatch.status_code, 400, mismatch.content)
+        self.assertFalse(Media.objects.exists())
 
     def test_like_endpoint(self):
         media = self._create_media()
@@ -352,7 +384,11 @@ class MediaApiCsrfTests(TestCase):
         self._bind()
         self.client.force_login(self.user)
         with patch('media.clients.fetch_media_metadata_optional', return_value=None):
-            response = self.client.post('/api/media/submit', {'url': VIDEO_URL, 'language': ''}, content_type='application/json')
+            response = self.client.post(
+                '/api/media/submit',
+                {'format': MediaFormat.B_V, 'suffix': 'BV1xx411c7mD', 'language': ''},
+                content_type='application/json',
+            )
         self.assertEqual(response.status_code, 200, response.content)
 
     def _bind(self):

@@ -29,13 +29,13 @@ const AUTHOR_MID = '349467963';
 const EXPECTED_TITLE = '【扫雷比赛】巨佬群殴！史上最燃的扫雷大赛！第八届金羊杯总结视频';
 
 function openSubmitDialog() {
-    cy.contains('.media-toolbar button', '投稿作品').click();
+    cy.get('[data-cy=open-submit]').click();
     cy.get('.el-dialog:visible form.media-submit-form').should('be.visible');
 }
 
 function fillAndSubmit() {
-    cy.get('.el-dialog:visible form.media-submit-form input[type=url]').type(WORK_URL);
-    cy.get('.el-dialog:visible form.media-submit-form input[type=text]').type('zh-cn');
+    cy.get('.el-dialog:visible form.media-submit-form [data-cy=submit-suffix]').type(BVID);
+    cy.get('.el-dialog:visible form.media-submit-form [data-cy=submit-language]').type('zh-cn');
     cy.get('.el-dialog:visible form.media-submit-form button[type=submit]').click();
 }
 
