@@ -59,7 +59,7 @@
 <script setup lang="ts">
 import '@/styles/cards.css';
 import '@/styles/layout.css';
-import { onMounted, ref } from 'vue';
+import { onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 
@@ -75,8 +75,16 @@ const sync = ref(true); // 「扫雷网录像自动同步到本站」默认勾�
 const sending = ref(false);
 const errorMessage = ref('');
 const token = ref('');
+let revision = 0;
 
 async function load() {
+    const current = ++revision;
+    state.value = 'loading';
+    request.value = null;
+    sync.value = true;
+    sending.value = false;
+    errorMessage.value = '';
+    token.value = '';
     const tokenParam = route.query.token;
     const tokenValue = typeof tokenParam === 'string' ? tokenParam : undefined;
     if (!isSaoleiBindToken(tokenValue)) {
@@ -86,6 +94,7 @@ async function load() {
     token.value = tokenValue;
     try {
         const info = await fetchSaoleiBindRequest(token.value);
+        if (current !== revision) return;
         if (info.status !== 0) {
             state.value = 'invalid';
             return;
@@ -93,6 +102,7 @@ async function load() {
         request.value = info;
         state.value = 'ready';
     } catch (error) {
+        if (current !== revision) return;
         const { category } = error as { category?: SaoleiBindErrorCategory };
         if (category === 'login_required') {
             state.value = 'loginRequired';
@@ -105,22 +115,27 @@ async function load() {
 
 async function confirm() {
     if (sending.value || !request.value) return;
+    const current = revision;
     sending.value = true;
     errorMessage.value = '';
     try {
         await confirmSaoleiBind(token.value, sync.value);
+        if (current !== revision) return;
         state.value = 'done';
     } catch (error) {
+        if (current !== revision) return;
         const { category } = error as { category?: SaoleiBindErrorCategory };
         errorMessage.value = t(`local.error.${category ?? 'network'}`);
         if (category === 'invalid_token') {
             state.value = 'invalid';
         }
     }
-    sending.value = false;
+    if (current === revision) sending.value = false;
 }
 
-onMounted(load);
+onBeforeUnmount(() => {
+    revision++;
+});
 
 const i18nMessages = {
     'zh-cn': { local: {
@@ -172,6 +187,8 @@ const i18nMessages = {
 };
 
 const { t } = useI18n({ messages: i18nMessages });
+
+watch(() => route.query.token, load, { immediate: true });
 </script>
 
 <style scoped>

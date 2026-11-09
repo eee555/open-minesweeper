@@ -1,4 +1,4 @@
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+import asyncio
 import re
 
 from django_ratelimit.decorators import ratelimit
@@ -22,11 +22,9 @@ SAOLEI_BIND_REQUEST_PATH = '/api/public/v1/openms/bind-request'
 # 48 位 hex 一次性令牌
 TOKEN_RE = re.compile(r'[0-9a-f]{48}')
 
-# HTTPX 分别限制连接、读写等阶段；额外用 future 的总等待上限保证不会超过
-# 网关 5s 读取预算，并为数据库、缓存和响应序列化预留约 1s。
+# 总预算取消实际 HTTP I/O 并关闭客户端，为网关 5s 预算内的本地处理留出余量。
 SAOLEI_PUBLIC_TIMEOUT = 3.0
 SAOLEI_PUBLIC_TOTAL_TIMEOUT = 4.0
-_UPSTREAM_EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix='saolei-bind')
 
 
 class SaoleiBindConfirmIn(Schema):
@@ -46,21 +44,17 @@ class SaoleiBindStatusOut(Schema):
     status: str
 
 
-def _request_remote_bind(token: str):
-    return httpx.get(
-        f'{SAOLEI_PUBLIC_BASE}{SAOLEI_BIND_REQUEST_PATH}',
-        params={'token': token},
-        timeout=SAOLEI_PUBLIC_TIMEOUT,
-    )
+async def _request_remote_bind(token: str):
+    async with asyncio.timeout(SAOLEI_PUBLIC_TOTAL_TIMEOUT):
+        async with httpx.AsyncClient(timeout=SAOLEI_PUBLIC_TIMEOUT) as client:
+            return await client.get(f'{SAOLEI_PUBLIC_BASE}{SAOLEI_BIND_REQUEST_PATH}', params={'token': token})
 
 
 def fetch_remote_bind_request(token: str) -> dict | None:
     """调扫雷网公开接口；无效令牌返回 None，网络失败或超过总预算抛 502。"""
-    future = _UPSTREAM_EXECUTOR.submit(_request_remote_bind, token)
     try:
-        response = future.result(timeout=SAOLEI_PUBLIC_TOTAL_TIMEOUT)
-    except (FutureTimeoutError, httpx.HTTPError):
-        future.cancel()
+        response = asyncio.run(_request_remote_bind(token))
+    except (TimeoutError, httpx.HTTPError):
         raise HttpError(502, 'Saolei bind-request upstream unavailable.') from None
     if response.status_code == 404:
         return None

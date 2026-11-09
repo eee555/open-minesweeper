@@ -37,6 +37,7 @@ describe('saolei bind authorization page service', () => {
 
     it.each([
         [401, 'login_required'],
+        [403, 'login_required'],
         [404, 'invalid_token'],
         [500, 'network'],
     ])('maps request failure status %i to %s', async (status, category) => {
@@ -44,14 +45,15 @@ describe('saolei bind authorization page service', () => {
         await expect(fetchSaoleiBindRequest(token)).rejects.toMatchObject({ category });
     });
 
-    it('confirms the link with the sync toggle', async () => {
+    it.each([true, false])('confirms the link with sync=%s', async (sync) => {
         post.mockResolvedValueOnce({ data: { type: 'success' } });
-        await expect(confirmSaoleiBind(token, true)).resolves.toBeUndefined();
-        expect(post).toHaveBeenCalledWith('/api/accountlink/saolei/bind/confirm', { token, sync: true }, expect.anything());
+        await expect(confirmSaoleiBind(token, sync)).resolves.toBeUndefined();
+        expect(post).toHaveBeenCalledWith('/api/accountlink/saolei/bind/confirm', { token, sync }, expect.anything());
     });
 
     it.each([
         [401, 'login_required'],
+        [403, 'login_required'],
         [404, 'invalid_token'],
         [409, 'collision'],
         [0, 'network'],
