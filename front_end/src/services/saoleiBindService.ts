@@ -26,7 +26,7 @@ export async function fetchSaoleiBindRequest(token: string): Promise<SaoleiBindR
     try {
         return (await $axios.get<SaoleiBindRequestInfo>(`${root}/request`, { params: { token } })).data;
     } catch (error) {
-        if (isAxiosError(error) && error.response?.status === 401) {
+        if (isAxiosError(error) && [401, 403].includes(error.response?.status ?? 0)) {
             throw new SaoleiBindError('login_required');
         }
         if (isAxiosError(error) && error.response?.status === 404) {
@@ -41,7 +41,7 @@ export async function confirmSaoleiBind(token: string, sync: boolean): Promise<v
         await $axios.post(`${root}/confirm`, { token, sync }, requestOptions);
     } catch (error) {
         if (isAxiosError(error)) {
-            if (error.response?.status === 401) throw new SaoleiBindError('login_required');
+            if ([401, 403].includes(error.response?.status ?? 0)) throw new SaoleiBindError('login_required');
             if (error.response?.status === 404) throw new SaoleiBindError('invalid_token');
             if (error.response?.status === 409) throw new SaoleiBindError('collision');
         }
