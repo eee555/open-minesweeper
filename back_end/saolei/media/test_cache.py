@@ -1,6 +1,7 @@
 """作品排行缓存单测：按 DB 绝对值写入、衰减幂等与迟到回调；见 MEDIA_PLAN.md 第 12 节。"""
 
 from datetime import datetime, timezone as datetime_timezone
+from unittest.mock import Mock, patch
 
 from django.test import TestCase
 from django.utils import timezone
@@ -127,3 +128,24 @@ class MediaCacheTests(TestCase):
         cache.refresh_hot_reference(TARGET)
         self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_LIKES, 1), 8)
         self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_USER_LIKES, 10), 8)
+
+    def test_blocking_lock_failure_raises_instead_of_running_unlocked(self):
+        """阻塞取锁失败必须中断执行，否则月度刷新会在无锁保护下跑完并记为成功。"""
+        busy = Mock()
+        busy.acquire.return_value = False
+        with patch.object(cache.cache, 'lock', return_value=busy):
+            with self.assertRaises(cache.MediaCacheLockError):
+                with cache.media_cache_lock():
+                    self.fail('operation must not run without the lock')
+        busy.acquire.assert_called_once_with(blocking=True, blocking_timeout=cache.MEDIA_LOCK_BLOCKING_TIMEOUT)
+        busy.release.assert_not_called()
+
+    def test_non_blocking_lock_failure_still_yields_none(self):
+        """非阻塞分支保持原语义：拿不到锁返回 None，由后台任务延迟重排。"""
+        busy = Mock()
+        busy.acquire.return_value = False
+        with patch.object(cache.cache, 'lock', return_value=busy):
+            with cache.media_cache_lock(blocking=False) as lock:
+                self.assertIsNone(lock)
+        busy.acquire.assert_called_once_with(blocking=False, blocking_timeout=None)
+        busy.release.assert_not_called()

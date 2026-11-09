@@ -82,8 +82,8 @@ def create_media(user, *, media_format, suffix, language, title='', created_at=N
 def like_media(user, media_id):
     """投喂 1 个红宝石：先锁作品再锁用户（与驳回/硬删除一致），按 UTC 自然日限 10 次成功投喂。
 
-    热度增量按作品行自己的 hot_value_updated_at 折算，不依赖 Redis anchor；Redis 写入
-    在 on_commit 回调里按提交后的 DB 绝对值覆盖，迟到回调不会重建已删除作品。
+    热度增量按作品行自己的 hot_value_updated_at 折算，不依赖 Redis anchor；缓存写入
+    由同事务入队的后台任务按执行时刻的 DB 绝对值覆盖，迟到任务不会重建已删除作品。
     daily_date / daily_likes 与 likes_sent 在同一事务内更新，事务回滚即不计数。
     驳回与硬删除只退还 likes_sent，不回退当日已用次数（16.1 第 17 条）。
     """

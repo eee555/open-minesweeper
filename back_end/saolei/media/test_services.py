@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta, timezone as datetime_timezone
 from io import StringIO
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -34,7 +34,6 @@ class MediaServiceTests(TestCase):
         self.user.refresh_from_db()
         self.actor = self.user
         # 后台任务在单测里同步执行，便于断言 zset；任务入队行为另有用例单独验证。
-        # 已有的 captureOnCommitCallbacks 上下文因此只是无害占位，保留测试结构。
         patcher = patch(
             'media.services.enqueue_media_score_sync',
             side_effect=lambda media_id, author_id: cache.sync_media_scores(media_id, author_id),
@@ -257,6 +256,24 @@ class MediaServiceTests(TestCase):
             with self.assertRaises(tasks.MediaCacheSyncError):
                 tasks.task_sync_media_scores.func(1, self.user.pk, tasks.MEDIA_SYNC_MAX_ATTEMPTS)
         self.assertFalse(DBTaskResult.objects.filter(task_path=tasks.task_sync_media_scores.module_path).exists())
+
+    def test_refresh_task_fails_visibly_when_cache_lock_is_unavailable(self):
+        """月度刷新取锁失败必须抛错：任务变 FAILED，不能在无锁状态下跑完并被记为成功。"""
+        busy = Mock()
+        busy.acquire.return_value = False
+        media = self._create_media()
+        self._like(media, 2)
+        media.refresh_from_db()
+        hot_before = media.hot_value
+        with patch.object(cache.cache, 'lock', return_value=busy):
+            with self.assertRaises(cache.MediaCacheLockError):
+                refresh_hot_reference(NEXT_REFERENCE)
+            with self.assertRaises(cache.MediaCacheLockError):
+                tasks.task_refresh_media_hot_reference.func()
+        media.refresh_from_db()
+        self.assertEqual(media.hot_value, hot_before)
+        self.assertEqual(media.hot_value_updated_at, REFERENCE)
+        self.assertEqual(cache.get_hot_reference(), REFERENCE)
 
     def test_restart_media_sync_task_resets_attempt(self):
         """重启失败任务时丢弃重试计数，否则重跑会立刻再次失败。"""

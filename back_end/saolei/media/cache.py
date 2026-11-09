@@ -31,7 +31,7 @@ MEDIA_CACHE_KEYS = (*MEDIA_RANK_KEYS, MEDIA_HOT_ANCHOR)
 
 
 class MediaCacheLockError(RuntimeError):
-    """重建期间缓存锁过期；应暂停写入后重跑重建命令。"""
+    """缓存锁不可用或持锁期间过期；操作未执行/未完成，需重跑任务或命令。"""
 
 
 @contextmanager
@@ -40,13 +40,23 @@ def media_cache_lock(*, blocking=True):
 
     只允许在后台任务与管理命令里阻塞等待（60s）；请求路径不调用，因为普通 API 的
     Nginx 只有 2s、uWSGI 只有 10s。blocking=False 时拿不到锁立即 yield None，
-    由后台任务延迟重排，既不占请求预算也不会被陈旧锁卡住 worker。
+    由后台任务延迟重排，既不占请求预算也不会被陈旧锁卡住 worker。blocking=True
+    拿不到锁必须抛错：调用方不能在没有锁保护时继续跑完并被记为成功。
     """
     lock = cache.lock(MEDIA_CACHE_LOCK, timeout=MEDIA_LOCK_TIMEOUT)
     acquired = lock.acquire(blocking=blocking, blocking_timeout=MEDIA_LOCK_BLOCKING_TIMEOUT if blocking else None)
     if not acquired:
-        yield None
-        return
+        if not blocking:
+            yield None
+            return
+        logger.error(
+            'media cache lock %s unavailable after %ss; the operation did not run',
+            MEDIA_CACHE_LOCK, MEDIA_LOCK_BLOCKING_TIMEOUT,
+        )
+        raise MediaCacheLockError(
+            f'{MEDIA_CACHE_LOCK} unavailable after {MEDIA_LOCK_BLOCKING_TIMEOUT}s; '
+            'restart the failed task or rerun the command',
+        )
     try:
         yield lock
     finally:
