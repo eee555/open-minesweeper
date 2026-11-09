@@ -40,13 +40,19 @@
             </template>
             <tr v-for="item in items" :key="item.id" :data-cy="`media-row-${item.id}`">
                 <td>
-                    <button
-                        v-if="item.embed_url" type="button" class="link media-preview-link"
-                        data-cy="media-preview-link" :title="t('media.preview')" @click="openPreview(item)"
-                    >
-                        {{ item.title || t('media.titleMissing') }}
-                    </button>
-                    <a v-else class="link" data-cy="media-title-link" :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title || t('media.titleMissing') }}</a>
+                    <span class="media-title-cell">
+                        <img
+                            v-if="platformIconSrc(item.format)" class="media-platform-icon" data-cy="media-platform-icon"
+                            :src="platformIconSrc(item.format)" :alt="platformName(item.format)" :title="platformName(item.format)"
+                        >
+                        <button
+                            v-if="item.embed_url" type="button" class="link media-preview-link media-title-control"
+                            data-cy="media-preview-link" :title="t('media.preview')" @click="openPreview(item)"
+                        >
+                            {{ item.title || t('media.titleMissing') }}
+                        </button>
+                        <a v-else class="link media-title-control" data-cy="media-title-link" :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title || t('media.titleMissing') }}</a>
+                    </span>
                     <span v-if="item.metadata_pending" class="media-row-note text-secondary text-small">{{ t('media.titleMissing') }}</span>
                 </td>
                 <td class="table-col-player">
@@ -99,6 +105,8 @@ import PlayerName from '@/components/PlayerName.vue';
 import type { MediaItem, MediaLikeResult, MediaMe, MediaPage } from '@/services/mediaService';
 import { fetchLatestMedia, fetchMediaMe, fetchMediaRanking } from '@/services/mediaService';
 import { store } from '@/store';
+import { AccountLinkPlatform } from '@/utils/accountlinks';
+import { platforms } from '@/views/UserView/AccountLinks/platforms';
 
 import '@/components/media/media.css';
 
@@ -106,6 +114,21 @@ type WorksSort = 'latest' | 'hot' | 'likes';
 interface PreviewTarget { title: string; url: string; embedUrl: string }
 
 const emit = defineEmits<{ loading: [value: boolean] }>();
+
+// Media 的 format 首字符与 AccountLinkPlatform 一致；图标地址复用账号关联页的唯一来源。
+const FORMAT_PLATFORM: Record<string, AccountLinkPlatform> = {
+    B_v: AccountLinkPlatform.Bilibili,
+    B_a: AccountLinkPlatform.Bilibili,
+    c_p: AccountLinkPlatform.Saolei,
+};
+
+function platformIconSrc(format: string): string {
+    return platforms.find((entry) => entry.id === FORMAT_PLATFORM[format])?.src ?? '';
+}
+
+function platformName(format: string): string {
+    return t(`platform.${FORMAT_PLATFORM[format]}`);
+}
 
 const sort = ref<WorksSort>('hot');
 const items = ref<MediaItem[]>([]);

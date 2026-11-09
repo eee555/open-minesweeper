@@ -131,6 +131,26 @@
     margin-inline-start: 6px;
 }
 
+.media-title-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+}
+
+.media-title-control {
+    gap: 4px;
+    min-width: 0;
+}
+
+.media-platform-icon {
+    display: block;
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    object-fit: contain;
+}
+
 .media-preview-link {
     padding: 0;
     border: 0;

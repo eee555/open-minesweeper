@@ -235,6 +235,26 @@ class MediaApiTests(TestCase):
         UserProfile.objects.filter(pk=self.user.pk).update(is_banned=True)
         self.assertEqual(self.client.post('/api/media/like', {'media_id': media.pk}, content_type='application/json').status_code, 403)
 
+    def test_admin_verify_normal_submission_needs_no_external_author_id(self):
+        """投稿时已核对上游作者归属，审核只提交 id；任何信息修改字段都显式拒绝。"""
+        url = '/api/media/admin/verify'
+        media = self._create_media()
+        response = self.staff_client.post(url, {'id': media.pk}, content_type='application/json')
+        self.assertEqual(response.status_code, 200, response.content)
+        media.refresh_from_db()
+        self.assertEqual(media.status, MediaStatus.VERIFIED)
+        self.assertEqual(media.title, 'test title')
+        self.assertFalse(media.metadata_pending)
+        self.assertNotIn('external_author_id', response.json())
+        untouched = self._create_media('BV1untouch01')
+        for extra in ({'title': 'admin edit'}, {'created_at': REFERENCE.isoformat()}, {'external_author_id': '42'}):
+            with self.subTest(extra=extra):
+                response = self.staff_client.post(url, {'id': untouched.pk, **extra}, content_type='application/json')
+                self.assertEqual(response.status_code, 400, response.content)
+        untouched.refresh_from_db()
+        self.assertEqual(untouched.status, MediaStatus.PENDING)
+        self.assertEqual(untouched.title, 'test title')
+
     def test_admin_verify_degraded_checks_link_without_persisting_id(self):
         media = services.create_media(
             self.user, media_format=MediaFormat.B_V, suffix='BV1degraded001', language='', metadata_pending=True,
@@ -274,19 +294,39 @@ class MediaApiTests(TestCase):
         self.assertTrue(UserMedia.objects.get(pk=self.user.pk).banned)
         self.assertEqual(self.staff_client.post('/api/media/admin/unban', {'user_id': self.user.pk}, content_type='application/json').status_code, 200)
         self.assertFalse(UserMedia.objects.get(pk=self.user.pk).banned)
-        response = self.staff_client.post('/api/media/admin/edit', {'id': media.pk, 'title': 'edited'}, content_type='application/json')
+        degraded = services.create_media(
+            self.user, media_format=MediaFormat.B_V, suffix='BV1edit000001', language='', metadata_pending=True,
+        )
+        response = self.staff_client.post('/api/media/admin/edit', {'id': degraded.pk, 'title': 'edited'}, content_type='application/json')
         self.assertEqual(response.status_code, 200, response.content)
-        media.refresh_from_db()
-        self.assertEqual(media.title, 'edited')
+        degraded.refresh_from_db()
+        self.assertEqual(degraded.title, 'edited')
 
-    def test_admin_edit_rejects_verified_and_duplicate_url(self):
-        media = self._create_media()
-        services.verify_media(media.pk, self.staff.pk)
-        response = self.staff_client.post('/api/media/admin/edit', {'id': media.pk, 'title': 'x'}, content_type='application/json')
-        self.assertEqual(response.status_code, 409, response.content)
-        other = self._create_media('BV1second00001')
-        response = self.staff_client.post('/api/media/admin/edit', {'id': other.pk, 'url': VIDEO_URL}, content_type='application/json')
-        self.assertEqual(response.status_code, 409, response.content)
+    def test_admin_edit_only_accepts_degraded_metadata_corrections(self):
+        """管理员只能给降级投稿补录元数据；改 URL / format / suffix 与改正常投稿一律拒绝。"""
+        url = '/api/media/admin/edit'
+        verified = self._create_media('BV1verified002')
+        services.verify_media(verified.pk, self.staff.pk)
+        self.assertEqual(self.staff_client.post(url, {'id': verified.pk, 'title': 'x'}, content_type='application/json').status_code, 409)
+        normal = self._create_media('BV1normal0002')
+        self.assertEqual(self.staff_client.post(url, {'id': normal.pk, 'title': 'x'}, content_type='application/json').status_code, 400)
+        degraded = services.create_media(
+            self.user, media_format=MediaFormat.B_V, suffix='BV1degraded002', language='', metadata_pending=True,
+        )
+        payload = {'id': degraded.pk, 'title': 'manual title', 'language': 'zh', 'created_at': REFERENCE.isoformat()}
+        response = self.staff_client.post(url, payload, content_type='application/json')
+        self.assertEqual(response.status_code, 200, response.content)
+        degraded.refresh_from_db()
+        self.assertEqual(degraded.title, 'manual title')
+        self.assertEqual(degraded.language, 'zh')
+        self.assertEqual(degraded.created_at, REFERENCE)
+        for forbidden in ('url', 'format', 'suffix'):
+            with self.subTest(field=forbidden):
+                response = self.staff_client.post(url, {'id': degraded.pk, forbidden: VIDEO_URL}, content_type='application/json')
+                self.assertIn(response.status_code, (400, 422), response.content)
+        degraded.refresh_from_db()
+        self.assertEqual(degraded.format, MediaFormat.B_V)
+        self.assertEqual(degraded.suffix, 'BV1degraded002')
 
     def test_admin_delete_requires_superuser(self):
         media = self._create_media()

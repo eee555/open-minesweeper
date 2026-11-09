@@ -1,6 +1,6 @@
 # 作品页（media）开发计划
 
-状态：**第 4 阶段（前端）已完成**；第 0-3 阶段（app 外壳、数据层、服务与缓存、API 层）均已落地并通过局部检查，设计已按「外站超时降级投稿」「外站作者 id 不入库」「软删除状态机」口径修订。作品页已改为单页表格（表头切换三种排序）、移除《审核中》公开入口，见第 11.2 节。阶段 4 已接入 `/works` 表格页、排行榜 / 数据库 / 个人主页 / 后台四个 tab、投稿与投喂组件、`mediaService.ts` 的 25s 投稿超时、全局与 SFC 双语 i18n，并完成 lintfix / typecheck / vitest / `build:openms` 与 9 个 Cypress 组件测试；阶段 5（生产迁移、重建 zset、超时链实测与一次性全量开放，不做灰度）已完成本地可交付部分（E2E spec、部署手册、本地前置检查），生产部署动作待执行。删除路径改为 `status` 状态机（第 16 节），降级投稿与平台扩展约定见第 7.2、17 节；外站作者 id 的一次性核验口径见第 16.1 节第 15 条；每日投喂上限口径见第 17 条；第一轮代码审查修复（按行热度基准、anchor 发布时序、真实外站异常降级、数字外链归一化与前端权限/展示）见第 18 条；第二轮 P2 并发修复（缓存写入改为 DB 绝对值覆盖 + 全局缓存锁、投稿基准复核、重建持锁）见第 19 条；第三轮 P2 超时修复（请求路径零锁等待、缓存同步改为业务事务内入队的持久化任务、worker 非阻塞取锁与退避重排）见第 20 条；竞态取舍与失败可检测口径（最终一致即可、失败必须可见，月度刷新阻塞取锁失败抛错、新增只读巡检命令）见第 21 条。
+状态：**第 4 阶段（前端）已完成**；第 0-3 阶段（app 外壳、数据层、服务与缓存、API 层）均已落地并通过局部检查，设计已按「外站超时降级投稿」「外站作者 id 不入库」「软删除状态机」口径修订。作品页已改为单页表格（表头切换三种排序）、移除《审核中》公开入口，见第 11.2 节。阶段 4 已接入 `/works` 表格页、排行榜 / 数据库 / 个人主页 / 后台四个 tab、投稿与投喂组件、`mediaService.ts` 的 25s 投稿超时、全局与 SFC 双语 i18n，并完成 lintfix / typecheck / vitest / `build:openms` 与 9 个 Cypress 组件测试；阶段 5（生产迁移、重建 zset、超时链实测与一次性全量开放，不做灰度）已完成本地可交付部分（E2E spec、部署手册、本地前置检查），生产部署动作待执行。删除路径改为 `status` 状态机（第 16 节），降级投稿与平台扩展约定见第 7.2、17 节；外站作者 id 的一次性核验口径见第 16.1 节第 15 条；每日投喂上限口径见第 17 条；第一轮代码审查修复（按行热度基准、anchor 发布时序、真实外站异常降级、数字外链归一化与前端权限/展示）见第 18 条；第二轮 P2 并发修复（缓存写入改为 DB 绝对值覆盖 + 全局缓存锁、投稿基准复核、重建持锁）见第 19 条；第三轮 P2 超时修复（请求路径零锁等待、缓存同步改为业务事务内入队的持久化任务、worker 非阻塞取锁与退避重排）见第 20 条；竞态取舍与失败可检测口径（最终一致即可、失败必须可见，月度刷新阻塞取锁失败抛错、新增只读巡检命令）见第 21 条；作品页标题列的平台图标与「投稿时已确认身份则审核免填外站作者 id」见第 22 条；「管理员不能改 URL，信息补录仅限降级投稿」见第 23 条。
 
 本文档是实现的唯一设计基线；实现时若改变第 5 节的衰减不变量或第 9 节的权限口径，应先更新本文档。
 
@@ -68,7 +68,7 @@
 规则：
 
 - 后端保存**规范化后的 suffix**，不保存完整 URL；`MediaOut` 由 `format` 推导 `url` 与 `embed_url` 两个只读字段（用 `create_schema` 的 `custom_fields` 或 resolver）。
-- 投稿表单用 select 选 `format`、input 填 `suffix`，提交 `format` / `suffix` / `language`；API 层先用 `MediaFormat(data.format)` 枚举校验，再调用 `utils.parse_media_url(suffix, format)` 按该 format 的正则校验并归一化 suffix，format 与外链不符返回 400。管理员编辑仍接受完整 URL，`utils.parse_media_url()` 用 `urlsplit` 校验 scheme/host 白名单（`www.bilibili.com`、`bilibili.com`、`m.bilibili.com` 且仅 `/video/`、`/read/` 路径；`saolei.wang` 仅允许 `https` + `/bbs/` 路径），剥离 query/trailing slash，识别 `format`，正则校验 suffix，越界返回 400。**B 站 `/opus/`（动态）链接一律拒绝**；旧 `www.saolei.wang/BBS/Title.asp?Id=` 与 `saolei.wang` 其它路径也一律不接受（Q6）。禁止用户自定义域名、协议或路径，避免开放重定向与 XSS。
+- 投稿表单用 select 选 `format`、input 填 `suffix`，提交 `format` / `suffix` / `language`；API 层先用 `MediaFormat(data.format)` 枚举校验，再调用 `utils.parse_media_url(suffix, format)` 按该 format 的正则校验并归一化 suffix，format 与外链不符返回 400。**管理员不能改 URL**：`EditIn` 不含 `url` / `format` / `suffix` 且设 `extra='forbid'`，旧客户端传这些字段会校验失败而不是被静默忽略后返回 200（第 23 条）；`utils.parse_media_url()` 的完整 URL 分支（`urlsplit` 校验 scheme/host 白名单：`www.bilibili.com`、`bilibili.com`、`m.bilibili.com` 且仅 `/video/`、`/read/` 路径；`saolei.wang` 仅允许 `https` + `/bbs/` 路径，剥离 query/trailing slash，识别 `format`，正则校验 suffix，越界返回 400）当前无生产调用方，只保留作平台扩展的解析基础。**B 站 `/opus/`（动态）链接一律拒绝**；旧 `www.saolei.wang/BBS/Title.asp?Id=` 与 `saolei.wang` 其它路径也一律不接受（Q6）。禁止用户自定义域名、协议或路径，避免开放重定向与 XSS。
 - **数字 suffix 去前导零**：`B_a` / `c_p` 的纯数字 id 由 `_validate_suffix()` 统一为无前导零的规范形式（全零归一为 `0`），例如 `cv01646742` 与 `cv1646742`、`/bbs/09786` 与 `/bbs/9786` 解析后是同一条 `suffix`。否则 `(format, suffix)` 唯一约束不生效，同一作品可被重复投稿；`build_external_url()` 也只输出规范外链。
 - **不支持任何短链**（Q7）：`b23.tv` 等跳转域名直接拒绝，客户端也不跟随重定向（参照 `accountlink/github/client.py:40-41`），避免短链绕过 host 校验。后续扩展平台时增加 `FORMAT_PREFIX` 表项即可。
 - 外链前缀只用于展示跳转与 iframe；作品元数据由 `media/clients.py` 按 `format` 调用两个依赖已提供的详情接口获取（第 7.1 节），不从 HTML 页面爬取，不恢复旧 BBS 爬虫（`accountlink/SAOLEI_API_IMPORT_PLAN.md:13`）。
@@ -87,7 +87,7 @@
 | `title` | `CharField(max_length=200, blank=True, default='')` | 作品标题，正常情况下由来源平台 API 返回；**外站超时降级投稿时为空**，管理员审核通过前必须补录 |
 | `metadata_pending` | `BooleanField(default=False)` | 是否为降级投稿（元数据待补全）；审核通过时置 `False` |
 | `language` | `CharField(max_length=32, blank=True, default='')` | 投稿者自由填写，只限制长度，不做枚举校验（Q4、第 3.2 节） |
-| `created_at` | `DateTimeField()` | **对方平台的发表时间**，由来源平台 API 返回；统一转 UTC，不得晚于投稿时刻。**降级投稿用本站投稿时刻兜底**，管理员可修正（第 7.2 节） |
+| `created_at` | `DateTimeField()` | **对方平台的发表时间**，由来源平台 API 返回；统一转 UTC，不得晚于投稿时刻。**降级投稿用本站投稿时刻兜底**，管理员仅对这类作品可修正（第 7.2、23 条） |
 | `submitted_at` | `DateTimeField(auto_now_add=True)` | **新增字段**：本站投稿时间，用于审核队列与审核中 tab 排序；用户原计划未列出，但不加会缺少稳定的审核排序键 |
 | `format` | `CharField(max_length=3, choices=MediaFormat.choices)` | 作品媒介 |
 | `suffix` | `CharField(max_length=128)` | 规范化后的 URL 后缀；数字 id 去前导零（第 3.3 节） |
@@ -355,14 +355,16 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 
 外站超时或上游不可用**不再拒绝投稿**：`fetch_media_metadata_optional()` 返回 `None`，`services.create_media()` 落一条 `metadata_pending=True` 的作品，`title=''`、`created_at` 用本站投稿时刻兜底；**`Media` 不保存外站作者 id**。仅 `timeout` / `upstream_error`（含 B 站 -509 / -352、扫雷网 401 / 429）降级；`parse_error` / `invalid_metadata` 说明 URL 或响应本身有问题，仍拒绝且不落库。
 
-管理员审核这类作品时，先人工打开外链确认作品作者，再在 `POST /admin/verify` 提交两项：
+**只有这类降级作品**需要管理员补做身份核验：投稿时上游元数据拉取成功、且 `metadata.author_id` 已命中用户已验证 `AccountLinkQueue` 的正常投稿，归属在投稿链路里已经确认，审核时 `POST /admin/verify` 只需 `id`（传入的 `external_author_id` 直接忽略），后台表单也不再显示该输入框。
+
+管理员审核降级作品时，先人工打开外链确认作品作者，再在 `POST /admin/verify` 提交两项：
 
 | 字段 | 用途 | 是否入库 |
 | --- | --- | --- |
 | `external_author_id` | 投稿人在外站的账号 id，**一次性核验输入**：API 层用它查 `AccountLinkQueue` 确认该账号属于投稿人，从而确认作品归属 | **否**，不写 `Media`、不写日志、不进 `MediaOut` |
 | `title` | 对应投稿的标题 | 是，写入 `Media.title` |
 
-可选 `created_at` 用于把兜底的本站投稿时刻修正为真实发表时间（`POST /admin/edit` 也可修正）。`services.verify_media()` 在 `metadata_pending=True` 时缺 `title` 即返回 400 且状态不变；补齐后才置 `verified` 并写四个 zset。**身份核验在 API 层**：`AccountLinkQueue(platform=format_to_platform(format), identifier=external_author_id, userprofile=media.user, verified=True)` 不存在返回 403；该 id 不传进 `verify_media()`，service 层不处理权限（AGENTS.md、16.1 第 15 条）。这条链路只证明「管理员填报的外站账号是投稿人已验证绑定的账号」，作品与该账号的对应关系由管理员人工核对，本站不抓取上游内容复核。
+可选 `created_at` 用于把兜底的本站投稿时刻修正为真实发表时间（`POST /admin/edit` 也可修正，第 23 条确认保留该能力）；但两种入口都只对 `metadata_pending=True` 的降级投稿生效，正常投稿的信息一律不可改。`services.verify_media()` 在 `metadata_pending=True` 时缺 `title` 即返回 400 且状态不变；补齐后才置 `verified` 并写四个 zset。**身份核验在 API 层**：`AccountLinkQueue(platform=format_to_platform(format), identifier=external_author_id, userprofile=media.user, verified=True)` 不存在返回 403；该 id 不传进 `verify_media()`，service 层不处理权限（AGENTS.md、16.1 第 15 条）。这条链路只证明「管理员填报的外站账号是投稿人已验证绑定的账号」，作品与该账号的对应关系由管理员人工核对，本站不抓取上游内容复核。
 
 降级作品在审核中 tab 与卡片上以「待补全」标记展示，仍可被投喂（Q2），但标题为空时不进热门/精品/《最新》与排行榜（这些 tab 只取 `verified`）。`metadata_pending` 的作品若被驳回，按第 5.5 节同样退还并清零。
 
@@ -384,11 +386,11 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 | `GET /me` | 本人红宝石余额、`likes_sent`、`banned` | `login_required_error` + `ratelimit(key='user', rate='30/m')` | 未创建 `UserMedia` 行时返回零值，不写库 |
 | `POST /submit` | 投稿 | `login_required_error` + `banned_blocked` + `media_banned_blocked` + `ratelimit(key='user', rate='10/h', group='media-submit', block=True)` | 表单只有 `format` / `suffix` / `language`（select 选格式、input 填标识）；自动拉取 `title`/`created_at`/外站作者 id 并核对归属（外站作者 id 不入库）；**超时/上游不可用降级为待补全投稿**（第 7.2 节），结构性错误仍拒绝且不落库；409 重复外链（含已被驳回的外链）统一提示「该作品已投稿过，不可重复投稿」，不明说曾被驳回（P4）；403 归属不符 |
 | `POST /like` | 投喂 1 个红宝石 | `login_required_error` + `banned_blocked` + `ratelimit(key='user', rate='1/s', group='media-like', block=True)` | 参数只有 `media_id`，每次固定投 1 个；每 UTC 自然日最多 10 次成功投喂，由 service 层在同一事务内计数并返回 429；**审核中作品也可投喂**，但只写 DB 不写 zset；`rejected` 作品不可投喂；返回最新 `likes` / `hot_now` / `balance` / `status` |
-| `POST /admin/verify` | 管理员审核通过 | `staff_required`（含 CSRF），不限流 | 仅 `pending → verified`，按当前 `likes/hot_value` 补齐四个 zset；**降级投稿必填 `title` 与 `external_author_id`**（可选 `created_at`）；`external_author_id` 是 API 层一次性核验输入，用 `AccountLinkQueue` 确认该外站账号属于投稿人，**不写入 `Media`**（第 7.2 节、16.1 第 15 条） |
+| `POST /admin/verify` | 管理员审核通过 | `staff_required`（含 CSRF），不限流 | 仅 `pending → verified`，按当前 `likes/hot_value` 补齐四个 zset；**投稿时已确认身份的正常投稿只接受 `id`，带 `title` / `created_at` / `external_author_id` 任一字段返回 400**（第 22、23 条）；**降级投稿必填 `title` 与 `external_author_id`**（可选 `created_at`）；`external_author_id` 是 API 层一次性核验输入，用 `AccountLinkQueue` 确认该外站账号属于投稿人，**不写入 `Media`**（第 7.2 节、16.1 第 15 条） |
 | `POST /admin/reject` | 管理员驳回 | `staff_required`，不限流 | 仅 `pending → rejected`；**不删行**、填驳回审计字段、写 `media.log`、**退还红宝石**并同步清零 `likes` / `hot_value` 与投喂记录（P1 / Q12，第 5.5 节） |
 | `POST /admin/reopen` | 改回待审核 | `staff_required`（含 CSRF），不限流 | 仅 `rejected → pending`，复用同一行（P5）；驳回时已退还并清零，恢复后从零重新累计，无需再处理红宝石 |
 | `POST /admin/ban` / `POST /admin/unban` | 投稿封禁 / 解封 | `staff_required`，不限流 | 只改 `UserMedia.banned`；`get_or_create` 惰性建行 |
-| `POST /admin/edit` | 修正标题/语言/发表时间/format | `staff_required`，不限流 | 建议项：人工审核需要纠错；**仅 `pending` / `rejected` 可编辑**，`verified` 严格终态不接受编辑（P2，如需变动只能站长硬删除）；改 `created_at` 会影响《最新》排序，改 `format/suffix` 要重跑唯一约束与 URL 解析并复核上游元数据 |
+| `POST /admin/edit` | 降级投稿补录元数据 | `staff_required`，不限流 | **仅 `metadata_pending=True` 且处于 `pending` / `rejected` 的作品可编辑**，可改 `title` / `language` / `created_at`（第 23 条保留发表时间修正）；`verified` 严格终态不接受编辑（P2），正常投稿返回 400；**不接受 `url` / `format` / `suffix`**，`EditIn` 设 `extra='forbid'`，旧客户端传这些字段校验失败；改 `created_at` 会影响《最新》排序 |
 | `POST /admin/delete` | 站长硬删除已通过作品 | `auth=django_auth_superuser`（会话认证自带 CSRF），不限流 | 仅 `status='verified'`；硬删除 + 退还红宝石 + 写 `media.log` 快照 + 回退四个 zset（P2，第 5.6 节）；删除后该外链可重新投稿 |
 | `GET /admin/rejected?start&count` | 查看已驳回作品 | `staff_required`（只读，无需 CSRF token），不限流 | 可选；直接查 `status='rejected'` 的 `Media` 行，替代原 `GET /admin/deletion-log`；文件日志仍走 `common/api.py` 的日志接口 |
 
@@ -397,7 +399,7 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 - 管理写操作一律 `POST`，`staff_required` 自带 `csrf_protect`；前端复用 `src/services/adminCsrf.ts` 安装的统一拦截器，token 入口复用 `GET /api/userprofile/admin/csrf`；第三方管理员客户端自行维护 Cookie 会话。
 - 普通用户 API 不新增 CSRF，不启用全局中间件，不修改 `login_required_error` / `banned_blocked`（`ADMIN_API_CSRF.md`）。
 - 错误统一用 `ninja.errors.HttpError`（400/403/404/409/429）或项目 `ExceptionToResponse`；不返回外站原始错误。Q5 的拉取失败按第 7.1 节映射为 504（超时）/ 502（上游、解析、元数据非法）/ 403（作者不匹配）；其中超时与上游错误按第 7.2 节**降级为待补全投稿**，不再返回错误，响应改为 `MediaOut(metadata_pending=true)`；结构性错误仍不落库、不写 Redis。
-- `POST /submit` 的响应包含后端拉取到的 `title` / `created_at`，前端只读展示；正常投稿已在投稿链路自动核对作者归属，管理员只判断「是否与扫雷相关」；**降级投稿**因上游不可用，须由管理员按第 7.2 节凭一次性输入的外站作者 id 补做归属核验。所有响应都不含外站作者 id。
+- `POST /submit` 的响应包含后端拉取到的 `title` / `created_at`，前端只读展示；正常投稿已在投稿链路自动核对作者归属，管理员只判断「是否与扫雷相关」，**不得改动这类作品的任何信息**（`/admin/verify` 只收 `id`、`/admin/edit` 返回 400，第 23 条）；**降级投稿**因上游不可用，须由管理员按第 7.2 节凭一次性输入的外站作者 id 补做归属核验并补录标题，也只有这类作品允许修正 `title` / `language` / `created_at`。所有响应都不含外站作者 id。
 - `MediaOut` 的 `hot_now` 由后端按 `real_hot()` 计算并返回，避免前端重复实现衰减公式；`anchor` 在 `MediaPageOut` / `UserRankingPageOut` 分页响应中返回一次，便于展示与调试，不在每条作品里重复。
 - 输出 Schema 涉及模型时优先 `create_schema`（`AGENTS.md`），实际实现为 `create_schema(Media, fields=MEDIA_OUT_FIELDS, custom_fields=..., base_class=MediaResolvers)`（不含 `suffix`），用 resolver 提供 `url`、`embed_url`、`hot_now`、`user_id`、`rejected_by`。`MediaOut` 需输出 `reject_reason` 与 `rejected_by`（P3 已确认对普通访客可见），后者按用户 id 交给前端 `PlayerName` 展示；还需输出 `metadata_pending`，供审核队列标记待补全作品；**不输出外站作者 id**（16.1 第 15 条）；`rejected` 作品也要能返回，不能只在管理接口里可见。
 - `GET /latest` 是唯一按 `created_at` 做全站排序的读接口；它与 `/ranking`、`/user-ranking` 共用分页约定，但不读 Redis，也不需要加入 `rebuild_media_rankings`（第 6.1 节）。
@@ -437,18 +439,18 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 | --- | --- |
 | `src/router/index.ts` | 新增 `/works` 顶层单路由（无子路由）、`/database/works`、`/player/:id/works`、`/staff/media`；`Menu.vue:118-122` 的 `mainItems` 加入口 |
 | `src/views/WorksView/App.vue` | 页面级工具栏：右端 `投稿` 与刷新按钮、`SubmitMediaDialog`、投稿通知；无 `ElTabs` / `router-view` / `keep-alive` |
-| `src/components/media/MediaListPanel.vue`、`MediaListPanel.cy.ts` | `BaseTable` + `ElPagination` 单页表格：五列，点击发表时间 / 实时热度 / 累计投喂表头分别请求 `/latest`、`/ranking?sort=hot`、`/ranking?sort=likes`；`aria-sort` / `aria-pressed` 标记当前排序；`defineExpose({ refresh })` 供页面刷新按钮调用 |
+| `src/components/media/MediaListPanel.vue`、`MediaListPanel.cy.ts` | `BaseTable` + `ElPagination` 单页表格：五列，点击发表时间 / 实时热度 / 累计投喂表头分别请求 `/latest`、`/ranking?sort=hot`、`/ranking?sort=likes`；`aria-sort` / `aria-pressed` 标记当前排序；标题左侧按 `format` 显示平台图标（图标地址复用 `views/UserView/AccountLinks/platforms.ts`）；`defineExpose({ refresh })` 供页面刷新按钮调用 |
 | `src/views/RankingView/routes.ts`、`App.vue`、`MediaRanking.vue`、`MediaRanking.cy.ts` | 排行榜页《作品》tab：`ranking_media` 路由与 tab 文案、`BaseTable` + `ElPagination` + `useRankingQuery`、组件测试 |
 | `src/components/media/MediaCard.vue`、`MediaEmbed.vue`、`MediaFeedButton.vue`、`SubmitMediaDialog.vue` | 单次投喂 / 投稿表单（select 选 `format`、input 填 `suffix`、自由文本 `language`）；卡片与嵌入组件按渐进迁移约定暂留、作品页不再引用；通用组件放 `src/components/media/` |
 | `src/views/DatabaseView/MediaQueryView.vue` | 数据库页作品 tab，交互参照 `IdentifierView.vue` 的模式下拉、1000 条上限、本地分页 |
 | `src/views/UserView/UserMediaView.vue` | 个人主页作品 tab，后端排序分页，参数 `hot_value/likes/created_at` |
-| `src/views/StaffView/StaffMediaReview.vue` | 管理员审核队列：外链、通过、驳回、改回待审核、封禁/解封；**待补全作品通过前必须填标题与外站作者 id 供归属核验**（该 id 不入库，第 7.2 节）；另有仅站长可见的硬删除入口（二次确认，P2）；管理员页面不追求 UI 质量与复用性 |
+| `src/views/StaffView/StaffMediaReview.vue` | 管理员审核队列：外链、通过、驳回、改回待审核、封禁/解封；**待补全作品通过前必须填标题与外站作者 id 供归属核验**（该 id 不入库，第 7.2 节）；**投稿时已确认身份的作品隐藏标题 / id 输入与提示，审核请求只带 `id`**（第 22、23 条）；表单不提供任何改 URL 或其它信息修改入口，正常投稿的 `title` / `language` / `created_at` 只能由投稿链路写入；另有仅站长可见的硬删除入口（二次确认，P2）；管理员页面不追求 UI 质量与复用性 |
 | `src/services/mediaService.ts` | 所有请求用 `$axios`，`.catch(httpErrorNotification)`；`src/http.ts` 是唯一 Axios 实例；投稿请求单独传 `timeout: 25000`（第 7.1 节） |
 | `src/views/WorksView/*.cy.ts` 等 | 组件测试；临时组件用 `render` 语法 |
 
 ### 11.2 作品页表格与数据源
 
-表格列固定为：标题、作者（`PlayerName`）、发表时间、实时热度、累计投喂 + 投喂按钮。标题对有 `embed_url` 的作品渲染为按钮，点击按需打开 `ElDialog` 预览 iframe（dialog 内另给「打开原作品」外链，不跳转出去）；其余作品仍在新窗口打开外链。前两列不可排序，后三列表头是 `BaseTextButton`，点击切换原来的三种排序，`aria-sort` / `aria-pressed` 标记当前列，切换后页码回到 1；表格上方右端是 `投稿` 与刷新按钮。
+表格列固定为：标题、作者（`PlayerName`）、发表时间、实时热度、累计投喂 + 投喂按钮。标题左侧是 16px 平台图标：`Media.format` 按 `B_v` / `B_a` → B 站、`c_p` → 扫雷网映射到 `AccountLinkPlatform`，图标地址复用账号关联页的 `platforms.ts`；`alt` / `title` 用全局 `platform.*` 文案。标题对有 `embed_url` 的作品渲染为按钮，点击按需打开 `ElDialog` 预览 iframe（dialog 内另给「打开原作品」外链，不跳转出去）；其余作品仍在新窗口打开外链。前两列不可排序，后三列表头是 `BaseTextButton`，点击切换原来的三种排序，`aria-sort` / `aria-pressed` 标记当前列，切换后页码回到 1；表格上方右端是 `投稿` 与刷新按钮。
 
 | 表头 | 数据源 | 排序 | 可见性 |
 | --- | --- | --- | --- |
@@ -502,7 +504,7 @@ send: sending = true，sentAt = Date.now()
 - `python manage.py test media common.tests`：
   - URL 解析：三种 format 的合法/非法 URL、host 白名单、大小写、query 剥离、suffix 正则、`https://saolei.wang/bbs/{id}`、B 站 `/opus/` 动态链接、短链与重定向一律拒绝（Q6/Q7）。
   - 归属与去重：必须有 verified 绑定、重复外链 409、解绑后拒绝投稿。
-  - 降级补录：`metadata_pending` 作品不填 `title` 时 `POST /admin/verify` 返回 400 且状态不变；只填 `title` 即可过审、`metadata_pending=False`、`created_at` 可修正；`Media` 无 `external_author_id` 字段，`create_media()` / `verify_media()` 也不接收该参数；字符串外站 id（含 `UC...` 形式）归一化后能在 API 层用于 `AccountLinkQueue` 核验，**任何路径都不落库、不进 `MediaOut`**。
+  - 降级补录：`metadata_pending` 作品不填 `title` 时 `POST /admin/verify` 返回 400 且状态不变；service 层只填 `title` 即可过审、`metadata_pending=False`、`created_at` 可修正（第 23 条保留该修正），API 层仍须一次性 `external_author_id`，`POST /admin/edit` 也只对这类作品开放 `title` / `language` / `created_at` 补录；`Media` 无 `external_author_id` 字段，`create_media()` / `verify_media()` 也不接收该参数；字符串外站 id（含 `UC...` 形式）归一化后能在 API 层用于 `AccountLinkQueue` 核验，**任何路径都不落库、不进 `MediaOut`**。
   - 外站拉取（Q5/Q14）：三类 format 的字段映射单测用 `httpx.MockTransport` / `unittest.mock` 固定上游响应（覆盖 `pubdate`、`publish_time`、`post_time` 与 camelCase alias）；解析失败 / 缺字段 / 空 `items` / 标题超长 / 未来时间仍拒绝且不落库；**超时 / 非 2xx / -509 / -352 降级为待补全投稿**（`metadata_pending=true`、空 title）；作者 id 不匹配 403；语言自由文本只校验长度。外站作者 id 字符串化（含非数字 id、`bool` 拒绝）单测通过，该值只作为请求内临时返回值。部署环境用已配置的 `saolei_api_key` 跑一次真实 `post_info` 联调。
   - 审核中投喂（Q2）：审核期间 DB 累加 likes/hot 但不写 zset；审核通过后四个 zset 按累计值一次补齐；驳回后退还红宝石、立刻清零 `likes` / `hot_value` 并删除投喂记录、写 `media.log`；重复驳回幂等。
   - 驳回口径（Q12 / P1）：`pending → rejected` 不删 `Media` 行、逐条退还 `likes_sent`、同事务把 `likes` / `hot_value` 清零并删除 `MediaLikes`、`hot_value_updated_at` 不变；退还与清零必须同事务，失败一起回滚；`verified` 作品拒绝驳回；`rejected` 的同一外链再次投稿返回 409 且提示统一（P4）；无面向用户的 `POST /delete`。
@@ -515,6 +517,9 @@ send: sending = true，sentAt = Date.now()
   - 失败可检测（P2）：重试耗尽抛 `MediaCacheSyncError` 而不是返回 False（否则被记为成功）；`restart_media_sync_task()` 重跑时把 `attempt` 归零；`check_media_rankings` 在分数漂移 / anchor 缺失时抛 `CommandError`，一致时通过，且输出 FAILED 与积压任务数；月度刷新阻塞取锁失败抛 `MediaCacheLockError` 且任务入口同样抛错（worker 据此记 FAILED），DB 与 anchor 不被改写，非阻塞分支仍返回 `None` 供延迟重排。
   - 投稿表单（P2）：select 选 `format`、input 填 `suffix`，提交 `format`/`suffix`/`language`；未知 format 与格式不符外链返回 400；数字 suffix 去前导零后仍按 `format` 判重。
   - 榜单可见性（P2）：审核通过但 0 分的作品同时出现在 `/ranking?sort=hot` 与 `sort=likes`，避免只在发表时间排序可见；点击表头切换排序会重新拉列表，表格上方的刷新按钮可手动重拉当前排序。
+  - 审核身份（第 22 条）：`POST /admin/verify` 对 `metadata_pending=False` 的投稿只传 `id` 即通过，传入的 `external_author_id` 被忽略且响应 / `Media` 都不含该值；`metadata_pending=True` 的降级投稿仍分别因缺标题、缺 id、绑定不符返回 400/403。前端组件测试断言正常投稿隐藏 id 输入与提示、审核请求体只有 `id`，降级投稿仍显示并发送标题与 id。
+  - 平台图标（第 22 条）：`MediaListPanel.cy.ts` 断言 `B_v` 标题左侧是 B 站 favicon、`c_p` 是扫雷网 icon，且图标带平台名称的 `alt`。
+  - 管理员信息修改（第 23 条）：`POST /admin/verify` 对正常投稿带 `title` / `created_at` / `external_author_id` 任一字段返回 400 且作品不变；`POST /admin/edit` 对 `verified` 返回 409、对正常投稿返回 400，只对降级投稿允许改 `title` / `language` / `created_at`（含发表时间修正）；带 `url` / `format` / `suffix` 的请求校验失败且 `format` / `suffix` 保持不变。组件测试断言正常投稿审核表单无标题与 id 输入，降级投稿仍须填写并发送两者。
   - URL 去重：数字 suffix 去前导零后 `cv01646742` 与 `cv1646742`、`/bbs/09786` 与 `/bbs/9786` 命中同一唯一约束，第二次投稿返回 409。
   - 真实外站异常族：`curl_cffi` 的 `Timeout` / `ConnectTimeout` 归 504 `timeout`，`ConnectionError` / `RequestException` 归 502 `upstream_error`，四类都能经 `fetch_media_metadata_optional()` 降级为 `None`。
   - Redis 排行：投喂/审核通过后的四个 zset 数值与顺序、重建命令只取 `status='verified'` 且与 DB 一致；驳回无需 `ZREM`；站长硬删除必须 `ZREM` 两个作品榜并等值扣减作者两个 user zset，结果 <= 0 改 `ZREM`，重复执行幂等。
@@ -616,8 +621,10 @@ CI 参考：`.github/workflows/backend.yml` 会跑 `makemigrations` + `migrate` 
 | 19 | 第二轮 P2 并发审查修复（不改产品口径） | 放弃 `ZINCRBY` 增量回调，四个 zset 改由 `sync_media_scores()` 在 `media:cache:lock` 内按**回调执行时刻的 DB 绝对值**一次 `MULTI/EXEC` 覆盖：解决硬删除后的迟到投喂重建作品、作者分数归零后事务外 `ZREM` 清掉新投喂、重建快照覆盖期间增量三个问题；`create_media()` 从读 anchor 到插入并复核基准全程持锁，月度刷新三步各自持锁，解决旧基准新行；`rebuild_rankings()` 持锁覆盖快照与发布，锁过期报错保留旧榜；管理命令要求低峰期暂停相关写操作（该持锁投稿后由第 20 条改为请求侧零锁等待 + 后台基准收敛）（第 5.2、5.3、5.4、5.6、6、10、12、18.3 节） |
 | 20 | 请求锁等待超出超时预算（P2，不改产品口径） | 普通 API 的 Nginx 2s / uWSGI 10s 容不下 `media:cache:lock` 的 60s 等待，且 `on_commit` 回调可能在进程被杀前未执行。改为**请求路径零 Redis 写入、零锁等待**：缓存同步变成业务 DB 事务内入队的持久化 `task_sync_media_scores`，任务行与红宝石扣除 / 审核状态同事务提交；worker 非阻塞取锁 + 退避延迟重排（累计约 315s > 300s 锁 TTL，最多 8 次），锁只在后台任务 / 管理命令里阻塞；`create_media()` 去掉请求侧锁，旧基准行由后台任务用 `F()` 收敛；`config/common.py` 增加同步任务 1 天清理（第 5.3、5.4、6、10、12、18.3 节） |
 | 21 | 竞态取舍与失败可检测（P2，产品口径已确认） | 确认「偶发竞态导致缓存滞后可接受，只要 DB 正确，但失败必须能检测到」，最终一致即可，**不做请求内 best-effort 同步**。重试耗尽改抛 `MediaCacheSyncError` 使任务变 FAILED（管理页 / monitor 快照可见），`restart_media_sync_task()` 重跑时归零 `attempt`；新增只读 `check_media_rankings` 巡检命令对比四个 zset 与 DB，漂移或 anchor 缺失以非零退出码告警，并输出 FAILED / 积压任务数；修复手段是 `rebuild_media_rankings` 或重启失败任务；月度刷新 / 重建的 `media_cache_lock(blocking=True)` 取锁失败改为抛 `MediaCacheLockError` 并记 error 日志，任务变 FAILED 而不是在未持锁状态下跑完并被记为成功，`blocking=False` 仍返回 `None` 供同步任务延迟重排（第 6、10、12、18.3 节） |
+| 22 | 作品页标题左边放对应平台图标；投稿时后端已确认身份的作品，管理员审核时不再需要输入 id 核实 | 标题列按 `Media.format` 映射到 `AccountLinkPlatform`，复用账号关联页平台图标；`metadata_pending=False` 表示投稿时已用上游 `author_id` 核对过绑定，`POST /admin/verify` 只需 `id`，后台表单隐藏 id 输入与提示；`metadata_pending=True` 的降级投稿仍按第 13/15 条要求管理员填标题与一次性 id（第 7.2、8、11、12、18.3 节）。第 23 条进一步把正常投稿带信息字段改为显式 400 |
+| 23 | 不允许管理员改 url；管理员的信息修改权限只有在数据获取失败时，设置标题 | 三项确认：① `POST /admin/edit` 只删 `url` 字段，保留 `title` / `language` / `created_at` 的补录能力，且 `EditIn` 设 `extra='forbid'`，旧客户端传 `url` / `format` / `suffix` 直接校验失败而非静默忽略；② 降级投稿的发表时间修正视为元数据补录，**保留**，`Q13` 的「管理员可修正」口径不变；③ 正常投稿的任何信息修改尝试显式 400。为使「只有在数据获取失败时」与③自洽，`/admin/edit` 限定为仅 `metadata_pending=True` 且未过审的作品（`verified` 仍 409），`POST /admin/verify` 对 `metadata_pending=False` 的作品带 `title` / `created_at` / `external_author_id` 任一字段返回 400；前端移除 `MediaEditPayload.url`，审核表单标题输入也只在降级投稿显示（第 3.3、7.2、8、11、12、18.3 节） |
 
-当前无待定事项。P1-P5（第 8-12 条）、降级投稿、平台扩展、外站作者 id 不入库（第 13-15 条）、不做灰度（第 16 条）、每日投喂上限（第 17 条）与四轮审查修复 / 口径确认（第 18-21 条）均已落到第 3.3、4.1、4.3、5.1、5.3、5.4、6、7.1、7.2、8、9、10、11、12、13、14、15、17、18 节；后续产生新口径时另开条目记录。
+当前无待定事项。P1-P5（第 8-12 条）、降级投稿、平台扩展、外站作者 id 不入库（第 13-15 条）、不做灰度（第 16 条）、每日投喂上限（第 17 条）、四轮审查修复 / 口径确认（第 18-21 条）、作品页平台图标 / 审核免填 id（第 22 条）与管理员信息修改权限收紧（第 23 条）均已落到第 3.3、4.1、4.3、5.1、5.3、5.4、6、7.1、7.2、8、9、10、11、12、13、14、15、17、18 节；后续产生新口径时另开条目记录。
 
 
 ## 17. 平台扩展约定（接入 YouTube 时复用）
@@ -675,7 +682,7 @@ CI 参考：`.github/workflows/backend.yml` 会跑 `makemigrations` + `migrate` 
 - E2E：`npx cypress run --e2e --browser chrome --headless --spec "cypress/e2e/media.cy.ts"`，覆盖无已验证绑定 403、成功投稿、重复 409、作者主页可见；spec 对「拉取成功」与「降级」两种分支都做断言。运行前需同时启动 `E2E_TEST=True python manage.py runserver 127.0.0.1:8000` 与 `npx vite --host 127.0.0.1 --port 8080 --strictPort`（见 `front_end/docs/testing.md`）。E2E 由用户运行，助手不主动执行。
 - 投喂上限：连续 10 次成功投喂后第 11 次返回 429，跨 UTC 0 点后恢复；失败请求（余额不足 / 作品不存在 / 429）不消耗当日额度；并发 10 个请求同时投喂不超额（`select_for_update`）。
 - 状态机：驳回退还红宝石并清零、写 `logs/media.log`、被驳回外链重投返回 409；`POST /admin/reopen` 恢复 `pending`；站长 `POST /admin/delete` 硬删除后四个 zset 回退且外链可重投。
-- 降级审核：`POST /admin/verify` 必填 `title` 与一次性 `external_author_id`，后者经 `AccountLinkQueue` 核验后不落库；接入 YouTube 时复用（第 17 节）。
+- 降级审核与信息修改：`POST /admin/verify` 对降级投稿必填 `title` 与一次性 `external_author_id`，后者经 `AccountLinkQueue` 核验后不落库；投稿时已确认身份的正常投稿只传 `id`（后台表单不显示标题与 id 输入，带这些信息字段返回 400）；`POST /admin/edit` 只对降级投稿开放 `title` / `language` / `created_at` 补录，传 `url` / `format` / `suffix` 校验失败，`verified` 仍 409；接入 YouTube 时复用（第 17、22、23 条）。
 - 性能：单次响应 < 300KB；《最新》不读 Redis、不新增 key。
 - 审查修复回归：真实 B 站超时 / 连接失败应降级为 `metadata_pending=true` 而不是 500；刷新窗口内投喂不丢热度、作者榜与 DB 热度一致；`cv01646742` 与 `cv1646742` 视为同一作品；「禁止投稿」用户仍能投喂、页面内登录后投喂按钮可用；后台「已通过」列表可选中作品硬删除；排行榜《作品》tab 的热度随时间按 `anchor` 衰减。
 - 缓存事件顺序：硬删除后执行迟到的同步任务，作品与作者分数不得重新入榜；作者分数归零与另一作品新投喂乱序执行后，作者分数仍等于 DB 求和；投稿读旧 anchor 后锚点推进，新行基准应为新 anchor；重建期间提交投喂再由迟到任务补齐，分数应等于 DB 值（既不丢也不重复）；`rebuild_media_rankings` / `--clear` 在低峰期暂停写操作后执行。

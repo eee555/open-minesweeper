@@ -5,6 +5,7 @@ from datetime import datetime
 from django.utils import timezone
 from ninja import Schema
 from ninja.orm import create_schema
+from pydantic import ConfigDict
 
 from .models import Media
 from .utils import build_embed_url, build_external_url, real_hot
@@ -133,8 +134,10 @@ class BanIn(Schema):
 
 
 class EditIn(Schema):
+    # 旧客户端若仍传 url / format / suffix，应直接校验失败而不是被静默忽略后返回 200。
+    model_config = ConfigDict(extra='forbid')
+
     id: int
     title: str | None = None
     language: str | None = None
     created_at: datetime | None = None
-    url: str | None = None

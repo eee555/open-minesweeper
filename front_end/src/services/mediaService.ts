@@ -88,7 +88,6 @@ export interface MediaEditPayload {
     title?: string | null;
     language?: string | null;
     created_at?: string | null;
-    url?: string | null;
 }
 
 async function getPage(path: string, params: Record<string, string | number>): Promise<MediaPage> {

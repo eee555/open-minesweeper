@@ -59,12 +59,17 @@
                 {{ t('local.actions') }} #{{ selected.id }}
             </h2>
             <div class="media-review-fields">
-                <label>{{ t('local.titleField') }}<input v-model="form.title" class="media-input" type="text" maxlength="200"></label>
-                <label>{{ t('local.externalAuthorId') }}<input v-model="form.externalAuthorId" class="media-input" type="text" maxlength="128"></label>
+                <label v-if="selected.metadata_pending">{{ t('local.titleField') }}<input v-model="form.title" class="media-input" data-cy="review-title" type="text" maxlength="200"></label>
+                <label v-if="selected.metadata_pending" data-cy="review-external-author-id-field">
+                    {{ t('local.externalAuthorId') }}<input v-model="form.externalAuthorId" class="media-input" data-cy="review-external-author-id" type="text" maxlength="128">
+                </label>
                 <label>{{ t('media.rejectReason') }}<input v-model="form.reason" class="media-input" type="text"></label>
             </div>
-            <p class="text-secondary text-small">
+            <p v-if="selected.metadata_pending" class="text-secondary text-small" data-cy="review-id-hint">
                 {{ t('local.idHint') }}
+            </p>
+            <p v-else class="text-secondary text-small" data-cy="review-identity-confirmed">
+                {{ t('local.identityConfirmed') }}
             </p>
             <div class="media-toolbar">
                 <BaseButton type="primary" :disabled="busy" @click="verify">
@@ -100,7 +105,7 @@ import BaseButton from '@/components/common/BaseButton.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
 import { actionSuccessNotification, httpErrorNotification } from '@/components/Notifications';
 import PlayerName from '@/components/PlayerName.vue';
-import type { MediaItem, MediaPage } from '@/services/mediaService';
+import type { MediaItem, MediaPage, MediaVerifyPayload } from '@/services/mediaService';
 import {
     deleteMediaAdmin, fetchLatestMedia, fetchPendingMedia, fetchRejectedMedia, rejectMediaAdmin,
     reopenMediaAdmin, setMediaBanned, verifyMediaAdmin,
@@ -179,12 +184,12 @@ function verify(): void {
         ElNotification({ message: t('local.missingVerifyFields'), type: 'error' });
         return;
     }
+    // 投稿时后端已用上游 author_id 核对过绑定关系，只有降级投稿才需要管理员补填 id 核验。
+    const payload: MediaVerifyPayload = degraded
+        ? { id: media.id, title: form.value.title, external_author_id: form.value.externalAuthorId }
+        : { id: media.id };
     void run(async () => {
-        selected.value = await verifyMediaAdmin({
-            id: media.id,
-            title: degraded ? form.value.title : undefined,
-            external_author_id: degraded ? form.value.externalAuthorId : undefined,
-        });
+        selected.value = await verifyMediaAdmin(payload);
     }, 'verified');
 }
 
@@ -239,6 +244,7 @@ const i18nMessages = {
         confirmDelete: '确认硬删除',
         degraded: '待补全',
         idHint: '外站作者 id 仅用于核验投稿人绑定关系，不会保存。',
+        identityConfirmed: '投稿时已核验作者身份，无需填写外站作者 id。',
         missingVerifyFields: '待补全作品通过前必须填写标题与外站作者 id',
     } },
     en: { local: {
@@ -260,6 +266,7 @@ const i18nMessages = {
         confirmDelete: 'Confirm hard delete',
         degraded: 'Metadata pending',
         idHint: 'The external author id is used only to verify the submitter link, never stored',
+        identityConfirmed: 'The author was already verified on submission; no external author id is needed',
         missingVerifyFields: 'A degraded submission requires both a title and an external author id',
     } },
 };

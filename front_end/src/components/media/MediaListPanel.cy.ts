@@ -62,9 +62,22 @@ describe('<MediaListPanel />', () => {
         cy.get('.base-table thead th').should('have.length', 5);
         cy.get('[data-sort=hot]').should('have.attr', 'aria-pressed', 'true');
         cy.get('[data-cy=media-row-7] [data-cy=media-title-link]').should('have.attr', 'href', mediaItem.url);
+        cy.get('[data-cy=media-row-7] [data-cy=media-platform-icon]').should('have.attr', 'src', 'https://www.bilibili.com/favicon.ico').
+            and('have.attr', 'alt', 'Bilibili');
         cy.get('[data-cy=media-row-7]').should('contain.text', '3.00').and('contain.text', '3');
         cy.get('[data-cy=media-row-7] button.media-text-button').should('not.be.disabled').
             and('have.attr', 'title').and('contain', '5');
+    });
+
+    it('shows the platform icon matching the media format', () => {
+        const saoleiWork = { ...mediaItem, id: 9, format: 'c_p', title: 'Saolei post', url: 'https://saolei.wang/bbs/9786' };
+        cy.intercept({ method: 'GET', pathname: '/api/media/ranking' }, {
+            body: { ...pageBody, items: [mediaItem, saoleiWork], total: 2 },
+        });
+        mountPanel();
+        cy.get('[data-cy=media-row-7] [data-cy=media-platform-icon]').should('have.attr', 'src', 'https://www.bilibili.com/favicon.ico');
+        cy.get('[data-cy=media-row-9] [data-cy=media-platform-icon]').should('have.attr', 'src', 'https://saolei.wang/icon.svg').
+            and('have.attr', 'alt', 'Saolei.wang');
     });
 
     it('switches the backend sort through the table headers', () => {

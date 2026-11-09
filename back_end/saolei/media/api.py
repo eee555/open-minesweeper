@@ -1,6 +1,6 @@
 """作品页 Ninja API；接口清单见 MEDIA_PLAN.md 第 8 节。"""
 
-from django.db import DatabaseError, IntegrityError
+from django.db import DatabaseError
 from django.http import HttpRequest
 from django_ratelimit.decorators import ratelimit
 from ninja import Router
@@ -279,7 +279,8 @@ def verify_media(request, data: VerifyIn):
     """
     - staff_required (role check + Django CSRF on unsafe methods)
 
-    降级投稿的 external_author_id 是一次性核验输入：查 AccountLinkQueue 确认该外站账号属于投稿人，不落库。
+    只有降级投稿需要 external_author_id（一次性核验输入，查 AccountLinkQueue 确认外站账号属于投稿人，不落库）与补录标题；
+    投稿时已由上游 author_id 核对过归属的作品只接受 id，带任何信息修改字段一律 400。
     """
     media = Media.objects.filter(pk=data.id).first()
     if media is None:
@@ -299,6 +300,8 @@ def verify_media(request, data: VerifyIn):
         ).exists()
         if not linked:
             raise HttpError(403, 'The external account does not belong to the submitter.')
+    elif data.title is not None or data.created_at is not None or data.external_author_id is not None:
+        raise HttpError(400, 'Only degraded submissions accept metadata corrections.')
     return _service(services.verify_media, data.id, request.user.pk, title=data.title, created_at=data.created_at)
 
 
@@ -352,13 +355,16 @@ def edit_media(request, data: EditIn):
     """
     - staff_required (role check + Django CSRF on unsafe methods)
 
-    仅 pending / rejected 可编辑；改 url 会重跑 URL 解析与 format+suffix 唯一校验，metadata_pending 仍由审核补录处理。
+    仅降级投稿（metadata_pending=True）且未过审时可补录 title / language / created_at；
+    管理员不能改 URL、format 或 suffix，正常投稿的信息也不允许修改。
     """
     media = Media.objects.filter(pk=data.id).first()
     if media is None:
         raise HttpError(404, 'Media not found.')
     if media.status == MediaStatus.VERIFIED:
         raise HttpError(409, 'Verified media cannot be edited.')
+    if not media.metadata_pending:
+        raise HttpError(400, 'Only degraded submissions can have their metadata corrected.')
     fields = []
     if data.title is not None:
         media.title = str(data.title).strip()[:200]
@@ -372,21 +378,9 @@ def edit_media(request, data: EditIn):
     if data.created_at is not None:
         media.created_at = data.created_at
         fields.append('created_at')
-    if data.url is not None:
-        try:
-            new_format, new_suffix = parse_media_url(data.url)
-        except ValueError as exc:
-            raise HttpError(400, str(exc)) from exc
-        if Media.objects.filter(format=new_format, suffix=new_suffix).exclude(pk=media.pk).exists():
-            raise HttpError(409, '该作品已投稿过，不可重复投稿')
-        media.format, media.suffix = new_format, new_suffix
-        fields += ['format', 'suffix']
     if not fields:
         raise HttpError(400, 'No fields to update.')
-    try:
-        media.save(update_fields=fields)
-    except IntegrityError:
-        raise HttpError(409, '该作品已投稿过，不可重复投稿') from None
+    media.save(update_fields=fields)
     return media
 
 
