@@ -54,6 +54,20 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 
 ## 勋章补发
 
+### 静态规则升级
+
+勋章规则和阈值由 `medal/definitions.py` 与 `medal/utils.py` 定义，通过代码评审发布。玩家进度、授予、佩戴、人工覆盖和审计日志继续保存在数据库中。未定义或停用的勋章保留历史数据，公开目录只展示已启用的定义。规则目录已改为直接读取代码定义。
+
+已有数据库按以下步骤升级。
+
+1. 暂停后端服务和勋章任务，备份数据库并导出 `medal_medaldefinition`。对照代码规则，确认哪些自定义定义或阈值需要迁入代码。
+2. 基于服务器现有的迁移历史运行 `python manage.py makemigrations medal --name static_definitions`。检查生成的操作，确认先移除 `PlayerProgress.definition` 外键，再删除 `MedalDefinition` 模型。迁移编号取决于服务器现有历史。
+3. 用 `python manage.py migrate medal --plan` 检查迁移计划，再运行 `python manage.py migrate medal`。旧外键有级联删除行为，直接通过 ORM 删除勋章定义会删除关联进度。
+4. 核对迁移前后的玩家进度、授予、佩戴、人工覆盖和审计日志，确认记录数量、主键及内容一致。现有授予沿用原来的 `definition_code`，进度沿用原来的 `code`。
+5. 启动新版本服务和后台工人，按下文的 `--all` 流程预览、分批入队并验收。一次性迁移和重算在部署时手动执行。
+
+新安装按当前模型生成初始迁移，勋章定义表已从模型中移除。若升级后需要回退，应使用升级前的数据库备份和配置导出恢复，并复核外键、玩家状态和缓存。
+
 ### `enqueue_medal_backfill`
 
 位置：`medal/management/commands/enqueue_medal_backfill.py`
