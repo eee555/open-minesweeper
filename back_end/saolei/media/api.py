@@ -18,7 +18,7 @@ from .schema import (
     MediaQueryError, MediaQueryOut, MeOut, RejectIn, SubmitIn, UserRankingPageOut, VerifyIn,
 )
 from .utils import (
-    format_to_platform, MediaStatus, normalize_external_author_id, normalize_language, parse_media_url,
+    format_to_platform, MediaFormat, MediaStatus, normalize_external_author_id, normalize_language, parse_media_url,
 )
 
 router = Router()
@@ -221,7 +221,10 @@ def submit_media(request, data: SubmitIn):
     外站超时 / 上游不可用降级为待补全投稿；外站作者 id 只在此请求内用于归属核验，不写入 Media。
     """
     try:
-        media_format, suffix = parse_media_url(data.url)
+        media_format = MediaFormat(data.format)
+        parsed_format, suffix = parse_media_url(data.suffix, media_format)
+        if parsed_format != media_format:
+            raise ValueError('Media format does not match the suffix')
         language = normalize_language(data.language)
     except ValueError as exc:
         raise HttpError(400, str(exc)) from exc

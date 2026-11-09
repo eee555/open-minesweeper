@@ -4,6 +4,7 @@ const ROOT = '/api/media';
 const JSON_CONFIG = { headers: { 'Content-Type': 'application/json' } };
 const SUBMIT_CONFIG = { ...JSON_CONFIG, timeout: 25000 };
 
+export type MediaFormatValue = 'B_v' | 'B_a' | 'c_p';
 export type MediaStatusValue = 'pending' | 'verified' | 'rejected';
 export type MediaSortKey = 'hot' | 'likes' | 'created_at';
 export type MediaRankSort = 'hot' | 'likes';
@@ -135,8 +136,8 @@ export async function fetchMediaMe(): Promise<MediaMe> {
     return data;
 }
 
-export async function submitMedia(url: string, language: string): Promise<MediaItem> {
-    const { data } = await $axios.post<MediaItem>(`${ROOT}/submit`, { url, language }, SUBMIT_CONFIG);
+export async function submitMedia(format: MediaFormatValue, suffix: string, language: string): Promise<MediaItem> {
+    const { data } = await $axios.post<MediaItem>(`${ROOT}/submit`, { format, suffix, language }, SUBMIT_CONFIG);
     return data;
 }
 
