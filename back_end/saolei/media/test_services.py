@@ -1,8 +1,11 @@
 """作品服务层单测：投稿、投喂、审核、驳回清零、恢复、硬删除与刷新；见 MEDIA_PLAN.md 第 12 节。"""
 
 from datetime import datetime, timedelta, timezone as datetime_timezone
+from io import StringIO
 from unittest.mock import patch
 
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.db import transaction
 from django.tasks import TaskResultStatus
 from django.test import TestCase
@@ -14,7 +17,7 @@ from . import cache, tasks
 from .models import Media, MediaLikes, UserMedia
 from .services import (
     create_media, get_balance, hard_delete_media, like_media, MediaServiceError,
-    refresh_hot_reference, reject_media, reopen_media, set_media_banned, verify_media,
+    refresh_hot_reference, reject_media, reopen_media, restart_media_sync_task, set_media_banned, verify_media,
 )
 from .utils import decay, MediaFormat, MediaStatus
 
@@ -73,8 +76,7 @@ class MediaServiceTests(TestCase):
     def test_verify_fills_four_zsets(self):
         media = self._create_media()
         self._like(media, 2)
-        with self.captureOnCommitCallbacks(execute=True):
-            verify_media(media.pk, self.actor.pk)
+        verify_media(media.pk, self.actor.pk)
         media.refresh_from_db()
         self.assertEqual(media.status, MediaStatus.VERIFIED)
         self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_LIKES, media.pk), 2)
@@ -116,11 +118,9 @@ class MediaServiceTests(TestCase):
     def test_hard_delete_refunds_and_rolls_back_zsets(self):
         media = self._create_media()
         self._like(media, 5)
-        with self.captureOnCommitCallbacks(execute=True):
-            verify_media(media.pk, self.actor.pk)
+        verify_media(media.pk, self.actor.pk)
         self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_LIKES, media.pk), 5)
-        with self.captureOnCommitCallbacks(execute=True):
-            self.assertTrue(hard_delete_media(media.pk, self.actor.pk))
+        self.assertTrue(hard_delete_media(media.pk, self.actor.pk))
         self.assertFalse(Media.objects.filter(pk=media.pk).exists())
         self.assertEqual(UserMedia.objects.get(pk=self.user.pk).likes_sent, 0)
         self.assertIsNone(cache.cache.zscore(cache.MEDIA_RANK_LIKES, media.pk))
@@ -149,9 +149,8 @@ class MediaServiceTests(TestCase):
     def test_like_between_db_fold_and_anchor_publish_is_consistent(self):
         """刷新窗口内投喂不丢热度，DB 与四个 zset 仍使用可对齐的时间基准。"""
         media = self._create_media()
-        with self.captureOnCommitCallbacks(execute=True):
-            verify_media(media.pk, self.actor.pk)
-            self._like(media, 2)
+        verify_media(media.pk, self.actor.pk)
+        self._like(media, 2)
         media.refresh_from_db()
         old_hot = media.hot_value
         factor = decay(REFERENCE, NEXT_REFERENCE)
@@ -162,8 +161,7 @@ class MediaServiceTests(TestCase):
             return original_refresh(at_time)
 
         with patch.object(cache, 'refresh_hot_reference', side_effect=refresh_after_like):
-            with self.captureOnCommitCallbacks(execute=True):
-                refresh_hot_reference(NEXT_REFERENCE)
+            refresh_hot_reference(NEXT_REFERENCE)
         media.refresh_from_db()
         self.assertEqual(media.hot_value_updated_at, NEXT_REFERENCE)
         self.assertGreater(media.hot_value, old_hot * factor)
@@ -253,18 +251,59 @@ class MediaServiceTests(TestCase):
         self.assertEqual(delayed.count(), 1)
         self.assertEqual(delayed.get().args_kwargs['args'][-1], 1)
 
-    def test_sync_task_gives_up_after_bounded_retries(self):
+    def test_sync_task_fails_visibly_after_bounded_retries(self):
+        """重试耗尽必须抛错：返回 False 会被记为成功，管理页与监控都发现不了。"""
         with patch.object(cache, 'try_sync_media_scores', return_value=False):
-            result = tasks.task_sync_media_scores.func(1, self.user.pk, tasks.MEDIA_SYNC_MAX_ATTEMPTS)
-        self.assertFalse(result)
+            with self.assertRaises(tasks.MediaCacheSyncError):
+                tasks.task_sync_media_scores.func(1, self.user.pk, tasks.MEDIA_SYNC_MAX_ATTEMPTS)
         self.assertFalse(DBTaskResult.objects.filter(task_path=tasks.task_sync_media_scores.module_path).exists())
+
+    def test_restart_media_sync_task_resets_attempt(self):
+        """重启失败任务时丢弃重试计数，否则重跑会立刻再次失败。"""
+        db_task = tasks.task_sync_media_scores.enqueue(1, self.user.pk, tasks.MEDIA_SYNC_MAX_ATTEMPTS).db_result
+        DBTaskResult.objects.filter(pk=db_task.pk).update(status=TaskResultStatus.FAILED)
+        db_task.refresh_from_db()
+        new_task = restart_media_sync_task(db_task, db_task.args_kwargs['args'], db_task.args_kwargs['kwargs'])
+        self.assertEqual(new_task.args_kwargs['args'], [1, self.user.pk])
+        self.assertEqual(new_task.status, TaskResultStatus.READY)
+
+    def test_check_media_rankings_reports_consistent_cache(self):
+        media = self._create_media()
+        self._like(media, 2)
+        verify_media(media.pk, self.actor.pk)
+        out = StringIO()
+        call_command('check_media_rankings', stdout=out)
+        self.assertIn('matches the database', out.getvalue())
+
+    def test_check_media_rankings_detects_score_drift(self):
+        """任务全部成功但缓存被改动时，巡检仍能发现漂移并以非零退出码告警。"""
+        media = self._create_media()
+        self._like(media, 2)
+        verify_media(media.pk, self.actor.pk)
+        cache.cache.zincrby(cache.MEDIA_RANK_LIKES, 1, media.pk)
+        with self.assertRaises(CommandError) as caught:
+            call_command('check_media_rankings', stdout=StringIO())
+        self.assertIn('drift detected', str(caught.exception))
+        self.assertIn('rebuild_media_rankings', str(caught.exception))
+
+    def test_check_media_rankings_detects_missing_anchor(self):
+        cache.clear_rankings()
+        with self.assertRaises(CommandError) as caught:
+            call_command('check_media_rankings', stdout=StringIO())
+        self.assertIn('anchor is missing', str(caught.exception))
+
+    def test_check_media_rankings_reports_failed_sync_tasks(self):
+        db_task = tasks.task_sync_media_scores.enqueue(1, self.user.pk).db_result
+        DBTaskResult.objects.filter(pk=db_task.pk).update(status=TaskResultStatus.FAILED)
+        out = StringIO()
+        call_command('check_media_rankings', stdout=out)
+        self.assertIn('failed_sync_tasks=1', out.getvalue())
+        self.assertIn('matches the database', out.getvalue())
 
     def test_late_feed_callback_after_hard_delete_does_not_resurrect(self):
         media = self._create_media()
-        with self.captureOnCommitCallbacks(execute=True):
-            verify_media(media.pk, self.actor.pk)
-        with self.captureOnCommitCallbacks(execute=True):
-            hard_delete_media(media.pk, self.actor.pk)
+        verify_media(media.pk, self.actor.pk)
+        hard_delete_media(media.pk, self.actor.pk)
         cache.sync_media_scores(media.pk, self.user.pk)  # 迟到的投喂回调
         self.assertIsNone(cache.cache.zscore(cache.MEDIA_RANK_LIKES, media.pk))
         self.assertIsNone(cache.cache.zscore(cache.MEDIA_RANK_HOT, media.pk))
@@ -273,8 +312,7 @@ class MediaServiceTests(TestCase):
     def test_rebuild_is_reconciled_by_late_callback(self):
         """重建快照期间提交的投喂：迟到回调按 DB 绝对值补齐，既不丢也不重复。"""
         media = self._create_media()
-        with self.captureOnCommitCallbacks(execute=True):
-            verify_media(media.pk, self.actor.pk)
+        verify_media(media.pk, self.actor.pk)
         original_decay = cache.decay
         state = {'done': False}
 
@@ -301,8 +339,7 @@ class MediaServiceTests(TestCase):
     def test_rebuild_rankings_only_verified(self):
         verified = self._create_media('BV1verified0001')
         self._like(verified, 3)
-        with self.captureOnCommitCallbacks(execute=True):
-            verify_media(verified.pk, self.actor.pk)
+        verify_media(verified.pk, self.actor.pk)
         self._create_media('BV1pending00001')
         rejected = self._create_media('BV1rejected001')
         reject_media(rejected.pk, self.actor.pk)
@@ -338,8 +375,7 @@ class MediaServiceTests(TestCase):
         media.refresh_from_db()
         self.assertEqual(media.status, MediaStatus.PENDING)
         corrected_at = timezone.now() - timedelta(days=3)
-        with self.captureOnCommitCallbacks(execute=True):
-            verify_media(media.pk, self.actor.pk, title='manual title', created_at=corrected_at)
+        verify_media(media.pk, self.actor.pk, title='manual title', created_at=corrected_at)
         media.refresh_from_db()
         self.assertEqual(media.status, MediaStatus.VERIFIED)
         self.assertEqual(media.title, 'manual title')
@@ -350,8 +386,7 @@ class MediaServiceTests(TestCase):
         media = create_media(self.user, media_format=MediaFormat.B_V, suffix='BV1normal0001',
                              title='auto title', created_at=timezone.now() - timedelta(days=1), language='')
         self.assertFalse(media.metadata_pending)
-        with self.captureOnCommitCallbacks(execute=True):
-            verify_media(media.pk, self.actor.pk)
+        verify_media(media.pk, self.actor.pk)
         media.refresh_from_db()
         self.assertEqual(media.title, 'auto title')
 

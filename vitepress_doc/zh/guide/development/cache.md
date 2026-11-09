@@ -59,7 +59,7 @@ redis-cli -n 0 DEL io_s_old io_r_old io_s_spds io_r_spds cpus
 
 **请求路径不写 Redis、不获取也不等待这把锁**：普通 API 的网关超时是 2 秒、uWSGI 请求上限是 10 秒，而锁允许后台任务阻塞等待 60 秒。投喂、审核、硬删除和投稿只在自己的数据库事务内入队 `media.tasks.task_sync_media_scores`（Django 6 Tasks / `django-tasks-db`），任务行与红宝石扣除 / 审核状态一起提交或回滚；即使请求进程在提交后被终止，worker 仍会补齐缓存。不要把这些写入改回 `on_commit` 回调。
 
-worker 用 `try_sync_media_scores()` **非阻塞**取锁，拿到后在锁内按**任务执行时刻的数据库绝对值**一次 `MULTI/EXEC` 覆盖四个 zset（`ZADD`，作品不存在则 `ZREM`），不再累加增量；同时用 SQL 端乘算把停留在旧时间基准的行折算到当前 anchor。这样硬删除后的迟到任务不会把已删除作品重新入榜，作者分数归零与新投喂之间不存在事务外 `ZREM` 窗口，全量重建也不会被重建期间提交的增量覆盖。拿不到锁就立刻返回并延迟重排同一任务（5/10/20/40/60 秒退避，累计约 315 秒，长于锁 TTL，最多 8 次），既不占请求预算也不会被崩溃进程留下的锁卡住；超过上限记 warning，靠后续事件或重建命令修复。锁的阻塞等待只允许出现在后台任务与管理命令里。
+worker 用 `try_sync_media_scores()` **非阻塞**取锁，拿到后在锁内按**任务执行时刻的数据库绝对值**一次 `MULTI/EXEC` 覆盖四个 zset（`ZADD`，作品不存在则 `ZREM`），不再累加增量；同时用 SQL 端乘算把停留在旧时间基准的行折算到当前 anchor。这样硬删除后的迟到任务不会把已删除作品重新入榜，作者分数归零与新投喂之间不存在事务外 `ZREM` 窗口，全量重建也不会被重建期间提交的增量覆盖。拿不到锁就立刻返回并延迟重排同一任务（5/10/20/40/60 秒退避，累计约 315 秒，长于锁 TTL，最多 8 次），既不占请求预算也不会被崩溃进程留下的锁卡住；超过上限必须抛 `MediaCacheSyncError`，让任务变成 FAILED（管理页与监控快照可见、可重启），不能返回 `False` 被记为成功。锁的阻塞等待只允许出现在后台任务与管理命令里。数据库始终是正确的，缓存滞后用 `check_media_rankings` 只读巡检发现、用 `rebuild_media_rankings` 人工恢复。
 
 每行 `hot_value` 以自身 `hot_value_updated_at` 为基准，写入 zset 时按 `0.99 ** ((anchor - base) / 1 天)` 折算到 `T`；`likes` 不衰减。每月 UTC 1 日 00:00 由月度刷新作业入队 Django Task 幂等刷新：Redis 用 `WATCH` + `ZUNIONSTORE` 把两个 hot zset 整体乘以同一系数并写入新 `T`，数据库用 SQL 端乘算把每行按自身基准折算到新 `T`。投稿读取基准、插入与复核也持有同一把锁，避免出现长期停留在旧基准的新行。任务入队前检查同路径的 READY / RUNNING 任务，避免堆积。
 

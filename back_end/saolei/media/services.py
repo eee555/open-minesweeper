@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from . import cache
 from .models import Media, MediaLikes, UserMedia
-from .tasks import enqueue_media_score_sync
+from .tasks import enqueue_media_score_sync, task_sync_media_scores
 from .utils import decay, MEDIA_DAILY_LIKE_LIMIT, MediaStatus
 
 logger = logging.getLogger('media')
@@ -35,6 +35,18 @@ def get_balance(user):
     likes_sent = profile.likes_sent if profile else 0
     earned = floor((timezone.now() - user.date_joined).total_seconds() / 86400)
     return max(earned - likes_sent, 0)
+
+
+def restart_media_sync_task(db_task, args, kwargs):
+    """管理员重跑失败的缓存同步任务：丢弃重试计数，从 attempt=0 重新入队。
+
+    直接沿用原 args 会带着 attempt=MEDIA_SYNC_MAX_ATTEMPTS，重跑会立刻再次失败。
+    """
+    if db_task.task_path != task_sync_media_scores.module_path:
+        return None
+    if len(args) < 2:
+        raise ValueError('media cache sync task is missing media_id / author_id')
+    return task_sync_media_scores.enqueue(args[0], args[1]).db_result
 
 
 def create_media(user, *, media_format, suffix, language, title='', created_at=None, metadata_pending=False):

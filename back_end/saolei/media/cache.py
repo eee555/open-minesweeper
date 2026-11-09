@@ -62,16 +62,21 @@ def media_hot_reference_time(at_time=None):
     return datetime(now.year, now.month, 1, tzinfo=datetime_timezone.utc)
 
 
+def read_hot_reference():
+    """只读 anchor，缺失返回 None；供巡检使用，不初始化缓存。"""
+    value = cache.get(MEDIA_HOT_ANCHOR)
+    return datetime.fromisoformat(maybe_bytes_to_str(value)) if value is not None else None
+
+
 def get_hot_reference():
     """读 anchor；缺失时以 DB 最早基准或当月 1 日 UTC 初始化（SET NX 避免并发覆盖）。"""
-    value = cache.get(MEDIA_HOT_ANCHOR)
-    if value is not None:
-        return datetime.fromisoformat(maybe_bytes_to_str(value))
+    existing = read_hot_reference()
+    if existing is not None:
+        return existing
     earliest = Media.objects.order_by('hot_value_updated_at').values_list('hot_value_updated_at', flat=True).first()
     reference = earliest or media_hot_reference_time()
     cache.set(MEDIA_HOT_ANCHOR, reference.isoformat(), nx=True)
-    value = cache.get(MEDIA_HOT_ANCHOR)
-    return datetime.fromisoformat(maybe_bytes_to_str(value)) if value is not None else reference
+    return read_hot_reference() or reference
 
 
 def set_hot_reference(reference):

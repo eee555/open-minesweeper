@@ -1,6 +1,6 @@
 # 作品页（media）开发计划
 
-状态：**第 4 阶段（前端）已完成**；第 0-3 阶段（app 外壳、数据层、服务与缓存、API 层）均已落地并通过局部检查，设计已按「外站超时降级投稿」「外站作者 id 不入库」「软删除状态机」口径修订。阶段 4 已接入 `/works` 四 tab、排行榜 / 数据库 / 个人主页 / 后台四个 tab、投稿与投喂组件、`mediaService.ts` 的 25s 投稿超时、全局与 SFC 双语 i18n，并完成 lintfix / typecheck / vitest / `build:openms` 与 9 个 Cypress 组件测试；阶段 5（生产迁移、重建 zset、超时链实测与一次性全量开放，不做灰度）已完成本地可交付部分（E2E spec、部署手册、本地前置检查），生产部署动作待执行。删除路径改为 `status` 状态机（第 16 节），降级投稿与平台扩展约定见第 7.2、17 节；外站作者 id 的一次性核验口径见第 16.1 节第 15 条；每日投喂上限口径见第 17 条；第一轮代码审查修复（按行热度基准、anchor 发布时序、真实外站异常降级、数字外链归一化与前端权限/展示）见第 18 条；第二轮 P2 并发修复（缓存写入改为 DB 绝对值覆盖 + 全局缓存锁、投稿基准复核、重建持锁）见第 19 条；第三轮 P2 超时修复（请求路径零锁等待、缓存同步改为业务事务内入队的持久化任务、worker 非阻塞取锁与退避重排）见第 20 条。
+状态：**第 4 阶段（前端）已完成**；第 0-3 阶段（app 外壳、数据层、服务与缓存、API 层）均已落地并通过局部检查，设计已按「外站超时降级投稿」「外站作者 id 不入库」「软删除状态机」口径修订。阶段 4 已接入 `/works` 四 tab、排行榜 / 数据库 / 个人主页 / 后台四个 tab、投稿与投喂组件、`mediaService.ts` 的 25s 投稿超时、全局与 SFC 双语 i18n，并完成 lintfix / typecheck / vitest / `build:openms` 与 9 个 Cypress 组件测试；阶段 5（生产迁移、重建 zset、超时链实测与一次性全量开放，不做灰度）已完成本地可交付部分（E2E spec、部署手册、本地前置检查），生产部署动作待执行。删除路径改为 `status` 状态机（第 16 节），降级投稿与平台扩展约定见第 7.2、17 节；外站作者 id 的一次性核验口径见第 16.1 节第 15 条；每日投喂上限口径见第 17 条；第一轮代码审查修复（按行热度基准、anchor 发布时序、真实外站异常降级、数字外链归一化与前端权限/展示）见第 18 条；第二轮 P2 并发修复（缓存写入改为 DB 绝对值覆盖 + 全局缓存锁、投稿基准复核、重建持锁）见第 19 条；第三轮 P2 超时修复（请求路径零锁等待、缓存同步改为业务事务内入队的持久化任务、worker 非阻塞取锁与退避重排）见第 20 条；竞态取舍与失败可检测口径（最终一致即可、失败必须可见，新增只读巡检命令）见第 21 条。
 
 本文档是实现的唯一设计基线；实现时若改变第 5 节的衰减不变量或第 9 节的权限口径，应先更新本文档。
 
@@ -259,7 +259,8 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 - **审核中作品可以被投喂（Q2 已确认）**，但审核期间**只写 DB**（`Media.likes/hot_value` 与 `MediaLikes`），不写四个 zset：热门/精品/《最新》与排行榜页《作品》tab 只展示 `verified` 作品，不做「写入后再过滤」，否则分页会出现空洞。审核通过时 `verify_media()` 由 `sync_media_scores()` 按 DB 当前值一次性 `ZADD` 补入四个 zset；驳回只改状态并退还红宝石，因从未入榜而无需 `ZREM`（第 5.5 节）；**站长硬删除 `verified` 作品是唯一例外**，必须回退四个 zset（第 5.6 节）。
 - 审核中 tab 直接查库 `status='pending' ORDER BY -submitted_at`（走 `media_pending_idx`），展示累计 likes 与实时热度并提供投喂按钮，不额外建 zset。作品页《最新》tab 同样直接查库，不额外建 zset（评估见第 6.1 节）。`rejected` 作品不在四个 tab 中，但在作者主页与数据库页对所有人可见（16.1 第 5 条）。
 - 重建：`media/management/commands/rebuild_media_rankings.py` 从 DB 全量重建四个 zset 与 `anchor`，**只取 `status='verified'` 的行**（`pending` / `rejected` 一律排除），使用临时 key（`media:rebuild:*`）+ `rename` 原子发布（参照 `speedranking/top/cache.py:108-138`）；失败保留旧榜。**整段 DB 快照与发布都持有 `media:cache:lock`**：期间提交的 DB 写入，其后台同步任务必须等锁释放后才按 DB 绝对值重算，因此不会「先写正式榜 6、后被旧快照 rename 覆盖回 5」。发布前检查 `lock.owned()`，锁过期则抛错保留旧榜；命令应在低峰期执行并暂停相关写操作。anchor 取全表最早的 `hot_value_updated_at`，每行 `hot_value` 先按 `decay(row_base, anchor)` 折算再写入，兼容 I1' 下刷新窗口遗留的混合基准。不做请求时懒重建。
-- 一致性：DB 是事实来源，Redis 是排序索引。**写请求只做 DB 事务 + 同事务入队 `task_sync_media_scores`**（Django 6 Tasks / `django-tasks-db`），任务行与业务数据一同提交或回滚；uWSGI 在提交后杀掉请求进程也不会丢缓存更新。worker 用 `try_sync_media_scores()` **非阻塞**取锁：拿不到就用 5/10/20/40/60... 秒退避重排同一任务（累计约 315s，长于 300s 锁 TTL，能熬过崩溃进程留下的锁），最多 8 次后记 warning 等下一次事件或重建命令修复。**所有缓存写入都按任务执行时刻的 DB 绝对值覆盖**：迟到任务不会重建已删除作品，作者分数归零与新投喂之间不存在事务外 `ZREM` 窗口，重建期间提交的增量不会被旧快照覆盖。月度刷新的 `ZUNIONSTORE` 缩放仍用 `WATCH media:hot:anchor` 的 `cache.transaction` 保证幂等；worker / 管理命令里锁的顺序统一为「先 Redis 锁、后 DB 事务」，避免死锁。任务行按 `config/common.py` 的 `TASK_CLEANUP_CONFIGS`（1 天）清理，量受每日 10 次投喂上限约束。
+- 一致性：DB 是事实来源，Redis 是排序索引。**写请求只做 DB 事务 + 同事务入队 `task_sync_media_scores`**（Django 6 Tasks / `django-tasks-db`），任务行与业务数据一同提交或回滚；uWSGI 在提交后杀掉请求进程也不会丢缓存更新。worker 用 `try_sync_media_scores()` **非阻塞**取锁：拿不到就用 5/10/20/40/60... 秒退避重排同一任务（累计约 315s，长于 300s 锁 TTL，能熬过崩溃进程留下的锁），最多 8 次后**抛 `MediaCacheSyncError` 记 error 日志**，让 `DBTaskResult.status=FAILED`——管理页 `/tasks/detail?status=FAILED`、`monitor.get_task_summary()` 快照与 `/tasks/restart` 都能发现并一键重跑；`media.services.restart_media_sync_task()` 会丢掉重试计数从 `attempt=0` 重新入队。返回 `False` 会被框架记为成功，等于失败不可见，因此禁止。**所有缓存写入都按任务执行时刻的 DB 绝对值覆盖**：迟到任务不会重建已删除作品，作者分数归零与新投喂之间不存在事务外 `ZREM` 窗口，重建期间提交的增量不会被旧快照覆盖。月度刷新的 `ZUNIONSTORE` 缩放仍用 `WATCH media:hot:anchor` 的 `cache.transaction` 保证幂等；worker / 管理命令里锁的顺序统一为「先 Redis 锁、后 DB 事务」，避免死锁。任务行按 `config/common.py` 的 `TASK_CLEANUP_CONFIGS`（1 天）清理，量受每日 10 次投喂上限约束。
+- **失败检测（已确认口径）**：产品接受偶发竞态导致缓存滞后、由人工重新同步，前提是 DB 正确且失败**可检测**。两层检测：① 同步任务耗尽重试抛错 → FAILED 任务在管理页与 monitor 快照可见；② `python manage.py check_media_rankings` 只读对比四个 zset 与 DB 派生的绝对分数，发现漂移（含 anchor 缺失）以非零退出码告警，供定时巡检与部署自检。巡检同时输出 FAILED / 积压同步任务数作为诊断信息；只有分数漂移才判定失败，因为历史失败任务可能已被后续同步修复。修复手段是 `rebuild_media_rankings` 或重启失败任务，命令会打印对应提示。**不引入请求内 best-effort 同步**：最终一致即可，但缓存写入绝不回到请求路径。
 - 文档：固定 key、缓存锁与绝对分数/衰减策略写入 `vitepress_doc/zh/guide/development/cache.md`；重建命令的执行前提与锁语义写入 `vitepress_doc/zh/guide/development/management-commands.md`。本设计不使用信号接收器，`signals.md` 无需改动。
 
 ### 6.1 《最新》tab 是否需要 Redis
@@ -418,6 +419,8 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 | 缓存同步任务 | `media/tasks.py::task_sync_media_scores` | 业务 DB 事务内入队（非 `on_commit`），任务行与红宝石 / 审核状态同事务提交；worker 非阻塞取锁，失败按退避延迟重排最多 8 次 |
 | 任务清理 | `config/common.py::TASK_CLEANUP_CONFIGS` | 同步任务成功记录 1 天后清理；量受每日 10 次投喂上限约束 |
 | 重建命令 | `media/management/commands/rebuild_media_rankings.py` | 临时榜 + 持锁原子发布；支持 `--batch-size`；必须在低峰期执行并暂停相关写操作，锁过期会报错保留旧榜 |
+| 巡检命令 | `media/management/commands/check_media_rankings.py` | 只读对比四个 zset 与 DB，`CommandError` + 非零退出码报告漂移；输出 FAILED / 积压同步任务数；支持 `--max-examples` |
+| 失败重跑 | `media/services.py::restart_media_sync_task` | 注册进 `common/api.py::TASK_RESTART_SERVICES`；重跑时丢弃 `attempt`，避免立刻再次失败 |
 | 文档 | `vitepress_doc/zh/guide/development/cache.md` | 五个固定 key、`media:cache:lock` 只在 worker / 管理命令使用、绝对分数覆盖、衰减基准与重建方式 |
 | 文档 | `vitepress_doc/zh/guide/development/management-commands.md` | 月度作业、worker、重建命令与部署顺序 |
 | 文档 | `vitepress_doc/zh/guide/development/signals.md` | 本设计无信号，不改动；如实现时改为信号同步缓存再补文档 |
@@ -505,7 +508,8 @@ send: sending = true，sentAt = Date.now()
   - 衰减：`decay` 单位测试（1 天 = 0.99、6 天幂次、逆向 > 1）、I1' 按行基准折算、投喂增量示例（第 5.7 节）、月度刷新幂等（同月重跑不再缩放）、跨月停机补跑、用户总热度与逐作品求和一致。
   - 刷新并发（P1/P2）：`F()` SQL 端乘算不覆盖已提交的投喂、驳回清零的作品不被快照恢复；DB 换算提交后、anchor 发布前的投喂不丢热度且 DB 与 zset 仍可对齐；窗口内按旧 anchor 新建的作品由二次换算收敛；投稿读基准 / 插入 / 复核与三步刷新共用 `media:cache:lock`，锁顺序统一为「先 Redis 锁、后 DB 事务；先 `Media` 后 `UserMedia`」。
   - 缓存事件顺序（P2）：硬删除后的迟到同步任务不得把作品或作者分数重新入榜；作者分数归零与另一作品新投喂乱序执行时，最终作者分数仍等于 DB 求和；投稿读旧 anchor 后锚点推进时，插入后复核与后台基准折算都能把该行换到新基准；重建快照期间提交的投喂由迟到任务按 DB 绝对值补齐，既不丢也不重复，且 `rebuild_rankings()` 全程持有缓存锁。
-  - 请求预算（P2）：`like_media()` / `verify_media()` / `hard_delete_media()` / `create_media()` 在持锁状态下仍能完成；同步任务行与业务数据同事务入队而不是 `on_commit` 回调；worker 拿不到锁时立即返回 False 并延迟重排，重试上限后记日志不阻塞；`media_cache_lock` 的 60s 阻塞等待只出现在后台任务 / 管理命令，普通 API 不触碰。
+  - 请求预算（P2）：`like_media()` / `verify_media()` / `hard_delete_media()` / `create_media()` 在持锁状态下仍能完成；同步任务行与业务数据同事务入队而不是 `on_commit` 回调；worker 拿不到锁时立即返回 False 并延迟重排；`media_cache_lock` 的 60s 阻塞等待只出现在后台任务 / 管理命令，普通 API 不触碰。
+  - 失败可检测（P2）：重试耗尽抛 `MediaCacheSyncError` 而不是返回 False（否则被记为成功）；`restart_media_sync_task()` 重跑时把 `attempt` 归零；`check_media_rankings` 在分数漂移 / anchor 缺失时抛 `CommandError`，一致时通过，且输出 FAILED 与积压任务数。
   - URL 去重：数字 suffix 去前导零后 `cv01646742` 与 `cv1646742`、`/bbs/09786` 与 `/bbs/9786` 命中同一唯一约束，第二次投稿返回 409。
   - 真实外站异常族：`curl_cffi` 的 `Timeout` / `ConnectTimeout` 归 504 `timeout`，`ConnectionError` / `RequestException` 归 502 `upstream_error`，四类都能经 `fetch_media_metadata_optional()` 降级为 `None`。
   - Redis 排行：投喂/审核通过后的四个 zset 数值与顺序、重建命令只取 `status='verified'` 且与 DB 一致；驳回无需 `ZREM`；站长硬删除必须 `ZREM` 两个作品榜并等值扣减作者两个 user zset，结果 <= 0 改 `ZREM`，重复执行幂等。
@@ -604,10 +608,11 @@ CI 参考：`.github/workflows/backend.yml` 会跑 `makemigrations` + `migrate` 
 | 16 | 不做灰度 | 阶段 5 完成生产迁移、重建 zset、超时链实测与 E2E 后**一次性全量开放投稿入口**，不设灰度名单、白名单或按比例放量；前端入口随代码上线，没有运行期开关；发布前用第 18 节的联调清单与 E2E 兜底，出问题按第 18 节回滚方案整体回退（第 13、15、18 节） |
 | 17 | 放弃「单次离线红宝石上限 15 + `likes_left` 代替 `likes_sent` + 登录时按上次登录时间发放」；改为限制每天投喂数量：去掉 `/like` 的 `count` 参数（每次只投 1 个）、每 UTC 自然日最多 10 次成功投喂，DB 计数按 UTC 重置 | 放弃原方案（需改登录链路、模型语义与迁移）；`UserMedia` 新增 `daily_likes` / `daily_date`，`services.like_media()` 在 `select_for_update()` 事务内做跨日重置、上限 429 与「成功才计数」，`select_for_update()` 保证并发不超额；`1/s` 请求级限流保留做瞬时防护，二者互补防爆发刷数据；不用 `django_ratelimit` 的 `10/d`（固定窗口 + crc32 偏移、只计请求不计成功）也不引新依赖；前端取消批量累计，改为单次点击单请求 + 冷却禁用；驳回 / 硬删除只退还 `likes_sent`，不回退当日计数（第 4.3、5.1、5.3、8、11.3、12 节） |
 | 18 | 代码审查 P1/P2 修复（不改产品口径） | 月度刷新改 SQL 端 `F()` 乘算且不覆盖已提交投喂；新 anchor 在 DB 换算提交后发布、随后幂等补齐窗口内新行；投喂按 DB 行自身基准折算（当时由 Redis 增量 `WATCH anchor` 换算，后由第 19 条改为绝对值覆盖）；投喂与退款统一「先 `Media` 后 `UserMedia`」锁顺序；数字 suffix 去前导零；后台增加「已通过」入口并保留审核后选中项；`me.banned` 不禁用投喂、页面内登录刷新 `/me`；作者榜按 `anchor` 衰减展示实时热度；`curl_cffi` 原生超时/连接异常纳入降级分类（第 3.3、5.2、5.3、5.4、6、7.1、11、12、18.3 节） |
-| 19 | 第二轮 P2 并发审查修复（不改产品口径） | 放弃 `ZINCRBY` 增量回调，四个 zset 改由 `sync_media_scores()` 在 `media:cache:lock` 内按**回调执行时刻的 DB 绝对值**一次 `MULTI/EXEC` 覆盖：解决硬删除后的迟到投喂重建作品、作者分数归零后事务外 `ZREM` 清掉新投喂、重建快照覆盖期间增量三个问题；`create_media()` 从读 anchor 到插入并复核基准全程持锁，月度刷新三步各自持锁，解决旧基准新行；`rebuild_rankings()` 持锁覆盖快照与发布，锁过期报错保留旧榜；管理命令要求低峰期暂停相关写操作（第 5.2、5.3、5.4、5.6、6、10、12、18.3 节） |
+| 19 | 第二轮 P2 并发审查修复（不改产品口径） | 放弃 `ZINCRBY` 增量回调，四个 zset 改由 `sync_media_scores()` 在 `media:cache:lock` 内按**回调执行时刻的 DB 绝对值**一次 `MULTI/EXEC` 覆盖：解决硬删除后的迟到投喂重建作品、作者分数归零后事务外 `ZREM` 清掉新投喂、重建快照覆盖期间增量三个问题；`create_media()` 从读 anchor 到插入并复核基准全程持锁，月度刷新三步各自持锁，解决旧基准新行；`rebuild_rankings()` 持锁覆盖快照与发布，锁过期报错保留旧榜；管理命令要求低峰期暂停相关写操作（该持锁投稿后由第 20 条改为请求侧零锁等待 + 后台基准收敛）（第 5.2、5.3、5.4、5.6、6、10、12、18.3 节） |
 | 20 | 请求锁等待超出超时预算（P2，不改产品口径） | 普通 API 的 Nginx 2s / uWSGI 10s 容不下 `media:cache:lock` 的 60s 等待，且 `on_commit` 回调可能在进程被杀前未执行。改为**请求路径零 Redis 写入、零锁等待**：缓存同步变成业务 DB 事务内入队的持久化 `task_sync_media_scores`，任务行与红宝石扣除 / 审核状态同事务提交；worker 非阻塞取锁 + 退避延迟重排（累计约 315s > 300s 锁 TTL，最多 8 次），锁只在后台任务 / 管理命令里阻塞；`create_media()` 去掉请求侧锁，旧基准行由后台任务用 `F()` 收敛；`config/common.py` 增加同步任务 1 天清理（第 5.3、5.4、6、10、12、18.3 节） |
+| 21 | 竞态取舍与失败可检测（P2，产品口径已确认） | 确认「偶发竞态导致缓存滞后可接受，只要 DB 正确，但失败必须能检测到」，最终一致即可，**不做请求内 best-effort 同步**。重试耗尽改抛 `MediaCacheSyncError` 使任务变 FAILED（管理页 / monitor 快照可见），`restart_media_sync_task()` 重跑时归零 `attempt`；新增只读 `check_media_rankings` 巡检命令对比四个 zset 与 DB，漂移或 anchor 缺失以非零退出码告警，并输出 FAILED / 积压任务数；修复手段是 `rebuild_media_rankings` 或重启失败任务（第 6、10、12、18.3 节） |
 
-当前无待定事项。P1-P5（第 8-12 条）、降级投稿、平台扩展、外站作者 id 不入库（第 13-15 条）、不做灰度（第 16 条）、每日投喂上限（第 17 条）与三轮审查修复（第 18-20 条）均已落到第 3.3、4.1、4.3、5.1、5.3、5.4、6、7.1、7.2、8、9、10、11、12、13、14、15、17、18 节；后续产生新口径时另开条目记录。
+当前无待定事项。P1-P5（第 8-12 条）、降级投稿、平台扩展、外站作者 id 不入库（第 13-15 条）、不做灰度（第 16 条）、每日投喂上限（第 17 条）与四轮审查修复 / 口径确认（第 18-21 条）均已落到第 3.3、4.1、4.3、5.1、5.3、5.4、6、7.1、7.2、8、9、10、11、12、13、14、15、17、18 节；后续产生新口径时另开条目记录。
 
 
 ## 17. 平台扩展约定（接入 YouTube 时复用）
@@ -670,6 +675,7 @@ CI 参考：`.github/workflows/backend.yml` 会跑 `makemigrations` + `migrate` 
 - 审查修复回归：真实 B 站超时 / 连接失败应降级为 `metadata_pending=true` 而不是 500；刷新窗口内投喂不丢热度、作者榜与 DB 热度一致；`cv01646742` 与 `cv1646742` 视为同一作品；「禁止投稿」用户仍能投喂、页面内登录后投喂按钮可用；后台「已通过」列表可选中作品硬删除；排行榜《作品》tab 的热度随时间按 `anchor` 衰减。
 - 缓存事件顺序：硬删除后执行迟到的同步任务，作品与作者分数不得重新入榜；作者分数归零与另一作品新投喂乱序执行后，作者分数仍等于 DB 求和；投稿读旧 anchor 后锚点推进，新行基准应为新 anchor；重建期间提交投喂再由迟到任务补齐，分数应等于 DB 值（既不丢也不重复）；`rebuild_media_rankings` / `--clear` 在低峰期暂停写操作后执行。
 - 请求预算：`db_worker_robust` 常驻并确认能消费 `media.tasks.task_sync_media_scores`；在持锁状态下调用投喂 / 审核 / 投稿，响应应在 Nginx 2s（投稿 25s）内返回；即使随后终止 uWSGI 进程，worker 仍能把榜单补齐；`config/common.py` 的同步任务清理配置随代码发布。
+- 失败检测：部署后运行 `python manage.py check_media_rankings`，应输出 `matches the database` 且退出码为 0；人为改动一个 zset 分数后重跑应报 `drift detected` 并以非零退出码退出；在管理任务页确认 FAILED 同步任务可见且 `/tasks/restart` 能以 `attempt=0` 重跑。建议把巡检命令接入外部定时巡检与告警（按退出码），并避开每月 UTC 1 日 00:10 的月度基准刷新窗口以免误报；出现漂移时人工执行 `rebuild_media_rankings`。
 
 ### 18.4 回滚方案
 

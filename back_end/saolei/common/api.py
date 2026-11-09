@@ -21,6 +21,7 @@ from ninja.orm import create_schema
 import psutil
 
 from accountlink.services import restart_accountlink_task
+from media.services import restart_media_sync_task
 from monitor.schema import TaskCountsOut
 from monitor.services import get_task_summary
 from speedranking.top.cache import TopRankingCache
@@ -44,6 +45,7 @@ WORKER_STATE_ALIVE = 'alive'
 WORKER_STATE_DEAD = 'dead'
 WORKER_STATE_UNKNOWN = 'unknown'
 TASK_RESTART_SERVICES = [
+    restart_media_sync_task,
     restart_accountlink_task,
     restart_gsc_task,
 ]

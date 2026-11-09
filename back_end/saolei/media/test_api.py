@@ -68,8 +68,7 @@ class MediaApiTests(TestCase):
         media = self._create_media()
         for _ in range(3):
             services.like_media(self.user, media.pk)
-        with self.captureOnCommitCallbacks(execute=True):
-            services.verify_media(media.pk, self.staff.pk)
+        services.verify_media(media.pk, self.staff.pk)
         response = self.client.get('/api/media/ranking?sort=hot')
         self.assertEqual(response.status_code, 200, response.content)
         body = response.json()
@@ -86,8 +85,7 @@ class MediaApiTests(TestCase):
 
     def test_latest_pending_and_detailbatch(self):
         verified = self._create_media('BV1verified001')
-        with self.captureOnCommitCallbacks(execute=True):
-            services.verify_media(verified.pk, self.staff.pk)
+        services.verify_media(verified.pk, self.staff.pk)
         pending = self._create_media('BV1pending0001')
         latest = self.client.get('/api/media/latest')
         self.assertEqual(latest.status_code, 200, latest.content)
@@ -219,8 +217,7 @@ class MediaApiTests(TestCase):
         self.assertEqual(self.staff_client.post(url, {'id': media.pk, 'title': 'manual title'}, content_type='application/json').status_code, 400)
         media.refresh_from_db()
         self.assertEqual(media.status, MediaStatus.PENDING)
-        with self.captureOnCommitCallbacks(execute=True):
-            response = self.staff_client.post(url, payload, content_type='application/json')
+        response = self.staff_client.post(url, payload, content_type='application/json')
         self.assertEqual(response.status_code, 200, response.content)
         media.refresh_from_db()
         self.assertEqual(media.status, MediaStatus.VERIFIED)
@@ -252,8 +249,7 @@ class MediaApiTests(TestCase):
 
     def test_admin_edit_rejects_verified_and_duplicate_url(self):
         media = self._create_media()
-        with self.captureOnCommitCallbacks(execute=True):
-            services.verify_media(media.pk, self.staff.pk)
+        services.verify_media(media.pk, self.staff.pk)
         response = self.staff_client.post('/api/media/admin/edit', {'id': media.pk, 'title': 'x'}, content_type='application/json')
         self.assertEqual(response.status_code, 409, response.content)
         other = self._create_media('BV1second00001')
@@ -262,8 +258,7 @@ class MediaApiTests(TestCase):
 
     def test_admin_delete_requires_superuser(self):
         media = self._create_media()
-        with self.captureOnCommitCallbacks(execute=True):
-            services.verify_media(media.pk, self.staff.pk)
+        services.verify_media(media.pk, self.staff.pk)
         self.assertEqual(self.staff_client.post('/api/media/admin/delete', {'id': media.pk}, content_type='application/json').status_code, 401)
         client = Client()
         client.force_login(self.superuser)
@@ -346,8 +341,7 @@ class MediaApiCsrfTests(TestCase):
 
     def test_superuser_delete_requires_csrf(self):
         media = self._media('BV1csrf000003')
-        with self.captureOnCommitCallbacks(execute=True):
-            services.verify_media(media.pk, self.staff.pk)
+        services.verify_media(media.pk, self.staff.pk)
         token = self._token(self.superuser)
         self.assertEqual(self.client.post('/api/media/admin/delete', {'id': media.pk}, content_type='application/json').status_code, 403)
         response = self.client.post('/api/media/admin/delete', {'id': media.pk}, content_type='application/json', HTTP_X_CSRFTOKEN=token)
