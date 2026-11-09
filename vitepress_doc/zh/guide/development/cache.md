@@ -11,6 +11,10 @@ description: 开源扫雷网Redis/Django缓存结构详解，包括录像队列�
 
 GitHub 使用默认 Django cache（当前 Redis DB 1），所有键 TTL 为 600 秒，不保存访问令牌或公开资料。`accountlink:github:flow:{state}` 保存用户 ID、登录会话 HMAC 指纹和 PKCE verifier；`accountlink:github:active:{user_id}` 保存该用户最新的 state，新授权覆盖旧流程；`accountlink:github:used:{state}` 通过 `cache.add` 原子占用为 `True`，防止多个 worker 重复消费同一回调。只有匹配本人及会话的请求能占用状态。撤销时该 state 的 used 标记改为 `revoked` 并删除 flow 数据，不删除 active 指针；指针自然过期或被下一次授权覆盖，避免误删并发创建的新授权。删除已绑定账号在删除事务内持有用户行锁时立即撤销，不推迟到 `on_commit`，确保在途回调取得同一行锁后无法恢复关联。删除回滚保留数据库关联，但不恢复授权缓存，用户需重新发起授权；没有绑定账号可删除的本人取消操作也立即撤销。前端取消接口按 state、本人及会话校验，不影响较新的授权。清理缓存只会使未完成授权失效，用户重新发起即可，不影响已验证的数据库关联。
 
+## 扫雷网绑定确认凭据
+
+扫雷网绑定协议 v2 使用默认 Django cache（当前 Redis DB 1）保存短期确认凭据，键为 `accountlink:saolei:bind:{token}`，TTL 为 24 小时。值为 `{confirmer_id, uid, username, sync}`：分别表示本站确认者 ID、扫雷网 uid、确认时的扫雷网用户名和同步开关。只有绑定事务成功提交后才写入；`/api/accountlink/saolei/bind/status` 只接受本次令牌自己的凭据，并要求扫雷网 uid 一致、当前 `AccountSaolei.parent_id` 仍等于 `confirmer_id`。扫雷网侧取消申请时直接返回 pending；历史绑定、换绑后的旧凭据以及没有凭据的已核销申请均不视为本次确认。清理缓存不会影响数据库中的既有绑定，但尚未核销的申请需要在开源扫雷网授权页重新确认以生成新凭据。
+
 ## 录像与账号数据
 
 扫雷网首批迁移由 [sync_saolei_api](./management-commands.md#sync-saolei-api) 串行执行。迁移后开放前端逐页、逐条手动同步；`AccountSaolei.auto_sync=True` 的账号（默认开启）每日由 APScheduler 直接同步目录并每批最多 50 条取得详情及 URL，每小时由 Django Task 按已存 URL 最多尝试导入 100 条。没有专用 Redis 进度或任务缓存；目录与 `AccountSaolei.video_sync_cursor` 同数据库事务提交，`video_update_time` 仅标记目录扫描完成，不代表全部详情或文件成功；游标不等待详情或文件导入，未完成来源独立补取。旧账号成绩、人气、三级录像数量及任务指针字段随迁移删除，不再维护对应历史值。创建本站录像和同主重复文件的更早上传时间仍经过既有保存信号及排行缓存更新，不清理本站录像缓存来重建来源目录。

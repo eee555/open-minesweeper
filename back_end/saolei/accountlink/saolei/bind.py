@@ -1,6 +1,6 @@
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 import re
 
-from django.core.cache import cache
 from django_ratelimit.decorators import ratelimit
 import httpx
 from ninja import Router, Schema
@@ -9,8 +9,9 @@ from ninja.errors import HttpError
 
 from userprofile.decorators import login_required_error
 from utils.exceptions import ExceptionToResponse
-from ..models import AccountSaolei, Platform
-from ..services import save_verified_account_link
+from .cache import load_bind_evidence, save_bind_evidence
+from .services import confirm_saolei_account_link
+from ..models import AccountSaolei
 
 router = Router()
 
@@ -20,13 +21,12 @@ SAOLEI_BIND_REQUEST_PATH = '/api/public/v1/openms/bind-request'
 
 # 48 位 hex 一次性令牌
 TOKEN_RE = re.compile(r'[0-9a-f]{48}')
-# 确认凭据的 Redis key（TTL 24h，够扫雷网授权页轮询窗口使用）
-SAOLEI_BIND_EVIDENCE_KEY = 'accountlink:saolei:bind:{token}'
-SAOLEI_BIND_EVIDENCE_TTL = 24 * 3600
 
-# 上游调用必须在网关 5s 读取预算内完成（default.conf: /api/accountlink/saolei/ → 5s），
-# 否则浏览器先超时而后端继续完成绑定，页面报错但绑定成功。
-SAOLEI_PUBLIC_TIMEOUT = 4.0
+# HTTPX 分别限制连接、读写等阶段；额外用 future 的总等待上限保证不会超过
+# 网关 5s 读取预算，并为数据库、缓存和响应序列化预留约 1s。
+SAOLEI_PUBLIC_TIMEOUT = 3.0
+SAOLEI_PUBLIC_TOTAL_TIMEOUT = 4.0
+_UPSTREAM_EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix='saolei-bind')
 
 
 class SaoleiBindConfirmIn(Schema):
@@ -46,12 +46,22 @@ class SaoleiBindStatusOut(Schema):
     status: str
 
 
+def _request_remote_bind(token: str):
+    return httpx.get(
+        f'{SAOLEI_PUBLIC_BASE}{SAOLEI_BIND_REQUEST_PATH}',
+        params={'token': token},
+        timeout=SAOLEI_PUBLIC_TIMEOUT,
+    )
+
+
 def fetch_remote_bind_request(token: str) -> dict | None:
-    """调扫雷网公开接口 bind-request 核验令牌；令牌无效返回 None，网络失败抛 HttpError(502)。"""
+    """调扫雷网公开接口；无效令牌返回 None，网络失败或超过总预算抛 502。"""
+    future = _UPSTREAM_EXECUTOR.submit(_request_remote_bind, token)
     try:
-        response = httpx.get(f'{SAOLEI_PUBLIC_BASE}{SAOLEI_BIND_REQUEST_PATH}', params={'token': token}, timeout=SAOLEI_PUBLIC_TIMEOUT)
-    except httpx.HTTPError:
-        raise HttpError(502, 'Saolei bind-request upstream unavailable.')
+        response = future.result(timeout=SAOLEI_PUBLIC_TOTAL_TIMEOUT)
+    except (FutureTimeoutError, httpx.HTTPError):
+        future.cancel()
+        raise HttpError(502, 'Saolei bind-request upstream unavailable.') from None
     if response.status_code == 404:
         return None
     if response.status_code != 200:
@@ -60,23 +70,10 @@ def fetch_remote_bind_request(token: str) -> dict | None:
         data = response.json()
         remote = {'status': int(data['status']), 'uid': int(data['uid']), 'username': str(data['username'])}
     except (KeyError, TypeError, ValueError):
-        raise HttpError(502, 'Saolei bind-request upstream returned an unexpected payload.')
+        raise HttpError(502, 'Saolei bind-request upstream returned an unexpected payload.') from None
     if remote['uid'] <= 0:
         raise HttpError(502, 'Saolei bind-request upstream returned an invalid uid.')
     return remote
-
-
-def _bind_evidence_key(token: str) -> str:
-    return SAOLEI_BIND_EVIDENCE_KEY.format(token=token)
-
-
-def _save_bind_evidence(token: str, uid: int, username: str, sync: bool):
-    """记录本次令牌的确认凭据；/status 只认凭据或扫雷网侧的已核销状态。"""
-    cache.set(_bind_evidence_key(token), {'uid': uid, 'username': username, 'sync': sync}, SAOLEI_BIND_EVIDENCE_TTL)
-
-
-def _load_bind_evidence(token: str) -> dict | None:
-    return cache.get(_bind_evidence_key(token))
 
 
 @router.get('/request', response=SaoleiBindRequestOut)
@@ -101,13 +98,9 @@ def bind_confirm(request, data: SaoleiBindConfirmIn):
     """- login_required_error
     - ratelimit(key='user', rate='6/h', block=True)
 
-    Verify the token against saolei.wang, then commit the binding for the
-    logged-in OpenMS user via save_verified_account_link: it re-checks all
-    ownership conflicts under locks (so a concurrent confirm can never
-    reassign an existing binding), updates the per-user AccountLinkQueue row
-    in place, and maps every conflict to 409. The confirmation evidence is
-    stored in Redis (24h TTL) keyed by token so /status can vouch for this
-    specific token.
+    Verify the token, then save the binding, display name and sync preference
+    in one business transaction. Confirmation evidence records both the token
+    and the confirming OpenMS user so a later rebind cannot reuse it.
     """
     if not TOKEN_RE.fullmatch(data.token):
         raise HttpError(404, 'Bind request not found.')
@@ -116,16 +109,12 @@ def bind_confirm(request, data: SaoleiBindConfirmIn):
         raise HttpError(404, 'Bind request not found.')
     uid, username = remote['uid'], remote['username']
     try:
-        account = save_verified_account_link(request.user, Platform.SAOLEI, uid)
+        confirm_saolei_account_link(request.user, uid, username, data.sync)
     except ExceptionToResponse as exc:
         if exc.obj == 'accountlink' and exc.category == 'collision':
             raise HttpError(409, 'This saolei account is already linked to another OpenMS user.') from exc
         raise
-    # save_verified_account_link 建行后补写本次确认才知道的字段
-    account.name = username
-    account.auto_sync = data.sync
-    account.save(update_fields=['name', 'auto_sync'])
-    _save_bind_evidence(data.token, uid, username, data.sync)
+    save_bind_evidence(data.token, confirmer_id=request.user.pk, uid=uid, username=username, sync=data.sync)
     return {'status': 'confirmed', 'uid': uid, 'sync': data.sync}
 
 
@@ -134,26 +123,23 @@ def bind_confirm(request, data: SaoleiBindConfirmIn):
 def bind_status(request, token: str):
     """- ratelimit(key='ip', rate='30/m', block=True)
 
-    Settlement endpoint for saolei.wang. A token counts as confirmed only
-    when its own confirmation evidence exists (this token was confirmed and
-    the binding still points at the same user), or when saolei.wang itself
-    reports the request as settled (status 1 = 已核销). Historical bindings
-    never vouch for a new token, and a cancelled request stays pending.
+    Settlement endpoint for saolei.wang. Only this token's own evidence can
+    confirm it, and only while the binding still belongs to that confirmer.
+    Cancellation is checked first; historical or settled bindings without
+    evidence never vouch for a new token.
     """
     if not TOKEN_RE.fullmatch(token):
         raise HttpError(404, 'Bind request not found.')
     remote = fetch_remote_bind_request(token)
     if remote is None:
         raise HttpError(404, 'Bind request not found.')
-    # 本次令牌的确认凭据：确凿核销依据（且归属未变）
-    evidence = _load_bind_evidence(token)
-    if evidence is not None:
-        account = AccountSaolei.objects.filter(pk=evidence['uid']).first()
-        if account is not None and evidence['uid'] == remote['uid']:
-            return {'profile': account.parent_id, 'status': 'confirmed'}
-    # 无凭据：仅当扫雷网侧已核销（status=1，说明雷网已消费本次申请）才视为确认
-    if remote['status'] == 1:
-        account = AccountSaolei.objects.filter(pk=remote['uid']).first()
+    if remote['status'] == 2:
+        return {'profile': None, 'status': 'pending'}
+    evidence = load_bind_evidence(token)
+    if evidence is not None and evidence.get('uid') == remote['uid']:
+        account = AccountSaolei.objects.filter(
+            pk=remote['uid'], parent_id=evidence.get('confirmer_id'),
+        ).first()
         if account is not None:
             return {'profile': account.parent_id, 'status': 'confirmed'}
     return {'profile': None, 'status': 'pending'}

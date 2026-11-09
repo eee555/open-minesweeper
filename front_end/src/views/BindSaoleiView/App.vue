@@ -5,7 +5,7 @@
                 {{ t('local.title') }}
             </h2>
 
-            <p v-if="state === 'loading'" class="bind-hint">
+            <p v-if="state === 'loading'" class="bind-hint text-secondary text-small">
                 {{ t('local.loading') }}
             </p>
 
@@ -14,11 +14,11 @@
                     <PlatformIcon platform="c" /> {{ t('local.intro1') }}
                     <b>{{ request.username }} (ID {{ request.uid }})</b>{{ t('local.intro2') }}
                 </p>
-                <label class="bind-toggle">
-                    <input v-model="sync" type="checkbox">
-                    {{ t('local.toggle') }}
+                <label class="bind-toggle checkbox">
+                    <input v-model="sync" class="checkbox-input" type="checkbox">
+                    <span>{{ t('local.toggle') }}</span>
                 </label>
-                <p class="bind-hint">
+                <p class="bind-hint text-secondary text-small">
                     {{ t('local.toggleHint') }}
                 </p>
                 <BaseButton type="primary" :disabled="sending" :loading="sending" @click="confirm">
@@ -29,15 +29,15 @@
                 </p>
             </template>
 
-            <p v-else-if="state === 'loginRequired'" class="bind-hint">
+            <p v-else-if="state === 'loginRequired'" class="bind-hint text-secondary text-small">
                 {{ t('local.loginRequired') }}
             </p>
 
-            <p v-else-if="state === 'invalid'" class="bind-hint">
+            <p v-else-if="state === 'invalid'" class="bind-hint text-secondary text-small">
                 {{ errorMessage || t('local.invalid') }}
             </p>
 
-            <p v-else-if="state === 'done'" class="bind-done">
+            <p v-else-if="state === 'done'" class="bind-done text-success">
                 {{ t('local.done') }}
             </p>
         </section>
@@ -46,10 +46,10 @@
             <h3 class="bind-subtitle">
                 {{ t('local.guideTitle') }}
             </h3>
-            <p class="bind-hint">
+            <p class="bind-hint text-secondary text-small">
                 {{ t('local.guide1') }}
             </p>
-            <p class="bind-hint">
+            <p class="bind-hint text-secondary text-small">
                 {{ t('local.guide2') }}
             </p>
         </section>
@@ -57,6 +57,8 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/cards.css';
+import '@/styles/layout.css';
 import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
@@ -184,14 +186,10 @@ const { t } = useI18n({ messages: i18nMessages });
 }
 
 .bind-toggle {
-    display: block;
     margin: 0.75rem 0;
-    cursor: pointer;
 }
 
 .bind-hint {
-    font-size: 0.85rem;
-    opacity: 0.75;
     margin: 0.25rem 0 0.75rem;
 }
 
@@ -201,7 +199,6 @@ const { t } = useI18n({ messages: i18nMessages });
 }
 
 .bind-done {
-    color: var(--el-color-success, #67c23a);
     margin: 0.75rem 0 0;
 }
 </style>

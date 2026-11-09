@@ -1,11 +1,14 @@
+from threading import Event
+from time import monotonic
 from unittest.mock import patch
 
 from django.core.cache import cache
 from django.test import TestCase
+from ninja.errors import HttpError
 
 from userprofile.models import UserProfile
 from .models import AccountLinkQueue, AccountSaolei, Platform
-from .saolei.bind import fetch_remote_bind_request, SAOLEI_PUBLIC_BASE, SAOLEI_PUBLIC_TIMEOUT
+from .saolei.bind import fetch_remote_bind_request, SAOLEI_PUBLIC_BASE
 
 BIND_BASE = '/api/accountlink/saolei/bind'
 TOKEN = 'ab' * 24
@@ -13,11 +16,6 @@ TOKEN = 'ab' * 24
 
 def remote_payload(status=0, uid=101, username='扫雷网用户'):
     return {'status': status, 'uid': uid, 'username': username}
-
-
-def save_evidence(token, uid=101, username='扫雷网用户', sync=True):
-    from .saolei.bind import _save_bind_evidence
-    _save_bind_evidence(token, uid, username, sync)
 
 
 class FetchRemoteBindRequestTests(TestCase):
@@ -29,9 +27,24 @@ class FetchRemoteBindRequestTests(TestCase):
             self.assertEqual(mock_get.call_args.args[0], f'{SAOLEI_PUBLIC_BASE}/api/public/v1/openms/bind-request')
             self.assertEqual(mock_get.call_args.kwargs['params'], {'token': TOKEN})
 
-    def test_timeout_stays_within_gateway_budget(self):
-        # 网关对 /api/accountlink/saolei/ 只等 5s，上游超时必须更短（P2-4）
-        self.assertLess(SAOLEI_PUBLIC_TIMEOUT, 5)
+    def test_total_wait_budget_interrupts_slow_upstream(self):
+        """连接与读取分阶段耗时也不能突破整个请求的总等待预算。"""
+        blocker = Event()
+
+        def blocked_request(*args, **kwargs):
+            blocker.wait(1)
+            return mock_get.return_value
+
+        with patch('accountlink.saolei.bind.SAOLEI_PUBLIC_TOTAL_TIMEOUT', 0.05), patch('accountlink.saolei.bind.httpx.get') as mock_get:
+            mock_get.return_value.status_code = 200
+            mock_get.return_value.json.return_value = remote_payload()
+            mock_get.side_effect = blocked_request
+            started = monotonic()
+            with self.assertRaises(HttpError):
+                fetch_remote_bind_request(TOKEN)
+            elapsed = monotonic() - started
+            blocker.set()
+        self.assertLess(elapsed, 0.5)
 
     def test_missing_token_returns_none(self):
         with patch('accountlink.saolei.bind.httpx.get') as mock_get:
@@ -87,6 +100,17 @@ class SaoleiBindConfirmTests(TestCase):
             response = self.client.post(f'{BIND_BASE}/confirm', {'token': TOKEN, 'sync': False}, content_type='application/json')
         self.assertEqual(response.status_code, 200)
         self.assertFalse(AccountSaolei.objects.get(pk=101).auto_sync)
+
+    def test_profile_write_failure_rolls_back_binding(self):
+        """name/auto_sync 与绑定必须同一事务，补写失败不得留下半完成状态。"""
+        self.client.force_login(self.user)
+        with patch('accountlink.saolei.bind.fetch_remote_bind_request', return_value=remote_payload()), patch(
+            'accountlink.saolei.services.AccountSaolei.save', side_effect=RuntimeError('write failed'),
+        ):
+            with self.assertRaises(RuntimeError):
+                self.client.post(f'{BIND_BASE}/confirm', {'token': TOKEN, 'sync': True}, content_type='application/json')
+        self.assertFalse(AccountSaolei.objects.exists())
+        self.assertFalse(AccountLinkQueue.objects.exists())
 
     def test_repeat_confirm_is_idempotent(self):
         self.client.force_login(self.user)
@@ -158,17 +182,33 @@ class SaoleiBindStatusTests(TestCase):
             response = self.client.get(f'{BIND_BASE}/status', {'token': TOKEN})
         self.assertEqual(response.json(), {'profile': None, 'status': 'pending'})
 
-    def test_remote_settled_status_confirms(self):
-        """扫雷网侧已核销（status=1，雷网已消费申请）→ confirmed。"""
+    def test_remote_settled_without_evidence_stays_pending(self):
+        """已核销状态也不能替代本次令牌的确认者凭据。"""
         AccountSaolei.objects.create(pk=101, parent=self.user)
         with patch('accountlink.saolei.bind.fetch_remote_bind_request', return_value=remote_payload(status=1)):
             response = self.client.get(f'{BIND_BASE}/status', {'token': TOKEN})
-        self.assertEqual(response.json(), {'profile': self.user.pk, 'status': 'confirmed'})
+        self.assertEqual(response.json(), {'profile': None, 'status': 'pending'})
 
-    def test_cancelled_remote_stays_pending(self):
-        """扫雷网侧已取消（status=2）不得视为确认（P1-2 修复点）。"""
-        AccountSaolei.objects.create(pk=101, parent=self.user)
+    def test_cancelled_remote_stays_pending_even_with_evidence(self):
+        """远端取消优先于本地确认凭据。"""
+        self.client.force_login(self.user)
+        with patch('accountlink.saolei.bind.fetch_remote_bind_request', return_value=remote_payload()):
+            self.client.post(f'{BIND_BASE}/confirm', {'token': TOKEN, 'sync': True}, content_type='application/json')
         with patch('accountlink.saolei.bind.fetch_remote_bind_request', return_value=remote_payload(status=2)):
+            response = self.client.get(f'{BIND_BASE}/status', {'token': TOKEN})
+        self.assertEqual(response.json(), {'profile': None, 'status': 'pending'})
+
+    def test_evidence_does_not_follow_uid_to_another_confirmer(self):
+        """A 的旧令牌不得在 A 解绑、B 绑定同一 uid 后返回 B。"""
+        other = UserProfile.objects.create_user(username='other', email='other@example.com')
+        self.client.force_login(self.user)
+        with patch('accountlink.saolei.bind.fetch_remote_bind_request', return_value=remote_payload()):
+            self.client.post(f'{BIND_BASE}/confirm', {'token': TOKEN, 'sync': True}, content_type='application/json')
+        AccountSaolei.objects.filter(pk=101).delete()
+        AccountLinkQueue.objects.filter(platform=Platform.SAOLEI, userprofile=self.user).delete()
+        AccountSaolei.objects.create(pk=101, parent=other)
+        AccountLinkQueue.objects.create(platform=Platform.SAOLEI, identifier='101', userprofile=other, verified=True)
+        with patch('accountlink.saolei.bind.fetch_remote_bind_request', return_value=remote_payload()):
             response = self.client.get(f'{BIND_BASE}/status', {'token': TOKEN})
         self.assertEqual(response.json(), {'profile': None, 'status': 'pending'})
 
