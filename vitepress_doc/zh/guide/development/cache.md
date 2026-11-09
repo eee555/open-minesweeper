@@ -59,7 +59,7 @@ redis-cli -n 0 DEL io_s_old io_r_old io_s_spds io_r_spds cpus
 
 ## 作品排行
 
-作品页热门、精品与排行榜页《作品》tab 使用五个固定 Redis key（DB `saolei_website`）：`media:rank:hot`、`media:rank:likes` 是作品维度 zset，`media:rank:user:hot`、`media:rank:user:likes` 是作者维度求和 zset，`media:hot:anchor` 保存全站统一热度基准 `T`，格式为 ISO 8601 UTC 时间。四个 zset 没有 TTL，只有 `verified` 作品入榜；`pending` 作品可以投喂但只写数据库，审核通过时按 DB 当前值补齐。审核中 tab 与《最新》tab 直接查库。另有临时锁 key `media:cache:lock`（TTL 300 秒），不纳入固定内存统计。
+作品页实时热度 / 累计投喂排序与排行榜页《作品》tab 使用五个固定 Redis key（DB `saolei_website`）：`media:rank:hot`、`media:rank:likes` 是作品维度 zset，`media:rank:user:hot`、`media:rank:user:likes` 是作者维度求和 zset，`media:hot:anchor` 保存全站统一热度基准 `T`，格式为 ISO 8601 UTC 时间。四个 zset 没有 TTL，只有 `verified` 作品入榜；`pending` 作品可以投喂但只写数据库，审核通过时按 DB 当前值补齐。作品页按发表时间排序（原《最新》tab）直接查库；待审核作品不再有作品页入口，仅在个人主页与管理端可见。另有临时锁 key `media:cache:lock`（TTL 300 秒），不纳入固定内存统计。
 
 **请求路径不写 Redis、不获取也不等待这把锁**：普通 API 的网关超时是 2 秒、uWSGI 请求上限是 10 秒，而锁允许后台任务阻塞等待 60 秒。投喂、审核、硬删除和投稿只在自己的数据库事务内入队 `media.tasks.task_sync_media_scores`（Django 6 Tasks / `django-tasks-db`），任务行与红宝石扣除 / 审核状态一起提交或回滚；即使请求进程在提交后被终止，worker 仍会补齐缓存。不要把这些写入改回 `on_commit` 回调。
 

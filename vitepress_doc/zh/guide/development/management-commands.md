@@ -87,7 +87,7 @@ python manage.py check_media_rankings --max-examples 20
 
 后台同步任务拿不到缓存锁时会按 5/10/20/40/60 秒退避重排，最多 8 次；重试耗尽会抛 `MediaCacheSyncError` 并写 error 日志，任务状态变为 FAILED。月度刷新与全量重建是阻塞取锁：60 秒内拿不到锁会抛 `MediaCacheLockError` 并写 error 日志，任务同样变 FAILED，绝不会在未持锁时继续跑完并被记为成功。FAILED 任务会自动出现在服务器监控快照的任务状态统计中，也能在管理页按状态筛出并重启（月度任务无参数，走通用重入队）。不要把这些任务改成「返回 False 视为成功」——那样框架会记为成功，失败就不可见了。
 
-审核通过的作品出现在《最新》却没有出现在热门 / 精品时，先确认 `db_worker_robust` 正在消费 `media.tasks.task_sync_media_scores`（管理页任务详情查看 READY / FAILED），再运行 `check_media_rankings`：报 `missing member` 说明四个 zset 尚未同步，可重启 FAILED 任务或执行 `rebuild_media_rankings`。这两个 tab 读 Redis zset，而《最新》直接查数据库；`likes` / `hot_value` 为 0 的作品仍会入榜，但按分数排在末尾，作品数超过一页时需要翻页。切换 tab 会重新拉列表，也可用 tab 栏右端的刷新按钮手动重拉。
+审核通过的作品出现在《最新》却没有出现在热门 / 精品时，先确认 `db_worker_robust` 正在消费 `media.tasks.task_sync_media_scores`（管理页任务详情查看 READY / FAILED），再运行 `check_media_rankings`：报 `missing member` 说明四个 zset 尚未同步，可重启 FAILED 任务或执行 `rebuild_media_rankings`。表格的实时热度 / 累计投喂排序读 Redis zset，而发表时间排序直接查数据库；`likes` / `hot_value` 为 0 的作品仍会入榜，但按分数排在末尾，作品数超过一页时需要翻页。点击表头会重新拉列表，也可用表格上方的刷新按钮手动重拉。
 
 ## 勋章补发
 

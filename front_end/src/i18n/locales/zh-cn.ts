@@ -21,10 +21,6 @@ export default {
     },
     media: {
         title: '作品',
-        hot: '热门',
-        likes: '精品',
-        latest: '最新',
-        pending: '审核中',
         status: '状态',
         pendingStatus: '待审核',
         verifiedStatus: '已通过',

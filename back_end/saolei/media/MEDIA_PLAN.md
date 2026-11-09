@@ -1,6 +1,6 @@
 # 作品页（media）开发计划
 
-状态：**第 4 阶段（前端）已完成**；第 0-3 阶段（app 外壳、数据层、服务与缓存、API 层）均已落地并通过局部检查，设计已按「外站超时降级投稿」「外站作者 id 不入库」「软删除状态机」口径修订。阶段 4 已接入 `/works` 四 tab、排行榜 / 数据库 / 个人主页 / 后台四个 tab、投稿与投喂组件、`mediaService.ts` 的 25s 投稿超时、全局与 SFC 双语 i18n，并完成 lintfix / typecheck / vitest / `build:openms` 与 9 个 Cypress 组件测试；阶段 5（生产迁移、重建 zset、超时链实测与一次性全量开放，不做灰度）已完成本地可交付部分（E2E spec、部署手册、本地前置检查），生产部署动作待执行。删除路径改为 `status` 状态机（第 16 节），降级投稿与平台扩展约定见第 7.2、17 节；外站作者 id 的一次性核验口径见第 16.1 节第 15 条；每日投喂上限口径见第 17 条；第一轮代码审查修复（按行热度基准、anchor 发布时序、真实外站异常降级、数字外链归一化与前端权限/展示）见第 18 条；第二轮 P2 并发修复（缓存写入改为 DB 绝对值覆盖 + 全局缓存锁、投稿基准复核、重建持锁）见第 19 条；第三轮 P2 超时修复（请求路径零锁等待、缓存同步改为业务事务内入队的持久化任务、worker 非阻塞取锁与退避重排）见第 20 条；竞态取舍与失败可检测口径（最终一致即可、失败必须可见，月度刷新阻塞取锁失败抛错、新增只读巡检命令）见第 21 条。
+状态：**第 4 阶段（前端）已完成**；第 0-3 阶段（app 外壳、数据层、服务与缓存、API 层）均已落地并通过局部检查，设计已按「外站超时降级投稿」「外站作者 id 不入库」「软删除状态机」口径修订。作品页已改为单页表格（表头切换三种排序）、移除《审核中》公开入口，见第 11.2 节。阶段 4 已接入 `/works` 表格页、排行榜 / 数据库 / 个人主页 / 后台四个 tab、投稿与投喂组件、`mediaService.ts` 的 25s 投稿超时、全局与 SFC 双语 i18n，并完成 lintfix / typecheck / vitest / `build:openms` 与 9 个 Cypress 组件测试；阶段 5（生产迁移、重建 zset、超时链实测与一次性全量开放，不做灰度）已完成本地可交付部分（E2E spec、部署手册、本地前置检查），生产部署动作待执行。删除路径改为 `status` 状态机（第 16 节），降级投稿与平台扩展约定见第 7.2、17 节；外站作者 id 的一次性核验口径见第 16.1 节第 15 条；每日投喂上限口径见第 17 条；第一轮代码审查修复（按行热度基准、anchor 发布时序、真实外站异常降级、数字外链归一化与前端权限/展示）见第 18 条；第二轮 P2 并发修复（缓存写入改为 DB 绝对值覆盖 + 全局缓存锁、投稿基准复核、重建持锁）见第 19 条；第三轮 P2 超时修复（请求路径零锁等待、缓存同步改为业务事务内入队的持久化任务、worker 非阻塞取锁与退避重排）见第 20 条；竞态取舍与失败可检测口径（最终一致即可、失败必须可见，月度刷新阻塞取锁失败抛错、新增只读巡检命令）见第 21 条。
 
 本文档是实现的唯一设计基线；实现时若改变第 5 节的衰减不变量或第 9 节的权限口径，应先更新本文档。
 
@@ -8,7 +8,7 @@
 
 - 本站支持与其他平台账号关联（`accountlink` app）。用户把自己在对应平台发表的文字/视频作品投稿到本站，作品页展示标题、语言、发表时间、作者、平台，并外链到原作品；支持在本站页面嵌入可嵌入的作品（当前只有 B 站视频）。
 - 本站**不托管**作品正文、图片或视频，也**不做自动化内容审查**。作品是否合规由来源平台负责；本站管理员只人工判断「是否与扫雷相关」，审核不通过置为 `rejected`（驳回），**不删除记录**；面向用户不提供任何删除功能，作品行原则上永久保留，被驳回的外链无法重新投稿。唯一例外是站长对已通过作品的硬删除（P2 / 第 5.6 节），该路径退还红宝石并释放外链唯一性。
-- 本站提供红宝石投喂（点赞/热度）、作品页热门/精品/最新/审核中四个 tab、排行榜页《作品》tab（用户 `hot_value` 与 `likes` 排行，走 Redis）、数据库页与用户主页作品 tab、投稿封禁。
+- 本站提供红宝石投喂（点赞/热度）、作品页表格（标题 / 作者 / 发表时间 / 实时热度 / 累计投喂 + 投喂按钮，点击后三个表头切换热门 / 精品 / 最新三种排序）、排行榜页《作品》tab（用户 `hot_value` 与 `likes` 排行，走 Redis）、数据库页与用户主页作品 tab、投稿封禁。
 - 投稿时后端自动调用来源平台 API 拉取 `title` / `created_at` / 外站作者 id 并自动核对归属；**外站作者 id 只用于本次请求的一次性归属核验，绝不写入 `Media`**（16.1 第 15 条）。**外站超时或上游不可用时仍保持投稿**，落为「待补全」作品（无标题），由管理员审核时补录标题、并凭一次性输入的外站作者 id 核验身份；结构性错误仍拒绝。语言由投稿者自由填写，只限制长度，站点不解释取值。
 - MVP 支持三类作品：`B_v`（B 站视频）、`B_a`（B 站专栏/文章）、`c_p`（扫雷网帖子）。B 站动态（`B_o`）因上游详情没有稳定标题字段而移除支持（降级路径不改变该决定），详见第 7.1 节。
 
@@ -257,15 +257,15 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 
 - 读取：`ZCARD` 取总数，`ZREVRANGE key start end-1` 取 id 索引，再 `Media.objects.in_bulk(ids)` / `UserProfile.objects.in_bulk(ids)` 回表组装展示字段（参照 `tournament/cache.py:302-315`）。单次返回条数上限 50，响应体远小于 300KB。score 相同按 Redis member 字典序，作为稳定但不承诺业务优先级的次序；API 保持 zset 返回顺序，不二次排序。
 - **审核中作品可以被投喂（Q2 已确认）**，但审核期间**只写 DB**（`Media.likes/hot_value` 与 `MediaLikes`），不写四个 zset：热门/精品/《最新》与排行榜页《作品》tab 只展示 `verified` 作品，不做「写入后再过滤」，否则分页会出现空洞。审核通过时 `verify_media()` 由 `sync_media_scores()` 按 DB 当前值一次性 `ZADD` 补入四个 zset；驳回只改状态并退还红宝石，因从未入榜而无需 `ZREM`（第 5.5 节）；**站长硬删除 `verified` 作品是唯一例外**，必须回退四个 zset（第 5.6 节）。
-- 审核中 tab 直接查库 `status='pending' ORDER BY -submitted_at`（走 `media_pending_idx`），展示累计 likes 与实时热度并提供投喂按钮，不额外建 zset。作品页《最新》tab 同样直接查库，不额外建 zset（评估见第 6.1 节）。`rejected` 作品不在四个 tab 中，但在作者主页与数据库页对所有人可见（16.1 第 5 条）。
+- 管理员审核队列直接查库 `status='pending' ORDER BY -submitted_at`（走 `media_pending_idx`）；普通用户作品页不展示 `pending`，待审核作品只在个人主页 `GET /user/{user_id}` 查看。作品页按发表时间排序同样直接查库，不额外建 zset（评估见第 6.1 节）。`rejected` 作品不在作品页表格中，但在作者主页与数据库页对所有人可见（16.1 第 5 条）。
 - 重建：`media/management/commands/rebuild_media_rankings.py` 从 DB 全量重建四个 zset 与 `anchor`，**只取 `status='verified'` 的行**（`pending` / `rejected` 一律排除），使用临时 key（`media:rebuild:*`）+ `rename` 原子发布（参照 `speedranking/top/cache.py:108-138`）；失败保留旧榜。**整段 DB 快照与发布都持有 `media:cache:lock`**：期间提交的 DB 写入，其后台同步任务必须等锁释放后才按 DB 绝对值重算，因此不会「先写正式榜 6、后被旧快照 rename 覆盖回 5」。发布前检查 `lock.owned()`，锁过期则抛错保留旧榜；命令应在低峰期执行并暂停相关写操作。anchor 取全表最早的 `hot_value_updated_at`，每行 `hot_value` 先按 `decay(row_base, anchor)` 折算再写入，兼容 I1' 下刷新窗口遗留的混合基准。不做请求时懒重建。
 - 一致性：DB 是事实来源，Redis 是排序索引。**写请求只做 DB 事务 + 同事务入队 `task_sync_media_scores`**（Django 6 Tasks / `django-tasks-db`），任务行与业务数据一同提交或回滚；uWSGI 在提交后杀掉请求进程也不会丢缓存更新。worker 用 `try_sync_media_scores()` **非阻塞**取锁：拿不到就用 5/10/20/40/60... 秒退避重排同一任务（累计约 315s，长于 300s 锁 TTL，能熬过崩溃进程留下的锁），最多 8 次后**抛 `MediaCacheSyncError` 记 error 日志**，让 `DBTaskResult.status=FAILED`——管理页 `/tasks/detail?status=FAILED`、`monitor.get_task_summary()` 快照与 `/tasks/restart` 都能发现并一键重跑；`media.services.restart_media_sync_task()` 会丢掉重试计数从 `attempt=0` 重新入队。返回 `False` 会被框架记为成功，等于失败不可见，因此禁止。**所有缓存写入都按任务执行时刻的 DB 绝对值覆盖**：迟到任务不会重建已删除作品，作者分数归零与新投喂之间不存在事务外 `ZREM` 窗口，重建期间提交的增量不会被旧快照覆盖。月度刷新的 `ZUNIONSTORE` 缩放仍用 `WATCH media:hot:anchor` 的 `cache.transaction` 保证幂等；worker / 管理命令里锁的顺序统一为「先 Redis 锁、后 DB 事务」，避免死锁。任务行按 `config/common.py` 的 `TASK_CLEANUP_CONFIGS`（1 天）清理，量受每日 10 次投喂上限约束。
 - **失败检测（已确认口径）**：产品接受偶发竞态导致缓存滞后、由人工重新同步，前提是 DB 正确且失败**可检测**。三层检测：① 同步任务耗尽重试抛错 → FAILED 任务在管理页与 monitor 快照可见；② 月度刷新 / 重建在阻塞取锁失败时抛 `MediaCacheLockError` → 任务变 FAILED，不会在未持锁状态下继续执行并被记为成功；③ `python manage.py check_media_rankings` 只读对比四个 zset 与 DB 派生的绝对分数，发现漂移（含 anchor 缺失）以非零退出码告警，供定时巡检与部署自检。巡检同时输出 FAILED / 积压同步任务数作为诊断信息；只有分数漂移才判定失败，因为历史失败任务可能已被后续同步修复。修复手段是 `rebuild_media_rankings` 或重启失败任务，命令会打印对应提示。**不引入请求内 best-effort 同步**：最终一致即可，但缓存写入绝不回到请求路径。
 - 文档：固定 key、缓存锁与绝对分数/衰减策略写入 `vitepress_doc/zh/guide/development/cache.md`；重建命令的执行前提与锁语义写入 `vitepress_doc/zh/guide/development/management-commands.md`。本设计不使用信号接收器，`signals.md` 无需改动。
 
-### 6.1 《最新》tab 是否需要 Redis
+### 6.1 按发表时间排序是否需要 Redis
 
-**结论：不需要 Redis，直接查库**。作品页《最新》按 `created_at` 倒序展示已审核作品，读 `GET /api/media/latest`，SQL 为 `WHERE status = 'verified' ORDER BY -created_at, -id LIMIT count OFFSET start`，走第 4.1 节 `media_latest_idx`，返回结构与 `/ranking` 一致（复用 `RankingPageOut`）。理由：
+**结论：不需要 Redis，直接查库**。作品页按发表时间排序时按 `created_at` 倒序展示已审核作品，读 `GET /api/media/latest`，SQL 为 `WHERE status = 'verified' ORDER BY -created_at, -id LIMIT count OFFSET start`，走第 4.1 节 `media_latest_idx`，返回结构与 `/ranking` 一致（复用 `RankingPageOut`）。理由：
 
 1. `created_at` 由上游 API 返回后写入，是静态值（管理员纠错除外），没有衰减、没有高频增量；zset 的核心收益「O(logN) 增量维护 + 统一时间基准」在这里用不上。
 2. 规模：投稿限流 `10/h` 且需人工审核，已审核作品数量增长慢；MySQL 的索引范围扫描 + `LIMIT 50` 成本不高于 `ZREVRANGE` + `in_bulk` 回表（后者还多一次 Redis 往返与对象组装），单页响应远小于 300KB。
@@ -275,7 +275,7 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 
 **何时改为 Redis**（满足任一条件再评估）：已审核作品量级超过约 10 万且首页 QPS 高、需要 O(logN) 查询「某作品当前排第几」、或《最新》要与其它 zset 做集合运算（按语言/format 分榜）。届时新增 `media:rank:latest`，score 由 `created_at` 秒级时间戳加 `id` 编码的 tie-breaker 组成，member 为 `media_id`；score 静态，可直接由 DB 一次性重建，改造成本低。
 
-口径：**已确认（Q13）按外站发表时间 `created_at`**，由上游 API 返回后写入，不随投稿时间变化；审核中作品不进入《最新》，仍在审核中 tab。
+口径：**已确认（Q13）按外站发表时间 `created_at`**，由上游 API 返回后写入，不随投稿时间变化；审核中作品不进入作品页表格，只在个人主页与管理端可见。
 
 ## 7. 后端分层与关键流程
 
@@ -299,7 +299,7 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 3. service 层：`clients.fetch_media_metadata_optional(format, suffix)`。成功返回 `MediaMetadata(title, created_at, author_id: str)`；`timeout` / `upstream_error` 返回 `None` 表示降级；`parse_error` / `invalid_metadata` 抛错并拒绝投稿、不落库（第 7.2 节）。`language` 由用户自由填写，只做长度与 `strip` 归一化。
 4. API 层：成功路径把临时 `author_id` 与第 2 步已验证绑定的 `identifier` 比对，不一致返回 403，防止冒领；比对结果不落库。**降级路径没有上游作者 id，自动核对跳过**，改由管理员审核时凭一次性输入核验（第 7.2 节）。
 5. service 层：`transaction.atomic()` + 唯一约束防重复外链；`format+suffix` 已存在返回 409；成功路径写入拉取到的 `title` / `created_at`；降级路径写入 `title=''`、`created_at=now`（本站投稿时刻兜底）、`metadata_pending=True`；**两条路径都不接收、不保存外站作者 id**（16.1 第 15 条）；两者都写 `status='pending'`、`likes=0`、`hot_value=0`、`hot_value_updated_at=T`、`submitted_at=auto_now_add`，不写 Redis（审核中未入榜）。
-6. 输出：`MediaOut`（不含外站作者 id）；成功路径跳转到「审核中」tab 提示等待审核，降级路径额外提示「标题由管理员审核时补全，并核验投稿人在外站的账号」。
+6. 输出：`MediaOut`（不含外站作者 id）；成功路径用通知提示等待审核，待审核作品在个人主页查看，降级路径额外提示「标题由管理员审核时补全，并核验投稿人在外站的账号」。
 
 所有 `save()` 显式 `update_fields`；能用 `F()` / `bulk_update` 的批量更新优先，减少锁竞争。
 
@@ -374,10 +374,10 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 
 | 方法 / 路径 | 用途 | 权限与限流 | 备注 |
 | --- | --- | --- | --- |
-| `GET /ranking?sort=hot\|likes&start&count` | 热门 / 精品 tab | `ratelimit(key='ip', rate='5/s', group='media-ranking')` | zset → `in_bulk`；`count<=50`；只返回已审核 |
+| `GET /ranking?sort=hot\|likes&start&count` | 作品页表格实时热度 / 累计投喂排序 | `ratelimit(key='ip', rate='5/s', group='media-ranking')` | zset → `in_bulk`；`count<=50`；只返回已审核 |
 | `GET /user-ranking?sort=hot\|likes&start&count` | 排行榜页《作品》tab | `ratelimit(key='ip', rate='5/s', group='media-user-ranking')` | 两个 `user:` zset；只统计已审核作品；落点已确认（Q11） |
-| `GET /latest?start&count` | 作品页《最新》tab | `ratelimit(key='ip', rate='5/s', group='media-latest')` | **不走 Redis**，直接查库 `status='verified' ORDER BY -created_at, -id`（走 `media_latest_idx`）；`count<=50`；复用 `RankingPageOut`；评估见第 6.1 节 |
-| `GET /pending?start&count` | 审核中 tab | `ratelimit(key='ip', rate='5/s', group='media-pending')` | 直接查库 `status='pending'`，按 `submitted_at` 倒序 |
+| `GET /latest?start&count` | 作品页表格发表时间排序 | `ratelimit(key='ip', rate='5/s', group='media-latest')` | **不走 Redis**，直接查库 `status='verified' ORDER BY -created_at, -id`（走 `media_latest_idx`）；`count<=50`；复用 `RankingPageOut`；评估见第 6.1 节 |
+| `GET /pending?start&count` | 管理员审核队列（作品页无入口） | `ratelimit(key='ip', rate='5/s', group='media-pending')` | 直接查库 `status='pending'`，按 `submitted_at` 倒序 |
 | `GET /detailbatch?ids=1,2,3` | 批量详情（卡片、嵌入） | `ratelimit(key='ip', rate='5/s', group='media-detail')` | 返回 `url` / `embed_url` / `hot_now`；`ids` 上限 50 |
 | `GET /query/{mode}?value=&limit=` | 数据库页作品匹配查找 | `ratelimit(key='ip', rate='6/m', group='media-query', block=False)` + 视图内检查 `request.limited` 抛 429 | `mode` 参照 `identifier/api.py:21`，`field=title|suffix`、`limit<=1000`；最多 1000 条，超出 400 `too_many_matches`；regex 用 MySQL ICU，捕获 `DatabaseError` 3684-3700 转 400；`rejected` 作品也可见（16.1 第 5 条） |
 | `GET /user/{user_id}?sort=hot\|likes\|created_at&order=&page=&pageSize` | 个人主页作品 tab | `ratelimit(key='ip', rate='30/m', group='media-user')` | **不走 Redis**，直接查库并用第 4.1 节索引排序；`pageSize<=50`；**展示所有状态且对所有人可见**（16.1 第 5 条） |
@@ -435,29 +435,32 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 
 | 文件 | 说明 |
 | --- | --- |
-| `src/router/index.ts` | 新增 `/works` 顶层路由（4 个子路由：热门/精品/最新/审核中）、`/database/works`、`/player/:id/works`、`/staff/media`；`Menu.vue:118-122` 的 `mainItems` 加入口 |
-| `src/views/WorksView/routes.ts`、`App.vue` | 页壳：`ElTabs` + `keep-alive` + `router-view` + 路由名映射，共 4 个 tab，参照 `DatabaseView/App.vue` |
-| `src/views/WorksView/HotView.vue`、`LikesView.vue`、`LatestView.vue`、`PendingView.vue` | 四个 tab；热门/精品读 Redis 榜接口，《最新》读 `/latest`（直接查库），审核中读 `/pending` |
+| `src/router/index.ts` | 新增 `/works` 顶层单路由（无子路由）、`/database/works`、`/player/:id/works`、`/staff/media`；`Menu.vue:118-122` 的 `mainItems` 加入口 |
+| `src/views/WorksView/App.vue` | 页面级工具栏：右端 `投稿` 与刷新按钮、`SubmitMediaDialog`、投稿通知；无 `ElTabs` / `router-view` / `keep-alive` |
+| `src/components/media/MediaListPanel.vue`、`MediaListPanel.cy.ts` | `BaseTable` + `ElPagination` 单页表格：五列，点击发表时间 / 实时热度 / 累计投喂表头分别请求 `/latest`、`/ranking?sort=hot`、`/ranking?sort=likes`；`aria-sort` / `aria-pressed` 标记当前排序；`defineExpose({ refresh })` 供页面刷新按钮调用 |
 | `src/views/RankingView/routes.ts`、`App.vue`、`MediaRanking.vue`、`MediaRanking.cy.ts` | 排行榜页《作品》tab：`ranking_media` 路由与 tab 文案、`BaseTable` + `ElPagination` + `useRankingQuery`、组件测试 |
-| `src/components/media/MediaCard.vue`、`MediaEmbed.vue`、`MediaFeedButton.vue`、`SubmitMediaDialog.vue` | 卡片/嵌入/单次投喂/投稿表单；表单只填 `url` 与自由文本 `language`（Q4/Q5）；通用组件放 `src/components/media/` |
+| `src/components/media/MediaCard.vue`、`MediaEmbed.vue`、`MediaFeedButton.vue`、`SubmitMediaDialog.vue` | 单次投喂 / 投稿表单（select 选 `format`、input 填 `suffix`、自由文本 `language`）；卡片与嵌入组件按渐进迁移约定暂留、作品页不再引用；通用组件放 `src/components/media/` |
 | `src/views/DatabaseView/MediaQueryView.vue` | 数据库页作品 tab，交互参照 `IdentifierView.vue` 的模式下拉、1000 条上限、本地分页 |
 | `src/views/UserView/UserMediaView.vue` | 个人主页作品 tab，后端排序分页，参数 `hot_value/likes/created_at` |
 | `src/views/StaffView/StaffMediaReview.vue` | 管理员审核队列：外链、通过、驳回、改回待审核、封禁/解封；**待补全作品通过前必须填标题与外站作者 id 供归属核验**（该 id 不入库，第 7.2 节）；另有仅站长可见的硬删除入口（二次确认，P2）；管理员页面不追求 UI 质量与复用性 |
 | `src/services/mediaService.ts` | 所有请求用 `$axios`，`.catch(httpErrorNotification)`；`src/http.ts` 是唯一 Axios 实例；投稿请求单独传 `timeout: 25000`（第 7.1 节） |
 | `src/views/WorksView/*.cy.ts` 等 | 组件测试；临时组件用 `render` 语法 |
 
-### 11.2 tab 与数据源
+### 11.2 作品页表格与数据源
 
-| tab | 数据源 | 排序 | 可见性 |
+表格列固定为：标题（外链）、作者（`PlayerName`）、发表时间、实时热度、累计投喂 + 投喂按钮。前两列不可排序，后三列表头是 `BaseTextButton`，点击切换原来的三种排序，`aria-sort` / `aria-pressed` 标记当前列，切换后页码回到 1；表格上方右端是 `投稿` 与刷新按钮。
+
+| 表头 | 数据源 | 排序 | 可见性 |
 | --- | --- | --- | --- |
-| 热门 | `GET /ranking?sort=hot` | 实时热度（Redis 索引 + 回表） | 仅 `status='verified'` |
-| 精品 | `GET /ranking?sort=likes` | 累计投喂数 | 仅 `status='verified'` |
-| 最新 | `GET /latest` | `created_at` 倒序，同时间按 `id` 倒序；**不走 Redis** | 仅 `status='verified'` |
-| 审核中 | `GET /pending` | `submitted_at` 倒序 | 所有访客公开，带「待审核」标记；**可以投喂**（Q2），展示累计 likes 与实时热度，但投喂不改变首页排行 |
+| 实时热度（默认） | `GET /ranking?sort=hot` | 实时热度（Redis 索引 + 回表） | 仅 `status='verified'` |
+| 累计投喂 | `GET /ranking?sort=likes` | 累计投喂数 | 仅 `status='verified'` |
+| 发表时间 | `GET /latest` | `created_at` 倒序，同时间按 `id` 倒序；**不走 Redis** | 仅 `status='verified'` |
+
+作品页**没有《审核中》入口**：`GET /pending` 只服务于管理员审核队列，普通用户的待审核作品只在个人主页 `GET /user/{user_id}` 查看；审核期间仍可投喂（Q2，只写 DB），投喂不改变排行榜。
 
 数据库页作品 tab 与用户主页作品 tab 均展示所有状态（含 `pending` 与 `rejected`）、对所有人可见，并显示 `status` 状态（16.1 第 5 条）；`rejected` 作品同时展示 `reject_reason` 与 `rejected_by`（P3 已确认可见），后者用 `PlayerName` 渲染。
 
-投稿表单与语言展示（Q4/Q5）：`SubmitMediaDialog.vue` 只提交 `url` 与 `language`（自由文本，`maxlength=32`）；标题与发表时间由后端拉取后返回，前端只读展示；超时/上游不可用不再报错，改为提示「投稿已保留，标题由管理员审核时补全并核验外站账号」并跳转审核中 tab；结构性错误仍用 `httpErrorNotification` 显示分类错误（元数据非法 / 归属不符）。语言展示用前端已知 locale 映射，未命中（含空字符串）显示 i18n「未知语言 / Unknown language」；用户输入只作为文本渲染，不作为 i18n key 或 HTML。审核中 tab 的投喂按钮旁标注「审核中」，点击走第 11.3 节的单次投喂逻辑。
+投稿表单与语言展示（Q4/Q5）：`SubmitMediaDialog.vue` 用 select 提交 `format`、input 提交 `suffix` 与自由文本 `language`（`maxlength=32`）；标题与发表时间由后端拉取后返回，前端只读展示；超时/上游不可用不再报错，改为提示「投稿已保留，标题由管理员审核时补全并核验外站账号」，并提示可在个人主页查看；结构性错误仍用 `httpErrorNotification` 显示分类错误（元数据非法 / 归属不符）。语言展示用前端已知 locale 映射，未命中（含空字符串）显示 i18n「未知语言 / Unknown language」；用户输入只作为文本渲染，不作为 i18n key 或 HTML。作品页表格的投喂按钮以红宝石余额为 `title`，点击走第 11.3 节的单次投喂逻辑。
 
 排行榜页《作品》tab（`ranking_media`）：表头用 `BaseTextButton` 切换 `hot` / `likes` 两个指标，数据来自 `GET /user-ranking`，用 `BaseTable` + `ElPagination` 展示，`useRankingQuery` 管理 `sort/page/page_size` 查询参数（参照 `TournamentRanking.vue`）。榜内只统计已审核作品，行内 `PlayerName` 的组件测试需注入 `$axios` 并 `cy.mockPlayerNameFallback()`。落点已确认（Q11），Redis 数据在阶段 2 已就绪，本 tab 不需要新的后端计算。**`hot` 是 anchor 基准的分数，不是实时热度**：前端用响应的 `anchor` 与本地当前时间按 `0.99 ** ((now - anchor) / 1 天)` 衰减后再展示，避免把基准热度直接显示成实时热度。
 
@@ -511,7 +514,7 @@ send: sending = true，sentAt = Date.now()
   - 请求预算（P2）：`like_media()` / `verify_media()` / `hard_delete_media()` / `create_media()` 在持锁状态下仍能完成；同步任务行与业务数据同事务入队而不是 `on_commit` 回调；worker 拿不到锁时立即返回 False 并延迟重排；`media_cache_lock` 的 60s 阻塞等待只出现在后台任务 / 管理命令，普通 API 不触碰。
   - 失败可检测（P2）：重试耗尽抛 `MediaCacheSyncError` 而不是返回 False（否则被记为成功）；`restart_media_sync_task()` 重跑时把 `attempt` 归零；`check_media_rankings` 在分数漂移 / anchor 缺失时抛 `CommandError`，一致时通过，且输出 FAILED 与积压任务数；月度刷新阻塞取锁失败抛 `MediaCacheLockError` 且任务入口同样抛错（worker 据此记 FAILED），DB 与 anchor 不被改写，非阻塞分支仍返回 `None` 供延迟重排。
   - 投稿表单（P2）：select 选 `format`、input 填 `suffix`，提交 `format`/`suffix`/`language`；未知 format 与格式不符外链返回 400；数字 suffix 去前导零后仍按 `format` 判重。
-  - 榜单可见性（P2）：审核通过但 0 分的作品同时出现在 `/ranking?sort=hot` 与 `sort=likes`，避免只在《最新》可见；`keep-alive` 缓存的热门 / 精品 tab 切回时重新拉列表，刷新按钮可手动重拉当前 tab。
+  - 榜单可见性（P2）：审核通过但 0 分的作品同时出现在 `/ranking?sort=hot` 与 `sort=likes`，避免只在发表时间排序可见；点击表头切换排序会重新拉列表，表格上方的刷新按钮可手动重拉当前排序。
   - URL 去重：数字 suffix 去前导零后 `cv01646742` 与 `cv1646742`、`/bbs/09786` 与 `/bbs/9786` 命中同一唯一约束，第二次投稿返回 409。
   - 真实外站异常族：`curl_cffi` 的 `Timeout` / `ConnectTimeout` 归 504 `timeout`，`ConnectionError` / `RequestException` 归 502 `upstream_error`，四类都能经 `fetch_media_metadata_optional()` 降级为 `None`。
   - Redis 排行：投喂/审核通过后的四个 zset 数值与顺序、重建命令只取 `status='verified'` 且与 DB 一致；驳回无需 `ZREM`；站长硬删除必须 `ZREM` 两个作品榜并等值扣减作者两个 user zset，结果 <= 0 改 `ZREM`，重复执行幂等。
@@ -535,7 +538,7 @@ CI 参考：`.github/workflows/backend.yml` 会跑 `makemigrations` + `migrate` 
 | 1 数据层（已按状态机口径重做完成） | `utils.py` 常量/URL 解析/衰减函数/`MediaStatus`、`models.py` 三张表（`status` 状态机 + 驳回审计字段 + `metadata_pending`，**无 `external_author_id`**、无 `MediaDeletionLog`）、`0001_initial` 迁移、纯函数与模型单测 | `makemigrations --check` 干净；迁移可 `migrate`；约束/索引符合第 4 节；语言字段无枚举；`rejected` 行仍占全表唯一、禁止重投 |
 | 2 服务与缓存（已完成） | `clients.py` 依赖适配与字段映射（三种 format、不新写 HTTP 客户端）、`services.py` 事务流程（驳回退还并清零、改回 `pending`、审核通过补齐 zset、站长硬删除退还与 zset 回退、应用日志）、`cache.py` 五个 key、月度任务与调度、重建命令（只取 `verified`）、LOGGING 与 nginx/uWSGI 超时链、开发文档 | 三类 format 字段映射与超时/错误分类单测通过；衰减/幂等/回退/重建单测通过；驳回清零与硬删除回退单测通过；`common.tests.APSchedulerRegistrationTests` 通过；《最新》不新增 Redis key。**前端投稿 25s 超时已由阶段 4 的 `mediaService.ts` 落地** |
 | 3 API 层（已完成） | `schema.py`、`api.py`、`decorators.py`、全部读写接口（含 `/submit` 自动拉取与归属校验、`/admin/reject`、`/admin/reopen`、`/admin/delete` 的 `django_auth_superuser`）、限流与 CSRF 回归 | 所有装饰器写入 docstring；管理写接口通过 CSRF 回归；`reject_reason` / `rejected_by` 对普通访客可见；无 GET 写操作；结构性错误不落库、超时降级落库；降级投稿 `/admin/verify` 的一次性 `external_author_id` 经 `AccountLinkQueue` 核验且不落库；无面向用户的 `POST /delete`；18 个接口可由 OpenAPI 生成，nginx 精确 location 已按实际无尾斜杠路由修正 |
-| 4 前端（已完成） | `router/index.ts` 的 `/works` 与 `/database/works`、`Menu.vue` 主导航、`WorksView` 四 tab（`ElTabs` + `keep-alive`）、`RankingView/MediaRanking.vue`、`DatabaseView/MediaQueryView.vue`、`UserView/UserMediaView.vue`、`StaffView/StaffMediaReview.vue`、`services/mediaService.ts`（投稿 timeout 25s）、`components/media/` 卡片 / 嵌入 / 投喂 / 投稿 / 列表组件与共享 `media.css`、全局与 SFC 双语 i18n | `lintfix` 0 errors（4 个既有 warning）、`typecheck` 通过、Cypress 组件测试 4 spec / 9 用例通过、`vitest -- run` 退出码 0、`build:openms` 成功；zh-cn + en 文案齐全；降级作品审核时 `title` 与一次性 `external_author_id` 必填且后者不落库 |
+| 4 前端（已完成） | `router/index.ts` 的 `/works` 与 `/database/works`、`Menu.vue` 主导航、`WorksView` 单页表格（`BaseTable` + 表头排序，初版为四 tab 后改版）、`RankingView/MediaRanking.vue`、`DatabaseView/MediaQueryView.vue`、`UserView/UserMediaView.vue`、`StaffView/StaffMediaReview.vue`、`services/mediaService.ts`（投稿 timeout 25s）、`components/media/` 卡片 / 嵌入 / 投喂 / 投稿 / 列表组件与共享 `media.css`、全局与 SFC 双语 i18n | `lintfix` 0 errors（4 个既有 warning）、`typecheck` 通过、Cypress 组件测试 4 spec / 9 用例通过、`vitest -- run` 退出码 0、`build:openms` 成功；zh-cn + en 文案齐全；降级作品审核时 `title` 与一次性 `external_author_id` 必填且后者不落库 |
 | 5 联调与发布 | 部署一次 `makemigrations` + `migrate` → `rebuild_media_rankings` → reload nginx / 重启 uWSGI 与调度器/worker → 实测投稿超时链与 E2E → **一次性全量开放投稿（不做灰度）** | 作品页四个 tab 正确（热门/精品走 Redis，审核中/《最新》查库）、排行榜《作品》tab 与两个 user zset 一致；拉取超时降级投稿、结构性错误拒绝；驳回退还清零且日志可查、被驳回外链无法重投；站长硬删除后四个 zset 回退正确且外链可重投；单次响应 < 300KB；`cypress/e2e/media.cy.ts` 通过；回滚方案明确（第 18 节） |
 
 阶段 1-4 可以先合入代码；在阶段 5 完成生产迁移、重建 zset、超时链实测前不对外开放投稿入口，完成后一次性全量开放（不做灰度），保证未开放时不影响线上。

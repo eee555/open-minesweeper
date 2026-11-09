@@ -113,3 +113,20 @@
     text-align: center;
     color: var(--ui-text-color-secondary);
 }
+
+.media-works-table .media-col-likes {
+    width: 10em;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.media-likes-cell {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+.media-row-note {
+    margin-inline-start: 6px;
+}
