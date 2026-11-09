@@ -215,18 +215,17 @@ class MedalVideoHistoryTests(tests.MedalTestCase):
             grant = self.assert_history(code, [(1, beginner)])
             self.assertEqual(grant.evidence['video_ids'], [beginner.id, intermediate.id, expert.id])
 
-    def test_backdated_modes_use_configured_set_and_completion_date(self):
+    def test_backdated_modes_use_fixed_set_and_completion_date(self):
         self.scan()
-        definition = self.get_definition(code=NOVICE_MODES)
-        definition.scope = {'modes': ['00', '05']}
-        self.replace_definition(definition)
         standard = self.make_video(mode='00', upload_time=self.earlier)
+        qwc = self.make_video(mode='06', upload_time=self.earlier)
+        rkc = self.make_video(mode='10', upload_time=self.earlier)
         self.make_video(mode='05', upload_time=self.later)
         self.scan()
         older = self.make_video(mode='05', upload_time=self.middle)
         self.refresh(older)
         grant = self.assert_history(NOVICE_MODES, [(1, older)])
-        self.assertEqual(grant.evidence['video_ids'], [standard.id, older.id])
+        self.assertEqual(grant.evidence['video_ids'], [standard.id, older.id, qwc.id, rkc.id])
 
     def test_composite_uses_earliest_threshold_evidence_not_latest_best(self):
         first = self.make_video(level='b', bv=95, left_ce=100, upload_time=self.earlier)

@@ -11,7 +11,7 @@ from .utils import basic_definitions, NOVICE_MODES
 class StaticDefinitionTests(SimpleTestCase):
     def test_catalog_and_lookup_do_not_access_database(self):
         self.assertTrue(active_definitions())
-        self.assertEqual(get_definition(NOVICE_MODES).scope['modes'], ('00', '05', '06', '10'))
+        self.assertEqual(dict(get_definition(NOVICE_MODES).scope), {})
         self.assertIsNone(get_definition('unknown'))
 
     def test_rules_and_containers_cannot_be_mutated(self):

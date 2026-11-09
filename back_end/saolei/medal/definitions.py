@@ -27,7 +27,10 @@ class MedalRule:
     def __post_init__(self):
         object.__setattr__(self, 'thresholds', tuple(self.thresholds))
         object.__setattr__(self, 'depends_on', tuple(self.depends_on))
-        scope = {key: tuple(value) if isinstance(value, (list, tuple)) else value for key, value in (self.scope or {}).items()}
+        scope = {
+            key: tuple(value) if isinstance(value, (list, tuple)) else value
+            for key, value in (self.scope or {}).items()
+        }
         object.__setattr__(self, 'scope', MappingProxyType(scope))
 
 

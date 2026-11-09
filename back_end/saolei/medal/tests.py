@@ -14,7 +14,7 @@ from config.text_choices import Medal_TextChoices, MS_TextChoices
 from userprofile.models import UserProfile
 from videomanager.models import ExpandVideoModel, STNB_COEFFICIENTS, VideoModel
 from .models import MedalContribution, MedalGrant, MedalPins, MedalScan, PlayerProgress
-from .services import active_definitions, evaluate_min_video_id, evaluate_player, player_summary, replace_pins, write_stage
+from .services import active_definitions, evaluate_min_video_id, evaluate_player, player_summary, refresh_player_medals, replace_pins, write_stage
 from .signals import enqueue_medal_refresh_on_video
 from .tasks import task_backfill_player_medals, task_refresh_player_medals
 from .testing import DefinitionFixture
@@ -419,15 +419,19 @@ class ShareholderTests(MedalShellFixture):
     CACHES={'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache', 'LOCATION': 'medal-basic'}},
 )
 class BasicMedalTests(MedalTestCase):
-    def test_custom_mode_scope_is_used_by_incremental_refresh(self):
-        from .services import refresh_player_medals
-
+    def test_custom_mode_scope_is_ignored_by_full_and_incremental_refresh(self):
         definition = self.get_definition(code=NOVICE_MODES)
         definition.scope = {'modes': ['00', '01']}
         self.replace_definition(definition)
         self.make_video(mode='00')
+        self.make_video(mode='01')
         evaluate_player(self.user.id)
-        video = self.make_video(mode='01')
+        self.assertIsNone(self.active(NOVICE_MODES))
+        for mode in ('05', '06'):
+            video = self.make_video(mode=mode)
+            refresh_player_medals(self.user.id, video_ids=[video.id])
+            self.assertIsNone(self.active(NOVICE_MODES))
+        video = self.make_video(mode='10')
         refresh_player_medals(self.user.id, video_ids=[video.id])
         self.assertIsNotNone(self.active(NOVICE_MODES))
 

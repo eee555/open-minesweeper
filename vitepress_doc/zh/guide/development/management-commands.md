@@ -60,7 +60,7 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 
 已有数据库按以下步骤升级。
 
-1. 暂停后端服务和勋章任务，备份数据库并导出 `medal_medaldefinition`。对照代码规则，确认哪些自定义定义或阈值需要迁入代码。
+1. 暂停后端服务和勋章任务，备份数据库并导出 `medal_medaldefinition`。对照代码规则核对原配置。走马观花固定要求 00、05、06、10 四种模式，旧配置中的自定义模式集合不再沿用。
 2. 基于服务器现有的迁移历史运行 `python manage.py makemigrations medal --name static_definitions`。检查生成的操作，确认先移除 `PlayerProgress.definition` 外键，再删除 `MedalDefinition` 模型。迁移编号取决于服务器现有历史。
 3. 用 `python manage.py migrate medal --plan` 检查迁移计划，再运行 `python manage.py migrate medal`。旧外键有级联删除行为，直接通过 ORM 删除勋章定义会删除关联进度。
 4. 核对迁移前后的玩家进度、授予、佩戴、人工覆盖和审计日志，确认记录数量、主键及内容一致。现有授予沿用原来的 `definition_code`，进度沿用原来的 `code`。

@@ -28,20 +28,17 @@ class MedalBackfillCommandTests(tests.MedalTestCase):
         return DBTaskResult.objects.filter(task_path=task_backfill_player_medals.module_path, status=TaskResultStatus.READY)
 
     def test_all_recalculates_scanned_player_from_impossible_old_modes(self):
-        definition = self.get_definition(NOVICE_MODES)
-        definition.scope = {'modes': ['00', '01', '04', '05', '06', '07', '08', '09', '10', '11']}
-        self.replace_definition(definition)
         videos = [self.make_video(mode=mode, upload_time=self.earlier) for mode in ('00', '05', '06')]
         completing = self.make_video(mode='10', upload_time=self.later)
         videos.append(completing)
-        evaluate_player(self.user.id)
+        # 模拟旧版本十模式规则留下的玩家状态。
+        with patch('medal.services.open_modes', return_value=['00', '01', '04', '05', '06', '07', '08', '09', '10', '11']):
+            evaluate_player(self.user.id)
         self.assertTrue(MedalScan.objects.filter(user=self.user).exists())
         self.assertIsNone(self.active(NOVICE_MODES))
         retained = self.active('ability.time.b')
         replace_pins(self.user, [retained.pk])
         progress_id = PlayerProgress.objects.get(user=self.user, code=NOVICE_MODES).pk
-        definition.scope = {'modes': ['00', '05', '06', '10']}
-        self.replace_definition(definition)
         self.command()
         self.assertFalse(self.pending().exists())
         self.assertIn('Enqueued 1', self.command(all=True, batch_size=1))

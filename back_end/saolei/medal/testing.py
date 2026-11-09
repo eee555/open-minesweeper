@@ -24,7 +24,10 @@ class DefinitionFixture:
         values = {field.name: getattr(rule, field.name) for field in fields(rule)}
         values['thresholds'] = list(rule.thresholds)
         values['depends_on'] = list(rule.depends_on)
-        values['scope'] = {key: list(value) if isinstance(value, tuple) else value for key, value in rule.scope.items()}
+        values['scope'] = {
+            key: list(value) if isinstance(value, tuple) else value
+            for key, value in rule.scope.items()
+        }
         return SimpleNamespace(**values)
 
     def replace_definition(self, rule):

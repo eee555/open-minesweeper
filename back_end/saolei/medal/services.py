@@ -744,13 +744,6 @@ def evaluate_pb(user, state=None, levels=None):
             _apply_pb(user, definition, stats, progress.get(definition.code), grants.get(definition.code), state, (definition.code, '') in overrides)
 
 
-def _mode_list(definition):
-    stored = definition.scope.get('modes')
-    if stored:
-        return [str(item) for item in stored]
-    return open_modes()
-
-
 def _earliest_official(user, **filters):
     return _official_videos(user).filter(**filters).order_by('upload_time', 'id').first()
 
@@ -778,8 +771,8 @@ def _novice_levels_found(user, *, nf=False):
     return sorted({str(level) for level in queryset.values_list('level', flat=True).distinct()})
 
 
-def _novice_modes_found(user, definition):
-    modes = _mode_list(definition)
+def _novice_modes_found(user):
+    modes = open_modes()
     found = _official_videos(user).filter(mode__in=modes).values_list('mode', flat=True).distinct()
     return sorted({str(mode) for mode in found})
 
@@ -792,7 +785,7 @@ def _novice_progress_extra(user, definition):
         levels = _novice_levels_found(user, nf=True)
         return {'levels': levels} if levels else None
     if definition.code == NOVICE_MODES:
-        modes = _novice_modes_found(user, definition)
+        modes = _novice_modes_found(user)
         return {'modes': modes} if modes else None
     return None
 
@@ -807,7 +800,7 @@ def _once_satisfied(user, definition):
     if definition.code == NOVICE_LEVELS_NF:
         return _covers(_novice_levels_found(user, nf=True), STANDARD_LEVELS)
     if definition.code == NOVICE_MODES:
-        return _covers(_novice_modes_found(user, definition), _mode_list(definition))
+        return _covers(_novice_modes_found(user), open_modes())
     if definition.code == NOVICE_SAOLEI:
         return AccountLinkQueue.objects.filter(userprofile=user, platform=_saolei_platform(definition), verified=True).exists()
     return False
@@ -821,7 +814,7 @@ def _once_video(user, definition):
     if definition.code == NOVICE_LEVELS_NF:
         return _completing_video([_earliest_official(user, level=level, right_ce=0) for level in STANDARD_LEVELS])
     if definition.code == NOVICE_MODES:
-        return _completing_video([_earliest_official(user, mode=mode) for mode in _mode_list(definition)])
+        return _completing_video([_earliest_official(user, mode=mode) for mode in open_modes()])
     return None
 
 
@@ -837,7 +830,7 @@ def _once_evidence_stands(grant, definition):
         return False
     if definition.code == NOVICE_LEVELS and video.level not in STANDARD_LEVELS:
         return False
-    if definition.code == NOVICE_MODES and video.mode not in _mode_list(definition):
+    if definition.code == NOVICE_MODES and video.mode not in open_modes():
         return False
     return True
 
@@ -935,7 +928,7 @@ def _history_candidate(user, definition, stage, video, definitions):
         if definition.code == NOVICE_REVIEW:
             return True
         if definition.code == NOVICE_MODES:
-            return video.mode in _mode_list(definition)
+            return video.mode in open_modes()
         return video.level in STANDARD_LEVELS and (definition.code != NOVICE_LEVELS_NF or video.right_ce == 0)
     for code in definition.depends_on or []:
         dependency = definitions.get(code)
@@ -986,7 +979,7 @@ def _history_videos(user, definition, stage, definitions, memo):
     elif definition.code == NOVICE_REVIEW:
         videos = [_earliest_official(user)]
     elif definition.code == NOVICE_MODES:
-        videos = [_earliest_official(user, mode=mode) for mode in _mode_list(definition)]
+        videos = [_earliest_official(user, mode=mode) for mode in open_modes()]
     else:
         filters = {'right_ce': 0} if definition.code == NOVICE_LEVELS_NF else {}
         videos = [_earliest_official(user, level=level, **filters) for level in STANDARD_LEVELS]
@@ -1211,7 +1204,7 @@ def _refresh_novice(user, state, videos, invalidate_once):
         if invalidate_once:
             _write_once(user, definition, _once_satisfied(user, definition), state)
             continue
-        needed_modes = _mode_list(definition) if code == NOVICE_MODES else ()
+        needed_modes = open_modes() if code == NOVICE_MODES else ()
         if not any(_video_touches_novice(code, video, user.id, needed_modes) for video in videos):
             continue
         if code == NOVICE_REVIEW:

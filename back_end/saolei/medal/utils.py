@@ -147,7 +147,6 @@ def basic_definitions():
         _spec(code=NOVICE_LEVELS_NF, series=Medal_TextChoices.Series.LEVELS_NF, kind=Medal_TextChoices.Kind.ONCE, metric='levels_nf', direction=Medal_TextChoices.Direction.ASC, thresholds=[1]),
         _spec(
             code=NOVICE_MODES, series=Medal_TextChoices.Series.MODES, kind=Medal_TextChoices.Kind.ONCE, metric='modes', direction=Medal_TextChoices.Direction.ASC, thresholds=[1],
-            scope={'modes': open_modes()},
         ),
         _spec(
             code=NOVICE_SAOLEI, series=Medal_TextChoices.Series.SAOLEI, kind=Medal_TextChoices.Kind.ONCE, metric='platform', direction=Medal_TextChoices.Direction.ASC, thresholds=[1],
