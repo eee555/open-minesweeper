@@ -77,6 +77,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('../views/SettingView/App.vue'),
     },
     {
+        path: '/bind/saolei',
+        name: 'bind_saolei',
+        component: () => import('../views/BindSaoleiView/App.vue'),
+    },
+    {
         path: '/player/:id',
         name: 'player_id',
         component: () => import('../views/UserView/App.vue'),

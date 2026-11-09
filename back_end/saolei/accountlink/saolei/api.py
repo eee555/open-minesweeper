@@ -14,11 +14,13 @@ from saolei_api import RateLimitError, SaoleiError
 
 from userprofile.decorators import admin_csrf_required, login_required_error
 from utils.exceptions import ExceptionToResponse
+from .bind import router as bind_router
 from .client import saolei_client
 from .services import check_binding, import_saolei_video, pending_saolei_videos, sync_saolei_page, update_saolei_account_info
 from ..models import AccountSaolei, SaoleiApiVideo
 
 router = Router()
+router.add_router('/bind', bind_router)
 logger = logging.getLogger('accountlink')
 SaoleiVideoOut = create_schema(SaoleiApiVideo, exclude=['user', 'file_url'])
 SaoleiAccountOut = create_schema(AccountSaolei)
