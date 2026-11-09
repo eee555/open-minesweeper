@@ -82,10 +82,12 @@ function formatRank(rank: number | null): string {
 }
 
 function formatField(field: string): string {
-    const [, level, bv] = field.split(':');
+    const [mode, level, bv] = field.split(':');
     const levelName = i18n.global.t(`level.${level}`);
     const separator = i18n.global.locale.value.startsWith('zh') ? '' : ' ';
-    return `${levelName}${separator}${bv}`;
+    // 中文示例「高级150NFPB」：NF 紧跟 BV 后直接接 PB；标准模式不标注，英文保持分词。
+    const nf = mode === 'nf' ? `${separator}NF` : '';
+    return `${levelName}${separator}${bv}${nf}`;
 }
 
 function formatEffField(field: string): string {

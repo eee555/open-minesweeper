@@ -95,6 +95,54 @@ describe('<NewsQueue />', () => {
         cy.get('[data-cy=news-lsf]').should('contain.text', '的LSF：1234.00(5) → 1235.00(4)');
     });
 
+    it('includes the NF marker in Chinese PB news', () => {
+        i18n.global.locale.value = 'zh-cn';
+        const events: NewsEvent[] = [{
+            id: 'pb-nf-zh',
+            occurred_at: 1_000_000,
+            player_id: 9,
+            category: 'pb',
+            payload: {
+                field: 'nf:e:150',
+                old: { timems: 100000, video_id: 601, rank: 7 },
+                new: { timems: 90000, video_id: 602, rank: 6 },
+            },
+        }];
+        mountNews(events);
+        cy.get('[data-cy=news-pb]').should('contain.text', '打破了高级150NFPB：100.000(7) → 90.000(6)');
+    });
+
+    it('labels NF PB news while keeping standard PB wording unchanged', () => {
+        const events: NewsEvent[] = [
+            {
+                id: 'pb-nf',
+                occurred_at: 1_000_000,
+                player_id: 9,
+                category: 'pb',
+                payload: {
+                    field: 'nf:e:170',
+                    old: null,
+                    new: { timems: 90000, video_id: 701, rank: 6 },
+                },
+            },
+            {
+                id: 'pb-std',
+                occurred_at: 1_000_000,
+                player_id: 10,
+                category: 'pb',
+                payload: {
+                    field: 'std:b:10',
+                    old: null,
+                    new: { timems: 12340, video_id: 702, rank: 3 },
+                },
+            },
+        ];
+        mountNews(events);
+        cy.get('[data-cy=news-pb]').should('have.length', 2);
+        cy.get('[data-cy=news-pb]').eq(0).should('contain.text', 'set their first Expert 170 NF PB: 90.000(6)');
+        cy.get('[data-cy=news-pb]').eq(1).should('contain.text', 'set their first Beginner 10 PB: 12.340(3)');
+    });
+
     it('links every replay that jointly raised the LSF and formats values to two decimals', () => {
         const events: NewsEvent[] = [{
             id: 'lsf-1',
