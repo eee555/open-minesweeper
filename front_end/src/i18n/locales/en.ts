@@ -36,6 +36,7 @@ export default {
         publishedAt: 'Published at',
         submittedAt: 'Submitted at',
         feed: 'Feed',
+        balance: 'Rubies',
         feeding: 'Feeding',
         likesCount: 'Total likes',
         hotNow: 'Current heat',

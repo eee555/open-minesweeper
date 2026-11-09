@@ -22,8 +22,19 @@ from videomanager.utils import calculate_original_hash
 from .client import saolei_client
 from .utils import SUPPORTED_SOFTWARE, video_defaults
 from ..models import AccountLinkQueue, AccountSaolei, Platform, SaoleiApiVideo
+from ..services import save_verified_account_link
 
 logger = logging.getLogger('accountlink')
+
+
+@transaction.atomic
+def confirm_saolei_account_link(user: UserProfile, uid: int, username: str, auto_sync: bool) -> AccountSaolei:
+    """在同一业务事务内确认绑定并保存本次授权的名称和同步偏好。"""
+    account = save_verified_account_link(user, Platform.SAOLEI, str(uid))
+    account.name = username
+    account.auto_sync = auto_sync
+    account.save(update_fields=['name', 'auto_sync'])
+    return account
 
 
 def check_binding(account: AccountSaolei, parent_id: int):

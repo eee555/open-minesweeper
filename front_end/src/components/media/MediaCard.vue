@@ -16,7 +16,7 @@
             <span>{{ t('media.likesCount') }}: {{ currentLikes }}</span>
             <span>{{ t('media.hotNow') }}: {{ formatHeat(currentHot) }}</span>
             <MediaFeedButton
-                v-if="showFeed" :media-id="media.id" :disabled="feedDisabled"
+                v-if="showFeed" :media-id="media.id" :disabled="feedDisabled" :balance="feedBalance"
                 :pending-label="media.status === 'pending'" @feed="onFeed"
             />
             <MediaEmbed v-if="media.embed_url" :src="media.embed_url" />
@@ -47,6 +47,7 @@ const props = defineProps({
     showRejectInfo: { type: Boolean, default: false },
     showFeed: { type: Boolean, default: true },
     feedDisabled: { type: Boolean, default: false },
+    feedBalance: { type: Number as PropType<number | null>, default: null },
 });
 const emit = defineEmits<{ feed: [result: MediaLikeResult] }>();
 

@@ -1,5 +1,5 @@
 <template>
-    <button type="button" class="media-text-button" :disabled="disabled || sending" :aria-busy="sending || undefined" @click="onClick">
+    <button type="button" class="media-text-button" :title="balanceTitle" :disabled="disabled || sending" :aria-busy="sending || undefined" @click="onClick">
         <i class="pi pi-heart" aria-hidden="true" />
         <span>{{ t('media.feed') }}</span>
         <span v-if="pendingLabel" class="text-secondary text-small">{{ t('media.pendingStatus') }}</span>
@@ -8,7 +8,8 @@
 
 <script setup lang="ts">
 import 'primeicons/primeicons.css';
-import { onBeforeUnmount, ref } from 'vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
+import type { PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import { httpErrorNotification } from '@/components/Notifications';
@@ -21,6 +22,7 @@ const props = defineProps({
     mediaId: { type: Number, required: true },
     disabled: { type: Boolean, default: false },
     pendingLabel: { type: Boolean, default: false },
+    balance: { type: Number as PropType<number | null>, default: null },
 });
 const emit = defineEmits<{ feed: [result: MediaLikeResult] }>();
 
@@ -54,4 +56,6 @@ onBeforeUnmount(() => {
 });
 
 const { t } = useI18n();
+
+const balanceTitle = computed(() => (props.balance === null ? undefined : `${t('media.balance')}: ${props.balance}`));
 </script>

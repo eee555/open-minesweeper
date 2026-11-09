@@ -103,7 +103,8 @@ class DeletedOut(Schema):
 
 
 class SubmitIn(Schema):
-    url: str
+    format: str
+    suffix: str
     language: str = ''
 
 

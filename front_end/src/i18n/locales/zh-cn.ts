@@ -35,6 +35,7 @@ export default {
         publishedAt: '发表时间',
         submittedAt: '投稿时间',
         feed: '投喂',
+        balance: '红宝石余额',
         feeding: '投喂中',
         likesCount: '累计投喂',
         hotNow: '实时热度',

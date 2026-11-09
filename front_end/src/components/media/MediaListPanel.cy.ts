@@ -71,11 +71,11 @@ describe('<MediaListPanel />', () => {
             });
         });
         cy.wait('@me');
-        cy.get('.media-toolbar').should('contain.text', '5');
+        cy.get('.media-card button.media-text-button').should('have.attr', 'title').and('contain', '5');
         cy.then(() => {
             store.sessionRevision += 1;
         });
         cy.wait('@me');
-        cy.get('.media-toolbar').should('contain.text', '42');
+        cy.get('.media-card button.media-text-button').should('have.attr', 'title').and('contain', '42');
     });
 });

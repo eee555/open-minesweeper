@@ -68,7 +68,7 @@
 规则：
 
 - 后端保存**规范化后的 suffix**，不保存完整 URL；`MediaOut` 由 `format` 推导 `url` 与 `embed_url` 两个只读字段（用 `create_schema` 的 `custom_fields` 或 resolver）。
-- 投稿可以粘贴完整 URL 或只填 suffix。`utils.parse_media_url()` 用 `urlsplit` 校验 scheme/host 白名单（`www.bilibili.com`、`bilibili.com`、`m.bilibili.com` 且仅 `/video/`、`/read/` 路径；`saolei.wang` 仅允许 `https` + `/bbs/` 路径），剥离 query/trailing slash，识别 `format`，正则校验 suffix，越界返回 400。**B 站 `/opus/`（动态）链接一律拒绝**；旧 `www.saolei.wang/BBS/Title.asp?Id=` 与 `saolei.wang` 其它路径也一律不接受（Q6）。禁止用户自定义域名、协议或路径，避免开放重定向与 XSS。
+- 投稿表单用 select 选 `format`、input 填 `suffix`，提交 `format` / `suffix` / `language`；API 层先用 `MediaFormat(data.format)` 枚举校验，再调用 `utils.parse_media_url(suffix, format)` 按该 format 的正则校验并归一化 suffix，format 与外链不符返回 400。管理员编辑仍接受完整 URL，`utils.parse_media_url()` 用 `urlsplit` 校验 scheme/host 白名单（`www.bilibili.com`、`bilibili.com`、`m.bilibili.com` 且仅 `/video/`、`/read/` 路径；`saolei.wang` 仅允许 `https` + `/bbs/` 路径），剥离 query/trailing slash，识别 `format`，正则校验 suffix，越界返回 400。**B 站 `/opus/`（动态）链接一律拒绝**；旧 `www.saolei.wang/BBS/Title.asp?Id=` 与 `saolei.wang` 其它路径也一律不接受（Q6）。禁止用户自定义域名、协议或路径，避免开放重定向与 XSS。
 - **数字 suffix 去前导零**：`B_a` / `c_p` 的纯数字 id 由 `_validate_suffix()` 统一为无前导零的规范形式（全零归一为 `0`），例如 `cv01646742` 与 `cv1646742`、`/bbs/09786` 与 `/bbs/9786` 解析后是同一条 `suffix`。否则 `(format, suffix)` 唯一约束不生效，同一作品可被重复投稿；`build_external_url()` 也只输出规范外链。
 - **不支持任何短链**（Q7）：`b23.tv` 等跳转域名直接拒绝，客户端也不跟随重定向（参照 `accountlink/github/client.py:40-41`），避免短链绕过 host 校验。后续扩展平台时增加 `FORMAT_PREFIX` 表项即可。
 - 外链前缀只用于展示跳转与 iframe；作品元数据由 `media/clients.py` 按 `format` 调用两个依赖已提供的详情接口获取（第 7.1 节），不从 HTML 页面爬取，不恢复旧 BBS 爬虫（`accountlink/SAOLEI_API_IMPORT_PLAN.md:13`）。
@@ -295,7 +295,7 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 投稿校验链（顺序固定）：
 
 1. API 层：`login_required_error` + `banned_blocked` + `media_banned_blocked` + `ratelimit(10/h)`；GET 只读、无 CSRF。
-2. API 层：`parse_media_url()` 得到 `format/suffix`；查 `AccountLinkQueue(platform=format_to_platform(format), userprofile=request.user, verified=True)` 是否存在（参照 `accountlink/msgames/api.py:40-52`）。此处只确认「投稿人已绑定该平台账号」，`identifier` 不写入 `Media`。降级投稿仍需该绑定，只是不在此步核对具体作品作者。
+2. API 层：`MediaFormat(data.format)` 校验投稿表单选中的 format，`parse_media_url(data.suffix, format)` 得到归一化的 `suffix`；查 `AccountLinkQueue(platform=format_to_platform(format), userprofile=request.user, verified=True)` 是否存在（参照 `accountlink/msgames/api.py:40-52`）。此处只确认「投稿人已绑定该平台账号」，`identifier` 不写入 `Media`。降级投稿仍需该绑定，只是不在此步核对具体作品作者。
 3. service 层：`clients.fetch_media_metadata_optional(format, suffix)`。成功返回 `MediaMetadata(title, created_at, author_id: str)`；`timeout` / `upstream_error` 返回 `None` 表示降级；`parse_error` / `invalid_metadata` 抛错并拒绝投稿、不落库（第 7.2 节）。`language` 由用户自由填写，只做长度与 `strip` 归一化。
 4. API 层：成功路径把临时 `author_id` 与第 2 步已验证绑定的 `identifier` 比对，不一致返回 403，防止冒领；比对结果不落库。**降级路径没有上游作者 id，自动核对跳过**，改由管理员审核时凭一次性输入核验（第 7.2 节）。
 5. service 层：`transaction.atomic()` + 唯一约束防重复外链；`format+suffix` 已存在返回 409；成功路径写入拉取到的 `title` / `created_at`；降级路径写入 `title=''`、`created_at=now`（本站投稿时刻兜底）、`metadata_pending=True`；**两条路径都不接收、不保存外站作者 id**（16.1 第 15 条）；两者都写 `status='pending'`、`likes=0`、`hot_value=0`、`hot_value_updated_at=T`、`submitted_at=auto_now_add`，不写 Redis（审核中未入榜）。
@@ -382,7 +382,7 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 | `GET /query/{mode}?value=&limit=` | 数据库页作品匹配查找 | `ratelimit(key='ip', rate='6/m', group='media-query', block=False)` + 视图内检查 `request.limited` 抛 429 | `mode` 参照 `identifier/api.py:21`，`field=title|suffix`、`limit<=1000`；最多 1000 条，超出 400 `too_many_matches`；regex 用 MySQL ICU，捕获 `DatabaseError` 3684-3700 转 400；`rejected` 作品也可见（16.1 第 5 条） |
 | `GET /user/{user_id}?sort=hot\|likes\|created_at&order=&page=&pageSize` | 个人主页作品 tab | `ratelimit(key='ip', rate='30/m', group='media-user')` | **不走 Redis**，直接查库并用第 4.1 节索引排序；`pageSize<=50`；**展示所有状态且对所有人可见**（16.1 第 5 条） |
 | `GET /me` | 本人红宝石余额、`likes_sent`、`banned` | `login_required_error` + `ratelimit(key='user', rate='30/m')` | 未创建 `UserMedia` 行时返回零值，不写库 |
-| `POST /submit` | 投稿 | `login_required_error` + `banned_blocked` + `media_banned_blocked` + `ratelimit(key='user', rate='10/h', group='media-submit', block=True)` | 表单只有 `url` / `language`；自动拉取 `title`/`created_at`/外站作者 id 并核对归属（外站作者 id 不入库）；**超时/上游不可用降级为待补全投稿**（第 7.2 节），结构性错误仍拒绝且不落库；409 重复外链（含已被驳回的外链）统一提示「该作品已投稿过，不可重复投稿」，不明说曾被驳回（P4）；403 归属不符 |
+| `POST /submit` | 投稿 | `login_required_error` + `banned_blocked` + `media_banned_blocked` + `ratelimit(key='user', rate='10/h', group='media-submit', block=True)` | 表单只有 `format` / `suffix` / `language`（select 选格式、input 填标识）；自动拉取 `title`/`created_at`/外站作者 id 并核对归属（外站作者 id 不入库）；**超时/上游不可用降级为待补全投稿**（第 7.2 节），结构性错误仍拒绝且不落库；409 重复外链（含已被驳回的外链）统一提示「该作品已投稿过，不可重复投稿」，不明说曾被驳回（P4）；403 归属不符 |
 | `POST /like` | 投喂 1 个红宝石 | `login_required_error` + `banned_blocked` + `ratelimit(key='user', rate='1/s', group='media-like', block=True)` | 参数只有 `media_id`，每次固定投 1 个；每 UTC 自然日最多 10 次成功投喂，由 service 层在同一事务内计数并返回 429；**审核中作品也可投喂**，但只写 DB 不写 zset；`rejected` 作品不可投喂；返回最新 `likes` / `hot_now` / `balance` / `status` |
 | `POST /admin/verify` | 管理员审核通过 | `staff_required`（含 CSRF），不限流 | 仅 `pending → verified`，按当前 `likes/hot_value` 补齐四个 zset；**降级投稿必填 `title` 与 `external_author_id`**（可选 `created_at`）；`external_author_id` 是 API 层一次性核验输入，用 `AccountLinkQueue` 确认该外站账号属于投稿人，**不写入 `Media`**（第 7.2 节、16.1 第 15 条） |
 | `POST /admin/reject` | 管理员驳回 | `staff_required`，不限流 | 仅 `pending → rejected`；**不删行**、填驳回审计字段、写 `media.log`、**退还红宝石**并同步清零 `likes` / `hot_value` 与投喂记录（P1 / Q12，第 5.5 节） |
@@ -427,7 +427,7 @@ real_hot(m, t) = m.hot_value * decay(m.hot_value_updated_at, t)
 | 驳回日志 | `saolei/settings.py:397-432`、`media/services.py` | 新增 `media` logger 与 `logs/media.log` handler；驳回时写应用日志，不新增审计表（第 4.4 节） |
 | 超时链 | `default.conf`、`uwsgi.ini:29`、`src/http.ts:7` | 投稿端点 nginx 25s / harakiri 白名单 / 前端 25s / 应用 ≤15s；详见第 7.1 节 |
 
-生产已有 `runapscheduler` 与 `db_worker_robust` 常驻进程（`start.sh`），不新增进程、不引入系统 crontab。发布顺序：先 `migrate`，确认 `logs/media.log` 可写与外站密钥可用，再 `rebuild_media_rankings`，再 `nginx -s reload`、重启 uWSGI/apscheduler/worker 并实测投稿超时链，最后开放投稿入口。
+生产已有 `runapscheduler` 与 `db_worker_robust` 常驻进程（`start.sh`），不新增进程、不引入系统 crontab。发布顺序：先 `migrate`，确认 `logs/media.log` 可写与外站密钥可用，再 `rebuild_media_rankings`，再 `nginx -s reload`、用 `stop.sh` 完整终止 uWSGI / launcher / worker 后重启并实测投稿超时链，最后开放投稿入口（漏掉延迟启动的 launcher 会让旧版 worker 继续消费新任务）。
 
 ## 11. 前端
 
@@ -510,6 +510,8 @@ send: sending = true，sentAt = Date.now()
   - 缓存事件顺序（P2）：硬删除后的迟到同步任务不得把作品或作者分数重新入榜；作者分数归零与另一作品新投喂乱序执行时，最终作者分数仍等于 DB 求和；投稿读旧 anchor 后锚点推进时，插入后复核与后台基准折算都能把该行换到新基准；重建快照期间提交的投喂由迟到任务按 DB 绝对值补齐，既不丢也不重复，且 `rebuild_rankings()` 全程持有缓存锁。
   - 请求预算（P2）：`like_media()` / `verify_media()` / `hard_delete_media()` / `create_media()` 在持锁状态下仍能完成；同步任务行与业务数据同事务入队而不是 `on_commit` 回调；worker 拿不到锁时立即返回 False 并延迟重排；`media_cache_lock` 的 60s 阻塞等待只出现在后台任务 / 管理命令，普通 API 不触碰。
   - 失败可检测（P2）：重试耗尽抛 `MediaCacheSyncError` 而不是返回 False（否则被记为成功）；`restart_media_sync_task()` 重跑时把 `attempt` 归零；`check_media_rankings` 在分数漂移 / anchor 缺失时抛 `CommandError`，一致时通过，且输出 FAILED 与积压任务数；月度刷新阻塞取锁失败抛 `MediaCacheLockError` 且任务入口同样抛错（worker 据此记 FAILED），DB 与 anchor 不被改写，非阻塞分支仍返回 `None` 供延迟重排。
+  - 投稿表单（P2）：select 选 `format`、input 填 `suffix`，提交 `format`/`suffix`/`language`；未知 format 与格式不符外链返回 400；数字 suffix 去前导零后仍按 `format` 判重。
+  - 榜单可见性（P2）：审核通过但 0 分的作品同时出现在 `/ranking?sort=hot` 与 `sort=likes`，避免只在《最新》可见；`keep-alive` 缓存的热门 / 精品 tab 切回时重新拉列表，刷新按钮可手动重拉当前 tab。
   - URL 去重：数字 suffix 去前导零后 `cv01646742` 与 `cv1646742`、`/bbs/09786` 与 `/bbs/9786` 命中同一唯一约束，第二次投稿返回 409。
   - 真实外站异常族：`curl_cffi` 的 `Timeout` / `ConnectTimeout` 归 504 `timeout`，`ConnectionError` / `RequestException` 归 502 `upstream_error`，四类都能经 `fetch_media_metadata_optional()` 降级为 `None`。
   - Redis 排行：投喂/审核通过后的四个 zset 数值与顺序、重建命令只取 `status='verified'` 且与 DB 一致；驳回无需 `ZREM`；站长硬删除必须 `ZREM` 两个作品榜并等值扣减作者两个 user zset，结果 <= 0 改 `ZREM`，重复执行幂等。

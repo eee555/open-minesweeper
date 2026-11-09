@@ -22,6 +22,14 @@ describe('<MediaFeedButton />', () => {
         cy.get('@like.all').should('have.length', 2);
     });
 
+    it('shows the ruby balance as its title', () => {
+        cy.mount(MediaFeedButton, {
+            props: { mediaId: 7, balance: 9 },
+            global: { plugins: [i18n], config: { globalProperties: { $axios } } },
+        });
+        cy.get('button').should('have.attr', 'title').and('contain', '9');
+    });
+
     it('does not send while disabled', () => {
         cy.intercept('POST', '/api/media/like', { body: { likes: 0, hot_now: 0, balance: 0, status: 'verified' } }).as('like');
         cy.mount(MediaFeedButton, {
