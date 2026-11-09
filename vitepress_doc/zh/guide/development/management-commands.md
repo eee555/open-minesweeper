@@ -52,6 +52,41 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 
 文件解析通过独立子进程执行，每条最多 60 秒，原生崩溃或超时计为 `rust/panic`，继续处理下一条，不设置永久拒收标记。`accountlink` 日志在解析前记录来源录像 ID、账号 ID 和文件相对 URL，`utils.parser` 日志记录异常退出码及诊断尾部；下一轮同步会重试这类失败。隔离使用 Python 标准库 [`subprocess.run`](https://docs.python.org/3.12/library/subprocess.html#subprocess.run)，不复制 worker 的数据库连接。
 
+## 作品排行
+
+### `rebuild_media_rankings`
+
+位置：`media/management/commands/rebuild_media_rankings.py`。从数据库全量重建四个作品排行 zset 与 `media:hot:anchor`，只取 `status='verified'` 的作品行，`pending` 与 `rejected` 一律排除。用于部署、Redis 故障恢复和单测；请求时不懒重建。
+
+```bash
+python manage.py rebuild_media_rankings
+python manage.py rebuild_media_rankings --batch-size 500
+python manage.py rebuild_media_rankings --clear
+```
+
+写入先落在 `media:rebuild:<uuid>:*` 临时 key，按 `--batch-size`（默认 1000，必须为正）分批提交，最后用 `rename` 原子发布四个 zset 并写入锚点；中途失败删除临时 key，旧榜保持不变。空表时删除旧的四个 zset。命令结束前调用一次幂等的月度基准刷新，使停机跨月后数据库折算与 Redis 缩放保持一致。
+
+整段数据库快照与发布都持有 `media:cache:lock`：期间提交的投喂、审核和硬删除，其后台同步任务必须等锁释放后才按数据库绝对值重算，因此不会出现「正式榜先被更新、随后被旧快照覆盖」。发布前会检查锁是否仍归本进程所有，锁过期则报错并保留旧榜；命令启动时 60 秒内取不到锁也会抛 `MediaCacheLockError` 直接退出，不会在未持锁时重建。请在低峰期执行，并暂停相关写操作；`--clear` 只删除五个固定 key 与缓存锁，不重建，同样应暂停写操作。重建期间同步任务不会阻塞等待，而是按退避延迟重排；若锁一直不释放超过重试上限，任务会变成 FAILED，数据库不受影响但缓存会暂时滞后，按「失败检测」一节处理。
+
+每月 UTC 1 日 00:00 的 `refresh_media_hot_reference` 作业只入队 Django Task，不在此命令中直接执行；启动时也会补一次幂等检查。作业失败可重跑，不会重复缩放；若 60 秒内取不到 `media:cache:lock`，任务抛 `MediaCacheLockError` 并变成 FAILED，不会在没有锁保护的情况下继续刷新，可按「失败检测」一节重启。每次成功投喂、审核、硬删除或投稿还会在业务事务内入队 `media.tasks.task_sync_media_scores`，由同一个 `db_worker_robust` 消费；这些成功的任务记录按 `config/common.py` 的配置保留 1 天后清理。请求路径不等待这把锁，因此普通 API 的 2 秒网关超时不会被缓存换算拖过。
+
+### `check_media_rankings`
+
+位置：`media/management/commands/check_media_rankings.py`。**只读**核对四个作品排行 zset 与数据库是否一致，用于部署自检与定时巡检，不修改任何数据。
+
+```bash
+python manage.py check_media_rankings
+python manage.py check_media_rankings --max-examples 20
+```
+
+按 `media:hot:anchor` 把每个 `verified` 作品的 `hot_value` 折算成期望分数，并累加出作者维度分数，再与四个 zset 逐一比较（相对/绝对容差 `1e-6`）。一致时输出 `matches the database` 并正常退出；发现多余成员、缺失成员、分数不符或 anchor 缺失时抛 `CommandError`，以非零退出码报出漂移样例和修复建议，便于外部巡检按退出码告警。同时输出 `failed_sync_tasks`（失败的缓存同步任务数）与 `pending_sync_tasks`（积压数）作为诊断信息；历史失败任务可能已被后续同步修复，所以只有分数漂移才判定失败。
+
+竞态导致缓存滞后时数据库仍然正确，人工执行 `rebuild_media_rankings` 即可恢复；也可以在管理页的任务列表把 FAILED 的 `media.tasks.task_sync_media_scores` 一键重启（重跑会从 `attempt=0` 开始，不会立刻再次失败）。若把本命令接入外部定时巡检，请避开每月 UTC 1 日 00:10 的月度基准刷新窗口，以免把刷新中间态误判为漂移。
+
+### 失败检测
+
+后台同步任务拿不到缓存锁时会按 5/10/20/40/60 秒退避重排，最多 8 次；重试耗尽会抛 `MediaCacheSyncError` 并写 error 日志，任务状态变为 FAILED。月度刷新与全量重建是阻塞取锁：60 秒内拿不到锁会抛 `MediaCacheLockError` 并写 error 日志，任务同样变 FAILED，绝不会在未持锁时继续跑完并被记为成功。FAILED 任务会自动出现在服务器监控快照的任务状态统计中，也能在管理页按状态筛出并重启（月度任务无参数，走通用重入队）。不要把这些任务改成「返回 False 视为成功」——那样框架会记为成功，失败就不可见了。
+
 ## 勋章补发
 
 ### `enqueue_medal_backfill`

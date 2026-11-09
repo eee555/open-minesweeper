@@ -66,4 +66,9 @@ export const staffRoutes: RouteRecordRaw[] = [
         name: 'staff-minigame',
         component: () => import('./Minigame.vue'),
     },
+    {
+        path: 'media',
+        name: 'staff-media',
+        component: () => import('./StaffMediaReview.vue'),
+    },
 ];

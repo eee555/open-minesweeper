@@ -5,6 +5,7 @@ import { rankingRoutes } from '@/views/RankingView/routes';
 import { resourceRoutes } from '@/views/ResourcesView/routes';
 import { staffRoutes } from '@/views/StaffView/routes';
 import { userRoutes } from '@/views/UserView/routes';
+import { worksRoutes } from '@/views/WorksView/routes';
 
 const routes: RouteRecordRaw[] = [
     {
@@ -33,7 +34,15 @@ const routes: RouteRecordRaw[] = [
             { path: 'users', name: 'database-users', component: () => import('../views/DatabaseView/UserView.vue') },
             { path: 'videos', name: 'database-videos', component: () => import('../views/VideoView.vue') },
             { path: 'identifiers', name: 'database-identifiers', component: () => import('../views/DatabaseView/IdentifierView.vue') },
+            { path: 'works', name: 'database-works', component: () => import('../views/DatabaseView/MediaQueryView.vue') },
         ],
+    },
+    {
+        path: '/works',
+        name: 'works',
+        component: () => import('../views/WorksView/App.vue'),
+        redirect: { name: 'works-hot' },
+        children: worksRoutes,
     },
     {
         path: '/video/:id',

@@ -118,6 +118,7 @@ function restoreFocus() {
 const mainItems = computed<NavigationItem[]>(() => [
     { id: 'ranking', label: t('local.ranking'), to: '/ranking' },
     { id: 'database', label: t('local.database'), to: '/database' },
+    { id: 'works', label: t('local.works'), to: '/works' },
     { id: 'tournament', label: t('tournament.tournament'), to: '/tournament' },
     { id: 'minigame', label: t('minigame.title'), to: '/minigame/left-click' },
     { id: 'server', label: t('local.server'), to: '/server' },
@@ -220,6 +221,7 @@ const i18nMessages = {
         home: '首页',
         ranking: '排行榜',
         database: '数据库',
+        works: '作品',
         staff: '管理',
         docs: '帮助',
         server: '服务器',
@@ -243,6 +245,7 @@ const i18nMessages = {
         home: 'Home',
         ranking: 'Ranking',
         database: 'Database',
+        works: 'Works',
         staff: 'Moderate',
         docs: 'Help',
         server: 'Server',

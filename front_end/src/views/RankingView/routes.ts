@@ -48,4 +48,9 @@ export const rankingRoutes: RouteRecordRaw[] = [
         name: 'ranking_tournament',
         component: () => import('./TournamentRanking.vue'),
     },
+    {
+        path: 'media',
+        name: 'ranking_media',
+        component: () => import('./MediaRanking.vue'),
+    },
 ];
