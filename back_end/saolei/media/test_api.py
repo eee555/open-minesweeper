@@ -14,6 +14,7 @@ from .models import Media, UserMedia
 from .utils import MediaFormat, MediaStatus
 
 REFERENCE = datetime(2026, 1, 1, tzinfo=datetime_timezone.utc)
+TARGET = datetime(2026, 2, 1, tzinfo=datetime_timezone.utc)
 VIDEO_URL = 'https://www.bilibili.com/video/BV1xx411c7mD/'
 
 
@@ -36,11 +37,8 @@ class MediaApiTests(TestCase):
         self.staff_client = Client()
         self.staff_client.force_login(self.staff)
         self.client.force_login(self.user)
-        # 缓存同步在部署中是后台任务；单测里同步执行以便断言排行榜响应。
-        patcher = patch(
-            'media.services.enqueue_media_score_sync',
-            side_effect=lambda media_id, author_id: cache.sync_media_scores(media_id, author_id),
-        )
+        # 缓存同步现在就在请求路径完成；只需固定空表时的 T_db 兜底基准。
+        patcher = patch.object(cache, 'default_hot_reference', return_value=REFERENCE)
         patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -86,6 +84,18 @@ class MediaApiTests(TestCase):
         self.assertEqual(user_rank.status_code, 200, user_rank.content)
         self.assertEqual(user_rank.json()['items'][0]['user_id'], self.user.pk)
         self.assertEqual(user_rank.json()['items'][0]['likes'], 3)
+
+    def test_ranking_and_user_ranking_expose_their_own_reference(self):
+        """作品分页 anchor 是 T_db，作者榜 anchor 是 T_r；两者不要求相等。"""
+        media = self._create_media()
+        services.verify_media(media.pk, self.staff.pk)
+        cache.set_hot_reference(TARGET)
+        ranking = self.client.get('/api/media/ranking?sort=hot')
+        user_rank = self.client.get('/api/media/user-ranking?sort=hot')
+        self.assertEqual(ranking.status_code, 200, ranking.content)
+        self.assertEqual(user_rank.status_code, 200, user_rank.content)
+        self.assertEqual(datetime.fromisoformat(ranking.json()['anchor']), REFERENCE)
+        self.assertEqual(datetime.fromisoformat(user_rank.json()['anchor']), TARGET)
 
     def test_verified_zero_score_work_is_ranked_in_hot_and_likes(self):
         """审核通过但未投喂的 0 分作品必须同时进入热门与精品，避免只在《最新》可见。"""
@@ -368,6 +378,9 @@ class MediaApiCsrfTests(TestCase):
             username='media-csrf-super', password='test-password', email='media-csrf-super@example.com', is_superuser=True,
         )
         self.client = Client(enforce_csrf_checks=True)
+        patcher = patch.object(cache, 'default_hot_reference', return_value=REFERENCE)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def tearDown(self):
         cache.clear_rankings()

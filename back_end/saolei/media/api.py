@@ -44,7 +44,8 @@ def _page_bounds(start, count, maximum=MEDIA_PAGE_MAX_COUNT):
 
 
 def _media_page(items, total, start):
-    return {'items': list(items), 'total': total, 'start': start, 'anchor': cache.get_hot_reference()}
+    """作品页的 anchor 是 DB 的 T_db：作品 zset 只提供排序索引，字段一律以 DB 为准。"""
+    return {'items': list(items), 'total': total, 'start': start, 'anchor': cache.read_db_hot_reference()}
 
 
 def _ranked_media(media_ids):
@@ -93,7 +94,8 @@ def get_user_ranking(request, sort: str = 'hot', start: int = 0, count: int = 20
     """
     - ratelimit(key='ip', rate='5/s', group='media-user-ranking')
 
-    排行榜页《作品》tab：作者聚合榜，只统计已审核作品。
+    排行榜页《作品》tab：作者聚合榜是派生数据，以缓存为准，只统计已审核作品。
+    返回 zset 原值与 Redis 基准 T_r，由前端折算实时热度。
     """
     if sort not in ('hot', 'likes'):
         raise HttpError(400, 'Unknown media ranking sort.')

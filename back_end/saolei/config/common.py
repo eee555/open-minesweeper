@@ -3,11 +3,6 @@ from datetime import timedelta
 
 TASK_CLEANUP_CONFIGS = [
     {
-        # 每次成功投喂 / 审核 / 硬删除 / 投稿都会入队一条，量受每日 10 次投喂上限约束。
-        'task_path': 'media.tasks.task_sync_media_scores',
-        'expires': timedelta(days=1),
-    },
-    {
         'task_path': 'accountlink.saolei.tasks.task_import_saolei_hourly',
         'expires': timedelta(days=7),
     },

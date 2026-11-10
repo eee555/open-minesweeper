@@ -9,7 +9,6 @@ from django_apscheduler.models import DjangoJob, DjangoJobExecution
 
 from accountlink.saolei.services import sync_saolei_metadata_daily
 from accountlink.saolei.tasks import enqueue_saolei_hourly_import
-from media.tasks import enqueue_media_hot_reference
 from monitor.services import publish_monitor_snapshot
 from tournament.cache import TournamentCache
 from userprofile.models import EmailVerifyRecord
@@ -62,14 +61,11 @@ def refresh_tournament_score_reference():
     logger.info('Tournament score annual reference refreshed: changed=%s', changed)
 
 
-@util.close_old_connections
-def refresh_media_hot_reference():
-    enqueue_media_hot_reference()
-
-
 def register_jobs(scheduler):
     # Remove the persisted job before the job store restores its deleted callable.
-    DjangoJob.objects.filter(id__in=['refresh_state_always', 'delete_freezed_video', 'sync_saolei_daily']).delete()
+    DjangoJob.objects.filter(id__in=[
+        'refresh_state_always', 'delete_freezed_video', 'sync_saolei_daily', 'refresh_media_hot_reference',
+    ]).delete()
 
     scheduler.add_job(
         sync_saolei_daily_catalogue,
@@ -106,19 +102,6 @@ def register_jobs(scheduler):
         replace_existing=True,
     )
     logger.info("Added annual job 'refresh_tournament_score_reference'.")
-
-    scheduler.add_job(
-        refresh_media_hot_reference,
-        trigger=CronTrigger(day=1, hour=0, minute=0, second=0, timezone=timezone.utc),
-        id='refresh_media_hot_reference',
-        # 启动时补一次幂等检查，避免跨月停机或错过执行后一直保留旧锚点。
-        next_run_time=django_timezone.now(),
-        misfire_grace_time=None,
-        coalesce=True,
-        max_instances=1,
-        replace_existing=True,
-    )
-    logger.info("Added monthly job 'refresh_media_hot_reference'.")
 
     scheduler.add_job(
         delete_old_job_executions,

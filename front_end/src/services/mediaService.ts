@@ -37,6 +37,8 @@ export interface MediaPage {
     items: MediaItem[];
     total: number;
     start: number;
+
+    /** DB 侧全局热度基准 T_db；作品字段与实时热度均以 DB 为准。 */
     anchor: string;
 }
 
@@ -50,6 +52,8 @@ export interface MediaUserRankPage {
     items: MediaUserRankRow[];
     total: number;
     start: number;
+
+    /** Redis 侧基准 T_r；items.hot 是 zset 原值，前端按此折算实时热度。 */
     anchor: string;
 }
 

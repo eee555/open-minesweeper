@@ -67,19 +67,20 @@ function parse(query: LocationQuery, fallback: typeof defaults): typeof defaults
 }
 const { fields: { sort: sortBy, page, page_size: pageSize } } = useRankingQuery(defaults, parse, ['sort', 'page_size']);
 
-// 榜单 Redis 分数以 anchor 为时间基准，展示时按 0.99/天折算成当前时刻的实时热度。
+// 作者榜是派生数据，以缓存为准：API 返回 zset 原值 hot 与 Redis 基准 T_r，
+// 展示时按 T_r 到当前时刻的 0.99/天衰减折算成实时热度；作品页则使用 DB 的 T_db。
 const MEDIA_HOT_DAILY_RETENTION = 0.99;
 const MS_PER_DAY = 86400000;
 
 const rows = ref<MediaUserRankRow[]>([]);
 const total = ref(0);
-const anchor = ref<string | null>(null);
+const redisAnchor = ref<string | null>(null);
 const observedAt = ref(Date.now());
 const start = computed(() => (page.value - 1) * pageSize.value);
 let requestId = 0;
 
 function realHot(row: MediaUserRankRow): number {
-    const base = anchor.value === null ? observedAt.value : new Date(anchor.value).getTime();
+    const base = redisAnchor.value === null ? observedAt.value : new Date(redisAnchor.value).getTime();
     if (!Number.isFinite(base)) return row.hot;
     return row.hot * MEDIA_HOT_DAILY_RETENTION ** ((observedAt.value - base) / MS_PER_DAY);
 }
@@ -91,13 +92,13 @@ async function load(): Promise<void> {
         if (request !== requestId) return;
         rows.value = result.items;
         total.value = result.total;
-        anchor.value = result.anchor;
+        redisAnchor.value = result.anchor;
         observedAt.value = Date.now();
     } catch (error) {
         if (request !== requestId) return;
         rows.value = [];
         total.value = 0;
-        anchor.value = null;
+        redisAnchor.value = null;
         httpErrorNotification(error);
     }
 }
