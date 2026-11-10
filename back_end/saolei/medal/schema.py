@@ -5,7 +5,7 @@ from ninja import Schema
 from ninja.orm import create_schema
 from pydantic import Field, StrictInt
 
-from .models import MedalDefinition, MedalGrant, MedalOverride, MedalOverrideLog
+from .models import MedalGrant, MedalOverride, MedalOverrideLog
 
 
 class RefreshStatusOut(Schema):
@@ -115,11 +115,20 @@ class EnqueuedOut(Schema):
     enqueued: bool
 
 
-StaffCatalogItemOut = create_schema(
-    MedalDefinition, name='StaffCatalogItemOut',
-    fields=['code', 'series', 'subseries', 'kind', 'metric', 'direction', 'level', 'style', 'thresholds', 'active', 'hidden'],
-    custom_fields=[('thresholds', list[int], ...)],
-)
+class StaffCatalogItemOut(Schema):
+    code: str
+    series: str
+    subseries: str
+    kind: str
+    metric: str
+    direction: str
+    level: str
+    style: str
+    thresholds: list[int]
+    active: bool
+    hidden: bool
+
+
 StaffMedalGrantOut = create_schema(
     MedalGrant, name='StaffMedalGrantOut',
     fields=['id', 'definition_code', 'scope_key', 'stage', 'granted_at', 'revoked_at', 'revoke_reason'],

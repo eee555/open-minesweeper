@@ -74,7 +74,10 @@ class NFIOERankingTests(TestCase):
         self.assertEqual(self.record()['b']['video_id'], faster.id)
         with self.captureOnCommitCallbacks(execute=True):
             faster.delete()
-        self.assertAlmostEqual(self.record()['b']['value'], 2 / 3)
+        first.refresh_from_db()
+        record = self.record()['b']
+        self.assertEqual(record['video_id'], first.id)
+        self.assertEqual(record['value'], first.ioe)
         with self.assertNumQueries(0):
             response = self.client.get('/api/effranking/nf_ioe/rank', {'stat': 'b', 'end': 1})
         self.assertEqual(response.status_code, 200, response.content)

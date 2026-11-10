@@ -3,7 +3,7 @@ import logging
 from django.core.cache import caches
 from redis.exceptions import RedisError
 
-from .utils import CATALOG_CACHE_KEY, CATALOG_CACHE_SECONDS, STATE_CACHE_KEY, STATE_CACHE_SECONDS
+from .utils import STATE_CACHE_KEY, STATE_CACHE_SECONDS
 
 logger = logging.getLogger(__name__)
 
@@ -18,18 +18,6 @@ def _call(method, *args, default=None, **kwargs):
     except (OSError, RedisError):
         logger.warning('Medal display cache %s failed', method, exc_info=True)
         return default
-
-
-def read_catalog():
-    return _call('get', CATALOG_CACHE_KEY)
-
-
-def write_catalog(payload):
-    _call('set', CATALOG_CACHE_KEY, payload, CATALOG_CACHE_SECONDS)
-
-
-def invalidate_catalog():
-    _call('delete', CATALOG_CACHE_KEY)
 
 
 def player_state_key(user_id):
