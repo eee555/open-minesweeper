@@ -34,7 +34,7 @@ function mockVideoFixture(headers: Record<string, string> = {}, filename = fixtu
 }
 
 function dynamicParamCell(label: string, options?: Partial<Cypress.Timeoutable>) {
-    return cy.contains('.custom-counter-wrap th', new RegExp(`^${label}$`), options).parents('tr').find('td');
+    return cy.contains('.custom-counter-wrap th', new RegExp(`^${label}$`), options).next('td');
 }
 
 function waitForLoadedPlayer() {
@@ -68,6 +68,8 @@ describe('<NativePlayer />', () => {
                 colors: ['#15803d', '#0f766e', '#2563eb', '#b45309', '#dc2626', '#7f1d1d'],
                 thresholds: [10, 25, 50, 75, 90],
             },
+            transposeBoard: false,
+            counterPosition: 'left',
         };
     });
 
@@ -183,6 +185,47 @@ describe('<NativePlayer />', () => {
         cy.get('.player-main-settings').should('not.exist');
         cy.get('.custom-counter-wrap').should('be.visible');
         cy.get('.custom-counter-settings').should('be.visible');
+    });
+
+    it('persists the new player settings and reflows the counter for stacked layouts', () => {
+        cy.viewport(1000, 800);
+        mockVideoFixture();
+        cy.mount(NativePlayer, mountOptions(fixture.src));
+        cy.wait('@getVideo');
+        waitForLoadedPlayer();
+
+        cy.get('.native-player__stage').should('have.class', 'native-player__stage--left');
+        cy.get('.custom-counter colgroup col').should('have.length', 2);
+
+        cy.contains('label', 'Main settings').click();
+        cy.get('.player-main-settings__transpose').check();
+        cy.get('.player-main-settings__position-select').select('top');
+        cy.window().its('localStorage').invoke('getItem', 'video-player-config').should((value: string | null) => {
+            const config = JSON.parse(value ?? '{}') as { transposeBoard?: boolean; counterPosition?: string };
+            expect(config.transposeBoard).to.equal(true);
+            expect(config.counterPosition).to.equal('top');
+        });
+        cy.contains('label', 'Main settings').click();
+
+        cy.get('.native-player__stage').should('have.class', 'native-player__stage--top');
+        cy.get('.custom-counter colgroup col').should('have.length', 4);
+        cy.get('.custom-counter tbody tr').first().find('th, td').should('have.length', 4);
+        cy.get('.custom-counter tbody tr').first().find('th').then(($labels) => {
+            expect(Array.from($labels, (element) => element.textContent?.trim())).to.deep.equal(['time', 'ioe']);
+        });
+        dynamicParamCell('mov').should('contain', '@');
+
+        for (const [position, className, columnCount] of [
+            ['bottom', 'native-player__stage--bottom', 4],
+            ['right', 'native-player__stage--right', 2],
+            ['left', 'native-player__stage--left', 2],
+        ] as const) {
+            cy.then(() => {
+                videoPlayerConfig.value = { ...videoPlayerConfig.value, counterPosition: position };
+            });
+            cy.get('.native-player__stage').should('have.class', className);
+            cy.get('.custom-counter colgroup col').should('have.length', columnCount);
+        }
     });
 
     for (const responseFilename of ['original replay.evf', undefined]) {

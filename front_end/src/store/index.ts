@@ -3,6 +3,7 @@ import { defineStore } from 'pinia';
 
 import { pinia } from './create';
 
+import type { PlayerMainConfig } from '@/components/VideoPlayer/types';
 import { fetchProfileSaoleiRecords, profileDataRevision } from '@/services/profileDataService';
 import type { TopAnchors } from '@/services/topRankingService';
 import { setVideoInfoViewer } from '@/services/videoInfoService';
@@ -98,7 +99,7 @@ export const videoplayerstore = defineStore('videoplayer', {
 export { local } from './local';
 export type { LocalSettings } from './local';
 
-export const videoPlayerConfig = useLocalStorage(
+export const videoPlayerConfig = useLocalStorage<PlayerMainConfig>(
     'video-player-config',
     {
         cellSize: 24,
@@ -107,6 +108,8 @@ export const videoPlayerConfig = useLocalStorage(
             colors: ['#15803d', '#0f766e', '#2563eb', '#b45309', '#dc2626', '#7f1d1d'],
             thresholds: [10, 25, 50, 75, 90],
         },
+        transposeBoard: false,
+        counterPosition: 'left',
     },
     { mergeDefaults: true },
 );
