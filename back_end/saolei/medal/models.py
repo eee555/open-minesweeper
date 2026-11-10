@@ -1,37 +1,14 @@
 from django.db import models
 
-from config.text_choices import Medal_TextChoices
 from tournament.models import Tournament, TournamentParticipant
 from userprofile.models import UserProfile
 from videomanager.models import VideoModel
 
 
-class MedalDefinition(models.Model):
-    """一个 code 一行。改档是改这行的阈值或名单，不复制旧定义。"""
-
-    code = models.CharField(max_length=64, primary_key=True)
-    series = models.CharField(max_length=64, choices=Medal_TextChoices.Series)
-    subseries = models.CharField(max_length=64, blank=True, default='')
-    kind = models.CharField(max_length=32, choices=Medal_TextChoices.Kind)
-    metric = models.CharField(max_length=32)
-    direction = models.CharField(max_length=8, choices=Medal_TextChoices.Direction)
-    level = models.CharField(max_length=32, blank=True, default='', choices=Medal_TextChoices.Level)
-    style = models.CharField(max_length=8, blank=True, default='', choices=Medal_TextChoices.Style)
-    thresholds = models.JSONField(default=list)
-    bv_min = models.PositiveIntegerField(null=True, blank=True)
-    scope = models.JSONField(default=dict)
-    hidden = models.BooleanField(default=False)
-    active = models.BooleanField(default=False)
-    depends_on = models.JSONField(default=list)
-    annotation = models.TextField(blank=True, default='')
-
-    class Meta:
-        ordering = ['series', 'subseries', 'code']
-
-
 class PlayerProgress(models.Model):
+    """以静态规则 code 关联进度；规则退役也保留玩家历史。"""
+
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='medal_progress')
-    definition = models.ForeignKey(MedalDefinition, on_delete=models.CASCADE, related_name='progress_rows')
     code = models.CharField(max_length=64)
     current_stage = models.PositiveIntegerField(default=0)
     current_value = models.BigIntegerField(null=True, blank=True)

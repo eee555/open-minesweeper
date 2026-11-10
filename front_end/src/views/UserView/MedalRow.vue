@@ -7,26 +7,23 @@
                 <p>{{ caption.meaning }}</p>
                 <p>{{ t('local.current') }}: {{ earned ? stageLabel(item.stage) : t('local.locked') }}</p>
                 <p>{{ nextStage !== undefined ? `${t('local.next')}: ${stageLabel(nextStage)}` : t('local.maximum') }}</p>
-                <BaseButton @click="preview(displayStage)">
-                    {{ t('local.details') }}
-                </BaseButton>
-                <BaseButton v-if="editing && earned" :disabled="disabled" @click="$emit('pick')">
-                    {{ selected ? t('local.remove') : t('local.add') }}
-                </BaseButton>
+                <div class="summary-actions">
+                    <BaseButton @click="preview(displayStage)">
+                        {{ t('local.details') }}
+                    </BaseButton>
+                    <BaseButton v-if="editing && earned" :disabled="disabled" @click="$emit('pick')">
+                        {{ selected ? t('local.remove') : t('local.add') }}
+                    </BaseButton>
+                    <BaseButton v-if="previewStage !== null" @click="previewStage = null">
+                        {{ t('local.close') }}
+                    </BaseButton>
+                </div>
                 <p v-if="flavor" class="flavor">
                     <em>{{ flavor }}</em>
                 </p>
             </div>
         </div>
         <div class="track-area">
-            <div class="track-controls">
-                <BaseButton v-if="item.thresholds.length > 1" :aria-label="t('local.previous')" @click="scroll(-1)">
-                    ←
-                </BaseButton>
-                <BaseButton v-if="item.thresholds.length > 1" :aria-label="t('local.forward')" @click="scroll(1)">
-                    →
-                </BaseButton>
-            </div>
             <div ref="track" class="stage-track" tabindex="0" :aria-label="caption.title" @keydown.left.prevent="scroll(-1)" @keydown.right.prevent="scroll(1)">
                 <button v-for="(stage, index) in item.thresholds" :key="stage" type="button" class="stage-node" :class="{ current: index === currentIndex, pending: index > currentIndex }" :aria-current="index === currentIndex ? 'step' : undefined" @click="preview(stage)">
                     <MedalArt :series="item.series" :code="item.code" :stage="stage" :size="56" corner-plate />
@@ -58,9 +55,6 @@
                     <em>{{ flavor }}</em>
                 </p>
             </div>
-            <BaseButton @click="previewStage = null">
-                {{ t('local.close') }}
-            </BaseButton>
         </section>
     </article>
 </template>
@@ -130,9 +124,6 @@ const i18nMessages = {
         details: '详情',
         add: '加入佩戴',
         remove: '取消佩戴',
-        browse: '左右浏览全部档位',
-        previous: '浏览前面的档位',
-        forward: '浏览后面的档位',
         preview: '正在预览',
         granted: '获得时间',
         video: '关联录像 ID',
@@ -152,9 +143,6 @@ const i18nMessages = {
         details: 'Details',
         add: 'Add to pins',
         remove: 'Unpin',
-        browse: 'Browse all tiers horizontally',
-        previous: 'Previous tiers',
-        forward: 'Next tiers',
         preview: 'Previewing',
         granted: 'Granted at',
         video: 'Replay ID',
@@ -191,13 +179,18 @@ const { locale } = useI18n({ useScope: 'global' });
     min-width: 0;
     overflow-wrap: anywhere;
 }
+.summary-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
 h3, p {
     margin: 0 0 6px;
 }
 h3 {
     font-size: var(--ui-font-size-base);
 }
-p, .stage-status, .track-controls {
+p, .stage-status {
     font-size: var(--ui-font-size-small);
     color: var(--ui-text-color-regular);
 }
@@ -205,14 +198,6 @@ p, .stage-status, .track-controls {
     flex: 2 1 360px;
     min-width: 0;
     max-width: 100%;
-}
-.track-controls {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 6px;
-    min-height: 32px;
 }
 .stage-track {
     position: relative;
@@ -254,16 +239,12 @@ p, .stage-status, .track-controls {
 .medal-detail {
     display: flex;
     align-items: flex-start;
-    justify-content: space-between;
     flex: 1 1 100%;
     gap: 12px;
     padding: 12px;
     background: var(--ui-fill-color-light);
     overflow-wrap: anywhere;
     min-width: 0;
-}
-.medal-detail > .base-button {
-    flex-shrink: 0;
 }
 .stage-node:focus-visible, .stage-track:focus-visible {
     outline: 2px solid var(--ui-color-primary);

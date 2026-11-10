@@ -72,17 +72,17 @@ describe('Media submission', () => {
     it('requires a verified Bilibili account link', () => {
         cy.intercept('POST', '**/api/media/submit').as('submitWithoutLink');
         cy.login(NO_LINK.username, NO_LINK.password);
-        cy.visit('/#/works/pending');
+        cy.visit('/#/works');
         openSubmitDialog();
         fillAndSubmit();
         cy.wait('@submitWithoutLink').its('response.statusCode').should('eq', 403);
         cy.closeElNotifications();
     });
 
-    it('submits BV1eB4y1F7Ao and lists it as pending', () => {
+    it('submits BV1eB4y1F7Ao without listing it on the works table', () => {
         cy.intercept('POST', '**/api/media/submit').as('submit');
         cy.login(USER.username, USER.password);
-        cy.visit('/#/works/pending');
+        cy.visit('/#/works');
         openSubmitDialog();
         fillAndSubmit();
         cy.wait<unknown, MediaItem>('@submit').then(({ response }) => {
@@ -104,15 +104,14 @@ describe('Media submission', () => {
         cy.contains('.el-notification', '投稿成功').should('be.visible');
         cy.closeElNotifications();
         cy.shouldBeAbsentOrHidden('.el-dialog');
-        cy.get('[data-cy^=media-card-]').should('have.length', 1);
-        cy.get('[data-cy^=media-card-] .media-card-title').should('have.attr', 'href', WORK_URL);
-        cy.get('[data-cy^=media-card-] .media-card-status--pending').first().should('be.visible');
+        // 作品页表格只展示审核通过的作品；待审核作品仅在个人主页可见。
+        cy.get(`.base-table a.link[href="${WORK_URL}"]`).should('not.exist');
     });
 
     it('rejects a duplicate submission of the same video', () => {
         cy.intercept('POST', '**/api/media/submit').as('duplicateSubmit');
         cy.login(USER.username, USER.password);
-        cy.visit('/#/works/pending');
+        cy.visit('/#/works');
         openSubmitDialog();
         fillAndSubmit();
         cy.wait('@duplicateSubmit').its('response.statusCode').should('eq', 409);

@@ -260,13 +260,13 @@ class MedalStateCacheTests(MedalStateFixture, MedalTestCase):
         self.make_video(mode='00', upload_time=self.earlier)
         self.scan()
         self.assertEqual(PlayerProgress.objects.get(user=self.user, code=NOVICE_MODES).extra['modes'], ['00'])
-        second = self.make_video(mode='01', upload_time=self.later)
+        second = self.make_video(mode='05', upload_time=self.later)
         with patch('medal.services._novice_modes_found') as found, patch('medal.services._evaluate_locked') as full_scan:
             with self.captureOnCommitCallbacks(execute=True):
                 refresh_player_medals(self.user.id, video_ids=[second.id])
         full_scan.assert_not_called()
         found.assert_not_called()
-        self.assertEqual(PlayerProgress.objects.get(user=self.user, code=NOVICE_MODES).extra['modes'], ['00', '01'])
+        self.assertEqual(PlayerProgress.objects.get(user=self.user, code=NOVICE_MODES).extra['modes'], ['00', '05'])
         self.assertNotIn(NOVICE_MODES, [row['code'] for row in read_player_state(self.user.id)['grants']])
         self.assertIsNone(self.active(NOVICE_MODES))
 

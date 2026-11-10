@@ -23,7 +23,7 @@ class MedalSummaryTests(tests.MedalShellFixture):
 
     def test_existing_player_is_backfilled_without_scanning_videos(self):
         grant = MedalGrant.objects.create(user=self.user, definition_code=self.definition.code, stage=50000, granted_at=self.granted_at)
-        PlayerProgress.objects.create(user=self.user, definition=self.definition, code=self.definition.code, current_stage=50000, current_value=49000)
+        PlayerProgress.objects.create(user=self.user, code=self.definition.code, current_stage=50000, current_value=49000)
         MedalPins.objects.create(user=self.user, grant_ids=[grant.id])
         MedalScan.objects.create(user=self.user, scanned_at=timezone.now())
         active_definitions()
@@ -77,10 +77,10 @@ class MedalSummaryTests(tests.MedalShellFixture):
         data = PlayerMedalSummary.objects.get(user=self.user).data
         self.definition.hidden = True
         self.definition.annotation = '已解锁说明'
-        self.definition.save(update_fields=['hidden', 'annotation'])
+        self.replace_definition(self.definition)
         self.assertEqual(player_summary(self.user.id)['pins'][0]['annotation'], '已解锁说明')
         self.definition.active = False
-        self.definition.save(update_fields=['active'])
+        self.replace_definition(self.definition)
         result = player_summary(self.user.id)
         self.assertEqual(result['pin_ids'], [])
         self.assertNotIn(self.definition.code, [item['code'] for item in self.items(result)])

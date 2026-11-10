@@ -7,9 +7,10 @@ from accountlink.models import AccountLinkQueue, Platform
 from config.text_choices import Medal_TextChoices, MS_TextChoices
 from userprofile.models import UserProfile
 from videomanager.models import STNB_COEFFICIENTS, VideoModel
-from .cache import invalidate_catalog, read_catalog, read_player_states, write_catalog, write_player_states
-from .models import MedalDefinition, MedalGrant, MedalOverride, MedalOverrideLog, MedalPins, MedalScan, PlayerMedalSummary, PlayerProgress
-from .utils import basic_definitions, BVS_SCALE, MAX_PINS, next_threshold, NOVICE_LEVELS, NOVICE_LEVELS_NF, NOVICE_MODES, NOVICE_REALNAME, NOVICE_REVIEW, NOVICE_SAOLEI, open_modes, reached_asc_stage, reached_desc_stage, scale_units, SHAREHOLDER_CODE, SHAREHOLDER_THRESHOLDS, STANDARD_LEVELS, threshold_index, THRP_SCALE, VIDEO_ONCE_CODES
+from .cache import read_player_states, write_player_states
+from .definitions import all_definitions, get_definition
+from .models import MedalGrant, MedalOverride, MedalOverrideLog, MedalPins, MedalScan, PlayerMedalSummary, PlayerProgress
+from .utils import BVS_SCALE, MAX_PINS, next_threshold, NOVICE_LEVELS, NOVICE_LEVELS_NF, NOVICE_MODES, NOVICE_REALNAME, NOVICE_REVIEW, NOVICE_SAOLEI, open_modes, reached_asc_stage, reached_desc_stage, scale_units, SHAREHOLDER_CODE, STANDARD_LEVELS, threshold_index, THRP_SCALE, VIDEO_ONCE_CODES
 
 
 class MedalError(Exception):
@@ -41,39 +42,8 @@ def definition_payload(definition):
     }
 
 
-def ensure_shareholder_definition():
-    """补上原始股东这一行。已有的阈值和开关保持不动，运营改过的刻度不会被写回。"""
-    definition, _created = MedalDefinition.objects.get_or_create(
-        code=SHAREHOLDER_CODE,
-        defaults={
-            'series': Medal_TextChoices.Series.SHAREHOLDER, 'kind': Medal_TextChoices.Kind.MIN_VIDEO_ID, 'metric': 'video_id', 'direction': Medal_TextChoices.Direction.DESC,
-            'thresholds': list(SHAREHOLDER_THRESHOLDS), 'active': True,
-        },
-    )
-    return definition
-
-
-def ensure_basic_definitions():
-    """补上新手和能力定义，已有定义保持不动。"""
-    specs = basic_definitions()
-    codes = [item['code'] for item in specs]
-    existing = set(MedalDefinition.objects.filter(code__in=codes).values_list('code', flat=True))
-    missing = [item for item in specs if item['code'] not in existing]
-    created = MedalDefinition.objects.bulk_create([MedalDefinition(**item) for item in missing]) if missing else []
-    if created:
-        invalidate_catalog()
-    return created
-
-
 def active_definitions():
-    cached = read_catalog()
-    if cached is not None:
-        return cached
-    ensure_shareholder_definition()
-    ensure_basic_definitions()
-    rows = [definition_payload(item) for item in MedalDefinition.objects.filter(active=True).order_by('series', 'subseries', 'code')]
-    write_catalog(rows)
-    return rows
+    return [definition_payload(item) for item in all_definitions() if item.active]
 
 
 def _public_definition(row, include_annotation):
@@ -122,7 +92,7 @@ class _EvaluationState:
     """一次评估共用已读状态，进度只在最后集中写入有变化的行。"""
 
     def __init__(self, user):
-        self.definitions = {row.code: row for row in MedalDefinition.objects.filter(active=True)}
+        self.definitions = {row.code: row for row in all_definitions() if row.active}
         self.progress = {row.code: row for row in PlayerProgress.objects.filter(user=user)}
         self.all_grants = {(row.definition_code, row.scope_key): row for row in MedalGrant.objects.filter(user=user).select_related('video', 'participant')}
         self.grants = {row.definition_code: row for row in self.all_grants.values() if not row.scope_key}
@@ -139,7 +109,7 @@ class _EvaluationState:
         if new:
             PlayerProgress.objects.bulk_create(new)
         if changed:
-            PlayerProgress.objects.bulk_update(changed, ['definition', 'current_stage', 'current_value', 'extra', 'best_video'])
+            PlayerProgress.objects.bulk_update(changed, ['current_stage', 'current_value', 'extra', 'best_video'])
 
 
 def _save_progress(user, definition, stage_value, current_value, extra, best_video, state=None):
@@ -149,7 +119,7 @@ def _save_progress(user, definition, stage_value, current_value, extra, best_vid
     progress = state.progress.get(definition.code) if state is not None else PlayerProgress.objects.filter(user=user, code=definition.code).first()
     if progress is None:
         progress = PlayerProgress(
-            user=user, definition=definition, code=definition.code, current_stage=stage_value,
+            user=user, code=definition.code, current_stage=stage_value,
             current_value=None if current_value is UNSET else current_value,
             extra=None if extra is UNSET else extra,
             best_video=None if best_video is UNSET else best_video,
@@ -160,7 +130,7 @@ def _save_progress(user, definition, stage_value, current_value, extra, best_vid
             state.progress[definition.code] = progress
             state.changed[definition.code] = progress
         return progress
-    values = {'definition_id': definition.pk, 'current_stage': stage_value, 'current_value': current_value, 'extra': extra}
+    values = {'current_stage': stage_value, 'current_value': current_value, 'extra': extra}
     if best_video is not UNSET:
         values['best_video_id'] = None if best_video is None else best_video.pk
     fields = []
@@ -515,7 +485,7 @@ def replace_pins(user, grant_ids):
 
 
 def grant_manual(actor, code, user_id, reason, granted_at, stage=None, scope_key=''):
-    definition = MedalDefinition.objects.filter(pk=code).first()
+    definition = get_definition(code)
     if definition is None:
         raise MedalError('definition')
     if stage is None and definition.kind == Medal_TextChoices.Kind.MANUAL:
@@ -527,8 +497,6 @@ def grant_manual(actor, code, user_id, reason, granted_at, stage=None, scope_key
 
 def _evaluate_locked(user):
     """调用者已持有玩家锁。跑完才记下 MedalScan，提交后再写 Redis。"""
-    ensure_basic_definitions()
-    ensure_shareholder_definition()
     state = _EvaluationState(user)
     evaluate_min_video_id(user, state)
     evaluate_once(user, state)
@@ -551,7 +519,7 @@ def evaluate_player(user_id):
 
 def evaluate_min_video_id(user, state=None):
     """按该玩家仍在库里的最小录像 id 改写原始股东。不看出审、模式和难度。"""
-    definition = state.definitions.get(SHAREHOLDER_CODE) if state is not None else ensure_shareholder_definition()
+    definition = state.definitions.get(SHAREHOLDER_CODE) if state is not None else get_definition(SHAREHOLDER_CODE)
     if definition is None or not definition.active:
         return None
     video = VideoModel.objects.filter(player_id=user.id).order_by('id').first()
@@ -758,7 +726,7 @@ def _apply_pb(user, definition, stats, progress, grant, state=None, overridden=F
 
 def evaluate_pb(user, state=None, levels=None):
     """全量或失效重算时按难度聚合判定档位，聚合值只用于本次计算，不保存最佳成绩及录像。"""
-    definitions = [row for row in state.definitions_of(Medal_TextChoices.Kind.PB) if row.metric in ('timems', 'bvs', 'stnb', 'thrp') and row.level in STANDARD_LEVELS] if state is not None else list(MedalDefinition.objects.filter(active=True, kind=Medal_TextChoices.Kind.PB, metric__in=['timems', 'bvs', 'stnb', 'thrp'], level__in=STANDARD_LEVELS))
+    definitions = [row for row in state.definitions_of(Medal_TextChoices.Kind.PB) if row.metric in ('timems', 'bvs', 'stnb', 'thrp') and row.level in STANDARD_LEVELS] if state is not None else [row for row in all_definitions() if row.active and row.kind == Medal_TextChoices.Kind.PB and row.metric in ('timems', 'bvs', 'stnb', 'thrp') and row.level in STANDARD_LEVELS]
     if not definitions:
         return
     codes = [item.code for item in definitions]
@@ -776,13 +744,6 @@ def evaluate_pb(user, state=None, levels=None):
             _apply_pb(user, definition, stats, progress.get(definition.code), grants.get(definition.code), state, (definition.code, '') in overrides)
 
 
-def _mode_list(definition):
-    stored = definition.scope.get('modes') if isinstance(definition.scope, dict) else None
-    if isinstance(stored, list) and stored:
-        return [str(item) for item in stored]
-    return open_modes()
-
-
 def _earliest_official(user, **filters):
     return _official_videos(user).filter(**filters).order_by('upload_time', 'id').first()
 
@@ -794,7 +755,7 @@ def _completing_video(videos):
 
 
 def _saolei_platform(definition):
-    if isinstance(definition.scope, dict) and definition.scope.get('platform'):
+    if definition.scope.get('platform'):
         return definition.scope['platform']
     return Platform.SAOLEI
 
@@ -810,8 +771,8 @@ def _novice_levels_found(user, *, nf=False):
     return sorted({str(level) for level in queryset.values_list('level', flat=True).distinct()})
 
 
-def _novice_modes_found(user, definition):
-    modes = _mode_list(definition)
+def _novice_modes_found(user):
+    modes = open_modes()
     found = _official_videos(user).filter(mode__in=modes).values_list('mode', flat=True).distinct()
     return sorted({str(mode) for mode in found})
 
@@ -824,7 +785,7 @@ def _novice_progress_extra(user, definition):
         levels = _novice_levels_found(user, nf=True)
         return {'levels': levels} if levels else None
     if definition.code == NOVICE_MODES:
-        modes = _novice_modes_found(user, definition)
+        modes = _novice_modes_found(user)
         return {'modes': modes} if modes else None
     return None
 
@@ -839,7 +800,7 @@ def _once_satisfied(user, definition):
     if definition.code == NOVICE_LEVELS_NF:
         return _covers(_novice_levels_found(user, nf=True), STANDARD_LEVELS)
     if definition.code == NOVICE_MODES:
-        return _covers(_novice_modes_found(user, definition), _mode_list(definition))
+        return _covers(_novice_modes_found(user), open_modes())
     if definition.code == NOVICE_SAOLEI:
         return AccountLinkQueue.objects.filter(userprofile=user, platform=_saolei_platform(definition), verified=True).exists()
     return False
@@ -853,7 +814,7 @@ def _once_video(user, definition):
     if definition.code == NOVICE_LEVELS_NF:
         return _completing_video([_earliest_official(user, level=level, right_ce=0) for level in STANDARD_LEVELS])
     if definition.code == NOVICE_MODES:
-        return _completing_video([_earliest_official(user, mode=mode) for mode in _mode_list(definition)])
+        return _completing_video([_earliest_official(user, mode=mode) for mode in open_modes()])
     return None
 
 
@@ -869,7 +830,7 @@ def _once_evidence_stands(grant, definition):
         return False
     if definition.code == NOVICE_LEVELS and video.level not in STANDARD_LEVELS:
         return False
-    if definition.code == NOVICE_MODES and video.mode not in _mode_list(definition):
+    if definition.code == NOVICE_MODES and video.mode not in open_modes():
         return False
     return True
 
@@ -903,7 +864,7 @@ def _write_once(user, definition, met, state=None):
 def evaluate_once(user, state=None):
     """实名、过审、全级别、全模式，以及扫雷网已验证。其他平台这一步不发。"""
     codes = [NOVICE_REALNAME, NOVICE_REVIEW, NOVICE_LEVELS, NOVICE_LEVELS_NF, NOVICE_MODES, NOVICE_SAOLEI]
-    definitions = {row.code: row for row in state.definitions_of(Medal_TextChoices.Kind.ONCE)} if state is not None else {item.code: item for item in MedalDefinition.objects.filter(active=True, kind=Medal_TextChoices.Kind.ONCE, code__in=codes)}
+    definitions = {row.code: row for row in state.definitions_of(Medal_TextChoices.Kind.ONCE)} if state is not None else {row.code: row for row in all_definitions() if row.active and row.kind == Medal_TextChoices.Kind.ONCE and row.code in codes}
     for code in codes:
         definition = definitions.get(code)
         if definition is None:
@@ -913,12 +874,12 @@ def evaluate_once(user, state=None):
 
 def evaluate_composite(user, state=None):
     """三阶档位读取自然进度，授予时查找三个难度各自最早达标的证据。"""
-    definitions = [row for row in state.definitions_of(Medal_TextChoices.Kind.COMPOSITE) if row.metric == 'thrp'] if state is not None else list(MedalDefinition.objects.filter(active=True, kind=Medal_TextChoices.Kind.COMPOSITE, metric='thrp'))
+    definitions = [row for row in state.definitions_of(Medal_TextChoices.Kind.COMPOSITE) if row.metric == 'thrp'] if state is not None else [row for row in all_definitions() if row.active and row.kind == Medal_TextChoices.Kind.COMPOSITE and row.metric == 'thrp']
     if not definitions:
         return
     codes = [code for definition in definitions for code in (definition.depends_on or [])]
     progress = state.progress if state is not None else {row.code: row for row in PlayerProgress.objects.filter(user=user, code__in=codes)}
-    dependencies = state.definitions if state is not None else {row.code: row for row in MedalDefinition.objects.filter(active=True, code__in=codes)}
+    dependencies = state.definitions if state is not None else {row.code: row for row in all_definitions() if row.active and row.code in codes}
     memo = {}
     for definition in definitions:
         depended = list(definition.depends_on or [])
@@ -967,7 +928,7 @@ def _history_candidate(user, definition, stage, video, definitions):
         if definition.code == NOVICE_REVIEW:
             return True
         if definition.code == NOVICE_MODES:
-            return video.mode in _mode_list(definition)
+            return video.mode in open_modes()
         return video.level in STANDARD_LEVELS and (definition.code != NOVICE_LEVELS_NF or video.right_ce == 0)
     for code in definition.depends_on or []:
         dependency = definitions.get(code)
@@ -1018,7 +979,7 @@ def _history_videos(user, definition, stage, definitions, memo):
     elif definition.code == NOVICE_REVIEW:
         videos = [_earliest_official(user)]
     elif definition.code == NOVICE_MODES:
-        videos = [_earliest_official(user, mode=mode) for mode in _mode_list(definition)]
+        videos = [_earliest_official(user, mode=mode) for mode in open_modes()]
     else:
         filters = {'right_ce': 0} if definition.code == NOVICE_LEVELS_NF else {}
         videos = [_earliest_official(user, level=level, **filters) for level in STANDARD_LEVELS]
@@ -1186,7 +1147,7 @@ def _refresh_direct_pb(user, state, definitions, videos, forced_levels):
         )
 
 
-def _video_touches_novice(code, video, user_id):
+def _video_touches_novice(code, video, user_id, needed_modes=()):
     if video.player_id != user_id or video.state != MS_TextChoices.State.OFFICIAL:
         return False
     if code == NOVICE_REVIEW:
@@ -1196,12 +1157,8 @@ def _video_touches_novice(code, video, user_id):
     if code == NOVICE_LEVELS_NF:
         return video.level in STANDARD_LEVELS and video.right_ce == 0
     if code == NOVICE_MODES:
-        return video.mode in _mode_list_open()
+        return video.mode in needed_modes
     return False
-
-
-def _mode_list_open():
-    return set(open_modes())
 
 
 def _merge_novice_set(code, extra, videos, user_id, needed_modes):
@@ -1221,7 +1178,7 @@ def _merge_novice_set(code, extra, videos, user_id, needed_modes):
     if code == NOVICE_MODES:
         found = set(_set_from_extra(extra, 'modes'))
         for video in videos:
-            if _video_touches_novice(code, video, user_id):
+            if _video_touches_novice(code, video, user_id, needed_modes):
                 found.add(str(video.mode))
         return 'modes', sorted(found), _covers(found, needed_modes)
     return None, [], False
@@ -1247,7 +1204,8 @@ def _refresh_novice(user, state, videos, invalidate_once):
         if invalidate_once:
             _write_once(user, definition, _once_satisfied(user, definition), state)
             continue
-        if not any(_video_touches_novice(code, video, user.id) for video in videos):
+        needed_modes = open_modes() if code == NOVICE_MODES else ()
+        if not any(_video_touches_novice(code, video, user.id, needed_modes) for video in videos):
             continue
         if code == NOVICE_REVIEW:
             completing = next((video for video in videos if _video_touches_novice(code, video, user.id)), None)
@@ -1263,7 +1221,7 @@ def _refresh_novice(user, state, videos, invalidate_once):
         if set_key not in extra:
             _write_once(user, definition, _once_satisfied(user, definition), state)
             continue
-        key, values, complete = _merge_novice_set(code, extra, videos, user.id, _mode_list(definition))
+        key, values, complete = _merge_novice_set(code, extra, videos, user.id, needed_modes)
         if key is None:
             continue
         if complete:
@@ -1336,7 +1294,7 @@ def set_player_override(actor, user_id, code, scope_key, mode, reason, stage=Non
     user = _lock_summary_user(user_id)
     if user is None:
         raise MedalError('user')
-    definition = MedalDefinition.objects.filter(pk=code).first()
+    definition = get_definition(code)
     identity = {'user': user, 'definition_code': code, 'scope_key': scope_key}
     previous = MedalOverride.objects.filter(**identity).first()
     grant = MedalGrant.objects.filter(**identity).first()

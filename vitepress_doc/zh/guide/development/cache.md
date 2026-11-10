@@ -59,15 +59,15 @@ redis-cli -n 0 DEL io_s_old io_r_old io_s_spds io_r_spds cpus
 
 ## 作品排行
 
-作品页热门、精品与排行榜页《作品》tab 使用五个固定 Redis key（DB `saolei_website`）：`media:rank:hot`、`media:rank:likes` 是作品维度 zset，`media:rank:user:hot`、`media:rank:user:likes` 是作者维度求和 zset，`media:hot:anchor` 保存全站统一热度基准 `T`，格式为 ISO 8601 UTC 时间。四个 zset 没有 TTL，只有 `verified` 作品入榜；`pending` 作品可以投喂但只写数据库，审核通过时按 DB 当前值补齐。审核中 tab 与《最新》tab 直接查库。另有临时锁 key `media:cache:lock`（TTL 300 秒），不纳入固定内存统计。
+作品页实时热度 / 累计投喂排序与排行榜页《作品》tab 使用五个固定 Redis key（DB `saolei_website`）：`media:rank:hot`、`media:rank:likes` 是作品维度 zset，`media:rank:user:hot`、`media:rank:user:likes` 是作者维度求和 zset，`media:hot:anchor` 保存 Redis 侧热度基准 `T_r`（ISO 8601 UTC）。四个 zset 没有 TTL，只有 `verified` 作品入榜；`pending` 作品可以投喂但只写数据库，审核通过时按 DB 当前值补齐。作品页按发表时间排序（原《最新》tab）直接查库；待审核作品不再有作品页入口，仅在个人主页与管理端可见。五个固定 key 已纳入服务器监控快照的固定内存统计清单，**没有临时锁 key**。
 
-**请求路径不写 Redis、不获取也不等待这把锁**：普通 API 的网关超时是 2 秒、uWSGI 请求上限是 10 秒，而锁允许后台任务阻塞等待 60 秒。投喂、审核、硬删除和投稿只在自己的数据库事务内入队 `media.tasks.task_sync_media_scores`（Django 6 Tasks / `django-tasks-db`），任务行与红宝石扣除 / 审核状态一起提交或回滚；即使请求进程在提交后被终止，worker 仍会补齐缓存。不要把这些写入改回 `on_commit` 回调。
+热度采用双基准（`back_end/saolei/media/MEDIA_PLAN.md` 附录 A）：`T_db` 是 `Media.hot_value_updated_at` 的全表统一值，数据库的 `hot_value` 全部以它为基准；`T_r` 存 `media:hot:anchor`，四个 zset 的 hot 分数以它为基准。两者各自内部自洽、不要求相等，相差一个共同因子 `decay(T_db, T_r)`，排序一致。`T_r` 缺失时首次读写按 `T_db` 用 `SET NX` 初始化；`likes` 不衰减。作品分页响应返回 `T_db`，作品字段与实时热度以 DB 为准；作者榜响应返回 `T_r` 与 zset 原值，由前端按 `0.99 ** ((now - T_r) / 1 天)` 折算，两处 anchor 不可混用。
 
-worker 用 `try_sync_media_scores()` **非阻塞**取锁，拿到后在锁内按**任务执行时刻的数据库绝对值**一次 `MULTI/EXEC` 覆盖四个 zset（`ZADD`，作品不存在则 `ZREM`），不再累加增量；同时用 SQL 端乘算把停留在旧时间基准的行折算到当前 anchor。这样硬删除后的迟到任务不会把已删除作品重新入榜，作者分数归零与新投喂之间不存在事务外 `ZREM` 窗口，全量重建也不会被重建期间提交的增量覆盖。拿不到锁就立刻返回并延迟重排同一任务（5/10/20/40/60 秒退避，累计约 315 秒，长于锁 TTL，最多 8 次），既不占请求预算也不会被崩溃进程留下的锁卡住；超过上限必须抛 `MediaCacheSyncError`，让任务变成 FAILED（管理页与监控快照可见、可重启），不能返回 `False` 被记为成功。锁的阻塞等待只允许出现在后台任务与管理命令里；月度刷新与全量重建用 `blocking=True`，60 秒内取不到锁会抛 `MediaCacheLockError` 并写 error 日志，任务变 FAILED，绝不会在没有锁保护的情况下继续执行（更不能显示成功）。非阻塞分支只用于缓存同步任务，仍返回 `None` 供延迟重排。数据库始终是正确的，缓存滞后用 `check_media_rankings` 只读巡检发现、用 `rebuild_media_rankings` 人工恢复。
+**写入在请求路径完成**：投喂（仅 `verified`）、审核通过、投稿与站长硬删除在数据库事务提交后调用 `services.sync_media_scores()`，重查 DB 得到该作者所有 `verified` 作品的绝对分数，由 `cache.set_media_scores()` 用一个显式 `pipeline(transaction=True)` 覆盖四个 zset（作品不存在则 `ZREM`）。请求路径使用 1 秒短超时的 Redis 客户端（`MEDIA_SOCKET_TIMEOUT`，现网缓存连接是 5 秒），不吃掉普通 API 的 2 秒网关预算。Redis 异常只记 `media` error 日志：不回滚已提交的数据库事务、不入队后台任务、不重试补偿，残留漂移由低频管理命令纠正。`MULTI/EXEC` 没有回滚，因此绝不把抛异常当作「未写入」；一律写绝对 `ZADD` 而不是 `ZINCRBY`，迟到、乱序或响应丢失都不会重复累加。没有 `media:cache:lock`、`WATCH`、`ZUNIONSTORE`、模型信号或 `on_commit` 回调。
 
-每行 `hot_value` 以自身 `hot_value_updated_at` 为基准，写入 zset 时按 `0.99 ** ((anchor - base) / 1 天)` 折算到 `T`；`likes` 不衰减。每月 UTC 1 日 00:00 由月度刷新作业入队 Django Task 幂等刷新：Redis 用 `WATCH` + `ZUNIONSTORE` 把两个 hot zset 整体乘以同一系数并写入新 `T`，数据库用 SQL 端乘算把每行按自身基准折算到新 `T`。投稿只读一次基准并在插入后复核，不持锁；若留下旧基准的新行，由后台同步任务在锁内用 SQL 端乘算收敛。月度刷新三步各自持锁，任一步取锁失败即抛错并使任务失败。任务入队前检查同路径的 READY / RUNNING 任务，避免堆积。
+`T` 仍需低频推进以防 `1 / decay(T, now)` 长期指数增长到浮点上溢，但不需要月度作业：APScheduler 的 `refresh_media_hot_reference` 作业、media 的后台同步任务、任务清理配置与任务重启服务均已删除。低频人工执行 [refresh_media_rankings](./management-commands.md#refresh-media-rankings)：`--reference` 在数据库事务内用 `F()` 把全表 `hot_value` 乘 `decay(T_db_old, T_new)` 并写入新 `T_db`，再全量重算四个 zset、与 `T_r` 一起原子发布；`--rebuild-only` 只纠偏；`--check` 只读巡检，按 `decay(T_db, T_r)` 从 DB 派生期望分数，漂移或 `T_r` 缺失以非零退出码告警，可接入外部定时巡检。命令不进部署流程、不持锁、不阻塞请求写；执行期间正式 key 上的增量可能被 `rename` 覆盖而短暂漂移，数据库始终正确，重跑即可收敛。
 
-驳回只发生在 `pending`，从未入榜，不需要回退。全量重建用 [rebuild_media_rankings](./management-commands.md#rebuild-media-rankings)，临时 key + `rename` 原子发布，只读取 `verified` 行；整段快照与发布都持有缓存锁，锁过期会报错并保留旧榜。五个固定 key 已纳入服务器监控快照的固定内存统计清单。
+驳回只发生在 `pending`，从未入榜，不需要回退。全量重建只读取 `verified` 行，写入 `media:rebuild:*` 临时 key 后在一次 `MULTI/EXEC` 里 `rename` 四个正式 zset 并发布 `T_r`；失败时旧榜保留并抛 `CommandError`，提示 `T_db` 已是权威值、重跑命令。缓存滞后时人工执行 `--rebuild-only` 恢复。
 
 ## 服务器监控快照
 
@@ -711,9 +711,9 @@ participant 删除时，`revoke_rank_score_on_participant_delete` 在删除事�
 
 ## 勋章图鉴
 
-`medal/cache.py` 把已启用的成就定义放在 Django `default` 缓存，逻辑 key 为 `medal:catalog:v3`，TTL 300 秒。内容是定义字典，不含玩家是否解锁。先检查缓存，命中时不再查询默认定义是否缺失；未命中才补齐并装回图鉴。定义保存或删除时删掉这个 key。
+勋章规则由 `medal/definitions.py` 与代码中的静态阈值提供，不保存数据库配置，也不使用 Redis 目录缓存。目录按 code 查询与排序均在进程内完成；用户相关的可见性仍读取授予记录。
 
-玩家摘要持久化到MySQL的`medal_playermedalsummary`，每名玩家一行，以玩家ID为主键。JSON只含有效授予的公开事实、进度数值、佩戴顺序和首次扫描状态；定义、隐藏条件和计分读取当前共享图鉴。图鉴缓存命中、摘要已建立时，`player_summary()`通过连接玩家表和摘要表的1次查询返回结果。此计数不包含认证、会话、Redis访问和中间件。
+玩家摘要持久化到MySQL的`medal_playermedalsummary`，每名玩家一行，以玩家ID为主键。JSON只含有效授予的公开事实、进度数值、佩戴顺序和首次扫描状态；定义、隐藏条件和计分读取当前静态规则。摘要已建立时，`player_summary()`通过连接玩家表和摘要表的1次查询返回结果。此计数不包含认证、会话、Redis访问和中间件。
 
 后台评估、单项授予、人工决定和佩戴服务在同一玩家锁、同一数据库事务中更新业务记录和摘要；内容相同时不改写摘要。首次读取旧玩家时从现有勋章表补齐，不扫描录像。录像或比赛参加记录删除前，在同一玩家锁和删除事务内移除关联摘要。事务提交后再删掉该玩家的 `medal:display:v4:{user_id}`；删除回滚时摘要和键都还在。下次读取从完成外键置空的记录补齐摘要。维护原始勋章表的脚本必须使用服务入口，或在相同玩家锁和事务中删除受影响摘要；现有管理员重算入口也会同步重建摘要。
 
@@ -765,8 +765,8 @@ Redis 连接和读写异常记录日志，计算及数据库摘要不回滚，�
 | NORMAL 参赛关系 | `TournamentCache.update_participant` / `remove_participant` | `manage.py rebuild_tournament_cache` 按 `user_id` 分组重建。 |
 | 比赛积分排行 | `TournamentCache.update_tournament_user` / `update_tournament_users`；APScheduler 年度锚点更新 | `manage.py rebuild_tournament_user_cache` 重建全部 7 个 zset；`manage.py rebuild_tournament_current_score_cache` 原子重算当前积分 zset 和年度锚点。 |
 | common 摘要 | 对应 API 内部 `cache.set` | TTL 到期自动失效。 |
-| 勋章图鉴 | `medal.signals.invalidate_medal_catalog` | 定义保存或删除后删除 `medal:catalog:v3`。没有单独的重建命令，下次读取从 `MedalDefinition` 装回。 |
-| 勋章状态 | 佩戴列表、佩戴中的公开授予或扫描状态改变后，提交时读取最新摘要写 `medal:display:v4:{user_id}` | 缺键按需批量回填展示，不扫描录像；摘要删除提交后删键。`manage.py enqueue_medal_backfill` 只给未扫描玩家入队首次评估。 |
+| 勋章图鉴 | 静态代码规则 | 无目录缓存、数据库定义表或初始化写入；规则随代码发布。 |
+| 勋章状态 | 佩戴列表、佩戴中的公开授予或扫描状态改变后，提交时读取最新摘要写 `medal:display:v4:{user_id}` | 缺键按需批量回填展示，不扫描录像；摘要删除提交后删键。`manage.py enqueue_medal_backfill` 默认给未扫描玩家入队，使用 `--all` 时也包括已扫描玩家。 |
 | 文章目录 | `article.views.update_list` | 管理员手动调用 `update_list` 全量刷新。 |
 
 ## 读取约定

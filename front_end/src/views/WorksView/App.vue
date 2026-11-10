@@ -1,65 +1,43 @@
 <template>
-    <div class="works-tabs-wrapper">
-        <ElTabs :model-value="activeTab" class="works-tabs" @tab-click="handleTabClick">
-            <ElTabPane :label="t('media.hot')" name="hot" />
-            <ElTabPane :label="t('media.likes')" name="likes" />
-            <ElTabPane :label="t('media.latest')" name="latest" />
-            <ElTabPane :label="t('media.pending')" name="pending" />
-        </ElTabs>
-        <div class="works-tabs-actions">
+    <section class="works-page">
+        <div class="media-toolbar works-actions">
+            <span v-if="loading" class="text-secondary text-small">{{ t('local.loading') }}</span>
             <BaseButton size="small" type="primary" data-cy="open-submit" @click="dialogOpen = true">
                 {{ t('local.submit') }}
             </BaseButton>
             <BaseButton
                 size="small" class="square-button" :title="t('local.refresh')"
-                :aria-label="t('local.refresh')" data-cy="refresh-works" @click="refreshCurrentTab"
+                :aria-label="t('local.refresh')" data-cy="refresh-works" @click="refreshWorks"
             >
                 <template #icon>
                     <BaseIconRefresh />
                 </template>
             </BaseButton>
         </div>
-    </div>
-    <router-view v-slot="{ Component }">
-        <keep-alive>
-            <component :is="Component" ref="activeView" />
-        </keep-alive>
-    </router-view>
-    <SubmitMediaDialog v-if="dialogOpen" @close="dialogOpen = false" @submitted="onSubmitted" />
+        <MediaListPanel ref="worksTable" @loading="loading = $event" />
+        <SubmitMediaDialog v-if="dialogOpen" @close="dialogOpen = false" @submitted="onSubmitted" />
+    </section>
 </template>
 
 <script setup lang="ts">
-import '@/styles/vendors/element-plus-tabs.less';
-import type { TabsPaneContext } from 'element-plus';
-import { ElNotification, ElTabPane, ElTabs } from 'element-plus';
-import { computed, ref, useTemplateRef } from 'vue';
+import { ElNotification } from 'element-plus';
+import { ref, useTemplateRef } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useRoute, useRouter } from 'vue-router';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import { BaseIconRefresh } from '@/components/common/icon';
+import MediaListPanel from '@/components/media/MediaListPanel.vue';
 import SubmitMediaDialog from '@/components/media/SubmitMediaDialog.vue';
 import type { MediaItem } from '@/services/mediaService';
 
-const route = useRoute();
-const router = useRouter();
+import '@/components/media/media.css';
 
-const activeTab = computed(() => {
-    if (route.name === 'works-likes') return 'likes';
-    if (route.name === 'works-latest') return 'latest';
-    if (route.name === 'works-pending') return 'pending';
-    return 'hot';
-});
-
-const activeView = useTemplateRef<{ refresh?: () => void }>('activeView');
+const worksTable = useTemplateRef<{ refresh?: () => void }>('worksTable');
 const dialogOpen = ref(false);
+const loading = ref(false);
 
-function handleTabClick(tab: TabsPaneContext) {
-    if (tab.paneName !== undefined) void router.replace({ name: `works-${String(tab.paneName)}` });
-}
-
-function refreshCurrentTab(): void {
-    activeView.value?.refresh?.();
+function refreshWorks(): void {
+    worksTable.value?.refresh?.();
 }
 
 function onSubmitted(media: MediaItem): void {
@@ -69,23 +47,24 @@ function onSubmitted(media: MediaItem): void {
         message: media.metadata_pending ? t('local.degradedHint') : t('local.normalHint'),
         type: 'success',
     });
-    if (media.metadata_pending) void router.replace({ name: 'works-pending' });
-    refreshCurrentTab();
+    refreshWorks();
 }
 
 const i18nMessages = {
     'zh-cn': { local: {
         submit: '投稿',
         refresh: '刷新',
+        loading: '加载中',
         submitDone: '投稿成功',
-        normalHint: '作品已进入审核队列',
+        normalHint: '作品已进入审核队列，可在个人主页查看',
         degradedHint: '投稿已保留，标题由管理员审核时补全并核验外站账号',
     } },
     en: { local: {
         submit: 'Submit',
         refresh: 'Refresh',
+        loading: 'Loading',
         submitDone: 'Submitted',
-        normalHint: 'Your work is now in the review queue',
+        normalHint: 'Your work is in the review queue; find it on your profile',
         degradedHint: 'Submission kept; a moderator will fill in the title and verify the external account',
     } },
 };
@@ -93,24 +72,7 @@ const { t } = useI18n({ messages: i18nMessages });
 </script>
 
 <style scoped lang="css">
-.works-tabs-wrapper {
-    min-width: 0;
-    position: relative;
-}
-
-/* 给 header 右侧的投稿与刷新按钮留出空间，避免与 tab 项重叠。 */
-.works-tabs :deep(.el-tabs__header) {
-    padding-inline-end: 160px;
-}
-
-.works-tabs-actions {
-    align-items: center;
-    display: flex;
-    gap: 4px;
-    height: 40px;
-    position: absolute;
-    right: 8px;
-    top: 0;
-    z-index: 1;
+.works-actions {
+    justify-content: flex-end;
 }
 </style>

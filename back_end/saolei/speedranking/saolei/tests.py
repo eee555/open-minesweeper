@@ -132,8 +132,8 @@ class SpeedRankingTests(TestCase):
 
     def test_personal_best_keeps_upload_precision_when_redis_scores_tie(self):
         minute = timezone.now().replace(second=0, microsecond=0)
-        first = self.create_video(timems=100000)
-        second = self.create_video(timems=100000)
+        first = self.create_video(timems=1000)
+        second = self.create_video(timems=1000)
         self.save_video(first, upload_time=minute + timedelta(seconds=50))
         for fields, expected in (
             ({'upload_time': minute + timedelta(seconds=55)}, first),
@@ -147,7 +147,7 @@ class SpeedRankingTests(TestCase):
             self.assertEqual(best_candidate(self.user.id, 'saolei', 'bb')['id'], expected.id)
             call_command('rebuild_speed_ranks', stdout=StringIO())
             self.assertEqual(self.record()['bb_id'], expected.id)
-            self.assertEqual(cache.zscore(SpeedRankingCache('saolei').rank_key('bb'), self.user.id), encode_zset_score('bb', 0.04, upload_microseconds(minute)))
+            self.assertEqual(cache.zscore(SpeedRankingCache('saolei').rank_key('bb'), self.user.id), encode_zset_score('bb', 4, upload_microseconds(minute)))
 
     def test_over_limit_records_stay_in_hash_and_totals_rank_independently(self):
         video = self.create_video()

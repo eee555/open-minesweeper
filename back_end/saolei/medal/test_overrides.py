@@ -12,16 +12,18 @@ from config.text_choices import Medal_TextChoices, MS_TextChoices
 from userprofile.models import UserProfile
 from videomanager.models import VideoModel
 from . import services, tests
-from .models import MedalDefinition, MedalGrant, MedalOverride, MedalOverrideLog, PlayerProgress
-from .services import ensure_basic_definitions, evaluate_player, grant_manual, MedalError, player_summary, revoke_manual, set_player_override, write_stage
+from .models import MedalGrant, MedalOverride, MedalOverrideLog, PlayerProgress
+from .services import evaluate_player, grant_manual, MedalError, player_summary, revoke_manual, set_player_override, write_stage
+from .testing import DefinitionFixture
 from .utils import NOVICE_REALNAME
 
 
-class OverrideFixture:
+class OverrideFixture(DefinitionFixture):
     make_video = tests.BasicMedalTests.make_video
     delete_video = tests.MedalTestCase.delete_video
 
     def setUp(self):
+        self.install_definitions()
         super().setUp()
         self.user = UserProfile.objects.create_user(username='override_player', email='override-player@example.com', password='password')
         self.actor = UserProfile.objects.create_user(username='override_staff', email='override-staff@example.com', password='password', is_staff=True)
@@ -29,7 +31,6 @@ class OverrideFixture:
         self.earlier = timezone.now() - timedelta(days=4)
         self.middle = timezone.now() - timedelta(days=2)
         self.later = timezone.now() - timedelta(days=1)
-        ensure_basic_definitions()
 
     def decide(self, code='ability.time.b', mode='grant', stage=15000, scope_key=''):
         return set_player_override(self.actor, self.user.id, code, scope_key, mode, '管理员复核', stage=stage, granted_at=self.later)
@@ -136,13 +137,13 @@ class MedalOverrideTests(OverrideFixture, tests.MedalTestCase):
 
     def test_override_keeps_removed_threshold_and_allows_deleted_definition_auto(self):
         self.decide(stage=15000)
-        definition = MedalDefinition.objects.get(pk='ability.time.b')
+        definition = self.get_definition(pk='ability.time.b')
         definition.thresholds = [10000]
-        definition.save(update_fields=['thresholds'])
+        self.replace_definition(definition)
         self.make_video(timems=500)
         evaluate_player(self.user.id)
         self.assertEqual(self.grant().stage, 15000)
-        definition.delete()
+        self.remove_definition(definition)
         self.decide(mode='auto', stage=None)
         self.assertFalse(MedalOverride.objects.filter(user=self.user).exists())
         self.assertIsNotNone(self.grant().revoked_at)
@@ -160,7 +161,7 @@ class MedalOverrideTests(OverrideFixture, tests.MedalTestCase):
         self.assertFalse(MedalOverrideLog.objects.filter(user=self.user).exists())
 
     def test_legacy_entry_points_use_persistent_override_without_fake_progress(self):
-        manual = MedalDefinition.objects.create(code='manual.override', series='纪念', kind=Medal_TextChoices.Kind.MANUAL, metric='manual', direction=Medal_TextChoices.Direction.ASC, thresholds=[], active=True)
+        manual = self.add_definition(code='manual.override', series='纪念', kind=Medal_TextChoices.Kind.MANUAL, metric='manual', direction=Medal_TextChoices.Direction.ASC, thresholds=[], active=True)
         granted = grant_manual(self.actor, manual.code, self.user.id, '兼容授予', self.earlier)
         self.assertEqual(granted.stage, 1)
         self.assertFalse(PlayerProgress.objects.filter(user=self.user, code=manual.code).exists())
@@ -191,9 +192,9 @@ class MedalOverrideTests(OverrideFixture, tests.MedalTestCase):
         self.assertFalse(MedalOverrideLog.objects.filter(user=self.user).exists())
 
     def test_only_manual_medals_allow_stage_one_with_empty_thresholds(self):
-        definition = MedalDefinition.objects.get(pk='ability.time.b')
+        definition = self.get_definition(pk='ability.time.b')
         definition.thresholds = []
-        definition.save(update_fields=['thresholds'])
+        self.replace_definition(definition)
         with self.assertRaises(MedalError) as raised:
             self.decide(stage=1)
         self.assertEqual(raised.exception.code, 'stage')

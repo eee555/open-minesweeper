@@ -7,8 +7,9 @@ from django.utils import timezone
 
 from config.text_choices import Medal_TextChoices
 from userprofile.models import UserProfile
-from .models import MedalDefinition, MedalGrant
-from .services import ensure_basic_definitions, evaluate_player
+from .models import MedalGrant
+from .services import evaluate_player
+from .testing import DefinitionFixture
 from .utils import NOVICE_REALNAME
 
 
@@ -17,15 +18,16 @@ from .utils import NOVICE_REALNAME
     SESSION_ENGINE='django.contrib.sessions.backends.db',
     CACHES={'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache', 'LOCATION': 'medal-staff-api-tests'}},
 )
-class MedalStaffApiTests(TestCase):
+class MedalStaffApiTests(DefinitionFixture, TestCase):
     def setUp(self):
+        self.install_definitions()
         self.user = UserProfile.objects.create_user(username='medal_staff_target', email='medal-staff-target@example.com')
         self.staff = UserProfile.objects.create_user(username='medal_operator', email='medal-operator@example.com', is_staff=True)
-        self.definition = MedalDefinition.objects.create(
+        self.definition = self.add_definition(
             code='ability.staff.time.b', series='能力', kind=Medal_TextChoices.Kind.PB, metric='timems',
             direction=Medal_TextChoices.Direction.DESC, level='b', thresholds=[60000, 50000], active=True,
         )
-        self.manual = MedalDefinition.objects.create(
+        self.manual = self.add_definition(
             code='manual.staff', series='纪念', kind=Medal_TextChoices.Kind.MANUAL, metric='manual',
             direction=Medal_TextChoices.Direction.ASC, thresholds=[1, 2], active=True,
         )
@@ -57,11 +59,11 @@ class MedalStaffApiTests(TestCase):
         self.assertFalse(MedalGrant.objects.exists())
 
     def test_staff_catalog_includes_hidden_and_inactive_definitions(self):
-        hidden = MedalDefinition.objects.create(
+        hidden = self.add_definition(
             code='manual.staff.hidden', series='隐藏', kind=Medal_TextChoices.Kind.MANUAL, metric='manual',
             direction=Medal_TextChoices.Direction.ASC, thresholds=[1], active=True, hidden=True,
         )
-        inactive = MedalDefinition.objects.create(
+        inactive = self.add_definition(
             code='manual.staff.disabled', series='纪念', kind=Medal_TextChoices.Kind.MANUAL, metric='manual',
             direction=Medal_TextChoices.Direction.ASC, thresholds=[1], active=False,
         )
@@ -97,7 +99,7 @@ class MedalStaffApiTests(TestCase):
 
     def test_inactive_definition_cannot_be_granted(self):
         self.definition.active = False
-        self.definition.save(update_fields=['active'])
+        self.replace_definition(self.definition)
         response = self.override()
         self.assertEqual(response.status_code, 400, response.content)
         self.assertFalse(MedalGrant.objects.filter(user=self.user).exists())
@@ -143,7 +145,6 @@ class MedalStaffApiTests(TestCase):
         self.assertIn(grant.id, [row['id'] for row in summary['grants']])
 
     def test_revoke_before_any_grant_prevents_later_automatic_award(self):
-        ensure_basic_definitions()
         response = self.override(code=NOVICE_REALNAME, mode='revoke', stage=None)
         self.assertEqual(response.status_code, 200, response.content)
         self.assertIsNone(response.json()['grant_id'])
@@ -186,7 +187,6 @@ class MedalStaffApiTests(TestCase):
         self.assertEqual(len(summary['history']), 1)
 
     def test_auto_without_override_does_not_revoke_natural_award(self):
-        ensure_basic_definitions()
         UserProfile.objects.filter(pk=self.user.pk).update(_realname='测试姓名')
         evaluate_player(self.user.id)
         grant = MedalGrant.objects.get(user=self.user, definition_code=NOVICE_REALNAME, revoked_at__isnull=True)
@@ -203,7 +203,7 @@ class MedalStaffApiTests(TestCase):
         response = self.override()
         self.assertEqual(response.status_code, 200, response.content)
         code = self.definition.code
-        self.definition.delete()
+        self.remove_definition(self.definition)
         with patch('medal.api.enqueue_player_refresh') as enqueue, self.captureOnCommitCallbacks(execute=True):
             response = self.override(code=code, mode='auto', stage=None)
         self.assertEqual(response.status_code, 200, response.content)
@@ -237,7 +237,7 @@ class MedalStaffApiTests(TestCase):
     def test_legacy_grant_supports_all_active_kinds(self):
         for kind in Medal_TextChoices.Kind.values:
             with self.subTest(kind=kind):
-                definition = MedalDefinition.objects.create(
+                definition = self.add_definition(
                     code=f'staff.kind.{kind}', series='测试', kind=kind, metric='test',
                     direction=Medal_TextChoices.Direction.ASC, thresholds=[1, 2], active=True,
                 )
@@ -257,7 +257,6 @@ class MedalStaffApiTests(TestCase):
         self.assertIn(self.post_json('staff/grants', payload).status_code, (400, 422))
 
     def test_legacy_revoke_is_persistent_and_audited(self):
-        ensure_basic_definitions()
         UserProfile.objects.filter(pk=self.user.pk).update(_realname='测试姓名')
         evaluate_player(self.user.id)
         grant = MedalGrant.objects.get(user=self.user, definition_code=NOVICE_REALNAME, revoked_at__isnull=True)
