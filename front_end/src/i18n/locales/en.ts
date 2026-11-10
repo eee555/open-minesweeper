@@ -22,10 +22,6 @@ export default {
     },
     media: {
         title: 'Works',
-        hot: 'Hot',
-        likes: 'Most liked',
-        latest: 'Latest',
-        pending: 'Pending',
         status: 'Status',
         pendingStatus: 'Pending review',
         verifiedStatus: 'Verified',

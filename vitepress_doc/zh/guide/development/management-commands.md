@@ -54,40 +54,31 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 
 ## 作品排行
 
-### `rebuild_media_rankings`
+### `refresh_media_rankings`
 
-位置：`media/management/commands/rebuild_media_rankings.py`。从数据库全量重建四个作品排行 zset 与 `media:hot:anchor`，只取 `status='verified'` 的作品行，`pending` 与 `rejected` 一律排除。用于部署、Redis 故障恢复和单测；请求时不懒重建。
-
-```bash
-python manage.py rebuild_media_rankings
-python manage.py rebuild_media_rankings --batch-size 500
-python manage.py rebuild_media_rankings --clear
-```
-
-写入先落在 `media:rebuild:<uuid>:*` 临时 key，按 `--batch-size`（默认 1000，必须为正）分批提交，最后用 `rename` 原子发布四个 zset 并写入锚点；中途失败删除临时 key，旧榜保持不变。空表时删除旧的四个 zset。命令结束前调用一次幂等的月度基准刷新，使停机跨月后数据库折算与 Redis 缩放保持一致。
-
-整段数据库快照与发布都持有 `media:cache:lock`：期间提交的投喂、审核和硬删除，其后台同步任务必须等锁释放后才按数据库绝对值重算，因此不会出现「正式榜先被更新、随后被旧快照覆盖」。发布前会检查锁是否仍归本进程所有，锁过期则报错并保留旧榜；命令启动时 60 秒内取不到锁也会抛 `MediaCacheLockError` 直接退出，不会在未持锁时重建。请在低峰期执行，并暂停相关写操作；`--clear` 只删除五个固定 key 与缓存锁，不重建，同样应暂停写操作。重建期间同步任务不会阻塞等待，而是按退避延迟重排；若锁一直不释放超过重试上限，任务会变成 FAILED，数据库不受影响但缓存会暂时滞后，按「失败检测」一节处理。
-
-每月 UTC 1 日 00:00 的 `refresh_media_hot_reference` 作业只入队 Django Task，不在此命令中直接执行；启动时也会补一次幂等检查。作业失败可重跑，不会重复缩放；若 60 秒内取不到 `media:cache:lock`，任务抛 `MediaCacheLockError` 并变成 FAILED，不会在没有锁保护的情况下继续刷新，可按「失败检测」一节重启。每次成功投喂、审核、硬删除或投稿还会在业务事务内入队 `media.tasks.task_sync_media_scores`，由同一个 `db_worker_robust` 消费；这些成功的任务记录按 `config/common.py` 的配置保留 1 天后清理。请求路径不等待这把锁，因此普通 API 的 2 秒网关超时不会被缓存换算拖过。
-
-### `check_media_rankings`
-
-位置：`media/management/commands/check_media_rankings.py`。**只读**核对四个作品排行 zset 与数据库是否一致，用于部署自检与定时巡检，不修改任何数据。
+位置：`media/management/commands/refresh_media_rankings.py`。低频人工命令，用于推进热度基准、从数据库全量重建四个作品排行 zset，以及只读巡检；**不加入部署流程，也不加入 `start.sh` / `stop.sh`**。原 `rebuild_media_rankings` 与 `check_media_rankings` 已合并进此命令，APScheduler 的月度 `refresh_media_hot_reference` 作业与 media 后台同步任务均已删除。
 
 ```bash
-python manage.py check_media_rankings
-python manage.py check_media_rankings --max-examples 20
+python manage.py refresh_media_rankings --check
+python manage.py refresh_media_rankings --check --max-examples 20
+python manage.py refresh_media_rankings --rebuild-only
+python manage.py refresh_media_rankings --reference 2026-12-01T00:00:00+00:00
+python manage.py refresh_media_rankings --batch-size 500
 ```
 
-按 `media:hot:anchor` 把每个 `verified` 作品的 `hot_value` 折算成期望分数，并累加出作者维度分数，再与四个 zset 逐一比较（相对/绝对容差 `1e-6`）。一致时输出 `matches the database` 并正常退出；发现多余成员、缺失成员、分数不符或 anchor 缺失时抛 `CommandError`，以非零退出码报出漂移样例和修复建议，便于外部巡检按退出码告警。同时输出 `failed_sync_tasks`（失败的缓存同步任务数）与 `pending_sync_tasks`（积压数）作为诊断信息；历史失败任务可能已被后续同步修复，所以只有分数漂移才判定失败。
+`--check` 只读：按 `decay(T_db, T_r)` 把每个 `verified` 作品的 `hot_value` 折算成期望分数并累加出作者维度分数，与四个 zset 逐一比较（相对/绝对容差 `1e-6`）。一致时输出 `matches the database` 并正常退出；发现多余成员、缺失成员、分数不符或 `T_r` 缺失时抛 `CommandError`，以非零退出码报出漂移样例和修复建议，便于外部巡检按退出码告警。数据库始终是权威值；巡检不再输出 FAILED / 积压同步任务数（media 没有后台任务），也不需要避开月度刷新窗口。
 
-竞态导致缓存滞后时数据库仍然正确，人工执行 `rebuild_media_rankings` 即可恢复；也可以在管理页的任务列表把 FAILED 的 `media.tasks.task_sync_media_scores` 一键重启（重跑会从 `attempt=0` 开始，不会立刻再次失败）。若把本命令接入外部定时巡检，请避开每月 UTC 1 日 00:10 的月度基准刷新窗口，以免把刷新中间态误判为漂移。
+`--rebuild-only` 不推进 `T`，只按当前 `T_r` 从数据库全量重建四个 zset，用于修复竞态或 Redis 故障造成的漂移；空库时删除旧的四个 zset。不带 `--check` 且不带 `--rebuild-only` 时，`--reference`（默认当前时刻，ISO 8601 UTC，不得早于当前 `T_db`）先在数据库事务内用 `F()` 把全表 `hot_value` 乘 `decay(T_db_old, T_new)` 并写入新 `T_db`，再全量重建并发布 `T_r`。对同一 `--reference` 重跑不会重复缩放数据库。`--batch-size`（默认 1000，必须为正）与 `--max-examples`（默认 10，必须为正）分别控制重建批量与巡检样例数。
+
+全量重建只取 `status='verified'`，写入 `media:rebuild:<uuid>:*` 临时 key，最后在**一个 `MULTI/EXEC`** 里 `rename` 四个正式 zset 并 `SET media:hot:anchor`；失败时删除临时 key、旧榜保留。命令**不持锁、不阻塞请求写**：执行期间正式 key 上的增量可能被 `rename` 覆盖而短暂漂移，已确认接受；数据库始终正确，重跑或下一次请求路径写入即可收敛。Redis 发布失败时命令抛 `CommandError`，提示 `T_db` 已是权威值、重跑命令即可，不阻断服务。
+
+热度基准 `T` 仍需推进，理由是防止 `1 / decay(T, now)` 长期指数增长到浮点上溢；double 下至少以年为单位即可，因此按年人工执行一次 `--reference` 即可。`T_r` 在首次调用 `get_hot_reference()`（作者榜读取或请求路径缓存同步）时以 `T_db` 用 `SET NX` 初始化，空库时四个 zset 为空即正确，部署流程不需要全量重建。
 
 ### 失败检测
 
-后台同步任务拿不到缓存锁时会按 5/10/20/40/60 秒退避重排，最多 8 次；重试耗尽会抛 `MediaCacheSyncError` 并写 error 日志，任务状态变为 FAILED。月度刷新与全量重建是阻塞取锁：60 秒内拿不到锁会抛 `MediaCacheLockError` 并写 error 日志，任务同样变 FAILED，绝不会在未持锁时继续跑完并被记为成功。FAILED 任务会自动出现在服务器监控快照的任务状态统计中，也能在管理页按状态筛出并重启（月度任务无参数，走通用重入队）。不要把这些任务改成「返回 False 视为成功」——那样框架会记为成功，失败就不可见了。
+数据库是事实来源，Redis 是排序索引。请求路径的缓存同步异常只在 `logs/media.log` 留 `media` error 日志，不回滚数据库、不产生 FAILED 任务，也没有任务重启或积压统计。检测手段是 `refresh_media_rankings --check`：以非零退出码暴露四个 zset 与数据库的漂移（含 `T_r` 缺失），建议接入外部定时巡检告警；修复手段是 `--rebuild-only`（只纠偏）或带 `--reference` 的低频基准推进。
 
-审核通过的作品出现在《最新》却没有出现在热门 / 精品时，先确认 `db_worker_robust` 正在消费 `media.tasks.task_sync_media_scores`（管理页任务详情查看 READY / FAILED），再运行 `check_media_rankings`：报 `missing member` 说明四个 zset 尚未同步，可重启 FAILED 任务或执行 `rebuild_media_rankings`。这两个 tab 读 Redis zset，而《最新》直接查数据库；`likes` / `hot_value` 为 0 的作品仍会入榜，但按分数排在末尾，作品数超过一页时需要翻页。切换 tab 会重新拉列表，也可用 tab 栏右端的刷新按钮手动重拉。
+审核通过的作品出现在发表时间排序却没出现在实时热度 / 累计投喂时，先运行 `--check`；报 `missing member` 说明四个 zset 尚未同步，执行 `--rebuild-only` 即可。表格的实时热度 / 累计投喂排序读 Redis zset，发表时间排序直接查数据库；`likes` / `hot_value` 为 0 的作品仍会入榜但排在末尾，作品数超过一页时需要翻页。点击表头会重新拉列表，也可用表格上方的刷新按钮手动重拉。
 
 ## 勋章补发
 
@@ -540,7 +531,7 @@ python manage.py runapscheduler
 | APScheduler | `START_APSCHEDULER`，默认 `1` | `APSCHEDULER_START_DELAY`，默认 `10` | `APSCHEDULER_NICE`，默认 `10` | — | `logs/apscheduler.log` |
 | worker | `START_DB_WORKER`，默认 `1` | `DB_WORKER_START_DELAY`，默认 `20` | `DB_WORKER_NICE`，默认 `10` | `DB_WORKER_INTERVAL`，默认 `2` | `logs/db_worker.log` |
 
-重新部署前必须运行 `stop.sh`：它先向 launcher（`run_background.sh`）与已启动的 `db_worker_robust` / `runapscheduler` 发 `SIGTERM`，宽限 `${STOP_GRACE_SECONDS:-5}` 秒后再 `SIGKILL`，最后用 `pgrep` 校验并列出残留进程（有残留时退出码非零）。launcher 有 10 / 20 秒启动延迟，只杀 Python 子进程会让尚在 `sleep` 的旧 launcher 在部署后拉起旧版本代码；`db_worker_robust` 检测到已有 db_worker 进程会直接退出，于是新任务继续被旧 worker 消费，例如 `task_sync_media_scores` 因函数签名不匹配而变成 FAILED。`STOP_DRY_RUN=1 bash stop.sh` 可只打印将要执行的命令。
+重新部署前必须运行 `stop.sh`：它先向 launcher（`run_background.sh`）与已启动的 `db_worker_robust` / `runapscheduler` 发 `SIGTERM`，宽限 `${STOP_GRACE_SECONDS:-5}` 秒后再 `SIGKILL`，最后用 `pgrep` 校验并列出残留进程（有残留时退出码非零）。launcher 有 10 / 20 秒启动延迟，只杀 Python 子进程会让尚在 `sleep` 的旧 launcher 在部署后拉起旧版本代码；`db_worker_robust` 检测到已有 db_worker 进程会直接退出，于是新任务继续被旧 worker 消费；旧 worker 不认识新任务时可能因函数签名不匹配而变成 FAILED。`STOP_DRY_RUN=1 bash stop.sh` 可只打印将要执行的命令。
 
 ### 后台进程退出排查
 

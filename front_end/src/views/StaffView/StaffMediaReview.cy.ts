@@ -75,10 +75,41 @@ describe('<StaffMediaReview />', () => {
         });
         cy.wait('@pending');
         cy.contains('button', 'Select').click();
+        cy.get('[data-cy=review-external-author-id]').should('not.exist');
+        cy.get('[data-cy=review-id-hint]').should('not.exist');
+        cy.get('[data-cy=review-title]').should('not.exist');
+        cy.get('[data-cy=review-identity-confirmed]').should('exist');
         cy.contains('button', /^\s*Verify\s*$/).click();
-        cy.wait('@verify');
+        cy.wait('@verify').its('request.body').should('deep.equal', { id: 8 });
         cy.wait('@latest');
         cy.contains('.media-review-form', '#7').should('exist');
         cy.contains('button', 'Hard delete').should('exist');
+    });
+
+    it('still requires the external author id for a degraded submission', () => {
+        const degradedWork = { ...verifiedWork, id: 9, status: 'pending', title: '', metadata_pending: true };
+        cy.intercept({ method: 'GET', pathname: '/api/media/pending' }, {
+            body: { items: [degradedWork], total: 1, start: 0, anchor },
+        }).as('pending');
+        cy.intercept('POST', '/api/media/admin/verify', { body: { ...degradedWork, status: 'verified' } }).as('verify');
+        const router = hashRouter({ initialPath: '/staff/media' });
+        cy.wrap(router.isReady()).then(() => {
+            cy.mount(StaffMediaReview, {
+                global: { plugins: [i18n, router], config: { globalProperties: { $axios } } },
+            });
+        });
+        cy.wait('@pending');
+        cy.contains('button', 'Select').click();
+        cy.get('[data-cy=review-external-author-id]').should('exist');
+        cy.get('[data-cy=review-id-hint]').should('exist');
+        cy.get('[data-cy=review-identity-confirmed]').should('not.exist');
+        cy.contains('button', /^\s*Verify\s*$/).click();
+        cy.get('.el-notification').should('contain.text', 'requires both a title and an external author id');
+        cy.closeElNotifications();
+        cy.get('[data-cy=review-title]').type('Manual title');
+        cy.get('[data-cy=review-external-author-id]').type('42');
+        cy.contains('button', /^\s*Verify\s*$/).click();
+        cy.wait('@verify').its('request.body').should('deep.equal', { id: 9, title: 'Manual title', external_author_id: '42' });
+        cy.closeElNotifications();
     });
 });

@@ -5,7 +5,6 @@ import { rankingRoutes } from '@/views/RankingView/routes';
 import { resourceRoutes } from '@/views/ResourcesView/routes';
 import { staffRoutes } from '@/views/StaffView/routes';
 import { userRoutes } from '@/views/UserView/routes';
-import { worksRoutes } from '@/views/WorksView/routes';
 
 const routes: RouteRecordRaw[] = [
     {
@@ -41,8 +40,6 @@ const routes: RouteRecordRaw[] = [
         path: '/works',
         name: 'works',
         component: () => import('../views/WorksView/App.vue'),
-        redirect: { name: 'works-hot' },
-        children: worksRoutes,
     },
     {
         path: '/video/:id',
