@@ -1,16 +1,21 @@
 <template>
-    <BaseTable class="custom-counter-wrap" table-class="custom-counter" :table-style="tableStyle">
+    <BaseTable class="custom-counter-wrap" table-class="custom-counter" :table-style="tableStyle" :column-count="columnStyles.length">
         <template #columns>
-            <col :style="thColStyle">
-            <col :style="tdColStyle">
+            <col v-for="(style, index) in columnStyles" :key="index" :style="style">
         </template>
-        <tr v-for="(row, index) in rows" :key="index">
-            <th scope="row">
-                {{ row.label }}
-            </th>
-            <td :class="{ 'custom-counter__value--error': row.error }">
-                {{ row.value }}
-            </td>
+        <tr v-for="(pair, index) in displayRows" :key="index">
+            <template v-for="(row, pairIndex) in pair" :key="pairIndex">
+                <th scope="row">
+                    {{ row.label }}
+                </th>
+                <td :class="{ 'custom-counter__value--error': row.error }">
+                    {{ row.value }}
+                </td>
+            </template>
+            <template v-if="doubleColumn && pair.length === 1">
+                <th />
+                <td />
+            </template>
         </tr>
     </BaseTable>
 </template>
@@ -30,9 +35,16 @@ const props = defineProps({
     video: { type: Object as PropType<AnyVideo>, required: true },
     currentMs: { type: Number, required: true },
     config: { type: Object as PropType<CustomCounterConfig>, required: true },
+    doubleColumn: { type: Boolean, default: false },
 });
 
 type DynamicParamValues = Record<string, unknown>;
+
+interface CounterRow {
+    error: boolean;
+    label: string;
+    value: string;
+}
 
 const allowedKeys = new Set<string>(videoNumericParamKeys);
 const parser = new Parser({
@@ -55,9 +67,23 @@ const rows = computed(() => {
     });
 });
 
+const displayRows = computed<CounterRow[][]>(() => {
+    const allRows = rows.value;
+    if (!props.doubleColumn) return allRows.map((row) => [row]);
+    const half = Math.ceil(allRows.length / 2);
+    const result: CounterRow[][] = [];
+    for (let index = 0; index < half; index++) {
+        const pair = [allRows[index]];
+        if (allRows[index + half] !== undefined) pair.push(allRows[index + half]);
+        result.push(pair);
+    }
+    return result;
+});
+
+const pairWidth = computed(() => Math.max(1, props.config.thWidth) + Math.max(1, props.config.tdWidth));
 const tableStyle = computed(() => ({
     fontSize: `${Math.max(1, props.config.fontSize)}px`,
-    width: `${Math.max(1, props.config.thWidth) + Math.max(1, props.config.tdWidth)}px`,
+    width: `${pairWidth.value * (props.doubleColumn ? 2 : 1)}px`,
 }));
 
 const thColStyle = computed(() => ({
@@ -67,6 +93,11 @@ const thColStyle = computed(() => ({
 const tdColStyle = computed(() => ({
     width: `${Math.max(1, props.config.tdWidth)}px`,
 }));
+
+const columnStyles = computed(() => {
+    const pair = [thColStyle.value, tdColStyle.value];
+    return props.doubleColumn ? [...pair, ...pair] : pair;
+});
 
 function evaluateExpression(expression: string, values: DynamicParamValues) {
     try {

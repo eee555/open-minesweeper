@@ -1,4 +1,16 @@
+import type { PiecewiseColorSchemeInterface } from '@/utils/colors';
 import type { AnyVideo } from '@/utils/fileIO';
+
+export const counterPositions = ['top', 'bottom', 'left', 'right'] as const;
+export type CounterPosition = typeof counterPositions[number];
+
+export interface PlayerMainConfig {
+    cellSize: number;
+    probabilityColorScheme: PiecewiseColorSchemeInterface;
+    showProbability: boolean;
+    transposeBoard: boolean;
+    counterPosition: CounterPosition;
+}
 
 export const videoNumericParamKeys = [
     'bbbv',
