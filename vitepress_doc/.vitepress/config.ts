@@ -100,6 +100,7 @@ export default defineConfig({
                             text: '使用指南',
                             items: [
                                 { text: '账号关联', link: '/zh/guide/account-links' },
+                                { text: '作品页', link: '/zh/guide/works' },
                                 { text: '扫雷软件', link: '/zh/guide/software' },
                                 { text: '录像播放器', link: '/zh/guide/video-player' },
                                 { text: '录像表达式参考', link: '/zh/guide/replay-expressions' },
@@ -180,6 +181,7 @@ export default defineConfig({
                             text: 'User Guide',
                             items: [
                                 { text: 'Account Links', link: '/en/guide/account-links' },
+                                { text: 'Works', link: '/en/guide/works' },
                                 { text: 'Minesweeper Software', link: '/en/guide/software' },
                                 { text: 'Video Player', link: '/en/guide/video-player' },
                                 { text: 'Replay Expressions', link: '/en/guide/replay-expressions' },
