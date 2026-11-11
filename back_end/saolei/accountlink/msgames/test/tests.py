@@ -17,6 +17,7 @@ from accountlink.msgames.client import download_replay, fetch_profile, fetch_rep
 from accountlink.msgames.utils import normalize_profile, normalize_replays, supports_replay, upload_date_upper_bound
 from accountlink.services import msgames_video_import_one, update_msgames_account, update_msgames_video_list
 from config.text_choices import MS_TextChoices
+from msuser.models import UserMS
 from userprofile.models import UserProfile
 from utils.exceptions import ExceptionToResponse
 from videomanager.models import ExpandVideoModel, VideoModel
@@ -388,3 +389,34 @@ class MSGamesAccountTests(TestCase):
         self.account.delete()
         self.assertFalse(VideoMSGames.objects.exists())
         self.assertTrue(VideoModel.objects.filter(pk=video.pk).exists())
+
+
+@override_settings(RATELIMIT_ENABLE=False)
+class MSGamesMemorialAdminTests(TestCase):
+    def setUp(self):
+        self.memorial = UserProfile.objects.create_user(pk=2201, username='msgames-memorial', email='msgames-memorial@accounts.invalid', is_memorial=True, is_active=False, userms=UserMS.objects.create(pk=2202))
+        self.staff = UserProfile.objects.create_user(username='msgames-staff', email='msgames-staff@example.com', is_staff=True)
+        self.ordinary = UserProfile.objects.create_user(username='msgames-ordinary', email='msgames-ordinary@example.com')
+        self.account = AccountMinesweeperGames.objects.create(id=42, parent=self.memorial, name='Saved name')
+        AccountLinkQueue.objects.create(platform=Platform.MSGAMES, identifier='42', userprofile=self.memorial, verified=True)
+        self.client.force_login(self.staff)
+
+    @patch('accountlink.services.fetch_msgames_replays', return_value=[])
+    def test_staff_syncs_a_memorial_account(self, fetch):
+        response = self.client.post('/api/accountlink/msgames/42/sync')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()['status'], 'SYNCED')
+        fetch.assert_called_once()
+
+    @patch('accountlink.msgames.api.msgames_video_import_one')
+    def test_staff_imports_a_memorial_replay(self, import_one):
+        source = VideoMSGames.objects.create(user=self.account, **normalize_replays(list(records()), 42)[0])
+        import_one.return_value = SimpleNamespace(id=7, state='official')
+        response = self.client.post(f'/api/accountlink/msgames/videos/{source.id}/import')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()['status'], 'IMPORTED')
+        import_one.assert_called_once()
+
+    def test_ordinary_users_cannot_manage_a_memorial_account(self):
+        self.client.force_login(self.ordinary)
+        self.assertEqual(self.client.post('/api/accountlink/msgames/42/sync').status_code, 403)

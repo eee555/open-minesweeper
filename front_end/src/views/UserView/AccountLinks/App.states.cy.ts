@@ -3,7 +3,7 @@ import { defineComponent, h, ref } from 'vue';
 import App from './App.vue';
 import { emptyLinks } from './testFixtures';
 
-import { mockMineracerResponse, mountAccountLink, resetAccountLinkStore } from '@/components/accountlinks/testUtils';
+import { mockMineracerResponse, mockWoMResponse, mountAccountLink, resetAccountLinkStore } from '@/components/accountlinks/testUtils';
 import { store } from '@/store';
 import type { AccountLinksResponse } from '@/utils/accountlinks';
 
@@ -129,6 +129,27 @@ describe('account-link loading and state isolation', () => {
         cy.wait('@owner');
         cy.get('[data-platform=d]').click();
         cy.get('[data-cy=account-link-form] input').should('have.value', '');
+    });
+
+    it('grants a moderator the owner controls on a memorial account without offering to link', () => {
+        resetAccountLinkStore(9, 1);
+        store.user.is_staff = true;
+        store.player.is_memorial = true;
+        const links: AccountLinksResponse = {
+            ...emptyLinks,
+            summary: [{ id: 1, platform: 'w', identifier: '303', userprofile: 1, verified: true }],
+            w: mockWoMResponse({ parent: 1 }),
+        };
+        cy.intercept('GET', '**/api/accountlink/1', { body: links }).as('links');
+        cy.intercept('POST', '**/api/accountlink/update/', { body: { type: 'success' } }).as('update');
+        mountAccountLink(App, { userId: 1 });
+        cy.wait('@links');
+        cy.get('[data-platform=w]').click();
+        cy.contains('button', 'Synchronize').should('be.visible').click();
+        cy.wait('@update').its('request.body').should('include', 'user_id=1');
+        cy.get('[data-platform=c]').click();
+        cy.get('[data-cy=account-link-form]').should('not.exist');
+        cy.contains('No account link is available to display.').should('be.visible');
     });
 
     for (const isStaff of [false, true]) {

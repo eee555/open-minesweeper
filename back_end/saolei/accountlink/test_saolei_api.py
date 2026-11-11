@@ -455,15 +455,21 @@ class SaoleiMemorialAdminTests(TestCase):
             self.assertEqual(start.status_code, 200, start.content)
             self.assertEqual(start.json(), {'cursor': 0, 'upper_bound': 10})
 
-    def test_staff_manages_imports_but_not_profile_or_settings_of_a_memorial_account(self):
-        """管理员可以同步与导入纪念账号的录像；资料与自动同步设置仍只属于站长。"""
+    def test_staff_manages_a_memorial_account_like_its_owner(self):
+        """管理员可以同步、导入、刷新资料并修改纪念账号的自动同步设置。"""
         self.client.force_login(self.staff)
         with self.start(), patch('accountlink.saolei.api.sync_saolei_page', return_value=(5, True)):
             response = self.client.post(f'{MEMORIAL_BASE}/3001/sync/page', {'cursor': 0, 'upper_bound': 10}, content_type='application/json')
             self.assertEqual(response.status_code, 200, response.content)
             self.assertEqual(self.client.post(f'{MEMORIAL_BASE}/3001/sync/start', {'full': True}, content_type='application/json').status_code, 200)
-        self.assertEqual(self.client.post(f'{MEMORIAL_BASE}/3001/profile').status_code, 403)
-        self.assertEqual(self.client.post(f'{MEMORIAL_BASE}/3001/settings', {'auto_sync': False}, content_type='application/json').status_code, 403)
+        with self.start(), patch('accountlink.saolei.api.update_saolei_account_info') as update:
+            response = self.client.post(f'{MEMORIAL_BASE}/3001/profile')
+            self.assertEqual(response.status_code, 200, response.content)
+            update.assert_called_once()
+        response = self.client.post(f'{MEMORIAL_BASE}/3001/settings', {'auto_sync': False}, content_type='application/json')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.account.refresh_from_db()
+        self.assertFalse(self.account.auto_sync)
 
     def test_ordinary_users_stay_outside_the_memorial_bypass(self):
         self.client.force_login(self.ordinary)

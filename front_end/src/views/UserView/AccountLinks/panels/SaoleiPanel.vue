@@ -75,7 +75,11 @@ const isActive = useActivePanel();
 const saving = ref(false);
 const refreshing = ref(false);
 const autoSync = ref(props.info.auto_sync);
-const ownsAccount = computed(() => store.user.id > 0 && store.user.id === props.info.parent);
+// 纪念账号无法登录，管理员在其主页上视同本人；关联账号必须属于当前主页的用户。
+const ownsAccount = computed(() => store.user.id > 0 && (
+    store.user.id === props.info.parent
+    || (store.isMemorialProfileAdmin && store.player.id === props.info.parent)
+));
 const summary = ref({ ...SaoleiImportSummaryDefault });
 const stackBarData = computed(() => [
     { name: t('local.imported'), color: '#34d399', value: summary.value.imported },

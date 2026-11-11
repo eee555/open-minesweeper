@@ -1,6 +1,7 @@
 import SaoleiPanel from './SaoleiPanel.vue';
 
 import { mockSaoleiImportSummary, mockSaoleiResponse, mountAccountLink, resetAccountLinkStore } from '@/components/accountlinks/testUtils';
+import { store } from '@/store';
 import { AccountSaolei } from '@/utils/accountlinks';
 
 describe('<Saolei account panel />', () => {
@@ -31,6 +32,20 @@ describe('<Saolei account panel />', () => {
         cy.contains('button', 'Replay list').click();
         cy.wait('@savedVideos');
         cy.get('[data-cy=saolei-refresh-full], [data-cy=saolei-refresh-incremental], [data-cy=saolei-import-all]').should('not.exist');
+    });
+
+    it('grants a moderator the same owner controls on a memorial account', () => {
+        resetAccountLinkStore(2, 1);
+        store.user.is_staff = true;
+        store.player.is_memorial = true;
+        cy.intercept('GET', '**/api/accountlink/saolei/101/videos*', { body: { items: [], next_after: null } }).as('savedVideos');
+        mountAccountLink(SaoleiPanel, { verified: true, info: new AccountSaolei(mockSaoleiResponse()) });
+        cy.wait('@importSummary');
+        cy.get('[data-cy=saolei-auto-sync]').should('exist');
+        cy.contains('button', 'Refresh profile').should('be.visible');
+        cy.contains('button', 'Replay list').click();
+        cy.wait('@savedVideos');
+        cy.get('[data-cy=saolei-refresh-full], [data-cy=saolei-refresh-incremental], [data-cy=saolei-import-all]').should('have.length', 3).and('be.enabled');
     });
 
     it('adopts the server value after a successful save, without changing checked while saving', () => {
