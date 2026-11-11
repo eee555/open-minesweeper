@@ -5,6 +5,7 @@ import SaoleiPanel from './SaoleiPanel.vue';
 import WoMPanel from './WoMPanel.vue';
 
 import { mockBilibiliResponse, mockMSGamesResponse, mockWoMResponse, mountAccountLink, resetAccountLinkStore } from '@/components/accountlinks/testUtils';
+import { store } from '@/store';
 import { AccountBilibili, AccountMSGames, AccountWoM } from '@/utils/accountlinks';
 
 describe('linked account profile panels', () => {
@@ -44,12 +45,26 @@ describe('linked account profile panels', () => {
 
     it('shows a readable WoM parse error without requesting an account refresh', () => {
         const refresh = cy.spy().as('refresh');
-        cy.intercept('POST', '**/accountlink/update/', { body: { type: 'error', object: 'import', category: 'indexerror' } }).as('updateAccountLink');
+        cy.intercept('POST', '**/api/accountlink/update/', { body: { type: 'error', object: 'import', category: 'indexerror' } }).as('updateAccountLink');
         mountAccountLink(WoMPanel, { verified: true, owner: true, info: new AccountWoM(mockWoMResponse()), onRefresh: refresh });
         cy.contains('button', 'Synchronize').click();
         cy.wait('@updateAccountLink').its('request.body').should('equal', 'platform=w');
         cy.contains('Update failed: The third-party page structure changed, so data extraction failed').should('be.visible');
         cy.get('@refresh').should('not.have.been.called');
+    });
+
+    it('offers the MSGames import queue to a moderator on a memorial account', () => {
+        resetAccountLinkStore(2, 1);
+        store.user.is_staff = true;
+        store.player.is_memorial = true;
+        mountAccountLink(MsgamesPanel, { verified: true, info: new AccountMSGames(mockMSGamesResponse({ parent: 1 })) });
+        cy.contains('button', 'Videos and import').should('be.visible');
+    });
+
+    it('hides the MSGames import queue from visitors', () => {
+        resetAccountLinkStore(2, 1);
+        mountAccountLink(MsgamesPanel, { verified: true, info: new AccountMSGames(mockMSGamesResponse({ parent: 1 })) });
+        cy.contains('button', 'Videos and import').should('not.exist');
     });
 
     for (const [name, component] of [['Bilibili', BilibiliPanel], ['MSGames', MsgamesPanel], ['WoM', WoMPanel], ['Saolei', SaoleiPanel], ['Private', PrivatePanel]] as const) {

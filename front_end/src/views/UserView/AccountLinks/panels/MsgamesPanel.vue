@@ -79,7 +79,11 @@ const props = defineProps({
 });
 
 const queueVisible = ref(false);
-const ownsAccount = computed(() => store.user.id > 0 && store.user.id === props.info.parent);
+// 纪念账号无法登录，管理员在其主页上视同本人；关联账号必须属于当前主页的用户。
+const ownsAccount = computed(() => store.user.id > 0 && (
+    store.user.id === props.info.parent
+    || (store.isMemorialProfileAdmin && store.player.id === props.info.parent)
+));
 const { t } = useI18n({ messages: {
     'zh-cn': { local: { country: '国家', region: '地区', hand: '惯用手', mouse: '鼠标', videos: '录像列表与导入', profilePending: '账号已绑定，资料暂缺，可稍后刷新。' } },
     en: { local: { country: 'Country', region: 'Region', hand: 'Hand', mouse: 'Mouse', videos: 'Videos and import', profilePending: 'Account linked. Profile details are unavailable; try refreshing later.' } },

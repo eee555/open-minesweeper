@@ -19,6 +19,7 @@ from .bind import router as bind_router
 from .client import saolei_client
 from .services import check_binding, import_saolei_video, pending_saolei_videos, sync_saolei_page, update_saolei_account_info
 from ..models import AccountSaolei, SaoleiApiVideo
+from ..utils import is_memorial_admin
 
 router = Router()
 router.add_router('/bind', bind_router)
@@ -91,16 +92,11 @@ def account_for_request(request, account_id, *, owner=False):
     if owner:
         if not request.user.is_authenticated:
             raise HttpError(403, 'Only the linked account owner can synchronize videos.')
-        # 纪念账号无法登录，改由管理员（站长或具备管理员权限的账号）代为同步与导入其扫雷网录像。
-        if request.user.pk != account.parent_id and not ((request.user.is_staff or request.user.is_superuser) and account.parent.is_memorial):
+        # 纪念账号无法登录，改由管理员（站长或具备管理员权限的账号）代为同步、导入与刷新资料。
+        if request.user.pk != account.parent_id and not is_memorial_admin(request.user, account.parent):
             raise HttpError(403, 'Only the linked account owner can synchronize videos.')
     check_binding(account, account.parent_id)
     return account
-
-
-def memorial_admin_only(account, user) -> bool:
-    """纪念账号无法登录，其资料与自动同步设置只能由站长代为修改。"""
-    return account.parent.is_memorial and user.pk != account.parent_id
 
 
 @contextmanager
@@ -155,8 +151,6 @@ def settings(request, account_id: int, data: SyncSettingsIn):
     - ratelimit(key='user', rate='30/m', block=True)
     """
     account = account_for_request(request, account_id, owner=True)
-    if memorial_admin_only(account, request.user) and not request.user.is_superuser:
-        raise HttpError(403, 'Only a superuser can change a memorial account profile or auto-sync setting.')
     account.auto_sync = data.auto_sync
     account.save(update_fields=['auto_sync'])
     return account
@@ -170,8 +164,6 @@ def profile(request, account_id: int):
     - ratelimit(key='user', rate='6/h', block=True)
     """
     account = account_for_request(request, account_id, owner=True)
-    if memorial_admin_only(account, request.user) and not request.user.is_superuser:
-        raise HttpError(403, 'Only a superuser can change a memorial account profile or auto-sync setting.')
     with upstream_client() as client:
         update_saolei_account_info(account, client)
     account.refresh_from_db()

@@ -58,7 +58,7 @@ class SaoleiBusinessTests(TestCase):
     def test_profile_refresh_is_rejected_without_changing_saved_data(self, remote):
         account = AccountSaolei.objects.create(pk=101, parent=self.user, name='Saved name')
         self.client.force_login(self.user)
-        response = self.client.post('/accountlink/update/', {'platform': Platform.SAOLEI})
+        response = self.client.post('/api/accountlink/update/', {'platform': Platform.SAOLEI})
         self.assertEqual(response.status_code, 410)
         self.assertEqual(response.json()['category'], 'crawling_disabled')
         account.refresh_from_db()

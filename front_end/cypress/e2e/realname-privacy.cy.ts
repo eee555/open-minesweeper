@@ -253,7 +253,7 @@ describe('Real name privacy against the backend', () => {
         staffPatch(user.id, { can_hide_realname: true });
         cy.login(user.username, user.password);
         privacy(true);
-        cy.request({ method: 'POST', url: `${BACKEND}/accountlink/delete/`, form: true, body: { platform: 'a' } });
+        cy.request({ method: 'POST', url: `${BACKEND}/api/accountlink/delete/`, form: true, body: { platform: 'a' } });
         self().its('body').should('include', { can_hide_realname: true, hide_realname: true });
     });
 
@@ -261,7 +261,7 @@ describe('Real name privacy against the backend', () => {
         const user = USERS.existing;
         cy.login(user.username, user.password);
         self().its('body').should('include', { can_hide_realname: false, hide_realname: false });
-        cy.request({ method: 'POST', url: `${BACKEND}/accountlink/update/`, form: true, body: { platform: 'a' } });
+        cy.request({ method: 'POST', url: `${BACKEND}/api/accountlink/update/`, form: true, body: { platform: 'a' } });
         self().its('body.can_hide_realname').should('eq', false);
         editEligibility(user.id, true);
         cy.login(user.username, user.password);

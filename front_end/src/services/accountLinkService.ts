@@ -38,10 +38,11 @@ export async function addAccountLink(platform: AccountLinkPlatform, identifier: 
     return data;
 }
 
-export async function updateAccountLink(platform: AccountLinkPlatform): Promise<AccountLinkUpdateResponse> {
-    const { data } = await $axios.post<AccountLinkUpdateResponse>('accountlink/update/', {
-        platform,
-    });
+// 管理员代纪念账号刷新资料时指定目标用户；不指定则由后端按登录用户处理。
+export async function updateAccountLink(platform: AccountLinkPlatform, targetUserId?: number): Promise<AccountLinkUpdateResponse> {
+    const body: Record<string, string | number> = { platform };
+    if (targetUserId !== undefined) body.user_id = targetUserId;
+    const { data } = await $axios.post<AccountLinkUpdateResponse>('/api/accountlink/update/', body);
     return data;
 }
 

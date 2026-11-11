@@ -10,10 +10,13 @@
 | 设置关联 | 站长（superuser） | `POST /api/common/admin/memorial/users/{id}/account-links` |
 | 解除关联 | 站长（superuser） | `DELETE /api/common/admin/memorial/users/{id}/account-links?platform=c` |
 | 同步目录、导入录像 | 管理员（staff）或站长（superuser） | `/api/accountlink/saolei/{account_id}/sync/*`、`/videos/{source_id}/import` |
-| 刷新资料、切换自动同步 | 仅站长（superuser） | `/api/accountlink/saolei/{account_id}/profile`、`/settings` |
+| 刷新资料、切换自动同步 | 管理员（staff）或站长（superuser） | `/api/accountlink/saolei/{account_id}/profile`、`/settings` |
+| MSGames 目录同步、录像导入 | 管理员（staff）或站长（superuser） | `/api/accountlink/msgames/{msgames_id}/sync`、`/videos/{video_id}/import` |
+| WoM／Bilibili 资料刷新 | 管理员（staff）或站长（superuser） | `POST /api/accountlink/update/`，表单附 `user_id` |
 
 - 关联路由挂在纪念账号的 `Router(auth=django_auth_superuser)` 下，自带会话与 CSRF 校验，符合 [ADMIN_API_CSRF.md](../../ADMIN_API_CSRF.md)。
-- 扫雷网写接口使用 `@decorate_view(login_required_error, admin_csrf_required, ratelimit(...))`：普通用户保持原有无 CSRF 要求，管理员调用必须携带 `X-CSRFToken`。
+- 扫雷网、MSGames 与资料刷新的写接口使用 `@decorate_view(login_required_error, admin_csrf_required, ratelimit(...))`：普通用户保持原有无 CSRF 要求，管理员调用必须携带 `X-CSRFToken`。
+- 管理员访问纪念账号主页时，已关联账号的同步、导入、资料刷新与自动同步控件与本人一致；新建关联、解除关联仍只由站长在 `/superuser/memorial` 操作，主页不显示这些表单与按钮。
 
 ## 可指定的平台
 
@@ -37,7 +40,12 @@
 
 CSRF token 取自关联列表接口返回的 `csrf_token`，与该页既有的补录像流程一致。
 
+普通主页由 `store.isMemorialProfileAdmin` 统一判断「管理员访问纪念账号主页」，扫雷网、MSGames 面板及 WoM／Bilibili 的同步控件据此视同本人；WoM／Bilibili 刷新时由面板把 `store.player.id` 作为 `user_id` 提交。GitHub 解绑和各平台绑定表单仍仅对本人显示。
+
 ## 回归测试
 
 - `common.test_memorial.MemorialAccountLinkTests`：站长设置/换绑/解除、平台白名单、目标校验、非站长拒绝、他人账号冲突、待审申请替换、CSRF 必需。
-- `accountlink.test_saolei_api.SaoleiMemorialAdminTests`：站长与管理员可同步与导入纪念账号，普通用户与非纪念账号仍被拒绝，管理员不能改资料与自动同步，本人同步不受影响。
+- `accountlink.test_saolei_api.SaoleiMemorialAdminTests`：站长与管理员可同步、导入、刷新资料与自动同步设置，普通用户与非纪念账号仍被拒绝，本人同步不受影响。
+- `accountlink.tests.AccountLinkActionTests`：Ninja 资料刷新／解绑接口、管理员代纪念账号刷新、目标校验与 CSRF。
+- `accountlink.msgames.test.tests.MSGamesMemorialAdminTests`：管理员可同步与导入纪念账号的 MSGames 录像。
+- 前端 `AccountLinks` 组件测试：管理员在纪念账号主页取得与本人一致的同步控件，且不出现绑定表单。

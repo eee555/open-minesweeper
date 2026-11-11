@@ -177,8 +177,8 @@ digraph cache {
     subgraph api_nodes {
         get_account_links [label="/api/accountlink/{user_id}"];
         create_account_link [label="/api/accountlink/create/"];
-        delete_link [label="/accountlink/delete/"];
-        update_link [label="/accountlink/update/"];
+        delete_link [label="/api/accountlink/delete/"];
+        update_link [label="/api/accountlink/update/"];
         view_saolei_get_import_list [label="/accountlink/saolei/videolist/get/"];
         view_saolei_get_import_summary [label="/accountlink/saolei/videoimport/stat/"];
         task_summary [label="/api/common/tasks/summary (staff)"];
