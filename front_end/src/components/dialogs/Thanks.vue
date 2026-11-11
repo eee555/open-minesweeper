@@ -29,6 +29,7 @@
         <GitHubUser username="Corday-nkusky" />
         <GitHubUser username="xiean-cn" />
         <GitHubUser username="shenjia" />
+        <GitHubUser username="trixyz28" />
         <GitHubUser username="gacord9672" />
     </div>
     <div class="section-label">
