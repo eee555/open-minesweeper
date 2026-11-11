@@ -145,6 +145,7 @@ export default defineConfig({
                             text: '周边工具',
                             items: [
                                 { text: '元神工具箱', link: '/zh/guide/tools/yuanshen-toolbox' },
+                                { text: '浏览器扩展', link: '/zh/guide/tools/browser-extension' },
                             ],
                         },
                     ],

@@ -5,6 +5,7 @@ import { resourceRoutes } from './routes';
 
 import i18n from '@/i18n';
 import { pinia } from '@/store/create';
+import { getDocsUrl } from '@/utils/docs';
 
 const TABS = [
     { id: 'metasweeper', en: 'Metasweeper', zh: '元扫雷' },
@@ -13,8 +14,10 @@ const TABS = [
     { id: 'classic95', en: '95 Classic', zh: '95经典扫雷' },
     { id: 'analyzer', en: 'Video Analyzer', zh: '录像分析器' },
     { id: 'yuanshen', en: 'Yuanshen Toolbox', zh: '元神工具箱' },
+    { id: 'browser-extension', en: 'Browser Extension', zh: '浏览器扩展' },
 ] as const;
 const FIRST_PATH = '/resources/metasweeper';
+const BROWSER_EXTENSION_PANEL = '[data-cy=resource-browser-extension]';
 
 // 路由表与站点一致：/resources 重定向到第一项，未知子路径也回到第一项。
 function mountResources(path = FIRST_PATH, language: 'en' | 'zh-cn' = 'en') {
@@ -95,5 +98,33 @@ describe('<ResourcesView /> routing', () => {
 
         tabOf('Arbiter').click();
         cy.get('[data-cy=resource-arbiter]').should('contain.text', 'Arbiter').and('contain.text', 'Windows');
+    });
+});
+
+describe('<ResourcesView /> browser extension', () => {
+    it('opens the browser extension and links its project, release and Chinese guide', () => {
+        const router = mountResources('/resources/browser-extension');
+        cy.wrap(router).its('currentRoute.value.path').should('eq', '/resources/browser-extension');
+        tabOf('Browser Extension').should('have.attr', 'aria-selected', 'true');
+        cy.get(BROWSER_EXTENSION_PANEL).should('be.visible').and('contain.text', 'third-party').and('contain.text', 'automatic replay upload');
+
+        const links = [
+            ['Project', 'https://github.com/LockhartANR/yuanshen-helper'],
+            ['GitHub Releases', 'https://github.com/LockhartANR/yuanshen-helper/releases/latest'],
+            ['Guide (Chinese)', getDocsUrl('zh/guide/tools/browser-extension')],
+        ] as const;
+        for (const [label, href] of links) {
+            cy.contains(`${BROWSER_EXTENSION_PANEL} a`, label).should(($link) => {
+                expect($link.attr('href')).to.eq(href);
+                expect($link.attr('target')).to.eq('_blank');
+                expect($link.attr('rel')).to.eq('noopener noreferrer');
+            });
+        }
+    });
+
+    it('shows the Chinese extension description and guide', () => {
+        mountResources('/resources/browser-extension', 'zh-cn');
+        cy.get(BROWSER_EXTENSION_PANEL).should('contain.text', '第三方').and('contain.text', '自动上传录像');
+        cy.contains(`${BROWSER_EXTENSION_PANEL} a`, '使用说明').should('have.attr', 'href', getDocsUrl('zh/guide/tools/browser-extension'));
     });
 });
