@@ -6,6 +6,7 @@ from django.db.models import Q
 from saolei_api import AuthenticationError, RateLimitError, SaoleiError
 
 from accountlink.models import AccountLinkQueue, AccountSaolei, Platform
+from accountlink.saolei.challenge import BotChallengeError, solve_bot_challenge
 from accountlink.saolei.client import saolei_client
 from accountlink.saolei.services import check_binding, import_pending_saolei_videos, pending_saolei_videos, sync_saolei_metadata
 from accountlink.saolei.utils import SUPPORTED_SOFTWARE
@@ -46,7 +47,7 @@ class Command(BaseCommand):
             self.stdout.write('没有符合条件的已绑定账号')
             return
         try:
-            with saolei_client() as client:
+            with saolei_client(challenge=self.interactive_challenge) as client:
                 upper_bound = None
                 if options['phase'] != 'videos':
                     upper_bound = client.stats().max_video_id
@@ -70,11 +71,17 @@ class Command(BaseCommand):
             raise CommandError('上游鉴权失败，同步停止；请检查服务器 saolei_api_key 配置') from exc
         except SaoleiError as exc:
             raise CommandError(f'上游请求失败：{type(exc).__name__}: {exc}，已提交进度保留') from exc
+        except BotChallengeError as exc:
+            raise CommandError(f'上游真人验证未完成：{exc}，已提交进度保留') from exc
         except (FileNotFoundError, KeyError, ValueError) as exc:
             raise CommandError(f'配置或数据错误：{type(exc).__name__}') from exc
         self.stdout.write(f"完成：账号 {counts['accounts']}，详情 {counts['details']}，尝试 {counts['attempted']}，导入 {counts['imported']}，跳过 {counts['skipped']}，失败 {counts['failed']}")
         if counts['failed']:
             raise CommandError('部分同步或导入失败；修复后重跑命令可继续目录进度并补导未完成录像')
+
+    def interactive_challenge(self, location):
+        self.stdout.write('扫雷网要求真人验证；请在下方局面中输入要点击的格子')
+        return solve_bot_challenge(location, read_line=input, write=self.stdout.write)
 
     def get_accounts(self, requested_ids, counts):
         links = AccountLinkQueue.objects.filter(platform=Platform.SAOLEI, verified=True).order_by('pk')

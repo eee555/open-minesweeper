@@ -19,6 +19,7 @@ from utils.ranking_lock import ranking_access
 from videomanager.models import VideoModel
 from videomanager.services import find_identical_video, set_import_upload_time
 from videomanager.utils import calculate_original_hash
+from .challenge import BotChallengeError
 from .client import saolei_client
 from .utils import SUPPORTED_SOFTWARE, video_defaults
 from ..models import AccountLinkQueue, AccountSaolei, Platform, SaoleiApiVideo
@@ -142,7 +143,7 @@ def sync_saolei_metadata(account, client, *, upper_bound, counts, report_failure
     ]:
         try:
             action(account, client, **kwargs)
-        except (AuthenticationError, RateLimitError):
+        except (AuthenticationError, RateLimitError, BotChallengeError):
             raise
         except Exception as exc:
             report_failure(f'账号#{account.pk} {stage}', exc, counts)
@@ -156,7 +157,7 @@ def refresh_saolei_details(account, client, *, upper_bound, counts, report_failu
         try:
             details = client.video_info([source.remote_id for source in batch]).items
             saved = save_video_details(account, batch, details)
-        except (AuthenticationError, RateLimitError):
+        except (AuthenticationError, RateLimitError, BotChallengeError):
             raise
         except Exception as exc:
             report_failure(f'账号#{account.pk} 详情批次#{batch[0].remote_id}', exc, counts)
@@ -187,7 +188,7 @@ def import_pending_saolei_videos(sources, client, *, counts, report_failure, lim
             counts[result] += 1
             if progress:
                 progress(f'来源录像#{source.remote_id}：{result}')
-        except (AuthenticationError, RateLimitError):
+        except (AuthenticationError, RateLimitError, BotChallengeError):
             raise
         except Exception as exc:
             report_failure(f'来源录像#{source.remote_id}', exc, counts)
