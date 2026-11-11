@@ -81,6 +81,8 @@ export default {
         save: '保存',
         send: '发送',
         sort: '排序',
+        sortAsc: '升序',
+        sortDesc: '降序',
         start: '开始',
         stop: '停止',
         unlink: '解绑',

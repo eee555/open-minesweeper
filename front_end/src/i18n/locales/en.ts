@@ -82,6 +82,8 @@ export default {
         save: 'Save',
         send: 'Send',
         sort: 'Sort',
+        sortAsc: 'Ascending',
+        sortDesc: 'Descending',
         start: 'Start',
         stop: 'Stop',
         unlink: 'Unlink',

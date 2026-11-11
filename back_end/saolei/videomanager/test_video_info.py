@@ -123,6 +123,7 @@ class VideoInfoTests(TestCase):
             json.dumps([{'field': 'bv', 'gte': 1}, {'field': 'bv', 'lt': 5}]),
             json.dumps([{'field': 'bv', 'gte': 'x'}]),
             json.dumps([{'field': 'state', 'in': ['a'] * 33}]),
+            json.dumps([{'field': 'iqg', 'gte': 1}]),
             json.dumps([{'field': 'stnb', 'gte': 1}]),
         )
         for filters in invalid_filters:
@@ -130,6 +131,7 @@ class VideoInfoTests(TestCase):
                 self.assertEqual(self.client.get('/api/video/query', {'filters': filters}).status_code, 400)
         invalid_sorts = (
             json.dumps([{'field': 'path', 'direction': 'asc'}]),
+            json.dumps([{'field': 'iqg', 'direction': 'asc'}]),
             json.dumps([{'field': 'timems', 'direction': 'up'}]),
             json.dumps([{'field': 'timems'}, {'field': 'timems', 'direction': 'desc'}]),
         )

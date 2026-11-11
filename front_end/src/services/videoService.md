@@ -30,7 +30,7 @@
 | `GET /api/video/abstractbulk?first=1&count=10000` | 不存在 | `[{id, player, upload_time, state}]`；按连续 ID 范围查询公开录像的当前网站元信息，`count` 上限为 10000，不返回 `ongoing_tournament` |
 | `GET /video/get_software/?id=...` | `{msg: software}` | 已移除；软件字段通过 `fetchVideoInfo` 和录像缓存获取 |
 | `GET /api/userprofile/videolist?user_id=...` | `[U]` | `[M]` |
-| `GET /api/video/query` | `{count, videos: [Q]}` | 当前为 `{videos: [{id, upload_time, state, ongoing_tournament, player__id, player__realname}]}`；请求用 `filters` / `sorts` 两个 JSON 数组参数（一个字段一个条件，排序按数组顺序），最多返回前 1000 条、不返回总数，由前端分页；排序字段限已索引列，旧参数与未知参数一律 400 |
+| `GET /api/video/query` | `{count, videos: [Q]}` | 当前为 `{videos: [{id, upload_time, state, ongoing_tournament, player__id, player__realname}]}`；请求用 `filters` / `sorts` 两个 JSON 数组参数（一个字段一个条件，排序按数组顺序），最多返回前 1000 条、不返回总数，由前端分页；排序字段限已索引列，`iqg` 不直接开放（仅由 `stnb` 换算使用），旧参数与未知参数一律 400 |
 | 最新队列 | `GET /video/newest_queue/` → `{[id]: JSON字符串}`，字符串字段见 Redis 对照表 | `GET /api/video/newest_queue` → `[M]`；直接读取 Redis Hash 快照，将 field 映射为 `id`，`player_id`、`time` 映射为 `player`、`upload_time`，`ongoing_tournament` 为 `false`（队列只写入公开录像），不查询数据库 |
 | 从最新队列移除 | `POST /video/newest_queue/remove/`，表单 `{id}` | `POST /api/video/newest_queue/remove`，同样表单 `{id}`，成功返回 204；仍仅管理员可用 |
 | `GET /api/video/review_queue` | `[B]` | `[M]`；继续从数据库查询待审录像 |

@@ -88,10 +88,10 @@ filterTags / sortRules
 
 | 类别 | 字段 |
 | --- | --- |
-| 筛选（UI 分组清单全开） | 枚举 `state / software / level / mode`；整数与浮点约 39 列；时间 `upload_time / end_time`；派生 `stnb`；标识 `id`（`player_id` 已移除） |
-| 排序（仅已索引列） | `id, level, mode, state, timems, bv, bvs, iqg, thrp` + `stnb`（映射为 `iqg`） |
+| 筛选（UI 分组清单全开） | 枚举 `state / software / level / mode`；整数与浮点列（不含 `iqg`）；时间 `upload_time / end_time`；派生 `stnb`；标识 `id`（`player_id` 已移除） |
+| 排序（仅已索引列） | `id, level, mode, state, timems, bv, bvs, thrp` + `stnb`（映射为 `iqg`） |
 
-后端常量集中在 `videomanager/utils.py` 的 `VIDEO_QUERY_*`；前端对应 `fieldGroups` / `sortFieldGroups` / `sortableKeys`。不新增索引、不做大表 DDL；`VideoModel.Meta.indexes` 中可作为排序依据的只有 8 个单列索引（`level/mode/bv/bvs/iqg/thrp/timems/state`）加主键，其余 4 个是复合索引或无关列，不作为本接口的单列排序依据。
+后端常量集中在 `videomanager/utils.py` 的 `VIDEO_QUERY_*`；前端对应 `fieldGroups` / `sortFieldGroups` / `sortableKeys`。不新增索引、不做大表 DDL；`VideoModel.Meta.indexes` 中可作为排序依据的只有 8 个单列索引（`level/mode/bv/bvs/iqg/thrp/timems/state`）加主键，其余 4 个是复合索引或无关列，不作为本接口的单列排序依据。`iqg` 不直接开放筛选 / 排序，只作为 `stnb` 的换算目标；`iqg_idx` 仍由 `stnb` 排序使用。
 
 **`stnb`**：不是数据库列，而是 `STNB_COEFFICIENTS[level] × iqg`（`b=36 / i=162 / e=435`，见 `videomanager/models.py`），自定义难度返回 `None`。仅当唯一的 `level` 筛选条件恰好选中一个 `b/i/e` 值时才允许筛选或排序：阈值除以系数换成 `iqg` 区间、排序键换成 `iqg`（方向不变），走 `iqg_idx`，代价约为原生已索引列的 1 倍；跨级别会退化为 `CASE level ...` 表达式并 filesort，因此明确禁止。换算为 double 运算，边界最多差一个 ULP，以换算后的 `iqg` 区间为准，不做 Python 二次复核。未满足前置条件时，前端保留选项但禁用输入并提示、跳过该条件 / 排序键，后端直接 400。
 
@@ -113,11 +113,11 @@ filterTags / sortRules
 ## 6. 前端交互规则
 
 - **请求节奏**：首次挂载立即请求一次（初始状态不算「条件变化」）；之后 `filterTags` / `sortRules` 变化启动 5 秒防抖窗口，窗口内再变化重置计时；`AbortController` 取消在途请求，revision 丢弃过期响应。`QUERY_DEBOUNCE_MS` 与后端 `1/5s` 必须同步修改。
-- **URL 同步**：筛选 / 排序 tag 与分页状态序列化到 `q` 查询参数（页面状态，不是 API 参数），用 `history.replaceState` 写入；嵌入挂载（`window.top !== window`，如组件测试）不改写宿主 URL。
+- **URL 同步**：筛选 / 排序 tag 与分页状态序列化到 `q` 查询参数（页面状态，不是 API 参数），用 `history.replaceState` 写入；嵌入挂载（`window.top !== window`，如组件测试）不改写宿主 URL。`q` 位于 hash 之前的 search，会随后续导航留在地址栏，故 E2E 只断言 `cy.location('hash')`，不用整条 URL 的末尾锚点。
 - **tag 规则**：筛选与排序各自按字段去重（字段可以不出现、最多一次，两侧互不影响）；字段下拉过滤本板块已用字段，新增 / 切换时只提供可用字段；排序下拉只列 `sortFieldGroups`。
 - **输入**：枚举多选；数值与派生字段用区间（括号切换开闭、留空表示 ±∞）；`upload_time` / `end_time` 用 `datetime-local` 并转 ISO；`stnb` 联动见 §4。
 - **分页与列选择**：`pageCount` 按实际结果条数计算（空结果为 1 个 `0-0` 按钮）；列选择持久化到 `VideoListConfig.query`。
-- **状态与文案**：loading / 失败提示在分页区；本地化 messages 放在 SFC `script` 块末尾。
+- **状态与文案**：条件变化即在结果表格显示 `v-loading`（覆盖 5 秒防抖等待与请求），刷新完成后移除；文字版 loading / 失败提示在分页区。筛选 / 排序标题、排序方向与字段标签复用全局 `button.*` / `prop.*`（en / zh-cn 缺失的字段标签回退到 dev 缩写），SFC 只保留页面专有 messages，放在 `script` 块末尾。
 
 ## 7. 测试与检查
 
@@ -128,7 +128,7 @@ filterTags / sortRules
 | `cd front_end; npm run lint`、`npm run typecheck` | ESLint、`vue-tsc --noEmit` |
 | `cd front_end; npm run vitest -- run` | Vitest 单测 |
 | `cd front_end; npx cypress run --component --browser chrome --headless --spec "src/views/DatabaseView/VideoView.cy.ts"` | 组件测试，CodeBuddy 环境下可由助手直接运行 |
-| `cypress/e2e/realname-privacy.cy.ts` | E2E 由用户运行；断言 `player__id` / `player__realname`，新契约响应结构兼容，故未改写 |
+| `cypress/e2e/realname-privacy.cy.ts`、`cypress/e2e/load.cy.ts` | E2E 由用户运行。前者已适配新契约（请求只含 `filters` / `sorts`、响应无 `count`）、默认列不含 `player` 需先勾选该列，以及 `1/5s` 限流下重新挂载与 reload 回放首次结果；后者按 hash 与查询请求断言 `/#/video` 重定向，不用整条 URL 的末尾锚点 |
 
 组件测试挂载必须注入 `$axios` 并调用 `cy.mockPlayerNameFallback()`（`PlayerName → PlayerBadge → UserAvatar` 依赖链）；`mountView()` 还需重置 `VideoListConfig.value.query`，并 intercept `/api/video/query` 返回 `{videos: []}`。
 
@@ -154,9 +154,11 @@ filterTags / sortRules
 | 不做续查 / 游标 / Redis 缓存 | 批内 1000 条由前端分页，天然是同一批数据 |
 | 不开放 `ne` / `isnull` / 模糊匹配 | 与多选口径一致，避免难以索引的查询 |
 | `stnb` 需单级别前置 | 系数随 `level` 变化，跨级别无法等价映射到 `iqg` 单列，且自定义难度为 NULL |
+| 不开放 `iqg` 直接筛选 / 排序 | 只通过 `stnb` 换算使用，避免同一底层列出现两个语义重复入口 |
 
 ## 10. 变更记录
 
 | 日期 | 内容 |
 | --- | --- |
 | 2026-11-10 | 重做计划定案（Q1–Q42），替换旧签名游标分页方案；后端 `/api/video/query` 新契约、前端 `VideoView` 接入、测试与契约文档同步；本文整理为维护文档 |
+| 2026-11-11 | 页面移入 `DatabaseView/`；条件变化时结果表格显示 `v-loading`；复用全局 `button.*` / `prop.*` 文案；`iqg` 不再直接开放筛选 / 排序，`stnb` 保留；E2E 适配新契约与 URL 状态 |

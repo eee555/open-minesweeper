@@ -45,7 +45,10 @@ describe('<VideoView />', () => {
 
     it('adds and removes filter tags', () => {
         mountView();
+        cy.wait('@videos');
+        cy.get('.video-query__table .el-loading-mask').should('not.exist');
         cy.get('[data-cy=add-filter]').click();
+        cy.get('.video-query__table .el-loading-mask').should('exist');
         cy.get('[data-cy=filter-tag]').should('have.length', 3);
         cy.get('[data-cy=filter-tag]').last().find('[data-cy=remove-tag]').click();
         cy.get('[data-cy=filter-tag]').should('have.length', 2);

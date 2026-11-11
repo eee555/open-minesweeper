@@ -1,9 +1,9 @@
 <template>
     <div class="video-query">
         <div class="video-query__panels">
-            <section class="card video-query__panel" :aria-label="t('local.filter')">
+            <section class="card video-query__panel" :aria-label="t('button.filter')">
                 <h2 class="card-title video-query__title">
-                    {{ t('local.filter') }}<span class="text-secondary text-small video-query__title-hint">{{ t('local.filterHint') }}</span>
+                    {{ t('button.filter') }}<span class="text-secondary text-small video-query__title-hint">{{ t('local.filterHint') }}</span>
                 </h2>
                 <div class="video-query__tags">
                     <div v-for="(tag, index) in filterTags" :key="tag.id" class="query-tag" data-cy="filter-tag">
@@ -52,9 +52,9 @@
                 </p>
             </section>
 
-            <section class="card video-query__panel" :aria-label="t('local.sort')">
+            <section class="card video-query__panel" :aria-label="t('button.sort')">
                 <h2 class="card-title video-query__title">
-                    {{ t('local.sort') }}<span class="text-secondary text-small video-query__title-hint">{{ t('local.sortHint') }}</span>
+                    {{ t('button.sort') }}<span class="text-secondary text-small video-query__title-hint">{{ t('local.sortHint') }}</span>
                 </h2>
                 <div class="video-query__tags">
                     <div v-for="(rule, index) in sortRules" :key="rule.id" class="query-tag" data-cy="sort-tag">
@@ -131,7 +131,7 @@
         <div class="video-query__table-bar" data-cy="column-selector">
             <MultiSelector v-model="selectedColumns" :options="ColumnChoices" :labels="columnLabels" />
         </div>
-        <VideoList class="video-query__table" :videos="pageRows" :columns="videoColumns" external-filtering />
+        <VideoList v-loading="loading" class="video-query__table" :videos="pageRows" :columns="videoColumns" external-filtering />
     </div>
 </template>
 
@@ -139,6 +139,7 @@
 import '@/styles/cards.css';
 import 'primeicons/primeicons.css';
 
+import { vLoading } from 'element-plus';
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -194,24 +195,12 @@ const enumFields = ['state', 'software', 'level', 'mode'];
 const datetimeFields = ['upload_time', 'end_time'];
 
 const numberFields = [
-    'file_size', 'stored_file_size', 'upload_time', 'end_time', 'timems', 'bv', 'bvs', 'iqg',
+    'file_size', 'stored_file_size', 'upload_time', 'end_time', 'timems', 'bv', 'bvs',
     'left', 'right', 'double', 'cl', 'left_ce', 'right_ce', 'double_ce', 'ce',
     'left_s', 'right_s', 'double_s', 'cl_s', 'left_ces', 'right_ces', 'double_ces', 'ce_s',
     'path', 'pluck', 'flag', 'op', 'isl', 'flag_s', 'ioe', 'thrp', 'corr',
     'cell0', 'cell1', 'cell2', 'cell3', 'cell4', 'cell5', 'cell6', 'cell7', 'cell8',
 ];
-
-const numberLabelOverrides: Record<string, string> = {
-    stored_file_size: 'local.fields.storedFileSize',
-    iqg: 'local.fields.iqg',
-    left_ce: 'local.fields.leftCe',
-    right_ce: 'local.fields.rightCe',
-    double_ce: 'local.fields.doubleCe',
-    left_ces: 'local.fields.leftCes',
-    right_ces: 'local.fields.rightCes',
-    double_ces: 'local.fields.doubleCes',
-    flag_s: 'local.fields.flagS',
-};
 
 const enumOptions: Record<string, EnumOption[]> = {
     state: [
@@ -249,14 +238,14 @@ const fieldGroups: FieldGroup[] = [
             { key: 'mode', label: 'prop.mode' },
         ] },
     { label: 'local.groupNumber',
-        fields: numberFields.map((key) => ({ key, label: numberLabelOverrides[key] ?? `prop.${key}` })) },
+        fields: numberFields.map((key) => ({ key, label: `prop.${key}` })) },
     { label: 'local.groupDerived',
         fields: [{ key: 'stnb', label: 'prop.stnb' }] },
     { label: 'local.groupIdentity',
         fields: [{ key: 'id', label: 'prop.videoId' }] },
 ];
 
-const sortableKeys = ['id', 'level', 'mode', 'state', 'timems', 'bv', 'bvs', 'iqg', 'thrp', 'stnb'];
+const sortableKeys = ['id', 'level', 'mode', 'state', 'timems', 'bv', 'bvs', 'thrp', 'stnb'];
 const sortFieldGroups: FieldGroup[] = [
     { label: 'local.groupEnum', fields: fieldGroups[0].fields.filter((field) => sortableKeys.includes(field.key)) },
     { label: 'local.groupNumber', fields: fieldGroups[1].fields.filter((field) => sortableKeys.includes(field.key)) },
@@ -395,7 +384,7 @@ function sortDirectionIcon(rule: SortRule): string {
 }
 
 function sortDirectionLabel(rule: SortRule): string {
-    return rule.direction === 'asc' ? 'local.asc' : 'local.desc';
+    return rule.direction === 'asc' ? 'button.sortAsc' : 'button.sortDesc';
 }
 
 function pageLabel(page: number): string {
@@ -512,6 +501,8 @@ async function runQuery(): Promise<void> {
 }
 
 function scheduleQuery(): void {
+    loading.value = true;
+    queryFailed.value = false;
     if (debounceTimer !== undefined) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
         void runQuery();
@@ -533,9 +524,7 @@ void runQuery();
 
 const i18nMessages = {
     'zh-cn': { local: {
-        filter: '筛选',
         filterHint: '枚举字段多选；数值字段用区间，括号可切换开闭，留空表示无穷',
-        sort: '排序',
         sortHint: '按标签编号依次排序',
         pagination: '分页',
         field: '字段',
@@ -561,26 +550,11 @@ const i18nMessages = {
         negativeInfinity: '负无穷：留空表示无下界',
         positiveInfinity: '正无穷：留空表示无上界',
         derived: '派生',
-        derivedHint: 'STNB 由 iqg 与等级系数计算，不是数据库原生字段',
+        derivedHint: 'STNB 按等级系数换算，不是可直接查询的字段',
         stnbHint: '需先将等级筛选为单个级别',
-        asc: '升序',
-        desc: '降序',
-        fields: {
-            storedFileSize: '存储大小',
-            iqg: 'IQG',
-            leftCe: '左 CE',
-            rightCe: '右 CE',
-            doubleCe: '双 CE',
-            leftCes: '左 CE/s',
-            rightCes: '右 CE/s',
-            doubleCes: '双 CE/s',
-            flagS: 'Flag/s',
-        },
     } },
     en: { local: {
-        filter: 'Filter',
         filterHint: 'Enums use multi-select; numbers use intervals with toggleable brackets',
-        sort: 'Sort',
         sortHint: 'Sort by tag order, from left to right',
         pagination: 'Pagination',
         field: 'Field',
@@ -606,21 +580,8 @@ const i18nMessages = {
         negativeInfinity: 'Negative infinity: leave empty for no lower bound',
         positiveInfinity: 'Positive infinity: leave empty for no upper bound',
         derived: 'Derived',
-        derivedHint: 'STNB is computed from iqg and the level coefficient, not a native column',
+        derivedHint: 'STNB is derived from the level coefficient, not a directly queryable column',
         stnbHint: 'Select exactly one level before using STNB',
-        asc: 'Ascending',
-        desc: 'Descending',
-        fields: {
-            storedFileSize: 'Stored size',
-            iqg: 'IQG',
-            leftCe: 'Left CE',
-            rightCe: 'Right CE',
-            doubleCe: 'Double CE',
-            leftCes: 'Left CE/s',
-            rightCes: 'Right CE/s',
-            doubleCes: 'Double CE/s',
-            flagS: 'Flag/s',
-        },
     } },
 };
 
