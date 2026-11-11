@@ -133,8 +133,7 @@ def video_query(request, filters: str = '[]', sorts: str = '[]'):
         raise HttpError(400, str(exc)) from exc
     players = UserProfile.objects.in_bulk({row['player_id'] for row in rows})
     for row in rows:
-        row['player__id'] = row.pop('player_id')
-        row['player__realname'] = players[row['player__id']].realname
+        row['player__realname'] = players[row['player_id']].realname
     return {'videos': rows}
 
 

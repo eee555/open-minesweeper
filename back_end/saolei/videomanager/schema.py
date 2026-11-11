@@ -50,7 +50,7 @@ VideoQueryItemOut = create_schema(
     VideoModel,
     name='VideoQueryItemOut',
     fields=['id', 'upload_time', 'state', 'ongoing_tournament'],
-    custom_fields=[('player__id', int, ...), ('player__realname', str, ...)],
+    custom_fields=[('player_id', int, ...), ('player__realname', str, ...)],
 )
 
 

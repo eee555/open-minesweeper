@@ -67,7 +67,7 @@ function navigate(hash: string) {
 }
 
 interface VideoQueryRow {
-    player__id: number;
+    player_id: number;
     player__realname: string;
 }
 
@@ -152,7 +152,7 @@ describe('Real name privacy against the backend', () => {
             const body = response?.body as { videos: VideoQueryRow[]; count?: number } | undefined;
             expect(body, 'video query response').to.exist;
             expect(body).not.to.have.property('count');
-            expect(body?.videos.find((row) => row.player__id === user.id)?.player__realname).to.eq('hidden');
+            expect(body?.videos.find((row) => row.player_id === user.id)?.player__realname).to.eq('hidden');
         });
         showPlayerColumn();
         cy.get(`.player-name a[href="#/player/${user.id}"]`).should('have.text', `用户 #${user.id}`).closest('.player-name').should('have.attr', 'title', `用户 #${user.id}`);
@@ -199,7 +199,7 @@ describe('Real name privacy against the backend', () => {
             },
         });
         cy.wait('@cachedUserVideos').its('response.body.videos').should((rows: VideoQueryRow[]) => {
-            expect(rows.some((row) => row.player__id === user.id), 'the cached user has a visible video').to.eq(true);
+            expect(rows.some((row) => row.player_id === user.id), 'the cached user has a visible video').to.eq(true);
         }).then((rows: VideoQueryRow[]) => {
             videos = rows;
         });

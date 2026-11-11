@@ -31,6 +31,7 @@ filterTags / sortRules
 - 无游标、无续查、无服务端分页、无 Redis 结果缓存；批内数据天然是同一批。
 - `VideoList` 以 `:external-filtering` 关闭表头筛选菜单，`paginator` / `sortable` 保持默认 `false`（分页与排序由本页控件负责）；行点击仍调用 `preview(id)`。
 - 前端在解析字段补全完成、构造完整 `VideoAbstract` 后才整表替换，不提前展示不完整数据。
+- 响应直接给出 `player_id`，与 `VideoAbstract` 的字段名一致，前端无需改名；`player__realname` 仍只由 `UserProfile` 公开 getter 提供。
 
 ## 3. API 契约
 
@@ -69,7 +70,7 @@ filterTags / sortRules
 
 ```json
 {"videos": [{"id": 1, "upload_time": "...", "state": "c", "ongoing_tournament": false,
-             "player__id": 2, "player__realname": "..."}]}
+             "player_id": 2, "player__realname": "..."}]}
 ```
 
 6 个字段固定，不含 `count`、不含解析字段。`player__realname` 必须由 `UserProfile` 的公开 getter 取得（不能 `values('player__realname')` 绕过姓名隐私）；`ongoing_tournament=False` 对所有人（含 staff）强制。NULL 按 MySQL 默认：ASC 最前、DESC 最后；`iqg` 为 NULL 时 `stnb` 同为 NULL。
@@ -161,4 +162,4 @@ filterTags / sortRules
 | 日期 | 内容 |
 | --- | --- |
 | 2026-11-10 | 重做计划定案（Q1–Q42），替换旧签名游标分页方案；后端 `/api/video/query` 新契约、前端 `VideoView` 接入、测试与契约文档同步；本文整理为维护文档 |
-| 2026-11-11 | 页面移入 `DatabaseView/`；条件变化时结果表格显示 `v-loading`；复用全局 `button.*` / `prop.*` 文案；`iqg` 不再直接开放筛选 / 排序，`stnb` 保留；E2E 适配新契约与 URL 状态 |
+| 2026-11-11 | 页面移入 `DatabaseView/`；条件变化时结果表格显示 `v-loading`；复用全局 `button.*` / `prop.*` 文案；`iqg` 不再直接开放筛选 / 排序，`stnb` 保留；E2E 适配新契约与 URL 状态；查询响应字段由 `player__id` 改为 `player_id`，修复玩家链接回归并补 Vitest 用例 |

@@ -102,7 +102,7 @@ class VideoInfoTests(TestCase):
     def test_query_and_profile_list_only_return_website_fields(self):
         response = self.client.get('/api/video/query')
         self.assertEqual(response.status_code, 200, response.content)
-        self.assertEqual(set(response.json()['videos'][0]), {'id', 'upload_time', 'state', 'ongoing_tournament', 'player__id', 'player__realname'})
+        self.assertEqual(set(response.json()['videos'][0]), {'id', 'upload_time', 'state', 'ongoing_tournament', 'player_id', 'player__realname'})
         response = self.client.get('/api/userprofile/videolist', {'user_id': self.owner.id})
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(set(response.json()[0]), set(VIDEO_METADATA_FIELDS))
