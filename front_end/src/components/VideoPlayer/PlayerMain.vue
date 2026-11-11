@@ -49,6 +49,8 @@ const props = defineProps({
 });
 
 const displayBoard = computed(() => {
+    // eslint-disable-next-line @typescript-eslint/no-meaningless-void-operator
+    void props.currentMs;
     const board = props.video.game_board as number[][];
     return props.transposed ? transpose(board) : board;
 });
