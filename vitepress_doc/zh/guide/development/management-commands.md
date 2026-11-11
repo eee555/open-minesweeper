@@ -26,7 +26,7 @@ ID 和资料仅为示例，须替换为已核实的空缺；另支持 `--firstna
 
 ### `sync_saolei_api`
 
-位置：`accountlink/management/commands/sync_saolei_api.py`。使用服务器 `secrets.json` 的 `saolei_api_key`，只处理已验证且关联一致的扫雷网账号。首批由此命令完成；迁移后已开放新 Ninja API 与前端手动同步，并增加每日自动同步任务。站长命令不受用户 `auto_sync` 开关影响；涉及文件导入的阶段无视 `import_rejected` 标记，会重试所有尚未关联本站录像且已取得文件 URL 的白名单来源，是导入失败后的强制重试通道。
+位置：`accountlink/management/commands/sync_saolei_api.py`。使用服务器 `secrets.json` 的 `saolei_api_key`，只处理已验证且关联一致的扫雷网账号。首批由此命令完成；迁移后已开放新 Ninja API 与前端手动同步，并增加每日自动同步任务。站长命令不受用户 `auto_sync` 开关影响；涉及文件导入的阶段无视 `import_rejected` 标记，会重试所有尚未关联本站录像的白名单来源，是导入失败后的强制重试通道。
 
 部署时先使用已有 `backfill_video_hashes` 补齐存量原文件哈希，再运行 `makemigrations accountlink --noinput` 并核对生成结果，最后运行 `migrate`。迁移文件按仓库惯例不跟踪，编号取决于服务器已有历史；应生成删除旧 `VideoSaolei`、创建独立 `SaoleiApiVideo` 及账号字段变更的结构迁移，保留账号绑定、本站录像、扩展记录及文件。首次运行可先指定一个扫雷网账号 ID 核对结果，再处理全部绑定：
 
@@ -40,7 +40,7 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 
 `--account-id` 可重复指定；`--all-linked` 表示全部已验证绑定，两者必须选择其一。`--full` 从 0 重新扫描目录，不清空数据、不回退账号成功游标；去掉此选项用于增量和中断续跑。`--page-size` 默认为 200，取值 1 至 1000。
 
-`--phase` 默认为 `all`：先完成选中账号的资料、目录和批量详情同步（`video_info` 每批最多 50 个 ID，保存 URL），再逐个下载导入。`--phase metadata` 只更新元数据，不下载文件；`--phase videos` 只使用已存 URL，不请求 `stats`、`video_list` 或 `video_info`，缺少 URL 的记录先运行 metadata 阶段补齐。`--limit` 是整轮导入的尝试次数上限（失败也计入），默认不限；`--full` 不能与 `--phase videos` 一起使用。涉及文件导入的阶段要求所有存量录像的原文件哈希完整，metadata 阶段不要求。
+`--phase` 默认为 `all`：先完成选中账号的资料、目录和批量详情同步（`video_info` 每批最多 50 个 ID，刷新元数据），再按录像 ID 逐个下载导入。`--phase metadata` 只更新元数据，不下载文件；`--phase videos` 不请求 `stats`、`video_list` 或 `video_info`，直接按录像 ID 下载待导入来源。`--limit` 是整轮导入的尝试次数上限（失败也计入），默认不限；`--full` 不能与 `--phase videos` 一起使用。涉及文件导入的阶段要求所有存量录像的原文件哈希完整，metadata 阶段不要求。
 
 整个命令串行共用一个客户端，数据请求间隔 2.1 秒，文件请求间隔 0.4 秒；Redis 节流与网页、每日目录调度和每小时导入 worker 共用，仍不要并行启动多个同步命令。目录页和 `AccountSaolei.video_sync_cursor` 同事务提交，失败不推进；详情及文件独立补取，避免游标已推进但后续未完成时漏导。软件精确白名单为 `Clone`、`Vienna`、`Arbiter`、`元扫雷`，其他名称只保存目录并跳过；上游 `status` 不限制导入。
 
@@ -531,7 +531,7 @@ python manage.py refresh_monitor_snapshot
 | --- | --- | --- |
 | `refresh_monitor_snapshot` | 启动时及每 5 分钟 | 生成统一监控 JSON；单实例执行，错过多次调度时合并执行 |
 | `sync_saolei_metadata_daily` | 每天 03:30（调度器时区，当前 UTC） | APScheduler 直接同步启用账号的资料和增量目录，每批最多 50 个 ID 补取详情及 URL；不下载文件、不创建 Django Task |
-| `import_saolei_hourly` | 每小时整点 | 入队一条低优先级 Django Task，按 `remote_id` 升序从已存 URL 逐个导入启用账号的录像，整轮最多尝试 100 条（含失败）；任何失败都标记来源并交由 `sync_saolei_api` 重试；上一轮未完成时不重复入队 |
+| `import_saolei_hourly` | 每小时整点 | 入队一条低优先级 Django Task，按 `remote_id` 升序逐个下载启用账号的待导入录像，整轮最多尝试 100 条（含失败）；任何失败都标记来源并交由 `sync_saolei_api` 重试；上一轮未完成时不重复入队 |
 | `delete_old_job_executions` | 每天 00:03 | 清理超过 7 天的 APScheduler 执行记录 |
 | `delete_newest_queue` | 每天 01:08 | 按上传时间保留最新 1000 条，允许两次清理之间暂时超过上限 |
 | `delete_overdue_emailverifyrecord` | 每周一 01:03 | 清理 1 小时以前的邮箱验证码 |

@@ -3,4 +3,4 @@ msrc @ https://github.com/putianyi889/MSRC/releases/download/v0.2.0/msrc-0.2.0-c
 msrc @ https://github.com/putianyi889/MSRC/releases/download/v0.2.0/msrc-0.2.0-cp310-abi3-win_amd64.whl#sha256=9ba0e67268629c95e821fac2614e95ea4b0f3c3fc8d8da71b0b8f176b9690c7d ; sys_platform == 'win32' and platform_machine == 'AMD64'
 msrc @ https://github.com/putianyi889/MSRC/releases/download/v0.2.0/msrc-0.2.0-cp310-abi3-macosx_11_0_arm64.whl#sha256=0a6b66b1f79bb1a06232b2dcdd8fe43d9ef75d40ebb6af2b5ac4a971822a4a1b ; sys_platform == 'darwin' and platform_machine == 'arm64'
 msgames-api @ https://github.com/putianyi889/msgames-api/releases/download/v0.1.1/msgames_api-0.1.1-py3-none-any.whl#sha256=e4727ce3cbdf11426c30ac00b974618acdad7525165019d6e0922a5caf4d1fe2
-saolei-api @ https://github.com/putianyi889/saolei-api/releases/download/v0.4.1/saolei_api-0.4.1-py3-none-any.whl#sha256=8f9d1d781da54414617bd562bd1c7359357f5ea4412647cbbfc8cda13b7931ab
+saolei-api @ https://github.com/putianyi889/saolei-api/releases/download/v0.4.3/saolei_api-0.4.3-py3-none-any.whl#sha256=20b12331fa3d12bd41cb1c267f80ee5c6557868105e0f53d04bc58c604a25bfe

@@ -66,6 +66,15 @@ function navigate(hash: string) {
     cy.location('hash').should('eq', hash);
 }
 
+interface VideoQueryRow {
+    player_id: number;
+    player__realname: string;
+}
+
+function showPlayerColumn() {
+    cy.contains('[data-cy=column-selector] label', '玩家').find('input').check({ force: true });
+}
+
 function cachedName(id: number) {
     return cy.window().then((win) => new Cypress.Promise<string>((resolve, reject) => {
         const open = win.indexedDB.open('saolei-cache');
@@ -138,9 +147,14 @@ describe('Real name privacy against the backend', () => {
         publicNames(user.id, 'hidden');
         cy.intercept('GET', '**/api/video/query*').as('videoQuery');
         cy.visit('/#/database/videos');
-        cy.wait('@videoQuery').its('response.body.videos').should((rows: { player__id: number; player__realname: string }[]) => {
-            expect(rows.find((row) => row.player__id === user.id)?.player__realname).to.eq('hidden');
+        cy.wait('@videoQuery').then(({ request, response }) => {
+            expect(request.query).to.have.all.keys('filters', 'sorts');
+            const body = response?.body as { videos: VideoQueryRow[]; count?: number } | undefined;
+            expect(body, 'video query response').to.exist;
+            expect(body).not.to.have.property('count');
+            expect(body?.videos.find((row) => row.player_id === user.id)?.player__realname).to.eq('hidden');
         });
+        showPlayerColumn();
         cy.get(`.player-name a[href="#/player/${user.id}"]`).should('have.text', `用户 #${user.id}`).closest('.player-name').should('have.attr', 'title', `用户 #${user.id}`);
     });
 
@@ -173,6 +187,7 @@ describe('Real name privacy against the backend', () => {
 
     it('invalidates the saved user at the normal cache interval and keeps hidden names after reload', () => {
         const user = USERS.cached;
+        let videos: VideoQueryRow[] = [];
         cy.login(STAFF.username, STAFF.password);
         staffPatch(user.id, { can_hide_realname: true });
         cy.login(user.username, user.password);
@@ -183,14 +198,21 @@ describe('Real name privacy against the backend', () => {
                 win.localStorage.setItem('service-config', JSON.stringify({ ...config, userInfoUpdateInterval: 86400000, userInfoLastUpdate: Date.now() }));
             },
         });
-        cy.wait('@cachedUserVideos').its('response.body.videos').should((rows: { player__id: number }[]) => {
-            expect(rows.some((row) => row.player__id === user.id), 'the cached user has a visible video').to.eq(true);
+        cy.wait('@cachedUserVideos').its('response.body.videos').should((rows: VideoQueryRow[]) => {
+            expect(rows.some((row) => row.player_id === user.id), 'the cached user has a visible video').to.eq(true);
+        }).then((rows: VideoQueryRow[]) => {
+            videos = rows;
         });
+        showPlayerColumn();
         cy.get(`.player-name a[href="#/player/${user.id}"]`).should('contain.text', user.username);
         cachedName(user.id).should('eq', user.realname);
         navigate(`#/player/${user.id}/settings`);
         cy.intercept('POST', '**/api/userprofile/name-privacy').as('savePrivacy');
         cy.intercept('GET', '**/api/userprofile/infobulk*').as('publicBatch');
+        // 后端查询限流 1/5s：重新挂载与 reload 回放首次结果，避免 429 清空表格。
+        cy.intercept('GET', '**/api/video/query*', (req) => {
+            req.reply({ body: { videos } });
+        });
         cy.get('[data-cy=hide-realname-toggle]').check();
         cy.wait('@savePrivacy').its('response.body.hide_realname').should('eq', true);
         cy.get('[data-cy=privacy-save-status]').should('contain.text', '隐藏设置已保存');
@@ -231,7 +253,7 @@ describe('Real name privacy against the backend', () => {
         staffPatch(user.id, { can_hide_realname: true });
         cy.login(user.username, user.password);
         privacy(true);
-        cy.request({ method: 'POST', url: `${BACKEND}/accountlink/delete/`, form: true, body: { platform: 'a' } });
+        cy.request({ method: 'POST', url: `${BACKEND}/api/accountlink/delete/`, form: true, body: { platform: 'a' } });
         self().its('body').should('include', { can_hide_realname: true, hide_realname: true });
     });
 
@@ -239,7 +261,7 @@ describe('Real name privacy against the backend', () => {
         const user = USERS.existing;
         cy.login(user.username, user.password);
         self().its('body').should('include', { can_hide_realname: false, hide_realname: false });
-        cy.request({ method: 'POST', url: `${BACKEND}/accountlink/update/`, form: true, body: { platform: 'a' } });
+        cy.request({ method: 'POST', url: `${BACKEND}/api/accountlink/update/`, form: true, body: { platform: 'a' } });
         self().its('body.can_hide_realname').should('eq', false);
         editEligibility(user.id, true);
         cy.login(user.username, user.password);

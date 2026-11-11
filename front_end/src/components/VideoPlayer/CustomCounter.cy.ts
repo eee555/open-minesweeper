@@ -10,7 +10,7 @@ function createVideo(values: Record<string, unknown>) {
 }
 
 function counterCell(label: string) {
-    return cy.contains('.custom-counter-wrap th', new RegExp(`^${label}$`)).parents('tr').find('td');
+    return cy.contains('.custom-counter-wrap th', new RegExp(`^${label}$`)).next('td');
 }
 
 function createConfig(table: CustomCounterTableRow[]): CustomCounterConfig {
@@ -105,5 +105,31 @@ describe('<CustomCounter />', () => {
             return wrapper.setProps({ currentMs: 100 }).then(() => nextTick());
         });
         counterCell('solved').should('have.text', '2');
+    });
+
+    it('renders two label/value pairs per row in double-column layout', () => {
+        cy.mount(CustomCounter, {
+            props: {
+                video: createVideo({}),
+                currentMs: 0,
+                config: createConfig([
+                    ['a', '1'],
+                    ['b', '2'],
+                    ['c', '3'],
+                    ['d', '4'],
+                    ['e', '5'],
+                ]),
+                doubleColumn: true,
+            },
+        });
+
+        cy.get('.custom-counter colgroup col').should('have.length', 4);
+        cy.get('.custom-counter tbody tr').should('have.length', 3);
+        cy.get('.custom-counter tbody tr').first().find('th, td').should('have.length', 4);
+        cy.get('.custom-counter tbody tr').last().find('th, td').should('have.length', 4);
+        cy.get('.custom-counter tbody tr').first().find('th').then(($labels) => {
+            expect(Array.from($labels, (element) => element.textContent?.trim())).to.deep.equal(['a', 'd']);
+        });
+        counterCell('e').should('have.text', '5');
     });
 });

@@ -36,7 +36,7 @@ describe('<AccountLinks page />', () => {
 
     it('displays a single complete platform panel and keeps the selection after a successful profile refresh', () => {
         cy.intercept('GET', '**/api/accountlink/1', { body: mockAccountLinksResponse() }).as('links');
-        cy.intercept('POST', '**/accountlink/update/', { body: { type: 'success' } }).as('update');
+        cy.intercept('POST', '**/api/accountlink/update/', { body: { type: 'success' } }).as('update');
         mountAccountLink(App, { userId: 1 });
         cy.wait('@links');
         cy.get('[data-platform=w]').click();

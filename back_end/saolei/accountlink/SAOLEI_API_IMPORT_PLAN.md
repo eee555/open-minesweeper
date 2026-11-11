@@ -58,7 +58,7 @@
 
 ## 已核对的上游能力
 
-初版方案以 v0.3.0 和[官方 API 文档](https://saolei.wang/page/api)为核对基线；首批实现固定使用 [v0.4.0](https://github.com/putianyi889/saolei-api/releases/tag/v0.4.0) 的官方 wheel，已核对 Release SHA256。2026-10-29 的 [`software` 只读抽样](SAOLEI_SOFTWARE_SURVEY.md)验证过目录和代表录像详情；本次实现使用离线响应及文件 fixture 验证，不执行真实账号同步或录像下载导入。
+初版方案以 v0.3.0 和[官方 API 文档](https://saolei.wang/page/api)为核对基线；首批实现固定使用 [v0.4.0](https://github.com/putianyi889/saolei-api/releases/tag/v0.4.0) 的官方 wheel，已核对 Release SHA256。2026-10-29 的 [`software` 只读抽样](SAOLEI_SOFTWARE_SURVEY.md)验证过目录和代表录像详情；本次实现使用离线响应及文件 fixture 验证，不执行真实账号同步或录像下载导入。2026-11-11 上游不再返回 `video_info` 的 `fileUrl`，下方文件契约改为直接用录像 ID 下载并移除新来源表的 `file_url` 字段，本站改用 [v0.4.3](https://github.com/putianyi889/saolei-api/releases/tag/v0.4.3)，具体说明见[扫雷网同步](README.md#扫雷网同步)。
 
 | 客户端能力 | 网站用途 | 需要遵守的契约 |
 | --- | --- | --- |
@@ -118,11 +118,11 @@
 | `software` | 新来源表保存 API 原始软件名称字符串，供目录接口返回和前端展示；不转换为本站软件枚举 |
 | `upload_time` | Unix 秒转为带 UTC 时区的时间，沿用来源上传时间保存逻辑 |
 | `status=0/10/20` | 新表保存原整数，分别展示为已屏蔽、待审、已通过；未知整数也保留，仅用于展示，不影响是否导入 |
-| `file_url` | 详情取得后将客户端规范化的 `YYYY/MM/DD/filename` 后缀保存到新来源表可空的 `file_url` 字段；导入从该字段下载，使用实际文件名构造 Django `ContentFile` |
+| 录像文件 | 不保存文件地址；导入时用 `remote_id` 作为 `download_videos` 的后缀，按 ID 请求 `https://saolei.wang/video/download/{id}`，文件名取下载响应的 `Content-Disposition` |
 
 旧来源状态枚举不作为新库的数据契约；仅供旧模型使用的枚举、DTO 和查询代码在实施时清理，不建立原始响应影子表。
 
-新来源模型不再提供录像网页链接的 `url` getter。`file_url` 由详情刷新维护：目录列表不包含文件地址，目录更新保留已保存的后缀；详情缺项保留已有信息，详情明确返回无文件则将 `file_url` 置空，不用旧后缀继续下载。文件下载失败保留已落库的后缀和来源记录。自动同步与命令将详情刷新集中到 metadata 阶段，videos 阶段只读取已存 URL，不逐条重复请求详情；前端单条手动导入仍按原路径刷新该条详情。
+新来源模型不再提供录像网页链接的 `url` getter，也不保存 `file_url`。目录与详情只维护元数据；详情缺项保留已有信息，文件下载失败保留来源记录。自动同步与命令将详情刷新集中到 metadata 阶段，videos 阶段直接按 `remote_id` 下载、不逐条重复请求详情；前端单条手动导入仍按原路径刷新该条详情。
 
 上游 `hash` 不采集、不持久化，也不用于来源匹配或导入判定。文件下载后仍交给既有录像导入服务，沿用本站 `VideoModel.original_hash` 的统一查重规则；新来源表不另存一份文件哈希。
 

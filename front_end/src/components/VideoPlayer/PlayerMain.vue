@@ -6,7 +6,7 @@
             <Counter :value="currentMs / 1000" :fixed="3" :digits="3" :size="18" />
         </div>
         <div :class="innerBorderClass">
-            <MinesweeperBoard :board="video.game_board" :size="size" :cursor-position="cursorPosition">
+            <MinesweeperBoard :board="displayBoard" :size="size" :cursor-position="displayCursor">
                 <template #background>
                     <BoardBackground :board="backgroundBoard" />
                 </template>
@@ -22,6 +22,7 @@
 import '@putianyi888/vue3-minesweeper-board/style.css';
 
 import { BoardBackground, BoardProbability, Counter, innerBorderClass, MinesweeperBoard, outerBorderClass } from '@putianyi888/vue3-minesweeper-board';
+import { transpose } from 'd3-array';
 import type { PropType } from 'vue';
 import { computed } from 'vue';
 
@@ -40,22 +41,36 @@ const props = defineProps({
     cursorPosition: { type: Object as PropType<CursorPosition>, default: undefined },
     showProbability: { type: Boolean, default: true },
     size: { type: Number, default: 24 },
+    transposed: { type: Boolean, default: false },
     probabilityColorScheme: {
         type: PiecewiseColorScheme,
         default: () => new PiecewiseColorScheme([], []),
     },
 });
 
+const displayBoard = computed(() => {
+    const board = props.video.game_board as number[][];
+    return props.transposed ? transpose(board) : board;
+});
+
+const displayCursor = computed(() => {
+    const position = props.cursorPosition;
+    if (!props.transposed || position === undefined) return position;
+    return { rowIndex: position.columnIndex, columnIndex: position.rowIndex };
+});
+
 const backgroundBoard = computed(() => {
     // eslint-disable-next-line @typescript-eslint/no-meaningless-void-operator
     void props.currentMs;
-    return replayPressedBackground(props.video.game_board as number[][], props.video.mouse_state, props.cursorPosition);
+    const background = replayPressedBackground(props.video.game_board as number[][], props.video.mouse_state, props.cursorPosition);
+    return props.transposed && background !== undefined ? transpose(background) : background;
 });
 
 const probabilityBoard = computed(() => {
     // eslint-disable-next-line @typescript-eslint/no-meaningless-void-operator
     void props.currentMs;
-    return props.video.game_board_poss as number[][];
+    const board = props.video.game_board_poss as number[][];
+    return props.transposed ? transpose(board) : board;
 });
 
 function probabilityColor(value: number) {

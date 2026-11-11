@@ -29,8 +29,8 @@
                 <template v-else-if="linked">
                     <SaoleiPanel v-if="selected === 'c'" :key="selected" :verified="verified" :info="links.c" @refresh="refresh" />
                     <MsgamesPanel v-else-if="selected === 'a'" :key="selected" :verified="verified" :info="links.a" />
-                    <WoMPanel v-else-if="selected === 'w'" :key="selected" :verified="verified" :info="links.w" :owner="ownPage" @refresh="refresh" />
-                    <BilibiliPanel v-else-if="selected === 'B'" :key="selected" :verified="verified" :info="links.B" :owner="ownPage" @refresh="refresh" />
+                    <WoMPanel v-else-if="selected === 'w'" :key="selected" :verified="verified" :info="links.w" :owner="managesLinkedAccounts" @refresh="refresh" />
+                    <BilibiliPanel v-else-if="selected === 'B'" :key="selected" :verified="verified" :info="links.B" :owner="managesLinkedAccounts" @refresh="refresh" />
                     <MineracerPanel v-else-if="selected === 'm'" :info="links.m" />
                     <ClassicPanel v-else-if="selected === 'x'" :info="links.x" />
                     <GitHubPanel v-else-if="selected === 'g' && links.g" :info="links.g" :owner="ownPage" @refresh="refresh" />
@@ -103,6 +103,8 @@ const drafts = reactive(Object.fromEntries(platforms.map(({ id }) => [id, ''])) 
 const errors = reactive({ ...drafts });
 const sending = reactive(Object.fromEntries(platforms.map(({ id }) => [id, false])) as Record<AccountLinkPlatform, boolean>);
 const ownPage = computed(() => store.user.id > 0 && store.user.id === props.userId);
+// 已关联账号的操作视同本人；新建关联、解绑与 OAuth 回跳仍只属于本人。
+const managesLinkedAccounts = computed(() => ownPage.value || (store.isMemorialProfileAdmin && store.player.id === props.userId));
 const unlinkedPlatforms = computed(() => (loaded.value ? platforms.filter(({ id, private: hidden }) => (!hidden || ownPage.value || store.user.is_staff) && !hasLink(id)).map(({ id }) => id) : []));
 const privateHidden = computed(() => (selected.value === 'd' || selected.value === 'q') && !ownPage.value && !store.user.is_staff);
 const linked = computed(() => hasLink(selected.value));

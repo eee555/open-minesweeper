@@ -7,10 +7,11 @@ from unittest.mock import patch
 
 from django.core.cache import caches
 from django.db import connection
-from django.test import override_settings, SimpleTestCase, TestCase
+from django.test import Client, override_settings, SimpleTestCase, TestCase
 from django.utils import timezone
 import requests
 
+from msuser.models import UserMS
 from userprofile.models import UserProfile
 from utils.exceptions import ExceptionToResponse
 from .api import MineracerAccountLinkSessionOut
@@ -19,6 +20,64 @@ from .mineracer.dtos import MINERACER_ERROR_ACCOUNT_NOT_FOUND, MINERACER_ERROR_I
 from .mineracer.sessions import _get_mineracer_session, _save_mineracer_session, _save_user_pending_mineracer_session
 from .models import AccountBilibili, AccountLinkQueue, AccountMineracer, AccountMinesweeperGames, Platform
 from .utils import isPrivate, private_platforms, update_bilibili_account
+
+
+@override_settings(RATELIMIT_ENABLE=False)
+class AccountLinkActionTests(TestCase):
+    def setUp(self):
+        self.memorial = UserProfile.objects.create_user(pk=2101, username='memorial-actions', email='memorial-actions@accounts.invalid', is_memorial=True, is_active=False, userms=UserMS.objects.create(pk=2102))
+        self.staff = UserProfile.objects.create_user(username='actions-staff', email='actions-staff@example.com', is_staff=True)
+        self.ordinary = UserProfile.objects.create_user(username='actions-ordinary', email='actions-ordinary@example.com')
+        self.regular = UserProfile.objects.create_user(username='actions-regular', email='actions-regular@example.com')
+        self.account = AccountMinesweeperGames.objects.create(id=4321, parent=self.memorial, name='Saved name')
+        AccountLinkQueue.objects.create(platform=Platform.MSGAMES, identifier='4321', userprofile=self.memorial, verified=True)
+
+    def test_staff_refreshes_a_memorial_account_profile(self):
+        self.client.force_login(self.staff)
+        with patch('accountlink.services.fetch_msgames_profile', return_value={'name': 'Refreshed name'}) as fetch:
+            response = self.client.post('/api/accountlink/update/', {'platform': Platform.MSGAMES, 'user_id': self.memorial.pk})
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json(), {'type': 'success'})
+        fetch.assert_called_once()
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.name, 'Refreshed name')
+
+    def test_bypass_is_limited_to_memorial_accounts_and_moderators(self):
+        self.client.force_login(self.staff)
+        with patch('accountlink.services.fetch_msgames_profile'):
+            self.assertEqual(self.client.post('/api/accountlink/update/', {'platform': Platform.MSGAMES, 'user_id': self.regular.pk}).status_code, 403)
+            self.assertEqual(self.client.post('/api/accountlink/update/', {'platform': Platform.MSGAMES, 'user_id': 999999}).status_code, 404)
+        self.client.force_login(self.ordinary)
+        with patch('accountlink.services.fetch_msgames_profile'):
+            self.assertEqual(self.client.post('/api/accountlink/update/', {'platform': Platform.MSGAMES, 'user_id': self.memorial.pk}).status_code, 403)
+
+    def test_owner_refresh_omits_the_target(self):
+        account = AccountMinesweeperGames.objects.create(id=4322, parent=self.regular)
+        AccountLinkQueue.objects.create(platform=Platform.MSGAMES, identifier='4322', userprofile=self.regular, verified=True)
+        self.client.force_login(self.regular)
+        with patch('accountlink.services.fetch_msgames_profile', return_value={'name': 'Owner refreshed'}):
+            response = self.client.post('/api/accountlink/update/', {'platform': Platform.MSGAMES})
+        self.assertEqual(response.status_code, 200, response.content)
+        account.refresh_from_db()
+        self.assertEqual(account.name, 'Owner refreshed')
+
+    def test_delete_link_stays_owner_only(self):
+        self.client.force_login(self.staff)
+        self.assertEqual(self.client.post('/api/accountlink/delete/', {'platform': Platform.MSGAMES}).status_code, 404)
+        self.assertTrue(AccountLinkQueue.objects.filter(userprofile=self.memorial).exists())
+        self.assertTrue(AccountMinesweeperGames.objects.filter(pk=self.account.pk).exists())
+
+    def test_moderator_refresh_requires_admin_csrf(self):
+        body = {'platform': Platform.MSGAMES, 'user_id': self.memorial.pk}
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(self.staff)
+        with patch('accountlink.services.fetch_msgames_profile', return_value={'name': 'Refreshed name'}):
+            self.assertEqual(client.post('/api/accountlink/update/', body).status_code, 403)
+            authed = Client(enforce_csrf_checks=True)
+            authed.force_login(self.staff)
+            authed.get('/api/userprofile/admin/csrf')
+            csrf = authed.cookies['csrftoken'].value
+            self.assertEqual(authed.post('/api/accountlink/update/', body, HTTP_X_CSRFTOKEN=csrf).status_code, 200)
 
 
 @override_settings(RATELIMIT_ENABLE=False)
@@ -54,7 +113,7 @@ class NamePrivacyBindingTests(TestCase):
         self.user.hide_realname = True
         self.user.save(update_fields=['hide_realname'])
         self.client.force_login(self.user)
-        self.assertEqual(self.client.post('/accountlink/delete/', {'platform': Platform.MSGAMES}).status_code, 200)
+        self.assertEqual(self.client.post('/api/accountlink/delete/', {'platform': Platform.MSGAMES}).status_code, 200)
         self.user.refresh_from_db()
         self.assertTrue(self.user.can_hide_realname)
         self.assertTrue(self.user.hide_realname)
@@ -283,7 +342,7 @@ class MineracerLegacyViewTestCase(TestCase):
     def test_delete_link_rejects_mineracer(self):
         AccountLinkQueue.objects.create(platform=Platform.MINERACER, identifier='mineracer-userid', userprofile=self.user, verified=True)
 
-        response = self.client.post('/accountlink/delete/', {'platform': Platform.MINERACER})
+        response = self.client.post('/api/accountlink/delete/', {'platform': Platform.MINERACER})
 
         self.assertEqual(response.status_code, 409, response.content)
         self.assertEqual(response.json()['category'], 'unlink_not_supported')
@@ -316,7 +375,7 @@ class MineracerLegacyViewTestCase(TestCase):
         self.assertTrue(AccountLinkQueue.objects.get(platform=Platform.MINERACER, userprofile=self.user).verified)
 
     def test_update_link_rejects_mineracer(self):
-        response = self.client.post('/accountlink/update/', {'platform': Platform.MINERACER})
+        response = self.client.post('/api/accountlink/update/', {'platform': Platform.MINERACER})
 
         self.assertEqual(response.status_code, 400, response.content)
         self.assertEqual(response.json()['category'], 'update_not_supported')

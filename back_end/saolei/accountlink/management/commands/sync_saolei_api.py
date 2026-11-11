@@ -60,7 +60,7 @@ class Command(BaseCommand):
                     software__in=SUPPORTED_SOFTWARE,
                 ).count() for account in accounts)
                 if options['phase'] != 'metadata':
-                    pending = pending_saolei_videos(upper_bound=upper_bound, ready=True, include_rejected=True).filter(user_id__in=[account.pk for account in accounts])
+                    pending = pending_saolei_videos(upper_bound=upper_bound, include_rejected=True).filter(user_id__in=[account.pk for account in accounts])
                     import_pending_saolei_videos(
                         pending, client, counts=counts, report_failure=self.report_failure, limit=options['limit'], progress=self.stdout.write, ignore_rejected=True,
                     )

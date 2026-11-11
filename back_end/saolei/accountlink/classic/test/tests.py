@@ -436,10 +436,10 @@ class ClassicManualLinkRejectionTestCase(TestCase):
     def test_self_unlink_and_refresh_reject_classic(self):
         AccountLinkQueue.objects.create(platform=Platform.CLASSIC, identifier='12345678', userprofile=self.user, verified=True)
 
-        delete = self.client.post('/accountlink/delete/', {'platform': Platform.CLASSIC})
+        delete = self.client.post('/api/accountlink/delete/', {'platform': Platform.CLASSIC})
         self.assertEqual(delete.status_code, 409, delete.content)
 
-        update = self.client.post('/accountlink/update/', {'platform': Platform.CLASSIC})
+        update = self.client.post('/api/accountlink/update/', {'platform': Platform.CLASSIC})
         self.assertEqual(update.status_code, 400, update.content)
         self.assertEqual(update.json()['category'], 'update_not_supported')
 

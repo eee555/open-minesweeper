@@ -3,32 +3,35 @@
         <ElResult v-if="loading" icon="info" :title="t('local.loading')" />
         <ElResult v-else-if="errorMessage" icon="error" :title="t('local.loadFailed')" :sub-title="errorMessage" />
         <div v-else-if="video !== null" class="native-player__content">
-            <div class="native-player__stage" :class="{ 'native-player__stage--editing': isEditingConfig }">
+            <div class="native-player__stage" :class="stageClasses">
                 <PlayerMainSettings
                     v-if="isEditingPlayerMainConfig"
                     v-model="videoPlayerConfig"
-                    class="native-player__player-main-settings"
+                    class="native-player__first-panel native-player__player-main-settings"
                 />
                 <CustomCounter
                     v-else
-                    class="native-player__custom-counter"
+                    class="native-player__custom-counter native-player__first-panel"
                     :video="video"
                     :current-ms="currentMs"
                     :config="customCounterConfig"
+                    :double-column="isStacked"
                 />
 
                 <CustomCounterSettings
                     v-if="isEditingCustomCounterConfig"
                     v-model="customCounterConfig"
-                    class="native-player__config-editor"
+                    class="native-player__config-editor native-player__second-panel"
                 />
                 <PlayerMain
                     v-else
+                    class="native-player__second-panel"
                     :video="video"
                     :current-ms="currentMs"
                     :cursor-position="cursorPosition"
                     :show-probability="videoPlayerConfig.showProbability"
                     :size="videoPlayerConfig.cellSize"
+                    :transposed="videoPlayerConfig.transposeBoard"
                     :probability-color-scheme="PiecewiseColorScheme.createFromTheme(videoPlayerConfig.probabilityColorScheme)"
                 />
             </div>
@@ -74,6 +77,8 @@ import PlayerMain from './PlayerMain.vue';
 import PlayerMainSettings from './PlayerMainSettings.vue';
 import ProgressBar from './ProgressBar.vue';
 import { customCounterConfig } from './store';
+import { counterPositions } from './types';
+import type { CounterPosition } from './types';
 
 import { fetchReplayFile } from '@/services/replayFileService';
 import { videoPlayerConfig } from '@/store';
@@ -116,6 +121,16 @@ const isEditingPlayerMainConfig = ref(false);
 const cursor = ref({ x: 0, y: 0 });
 
 const isEditingConfig = computed(() => isEditingCustomCounterConfig.value || isEditingPlayerMainConfig.value);
+
+const counterPosition = computed<CounterPosition>(() => counterPositions.find((position) => position === videoPlayerConfig.value.counterPosition) ?? 'left');
+const isStacked = computed(() => counterPosition.value === 'top' || counterPosition.value === 'bottom');
+const stageClasses = computed(() => [
+    `native-player__stage--${counterPosition.value}`,
+    {
+        'native-player__stage--editing': isEditingConfig.value,
+        'native-player__stage--stacked': isStacked.value,
+    },
+]);
 
 const cursorPosition = computed(() => {
     const pixSize = video.value?.pix_size ?? 0;
@@ -248,6 +263,39 @@ onBeforeUnmount(() => {
     overflow-y: hidden;
 }
 
+.native-player__stage--left,
+.native-player__stage--right {
+    flex-direction: row;
+}
+
+.native-player__stage--top,
+.native-player__stage--bottom {
+    flex-direction: column;
+}
+
+.native-player__stage--stacked {
+    justify-content: flex-start;
+    overflow-y: auto;
+}
+
+.native-player__first-panel {
+    order: 0;
+}
+
+.native-player__second-panel {
+    order: 1;
+}
+
+.native-player__stage--right .native-player__first-panel,
+.native-player__stage--bottom .native-player__first-panel {
+    order: 2;
+}
+
+.native-player__stage--right .native-player__second-panel,
+.native-player__stage--bottom .native-player__second-panel {
+    order: 0;
+}
+
 .native-player__stage--editing {
     align-items: stretch;
     justify-content: flex-start;
@@ -265,17 +313,6 @@ onBeforeUnmount(() => {
     flex: 0 0 auto;
     align-self: stretch;
     max-height: calc(100vh - 290px);
-}
-
-@media (width <= 720px) {
-    .native-player__stage {
-        flex-direction: column;
-        align-items: center;
-    }
-
-    .native-player__stage--editing {
-        align-items: flex-start;
-    }
 }
 
 .native-player__progress {

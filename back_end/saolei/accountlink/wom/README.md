@@ -31,7 +31,7 @@
 | 层 | 上限 | 位置 |
 | --- | --- | --- |
 | 客户端 | 总预算 10s（看门狗到点 shutdown 连接，建连/等响应头/读 body 都能被打断）；单次 6s × 最多 2 次，退避上限 2s | `wom/client.py` |
-| nginx | 18s | `default.conf`：`/accountlink/update/`、`/api/accountlink/verify/` 两个精确匹配 |
+| nginx | 18s | `default.conf`：`/api/accountlink/update/`、`/api/accountlink/verify/` 两个精确匹配 |
 | uWSGI | 90s（这两条路径跳过 `harakiri:10`） | `uwsgi.ini` 的 route 例外 |
 | 前端 | 20s | `front_end/src/http.ts` 的 axios 超时 |
 

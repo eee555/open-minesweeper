@@ -11,6 +11,11 @@ headers = {
 private_platforms = [Platform.QQ, Platform.DISCORD]
 
 
+def is_memorial_admin(user, target) -> bool:
+    """纪念账号无法登录，管理员或站长可代操作其已关联的账号。"""
+    return user.is_authenticated and user.pk != target.pk and (user.is_staff or user.is_superuser) and target.is_memorial
+
+
 def isPrivate(platform) -> bool:
     return platform in private_platforms
 

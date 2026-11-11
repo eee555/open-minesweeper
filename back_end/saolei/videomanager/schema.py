@@ -45,3 +45,14 @@ VideoBaseOut = create_schema(
     ],
     custom_fields=[('cl', int | None, None), ('ce', int | None, None)],
 )
+
+VideoQueryItemOut = create_schema(
+    VideoModel,
+    name='VideoQueryItemOut',
+    fields=['id', 'upload_time', 'state', 'ongoing_tournament'],
+    custom_fields=[('player_id', int, ...), ('player__realname', str, ...)],
+)
+
+
+class VideoQueryOut(Schema):
+    videos: list[VideoQueryItemOut]

@@ -68,3 +68,25 @@ calculate_pluck = timeout(
     use_signals=False,
     timeout_exception=TimeoutError,
 )(_calculate_pluck)
+
+
+class VideoQueryError(ValueError):
+    """录像检索请求参数不合法，由 API 层转换成 400。"""
+
+
+VIDEO_QUERY_LIMIT = 1000
+VIDEO_QUERY_MAX_IN_VALUES = 32
+VIDEO_QUERY_MAX_VALUE_LENGTH = 128
+VIDEO_QUERY_ALLOWED_PARAMS = frozenset({'filters', 'sorts'})
+VIDEO_QUERY_OPS = frozenset({'eq', 'in', 'gte', 'gt', 'lte', 'lt'})
+VIDEO_QUERY_LOWER_OPS = frozenset({'gte', 'gt'})
+VIDEO_QUERY_UPPER_OPS = frozenset({'lte', 'lt'})
+VIDEO_QUERY_LOOKUPS = {'eq': 'exact', 'in': 'in', 'gte': 'gte', 'gt': 'gt', 'lte': 'lte', 'lt': 'lt'}
+VIDEO_QUERY_INT_FIELDS = frozenset({'id', 'file_size', 'stored_file_size', 'timems', 'bv', 'left', 'right', 'double', 'cl', 'left_ce', 'right_ce', 'double_ce', 'ce', 'flag', 'op', 'isl', 'cell0', 'cell1', 'cell2', 'cell3', 'cell4', 'cell5', 'cell6', 'cell7', 'cell8'})
+VIDEO_QUERY_FLOAT_FIELDS = frozenset({'bvs', 'left_s', 'right_s', 'double_s', 'cl_s', 'left_ces', 'right_ces', 'double_ces', 'ce_s', 'path', 'pluck', 'flag_s', 'ioe', 'thrp', 'corr', 'stnb'})
+VIDEO_QUERY_DATETIME_FIELDS = frozenset({'upload_time', 'end_time'})
+VIDEO_QUERY_ENUM_FIELDS = frozenset({'state', 'software', 'level', 'mode'})
+VIDEO_QUERY_DERIVED_FIELDS = frozenset({'stnb'})
+VIDEO_QUERY_FILTER_FIELDS = VIDEO_QUERY_INT_FIELDS | VIDEO_QUERY_FLOAT_FIELDS | VIDEO_QUERY_DATETIME_FIELDS | VIDEO_QUERY_ENUM_FIELDS | VIDEO_QUERY_DERIVED_FIELDS
+VIDEO_QUERY_SORT_FIELDS = frozenset({'id', 'level', 'mode', 'state', 'timems', 'bv', 'bvs', 'thrp', 'stnb'})
+VIDEO_QUERY_STNB_LEVELS = frozenset({'b', 'i', 'e'})
