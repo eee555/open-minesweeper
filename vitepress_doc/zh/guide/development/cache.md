@@ -17,11 +17,11 @@ GitHub 使用默认 Django cache（当前 Redis DB 1），所有键 TTL 为 600 
 
 ## 录像与账号数据
 
-扫雷网首批迁移由 [sync_saolei_api](./management-commands.md#sync-saolei-api) 串行执行。迁移后开放前端逐页、逐条手动同步；`AccountSaolei.auto_sync=True` 的账号（默认开启）每日由 APScheduler 直接同步目录并每批最多 50 条取得详情及 URL，每小时由 Django Task 按已存 URL 最多尝试导入 100 条。没有专用 Redis 进度或任务缓存；目录与 `AccountSaolei.video_sync_cursor` 同数据库事务提交，`video_update_time` 仅标记目录扫描完成，不代表全部详情或文件成功；游标不等待详情或文件导入，未完成来源独立补取。旧账号成绩、人气、三级录像数量及任务指针字段随迁移删除，不再维护对应历史值。创建本站录像和同主重复文件的更早上传时间仍经过既有保存信号及排行缓存更新，不清理本站录像缓存来重建来源目录。
+扫雷网首批迁移由 [sync_saolei_api](./management-commands.md#sync-saolei-api) 串行执行。迁移后开放前端逐页、逐条手动同步；`AccountSaolei.auto_sync=True` 的账号（默认开启）每日由 APScheduler 直接同步目录并每批最多 50 条刷新详情元数据，每小时由 Django Task 按录像 ID 最多尝试导入 100 条。没有专用 Redis 进度或任务缓存；目录与 `AccountSaolei.video_sync_cursor` 同数据库事务提交，`video_update_time` 仅标记目录扫描完成，不代表全部详情或文件成功；游标不等待详情或文件导入，未完成来源独立补取。旧账号成绩、人气、三级录像数量及任务指针字段随迁移删除，不再维护对应历史值。创建本站录像和同主重复文件的更早上传时间仍经过既有保存信号及排行缓存更新，不清理本站录像缓存来重建来源目录。
 
 `saolei:throttle:data` 和 `saolei:throttle:download` 是网页、worker 和命令共享的上游节流键，只存常量 `1`，由 Redis `SET NX PX` 原子占用，分别在 2100ms、400ms 后自动过期。没有用户数据或密钥。各客户端竞争同一额度，最多等待 6 秒；不要手动清除正在使用的键。
 
-`SaoleiApiVideo.file_url` 将详情返回的文件地址以客户端规范化后缀 `YYYY/MM/DD/filename` 保存到数据库，供文件导入使用，没有单独的 URL 缓存。目录列表不含此字段，目录刷新保留已存后缀；批量详情校验归属后整批落库，详情缺项保留已有信息，明确返回无文件时置空。自动导入和命令 videos 阶段直接使用已存 URL，不重复请求详情；URL 缺失先由 metadata 阶段补取。前端单条手动导入仍先取得该条最新详情。
+`SaoleiApiVideo` 不保存录像文件地址，也没有单独的 URL 缓存：上游不再返回 `fileUrl`，导入直接用 `remote_id` 请求 `https://saolei.wang/video/download/{id}`，文件名取下载响应的 `Content-Disposition`。目录与批量详情只维护元数据；详情缺项保留已有信息。自动导入和命令 videos 阶段不重复请求详情，前端单条手动导入仍先取得该条最新详情。
 
 `SaoleiApiVideo.import_rejected` 在数据库中持久化本站文件校验直接拒收的结果，不使用缓存。导入事务回滚后单独写入；后续同步在请求详情和下载文件前跳过，目录刷新及 `--full` 不清除此标记。需人工重试时由站长在 Django shell 清除；网络、上游及其他非文件校验故障不设置标记，仍按本地未完成来源补导。
 

@@ -122,7 +122,7 @@ def sync_saolei_page(account: AccountSaolei, client: Client, *, cursor: int, upp
     return following, has_more
 
 
-def pending_saolei_videos(account=None, upper_bound=None, *, ready=False, include_rejected=False):
+def pending_saolei_videos(account=None, upper_bound=None, *, include_rejected=False):
     videos = SaoleiApiVideo.objects.filter(import_video__isnull=True, software__in=SUPPORTED_SOFTWARE)
     if not include_rejected:
         videos = videos.filter(import_rejected=False)
@@ -130,13 +130,11 @@ def pending_saolei_videos(account=None, upper_bound=None, *, ready=False, includ
         videos = videos.filter(user=account)
     if upper_bound is not None:
         videos = videos.filter(remote_id__lte=upper_bound)
-    if ready:
-        videos = videos.filter(file_url__isnull=False).exclude(file_url='')
     return videos
 
 
 def sync_saolei_metadata(account, client, *, upper_bound, counts, report_failure, full=False, page_size=200, progress=None):
-    """只更新资料、目录及文件 URL，不下载录像；每日调度与命令共用。"""
+    """只更新资料、目录及录像详情，不下载录像；每日调度与命令共用。"""
     for stage, action, kwargs in [
         ('资料', update_saolei_account_info, {}),
         ('目录', sync_saolei_catalogue, {'upper_bound': upper_bound, 'full': full, 'page_size': page_size, 'progress': progress}),
@@ -173,10 +171,10 @@ def refresh_saolei_details(account, client, *, upper_bound, counts, report_failu
 
 
 def import_pending_saolei_videos(sources, client, *, counts, report_failure, limit=None, progress=None, automatic=False, ignore_rejected=False):
-    """仅下载已保存 URL 的来源；上限按尝试数计算，失败也占用本轮额度。"""
+    """按录像 ID 下载待导入来源；上限按尝试数计算，失败也占用本轮额度。"""
     snapshots = list(sources.order_by('remote_id').values_list('pk', 'user__parent_id')[:limit])
     for source_id, parent_id in snapshots:
-        rows = pending_saolei_videos(ready=True, include_rejected=ignore_rejected).filter(pk=source_id)
+        rows = pending_saolei_videos(include_rejected=ignore_rejected).filter(pk=source_id)
         if automatic:
             rows = rows.filter(user__auto_sync=True)
         source = rows.select_related('user').first()
@@ -201,7 +199,7 @@ def save_video_details(account, sources, details):
     ids = [detail.id for detail in details]
     if len(ids) != len(set(ids)) or any(remote_id not in requested for remote_id in ids):
         raise ResponseError('Unexpected or duplicate video detail ID')
-    defaults = {detail.id: {**video_defaults(detail, account.pk), 'file_url': detail.file_url} for detail in details}
+    defaults = {detail.id: video_defaults(detail, account.pk) for detail in details}
     with transaction.atomic():
         current_account = lock_account(account)
         current = list(SaoleiApiVideo.objects.select_for_update().filter(pk__in=requested.values(), user=current_account))
@@ -237,12 +235,13 @@ def import_saolei_video(source: SaoleiApiVideo, client: Client, *, refresh_detai
         source = save_video_detail(source, details[0])
     if source.software not in SUPPORTED_SOFTWARE:
         return 'skipped'
-    if not source.file_url:
-        raise ExceptionToResponse('saolei', 'file_unavailable', status_code=503)
-    data, = client.download_videos([source.file_url])
+    data, = client.download_videos([source.remote_id])
     if len(data) > MaxSizes.VIDEOFILE:
         raise ExceptionToResponse('file', 'size', status_code=400)
-    filename = source.file_url.rsplit('/', 1)[-1]
+    # 按 ID 下载时 URL 不含扩展名，文件名由下载响应的 Content-Disposition 给出。
+    filename = getattr(data, 'name', None)
+    if not filename or '.' not in filename:
+        raise ExceptionToResponse('file', 'type', status_code=400)
     stem, extension = filename.rsplit('.', 1)
     try:
         saolei_video_import_one(source, ContentFile(data, f'{stem}.{extension.lower()}'))
@@ -312,7 +311,7 @@ def saolei_video_import_one(source: SaoleiApiVideo, file: File) -> VideoModel:
             source.import_video = collision
             source.save(update_fields=['import_video'])
             return collision
-        logger.info('解析扫雷网来源录像#%s account_id=%s file_url=%s', source.remote_id, account.pk, source.file_url)
+        logger.info('解析扫雷网来源录像#%s account_id=%s', source.remote_id, account.pk)
         parser = MSVideoParser(file, isolate=True)
         if not user.userms_id:
             user.userms = UserMS.objects.create()

@@ -52,11 +52,11 @@ GitHub 使用 OAuth App 网页授权，只关联已有 OpenMS 账号，不提供
 
 ## 扫雷网同步
 
-首批迁移已由站长执行完成，使用 `saolei-api==0.4.0` 的官方 Release wheel，版本与 SHA256 固定在依赖文件中。完整业务约定见[扫雷网官方 API 接入方案](SAOLEI_API_IMPORT_PLAN.md)。
+首批迁移已由站长执行完成，最初使用 `saolei-api==0.4.0` 的官方 Release wheel；当前固定版本与 SHA256 见 `requirements.txt` 和 `requirements-wheels.txt`。上游 2026-11-11 不再返回 `fileUrl`，改用录像 ID 下载后，本站改用 `saolei-api==0.4.3`。完整业务约定见[扫雷网官方 API 接入方案](SAOLEI_API_IMPORT_PLAN.md)。
 
 现在开放 `/api/accountlink/saolei/` 下的新 Ninja API 和前端账号卡片。权限统一在 API 层处理：只有已验证关联账号本人可以刷新资料、修改自动同步设置、同步目录或导入录像；本地目录和摘要可公开读取。每次手动请求只同步一页目录或导入一条录像，由前端顺序控制整个流程；关闭窗口或停止后保留已完成的进度。旧爬取接口和旧 Task 仍关闭，不恢复网页爬虫。
 
-`AccountSaolei.auto_sync` 默认 `True`，迁移后已有账号及新绑定账号均默认启用。自动同步分两阶段：统一 APScheduler 每天 03:30（调度器时区，当前 UTC）直接执行资料和增量目录同步，按每批最多 50 个录像 ID 调用 `video_info`，将详情及 URL 落库，不创建后台任务或下载文件；每小时整点入队一条低优先级 Django Task，只按已存 URL 逐个导入，整轮最多尝试 100 条，失败也计入上限，不再逐条请求详情。缺少 URL 的来源留待下一次目录阶段补取。小时任务仍 READY／RUNNING 时不重复入队。两个阶段都尊重开关和有效绑定；关闭后仍可手动同步，也不影响站长命令。
+`AccountSaolei.auto_sync` 默认 `True`，迁移后已有账号及新绑定账号均默认启用。自动同步分两阶段：统一 APScheduler 每天 03:30（调度器时区，当前 UTC）直接执行资料和增量目录同步，按每批最多 50 个录像 ID 调用 `video_info` 刷新元数据，不创建后台任务或下载文件；每小时整点入队一条低优先级 Django Task，按录像 ID 逐个下载待导入来源，整轮最多尝试 100 条，失败也计入上限，不再逐条请求详情。小时任务仍 READY／RUNNING 时不重复入队。两个阶段都尊重开关和有效绑定；关闭后仍可手动同步，也不影响站长命令。
 
 网页、每日目录调度、每小时导入任务和管理命令通过 `ThrottledTransport` 共用 Redis 节流键，数据请求至少间隔 2.1 秒，文件请求至少间隔 0.4 秒。只协调站内共享配额，HTTP、认证、响应校验和下载继续复用依赖。竞争等待最多 6 秒，超时或上游限流返回 429 并停止当前手动流程，不无限重试。
 
@@ -64,7 +64,7 @@ GitHub 使用 OAuth App 网页授权，只关联已有 OpenMS 账号，不提供
 
 新旧扫雷网用户 ID 保持一致，沿用现有绑定。新来源录像的 `status` 仅展示，不影响是否导入；上游 `hash` 不采集或保存。取得文件后继续复用本站原有录像解析及查重业务。
 
-`SaoleiApiVideo.file_url` 保存客户端规范化后的录像文件后缀，例如 `2023/04/16/sample.evf`；获取详情时更新并落库，导入从该字段下载文件。目录列表没有文件地址，刷新目录不会清空已保存的后缀；详情明确返回无文件时清空该字段并保留来源供重试。原录像网页链接的 `url` getter 已移除。
+`SaoleiApiVideo` 不再保存文件地址：上游已不返回 `fileUrl`，导入直接用 `remote_id` 作为下载后缀调用 `download_videos`。按 ID 下载时 URL 不含扩展名，文件名只取下载响应 `Content-Disposition`，缺失则按文件类型拒绝并保留重试机会。目录列表和详情只维护元数据，不再决定能否下载；详情请求失败的来源留待下次补取。原录像网页链接的 `url` getter 已移除。
 
 账号资料只接入 `id`、`name` 和 `banned`，不使用任何账号成绩数据（`scores`、`scores_nf`）或 `signatures`，不进行账号成绩精度升级。`AccountSaolei` 删除旧成绩、人气、三级录像数量和 `video_import_task` 字段，保留基础资料、同步游标及时间，并新增本地 `auto_sync` 设置。录像自身的成绩解析和文件内标识校验继续沿用现有业务。
 
@@ -100,9 +100,9 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 
 资料或单条录像失败不撤销绑定和既有成功结果；管理命令失败会汇总并返回非零退出码。鉴权失败或限流立即停止，不自动重试。任何录像导入失败（包括网络、上游、文件、解析、绑定或写入故障）都会把来源的 `import_rejected` 置为 `True`，所以每小时自动任务每轮都从最小的未完成 `remote_id` 开始，不会反复卡在同一批记录上，无需游标。执行期间请勿并行运行多个同步命令。手动流程遇到失败继续下一条，网络故障、鉴权或限流则停止后续请求。
 
-`sync_saolei_api` 是无视 `import_rejected` 的强制重试通道：只要 `--phase` 涉及文件导入，就会尝试导入所有在软件白名单内、已取得 `file_url` 且尚未关联本站录像的来源，不清除标记；重试成功后写入 `import_video`，再次失败保持标记。软件白名单外的来源仍计入跳过数量、不下载。前端手动单条导入遇到该标记直接返回 `skipped`，不能用于重试；站长重试请运行 `python manage.py sync_saolei_api --account-id <ID> --phase videos`，也可以按来源通过 Django shell 清除 `import_rejected`。冻结、待审核及标识不匹配等能正常保存为本站录像的结果仍记为导入成功。
+`sync_saolei_api` 是无视 `import_rejected` 的强制重试通道：只要 `--phase` 涉及文件导入，就会尝试导入所有在软件白名单内、尚未关联本站录像的来源，不清除标记；重试成功后写入 `import_video`，再次失败保持标记。软件白名单外的来源仍计入跳过数量、不下载。前端手动单条导入遇到该标记直接返回 `skipped`，不能用于重试；站长重试请运行 `python manage.py sync_saolei_api --account-id <ID> --phase videos`，也可以按来源通过 Django shell 清除 `import_rejected`。冻结、待审核及标识不匹配等能正常保存为本站录像的结果仍记为导入成功。
 
-扫雷网导入使用 `MSVideoParser(file, isolate=True)`，每份文件在独立 Python 子进程中执行 `ms_toollib` 的解析、分析和审核，超时为 60 秒；子进程不启动 Django 应用或访问数据库。原生中止（如 SIGABRT）、异常退出或超时归为 `rust/panic`，当前文件的导入事务回滚，自动任务及管理命令继续处理后续录像；本轮仍汇总为失败。这类故障同样置 `import_rejected`，由管理命令重试。解析前记录来源 ID、账号 ID 和文件相对 URL，进程失败时记录文件名、退出码和诊断尾部，供站长提取样本定位上游问题。其他上传入口保持原有解析路径。
+扫雷网导入使用 `MSVideoParser(file, isolate=True)`，每份文件在独立 Python 子进程中执行 `ms_toollib` 的解析、分析和审核，超时为 60 秒；子进程不启动 Django 应用或访问数据库。原生中止（如 SIGABRT）、异常退出或超时归为 `rust/panic`，当前文件的导入事务回滚，自动任务及管理命令继续处理后续录像；本轮仍汇总为失败。这类故障同样置 `import_rejected`，由管理命令重试。解析前记录来源 ID 和账号 ID，进程失败时记录文件名、退出码和诊断尾部，供站长提取样本定位上游问题。其他上传入口保持原有解析路径。
 
 ## 95经典扫雷接入
 
