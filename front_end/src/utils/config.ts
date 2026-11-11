@@ -1,14 +1,14 @@
 
 const ArbiterStatsAutoColorTemplate = [
     'rgba(255,255,255,0)',
-    '#808080', '#595959', '#AE78D6', '#7030A0', // 1
-    '#FF5B5B', '#FFA7A7', '#FF0000', '#BC0000', // 2
-    '#92D050', '#B2DE82', '#00B050', '#009242', // 3
-    '#00B0F0', '#81DEFF', '#0070C0', '#005696', // 4
-    '#FFC000', '#FFE07D', '#E7831D', '#A65C12', // 5
-    '#FF57B7', '#FF97D2', '#D6007B', '#A2005D', // 6
-    '#14D2A0', '#7DF3D4', '#0F9D78', '#0B7B5E', // 7
-    '#CCFF66',
+    '#999999','#CCCCCC','#CC99FF','#CCCCFF',
+    '#996666','#CCCC00','#CC6666','#CC9900',
+    '#99CC33','#CCFFCC','#00CC00','#00FF99',
+    '#33CCFF','#66FFFF','#0099FF','#0099CC',
+    '#FFCC00','#FFCC99','#FF9900','#FFFF66',
+    '#FF99FF','#FFCCFF','#FF6699','#FF9999',
+    '#99FF99','#339933','#9966FF','#FFFF99',
+    '#FF3366',
 ] as const;
 
 const ArbiterStatsAutoValueTemplate = [
@@ -19,7 +19,7 @@ const ArbiterStatsAutoValueTemplate = [
     4.25, 4.5, 4.75, 5,
     5.25, 5.5, 5.75, 6,
     6.25, 6.5, 6.75, 7,
-    7.25, 7.5, 7.75, 8,
+    7.5, 8, 9, 10,
 ] as const;
 
 const ArbiterStatsAutoValueTemplate_IOE = [
