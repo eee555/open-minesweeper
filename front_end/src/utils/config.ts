@@ -1,13 +1,13 @@
 
 const ArbiterStatsAutoColorTemplate = [
     'rgba(255,255,255,0)',
-    '#999999','#CCCCCC','#CC99FF','#CCCCFF',
-    '#996666','#CCCC00','#CC6666','#CC9900',
-    '#99CC33','#CCFFCC','#00CC00','#00FF99',
-    '#33CCFF','#66FFFF','#0099FF','#0099CC',
-    '#FFCC00','#FFCC99','#FF9900','#FFFF66',
-    '#FF99FF','#FFCCFF','#FF6699','#FF9999',
-    '#99FF99','#339933','#9966FF','#FFFF99',
+    '#999999', '#CCCCCC', '#CC99FF', '#CCCCFF',
+    '#996666', '#CCCC00', '#CC6666', '#CC9900',
+    '#99CC33', '#CCFFCC', '#00CC00', '#00FF99',
+    '#33CCFF', '#66FFFF', '#0099FF', '#0099CC',
+    '#FFCC00', '#FFCC99', '#FF9900', '#FFFF66',
+    '#FF99FF', '#FFCCFF', '#FF6699', '#FF9999',
+    '#99FF99', '#339933', '#9966FF', '#FFFF99',
     '#FF3366',
 ] as const;
 
