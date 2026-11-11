@@ -29,7 +29,7 @@
         <GitHubUser username="Corday-nkusky" />
         <GitHubUser username="xiean-cn" />
         <GitHubUser username="shenjia" />
-        <GitHubUser username="gacord9672 />
+        <GitHubUser username="gacord9672" />
     </div>
     <div class="section-label">
         <strong>{{ t('local.localization') }}</strong>
