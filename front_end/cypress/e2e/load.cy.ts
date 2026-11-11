@@ -18,10 +18,13 @@ describe('Main navigation', () => {
         cy.url().should('match', /\/#\/database\/users$/);
         cy.contains('.el-tabs__item', '标识查询').click();
         cy.url().should('match', /\/#\/database\/identifiers$/);
+        cy.intercept('GET', '**/api/video/query*').as('videoQuery');
         cy.visit('/#/video');
-        cy.url().should('match', /\/#\/database\/videos$/);
+        cy.location('hash').should('eq', '#/database/videos');
+        cy.wait('@videoQuery');
+        cy.get('[data-cy=column-selector]').should('exist');
         cy.get('[data-cy=app-header] [data-navigation-id=settings] a').click();
-        cy.url().should('match', /\/#\/settings$/);
+        cy.location('hash').should('eq', '#/settings');
     });
 
     it('loads shared game control styles on a direct visit and after reloading', () => {

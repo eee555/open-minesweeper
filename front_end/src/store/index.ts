@@ -194,6 +194,7 @@ export const VideoListConfig = useLocalStorage(
     {
         profile: ['state', 'upload_time', 'software', 'level', 'mode', 'time', 'bv', 'bvs', 'ioe', 'thrp', 'path', 'file_size'] as ColumnChoice[],
         tournament: ['state', 'upload_time', 'software', 'level', 'mode', 'time', 'bv', 'bvs', 'ioe', 'thrp', 'path'] as ColumnChoice[],
+        query: ['state', 'upload_time', 'time', 'bv', 'bvs', 'stnb', 'file_size'] as ColumnChoice[],
     },
     { mergeDefaults: true },
 );

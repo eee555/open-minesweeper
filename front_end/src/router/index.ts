@@ -31,7 +31,7 @@ const routes: RouteRecordRaw[] = [
         redirect: { name: 'database-users' },
         children: [
             { path: 'users', name: 'database-users', component: () => import('../views/DatabaseView/UserView.vue') },
-            { path: 'videos', name: 'database-videos', component: () => import('../views/VideoView.vue') },
+            { path: 'videos', name: 'database-videos', component: () => import('../views/DatabaseView/VideoView.vue') },
             { path: 'identifiers', name: 'database-identifiers', component: () => import('../views/DatabaseView/IdentifierView.vue') },
             { path: 'works', name: 'database-works', component: () => import('../views/DatabaseView/MediaQueryView.vue') },
         ],
