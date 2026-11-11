@@ -23,7 +23,7 @@ from ..models import AccountSaolei, SaoleiApiVideo
 router = Router()
 router.add_router('/bind', bind_router)
 logger = logging.getLogger('accountlink')
-SaoleiVideoOut = create_schema(SaoleiApiVideo, exclude=['user', 'file_url'])
+SaoleiVideoOut = create_schema(SaoleiApiVideo, exclude=['user'])
 SaoleiAccountOut = create_schema(AccountSaolei)
 UNMAPPED_VIDEO_MAX_COUNT = 2000
 ACCOUNT_MAPPING_MAX_IDS = 100

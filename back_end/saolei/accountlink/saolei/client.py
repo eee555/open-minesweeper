@@ -14,7 +14,7 @@ class ThrottledTransport(httpx.BaseTransport):
         self.transport = transport if transport is not None else httpx.HTTPTransport()
 
     def handle_request(self, request):
-        download = request.url.path.startswith('/videos/')
+        download = request.url.path.startswith(('/videos/', '/video/download/'))
         interval = 400 if download else 2100
         key = 'saolei:throttle:download' if download else 'saolei:throttle:data'
         redis = get_redis_connection()

@@ -13,7 +13,7 @@ from django.test import override_settings, TestCase
 from django.utils import timezone
 from django_tasks_db.models import DBTaskResult
 import httpx
-from saolei_api import RateLimitError, ResponseError, TransportError, VideoInfo, VideoListResponse
+from saolei_api import RateLimitError, ResponseError, TransportError, VideoFile, VideoInfo, VideoListResponse
 
 from userprofile.models import UserProfile
 from utils.exceptions import ExceptionToResponse
@@ -42,8 +42,8 @@ class SaoleiSyncTests(TestCase):
         self.remote.stats.return_value.max_video_id = 2
         self.remote.user_info.side_effect = lambda account_id: SimpleNamespace(users=[SimpleNamespace(id=account_id, name='API name', banned=False)])
         self.remote.video_list.return_value = VideoListResponse.model_validate(remote_page([remote_video(1)], more=True))
-        self.remote.video_info.return_value.items = [VideoInfo.model_validate({**remote_video(), 'fileUrl': '2023/04/16/sample.evf', 'signature': None, 'metrics': None})]
-        self.remote.download_videos.return_value = [FIXTURE.read_bytes()]
+        self.remote.video_info.return_value.items = [VideoInfo.model_validate({**remote_video(), 'signature': None, 'metrics': None})]
+        self.remote.download_videos.return_value = [VideoFile(FIXTURE.read_bytes(), FIXTURE.name)]
 
     def post(self, path, data=None):
         return self.client.post(BASE + path, data or {}, content_type='application/json')
@@ -154,7 +154,7 @@ class SaoleiSyncTests(TestCase):
         self.remote.download_videos.assert_not_called()
         source = SaoleiApiVideo.objects.get(remote_id=2)
         self.assertIsNone(source.import_video_id)
-        self.assertEqual(source.file_url, '2023/04/16/sample.evf')
+        self.assertEqual((source.software, source.timems), ('Arbiter', 1000))
         self.assertFalse(DBTaskResult.objects.filter(task_path__startswith='accountlink.saolei').exists())
 
     def test_disabled_accounts_do_not_create_an_upstream_client(self):
@@ -218,6 +218,14 @@ class SharedQuotaTests(TestCase):
         sleep.assert_called_once_with(0.1)
         self.assertEqual([call.args[0] for call in redis.set.call_args_list], ['saolei:throttle:data'] * 3 + ['saolei:throttle:download'])
 
+    def test_official_download_path_uses_download_quota(self):
+        redis = Mock()
+        redis.set.return_value = True
+        transport = httpx.MockTransport(lambda request: httpx.Response(200))
+        with patch('accountlink.saolei.client.get_redis_connection', return_value=redis):
+            ThrottledTransport(transport).handle_request(httpx.Request('GET', 'https://saolei.wang/video/download/328090'))
+        self.assertEqual(redis.set.call_args.args[0], 'saolei:throttle:download')
+
 
 @override_settings(BAIDU_VERIFY_SKIP=True)
 class SaoleiStageTests(TestCase):
@@ -227,14 +235,16 @@ class SaoleiStageTests(TestCase):
         self.remote.stats.return_value.max_video_id = 101
         self.remote.user_info.return_value.users = [SimpleNamespace(id=101, name='API name', banned=False)]
         self.remote.video_info.side_effect = lambda ids: SimpleNamespace(items=[self.detail(remote_id) for remote_id in reversed(ids)])
-        self.remote.download_videos.return_value = [FIXTURE.read_bytes()]
+        self.remote.download_videos.return_value = [VideoFile(FIXTURE.read_bytes(), FIXTURE.name)]
 
     def detail(self, remote_id, **changes):
-        return VideoInfo.model_validate({**remote_video(remote_id), 'fileUrl': f'2023/04/16/sample-{remote_id}.evf', 'signature': None, 'metrics': None, **changes})
+        return VideoInfo.model_validate({**remote_video(remote_id), 'signature': None, 'metrics': None, **changes})
 
     def sources(self, count, **changes):
+        software = changes.pop('software', 'Arbiter')
+        status = changes.pop('status', 20)
         SaoleiApiVideo.objects.bulk_create([
-            SaoleiApiVideo(remote_id=index, user=self.account, upload_time=timezone.now(), level='b', status=20, software='Arbiter', **changes)
+            SaoleiApiVideo(remote_id=index, user=self.account, upload_time=timezone.now(), level='b', status=status, software=software, **changes)
             for index in range(1, count + 1)
         ])
 
@@ -247,14 +257,28 @@ class SaoleiStageTests(TestCase):
         self.assertEqual([call.args[0] for call in self.remote.video_info.call_args_list], [list(range(1, 51)), list(range(51, 101)), [101]])
         self.remote.download_videos.assert_not_called()
         self.assertFalse(VideoModel.objects.exists())
-        self.assertEqual(SaoleiApiVideo.objects.exclude(file_url__isnull=True).count(), 101)
+        self.assertEqual(SaoleiApiVideo.objects.count(), 101)
         self.account.refresh_from_db()
         self.assertEqual(self.account.video_sync_cursor, 101)
 
-    def test_video_phase_uses_only_saved_urls_and_respects_attempt_limit(self):
+    def test_metadata_phase_accepts_details_without_file_url(self):
         from io import StringIO
 
-        self.sources(3, file_url='2023/04/16/sample.evf')
+        self.remote.video_list.return_value = VideoListResponse.model_validate(remote_page([remote_video(index) for index in range(1, 4)]))
+        self.remote.video_info.side_effect = lambda ids: SimpleNamespace(items=[
+            VideoInfo.model_validate({**remote_video(remote_id), 'realTime': 9999, 'signature': None, 'metrics': None})
+            for remote_id in reversed(ids)
+        ])
+        with patch('accountlink.management.commands.sync_saolei_api.saolei_client', return_value=nullcontext(self.remote)):
+            call_command('sync_saolei_api', account_id=[101], phase='metadata', stdout=StringIO(), stderr=StringIO())
+        self.assertEqual(SaoleiApiVideo.objects.count(), 3)
+        self.assertEqual(set(SaoleiApiVideo.objects.values_list('timems', flat=True)), {9999})
+        self.remote.download_videos.assert_not_called()
+
+    def test_video_phase_respects_attempt_limit_without_metadata_requests(self):
+        from io import StringIO
+
+        self.sources(3)
         with patch('accountlink.management.commands.sync_saolei_api.saolei_client', return_value=nullcontext(self.remote)):
             with patch('accountlink.saolei.services.MSVideoParser', side_effect=ExceptionToResponse('file', 'review')):
                 with self.assertRaises(CommandError):
@@ -284,7 +308,7 @@ class SaoleiStageTests(TestCase):
             raise ExceptionToResponse('file', 'review')
 
         self.remote.video_info.side_effect = details
-        self.remote.download_videos.side_effect = lambda urls: events.append(('download', urls)) or [FIXTURE.read_bytes()]
+        self.remote.download_videos.side_effect = lambda urls: events.append(('download', urls)) or [VideoFile(FIXTURE.read_bytes(), FIXTURE.name)]
         with patch('accountlink.management.commands.sync_saolei_api.saolei_client', return_value=nullcontext(self.remote)):
             with patch('accountlink.saolei.services.MSVideoParser', side_effect=reject_file), self.assertRaises(CommandError):
                 call_command('sync_saolei_api', all_linked=True, stdout=StringIO(), stderr=StringIO())
@@ -294,7 +318,7 @@ class SaoleiStageTests(TestCase):
         def reject_file(file, **kwargs):
             raise ExceptionToResponse('file', 'review')
 
-        self.sources(1001, file_url='2023/04/16/sample.evf')
+        self.sources(1001)
         _, other = bound_account(1002, 'hourly_other')
         SaoleiApiVideo.objects.filter(remote_id__gt=500).update(user=other)
         SaoleiApiVideo.objects.create(remote_id=1002, user=self.account, upload_time=timezone.now(), level='b', status=20, software='Arbiter')
@@ -323,7 +347,7 @@ class SaoleiStageTests(TestCase):
         self.assertFalse(SaoleiApiVideo.objects.get(remote_id=1002).import_rejected)
 
     def test_any_failure_marks_source_as_skipped(self):
-        self.sources(2, file_url='2023/04/16/sample.evf')
+        self.sources(2)
         with patch('accountlink.saolei.services.import_saolei_video', side_effect=[TransportError('network down'), ExceptionToResponse('file', 'collision', 409)]) as imported:
             with patch('accountlink.saolei.tasks.saolei_client', return_value=nullcontext(self.remote)):
                 with self.assertLogs('accountlink', level='ERROR'), self.assertRaises(ExceptionToResponse):
@@ -337,7 +361,7 @@ class SaoleiStageTests(TestCase):
     def test_command_retries_rejected_sources_from_the_smallest_id(self):
         from io import StringIO
 
-        self.sources(3, file_url='2023/04/16/sample.evf')
+        self.sources(3)
         SaoleiApiVideo.objects.filter(remote_id=3).update(software='Saolei.wang')
         SaoleiApiVideo.objects.update(import_rejected=True)
         with patch('accountlink.management.commands.sync_saolei_api.saolei_client', return_value=nullcontext(self.remote)):
@@ -347,7 +371,7 @@ class SaoleiStageTests(TestCase):
         self.assertEqual([item.kwargs['ignore_rejected'] for item in imported.call_args_list], [True, True])
 
     def test_hourly_import_continues_after_parser_process_crashes(self):
-        self.sources(2, file_url='2023/04/16/sample.evf')
+        self.sources(2)
         launches = 0
 
         def launch(command, **kwargs):
@@ -374,20 +398,20 @@ class SaoleiStageTests(TestCase):
             self.assertTrue(Path(imported.import_video.file.path).is_file())
 
     def test_batch_detail_owner_validation_rolls_back_all_writes(self):
-        self.sources(2, file_url='2023/04/16/old.evf')
+        self.sources(2, software='Vienna')
         sources = list(self.account.videos.order_by('remote_id'))
         with self.assertRaises(ResponseError):
             save_video_details(self.account, sources, [self.detail(1), self.detail(2, userId=102)])
-        self.assertEqual(set(self.account.videos.values_list('file_url', flat=True)), {'2023/04/16/old.evf'})
+        self.assertEqual(set(self.account.videos.values_list('software', flat=True)), {'Vienna'})
 
     def test_hourly_import_keeps_the_binding_snapshot_between_files(self):
-        self.sources(2, file_url='2023/04/16/sample.evf')
+        self.sources(2)
         replacement = UserProfile.objects.create_user(username='hourly_replacement')
 
         def change_binding(urls):
             AccountSaolei.objects.filter(pk=self.account.pk).update(parent=replacement)
             AccountLinkQueue.objects.filter(userprofile=self.user).update(userprofile=replacement)
-            return [FIXTURE.read_bytes()]
+            return [VideoFile(FIXTURE.read_bytes(), FIXTURE.name)]
 
         self.remote.download_videos.side_effect = change_binding
         with patch('accountlink.saolei.tasks.saolei_client', return_value=nullcontext(self.remote)):
@@ -397,12 +421,12 @@ class SaoleiStageTests(TestCase):
         self.assertFalse(VideoModel.objects.exists())
         self.assertEqual(SaoleiApiVideo.objects.filter(import_rejected=True).count(), 2)
 
-    def test_missing_detail_keeps_saved_data_and_explicit_null_clears_url(self):
-        self.sources(2, file_url='2023/04/16/old.evf')
-        saved = save_video_details(self.account, list(self.account.videos.all()), [self.detail(1, fileUrl=None)])
+    def test_missing_detail_keeps_saved_data(self):
+        self.sources(2, software='Vienna')
+        saved = save_video_details(self.account, list(self.account.videos.all()), [self.detail(1)])
         self.assertEqual([source.remote_id for source in saved], [1])
-        self.assertIsNone(SaoleiApiVideo.objects.get(remote_id=1).file_url)
-        self.assertEqual(SaoleiApiVideo.objects.get(remote_id=2).file_url, '2023/04/16/old.evf')
+        self.assertEqual(SaoleiApiVideo.objects.get(remote_id=1).software, 'Arbiter')
+        self.assertEqual(SaoleiApiVideo.objects.get(remote_id=2).software, 'Vienna')
 
     def test_details_failed_after_cursor_commit_are_recovered_by_metadata_retry(self):
         from io import StringIO
@@ -419,5 +443,6 @@ class SaoleiStageTests(TestCase):
             self.remote.video_info.side_effect = lambda ids: SimpleNamespace(items=[self.detail(remote_id) for remote_id in ids])
             call_command('sync_saolei_api', account_id=[101], phase='metadata', stdout=StringIO(), stderr=StringIO())
         self.remote.video_list.assert_not_called()
-        self.assertEqual(SaoleiApiVideo.objects.get(remote_id=1).file_url, '2023/04/16/sample-1.evf')
+        self.assertEqual(self.remote.video_info.call_count, 2)
+        self.assertEqual(SaoleiApiVideo.objects.get(remote_id=1).timems, 1000)
         self.remote.download_videos.assert_not_called()
