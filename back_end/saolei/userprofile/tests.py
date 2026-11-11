@@ -338,15 +338,16 @@ class RealnamePrivacyTests(TestCase):
             video = VideoModel(player=self.user, video=ExpandVideoModel.objects.create(identifier='privacy'), software='e', level='e', bv=100, timems=100000)
             video.file.save('privacy.evf', ContentFile(b'original replay'))  # noqa: DJM100
             other = VideoModel.objects.create(player=self.staff, video=ExpandVideoModel.objects.create(), software='e', level='e', bv=100, timems=90000)
-            response = self.client.get('/api/video/query', {'level': 'e', 'mode': '00'})
+            response = self.client.get('/api/video/query', {'filters': '[{"field":"level","eq":"e"},{"field":"mode","eq":"00"}]', 'sorts': '[{"field":"timems","direction":"asc"}]'})
             self.assertEqual(response.status_code, 200, response.content)
             self.assertEqual([row['id'] for row in response.json()['videos']], [other.pk, video.pk])
             row = next(row for row in response.json()['videos'] if row['id'] == video.pk)
             self.assertEqual(row['player__realname'], 'hidden')
             for sort_field in ('player__realname', 'player___realname'):
-                for reverse in (False, True):
-                    with self.subTest(sort_field=sort_field, reverse=reverse):
-                        response = self.client.get('/api/video/query', {'level': 'e', 'mode': '00', 'o': sort_field, 'r': reverse})
+                for direction in ('asc', 'desc'):
+                    with self.subTest(sort_field=sort_field, direction=direction):
+                        sorts = '[{"field":"' + sort_field + '","direction":"' + direction + '"}]'
+                        response = self.client.get('/api/video/query', {'sorts': sorts})
                         self.assertEqual(response.status_code, 400, response.content)
             response = self.client.get(f'/api/video/admin/detail/{video.pk}')
             self.assertEqual(response.json()['player__realname'], self.user._realname)

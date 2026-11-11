@@ -72,6 +72,7 @@ export default {
         cancel: '取消',
         confirm: '确认',
         delete: '删除',
+        filter: '筛选',
         link: '绑定',
         play: '播放',
         query: '查询',
@@ -79,6 +80,7 @@ export default {
         revokeApproval: '取消审核',
         save: '保存',
         send: '发送',
+        sort: '排序',
         start: '开始',
         stop: '停止',
         unlink: '解绑',
@@ -150,6 +152,7 @@ export default {
         state: '状态', // 录像属性
         status: '状态',
         start_time: '开始时间',
+        stored_file_size: '占用空间',
         time: '用时',
         timems: '@:prop.time',
         update_time: '更新时间',

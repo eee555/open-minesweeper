@@ -100,7 +100,7 @@ class VideoInfoTests(TestCase):
                 self.assertEqual(self.client.get('/api/video/staticdetailbatch', {'ids': ids}).status_code, 400)
 
     def test_query_and_profile_list_only_return_website_fields(self):
-        response = self.client.get('/api/video/query', {'level': 'b', 'mode': '00'})
+        response = self.client.get('/api/video/query')
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(set(response.json()['videos'][0]), {'id', 'upload_time', 'state', 'ongoing_tournament', 'player__id', 'player__realname'})
         response = self.client.get('/api/userprofile/videolist', {'user_id': self.owner.id})
@@ -109,6 +109,40 @@ class VideoInfoTests(TestCase):
         self.assertEqual(len(response.json()), 1)
         self.client.force_login(self.owner)
         self.assertEqual(len(self.client.get('/api/userprofile/videolist', {'user_id': self.owner.id}).json()), 2)
+
+    def test_query_rejects_unknown_and_legacy_parameters(self):
+        for params in ({'level': 'b'}, {'page': 1}, {'o': 'timems'}, {'nf': True}, {'s[]': 'a'}, {'extra': '1'}):
+            with self.subTest(params=params):
+                self.assertEqual(self.client.get('/api/video/query', params).status_code, 400)
+
+    def test_query_rejects_invalid_filters_and_sorts(self):
+        invalid_filters = (
+            'not-json',
+            json.dumps([{'field': 'player__realname', 'eq': 'x'}]),
+            json.dumps([{'field': 'bv', 'regex': 'x'}]),
+            json.dumps([{'field': 'bv', 'gte': 1}, {'field': 'bv', 'lt': 5}]),
+            json.dumps([{'field': 'bv', 'gte': 'x'}]),
+            json.dumps([{'field': 'state', 'in': ['a'] * 33}]),
+            json.dumps([{'field': 'stnb', 'gte': 1}]),
+        )
+        for filters in invalid_filters:
+            with self.subTest(filters=filters):
+                self.assertEqual(self.client.get('/api/video/query', {'filters': filters}).status_code, 400)
+        invalid_sorts = (
+            json.dumps([{'field': 'path', 'direction': 'asc'}]),
+            json.dumps([{'field': 'timems', 'direction': 'up'}]),
+            json.dumps([{'field': 'timems'}, {'field': 'timems', 'direction': 'desc'}]),
+        )
+        for sorts in invalid_sorts:
+            with self.subTest(sorts=sorts):
+                self.assertEqual(self.client.get('/api/video/query', {'sorts': sorts}).status_code, 400)
+
+    def test_query_maps_stnb_to_iqg_for_a_single_level(self):
+        filters = json.dumps([{'field': 'level', 'eq': 'b'}, {'field': 'stnb', 'gte': 36}])
+        sorts = json.dumps([{'field': 'stnb', 'direction': 'desc'}])
+        response = self.client.get('/api/video/query', {'filters': filters, 'sorts': sorts})
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual([row['id'] for row in response.json()['videos']], [self.video.pk])
 
     def test_batch_loads_expanded_fields_without_per_video_queries(self):
         from .api import get_static_video_detail_batch

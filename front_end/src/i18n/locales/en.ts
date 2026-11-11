@@ -73,6 +73,7 @@ export default {
         cancel: 'Cancel',
         confirm: 'Confirm',
         delete: 'Delete',
+        filter: 'Filter',
         link: 'Link',
         play: 'Play',
         query: 'Query',
@@ -80,6 +81,7 @@ export default {
         revokeApproval: 'Revoke approval',
         save: 'Save',
         send: 'Send',
+        sort: 'Sort',
         start: 'Start',
         stop: 'Stop',
         unlink: 'Unlink',
@@ -151,6 +153,7 @@ export default {
         state: 'State', // video attribute
         status: 'Status',
         start_time: 'Start Time',
+        stored_file_size: 'Compressed Size',
         time: 'Time',
         timems: '@:prop.time',
         update_time: 'Update Time',

@@ -3,15 +3,8 @@ from utils.exceptions import ExceptionToResponse
 from utils.parser import MSVideoParser
 from utils.ranking_lock import ranking_access
 from .files import original_file
-from .models import ExpandVideoModel, VideoModel
+from .models import VideoModel
 from .utils import VideoParseError
-
-video_all_fields = [
-    'id', 'upload_time', 'player__id', 'player__realname', 'timems', 'bv', 'bvs', 'state', 'level', 'mode', 'software', 'flag', 'op', 'isl', 'path', 'pluck', 'left', 'right', 'double', 'left_ce', 'right_ce',
-    'double_ce', 'cell0', 'cell1', 'cell2', 'cell3', 'cell4', 'cell5', 'cell6', 'cell7', 'cell8', 'left_s', 'right_s', 'double_s', 'left_ces', 'right_ces', 'double_ces', 'flag_s', 'ioe', 'thrp', 'cl_s', 'ce_s',
-]
-for name in [field.name for field in ExpandVideoModel._meta.get_fields()]:
-    video_all_fields.append('video__' + name)
 
 
 @ranking_access(operation='videomanager.refresh_video')
