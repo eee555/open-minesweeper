@@ -9,6 +9,7 @@
                 <option value="strict_ng_nf">{{ t('local.strictNgNF') }}</option>
                 <option value="thrp">{{ t('prop.thrp') }}</option>
                 <option value="nf_ioe">NF IOE</option>
+                <option value="pb_derived">{{ t('local.pbDerived') }}</option>
             </select>
         </label>
         <label>
@@ -19,6 +20,7 @@
             <select v-else-if="rankingName === 'nf_ioe'" v-model="ioeStat" class="base-select" :aria-label="t('local.stat')" :disabled="working">
                 <option v-for="field in nfIOEStats" :key="field" :value="field">{{ t(`level.${field}`) }}</option>
             </select>
+            <span v-else-if="rankingName === 'pb_derived'" class="text-secondary">{{ t('local.allDerivedFields') }}</span>
             <select v-else v-model="stat" class="base-select" :aria-label="t('local.stat')" :disabled="working">
                 <option v-for="field in fields" :key="field" :value="field">{{ t(`local.${field}`) }}</option>
             </select>
@@ -49,6 +51,7 @@ import BaseButton from '@/components/common/BaseButton.vue';
 import { actionSuccessNotification, httpErrorNotification } from '@/components/Notifications';
 import { formatNFIOEValue, nfIOEStats, nfIOEVideoId, rebuildNFIOERecord } from '@/services/nfIOERankingService';
 import type { NFIOEStat } from '@/services/nfIOERankingService';
+import { rebuildDerivedPlayer } from '@/services/pbDerivedService';
 import type { SaoleiField, SaoleiRankingName } from '@/services/saoleiRankingService';
 import { formatSaoleiValue, rebuildSaoleiRecord, saoleiFields, saoleiVideoId } from '@/services/saoleiRankingService';
 import type { StrictNgRankingName } from '@/services/strictNgRankingService';
@@ -56,7 +59,7 @@ import { formatStrictNgValue, rebuildStrictNgRecord, strictNgFields, strictNgVid
 import { formatThrpValue, rebuildThrpRecord, thrpStats, thrpVideoId } from '@/services/thrpRankingService';
 import type { ThrpStat } from '@/services/thrpRankingService';
 
-const rankingName = ref<SaoleiRankingName | StrictNgRankingName | 'thrp' | 'nf_ioe'>('saolei');
+const rankingName = ref<SaoleiRankingName | StrictNgRankingName | 'thrp' | 'nf_ioe' | 'pb_derived'>('saolei');
 const stat = ref<SaoleiField>('bt');
 const thrpStat = ref<ThrpStat>('b');
 const ioeStat = ref<NFIOEStat>('b');
@@ -67,6 +70,7 @@ const canRebuild = computed(() => userId.value !== undefined && Number.isSafeInt
 const isStrictNg = computed(() => rankingName.value === 'strict_ng' || rankingName.value === 'strict_ng_nf');
 const fields = computed(() => (isStrictNg.value ? strictNgFields : saoleiFields));
 const selectedLabel = computed(() => {
+    if (rankingName.value === 'pb_derived') return t('local.pbDerived');
     if (rankingName.value === 'nf_ioe') return t(`level.${ioeStat.value}`);
     if (rankingName.value === 'thrp') return thrpStat.value === 'e_nf' ? `${t('level.e')} NF` : t(`level.${thrpStat.value}`);
     return t(`local.${stat.value}`);
@@ -81,7 +85,10 @@ async function rebuild() {
     working.value = true;
     result.value = undefined;
     try {
-        if (rankingName.value === 'thrp') {
+        if (rankingName.value === 'pb_derived') {
+            const record = await rebuildDerivedPlayer(userId.value);
+            result.value = { value: t('local.derivedFields', { count: record.fields }) };
+        } else if (rankingName.value === 'thrp') {
             const record = await rebuildThrpRecord(userId.value, thrpStat.value);
             result.value = { value: formatThrpValue(record, thrpStat.value), videoId: thrpVideoId(record, thrpStat.value) };
         } else if (rankingName.value === 'nf_ioe') {
@@ -110,6 +117,9 @@ const i18nMessages = {
         nf: '扫雷网规则（NF）',
         strictNg: '强无猜（普通）',
         strictNgNF: '强无猜（NF）',
+        pbDerived: 'PB 衍生榜',
+        allDerivedFields: '全部衍生小榜',
+        derivedFields: '重建 {count} 项成绩',
         rebuild: '重建纪录',
         completed: '重建完成：{stat} {value}',
         videoId: '，录像 ID {id}',
@@ -129,6 +139,9 @@ const i18nMessages = {
         nf: 'Saolei.wang rules (NF)',
         strictNg: 'Strict NG (Standard)',
         strictNgNF: 'Strict NG (NF)',
+        pbDerived: 'PB derived',
+        allDerivedFields: 'All derived fields',
+        derivedFields: 'Rebuilt {count} fields',
         rebuild: 'Rebuild record',
         completed: 'Rebuild complete: {stat} {value}',
         videoId: ', video ID {id}',

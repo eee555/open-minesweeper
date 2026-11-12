@@ -14,6 +14,11 @@ import { pinia } from '@/store/create';
 
 const TopStub = defineComponent(() => () => h('div', { 'data-cy': 'top-content' }, 'top content'));
 const RouterRoot = defineComponent({ expose: [], render: () => h(RouterView) });
+const pbSummary = {
+    pb: [{ level: 'e', bv: 100, nf: false, timems: 40000, video_id: 101, rank: 2 }],
+    records: { collection: {}, skill: {}, typical_time: {} },
+    ranks: { collection: {}, skill: {}, typical_time: {} },
+};
 
 function mountProfile(path: string, loggedIn = true) {
     cy.intercept('GET', '/api/userprofile/info/43*', { id: 43, username: 'other', realname: 'Other' });
@@ -55,7 +60,7 @@ function mountProfile(path: string, loggedIn = true) {
 
 describe('Profile tab navigation', () => {
     it('defaults to the top-level top tab and loads PB only when selected', () => {
-        cy.intercept('GET', '/api/speedranking/pb/player/42', []).as('pb');
+        cy.intercept({ method: 'GET', pathname: '/api/speedranking/pb_derived/summary' }, { body: pbSummary }).as('pb');
         const router = mountProfile('/player/42');
         cy.wrap(router).its('currentRoute.value.name').should('eq', 'user-top');
         cy.get('[data-cy=profile-tabs] > .el-tabs__header [role=tab]').should(($tabs) => {

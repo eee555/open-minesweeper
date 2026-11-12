@@ -66,7 +66,7 @@ describe('Staff requests against the backend', () => {
                 response.headers['cache-control'] = 'no-store';
             });
         }).as('publicProfile');
-        cy.intercept('GET', `**/api/speedranking/pb/player/${USER.id}`).as('pbRecords');
+        cy.intercept({ method: 'GET', pathname: '/api/speedranking/pb_derived/summary', query: { player_id: String(USER.id) } }).as('pbRecords');
         cy.intercept('GET', '**/api/userprofile/videolist*').as('allVideos');
         cy.visit('/#/staff/userprofile');
         cy.get('.el-input-number input').clear();
