@@ -35,6 +35,7 @@
             </BaseButton>
         </ElFormItem>
     </ElForm>
+    <QQLoginEntry />
 </template>
 
 <script setup lang="ts">
@@ -48,6 +49,7 @@ import BaseButton from '@/components/common/BaseButton.vue';
 import EmailCodeBlock from '@/components/formItems/EmailCodeBlock.vue';
 import EmailFormItem from '@/components/formItems/EmailFormItem.vue';
 import PasswordConfirmBlock from '@/components/formItems/PasswordConfirmBlock.vue';
+import QQLoginEntry from '@/components/Login/QQLoginEntry.vue';
 import { baseErrorNotification, httpErrorNotification } from '@/components/Notifications';
 import { local } from '@/store';
 import { validateError, validateSuccess } from '@/utils/common/elFormValidate';

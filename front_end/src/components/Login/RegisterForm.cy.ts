@@ -88,6 +88,7 @@ describe('<RegisterForm />', () => {
         findConfirmPasswordInput().should('have.attr', 'type', 'password');
         cy.get('.el-input__prefix svg').should('have.length', 6);
         cy.contains('Agree to').find('input').should('have.attr', 'type', 'checkbox');
+        cy.get('.qq-login-label').should('have.text', 'QQ登录');
     });
 
     it('keeps the agreement link separate from the checkbox and supports Space', () => {
