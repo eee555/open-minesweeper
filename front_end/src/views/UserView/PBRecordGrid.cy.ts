@@ -70,4 +70,19 @@ describe('<PBRecordGrid /> derived summary', () => {
         cy.get('[data-cy="pb-side-e-s2-tt"]').should('have.length', 1);
         cy.get('.pb-side-cell').should('have.length', 1);
     });
+
+    it('stretches the grid and its side column across the container', () => {
+        cy.viewport(1200, 800);
+        const router = hashRouter();
+        cy.mount(PBRecordGrid, {
+            props: { records: pbRecords, level: 'b', nf: false, stat: 'time', derivedRecords: recordsMap, derivedRanks: ranksMap, colored: false },
+            global: { plugins: [i18n, pinia, router], config: { globalProperties: { $axios } } },
+        });
+        cy.get('.pb-grid-scroll').should(($scroll) => {
+            const scrollWidth = $scroll[0].getBoundingClientRect().width;
+            const gridWidth = $scroll.find('.pb-grid')[0].getBoundingClientRect().width;
+            const sideWidth = $scroll.find('.pb-side-grid')[0].getBoundingClientRect().width;
+            expect(gridWidth + sideWidth).to.be.closeTo(scrollWidth, 2);
+        });
+    });
 });

@@ -225,15 +225,15 @@ const { t } = useI18n({ messages: i18nMessages });
 .pb-grid-layout {
     display: flex;
     align-items: flex-start;
-    width: max-content;
-    min-width: 100%;
+    width: 100%;
+    min-width: min-content;
 }
 .pb-grid {
     display: grid;
     grid-template-columns: 4.5em repeat(10, minmax(4.3em, 1fr));
     min-width: 50em;
     grid-auto-rows: 25px;
-    flex: 0 0 auto;
+    flex: 1 1 auto;
 }
 .pb-side-grid {
     display: grid;
