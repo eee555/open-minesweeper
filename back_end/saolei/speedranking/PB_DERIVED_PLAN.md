@@ -140,7 +140,7 @@ field 命名：
 1. `_read_records` 在共享读取 pipeline 中增加三次 HMGET，得到本批用户的旧成绩（132 个最终值）；其中 `skill` hash 的分段战力与 `typical_time` hash 的旧分段典型时是差量计算 `tt_I` 及其变化量的必要输入，不再另发一次读取。`previous` 仍为五元组 `(saolei, strict_ng, pb, pb_derived, top)`，第四项为 `{player_id: {ranking: {field: value}}}`，top 快照下标为 `previous[4]`。读取命令宽度由 `PBDerivedCache.read_records()` 返回，不假设固定条数。
 2. `pb_derived.prepare_changes` 对本批每个 `(player_id, field)` 变更，从旧 PB 记录取旧用时、从 PB score 还原新用时，调用 `apply_record_delta()` 直接在旧成绩上加减；同一用户在一批内只处理一次。没有额外的中间量或第二个 hash，`p_l[v]`、`Q_I`、`H_I`、`LEVEL_WEIGHTS_l` 都是导入期常量。
 3. 线性部分：令 `ΔBvs = Bvs(新) - Bvs(旧)`、`ΔW = p_l[v] * ΔBvs`。收集三列分别累加 `±1`、`±p_l[v]`、`ΔBvs` 并同步累加到 `sum` 列；分段战力累加 `ΔW / Q_I`，级别总战力累加 `ΔW / LEVEL_WEIGHTS_l` 并同步累加到总计。
-4. 非线性部分：分段典型时 `tt_I = H_I / W_I` 不能线性累加，由旧分段战力反推 `W_I = skill_I * Q_I`，加上 `ΔW` 后重算 `tt_I`（`W_I == 0` 取 `ZERO_TT`），再把 `Δtt_I` 累加到级别合计与总计。这正是「用分段战力算典型时，再用其变化量累加合计」。
+4. 非线性部分：分段典型时 `tt_I = H_I / W_I` 不能线性累加，由旧分段战力反推 `W_I = skill_I * Q_I`，加上 `ΔW` 后重算 `tt_I`（`W_I == 0` 取 `ZERO_TT`），再把 `Δtt_I` 累加到级别合计与总计。这正是「用分段战力算典型时，再用其变化量累加合计」。`W_I` 归零时先按 `max(|旧W_I|, |ΔW|) * 1e-12` 把相减残差精确置 0，再直接把 `tt_I` 复位为 `ZERO_TT`，并以 `ZERO_TT - 旧tt_I` 累加合计；否则 `H_I / 残差` 会被放大到 1e18 量级，且污染后续重新加入时的合计。
 5. `write_changes` 与原 PB 纪录同批提交：`new_values` 与旧成绩比较，只把变化的成绩 hash 与 zset 写入共享 pipeline。新类别入榜时先用 `defaults()` 初始化该类别全部字段，最后一个 PB 移除时删除该类别全部字段与 member。原 PB 自己继续刷新受影响区间的 rank 和人数。
 6. 成绩缺失、与 PB 快照的类别不一致，或本批变化涉及的分段战力/旧典型时字段缺失时，把 `pb_changes` 覆盖到完整 PB 映射后用 `compute()` 全量重算作为兜底；整榜重建与管理员单项修复同样以全量 `compute()` 为基准。
 

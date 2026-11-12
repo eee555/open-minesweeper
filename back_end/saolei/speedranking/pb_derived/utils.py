@@ -148,7 +148,11 @@ def apply_record_delta(values, nf: bool, level: str, bv: int, old_timems, new_ti
     if index is not None and delta_w:
         field = segment_field(mode, level, index)
         q = SEGMENT_WEIGHTS[level][index]
-        new_w = max(0.0, skill[field] * q + delta_w)
+        old_w = skill[field] * q
+        new_w = old_w + delta_w
+        # 反推 W_I 与相减的浮点残差必须精确归零，否则 H_I / W_I 会被放大到天文数字。
+        if new_w <= max(abs(old_w), abs(delta_w)) * 1e-12:
+            new_w = 0.0
         skill[field] = new_w / q
         new_tt = SEGMENT_MEAN_PARTS[level][index] / new_w if new_w > 0 else ZERO_TT
         delta_tt = new_tt - typical_time[field]

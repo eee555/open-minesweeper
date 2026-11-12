@@ -168,6 +168,22 @@ class DerivedCacheTests(SimpleTestCase):
         expected = compute_for_records({**old[7], 'std:b:10': {'timems': 5000, 'video_id': 3, 'rank': None}})
         self.assertEqual(changes[7], expected)
 
+    def test_empty_segment_resets_typical_time_and_delta(self):
+        records = {
+            'std:b:12': {'timems': 30000, 'video_id': 1, 'rank': None},
+            'std:i:50': {'timems': 20000, 'video_id': 2, 'rank': None},
+            'std:e:150': {'timems': 30000, 'video_id': 3, 'rank': None},
+        }
+        state = compute_for_records(records)
+        after = dict(records)
+        after.pop('std:b:12')
+        removed = prepare_changes({7: records}, {(7, 'std:b:12'): None}, {7: state})[7]
+        self.assertEqual(removed['typical_time']['std:b:s2'], ZERO_TT)
+        self.assertEqual(removed['skill']['std:b:s2'], 0.0)
+        self.assert_values_almost_equal(removed, compute_for_records(after))
+        restored = prepare_changes({7: after}, {(7, 'std:b:12'): (1, 30000 * 2 ** 26)}, {7: removed})[7]
+        self.assert_values_almost_equal(restored, state)
+
     def test_unchanged_timems_does_not_change_values(self):
         old = self.old_pb()
         state = compute_for_records(old[7])
