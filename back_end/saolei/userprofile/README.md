@@ -149,14 +149,16 @@ E2E 使用隔离的测试数据库及 Redis，启用 `E2E_TEST=True` 并完成�
 **实现时需要处理的点**（2026-11-12 已按下列要点实现）：
 
 - 登录态时序：`store.login_status` 初值为 `LoginStatus.Undefined`，`Login/App.vue` 的 `onMounted` 异步请求 `/api/common/loginauto` 后才置为 `IsLogin` / `NotLogin`。若在会话恢复完成前打开弹窗，已登录用户会短暂看到登录或注册框；已登录访问这两个地址应重定向回首页。注册页还需与 `RegisterForm` 的 `@login` 事件协作，避免注册成功后停留在注册页地址。
-- URL 与视图一致：手动关闭弹窗后 URL 仍是 `/#/login` 或 `/#/register`，需在 `dialogVisible` 变为关闭时 `router.replace('/')`；登录成功关闭弹窗时同样要处理。
+- URL 与视图一致：手动关闭弹窗后 URL 仍是 `/#/login` 或 `/#/register`，需在 `dialogVisible` 变为关闭时 `router.replace({ path: '/', force: true })`；登录成功关闭弹窗时同样要处理。`alias` 与原路由是同一条记录，Vue Router 的 `isSameRouteLocation` 不比较 `path`，普通 `replace('/')` 会被判为重复导航而不改变地址，必须加 `force`。
 - 导航高亮：`Menu.vue` 的 `activeSection` 按 `route.path.split('/')[1]` 计算，`/login`、`/register` 会得到没有对应导航项的 `login`、`register`，两者都需显式归入 `home`。
 - `navigationItems` 里登录/注册是 `action` 而非 `to`，当前没有可外部引用的登录/注册 URL；新增路由也补上了这一点，QQ 登录失败回跳或邮件链接可直接指向该地址。
 - 弹窗内三个表单可互相切换（`@forget-password`、`@login`），路由只决定初始弹窗；用户从登录弹窗切到修改密码时 URL 不跟随变化，属于可接受的前端局部行为。
 
 **合规结论：可行，但不能替代首页常驻入口。** 审核驳回项要求「首页、注册页、登录页等页面主要位置」都有 QQ 登录入口，放置准则是「必须易于用户查找」。本方案覆盖登录页与注册页，但 QQ 标识仍只存在于弹窗内；审核人员从 QQ 互联登记的网站地址（通常是首页）进入时不会主动访问 `/#/login` 或 `/#/register`，首页依旧看不到图标。因此首页导航栏放常驻可见的官方标识不可省略，已单列决策见下节。另需记录风险：hash 路由加 `ElDialog` 的 `append-to-body` 动态渲染意味着静态 HTML 中没有按钮；官方审核为 1–3 个工作日人工审核，是否存在自动化预检需在联调阶段确认。
 
-**实施记录（2026-11-12）**：采用 `alias` 方案，`front_end/src/router/index.ts` 的 `home` 记录加 `alias: ['/login', '/register']`，首页组件实例与队列状态不重建；`front_end/src/components/Login/App.vue` 用 `useRoute()` / `useRouter()`，在 `loginauto` 会话恢复完成后才按路径调用 `openDialog`（`sessionReady` 开关），已登录访问这两个地址 `router.replace('/')`，弹窗关闭时同样回跳首页；`Menu.vue` 的 `activeSection` 把两段路径显式归入 `home`，标题与导航高亮跟随首页。导航项仍为 `action`（点击开弹窗、不改 URL），两个地址只用于外部引用与审核。表单互切不改变 URL，按原设计保留。
+**实施记录（2026-11-12）**：采用 `alias` 方案，`front_end/src/router/index.ts` 的 `home` 记录加 `alias: ['/login', '/register']`，首页组件实例与队列状态不重建；`front_end/src/components/Login/App.vue` 用 `useRoute()` / `useRouter()`，在 `loginauto` 会话恢复完成后才按路径调用 `openDialog`（`sessionReady` 开关），已登录访问这两个地址用 `router.replace({ path: '/', force: true })` 回跳首页，弹窗关闭时同样处理；`Menu.vue` 的 `activeSection` 把两段路径显式归入 `home`，标题与导航高亮跟随首页。导航项仍为 `action`（点击开弹窗、不改 URL），两个地址只用于外部引用与审核。表单互切不改变 URL，按原设计保留。
+
+**2026-11-12 代码审查修复（P2 × 3）**：① `alias` 下 `router.replace('/')` 被判为重复导航，关闭弹窗、登录成功、已登录重定向时地址仍停在 `/login`、`/register`；已核对本地 Vue Router 的 `RouteLocationOptions.force`（「位置相同也触发导航」），三处统一改为 `router.replace({ path: '/', force: true })`，并用本地脚本实测 `plain replace: /login` → `force replace: /`。② QQ 菜单入口按钮补 `@keydown.stop`，与 `NavigationControl` 一致，避免键盘事件冒泡到 ElMenu 后被转成点击外层菜单项（该项无 `action`），导致 Enter / 空格无法触发占位提示。③ `syncRouteDialog` 增加 `routeOpenedDialog` 标志：浏览器后退或导航离开这两个路由时，只关闭「由路由打开」的弹窗，用户点导航栏打开的弹窗不受影响。三项均补了组件测试回归。
 
 ### 已决策事项与编码授权
 
@@ -305,14 +307,14 @@ E2E 使用隔离的测试数据库及 Redis，启用 `E2E_TEST=True` 并完成�
 
 **[阻塞] 顺序依赖（第 3 条已解除，仅剩第 4 条）**
 
-3. **[已落地] 页面入口骨架**：2026-11-12 完成菜单栏「登录」左边的官方小图标 + 文字链接、登录/注册弹窗内长标识（`QQLoginEntry.vue`，均为占位点击不跳转）、`home` 的 `/login` / `/register` alias + 默认开弹窗、登录态时序、关闭回跳与导航高亮，并同步组件测试与本节状态。项目方要求的「申请 appid 之前先把入口做出来」已满足，此项不再阻塞。
+3. **[已落地] 页面入口骨架**：2026-11-12 完成三处统一入口（`QQLoginEntry.vue`，官方 16×16 小图标 + 固定中文「QQ登录」）、`home` 的 `/login` / `/register` alias + 默认开弹窗、登录态时序、关闭回跳（强制导航）与导航高亮，并同步组件测试与本节状态。项目方要求的「申请 appid 之前先把入口做出来」已满足，此项不再阻塞。
 4. **[阻塞]** 创建 QQ 互联网站应用，取得 appid / appkey 并登记固定 HTTPS 回调地址（实施计划阶段 0）；入口已就绪，此项现为唯一顺序阻塞项。
 5. 该项已决、不再阻塞：项目方 2026-11-12 **最终确定不引入官方 CDN JS SDK**，采用 server-side OAuth2.0 自建跳转（「官方 CDN JS SDK 调研」「待决问题」6）；`unionid` 已明确可后补，见第 11 条与「QQ 互联返回的身份信息」。
 
 **[已落地]**
 
 6. 官方标准标识核实与入库：7 规格清单，`Connect_logo_3.png` → `qq_login_120x24.png`、`Connect_logo_1.png` → `qq_login_16x16.png`；2026-11-12 联网下载并与官方 CDN 原图核对 SHA-256 一致（「标准标识素材」）。官方无圆形规格，非官方圆形图标不采用。
-7. 三处入口落地：菜单栏「登录」项左边（16×16 小图标 + 文字链接，未登录时可见）、登录/注册弹窗内 120×24 长标识（`QQLoginEntry.vue`），均为原样尺寸的可点击占位（「标准标识素材」）。**剩余：阶段 1/2 后把占位点击替换为真实授权地址**，不编造 appid。
+7. 三处入口落地：菜单栏「登录」项左边（未登录时可见）与登录/注册弹窗内，统一为 `QQLoginEntry.vue` 的 16×16 官方小图标 + 固定中文文字，原样尺寸、可键盘激活的可点击占位（「标准标识素材」）；文案不做英文界面。**剩余：阶段 1/2 后把占位点击替换为真实授权地址**，不编造 appid。
 8. 官方规范、接口返回与审核视角的核实结论（「外部硬性要求」「QQ 互联返回的身份信息」「审核视角」）。
 9. 模块归属决策：登录侧归 `userprofile`，与 `accountlink` 分开（「与现有约定的关系」）。
 

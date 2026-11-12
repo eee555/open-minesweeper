@@ -53,21 +53,34 @@ function routeDialog(): 'login' | 'register' | null {
 
 // 会话恢复完成前不按路由开弹窗，避免已登录用户短暂看到登录框。
 let sessionReady = false;
+// 只记录由 /login、/register 打开的弹窗，离开这两个地址时据此关闭。
+let routeOpenedDialog = false;
 
 function syncRouteDialog() {
     const form = routeDialog();
-    if (!sessionReady || form === null) return;
-    if (store.login_status === LoginStatus.IsLogin) {
-        void router.replace('/');
+    if (!sessionReady) return;
+    if (form === null) {
+        if (routeOpenedDialog) {
+            routeOpenedDialog = false;
+            dialogVisible.value = false;
+        }
         return;
     }
+    if (store.login_status === LoginStatus.IsLogin) {
+        void router.replace({ path: '/', force: true });
+        return;
+    }
+    routeOpenedDialog = true;
     openDialog(form);
 }
 
 watch(() => route.path, syncRouteDialog);
 watch(dialogVisible, (visible) => {
-    if (visible || routeDialog() === null) return;
-    void router.replace('/');
+    if (visible) return;
+    routeOpenedDialog = false;
+    if (routeDialog() === null) return;
+    // alias 与原路由是同一条记录，不加 force 会被判为重复导航，地址仍停在 /login。
+    void router.replace({ path: '/', force: true });
 });
 
 onMounted(async () => {

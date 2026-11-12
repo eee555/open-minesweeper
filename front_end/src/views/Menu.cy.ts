@@ -94,6 +94,20 @@ describe('<Menu /> navigation layouts', () => {
         cy.contains('.el-message', 'QQ 登录尚未开放').should('be.visible');
     });
 
+    it('activates the QQ login entry with Enter and Space', () => {
+        mountMenu(1920, { loggedOut: true });
+        const entry = () => cy.get('.site-menu--top [data-navigation-id=qq-login] .qq-login-entry');
+        entry().focus();
+        entry().type('{enter}');
+        cy.contains('.el-message', 'QQ 登录尚未开放').should('be.visible');
+        cy.then(() => {
+            ElMessage.closeAll();
+        });
+        entry().focus();
+        entry().type(' ');
+        cy.contains('.el-message', 'QQ 登录尚未开放').should('be.visible');
+    });
+
     it('tracks the parent section of nested routes and returns home through the logo', () => {
         const router = mountMenu(1440);
         cy.title().should('eq', 'OpenMS - Home');

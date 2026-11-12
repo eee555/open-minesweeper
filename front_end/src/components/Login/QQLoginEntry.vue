@@ -1,6 +1,6 @@
 <template>
     <!-- 腾讯官方 16×16 标准标识原样使用；文字按合规要求固定中文，不随界面语言切换。 -->
-    <button type="button" class="qq-login-entry" :class="{ 'qq-login-entry--compact': compact }" :aria-label="label" @click.stop="notifyPending">
+    <button type="button" class="qq-login-entry" :class="{ 'qq-login-entry--compact': compact }" :aria-label="label" @keydown.stop @click.stop="notifyPending">
         <img :src="badge" alt="" width="16" height="16">
         <span class="qq-login-label">{{ label }}</span>
     </button>

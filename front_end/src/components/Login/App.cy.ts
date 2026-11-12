@@ -17,7 +17,10 @@ const Blank = defineComponent({
 function testRouter(initial: string) {
     const router = createRouter({
         history: createMemoryHistory(),
-        routes: [{ path: '/', alias: ['/login', '/register'], component: Blank }],
+        routes: [
+            { path: '/', alias: ['/login', '/register'], component: Blank },
+            { path: '/elsewhere', component: Blank },
+        ],
     });
     void router.replace(initial);
     return router;
@@ -115,6 +118,14 @@ describe('login and register page routes', () => {
         cy.get('.el-dialog__headerbtn').click();
         cy.wrap(router).its('currentRoute.value.path').should('eq', '/');
         cy.shouldBeAbsentOrHidden('.el-dialog');
+    });
+
+    it('closes a route-opened dialog when navigating away from the login route', () => {
+        const router = mountLogin('/login', null);
+        cy.get('.el-dialog').should('be.visible');
+        cy.then(() => router.push('/elsewhere'));
+        cy.shouldBeAbsentOrHidden('.el-dialog');
+        cy.wrap(router).its('currentRoute.value.path').should('eq', '/elsewhere');
     });
 
     it('redirects a logged-in visitor back home without showing the dialog', () => {
