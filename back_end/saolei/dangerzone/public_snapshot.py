@@ -150,7 +150,7 @@ def initialize_local_data(root, admin_password, user_password, *, stdout, create
         update_video_count_limit_from_videos(user.userms, VideoModel.objects.filter(player=user))
     call_command('rebuild_speed_ranks', stdout=stdout)
     call_command('rebuild_strict_ng_ranks', stdout=stdout)
-    call_command('rebuild_pb_ranks', stdout=stdout)
+    call_command('rebuild_pb_ranks', stdout=stdout)  # 末尾统一重建 PB 衍生三大榜
     call_command('rebuild_top_ranks', stdout=stdout)
     call_command('rebuild_eff_ranks', stdout=stdout)
     call_command('rebuild_eff_ranks', ranking_name='nf_ioe', stdout=stdout)

@@ -11,6 +11,9 @@ from videomanager.models import VideoModel
 from .cache import pipeline
 from .pb import services as pb
 from .pb.cache import PBRankingCache
+from .pb_derived import services as pb_derived
+from .pb_derived.cache import PBDerivedCache
+from .pb_derived.utils import RANKINGS as DERIVED_RANKINGS
 from .saolei import services as saolei
 from .saolei.utils import RANKING_NAMES as SAOLEI_RANKING_NAMES
 from .strict_ng import services as strict_ng
@@ -26,14 +29,18 @@ def _read_records(players):
         saolei.read_records(pipe, players)
         strict_ng.read_records(pipe, players)
         PBRankingCache().read_records(pipe, players)
+        PBDerivedCache().read_records(pipe, players)
         TopRankingCache().read_records(pipe, players)
         results = pipe.execute()
     split = len(SAOLEI_RANKING_NAMES)
     strict_split = split + len(STRICT_NG_RANKING_NAMES)
+    pb_split = strict_split + len(players)
+    derived_split = pb_split + len(DERIVED_RANKINGS)
     return (
         saolei.unpack_records(results[:split], players),
         strict_ng.unpack_records(results[split:strict_split], players),
-        PBRankingCache().unpack_records(results[strict_split:strict_split + len(players)], players),
+        PBRankingCache().unpack_records(results[strict_split:pb_split], players),
+        PBDerivedCache().unpack_records(results[pb_split:derived_split], players),
         TopRankingCache.unpack_records(results[-1], players),
     )
 
@@ -112,15 +119,18 @@ def _news_targets(old_top, top_records, pb_changes):
 
 def _write_records(previous, saolei_records, strict_ng_records, pb_changes, top_records, news_targets=None):
     """写入前备好待修改玩家的旧快照，写入后再取一次，新闻由调用路径决定是否发布。"""
-    old_saolei, old_strict_ng, old_pb, old_top = previous
+    old_saolei, old_strict_ng, old_pb, old_derived, old_top = previous
     ranking = PBRankingCache()
+    derived = PBDerivedCache()
     top_ranking = TopRankingCache()
+    derived_changes = pb_derived.prepare_changes(old_pb, pb_changes) if pb_changes else {}
     previous_ranks = ranking.read_previous_ranks(old_pb, pb_changes) if pb_changes else {}
     lsf_before = top_ranking.lsf_snapshot(news_targets) if news_targets else {}
     with pipeline() as pipe:
         saolei.write_records(pipe, old_saolei, saolei_records)
         strict_ng.write_records(pipe, old_strict_ng, strict_ng_records)
         ranking.write_changes(pipe, old_pb, pb_changes)
+        derived.write_changes(pipe, old_derived, derived_changes)
         affected = top.write_records(pipe, old_top, top_records)
         pipe.execute()
     lsf_after = top.complete_update(old_top, top_records, affected, ranking=top_ranking, snapshot_players=news_targets)
@@ -142,7 +152,7 @@ def _sync_video(video_id: int, previous_player_id: int):
         saolei_records = saolei.prepare_video_update(video, video_id, previous[0])
         strict_ng_records = strict_ng.prepare_video_update(video, video_id, previous[1])
         pb_changes = pb.prepare_video_update(video, video_id, previous[2])
-        top_records = top.prepare_video_update(video, video_id, previous[3])
+        top_records = top.prepare_video_update(video, video_id, previous[4])
         news_targets = {video['player_id']: [video_id]} if video else None
         _write_records(previous, saolei_records, strict_ng_records, pb_changes, top_records, news_targets=news_targets)
 
@@ -166,14 +176,14 @@ def _update_videos(videos, remove: bool):
                 saolei_records = saolei.prepare_remove_videos(ids_by_player, previous[0])
                 strict_ng_records = strict_ng.prepare_remove_videos(ids_by_player, previous[1])
                 pb_changes = pb.prepare_remove_videos(ids_by_player, previous[2])
-                top_records = top.prepare_remove_videos(ids_by_player, previous[3])
+                top_records = top.prepare_remove_videos(ids_by_player, previous[4])
                 news_targets = None
             else:
                 saolei_records = saolei.prepare_add_videos(subset, previous[0])
                 strict_ng_records = strict_ng.prepare_add_videos(subset, previous[1])
                 pb_changes = pb.prepare_add_videos(subset, previous[2])
-                top_records = top.prepare_add_videos(subset, previous[3])
-                news_targets = _news_targets(previous[3], top_records, pb_changes)
+                top_records = top.prepare_add_videos(subset, previous[4])
+                news_targets = _news_targets(previous[4], top_records, pb_changes)
             _write_records(previous, saolei_records, strict_ng_records, pb_changes, top_records, news_targets=news_targets)
 
 

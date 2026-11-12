@@ -7,7 +7,7 @@
 | tab | 路由组件 | 数据与展示 |
 | --- | --- | --- |
 | top | `UserTopView.vue` | `TopSummary.vue` 请求完整 top 纪录、读取 Pinia 锚点；`TopRadar.vue`、`TopRecordTable.vue` 只渲染 props |
-| PB | `UserPBView.vue` | 一次获取用户全部 PB，`PBRecordGrid.vue` 按等级展示网格 |
+| PB | `UserPBView.vue` | 一次获取原 PB 与三个衍生大榜的全部成绩/排名，`PBSummaryStackBars.vue` 绘制五条堆叠条，`PBRecordGrid.vue` 按等级展示网格与分段侧列 |
 | 纪录 | `UserRecordView/App.vue` | 扫雷网、强无猜、Thrp 及自定义 pluck 纪录 |
 | 账号关联 | `UserAccountLinkView.vue` → `AccountLinks/App.vue` | 全平台图标网格、单个平台详情及内联关联入口；验证和人工导入流程按平台独立维护 |
 | 录像 | `UserVideoView.vue` | 全部可见录像、日历/BV 选择、表格/散点图 |
@@ -39,6 +39,9 @@ top 和 PB 的业务规则、缓存与接口统一见 [竞速排行榜 README](.
 - 每级别网格每行十格，按已有最小/最大 BV 向十位补齐。无纪录格子留空，整级别无纪录时显示空态；有纪录的格子预览同一条 PB 录像，不因指标变化重新选录像。
 - `rank=null` 显示 `--`，不丢弃已有录像；原生 `title` 展示时间、派生指标和排名，不逐格预取详情。
 - rank 前三名采用不透明金银铜和固定深色文字；4–10、11–50、51–100 名采用主题蓝的 22%、14%、7% 背景，之后及缺失排名无填色。后续排名文字使用主题色，不降低整格或链接透明度。
+- 页面顶部五条 stackbar 分别展示 BV 数量、BV 概率、ASB、战力与典型时的三级别构成；总值显示 `数值(排名)`（未入榜为 `--`），三级别分量只显示名称、占比和数值，不显示排名。级别标志色只用于区分构成。
+- 级别标题右侧追加该级别的 BV 数量、BV 概率、ASB、战力与典型时 `数值(排名)`；ASB/战力/典型时的原生 `title` 保留未舍入的原始值。格式化与静态分段边界集中在 `services/pbDerivedService.ts`，页面不各自复制一份；该前端副本需与后端 `SEGMENTS` 同步维护，侧列不依赖响应元数据。
+- 网格右侧按当前指标追加侧列：Time 显示分段典型时，Bvs 显示分段战力，Rank 显示两种分段排名，Stnb 不追加。侧列用独立 CSS Grid 与主网格同排高对齐，长分段只渲染一个跨行 cell，跨度按区间与实际显示行的交集计算；显示范围外或完全没有 PB 的分段按 0 战力、`999.999` 秒典型时及相应排名渲染。
 
 ## Thrp 纪录
 
@@ -78,15 +81,16 @@ top 和 PB 的业务规则、缓存与接口统一见 [竞速排行榜 README](.
 
 - `App.cy.ts`：顶级 tab、默认入口、按需加载及设置权限。
 - `TopSummary.cy.ts`：LSF 总值与六段构成、普通/NF 共享纪录与 Pinia 锚点、表格明细、失活隔离及纪录失败重试。数值权重在 `topRankingService.test.ts` 验证，段宽与数值格式化在 `StackBar/App.cy.ts` 验证，不在个人页重复测试。
-- `UserPBView.cy.ts`：指标/NF 切换、rank 配色、空态、重试及请求生命周期。
+- `UserPBView.cy.ts`：指标/NF 切换、rank 配色、空态、重试及请求生命周期；改用一次 `pb_derived/summary` 请求。
+- `PBRecordGrid.cy.ts`：级别标题数值与排名、分段侧列、跨行跨度、长区间不新增行及原生 title 原始值。
 - `useProfileVideos.test.ts`、`videoSelection.test.ts`：身份与修订号失效、过期响应、日期/BV 选择及共享筛选。
 - `arbiterCsv.test.ts`、`arbiterCsvDiff.test.ts`、`useArbiterCsvDiff.test.ts`：真实 CSV 样本、异常输入、匹配与去重、LOCAL 展示数据和重建生命周期；`UserVideoView.cy.ts` 覆盖 CSV 导入、收起、清除及混合展示。
 - `UserVideoView.cy.ts` 与日历/BV 组件测试：选择联动、正式散点图、分页及公开操作；`cypress/e2e/profile.cy.ts` 保留真实后端流程验证。
 
 ```powershell
 # 在 front_end 目录运行
-npx.cmd vitest run src/services/topRankingService.test.ts src/services/pbRankingService.test.ts src/views/UserView/useProfileVideos.test.ts src/views/UserView/videoSelection.test.ts
-npx.cmd cypress run --component --browser chrome --headless --spec "src/views/UserView/App.cy.ts,src/views/UserView/TopSummary.cy.ts,src/views/UserView/UserPBView.cy.ts,src/views/UserView/UserVideoView.cy.ts"
+npx.cmd vitest run src/services/topRankingService.test.ts src/services/pbRankingService.test.ts src/services/pbDerivedService.test.ts src/views/UserView/useProfileVideos.test.ts src/views/UserView/videoSelection.test.ts
+npx.cmd cypress run --component --browser chrome --headless --spec "src/views/UserView/App.cy.ts,src/views/UserView/TopSummary.cy.ts,src/views/UserView/UserPBView.cy.ts,src/views/UserView/PBRecordGrid.cy.ts,src/views/UserView/UserVideoView.cy.ts"
 npx.cmd vitest run src/views/UserView/arbiterCsv.test.ts src/views/UserView/arbiterCsvDiff.test.ts src/views/UserView/useArbiterCsvDiff.test.ts
 ```
 

@@ -235,7 +235,19 @@ python manage.py rebuild_strict_ng_ranks --ranking-name strict_ng_nf --batch-siz
 python manage.py rebuild_pb_ranks
 ```
 
-首次建榜或缓存丢失后执行，API 不回源。执行前暂停 PB 相关读写，包括上传、审核、绑定/解绑、删除及比赛公开。命令直接清空 PB 命名空间后重建，失败可能留下部分缓存，排除错误后重新运行。
+首次建榜或缓存丢失后执行，API 不回源。执行前暂停 PB 相关读写，包括上传、审核、绑定/解绑、删除及比赛公开。命令直接清空 PB 命名空间后重建，失败可能留下部分缓存，排除错误后重新运行。PB 原榜与小榜 rank 全部刷新后，命令末尾统一调用一次 PB 衍生榜整榜重建，因此不需要再单独执行 `rebuild_pb_derived_ranks`。
+
+### `rebuild_pb_derived_ranks`
+
+位置：`speedranking/management/commands/rebuild_pb_derived_ranks.py`
+
+从现有 `speedranking:pb:player:*` 用户 hash 全量重算收集、战力、典型时三个大榜，不重新扫描录像表。`--batch-size` 默认 100，必须为正数。
+
+```bash
+python manage.py rebuild_pb_derived_ranks
+```
+
+用于 BV 频率表、分段边界或概率变更后整榜刷新，也可修复衍生缓存丢失或不一致。分段边界变更还需同步前端 `services/pbDerivedService.ts` 的静态副本 `derivedSegments`；前后端配置都硬编码到代码中，不设置 version，也没有配置摘要能提示后端变更或前端漂移。命令先清空 `speedranking:pb_derived:*`，再按批写入；第一版不引入双写切换，执行前须暂停录像上传、审核、绑定/解绑、删除、比赛公开等 PB 写入及相关读取。失败会记录异常并中断，可能留下部分缓存，排除错误后必须重跑。执行顺序必须是「先 PB、后衍生」：`rebuild_pb_derived_ranks` 不会补建缺失的 PB 原榜。单独修复某个用户可在管理员页面使用“排行纪录重建”的 `PB 衍生榜` 选项，对应 `POST /api/speedranking/pb_derived/admin/rebuild_player`。
 
 ### `rebuild_top_ranks`
 

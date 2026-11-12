@@ -13,6 +13,7 @@ from media.cache import MEDIA_CACHE_KEYS
 from minigame.cache import MiniGameRankingCache
 from speedranking.pb.cache import PBRankingCache
 from speedranking.pb.utils import LEVELS, parse_field, record_field
+from speedranking.pb_derived.cache import PBDerivedCache
 from speedranking.saolei.cache import SpeedRankingCache
 from speedranking.saolei.utils import RANK_STATS, RANKING_NAMES
 from speedranking.strict_ng.cache import SpeedRankingCache as StrictNgRankingCache
@@ -60,6 +61,8 @@ def _known_memory_keys(ranking, fields, player_ids):
         yield 'other_rankings', key
     for key in MEDIA_CACHE_KEYS:
         yield 'other_rankings', key
+    for key in PBDerivedCache().keys():
+        yield 'pb_rankings', key
     yield 'latest_videos', newest_cache.key
     for player_id in player_ids:
         yield 'pb_rankings', ranking.player_key(player_id)

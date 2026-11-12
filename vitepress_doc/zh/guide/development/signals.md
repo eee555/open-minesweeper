@@ -68,6 +68,7 @@ flowchart LR
 
     video_pre_delete --> update_video_count_on_video_delete[删除用户录像统计]
     profile_post_delete[UserProfile post_delete] --> delete_user_ms[删除关联扫雷资料]
+    profile_post_delete --> delete_derived_records[提交后清理 PB 衍生榜成绩]
 
 
 
@@ -126,6 +127,7 @@ flowchart LR
     click update_video_count_on_video_delete "#signal-function-map" "录像删除前按当前比赛标记及关联减少数量和空间"
     click profile_post_delete "#signal-function-map" "用户删除后触发关联扫雷资料清理"
     click delete_user_ms "#signal-function-map" "同一事务内按真实外键删除 UserMS，UserMS 发起的级联跳过重复清理"
+    click delete_derived_records "#signal-function-map" "提交后清理 PB 衍生榜成绩 hash 与全部小榜 member"
     click update_custom_pluck_cache_on_record_save "#signal-function-map" "pluck 纪录保存后同步排行缓存"
     click update_custom_pluck_cache_on_record_delete "#signal-function-map" "pluck 纪录删除提交后按当前数据库纪录同步缓存"
     click update_cache_on_tournament_save "#signal-function-map" "比赛保存后同步 NORMAL 比赛缓存"
@@ -144,6 +146,8 @@ flowchart LR
 
 `UserProfile.post_delete` 调用 `userprofile.signals.delete_user_ms`，在同一删除事务内按 `instance.userms_id` 清理关联 `UserMS`，并由已有外键删除其标识；覆盖实例、QuerySet 及 Admin 删除。`origin` 为 `UserMS` 实例或 QuerySet 时跳过，因为原收集器已经负责删除，避免重复信号。无关联资料时直接跳过，清理失败会回滚用户与资料删除。历史孤立资料使用 [cleanup_orphan_userms](./management-commands.md#cleanup-orphan-userms) 处理。
 
+`UserProfile.post_delete` 另由 `speedranking.pb_derived.signals.delete_derived_records` 在事务提交后清理该用户在三个PB 衍生大榜成绩 hash 中的 field 及全部 132 个小榜 zset member；接收器在 `speedranking.apps.ready` 中注册，不新增 `VideoModel` 接收器。原 PB 缓存尚无同类用户删除清理，属于既有缺口，不在衍生模块内隐式改动。
+
 `MiniGameBestScore.post_delete` 调用 `minigame.signals.delete_cached_score`，在事务提交后从该榜 ZSET 和明细 Hash 移除玩家，保留初始化标记；覆盖 Admin、QuerySet 和用户级联删除，回滚不改缓存。小游戏创建和改善由提交服务直接注册 `on_commit` 更新，不另设保存信号。
 
 GSC 历史补录沿用默认 TournamentUser 创建和 best 保存信号，允许默认或手工成绩改善 best；匿名参赛者不调度参赛缓存更新。已颁奖 GSC 创建 participant 时不自动回填录像，由代传 service 显式关联，普通报名和周赛不变。补录接口的调用顺序和手工成绩规则见 [GSC 历史录像补录](./gsc-history-import.md)。
@@ -161,6 +165,7 @@ GSC 历史补录沿用默认 TournamentUser 创建和 best 保存信号，允许
 | 更新用户录像统计与上传额度 | `update_video_count_on_video_save` |
 | 删除用户录像统计 | `update_video_count_on_video_delete` |
 | 删除关联扫雷资料 | `userprofile.signals.delete_user_ms` |
+| 提交后清理 PB 衍生榜成绩 | `speedranking.pb_derived.signals.delete_derived_records` → `services.remove_player` |
 | 将比赛录像挂载到比赛 | `add_created_video_to_checked_tournaments` |
 | 刷新pluck纪录 | `refresh_custom_pluck_rank_on_video_save` |
 | 提交后补位pluck纪录 | `refresh_custom_pluck_rank_on_video_delete` |

@@ -2,7 +2,7 @@
 
 本 app 不新增数据库模型。录像仍以 `VideoModel` 为事实来源，排行和个人纪录查询只读 Redis，不自动回源或重建。
 
-PB 使用每个小榜一个 zset、每个用户一个 hash，并额外维护各小榜人数 hash，是下述一般缓存结构的例外。PB 排行和个人 PB 页面均已实现；个人页面职责见 [UserView README](../../../front_end/src/views/UserView/README.md)。设计依据与后续优化见 [PB 榜开发计划](PB_PLAN.md)。
+PB 使用每个小榜一个 zset、每个用户一个 hash，并额外维护各小榜人数 hash，是下述一般缓存结构的例外。PB 排行和个人 PB 页面均已实现；个人页面职责见 [UserView README](../../../front_end/src/views/UserView/README.md)。设计依据与后续优化见 [PB 榜开发计划](PB_PLAN.md)。PB 衍生的收集/战力/典型时三大榜同样属于例外：每个大榜一个成绩 hash、每个小榜一个 zset，实现见 [pb_derived/README.md](pb_derived/README.md) 与 [PB 衍生榜维护文档](PB_DERIVED_PLAN.md)。
 
 LSF 是竞速页面的首位和默认选项，由 top 纪录派生。规则、缓存、接口及页面入口见本文的 [top 榜](#top-榜)。讨论中 top 始终指该大榜，前端仅指前端网页。
 
@@ -230,6 +230,17 @@ python manage.py test speedranking.pb --keepdb --noinput
 npx vitest run src/services/pbRankingService.test.ts
 npx cypress run --component --spec "src/views/RankingView/PBRanking.cy.ts,src/views/RankingView/PBBVButton.cy.ts,src/views/RankingView/PBRankingTable.cy.ts,src/views/RankingView/SpeedRanking.cy.ts"
 ```
+
+## PB 衍生榜
+
+收集、战力与典型时三大榜由 `speedranking.pb_derived` 独立维护，数学定义、分段边界、132 个 field、键名、更新/重建/失败语义与展示规则统一见 [pb_derived/README.md](pb_derived/README.md)。本节只列出与 app 其他部分衔接的约定：
+
+- 缓存键统一以 `speedranking:pb_derived:` 开头：三个 `...:{ranking}:records` 成绩 hash 与 132 个 `...:{ranking}:{field}` 小榜 zset；不设版本 key。`rebuild_pb_ranks` 不会清理该命名空间，只有 `rebuild_pb_derived_ranks` 与管理员单项修复会写入。
+- `_read_records` 的共享读取 pipeline 增加三次 HMGET，`_write_records` 的共享写入 pipeline 增加衍生成绩差异写入；`previous` 现为五元组 `(saolei, strict_ng, pb, pb_derived, top)`。刷新 PB rank、新闻快照和 top 锚点不回调衍生计算，不新增 `VideoModel` 接收器。
+- `rebuild_pb_ranks` 在 PB 原榜与 rank 全部完成后统一调用一次 `pb_derived.services.rebuild_all`，保证「先 PB、后衍生」；`dangerzone` 本地快照初始化与监控 key 列表已同步覆盖。
+- API 在 `/api/speedranking/pb_derived/` 下：`GET /rank`、`GET /summary`、`POST /admin/rebuild_player`。个人 PB 页面改由 `/summary` 一次取得原 PB、三个衍生大榜成绩及全部排名；原 `/pb/player/{id}` 响应结构不变。两个读接口只返回成绩与排名，不携带 `meta`、版本摘要或静态分段边界。
+- 前端入口 `/ranking/speed/collection` 与 `/ranking/speed/skill_tt`；配置、格式化和颜色逻辑集中在 `services/pbDerivedService.ts` 与 `utils/derivedColors.ts`。`pbDerivedService.ts` 另保存一份静态分段边界 `derivedSegments`，与后端 `SEGMENTS` 同步维护，用于首屏生成列、校验 URL 排序键和计算侧列跨度；前后端配置分别硬编码到代码中，不设置 version。
+- 管理员“排行纪录重建”页面的 `PB 衍生榜` 选项调用单项修复，强制重写该用户全部衍生索引。
 
 ## top 榜
 

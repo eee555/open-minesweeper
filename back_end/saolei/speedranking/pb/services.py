@@ -7,6 +7,7 @@ from videomanager.models import VideoModel
 from .cache import PBRankingCache
 from .utils import encode_score, LEVELS, parse_field, record_field
 from ..cache import pipeline
+from ..pb_derived import services as pb_derived
 from ..utils import log_update_errors
 
 VIDEO_FIELDS = ('id', 'player_id', 'level', 'mode', 'state', 'ongoing_tournament', 'bv', 'timems', 'right_ce', 'upload_time')
@@ -89,6 +90,7 @@ def rebuild_player_record(player_id: int, level: str, bv: int, nf: bool):
             ranking.write_changes(pipe, {player_id: {}}, changes)
             pipe.execute()
         ranking.refresh_changed_ranks(previous_ranks, changes)
+        pb_derived.rebuild_player(player_id)
         return next((record for record in ranking.get_player_records(player_id) if (record['nf'], record['level'], record['bv']) == (nf, level, bv)), None)
 
 
@@ -112,4 +114,5 @@ def rebuild_pb_ranks(batch_size=100, progress=None):
                 progress(count, players[-1])
         for field in ranking.ranking_fields():
             ranking.refresh_ranks({field: (0, -1)})
+        pb_derived.rebuild_all(batch_size)
     return count

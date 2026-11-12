@@ -18,7 +18,8 @@
             {{ t('local.failed') }}
         </p>
         <template v-else-if="loadedKey === dataKey">
-            <PBRecordGrid v-for="level in pbLevels" :key="level" :records="records" :level="level" :nf="nf" :stat="stat" />
+            <PBSummaryStackBars :records="derivedRecords" :ranks="derivedRanks" :nf="nf" />
+            <PBRecordGrid v-for="level in pbLevels" :key="level" :records="records" :level="level" :nf="nf" :stat="stat" :derived-records="derivedRecords" :derived-ranks="derivedRanks" :colored="local.colored" />
         </template>
     </section>
 </template>
@@ -29,12 +30,16 @@ import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 
 import PBRecordGrid from './PBRecordGrid.vue';
+import PBSummaryStackBars from './PBSummaryStackBars.vue';
 
 import BaseButton from '@/components/common/BaseButton.vue';
+import type { DerivedRanksMap, DerivedRecordsMap } from '@/services/pbDerivedService';
+import { fetchDerivedSummary } from '@/services/pbDerivedService';
 import type { PBPlayerRecord, PBStat } from '@/services/pbRankingService';
-import { fetchPBPlayerRecords, pbLevels, pbStats } from '@/services/pbRankingService';
+import { pbLevels, pbStats } from '@/services/pbRankingService';
 import { profileDataRevision } from '@/services/profileDataService';
 import { store } from '@/store';
+import { local } from '@/store/local';
 import { UserProfile } from '@/utils/userprofile';
 
 const user = defineModel('user', { type: UserProfile, required: true });
@@ -50,11 +55,14 @@ const active = computed(() => activated.value && route.name === 'user-pb' && Num
 const dataKey = computed(() => `${user.value.id}:${store.sessionRevision}:${profileDataRevision(user.value.id)}`);
 const loadedKey = ref('');
 const records = ref<PBPlayerRecord[]>([]);
+const derivedRecords = ref<DerivedRecordsMap>({ collection: {}, skill: {}, typical_time: {} });
+const derivedRanks = ref<DerivedRanksMap>({ collection: {}, skill: {}, typical_time: {} });
 const summaryStats = [...pbStats, 'rank'] as const;
 const stat = ref<PBStat | 'rank'>('time');
 const nf = ref(false);
 const loading = ref(false);
 const failed = ref(false);
+let controller: AbortController | undefined;
 let requestNumber = 0;
 async function load(force = false) {
     const number = ++requestNumber;
@@ -62,12 +70,16 @@ async function load(force = false) {
     if (!active.value || user.value.id < 1) return;
     if (!force && loadedKey.value === dataKey.value) return;
     const key = dataKey.value;
+    controller?.abort();
+    controller = new AbortController();
     loading.value = true;
     failed.value = false;
     try {
-        const result = await fetchPBPlayerRecords(user.value.id);
+        const result = await fetchDerivedSummary(user.value.id, controller.signal);
         if (dataKey.value !== key || number !== requestNumber) return;
-        records.value = result;
+        records.value = result.pb;
+        derivedRecords.value = result.records;
+        derivedRanks.value = result.ranks;
         loadedKey.value = key;
     } catch {
         if (number === requestNumber) failed.value = true;
