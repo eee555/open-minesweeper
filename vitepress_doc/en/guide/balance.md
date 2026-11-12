@@ -55,6 +55,8 @@ Resource expiration dates and next renewal amounts:
 
 ## Sponsorship Methods
 
+Thank you for considering supporting our open-source project. Please include your name and the designated sponsorship purpose in the note when donating. Sponsorship purposes are divided into team compensation, website operation, and personal tip. If no note is provided, the donation will default to website operation. Your sponsorship helps sustain and improve the project and allows us to keep enhancing the software quality. For general donations to the team, the site owner commits to distributing the proceeds among all contributors proportionally based on commit count.
+
 ### WeChat
 ![](/donation/wechat.png)
 
