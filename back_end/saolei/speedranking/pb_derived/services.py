@@ -4,7 +4,7 @@
 不新增 VideoModel receiver，也不在 PB 刷新 rank 时递归重算其他用户。
 """
 from .cache import PBDerivedCache
-from .utils import apply_record_delta, compute, defaults, FIELDS, LEVELS, MODES, RANKINGS
+from .utils import apply_record_delta, compute, defaults, FIELDS, LEVELS, MODES, RANKINGS, segment_field_for_bv
 from ..cache import cache, pipeline
 from ..pb.cache import PBRankingCache
 from ..pb.utils import parse_field, record_from_score
@@ -61,7 +61,11 @@ def _initial_values(old_values, old_modes, new_modes):
 
 
 def prepare_changes(old_pb, pb_changes, old_derived=None):
-    """把本批 PB 变化直接加减到已存成绩上，每个受影响用户只处理一次。"""
+    """把本批 PB 变化直接加减到已存成绩上，每个受影响用户只处理一次。
+
+    分段典型时由分段战力反推 W_I 计算，因此旧分段战力与旧典型时必须由共享
+    读取 pipeline 提供；缺失或类别不一致时回退全量重算，不拿残缺缓存做差量。
+    """
     affected = {}
     for (player_id, field), candidate in pb_changes.items():
         affected.setdefault(player_id, {})[field] = candidate
@@ -71,11 +75,25 @@ def prepare_changes(old_pb, pb_changes, old_derived=None):
         updated = _overlay(records, replacements)
         old_values = (old_derived or {}).get(player_id) or {}
         old_modes = _modes(records)
+        new_modes = _modes(updated)
         if not any(old_values.values()) or _cached_modes(old_values) != old_modes:
             changes[player_id] = compute_for_records(updated)
             continue
-        new_modes = _modes(updated)
         values = _initial_values(old_values, old_modes, new_modes)
+        segment_ready = True
+        for field in replacements:
+            if field.split(':', 1)[0] not in new_modes:
+                continue
+            nf, level, bv = parse_field(field)
+            if level not in LEVELS:
+                continue
+            name = segment_field_for_bv('nf' if nf else 'std', level, bv)
+            if name is not None and (name not in values['skill'] or name not in values['typical_time']):
+                segment_ready = False
+                break
+        if not segment_ready:
+            changes[player_id] = compute_for_records(updated)
+            continue
         for field, candidate in replacements.items():
             if field.split(':', 1)[0] not in new_modes:
                 continue

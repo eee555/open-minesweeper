@@ -56,7 +56,7 @@
 
 ## 更新与修复
 
-- 正常路径：`speedranking.services._read_records` 用三次 HMGET 加入共享读取 pipeline；`prepare_changes` 从旧成绩出发，对每个 `(player_id, field)` 变更取旧用时、从 PB score 还原新用时，调用 `apply_record_delta()` 直接加减成绩值，再由 `write_changes` 只把与旧成绩不同的 hash 与 zset 写入共享写入 pipeline，与原 PB 纪录同批提交。没有额外的中间量或第二个 hash，只更新受影响的字段，不遍历该用户的 PB 条数。
+- 正常路径：`speedranking.services._read_records` 用三次 HMGET 加入共享读取 pipeline；`prepare_changes` 从旧成绩出发，对每个 `(player_id, field)` 变更取旧用时、从 PB score 还原新用时，调用 `apply_record_delta()` 直接加减成绩值，再由 `write_changes` 只把与旧成绩不同的 hash 与 zset 写入共享写入 pipeline，与原 PB 纪录同批提交。没有额外的中间量或第二个 hash，只更新受影响的字段，不遍历该用户的 PB 条数。三次 HMGET 中的 `skill:records` 提供旧分段战力、`typical_time:records` 提供旧分段典型时，是计算 `tt_I` 及其变化量的必要输入；`prepare_changes` 在差量前校验本批涉及的分段字段齐全，缺失则回退全量重算。`_update_videos` 的批量路径（标识绑定/解绑、比赛批量公开、批量失效补位）与单条 `sync_video` 共用这条链路，同样逐桶差量、同一用户一批只处理一次。
 - 差量公式：令 `ΔBvs = Bvs(新) - Bvs(旧)`、`ΔW = p_l[v] * ΔBvs`。收集三列分别累加 `±1`、`±p_l[v]`、`ΔBvs` 并同步累加到 `sum` 列；分段战力累加 `ΔW / Q_I`，级别总战力累加 `ΔW / LEVEL_WEIGHTS_l` 并同步累加到总计；分段典型时是非线性的，由旧分段战力反推 `W_I = skill_I * Q_I`，加上 `ΔW` 后重算 `tt_I = H_I / W_I`（`W_I == 0` 取 `999.999` 秒），再把 `Δtt_I` 累加到级别合计与总计。`p_l[v]`、`Q_I`、`H_I`、`LEVEL_WEIGHTS_l` 都是导入期常量，不存 Redis、不在请求里重算。
 - 类别入榜/退出：新类别用 `defaults()` 初始化该类别全部字段后再累加；最后一个 PB 移除时删除该类别全部字段与 zset member，不残留幽灵值。理论非负的列取 `max(0, value)`；反复加减的 double 累计误差按约定忽略。录像 id 或上传分钟改变但 BV、用时未变时成绩不变，不刷新索引。
 - 缓存缺失或不一致（新用户首次写入、成绩 hash 与 PB 快照的类别不匹配）时 `prepare_changes` 回退 `compute_for_records()`，把 `pb_changes` 覆盖到完整 PB 映射后全量重算；没有 PB 变更的用户不会自愈，因此缓存丢失仍需整榜重建或管理员单项修复，配置变更后也必须整榜重建。
@@ -81,4 +81,4 @@ npx vitest run src/services/pbDerivedService.test.ts
 npx cypress run --component --browser chrome --headless --spec "src/views/RankingView/CollectionRanking.cy.ts,src/views/RankingView/SkillTTRanking.cy.ts,src/views/UserView/PBRecordGrid.cy.ts,src/views/UserView/UserPBView.cy.ts"
 ```
 
-后端覆盖 23 段无缺口/无重叠与正权重、全范围归一化、零权重与零用时、零战力缺省 TT、三级别合计、NF 隔离、选优单调性、缓存缺失回退、多步差量序列与全量重算结果一致、用时不变不改动成绩、类别退出、同分 member 顺序、用户删除、API、管理员单项修复与整榜重建。前端覆盖格式化、URL 排序、NF、分段列、跨行跨度、长区间不新增行、一次请求与本地切换。
+后端覆盖 23 段无缺口/无重叠与正权重、全范围归一化、零权重与零用时、零战力缺省 TT、三级别合计、NF 隔离、选优单调性、缓存缺失回退、多步差量序列与全量重算结果一致、批量多用户与同一分段多桶差量、分段战力缺失回退、批量导入不回退全量、用时不变不改动成绩、类别退出、同分 member 顺序、用户删除、API、管理员单项修复与整榜重建。前端覆盖格式化、URL 排序、NF、分段列、跨行跨度、长区间不新增行、一次请求与本地切换。

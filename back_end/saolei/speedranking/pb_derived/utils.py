@@ -104,6 +104,15 @@ def _segment_index(level: str, bv: int):
     return None
 
 
+def segment_field_for_bv(mode: str, level: str, bv: int):
+    """返回该 BV 所属分段的成绩字段名；无有效权重时返回 None。"""
+    probabilities = PROBABILITIES[level]
+    if not 1 <= bv < len(probabilities) or probabilities[bv] == 0:
+        return None
+    index = _segment_index(level, bv)
+    return segment_field(mode, level, index) if index is not None else None
+
+
 def apply_record_delta(values, nf: bool, level: str, bv: int, old_timems, new_timems):
     """把一个 PB 桶的变化直接加减到三大榜成绩上；values 原地修改。
 

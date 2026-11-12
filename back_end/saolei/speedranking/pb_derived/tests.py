@@ -1,4 +1,5 @@
 from io import StringIO
+from unittest.mock import patch
 
 from django.core.management import call_command
 from django.test import override_settings, SimpleTestCase, TestCase
@@ -14,6 +15,7 @@ from ..cache import cache, pipeline
 from ..pb.cache import PBRankingCache
 from ..saolei.cache import SpeedRankingCache
 from ..saolei.utils import RANK_STATS, RANKING_NAMES
+from ..services import add_videos_to_speed_ranks
 
 
 class DerivedComputationTests(SimpleTestCase):
@@ -133,6 +135,39 @@ class DerivedCacheTests(SimpleTestCase):
             self.assert_values_almost_equal(changes[7], compute_for_records(records))
             state = changes[7]
 
+    def test_prepare_changes_handles_bulk_changes_with_delta(self):
+        old = {
+            7: {'std:b:10': {'timems': 10000, 'video_id': 1, 'rank': None}, 'std:i:50': {'timems': 20000, 'video_id': 2, 'rank': None}},
+            8: {'std:b:12': {'timems': 10000, 'video_id': 3, 'rank': None}},
+        }
+        state = {player_id: compute_for_records(records) for player_id, records in old.items()}
+        bulk = {
+            (7, 'std:b:10'): (11, 5000 * 2 ** 26),
+            (7, 'std:b:11'): (12, 6000 * 2 ** 26),
+            (7, 'std:i:50'): None,
+            (8, 'std:b:12'): (13, 7000 * 2 ** 26),
+            (8, 'nf:e:150'): (14, 30000 * 2 ** 26),
+        }
+        with patch('speedranking.pb_derived.services.compute_for_records', wraps=compute_for_records) as full:
+            changes = prepare_changes(old, bulk, state)
+            full.assert_not_called()
+        updated = {player_id: dict(records) for player_id, records in old.items()}
+        for (player_id, field), candidate in bulk.items():
+            if candidate is None:
+                updated[player_id].pop(field, None)
+            else:
+                updated[player_id][field] = {'timems': candidate[1] // 2 ** 26, 'video_id': candidate[0], 'rank': None}
+        for player_id in old:
+            self.assert_values_almost_equal(changes[player_id], compute_for_records(updated[player_id]))
+
+    def test_missing_segment_skill_falls_back_to_full_recompute(self):
+        old = self.old_pb()
+        state = compute_for_records(old[7])
+        incomplete = {ranking: {key: value for key, value in values.items() if key != 'std:b:s2'} for ranking, values in state.items()}
+        changes = prepare_changes(old, {(7, 'std:b:10'): (3, 5000 * 2 ** 26)}, {7: incomplete})
+        expected = compute_for_records({**old[7], 'std:b:10': {'timems': 5000, 'video_id': 3, 'rank': None}})
+        self.assertEqual(changes[7], expected)
+
     def test_unchanged_timems_does_not_change_values(self):
         old = self.old_pb()
         state = compute_for_records(old[7])
@@ -232,6 +267,16 @@ class DerivedIntegrationTests(TestCase):
         self.assertIn('132 ranking indices', output.getvalue())
         self.assertEqual(self.derived.get_records(self.user.id)['collection']['std:sum:count'], 1)
         call_command('rebuild_pb_ranks', batch_size=1, stdout=StringIO())
+        self.assertEqual(self.derived.get_records(self.user.id)['collection']['std:sum:count'], 1)
+
+    def test_bulk_video_changes_use_delta(self):
+        video = self.create_video()
+        videos = VideoModel.objects.filter(pk=video.pk)
+        with patch('speedranking.pb_derived.services.compute_for_records', wraps=compute_for_records) as full:
+            with self.captureOnCommitCallbacks(execute=True):
+                videos.update(timems=5000)
+                add_videos_to_speed_ranks(videos)
+            full.assert_not_called()
         self.assertEqual(self.derived.get_records(self.user.id)['collection']['std:sum:count'], 1)
 
     def test_user_deletion_removes_derived_records(self):

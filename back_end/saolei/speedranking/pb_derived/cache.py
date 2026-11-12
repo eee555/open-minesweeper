@@ -23,6 +23,7 @@ class PBDerivedCache:
                 yield self.rank_key(ranking, field)
 
     def read_records(self, pipe, player_ids):
+        """三次 HMGET 取回旧成绩；skill hash 含分段战力，是差量算分段典型时的输入。"""
         ids = [str(player_id) for player_id in player_ids]
         for ranking in RANKINGS:
             pipe.hmget(self.record_key(ranking), ids)

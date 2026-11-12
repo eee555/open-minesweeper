@@ -137,16 +137,16 @@ field 命名：
 
 正常写入沿用根 `speedranking.services` 的「共同读取、独立判断、共同写入」，并采用**直接作用于成绩值的差量累加**：
 
-1. `_read_records` 在共享读取 pipeline 中增加三次 HMGET，得到本批用户的旧成绩（132 个最终值）；`previous` 仍为五元组 `(saolei, strict_ng, pb, pb_derived, top)`，第四项为 `{player_id: {ranking: {field: value}}}`，top 快照下标为 `previous[4]`。读取命令宽度由 `PBDerivedCache.read_records()` 返回，不假设固定条数。
+1. `_read_records` 在共享读取 pipeline 中增加三次 HMGET，得到本批用户的旧成绩（132 个最终值）；其中 `skill` hash 的分段战力与 `typical_time` hash 的旧分段典型时是差量计算 `tt_I` 及其变化量的必要输入，不再另发一次读取。`previous` 仍为五元组 `(saolei, strict_ng, pb, pb_derived, top)`，第四项为 `{player_id: {ranking: {field: value}}}`，top 快照下标为 `previous[4]`。读取命令宽度由 `PBDerivedCache.read_records()` 返回，不假设固定条数。
 2. `pb_derived.prepare_changes` 对本批每个 `(player_id, field)` 变更，从旧 PB 记录取旧用时、从 PB score 还原新用时，调用 `apply_record_delta()` 直接在旧成绩上加减；同一用户在一批内只处理一次。没有额外的中间量或第二个 hash，`p_l[v]`、`Q_I`、`H_I`、`LEVEL_WEIGHTS_l` 都是导入期常量。
 3. 线性部分：令 `ΔBvs = Bvs(新) - Bvs(旧)`、`ΔW = p_l[v] * ΔBvs`。收集三列分别累加 `±1`、`±p_l[v]`、`ΔBvs` 并同步累加到 `sum` 列；分段战力累加 `ΔW / Q_I`，级别总战力累加 `ΔW / LEVEL_WEIGHTS_l` 并同步累加到总计。
 4. 非线性部分：分段典型时 `tt_I = H_I / W_I` 不能线性累加，由旧分段战力反推 `W_I = skill_I * Q_I`，加上 `ΔW` 后重算 `tt_I`（`W_I == 0` 取 `ZERO_TT`），再把 `Δtt_I` 累加到级别合计与总计。这正是「用分段战力算典型时，再用其变化量累加合计」。
 5. `write_changes` 与原 PB 纪录同批提交：`new_values` 与旧成绩比较，只把变化的成绩 hash 与 zset 写入共享 pipeline。新类别入榜时先用 `defaults()` 初始化该类别全部字段，最后一个 PB 移除时删除该类别全部字段与 member。原 PB 自己继续刷新受影响区间的 rank 和人数。
-6. 成绩缺失或与 PB 快照的类别不一致时，把 `pb_changes` 覆盖到完整 PB 映射后用 `compute()` 全量重算作为兜底；整榜重建与管理员单项修复同样以全量 `compute()` 为基准。
+6. 成绩缺失、与 PB 快照的类别不一致，或本批变化涉及的分段战力/旧典型时字段缺失时，把 `pb_changes` 覆盖到完整 PB 映射后用 `compute()` 全量重算作为兜底；整榜重建与管理员单项修复同样以全量 `compute()` 为基准。
 
 单个用户单次变更只更新受影响的字段，成本约为 `O(变化桶数)`，不再随该用户 PB 条数 P 增长，也不重算全部 132 项；额外临时内存是该用户成绩字典的副本 `O(132)`。理论非负的列取 `max(0, value)`，类别退出时整体删除字段，不会残留幽灵 member；反复加减带来的 double 累计误差按约定忽略，不做周期性校正，整榜重建或管理员单项修复可随时把成绩拉回全量口径。只对本批用户分段处理，不一次加载所有玩家。
 
-必须覆盖的路径：新增、改善、变差、删除 PB，以及 player/level/BV/NF/审核或隐藏资格变化后的旧桶与新桶；标识绑定/解绑、比赛公开等批量变更时每个用户在一批内只处理一次；PB 录像 id 或上传分钟改变但 BV、用时未变时成绩不变，不刷新索引；其他玩家的 PB 排名变化不触发本用户重算。
+必须覆盖的路径：新增、改善、变差、删除 PB，以及 player/level/BV/NF/审核或隐藏资格变化后的旧桶与新桶；`_update_videos` 的批量路径（标识绑定/解绑、比赛批量公开、批量失效补位）与单条 `sync_video` 共用同一条差量链路，同一分段多个桶按序累积，每个用户在一批内只处理一次；PB 录像 id 或上传分钟改变但 BV、用时未变时成绩不变，不刷新索引；其他玩家的 PB 排名变化不触发本用户重算。
 
 - 单桶修复：`pb.services.rebuild_player_record` 用临时空 `previous={}` 写单桶，衍生重算不能复用该 changes。修复后由 `pb_derived.services.rebuild_player` 重新读取该用户完整 PB hash 全量 `compute()`，并 `force=True` 强制重写全部衍生索引，可补回丢失的 zset member；管理员单项修复同理。
 - 用户删除：`signals.py` 的 `UserProfile.post_delete` 在 `on_commit` 后清理三个成绩 hash field 与 132 个 zset member；原 PB 缓存尚无同类清理，属于既有缺口。
@@ -257,6 +257,6 @@ npm run vitest -- run
 npx cypress run --component --browser chrome --headless --spec "src/views/RankingView/CollectionRanking.cy.ts,src/views/RankingView/SkillTTRanking.cy.ts,src/views/RankingView/SpeedRanking.cy.ts,src/views/UserView/UserPBView.cy.ts,src/views/UserView/PBRecordGrid.cy.ts"
 ```
 
-覆盖点：后端 `pb_derived/tests.py` 覆盖 23 段无缺口/重叠与正权重、全范围归一化、零权重与零用时、零战力缺省 TT 与合计、NF 隔离、选优单调性、缓存缺失回退、多步直接差量序列与全量重算一致、用时不变不改动成绩、类别退出、同分 member 顺序、用户删除、响应不含 `meta`、管理员单项修复与整榜重建；`pbDerivedService.test.ts` 覆盖格式化、排序键与默认排序，以及静态分段边界的连续、`sN` 编号与末端 BV；Cypress 覆盖请求参数、首次请求即按分享链接排序、排序、NF、分页、分段列与跨行跨度、长区间不新增行、一次请求与本地切换、级别标题数值与排名。`StackBar/App.cy.ts` 仍覆盖原有 tooltip 文本，衍生榜不重复测试组件内部实现。分段边界的**前后端一致性没有自动断言**，改分段时按 §11 人工核对并整榜重建。
+覆盖点：后端 `pb_derived/tests.py` 覆盖 23 段无缺口/重叠与正权重、全范围归一化、零权重与零用时、零战力缺省 TT 与合计、NF 隔离、选优单调性、缓存缺失回退、多步直接差量序列与全量重算一致、批量多用户与同一分段多桶差量、分段战力缺失回退、批量导入不回退全量、用时不变不改动成绩、类别退出、同分 member 顺序、用户删除、响应不含 `meta`、管理员单项修复与整榜重建；`pbDerivedService.test.ts` 覆盖格式化、排序键与默认排序，以及静态分段边界的连续、`sN` 编号与末端 BV；Cypress 覆盖请求参数、首次请求即按分享链接排序、排序、NF、分页、分段列与跨行跨度、长区间不新增行、一次请求与本地切换、级别标题数值与排名。`StackBar/App.cy.ts` 仍覆盖原有 tooltip 文本，衍生榜不重复测试组件内部实现。分段边界的**前后端一致性没有自动断言**，改分段时按 §11 人工核对并整榜重建。
 
 后端全量 `python manage.py test` 中 `accountlink` 存在与本模块无关的超时/连接关闭时序断言，判断衍生榜回归应使用上面限定的范围，不把全量结果当作本模块的通过依据。上线后的性能实测、浏览器与深浅主题验收不能由静态检查替代。
