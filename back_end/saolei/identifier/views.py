@@ -27,12 +27,12 @@ def add_identifier(request):
         if identifier_user.id == user.id:
             return HttpResponseConflict()  # 本人已有该标识
         return JsonResponse({'type': 'error', 'object': 'identifier', 'category': 'conflict', 'value': identifier_user.id})  # 返回标识冲突的用户
-    video_list = VideoModel.objects.filter(player=user, video__identifier=identifier_text)
-    if not video_list:
+    video_count = VideoModel.objects.filter(player=user, video__identifier=identifier_text).count()
+    if not video_count:
         return JsonResponse({'type': 'error', 'object': 'identifier', 'category': 'notFound'})
     bind_identifier(identifier, user.userms)
     logger.info(f'用户 {user.username}#{user.id} 绑定标识 "{identifier_text}"')
-    return JsonResponse({'type': 'success', 'object': 'identifier', 'category': 'add', 'value': len(video_list)})
+    return JsonResponse({'type': 'success', 'object': 'identifier', 'category': 'add', 'value': video_count})
 
 
 # 请求删除自己的标识
@@ -48,7 +48,7 @@ def del_identifier(request):
         return HttpResponseForbidden()
     changed_count = unbind_identifier(identifier, user.userms)
     logger.info(f'用户 {user.username}#{user.id} 解绑标识 "{identifier_text}"')
-    logger.info(f'修改了 {changed_count} 个录像状态')
+    logger.info(f'排队同步了 {changed_count} 个录像状态')
     return JsonResponse({'type': 'success', 'object': 'identifier', 'category': 'add', 'value': changed_count})
 
 

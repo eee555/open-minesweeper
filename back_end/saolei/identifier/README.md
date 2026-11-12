@@ -51,7 +51,7 @@
 
 ## 当前架构
 
-标识绑定/解绑副作用由 `identifier.services` 显式处理，不再依赖 `Identifier` 的 `pre_save` / `post_save` / `post_delete` receiver。
+标识绑定/解绑副作用由 `identifier.services` 入队、`identifier.tasks` 显式处理，不再依赖 `Identifier` 的 `pre_save` / `post_save` / `post_delete` receiver。
 
 - `identifier.signals` 已移除，绑定/解绑不使用模型信号。
 - 业务代码不应直接修改 `identifier.userms` 或手动维护 `userms.identifiers`。
@@ -68,19 +68,12 @@
 - `identifier.safe` 必须为 `True`。
 - 如果 `identifier.userms` 已绑定其他用户，直接抛错。
 
-事务内操作：
+请求内（事务内）操作：
 
 - 将 `identifier.identifier` 加入 `userms.identifiers`。
 - 设置 `identifier.userms = userms`。
-- 查询该用户、该标识、状态为 `IDENTIFIER` 的录像。
-- 使用 `queryset.update` 批量将这些录像改为 `OFFICIAL`。
-
-批量更新后的显式补偿：
-
-- 使用 `newest_cache.update_bulk` 更新已在 `newest_queue` 中的录像项。
-- 调用 `msuser.services.update_video_count_limit_from_videos` 刷新录像上传额度。
-- `speedranking.services.add_videos_to_speed_ranks` 在提交后批量吸收新增官方录像的竞速纪录。
-- 调用 `customranking.services.add_videos_to_custom_pluck_ranks` 吸收新增官方录像对自定义 pluck 纪录的影响。
+- 统计该用户、该标识、状态为 `IDENTIFIER` 的录像数，作为返回给调用方的待同步数量。
+- 事务提交后入队 `identifier.tasks.task_sync_identifier_videos`，不修改录像状态、排行或缓存。
 
 ## 解绑流程
 
@@ -92,18 +85,24 @@
 - 标识必须处于已绑定状态。
 - 如果传入的 `userms` 与当前绑定用户不一致，直接抛错。
 
-事务内操作：
+请求内（事务内）操作：
 
-- 查询该用户、该标识、状态为 `OFFICIAL` 的录像。
 - 将 `identifier.identifier` 从 `userms.identifiers` 移除。
 - 设置 `identifier.userms = None`。
-- 使用 `queryset.update` 批量将这些录像改为 `IDENTIFIER`。
+- 统计该用户、该标识、状态为 `OFFICIAL` 的录像数，作为返回给调用方的待同步数量。
+- 事务提交后入队同一后台任务。
 
-批量更新后的显式补偿：
+## 后台同步任务
 
-- 对内存中的录像对象同步设置 `state=IDENTIFIER`，再使用 `newest_cache.update_bulk` 更新已在 `newest_queue` 中的录像项。
-- 调用 `customranking.services.remove_videos_from_custom_pluck_ranks` 刷新受影响的自定义 pluck 纪录。
-- `speedranking.services.remove_videos_from_speed_ranks` 在提交后仅补位解绑录像当前保持的竞速纪录。
+`identifier.tasks.task_sync_identifier_videos(identifier_text, player_id)` 在 worker 中执行录像的批量更新：
+
+- 以执行时 `Identifier.userms` 是否仍指向该玩家为准，决定目标状态（绑定为 `OFFICIAL`，未绑定为 `IDENTIFIER`）。连续绑定、解绑留下的多条任务最终收敛到当前绑定状态，重复执行不会重复补偿。
+- 使用 `queryset.update` 批量修改状态，并发送 `videos_bulk_changed`，让勋章刷新在任务事务提交后按玩家入队。
+- 绑定方向显式补偿 `newest_cache.update_bulk`、`update_video_count_limit_from_videos`，以及竞速、自定义 pluck、效率榜的新增；解绑方向同步内存对象的状态后更新 `newest_queue`，并移除这些榜中受影响的纪录。
+- `queryset.update` 不触发 `VideoModel` 的保存信号，因此补偿必须留在任务内。
+- 任务失败可通过管理员任务接口重启；成功记录按 `config/common.py` 的 `TASK_CLEANUP_CONFIGS` 保留 7 天后清理。
+
+接口返回时录像状态与排行尚未变化，需要立即看到结果的调用方必须等待任务完成。
 
 ## 当前入口
 

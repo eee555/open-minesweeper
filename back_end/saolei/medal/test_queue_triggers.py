@@ -3,7 +3,7 @@ from contextlib import ExitStack
 from threading import Barrier
 from unittest.mock import patch
 
-from django.db import close_old_connections, connection
+from django.db import close_old_connections, connection, transaction
 from django.tasks import TaskResultStatus
 from django.test import override_settings, skipUnlessDBFeature, TestCase, TransactionTestCase
 from django.test.utils import CaptureQueriesContext
@@ -12,6 +12,7 @@ from django_tasks_db.models import DBTaskResult
 from config.text_choices import MS_TextChoices, Tournament_TextChoices
 from identifier.models import Identifier
 from identifier.services import bind_identifier, unbind_identifier
+from identifier.tasks import task_sync_identifier_videos
 from msuser.models import UserMS
 from tournament.models import Tournament
 from tournament.services import reveal_videos_for_tournament
@@ -19,6 +20,18 @@ from userprofile.models import UserProfile
 from userprofile.services import update_user_names
 from videomanager.models import ExpandVideoModel, VideoModel
 from .tasks import enqueue_player_backfill, enqueue_player_refresh, task_backfill_player_medals, task_refresh_player_medals
+
+
+def run_identifier_sync_tasks(test_case):
+    queued = list(DBTaskResult.objects.filter(
+        task_path=task_sync_identifier_videos.module_path,
+        status=TaskResultStatus.READY,
+    ).order_by('id'))
+    for row in queued:
+        with test_case.captureOnCommitCallbacks(execute=True):
+            task_sync_identifier_videos.call(*row.args_kwargs['args'])
+        DBTaskResult.objects.filter(pk=row.pk).update(status=TaskResultStatus.SUCCESSFUL)
+    return len(queued)
 
 
 @override_settings(CACHES={'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}})
@@ -65,7 +78,7 @@ class MedalQueueTriggerTests(TestCase):
         ]
         with ExitStack() as stack:
             for dependency in dependencies:
-                stack.enter_context(patch(f'identifier.services.{dependency}'))
+                stack.enter_context(patch(f'identifier.tasks.{dependency}'))
             enqueue = stack.enter_context(patch('medal.signals.enqueue_player_refresh'))
             for operation, expected_state in [
                 (bind_identifier, MS_TextChoices.State.OFFICIAL),
@@ -74,6 +87,7 @@ class MedalQueueTriggerTests(TestCase):
                 with self.captureOnCommitCallbacks(execute=True):
                     self.assertEqual(operation(identifier, self.userms), len(videos))
                     enqueue.assert_not_called()
+                self.assertEqual(run_identifier_sync_tasks(self), 1)
                 enqueue.assert_called_once_with(self.user.id)
                 enqueue.reset_mock()
                 self.assertEqual(set(VideoModel.objects.values_list('state', flat=True)), {expected_state})
@@ -82,10 +96,12 @@ class MedalQueueTriggerTests(TestCase):
         self.make_videos()
         identifier = Identifier.objects.create(identifier='medal-bulk', safe=True)
         with patch('medal.signals.enqueue_player_refresh') as enqueue, self.captureOnCommitCallbacks(execute=True):
-            with patch('identifier.services.newest_cache.update_bulk', side_effect=RuntimeError('rollback')):
-                with self.assertRaises(RuntimeError):
+            with self.assertRaises(RuntimeError):
+                with transaction.atomic():
                     bind_identifier(identifier, self.userms)
+                    raise RuntimeError('rollback')
         enqueue.assert_not_called()
+        self.assertFalse(DBTaskResult.objects.filter(task_path=task_sync_identifier_videos.module_path).exists())
         self.assertFalse(VideoModel.objects.filter(state=MS_TextChoices.State.OFFICIAL).exists())
 
     def test_tournament_bulk_reveal_refreshes_distinct_affected_players(self):

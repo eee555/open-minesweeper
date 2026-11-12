@@ -220,7 +220,7 @@ def staff_bind_identifier(request, data: Form[IdentifierBindIn]):
         if identifier.userms_id is not None and identifier.userms_id != user.userms_id:
             raise HttpError(409, 'Unbind the current owner before binding another user.')
         changed_count = bind_identifier(identifier, user.userms)
-    logger.info('Staff #%s set identifier %r owner to #%s; changed videos=%s', request.user.id, data.identifier, data.id, changed_count)
+    logger.info('Staff #%s set identifier %r owner to #%s; pending videos=%s', request.user.id, data.identifier, data.id, changed_count)
     return _identifier_result(identifier, staff=True)
 
 

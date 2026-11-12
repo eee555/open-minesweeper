@@ -50,4 +50,8 @@ TASK_CLEANUP_CONFIGS = [
         'task_path': 'tournament.gsc.tasks.task_gsc_refresh_best',
         'expires': timedelta(days=30),
     },
+    {
+        'task_path': 'identifier.tasks.task_sync_identifier_videos',
+        'expires': timedelta(days=7),
+    },
 ]

@@ -2,8 +2,11 @@ from unittest.mock import patch
 
 from django.conf import settings
 from django.core.cache import caches
+from django.db import transaction
+from django.tasks import TaskResultStatus
 from django.test import override_settings, TestCase
 from django_redis import get_redis_connection
+from django_tasks_db.models import DBTaskResult
 
 from config.customranking import CUSTOM_PLUCK_LEVELS, CUSTOM_PLUCK_MODES
 from config.text_choices import MS_TextChoices
@@ -14,6 +17,7 @@ from userprofile.models import UserProfile
 from videomanager.models import ExpandVideoModel, VideoModel
 from .models import Identifier
 from .services import bind_identifier, set_safe, unbind_identifier
+from .tasks import task_sync_identifier_videos
 
 
 @override_settings(RATELIMIT_ENABLE=False)
@@ -305,11 +309,34 @@ class BindIdentifierServiceTest(TestCase):
             pluck=pluck,
         )
 
+    def sync_pending_videos(self):
+        queued = list(DBTaskResult.objects.filter(
+            task_path=task_sync_identifier_videos.module_path,
+            status=TaskResultStatus.READY,
+        ).order_by('id'))
+        for row in queued:
+            with self.captureOnCommitCallbacks(execute=True):
+                task_sync_identifier_videos.call(*row.args_kwargs['args'])
+            DBTaskResult.objects.filter(pk=row.pk).update(status=TaskResultStatus.SUCCESSFUL)
+        return len(queued)
+
+    def bind_and_sync(self, identifier, userms):
+        with self.captureOnCommitCallbacks(execute=True):
+            changed_count = bind_identifier(identifier, userms)
+        self.sync_pending_videos()
+        return changed_count
+
+    def unbind_and_sync(self, identifier, userms=None):
+        with self.captureOnCommitCallbacks(execute=True):
+            changed_count = unbind_identifier(identifier, userms)
+        self.sync_pending_videos()
+        return changed_count
+
     def test_bind_and_unbind_identifier_bulk_update_video_states(self):
         identifier = Identifier.objects.create(identifier='classic-id', safe=True)
         video = self.create_video('classic-id')
 
-        changed_count = bind_identifier(identifier, self.userms)
+        changed_count = self.bind_and_sync(identifier, self.userms)
 
         identifier.refresh_from_db()
         video.refresh_from_db()
@@ -319,13 +346,55 @@ class BindIdentifierServiceTest(TestCase):
         self.assertIn(identifier.identifier, self.userms.identifiers)
         self.assertEqual(video.state, MS_TextChoices.State.OFFICIAL)
 
-        changed_count = unbind_identifier(identifier, self.userms)
+        changed_count = self.unbind_and_sync(identifier, self.userms)
 
         video.refresh_from_db()
         self.userms.refresh_from_db()
         self.assertEqual(changed_count, 1)
         self.assertEqual(video.state, MS_TextChoices.State.IDENTIFIER)
         self.assertNotIn(identifier.identifier, self.userms.identifiers)
+
+    def test_bind_only_enqueues_sync_and_worker_updates_videos(self):
+        identifier = Identifier.objects.create(identifier='queued-id', safe=True)
+        video = self.create_video('queued-id')
+
+        with self.captureOnCommitCallbacks(execute=True):
+            changed_count = bind_identifier(identifier, self.userms)
+
+        self.assertEqual(changed_count, 1)
+        video.refresh_from_db()
+        self.assertEqual(video.state, MS_TextChoices.State.IDENTIFIER)
+        queued = DBTaskResult.objects.get(task_path=task_sync_identifier_videos.module_path)
+        self.assertEqual(queued.args_kwargs['args'], ['queued-id', self.user.id])
+        self.assertEqual(self.sync_pending_videos(), 1)
+        video.refresh_from_db()
+        self.assertEqual(video.state, MS_TextChoices.State.OFFICIAL)
+
+    def test_pending_bind_and_unbind_tasks_converge_to_current_binding(self):
+        identifier = Identifier.objects.create(identifier='converge-id', safe=True)
+        video = self.create_video('converge-id')
+
+        with self.captureOnCommitCallbacks(execute=True):
+            bind_identifier(identifier, self.userms)
+        with self.captureOnCommitCallbacks(execute=True):
+            unbind_identifier(identifier, self.userms)
+
+        self.assertEqual(self.sync_pending_videos(), 2)
+        video.refresh_from_db()
+        self.assertEqual(video.state, MS_TextChoices.State.IDENTIFIER)
+
+    def test_rolled_back_binding_does_not_enqueue_sync(self):
+        identifier = Identifier.objects.create(identifier='rollback-id', safe=True)
+        self.create_video('rollback-id')
+
+        with self.captureOnCommitCallbacks(execute=True):
+            with self.assertRaises(RuntimeError):
+                with transaction.atomic():
+                    bind_identifier(identifier, self.userms)
+                    raise RuntimeError('rollback')
+
+        self.assertFalse(DBTaskResult.objects.filter(task_path=task_sync_identifier_videos.module_path).exists())
+        self.assertFalse(VideoModel.objects.filter(state=MS_TextChoices.State.OFFICIAL).exists())
 
     def test_bind_identifier_bulk_updates_custom_pluck_record(self):
         identifier = Identifier.objects.create(identifier='custom-id', safe=True)
@@ -336,7 +405,7 @@ class BindIdentifierServiceTest(TestCase):
             pluck=0.25,
         )
 
-        bind_identifier(identifier, self.userms)
+        self.bind_and_sync(identifier, self.userms)
 
         video.refresh_from_db()
         self.assertEqual(video.state, MS_TextChoices.State.OFFICIAL)
@@ -344,7 +413,7 @@ class BindIdentifierServiceTest(TestCase):
         self.assertEqual(record.video_id, video.id)
         self.assertEqual(record.pluck, video.pluck)
 
-        unbind_identifier(identifier, self.userms)
+        self.unbind_and_sync(identifier, self.userms)
 
         video.refresh_from_db()
         self.assertEqual(video.state, MS_TextChoices.State.IDENTIFIER)

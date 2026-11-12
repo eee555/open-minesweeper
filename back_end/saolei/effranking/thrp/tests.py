@@ -4,12 +4,15 @@ from unittest.mock import patch
 
 from django.core.management import call_command
 from django.db import transaction
+from django.tasks import TaskResultStatus
 from django.test import override_settings, SimpleTestCase, TestCase
 from django.utils import timezone
+from django_tasks_db.models import DBTaskResult
 
 from config.text_choices import MS_TextChoices, Tournament_TextChoices
 from identifier.models import Identifier
 from identifier.services import bind_identifier, unbind_identifier
+from identifier.tasks import task_sync_identifier_videos
 from msuser.models import UserMS
 from tournament.models import Tournament
 from tournament.services import reveal_videos_for_tournament
@@ -21,6 +24,18 @@ from .utils import empty_record, encode_score, EPOCH, RANK_STATS, record_scores,
 from ..cache import cache
 from ..nf_ioe.cache import NFIOERankingCache
 from ..services import add_videos_to_eff_ranks
+
+
+def run_identifier_sync_tasks(test_case):
+    queued = list(DBTaskResult.objects.filter(
+        task_path=task_sync_identifier_videos.module_path,
+        status=TaskResultStatus.READY,
+    ).order_by('id'))
+    for row in queued:
+        with test_case.captureOnCommitCallbacks(execute=True):
+            task_sync_identifier_videos.call(*row.args_kwargs['args'])
+        DBTaskResult.objects.filter(pk=row.pk).update(status=TaskResultStatus.SUCCESSFUL)
+    return len(queued)
 
 
 class ThrpScoreTests(SimpleTestCase):
@@ -161,6 +176,7 @@ class ThrpRankingTests(TestCase):
         self.assertIsNone(self.record()['b'])
         with self.captureOnCommitCallbacks(execute=True):
             bind_identifier(identifier, self.user.userms)
+        run_identifier_sync_tasks(self)
         self.assertEqual(self.record()['b']['video_id'], video.id)
         self.assertEqual(self.record()['e_nf']['video_ids'], [first_nf.id, second_nf.id])
         self.assertEqual(ioe_ranking.get_player(self.user.id)['e']['video_id'], second_nf.id)
@@ -170,6 +186,7 @@ class ThrpRankingTests(TestCase):
         self.assertEqual(ioe_ranking.get_player(self.user.id)['e']['video_id'], second_nf.id)
         with self.captureOnCommitCallbacks(execute=True):
             unbind_identifier(identifier)
+        run_identifier_sync_tasks(self)
         self.assertIsNone(self.record()['b'])
         self.assertIsNone(self.record()['e_nf'])
         self.assertEqual(ioe_ranking.get_player(self.user.id)['ranks'], dict.fromkeys(('b', 'i', 'e', 'sum')))

@@ -6,12 +6,15 @@ from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
+from django.tasks import TaskResultStatus
 from django.test import override_settings
 from django.utils import timezone
+from django_tasks_db.models import DBTaskResult
 
 from config.text_choices import MS_TextChoices, Tournament_TextChoices
 from identifier.models import Identifier
 from identifier.services import bind_identifier
+from identifier.tasks import task_sync_identifier_videos
 from tournament.cache import cache, TOURNAMENT_USER_CACHE_KEYS
 from tournament.gsc.services import GSC_SCORE_FIELDS, refresh_gsc_scores
 from tournament.gsc.utils import gsc_encode_best
@@ -55,8 +58,21 @@ class TestGscHistory(TournamentTestCaseBase):
     def prepare(self):
         return self.post('/prepare', {'order': self.tournament.order, 'user_id': self.user.id})
 
+    def run_identifier_sync_tasks(self):
+        queued = list(DBTaskResult.objects.filter(
+            task_path=task_sync_identifier_videos.module_path,
+            status=TaskResultStatus.READY,
+        ).order_by('id'))
+        for row in queued:
+            with self.captureOnCommitCallbacks(execute=True):
+                task_sync_identifier_videos.call(*row.args_kwargs['args'])
+            DBTaskResult.objects.filter(pk=row.pk).update(status=TaskResultStatus.SUCCESSFUL)
+
     def bind(self, participant_id, identifier):
-        return self.post(f'/participants/{participant_id}/identifier', {'identifier': identifier})
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.post(f'/participants/{participant_id}/identifier', {'identifier': identifier})
+        self.run_identifier_sync_tasks()
+        return response
 
     def prepare_and_bind(self, identifiers=None):
         if identifiers is None:

@@ -23,6 +23,7 @@ from config.customranking import CUSTOM_PLUCK_LEVELS, CUSTOM_PLUCK_MODES
 from config.text_choices import MS_TextChoices, Tournament_TextChoices
 from customranking.cache import PLuckRankingCache
 from identifier.models import Identifier
+from identifier.tasks import task_sync_identifier_videos
 from msuser.models import UserMS
 from msuser.utils import get_video_num_limit
 from speedranking.pb.cache import PBRankingCache
@@ -703,16 +704,28 @@ class VideoUploadRankingIntegrationTest(TestCase):
             },
         )
 
+    def run_identifier_sync_tasks(self):
+        queued = list(DBTaskResult.objects.filter(
+            task_path=task_sync_identifier_videos.module_path,
+            status=TaskResultStatus.READY,
+        ).order_by('id'))
+        for row in queued:
+            with self.captureOnCommitCallbacks(execute=True):
+                task_sync_identifier_videos.call(*row.args_kwargs['args'])
+            DBTaskResult.objects.filter(pk=row.pk).update(status=TaskResultStatus.SUCCESSFUL)
+
     def add_identifier_by_request(self, identifier: str):
         with self.captureOnCommitCallbacks(execute=True):
             response = self.client.post('/identifier/add/', {'identifier': identifier})
         self.assertEqual(response.status_code, 200, response.content)
+        self.run_identifier_sync_tasks()
         return json.loads(response.content)
 
     def delete_identifier_by_request(self, identifier: str):
         with self.captureOnCommitCallbacks(execute=True):
             response = self.client.post('/identifier/del/', {'identifier': identifier})
         self.assertEqual(response.status_code, 200, response.content)
+        self.run_identifier_sync_tasks()
         return json.loads(response.content)
 
     def get_pluck_rank_by_request(self, level: str):

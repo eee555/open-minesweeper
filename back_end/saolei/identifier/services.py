@@ -1,28 +1,33 @@
 from django.db import transaction
 
 from config.text_choices import MS_TextChoices
-from customranking.services import add_videos_to_custom_pluck_ranks, remove_videos_from_custom_pluck_ranks
-from effranking.services import add_videos_to_eff_ranks, remove_videos_from_eff_ranks
 from msuser.models import UserMS
-from msuser.services import update_video_count_limit_from_videos
-from speedranking.services import add_videos_to_speed_ranks, remove_videos_from_speed_ranks
 from utils.exceptions import ExceptionToResponse
 from utils.ranking_lock import ranking_access
-from videomanager.cache import newest_cache
-from videomanager.events import videos_bulk_changed
 from videomanager.models import VideoModel
 from .models import Identifier
+from .tasks import task_sync_identifier_videos
+
+
+def _pending_video_count(identifier_text: str, player, state: str):
+    return VideoModel.objects.filter(player=player, video__identifier=identifier_text, state=state).count()
+
+
+def _enqueue_video_sync(identifier_text: str, player_id: int):
+    """绑定关系提交后才允许 worker 读取这批录像，避免任务抢在事务提交前执行。"""
+    transaction.on_commit(lambda: task_sync_identifier_videos.enqueue(identifier_text, player_id))
 
 
 @ranking_access(operation='identifier.bind')
 def bind_identifier(identifier: Identifier, userms: UserMS):
-    """绑定标识，并批量吸收因此转为 OFFICIAL 的录像。"""
+    """绑定标识；录像状态与排行的批量同步交由后台任务完成。"""
     if not identifier.safe:
         raise ExceptionToResponse('identifier', 'invalid')
     if identifier.userms_id is not None and identifier.userms_id != userms.id:
         raise ExceptionToResponse('identifier', 'collision')
 
     with transaction.atomic():
+        player = userms.parent
         if identifier.identifier not in userms.identifiers:
             userms.identifiers.append(identifier.identifier)
             userms.save(update_fields=['identifiers'])
@@ -31,30 +36,15 @@ def bind_identifier(identifier: Identifier, userms: UserMS):
             identifier.userms = userms
             identifier.save(update_fields=['userms'])
 
-        videoquery = VideoModel.objects.filter(
-            player=userms.parent,
-            video__identifier=identifier.identifier,
-            state=MS_TextChoices.State.IDENTIFIER,
-        )
-        video_ids = list(videoquery.values_list('id', flat=True))
-        if not video_ids:
-            return 0
-        videoquery.update(state=MS_TextChoices.State.OFFICIAL)
-        videos_bulk_changed.send(sender=VideoModel, player_ids=[userms.parent.pk])
+        changed_count = _pending_video_count(identifier.identifier, player, MS_TextChoices.State.IDENTIFIER)
+        _enqueue_video_sync(identifier.identifier, player.pk)
 
-        refreshed_videos = VideoModel.objects.filter(id__in=video_ids)
-        newest_cache.update_bulk(refreshed_videos)
-        update_video_count_limit_from_videos(userms, refreshed_videos)
-        add_videos_to_speed_ranks(refreshed_videos)
-        add_videos_to_custom_pluck_ranks(refreshed_videos)
-        add_videos_to_eff_ranks(refreshed_videos)
-
-    return len(video_ids)
+    return changed_count
 
 
 @ranking_access(operation='identifier.unbind')
 def unbind_identifier(identifier: Identifier, userms: UserMS | None = None):
-    """解绑标识，并批量移除因此失去 OFFICIAL 状态的录像影响。"""
+    """解绑标识；录像状态与排行的批量同步交由后台任务完成。"""
     if userms is None:
         userms = identifier.userms
     if userms is None:
@@ -63,14 +53,7 @@ def unbind_identifier(identifier: Identifier, userms: UserMS | None = None):
         raise ValueError('Identifier is bound to another user')
 
     with transaction.atomic():
-        videoquery = VideoModel.objects.filter(
-            player=userms.parent,
-            video__identifier=identifier.identifier,
-            state=MS_TextChoices.State.OFFICIAL,
-        )
-        videos = list(videoquery.select_related('video'))
-        video_ids = {video.id for video in videos}
-
+        player = userms.parent
         if identifier.identifier in userms.identifiers:
             userms.identifiers.remove(identifier.identifier)
             userms.save(update_fields=['identifiers'])
@@ -79,18 +62,10 @@ def unbind_identifier(identifier: Identifier, userms: UserMS | None = None):
             identifier.userms = None
             identifier.save(update_fields=['userms'])
 
-        if videos:
-            for video in videos:
-                video.state = MS_TextChoices.State.IDENTIFIER
-            videoquery.update(state=MS_TextChoices.State.IDENTIFIER)
-            videos_bulk_changed.send(sender=VideoModel, player_ids=[userms.parent.pk])
-            newest_cache.update_bulk(videos)
-            remove_videos_from_custom_pluck_ranks(video_ids)
+        changed_count = _pending_video_count(identifier.identifier, player, MS_TextChoices.State.OFFICIAL)
+        _enqueue_video_sync(identifier.identifier, player.pk)
 
-            remove_videos_from_speed_ranks(VideoModel.objects.filter(id__in=video_ids))
-            remove_videos_from_eff_ranks(VideoModel.objects.filter(id__in=video_ids))
-
-    return len(video_ids)
+    return changed_count
 
 
 def set_safe(identifier: Identifier, safe: bool):

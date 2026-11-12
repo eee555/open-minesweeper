@@ -6,6 +6,7 @@ from django.core.management import call_command
 from django.tasks import TaskResultStatus
 from django.utils import timezone
 from django_redis import get_redis_connection
+from django_tasks_db.models import DBTaskResult
 from ninja import Field, NinjaAPI, Schema
 from ninja.errors import HttpError
 
@@ -15,6 +16,7 @@ from config.text_choices import Tournament_TextChoices
 from config.tournaments import TournamentWeights
 from identifier.models import Identifier
 from identifier.services import bind_identifier, set_safe, unbind_identifier
+from identifier.tasks import task_sync_identifier_videos
 from tournament.models import GSCTournament, WeeklyTournament
 from tournament.weekly.tasks import _task_weekly_finish_impl
 from userprofile.models import UserProfile
@@ -25,6 +27,17 @@ from .services import register_users
 from .tasks import task_echo
 
 api = NinjaAPI()
+
+
+def run_identifier_sync_tasks():
+    """E2E 不启动 worker，夹具同步推进标识录像任务，让后续请求读到最终状态。"""
+    rows = list(DBTaskResult.objects.filter(
+        task_path=task_sync_identifier_videos.module_path,
+        status=TaskResultStatus.READY,
+    ).order_by('id'))
+    for row in rows:
+        task_sync_identifier_videos.call(*row.args_kwargs['args'])
+        DBTaskResult.objects.filter(pk=row.pk).update(status=TaskResultStatus.SUCCESSFUL, finished_at=timezone.now())
 
 
 class UserIdSchema(Schema):
@@ -322,6 +335,7 @@ def bind_identifier_to_user(request, data: UserIdentifierSchema):
         changed_count = bind_identifier(identifier, user.userms)
     except ValueError as error:
         raise HttpError(400, str(error)) from error
+    run_identifier_sync_tasks()
 
     return {
         'identifier': identifier.identifier,
@@ -342,6 +356,7 @@ def unbind_identifier_from_user(request, data: UserIdentifierSchema):
         raise HttpError(404, 'Identifier not found') from error
     except ValueError as error:
         raise HttpError(400, str(error)) from error
+    run_identifier_sync_tasks()
 
     return {
         'identifier': identifier.identifier,
@@ -366,6 +381,7 @@ def delete_identifier(request, data: IdentifierSchema):
     if identifier.userms_id is not None:
         changed_count = unbind_identifier(identifier)
     identifier.delete()
+    run_identifier_sync_tasks()
     return {
         'identifier': data.identifier,
         'deleted': True,
