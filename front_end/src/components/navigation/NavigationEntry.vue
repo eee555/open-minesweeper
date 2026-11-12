@@ -6,7 +6,8 @@
         <NavigationEntry v-for="child in item.children" :key="child.id" :item="child" :active="active" @activate="emit('activate', $event)" @navigate="emit('navigate')" />
     </ElSubMenu>
     <ElMenuItem v-else :index="item.id" :class="{ 'navigation-entry--primary': item.primary }" :data-navigation-id="item.id" :aria-label="item.label" :title="item.label">
-        <NavigationControl :item="item" :active="active" @activate="emit('activate', $event)" @navigate="emit('navigate')" />
+        <component :is="item.component" v-if="item.component" class="navigation-control" compact />
+        <NavigationControl v-else :item="item" :active="active" @activate="emit('activate', $event)" @navigate="emit('navigate')" />
     </ElMenuItem>
 </template>
 

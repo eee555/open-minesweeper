@@ -23,14 +23,15 @@ const PageState = defineComponent({
     },
 });
 
-function mountMenu(width: number, options: { layout?: 'top' | 'sidebar'; settings?: boolean } = {}) {
+function mountMenu(width: number, options: { layout?: 'top' | 'sidebar'; settings?: boolean; loggedOut?: boolean } = {}) {
     cy.viewport(width, 720);
     cy.clearCookie('csrftoken');
     cy.intercept({ method: 'GET', pathname: '/api/userprofile/admin/csrf' }, { csrf_token: csrfToken }).as('adminCsrf');
-    cy.intercept({ method: 'GET', pathname: '/api/common/loginauto' }, { user, top_anchors: { 'std:et': { value: 30000, sample_count: 20 } } }).as('fetchUser');
+    cy.intercept({ method: 'GET', pathname: '/api/common/loginauto' }, { user: options.loggedOut === true ? null : user, top_anchors: { 'std:et': { value: 30000, sample_count: 20 } } }).as('fetchUser');
     local.value.language = 'en';
     local.value.navigation_layout = options.layout ?? 'top';
-    store.login(user);
+    if (options.loggedOut === true) store.logout();
+    else store.login(user);
     const { sessionRevision } = store;
     const router = createRouter({
         history: createMemoryHistory(),
@@ -77,6 +78,20 @@ describe('<Menu /> navigation layouts', () => {
         });
         cy.shouldBeAbsentOrHidden('.el-message-box');
         cy.get('body').should('not.have.class', 'el-popup-parent--hidden');
+    });
+
+    it('places the official QQ login badge immediately before the guest login item', () => {
+        mountMenu(1920, { loggedOut: true });
+        cy.get('.site-menu--top [data-navigation-id=qq-login] img').should('have.attr', 'src', `${import.meta.env.BASE_URL}img/qq_login_16x16.png`).and('have.attr', 'width', '16').and('have.attr', 'height', '16');
+        cy.get('.site-menu--top [data-navigation-id=qq-login] .qq-login-entry').should('have.class', 'navigation-control').and('have.class', 'qq-login-entry--compact');
+        cy.get('.site-menu--top [data-navigation-id=qq-login]').then(($item) => {
+            cy.get('.site-menu--top [data-navigation-id=qq-login] .qq-login-entry').should(($entry) => {
+                expect($entry.height()).to.equal($item.height());
+            });
+        });
+        cy.get('.site-menu--top [data-navigation-id=qq-login] .qq-login-label').should('have.text', 'QQ登录').parents('[data-navigation-id=qq-login]').next().should('have.attr', 'data-navigation-id', 'login');
+        cy.get('.site-menu--top [data-navigation-id=qq-login] .qq-login-entry').click();
+        cy.contains('.el-message', 'QQ 登录尚未开放').should('be.visible');
     });
 
     it('tracks the parent section of nested routes and returns home through the logo', () => {

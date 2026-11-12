@@ -61,6 +61,7 @@ import { useI18n } from 'vue-i18n';
 import { RouterLink, useRoute } from 'vue-router';
 
 import Login from '@/components/Login/App.vue';
+import QQLoginEntry from '@/components/Login/QQLoginEntry.vue';
 import type { LoginControls } from '@/components/Login/types';
 import NavigationLinks from '@/components/navigation/NavigationLinks.vue';
 import NavigationLogo from '@/components/navigation/NavigationLogo.vue';
@@ -129,7 +130,9 @@ const drawerItems = computed<NavigationItem[]>(() => [
 ]);
 const activeSection = computed(() => {
     const section = route.path.split('/')[1] ?? '';
-    return section === 'video' ? 'database' : route.path === '/' ? 'home' : section;
+    if (section === 'video') return 'database';
+    if (route.path === '/' || section === 'login' || section === 'register') return 'home';
+    return section;
 });
 const activeTool = computed(() => {
     const profile = `/player/${store.user.id}`;
@@ -146,6 +149,8 @@ function navigationItems(controls: LoginControls): NavigationItem[] {
             ...store.user.is_staff ? [{ id: 'staff', label: t('local.staff'), icon: 'pi-shield', iconOnly: true, to: '/staff' }] : [],
         ]
         : [
+            // 与登录/注册弹窗复用同一入口：官方 16×16 小图标 + 固定中文文字，放在登录模块左边。
+            { id: 'qq-login', label: 'QQ登录', component: QQLoginEntry },
             { id: 'login',
                 label: controls.labels.login,
                 action: () => {

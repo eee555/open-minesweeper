@@ -13,8 +13,9 @@
 import '@/styles/vendors/element-plus.css';
 // 认证状态、表单弹窗及提供给导航的操作。
 import { ElDialog, ElMessage, ElMessageBox } from 'element-plus';
-import { defineAsyncComponent, onMounted, ref } from 'vue';
+import { defineAsyncComponent, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRoute, useRouter } from 'vue-router';
 
 import type { LoginControls } from './types';
 
@@ -22,6 +23,7 @@ import { httpErrorNotification } from '@/components/Notifications';
 import { applyLoginSession } from '@/services/loginSession';
 import type { TopAnchors } from '@/services/topRankingService';
 import { store } from '@/store';
+import { LoginStatus } from '@/utils/common/structInterface';
 import useCurrentInstance from '@/utils/common/useCurrentInstance';
 import type { UserProfileData } from '@/utils/userprofile';
 
@@ -30,6 +32,8 @@ const RegisterForm = defineAsyncComponent(() => import('./RegisterForm.vue'));
 const RetrieveForm = defineAsyncComponent(() => import('./RetrieveForm.vue'));
 
 const { proxy } = useCurrentInstance();
+const route = useRoute();
+const router = useRouter();
 
 const dialogVisible = ref(false);
 const activeDialog = ref<'login' | 'register' | 'retrieve'>('login');
@@ -40,6 +44,31 @@ function openDialog(form: 'login' | 'register') {
     activeDialog.value = form;
     dialogVisible.value = true;
 }
+
+function routeDialog(): 'login' | 'register' | null {
+    if (route.path === '/login') return 'login';
+    if (route.path === '/register') return 'register';
+    return null;
+}
+
+// 会话恢复完成前不按路由开弹窗，避免已登录用户短暂看到登录框。
+let sessionReady = false;
+
+function syncRouteDialog() {
+    const form = routeDialog();
+    if (!sessionReady || form === null) return;
+    if (store.login_status === LoginStatus.IsLogin) {
+        void router.replace('/');
+        return;
+    }
+    openDialog(form);
+}
+
+watch(() => route.path, syncRouteDialog);
+watch(dialogVisible, (visible) => {
+    if (visible || routeDialog() === null) return;
+    void router.replace('/');
+});
 
 onMounted(async () => {
     const revision = store.sessionRevision;
@@ -56,6 +85,8 @@ onMounted(async () => {
         store.logout();
         httpErrorNotification(err);
     });
+    sessionReady = true;
+    syncRouteDialog();
 });
 
 const login = async (user: UserProfileData) => {
