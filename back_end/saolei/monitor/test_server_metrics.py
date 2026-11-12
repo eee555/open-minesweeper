@@ -11,6 +11,7 @@ import psutil
 from redis.exceptions import ConnectionError as RedisConnectionError
 
 from minigame.utils import RANKINGS
+from speedranking.pb_derived.cache import PBDerivedCache
 from . import cache as monitor_cache, server_metrics, services
 
 
@@ -154,7 +155,8 @@ class RedisMemoryTests(SimpleTestCase):
         result = self.collect(client, players=(7, 8, 7))
         measured = Counter(call.args[0] for call in pipe.memory_usage.call_args_list)
         self.assertTrue(all(count == 1 for count in measured.values()))
-        self.assertEqual(len([key for key in measured if not key.startswith('speedranking:pb:') and key != 'newest_queue']), self.NON_MINIGAME_RANKING_KEYS + 3 * len(RANKINGS))
+        self.assertEqual(len([key for key in measured if not key.startswith(('speedranking:pb:', 'speedranking:pb_derived:')) and key != 'newest_queue']), self.NON_MINIGAME_RANKING_KEYS + 3 * len(RANKINGS))
+        self.assertEqual(len([key for key in measured if key.startswith('speedranking:pb_derived:')]), len(list(PBDerivedCache().keys())))
         self.assertEqual(result['groups']['pb_rankings'], 100)
         self.assertEqual(result['groups']['other_rankings'], 732)
         self.assertEqual(len([key for key in measured if key.startswith('speedranking:strict_ng')]), 18)
@@ -200,7 +202,7 @@ class RedisMemoryTests(SimpleTestCase):
         client, pipe = self.redis_client()
         players = range(1, 251)
         self.collect(client, players=players)
-        pb_keys = 1 + len(client.hkeys.return_value) + len(players)
+        pb_keys = 1 + len(client.hkeys.return_value) + len(players) + len(list(PBDerivedCache().keys()))
         other_ranking_keys = self.NON_MINIGAME_RANKING_KEYS + 3 * len(RANKINGS)
         expected_keys = pb_keys + other_ranking_keys + 1  # Latest-video queue.
         self.assertEqual(pipe.memory_usage.call_count, expected_keys)

@@ -31,7 +31,7 @@ describe('User Authentication', () => {
         cy.shouldBeAbsentOrHidden('.el-dialog');
 
         // 打开并关闭登录界面
-        cy.contains('登录').click();
+        cy.get('[data-cy=app-header] [data-navigation-id=login] .navigation-control').click();
         cy.contains('用户登录').should('be.visible');
         cy.contains('用户登录').next().click();
         cy.shouldBeAbsentOrHidden('.el-dialog');
@@ -75,7 +75,7 @@ describe('User Authentication', () => {
         // 打开登录界面
         cy.visit('/#/settings');
         expectNotLoggedIn();
-        cy.contains('登录').click();
+        cy.get('[data-cy=app-header] [data-navigation-id=login] .navigation-control').click();
 
         // 填写登录信息
         cy.get('.el-dialog:visible').then((dialog) => {
@@ -83,7 +83,7 @@ describe('User Authentication', () => {
             cy.wrap(dialog).contains('密码').next().find('input').type('testPassword');
             cy.wrap(dialog).contains('验证码').next().find('input').type('test');
 
-            cy.wrap(dialog).find('button').contains('登录').click();
+            cy.wrap(dialog).find('button').contains(/^\s*登录\s*$/).click();
         });
 
         cy.shouldBeAbsentOrHidden('.el-dialog');
@@ -107,12 +107,12 @@ describe('User Authentication', () => {
         expectNotLoggedIn();
 
         // 尝试用错误密码登录
-        cy.contains('登录').click();
+        cy.get('[data-cy=app-header] [data-navigation-id=login] .navigation-control').click();
         cy.get('.el-dialog:visible').then((dialog) => {
             cy.wrap(dialog).contains('用户名').next().find('input').type('testUser');
             cy.wrap(dialog).contains('密码').next().find('input').type('newPassword');
             cy.wrap(dialog).contains('验证码').next().find('input').type('test');
-            cy.wrap(dialog).find('button').contains('登录').click();
+            cy.wrap(dialog).find('button').contains(/^\s*登录\s*$/).click();
         });
 
         cy.contains('用户名或密码不正确');
@@ -123,7 +123,7 @@ describe('User Authentication', () => {
         cy.visit('/#/settings');
         expectNotLoggedIn();
 
-        cy.contains('登录').click();
+        cy.get('[data-cy=app-header] [data-navigation-id=login] .navigation-control').click();
         cy.get('.el-dialog:visible').then((dialog) => {
             cy.wrap(dialog).contains('忘记密码').click();
             cy.wrap(dialog).contains('修改密码').should('be.visible');

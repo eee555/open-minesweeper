@@ -178,6 +178,9 @@ const { t } = useI18n({ messages: i18nMessages });
 
 ## 测试注意事项
 
+### 端口占用
+Cypress测试默认使用8080端口。如果该端口被占用，说明用户正在人工验收，请跳过Cypress测试。
+
 ### 关闭通知
 有些操作会有[通知弹窗](front_end\src\components\Notifications.ts)，它可能会遮挡页面元素导致测试不稳定。用`cy.closeElNotifications()`关闭所有弹窗。
 

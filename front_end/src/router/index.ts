@@ -10,6 +10,8 @@ const routes: RouteRecordRaw[] = [
     {
         path: '/',
         name: 'home',
+        // 登录页与注册页地址仍渲染首页，由 Login/App.vue 按路径打开对应弹窗。
+        alias: ['/login', '/register'],
         component: () => import('../views/HomeView/App.vue'),
     },
     {

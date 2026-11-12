@@ -155,7 +155,7 @@ describe('Personal Profile', () => {
 
     it('Loads PB records from its top-level tab without downloading all videos', () => {
         cy.intercept('GET', '/api/userprofile/videolist*').as('allVideos');
-        cy.intercept('GET', `/api/speedranking/pb/player/${USER_ID}`).as('pbRecords');
+        cy.intercept({ method: 'GET', pathname: '/api/speedranking/pb_derived/summary', query: { player_id: String(USER_ID) } }).as('pbRecords');
         cy.visitUser(USER_ID);
         cy.get('[data-cy=profile-tabs] > .el-tabs__header .is-active').should('have.text', 'Top');
         cy.get('[data-cy=profile-tabs] > .el-tabs__header [role=tab]').contains('PB').click();

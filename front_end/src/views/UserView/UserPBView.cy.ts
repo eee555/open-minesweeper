@@ -14,6 +14,19 @@ const records = [
     { level: 'e', bv: 102, nf: false, timems: 50000, video_id: 102, rank: null },
     { level: 'e', bv: 100, nf: true, timems: 45000, video_id: 103, rank: 3 },
 ];
+
+function summary(pbRecords: typeof records) {
+    return {
+        pb: pbRecords,
+        records: { collection: {}, skill: {}, typical_time: {} },
+        ranks: { collection: {}, skill: {}, typical_time: {} },
+    };
+}
+
+function interceptSummary(alias: string, body: unknown) {
+    cy.intercept({ method: 'GET', pathname: '/api/speedranking/pb_derived/summary' }, { body }).as(alias);
+}
+
 function mountPB() {
     store.logout();
     const user = reactive(new UserProfile({ id: 42 }));
@@ -36,7 +49,7 @@ describe('Profile PB tab', () => {
             initialDark = document.documentElement.classList.contains('dark');
         });
         cy.intercept('GET', '**/api/userprofile/videolist*', []).as('videos');
-        cy.intercept('GET', '**/api/speedranking/pb/player/42', records).as('pb');
+        interceptSummary('pb', summary(records));
     });
     afterEach(() => {
         cy.document().then((document) => {
@@ -58,7 +71,7 @@ describe('Profile PB tab', () => {
             { rank: 101, color: 'rgba(0, 0, 0, 0)' },
             { rank: null, color: 'rgba(0, 0, 0, 0)' },
         ];
-        cy.intercept('GET', '**/api/speedranking/pb/player/42', bands.map(({ rank }, index) => ({ ...records[0], bv: 100 + index, rank }))).as('rankRecords');
+        interceptSummary('rankRecords', summary(bands.map(({ rank }, index) => ({ ...records[0], bv: 100 + index, rank }))));
         mountPB();
         cy.wait('@rankRecords');
         const timeStyle = { backgroundColor: '', color: '' };
@@ -115,12 +128,12 @@ describe('Profile PB tab', () => {
     });
 
     it('shows a retryable error rather than an empty-record result', () => {
-        cy.intercept('GET', '**/api/speedranking/pb/player/42', { statusCode: 500 }).as('failedPB');
+        cy.intercept({ method: 'GET', pathname: '/api/speedranking/pb_derived/summary' }, { statusCode: 500 }).as('failedPB');
         mountPB();
         cy.wait('@failedPB');
         cy.get('[role=alert]').should('contain.text', 'Could not load PB records');
         cy.get('[data-cy=pb-empty]').should('not.exist');
-        cy.intercept('GET', '**/api/speedranking/pb/player/42', records).as('retryPB');
+        interceptSummary('retryPB', summary(records));
         cy.get('[data-cy=refresh-pb]').click();
         cy.wait('@retryPB');
         cy.get('[data-cy=pb-e-100]').should('contain.text', '40.000');
@@ -129,7 +142,7 @@ describe('Profile PB tab', () => {
     it('does not fetch a new player in the background and reuses data on returning', () => {
         const { router, user } = mountPB();
         cy.wait('@pb');
-        cy.intercept('GET', '**/api/speedranking/pb/player/43', []).as('otherPB');
+        cy.intercept({ method: 'GET', pathname: '/api/speedranking/pb_derived/summary', query: { player_id: '43' } }, { body: summary([]) }).as('otherPB');
         cy.then(() => router.push('/player/42/videos'));
         cy.then(() => {
             user.id = 43;

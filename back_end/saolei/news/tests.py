@@ -190,7 +190,7 @@ class LSFNewsTests(SimpleTestCase):
     def test_write_records_publishes_snapshots_before_and_after(self, _soft, _send, mocked_emit):
         ranking = TopRankingCache()
         cache.zadd(ranking.soft_key('lsf'), {'1': 100})
-        previous = ({}, {}, {}, {1: {}})
+        previous = ({}, {}, {}, {}, {1: {}})
         records = {1: {'std:bt': {'videos': [{'value': 1000, 'video_id': 9}]}}}
         _write_records(previous, {}, {}, {}, records, news_targets={1: [9]})
         self.assertEqual(mocked_emit.call_count, 1)
@@ -204,7 +204,7 @@ class LSFNewsTests(SimpleTestCase):
     @patch('speedranking.services.emit')
     @patch('speedranking.top.services.soft_refresh_requested.send')
     def test_remove_path_publishes_no_news(self, _send, mocked_emit):
-        previous = ({}, {}, {}, {1: {}})
+        previous = ({}, {}, {}, {}, {1: {}})
         records = {1: {'std:bt': {'videos': [{'value': 1000, 'video_id': 9}]}}}
         _write_records(previous, {}, {}, {}, records)
         mocked_emit.assert_not_called()

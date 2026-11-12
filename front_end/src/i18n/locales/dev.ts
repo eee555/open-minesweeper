@@ -1,6 +1,20 @@
 export default {
     local: 'dev',
     nf: 'NF',
+    derived: {
+        collection: 'Collection',
+        skill: 'Skill',
+        typicalTime: 'Typical Time',
+        tt: 'TT',
+        overview: 'Overview',
+        count: 'BV Count',
+        probability: 'BV Probability',
+        asb: 'ASB',
+        total: 'Total',
+        segment: 'Segment',
+        skillRank: 'Segment Skill Rank',
+        ttRank: 'Segment TT Rank',
+    },
     platform: {
         d: 'Discord',
         x: '95经典扫雷',
