@@ -1,10 +1,10 @@
-"""PB 衍生成绩的重算、修复与全量重建。
+"""PB 衍生成绩的差量重算、修复与全量重建。
 
-正常链路只由根 speedranking.services 的 old_pb + pb_changes 触发；不新增
-VideoModel receiver，也不在 PB 刷新 rank 时递归重算其他用户。
+正常链路只由根 speedranking.services 的 old_pb + pb_changes + old_derived 触发；
+不新增 VideoModel receiver，也不在 PB 刷新 rank 时递归重算其他用户。
 """
 from .cache import PBDerivedCache
-from .utils import compute, defaults, FIELDS, LEVELS, RANKINGS
+from .utils import apply_record_delta, compute, defaults, FIELDS, LEVELS, MODES, RANKINGS
 from ..cache import cache, pipeline
 from ..pb.cache import PBRankingCache
 from ..pb.utils import parse_field, record_from_score
@@ -20,25 +20,71 @@ def pb_values(records):
     return values
 
 
-def compute_for_records(records):
-    return compute(pb_values(records))
+def compute_for_records(records, modes=None):
+    return compute(pb_values(records), modes)
 
 
-def prepare_changes(old_pb, pb_changes):
-    """将本批 PB 变更覆盖到完整 PB 映射，每个受影响用户只重算一次。"""
+def _overlay(records, replacements):
+    result = dict(records)
+    for field, candidate in replacements.items():
+        if candidate is None:
+            result.pop(field, None)
+        else:
+            result[field] = record_from_score(candidate[0], candidate[1])
+    return result
+
+
+def _modes(records):
+    return {field.split(':', 1)[0] for field in records if field.split(':', 1)[0] in MODES}
+
+
+def _cached_modes(old_values):
+    return {mode for mode in MODES if f'{mode}:sum:asb' in old_values.get('collection', {})}
+
+
+def _initial_values(old_values, old_modes, new_modes):
+    values = {ranking: dict(old_values.get(ranking, {})) for ranking in RANKINGS}
+    entering = new_modes - old_modes
+    if entering:
+        fallback = defaults()
+        for mode in entering:
+            for ranking in RANKINGS:
+                for field in FIELDS[ranking]:
+                    if field.startswith(f'{mode}:'):
+                        values[ranking][field] = fallback[ranking][field]
+    for mode in old_modes - new_modes:
+        for ranking in RANKINGS:
+            for field in FIELDS[ranking]:
+                if field.startswith(f'{mode}:'):
+                    values[ranking].pop(field, None)
+    return values
+
+
+def prepare_changes(old_pb, pb_changes, old_derived=None):
+    """把本批 PB 变化直接加减到已存成绩上，每个受影响用户只处理一次。"""
     affected = {}
     for (player_id, field), candidate in pb_changes.items():
         affected.setdefault(player_id, {})[field] = candidate
     changes = {}
     for player_id, replacements in affected.items():
-        records = dict(old_pb.get(player_id, {}))
+        records = old_pb.get(player_id, {})
+        updated = _overlay(records, replacements)
+        old_values = (old_derived or {}).get(player_id) or {}
+        old_modes = _modes(records)
+        if not any(old_values.values()) or _cached_modes(old_values) != old_modes:
+            changes[player_id] = compute_for_records(updated)
+            continue
+        new_modes = _modes(updated)
+        values = _initial_values(old_values, old_modes, new_modes)
         for field, candidate in replacements.items():
-            if candidate is None:
-                records.pop(field, None)
-            else:
-                video_id, pb_score = candidate
-                records[field] = record_from_score(video_id, pb_score)
-        changes[player_id] = compute_for_records(records)
+            if field.split(':', 1)[0] not in new_modes:
+                continue
+            nf, level, bv = parse_field(field)
+            old_record = records.get(field)
+            old_timems = old_record['timems'] if old_record else None
+            new_timems = record_from_score(candidate[0], candidate[1])['timems'] if candidate is not None else None
+            apply_record_delta(values, nf, level, bv, old_timems, new_timems)
+        changes[player_id] = values
     return changes
 
 
@@ -50,13 +96,13 @@ def read_pb_records(player_id: int):
 
 def rebuild_player(player_id: int, force=True):
     """修复后完整读取该用户的 PB hash 再重算，force 可补回丢失的索引。"""
-    changes = compute_for_records(read_pb_records(player_id))
+    values = compute_for_records(read_pb_records(player_id))
     derived = PBDerivedCache()
     previous = {} if force else {player_id: derived.get_records(player_id)}
     with pipeline() as pipe:
-        derived.write_changes(pipe, previous, {player_id: changes}, force=force)
+        derived.write_changes(pipe, previous, {player_id: values}, force=force)
         pipe.execute()
-    return changes
+    return values
 
 
 def remove_player(player_id: int):

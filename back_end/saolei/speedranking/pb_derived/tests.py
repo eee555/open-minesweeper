@@ -98,7 +98,13 @@ class DerivedCacheTests(SimpleTestCase):
             self.derived.write_changes(pipe, previous, changes)
             pipe.execute()
 
-    def test_prepare_changes_overlays_full_pb_and_keeps_nf(self):
+    def assert_values_almost_equal(self, actual, expected):
+        for ranking in RANKINGS:
+            self.assertEqual(set(actual[ranking]), set(expected[ranking]))
+            for field, value in expected[ranking].items():
+                self.assertAlmostEqual(actual[ranking][field], value, delta=max(1e-9, abs(value) * 1e-9))
+
+    def test_prepare_changes_without_cached_values_recomputes_full_pb(self):
         old = self.old_pb()
         changes = prepare_changes(old, {(7, 'std:b:10'): (3, 5000 * 2 ** 26)})
         expected = compute_for_records({**old[7], 'std:b:10': {'timems': 5000, 'video_id': 3, 'rank': None}})
@@ -106,9 +112,36 @@ class DerivedCacheTests(SimpleTestCase):
         self.assertIn('nf:b:total', changes[7]['skill'])
         self.assertEqual(changes[7]['collection']['std:sum:count'], 1)
 
-    def test_last_pb_removal_clears_only_that_category(self):
+    def test_prepare_changes_applies_delta_matching_full_recompute(self):
+        records = dict(self.old_pb()[7])
+        state = compute_for_records(records)
+        steps = (
+            ('std:b:10', (3, 5000 * 2 ** 26)),
+            ('std:b:11', (4, 20000 * 2 ** 26)),
+            ('nf:b:10', None),
+            ('nf:b:12', (6, 15000 * 2 ** 26)),
+            ('std:b:10', (5, 8000 * 2 ** 26)),
+            ('std:b:11', None),
+        )
+        for field, candidate in steps:
+            before = dict(records)
+            changes = prepare_changes({7: before}, {(7, field): candidate}, {7: state})
+            if candidate is None:
+                records.pop(field, None)
+            else:
+                records[field] = {'timems': candidate[1] // 2 ** 26, 'video_id': candidate[0], 'rank': None}
+            self.assert_values_almost_equal(changes[7], compute_for_records(records))
+            state = changes[7]
+
+    def test_unchanged_timems_does_not_change_values(self):
         old = self.old_pb()
-        changes = prepare_changes(old, {(7, 'std:b:10'): None})
+        state = compute_for_records(old[7])
+        changes = prepare_changes(old, {(7, 'std:b:10'): (99, 10000 * 2 ** 26)}, {7: state})
+        self.assertEqual(changes[7], state)
+
+    def test_category_exit_clears_only_that_category(self):
+        old = self.old_pb()
+        changes = prepare_changes(old, {(7, 'std:b:10'): None}, {7: compute_for_records(old[7])})
         self.write(changes)
         records = self.derived.get_records(7)
         self.assertTrue(all(not field.startswith('std:') for field in records['collection']))
@@ -121,13 +154,13 @@ class DerivedCacheTests(SimpleTestCase):
                 self.assertIsNotNone(score)
 
     def test_equal_scores_follow_member_order(self):
-        self.write({player: compute({}, modes=('std',)) for player in (2, 10)})
+        self.write({player: compute_for_records({}, modes=('std',)) for player in (2, 10)})
         rows = cache.zrange(self.derived.rank_key('collection', 'std:sum:count'), 0, -1)
         self.assertEqual([int(value) for value in rows], [10, 2])
         self.assertEqual(self.derived.get_range(('collection',), 'collection', 'std:sum:count', 0, 20)['players'], [10, 2])
 
     def test_remove_player_clears_hash_and_all_members(self):
-        self.write({7: compute({}, modes=('std',))})
+        self.write({7: compute_for_records(self.old_pb()[7])})
         remove_player(7)
         self.assertEqual(self.derived.get_records(7), {ranking: {} for ranking in RANKINGS})
         for ranking in RANKINGS:

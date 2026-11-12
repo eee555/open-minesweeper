@@ -26,6 +26,7 @@ class PBDerivedCache:
         ids = [str(player_id) for player_id in player_ids]
         for ranking in RANKINGS:
             pipe.hmget(self.record_key(ranking), ids)
+        return len(RANKINGS)
 
     def unpack_records(self, results, player_ids):
         output = {player_id: {} for player_id in player_ids}

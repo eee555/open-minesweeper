@@ -146,7 +146,7 @@ flowchart LR
 
 `UserProfile.post_delete` 调用 `userprofile.signals.delete_user_ms`，在同一删除事务内按 `instance.userms_id` 清理关联 `UserMS`，并由已有外键删除其标识；覆盖实例、QuerySet 及 Admin 删除。`origin` 为 `UserMS` 实例或 QuerySet 时跳过，因为原收集器已经负责删除，避免重复信号。无关联资料时直接跳过，清理失败会回滚用户与资料删除。历史孤立资料使用 [cleanup_orphan_userms](./management-commands.md#cleanup-orphan-userms) 处理。
 
-`UserProfile.post_delete` 另由 `speedranking.pb_derived.signals.delete_derived_records` 在事务提交后清理该用户在三个PB 衍生大榜成绩 hash 中的 field 及全部 132 个小榜 zset member；接收器在 `speedranking.apps.ready` 中注册，不新增 `VideoModel` 接收器。原 PB 缓存尚无同类用户删除清理，属于既有缺口，不在衍生模块内隐式改动。
+`UserProfile.post_delete` 另由 `speedranking.pb_derived.signals.delete_derived_records` 在事务提交后清理该用户在三个 PB 衍生大榜成绩 hash 中的 field 及全部 132 个小榜 zset member；接收器在 `speedranking.apps.ready` 中注册，不新增 `VideoModel` 接收器。原 PB 缓存尚无同类用户删除清理，属于既有缺口，不在衍生模块内隐式改动。
 
 `MiniGameBestScore.post_delete` 调用 `minigame.signals.delete_cached_score`，在事务提交后从该榜 ZSET 和明细 Hash 移除玩家，保留初始化标记；覆盖 Admin、QuerySet 和用户级联删除，回滚不改缓存。小游戏创建和改善由提交服务直接注册 `on_commit` 更新，不另设保存信号。
 

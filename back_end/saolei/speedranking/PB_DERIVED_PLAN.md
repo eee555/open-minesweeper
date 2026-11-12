@@ -10,9 +10,9 @@
 
 | 位置 | 职责 |
 | --- | --- |
-| `pb_derived/utils.py` | 分段边界、归一化概率、132 个 field、纯计算 `compute()` 与 `defaults()`；导入期强校验，不访问数据库或 Redis，不引入同目录其他模块 |
+| `pb_derived/utils.py` | 分段边界、归一化概率、132 个 field、`apply_record_delta()` 与全量 `compute()`、`defaults()`；导入期强校验，不访问数据库或 Redis，不引入同目录其他模块 |
 | `pb_derived/cache.py` | `PBDerivedCache`：3 个成绩 hash、132 个小榜 zset、批量读写与区间查询 |
-| `pb_derived/services.py` | 变更覆盖、单项强制修复、用户删除清理、个人汇总、整榜重建 |
+| `pb_derived/services.py` | 直接差量更新、全量重算回退、单项强制修复、用户删除清理、个人汇总、整榜重建 |
 | `pb_derived/api.py` | Ninja 只读查询与管理员单项修复 |
 | `pb_derived/signals.py` | `UserProfile.post_delete` 提交后清理 |
 | `speedranking/services.py`、`pb/services.py`、`apps.py` | 共享读写 pipeline 接入、单桶修复后的重算、信号注册 |
@@ -31,7 +31,7 @@
 
 沿用原 PB 准入：STD、OFFICIAL、非隐藏比赛录像；普通 PB 包含 NF，NF PB 额外要求 `right_ce == 0`。同一 BV 在同一用户、同一等级、同一普通/NF 类别内只计一次。
 
-按类别独立判断成员资格：至少拥有一个对应类别的 PB 才进入该类别的全部衍生小榜；只拥有普通 PB 的用户不进入 NF 衍生榜；仅缺少某级别或分段 PB 的用户仍以缺省成绩参与该类别全部小榜。最后一个对应类别的 PB 被移除时，清除该类别全部 zset member 及 hash 中的该类别字段，另一类别不受影响。用户删除时同理清理三个 hash field 与 132 个 zset member。
+按类别独立判断成员资格：至少拥有一个对应类别的 PB 才进入该类别的全部衍生小榜；只拥有普通 PB 的用户不进入 NF 衍生榜；仅缺少某级别或分段 PB 的用户仍以缺省成绩参与该类别全部小榜。最后一个对应类别的 PB 被移除时，清除该类别全部 zset member 及 hash 中的该类别字段，另一类别不受影响。用户删除时同理清理三个成绩 hash field 与 132 个 zset member。
 
 收集 24 项：BV 数量（拥有的 PB 桶数，不是录像数）、BV 概率（所拥有 BV 的概率之和）、ASB（所拥有 PB 的 Bvs 之和），各按 `(b, i, e, sum) × (普通, NF)` 展开，均为越大越好。三项总值都直接对三级别求和；概率总值可达 3，不除以 3。
 
@@ -112,13 +112,13 @@ tt_sum = tt_b + tt_i + tt_e
 | D9 | 英文命名固定为 Collection、Skill、Typical Time（TT）。 |
 | D10 | Stnb 网格不追加侧列；维持各等级、所选类别首尾 PB 的显示范围。 |
 | D11 | 每级别总 TT 与三级别总 TT 不上色。 |
-| D12 | 3 个 hash、132 个 zset、受影响用户完整重算、个人排名读取时 pipeline ZRANK。 |
+| D12 | 3 个成绩 hash、132 个 zset、直接在成绩值上差量累加、个人排名读取时 pipeline ZRANK；double 累计误差按约定忽略。 |
 
 ## 5. 缓存结构与 field 命名
 
 | key | 类型 | 内容 |
 | --- | --- | --- |
-| `speedranking:pb_derived:{ranking}:records` | hash | field 为用户 id，JSON 保存该用户此大榜的全部成绩；只保存实际入榜类别的字段 |
+| `speedranking:pb_derived:{ranking}:records` | hash | field 为用户 id，JSON 保存该用户此大榜的全部成绩；只保存实际入榜类别的字段，这些值本身就是差量更新的状态 |
 | `speedranking:pb_derived:{ranking}:{field}` | zset | member 直接为用户 id，score 只用于排序 |
 
 field 命名：
@@ -129,25 +129,27 @@ field 命名：
 | `skill` | `{std\|nf}:{b\|i\|e}:s{1..n}`、`{std\|nf}:{b\|i\|e}:total`、`{std\|nf}:sum:total` | 54 |
 | `typical_time` | 同 `skill` | 54 |
 
-hash 保存原始汇总值，zset 不负责还原展示数据。统一升序读取：收集、战力 score 取负值，典型时取正值；同分按 member 顺序，不设计复合 member 或拼接上传时间。展示舍入不改变 hash 或 score。所有 key 由 `PBDerivedCache.keys()` 枚举并计入监控 `pb_rankings` 分类，不依赖 `SCAN` 发现。
+成绩 hash 保存原始汇总值，zset 不负责还原展示数据。统一升序读取：收集、战力 score 取负值，典型时取正值；同分按 member 顺序，不设计复合 member 或拼接上传时间。展示舍入不改变 hash 或 score。所有 key 由 `PBDerivedCache.keys()` 枚举并计入监控 `pb_rankings` 分类，不依赖 `SCAN` 发现。
 
-不额外缓存每人 rank：`/summary` 通过一次 pipeline 执行 132 项 `ZRANK`，从 0 起的结果转换为从 1 起，未入榜为 `null`。其他用户破纪录只改变 zset，不扇出刷新所有受影响用户的衍生 rank。固定 132 项的成本需要在真实规模下实测，确认成为瓶颈后再讨论 `N/P/A/W` 充分统计量差量更新或 rank 缓存，不预先复制原 PB 的区间排名回写。
+不额外缓存每人 rank：`/summary` 通过一次 pipeline 执行 132 项 `ZRANK`，从 0 起的结果转换为从 1 起，未入榜为 `null`。其他用户破纪录只改变 zset，不扇出刷新所有受影响用户的衍生 rank。固定 132 项的成本需要在真实规模下实测，确认成为瓶颈后再讨论 rank 缓存，不预先复制原 PB 的区间排名回写；日常更新已在成绩值上直接差量累加（§6），不额外持久化中间量、不按 PB 条数重算。
 
 ## 6. 更新链路
 
-正常写入沿用根 `speedranking.services` 的「共同读取、独立判断、共同写入」：
+正常写入沿用根 `speedranking.services` 的「共同读取、独立判断、共同写入」，并采用**直接作用于成绩值的差量累加**：
 
-1. `_read_records` 在共享读取 pipeline 中增加三次 HMGET，得到本批用户的旧衍生成绩；`previous` 现为五元组 `(saolei, strict_ng, pb, pb_derived, top)`，top 快照下标为 `previous[4]`。
-2. `pb_derived.prepare_changes` 把 `pb_changes` 覆盖到已有完整 PB 映射：候选为 `None` 则删除，否则从 PB score 还原整数毫秒用时；只替换同用户、同桶，不把候选集合误当完整 PB 集合。
-3. 对每个受影响用户遍历更新后的 PB 一次，`compute()` 累积普通/NF、等级、分段的 `N/P/A/W`（`Q/H` 是预计算常量），算出三个大榜全部成绩。
-4. `write_changes` 与旧成绩比较，只把发生变化的 hash 与 zset 更新加入共享写入 pipeline，与原 PB 纪录同批提交；原 PB 自己继续刷新受影响区间的 rank 和人数。
+1. `_read_records` 在共享读取 pipeline 中增加三次 HMGET，得到本批用户的旧成绩（132 个最终值）；`previous` 仍为五元组 `(saolei, strict_ng, pb, pb_derived, top)`，第四项为 `{player_id: {ranking: {field: value}}}`，top 快照下标为 `previous[4]`。读取命令宽度由 `PBDerivedCache.read_records()` 返回，不假设固定条数。
+2. `pb_derived.prepare_changes` 对本批每个 `(player_id, field)` 变更，从旧 PB 记录取旧用时、从 PB score 还原新用时，调用 `apply_record_delta()` 直接在旧成绩上加减；同一用户在一批内只处理一次。没有额外的中间量或第二个 hash，`p_l[v]`、`Q_I`、`H_I`、`LEVEL_WEIGHTS_l` 都是导入期常量。
+3. 线性部分：令 `ΔBvs = Bvs(新) - Bvs(旧)`、`ΔW = p_l[v] * ΔBvs`。收集三列分别累加 `±1`、`±p_l[v]`、`ΔBvs` 并同步累加到 `sum` 列；分段战力累加 `ΔW / Q_I`，级别总战力累加 `ΔW / LEVEL_WEIGHTS_l` 并同步累加到总计。
+4. 非线性部分：分段典型时 `tt_I = H_I / W_I` 不能线性累加，由旧分段战力反推 `W_I = skill_I * Q_I`，加上 `ΔW` 后重算 `tt_I`（`W_I == 0` 取 `ZERO_TT`），再把 `Δtt_I` 累加到级别合计与总计。这正是「用分段战力算典型时，再用其变化量累加合计」。
+5. `write_changes` 与原 PB 纪录同批提交：`new_values` 与旧成绩比较，只把变化的成绩 hash 与 zset 写入共享 pipeline。新类别入榜时先用 `defaults()` 初始化该类别全部字段，最后一个 PB 移除时删除该类别全部字段与 member。原 PB 自己继续刷新受影响区间的 rank 和人数。
+6. 成绩缺失或与 PB 快照的类别不一致时，把 `pb_changes` 覆盖到完整 PB 映射后用 `compute()` 全量重算作为兜底；整榜重建与管理员单项修复同样以全量 `compute()` 为基准。
 
-对单个用户 P 条 PB，成本约为 `O(P + 132)`，额外临时内存 `O(P + 132)`；前端 BV 范围内 P 最多 1302，但后端不以此为准入上限。第一版不持久化增量累加器，也不反复浮点增减，避免累计漂移。只对本批用户分段处理，不一次加载所有玩家。
+单个用户单次变更只更新受影响的字段，成本约为 `O(变化桶数)`，不再随该用户 PB 条数 P 增长，也不重算全部 132 项；额外临时内存是该用户成绩字典的副本 `O(132)`。理论非负的列取 `max(0, value)`，类别退出时整体删除字段，不会残留幽灵 member；反复加减带来的 double 累计误差按约定忽略，不做周期性校正，整榜重建或管理员单项修复可随时把成绩拉回全量口径。只对本批用户分段处理，不一次加载所有玩家。
 
-必须覆盖的路径：新增、改善、变差、删除 PB，以及 player/level/BV/NF/审核或隐藏资格变化后的旧桶与新桶；标识绑定/解绑、比赛公开等批量变更时每个用户在一批内只重算一次；PB 录像 id 或上传分钟改变但 BV、用时未变时衍生数值不变，不刷新索引；其他玩家的 PB 排名变化不触发本用户重算。
+必须覆盖的路径：新增、改善、变差、删除 PB，以及 player/level/BV/NF/审核或隐藏资格变化后的旧桶与新桶；标识绑定/解绑、比赛公开等批量变更时每个用户在一批内只处理一次；PB 录像 id 或上传分钟改变但 BV、用时未变时成绩不变，不刷新索引；其他玩家的 PB 排名变化不触发本用户重算。
 
-- 单桶修复：`pb.services.rebuild_player_record` 用临时空 `previous={}` 写单桶，衍生重算不能复用该 changes。修复后由 `pb_derived.services.rebuild_player` 重新读取该用户完整 PB hash 并 `force=True` 强制重写全部衍生索引，可补回丢失的 zset member。
-- 用户删除：`signals.py` 的 `UserProfile.post_delete` 在 `on_commit` 后只清理衍生缓存；原 PB 缓存尚无同类清理，属于既有缺口。
+- 单桶修复：`pb.services.rebuild_player_record` 用临时空 `previous={}` 写单桶，衍生重算不能复用该 changes。修复后由 `pb_derived.services.rebuild_player` 重新读取该用户完整 PB hash 全量 `compute()`，并 `force=True` 强制重写全部衍生索引，可补回丢失的 zset member；管理员单项修复同理。
+- 用户删除：`signals.py` 的 `UserProfile.post_delete` 在 `on_commit` 后清理三个成绩 hash field 与 132 个 zset member；原 PB 缓存尚无同类清理，属于既有缺口。
 - 不新增 `VideoModel` receiver 重复处理同一录像，不在 `refresh_ranks` 回写其他用户 rank 时递归触发衍生重算；新闻快照、top 锚点、管理员刷新人数同样不产生新的 PB changes。
 
 写入沿用 `on_commit` 边界、`log_update_errors` 上下文日志、事务 pipeline 与异常传播；不引入 WATCH、全局锁、后台任务、自动重试或双写切换。并发更新同一用户仍可能覆盖，管理员单项修复与整榜重建是恢复路径。
@@ -158,7 +160,7 @@ hash 保存原始汇总值，zset 不负责还原展示数据。统一升序读�
 | --- | --- | --- |
 | `GET /api/speedranking/pb_derived/rank` | `ranking`、`field`、`start`、`end` | 由一个小榜 zset 取人数与用户区间，同一 pipeline 读取该页成绩 hash（收集页 1 个、战力/典型时页 2 个）；左闭右开、最多 100 条；非法 field 返回 422 |
 | `GET /api/speedranking/pb_derived/summary` | `player_id` | 一次返回原 PB、三个衍生大榜全部成绩与 132 项排名 |
-| `POST /api/speedranking/pb_derived/admin/rebuild_player` | 表单 `player_id` | `staff_required` + CSRF，从完整 PB hash 强制重算该用户全部衍生索引 |
+| `POST /api/speedranking/pb_derived/admin/rebuild_player` | 表单 `player_id` | `staff_required` + CSRF，从完整 PB hash 全量重算并强制重写该用户全部衍生索引 |
 
 两个读接口只返回成绩与排名，不携带 `meta`、version、静态分段边界、field 列表或 `zero_tt`：边界由前后端各自硬编码，前端改用 `services/pbDerivedService.ts` 的 `derivedSegments` 静态副本。这是 §7 原「单一事实来源」约束的推翻：边界在前后端各存一份，按静态配置处理，同步要求见 §11。空分页时不发起 HMGET（空 field 列表会被 Redis 拒绝），返回空 `records` 映射，不回源、不重建。缓存未命中的读接口只补缺省展示值并把该类别全部排名置空，从不自动扫描数据库或重建。
 
@@ -219,8 +221,8 @@ python manage.py rebuild_pb_derived_ranks --batch-size 100  # 仅频率表/分�
 
 1. **频率表或分段变更**：改 `config/bv_frequencies.py` 的 `BV_FREQUENCIES` 并同步 [前端数组](../../../front_end/src/utils/bvFrequencies.ts)（两端数组都硬编码，没有生成脚本或校验命令，必须人工核对），或改 `pb_derived/utils.py` 的 `SEGMENTS` → **同步改前端 `services/pbDerivedService.ts` 的 `derivedSegments`（端点与 `sN` 编号）** → 暂停相关读写 → 执行 `rebuild_pb_ranks`（自动含衍生）或仅 `rebuild_pb_derived_ranks`。前后端配置都硬编码且不设置 version，没有配置摘要可自动发现差异：`pbDerivedService.test.ts` 只校验前端边界连续、编号与末端 BV，不会与后端比对，改分段必须人工核对两份，也不能依据接口响应判断缓存是否需要重建。`derivedSkillTTSortKeys` 由 `derivedSegments` 自动生成，旧 URL 中已不存在的 `sN` 会在解析期回退到默认排序。不能只更新有新 PB 的用户，不能让新旧口径的成绩混排；分段数量变化时 `FIELDS` 的 132 项强校验会拦住后端遗漏。
 2. **新增或调整 field / 子页**：改 `utils.FIELDS`，同步前端 `derivedCollectionKeys`、`derivedOverviewKeys`、`derivedPages`、`derivedSegments` 及列定义；`PBDerivedCache.keys()` 自动枚举新 key，监控列表无需手工补；随后整榜重建。
-3. **缓存丢失或错乱**：运行 `rebuild_pb_ranks`（末尾自动整榜重建衍生数据）；不设版本标记，配置是否一致只由维护流程保证。单个用户异常用管理员单项修复；用户删除由信号自动清理。原 PB 缓存缺少用户删除清理是既有缺口，不在衍生模块内静默补写。
-4. **部署顺序**：固定「先 PB、后衍生」；`rebuild_pb_ranks` 末尾已自动重建衍生榜，无需重复执行。上线后用真实用户 PB 数量实测额外计算耗时、132 项 ZRANK 成本、个人响应体大小与 Redis 内存，再决定是否需要差量累加或排名缓存，不先引入后台调度和复杂并发协议。
+3. **缓存丢失或错乱**：运行 `rebuild_pb_ranks`（末尾自动整榜重建衍生数据）；不设版本标记，配置是否一致只由维护流程保证。成绩 hash 缺失或与 PB 快照的类别不一致时，该次 PB 变更会回退全量 `compute()`，但没有 PB 变更的用户会一直保留旧成绩，因此不能靠等待自愈。单个用户异常用管理员单项修复；用户删除由信号自动清理。原 PB 缓存缺少用户删除清理是既有缺口，不在衍生模块内静默补写。
+4. **部署顺序**：固定「先 PB、后衍生」；`rebuild_pb_ranks` 末尾已自动重建衍生榜，无需重复执行。上线后用真实数据量实测差量更新开销、132 项 ZRANK 成本、个人响应体大小与 Redis 内存，再决定是否需要 rank 缓存，不先引入后台调度和复杂并发协议。
 5. **只读接口**：缓存未命中不自动扫描数据库或重建；响应没有版本字段可供比对，配置变更后是否重建由维护流程保证，不自动触发。
 
 ## 12. 维护注意与已知偏差
@@ -233,7 +235,7 @@ python manage.py rebuild_pb_derived_ranks --batch-size 100  # 仅频率表/分�
 6. **频率表分段权重校验通过**：按当前 `config/bv_frequencies.py` 实测 23 个分段 `Q_I` 全为正（最小约 `0.003643`），导入期强校验不会误报；若更换频率数组后某段权重为 0，模块会直接加载失败，需先改分段或数据。
 7. **整榜重建的挂载点**：`rebuild_pb_ranks` 服务被管理命令与 `dangerzone.initialize_local_data` 共同调用，在其末尾统一重建一次衍生榜；独立的 `rebuild_pb_derived_ranks` 供概率表变更后单独使用。不要在两个入口各加一次重建。
 8. **个人页只请求一次 `/summary`**：`UserPBView.cy.ts` 的 intercept 与断言维护「一次请求、NF/指标本地切换不重取」的约束；改用新汇总接口后不要把两个子组件改成各自请求。
-9. **`previous` 元组形状变化影响既有测试**：为把旧衍生成绩放进共享读取 pipeline，`previous` 为五元组 `(saolei, strict_ng, pb, pb_derived, top)`；`news/tests.py` 两处直接构造该元组，需同步补一个空字典；`speedranking/services.py` 中所有 top 快照下标为 `previous[4]`。
+9. **`previous` 元组形状变化影响既有测试**：为把旧衍生成绩放进共享读取 pipeline，`previous` 仍为五元组 `(saolei, strict_ng, pb, pb_derived, top)`，第四项为 `{player_id: {ranking: {field: value}}}`；`news/tests.py` 两处直接构造该元组，需同步补一个空字典；`speedranking/services.py` 中所有 top 快照下标为 `previous[4]`。`PBDerivedCache.read_records()` 返回命令宽度供 `_read_records` 切分，不再假设固定条数。
 10. **`HMGET` 不接受空 field 列表**：整榜空分页时 `get_range` 只在用户区间非空时发起第二个 pipeline，空页返回空 `records` 映射，不回源、不重建。
 11. **不设版本机制**：分段配置由前后端分别硬编码到代码中，Redis 不保存配置摘要，读接口也不返回 `meta` 或版本字段。分段或频率表变更没有运行时信号提示缓存已过期，必须按 §11 同步两份配置并整榜重建；不要为检测漂移重新引入 version key 或响应元数据。
 12. **「分段元数据在首次响应前不可用」已由静态边界消除**：原 §7 规定边界只由后端 `meta` 提供、前端不复制，于是页面挂载时 `meta` 为 `null`：分段列为空、URL 排序键无法在解析期校验（直接发给 `/rank` 会因 `validate_field` 返回 422）、网格侧列跨度也无法计算；当时的处理是首次请求强制用默认排序取 `meta`，再由 `effectiveSort` 恢复 URL 排序键，代价是分享链接进入会多发一次请求，个人页还要用空分段占位。现在该约束已推翻：前端保存第二份静态边界 `derivedSegments`，后端不再返回 `meta`，首屏即可生成列、校验排序键与计算跨度，首次请求直接使用 URL 排序键；`effectiveSort` 只保留「排序键不属于当前子页」的兜底。维护代价从「等待响应」变为「双份配置同步」：后端 `SEGMENTS` 决定成绩，前端副本决定列、排序键与侧列，任何分段调整必须同时改两处并整榜重建（§11）；没有版本摘要，前端漂移不会被自动发现，`pbDerivedService.test.ts` 只校验前端自身连续性。旧 URL 中的过期 `sN` 由解析期 `queryChoice` 回退到默认排序。
@@ -255,6 +257,6 @@ npm run vitest -- run
 npx cypress run --component --browser chrome --headless --spec "src/views/RankingView/CollectionRanking.cy.ts,src/views/RankingView/SkillTTRanking.cy.ts,src/views/RankingView/SpeedRanking.cy.ts,src/views/UserView/UserPBView.cy.ts,src/views/UserView/PBRecordGrid.cy.ts"
 ```
 
-覆盖点：后端 `pb_derived/tests.py` 覆盖 23 段无缺口/重叠与正权重、全范围归一化、零权重与零用时、零战力缺省 TT 与合计、NF 隔离、选优单调性、变更覆盖、类别清空、同分 member 顺序、用户删除、响应不含 `meta` 与整榜重建；`pbDerivedService.test.ts` 覆盖格式化、排序键与默认排序，以及静态分段边界的连续、`sN` 编号与末端 BV；Cypress 覆盖请求参数、首次请求即按分享链接排序、排序、NF、分页、分段列与跨行跨度、长区间不新增行、一次请求与本地切换、级别标题数值与排名。`StackBar/App.cy.ts` 仍覆盖原有 tooltip 文本，衍生榜不重复测试组件内部实现。分段边界的**前后端一致性没有自动断言**，改分段时按 §11 人工核对并整榜重建。
+覆盖点：后端 `pb_derived/tests.py` 覆盖 23 段无缺口/重叠与正权重、全范围归一化、零权重与零用时、零战力缺省 TT 与合计、NF 隔离、选优单调性、缓存缺失回退、多步直接差量序列与全量重算一致、用时不变不改动成绩、类别退出、同分 member 顺序、用户删除、响应不含 `meta`、管理员单项修复与整榜重建；`pbDerivedService.test.ts` 覆盖格式化、排序键与默认排序，以及静态分段边界的连续、`sN` 编号与末端 BV；Cypress 覆盖请求参数、首次请求即按分享链接排序、排序、NF、分页、分段列与跨行跨度、长区间不新增行、一次请求与本地切换、级别标题数值与排名。`StackBar/App.cy.ts` 仍覆盖原有 tooltip 文本，衍生榜不重复测试组件内部实现。分段边界的**前后端一致性没有自动断言**，改分段时按 §11 人工核对并整榜重建。
 
 后端全量 `python manage.py test` 中 `accountlink` 存在与本模块无关的超时/连接关闭时序断言，判断衍生榜回归应使用上面限定的范围，不把全量结果当作本模块的通过依据。上线后的性能实测、浏览器与深浅主题验收不能由静态检查替代。

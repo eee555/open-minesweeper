@@ -247,7 +247,7 @@ python manage.py rebuild_pb_ranks
 python manage.py rebuild_pb_derived_ranks
 ```
 
-用于 BV 频率表、分段边界或概率变更后整榜刷新，也可修复衍生缓存丢失或不一致。分段边界变更还需同步前端 `services/pbDerivedService.ts` 的静态副本 `derivedSegments`；前后端配置都硬编码到代码中，不设置 version，也没有配置摘要能提示后端变更或前端漂移。命令先清空 `speedranking:pb_derived:*`，再按批写入；第一版不引入双写切换，执行前须暂停录像上传、审核、绑定/解绑、删除、比赛公开等 PB 写入及相关读取。失败会记录异常并中断，可能留下部分缓存，排除错误后必须重跑。执行顺序必须是「先 PB、后衍生」：`rebuild_pb_derived_ranks` 不会补建缺失的 PB 原榜。单独修复某个用户可在管理员页面使用“排行纪录重建”的 `PB 衍生榜` 选项，对应 `POST /api/speedranking/pb_derived/admin/rebuild_player`。
+用于 BV 频率表、分段边界或概率变更后整榜刷新，也可修复衍生缓存丢失或不一致。分段边界变更还需同步前端 `services/pbDerivedService.ts` 的静态副本 `derivedSegments`；前后端配置都硬编码到代码中，不设置 version，也没有配置摘要能提示后端变更或前端漂移。命令先清空 `speedranking:pb_derived:*`，再按批写入；第一版不引入双写切换，执行前须暂停录像上传、审核、绑定/解绑、删除、比赛公开等 PB 写入及相关读取。失败会记录异常并中断，可能留下部分缓存，排除错误后必须重跑。执行顺序必须是「先 PB、后衍生」：`rebuild_pb_derived_ranks` 不会补建缺失的 PB 原榜。日常更新直接在成绩值上差量累加；成绩 hash 缺失或类别不一致时该次变更回退全量重算，但没有 PB 变更的用户不会自愈。分段或频率表变更后成绩按旧口径计算，缓存丢失与配置变更都须整榜重建或单项修复。单独修复某个用户可在管理员页面使用“排行纪录重建”的 `PB 衍生榜` 选项，对应 `POST /api/speedranking/pb_derived/admin/rebuild_player`。
 
 ### `rebuild_top_ranks`
 

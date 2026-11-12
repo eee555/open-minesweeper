@@ -138,7 +138,7 @@ PB 只读接口不自动回源，初始化和修复用法见 [PB 重建命令](.
 
 PB 另使用 `speedranking:pb:counts` hash 汇总各小榜人数，可通过 `GET /api/speedranking/pb/counts` 一次读取，随 rank 刷新同步更新；前端用于筛选网格的人数显示。已有缓存通过 PB 重建命令补齐。具体 field 及空榜约定见 app README。
 
-PB 衍生榜由 `speedranking.pb_derived.cache.PBDerivedCache` 管理：三个 `speedranking:pb_derived:{collection|skill|typical_time}:records` hash 保存用户全部衍生成绩，132 个 `speedranking:pb_derived:{ranking}:{field}` zset 各自保存一个用户排序索引；前后端分段配置分别硬编码，不设置 version，Redis 也没有版本 key。它与 PB 原榜共用同一次 `sync_video` / `_update_videos` 的共享读写 pipeline：从完整 PB 快照重算受影响用户，只写入发生变化的 hash 与 zset；录像 id 或上传时间变化但 BV、用时不变时不刷新索引。刷新 PB rank、新闻快照与 top 锚点不递归触发衍生重算。只读 API 不扫描数据库、不自动重建；分段或频率表变更后必须执行 `rebuild_pb_derived_ranks` 整榜重建，缓存未命中只由管理员单项修复或整榜重建补齐。数学口径与键名见 `back_end/saolei/speedranking/pb_derived/README.md`。
+PB 衍生榜由 `speedranking.pb_derived.cache.PBDerivedCache` 管理：三个 `speedranking:pb_derived:{collection|skill|typical_time}:records` hash 保存用户全部衍生成绩，132 个 `speedranking:pb_derived:{ranking}:{field}` zset 各自保存一个用户排序索引；前后端分段配置分别硬编码，不设置 version，Redis 也没有版本 key。它与 PB 原榜共用同一次 `sync_video` / `_update_videos` 的共享读写 pipeline：日常变更以旧成绩为基准，直接加减变化 PB 桶的贡献——收集三列与分段/级别战力按 `ΔW = p_l[v] * ΔBvs` 线性累加，分段典型时由分段战力反推 `W_I` 重算后把变化量累加到合计——只写入发生变化的成绩 hash 与 zset，不额外维护中间量、不重算全部 132 项；反复加减的 double 累计误差按约定忽略。录像 id 或上传时间变化但 BV、用时不变时不刷新索引；成绩 hash 缺失或类别不一致时该次变更回退全量重算，但没有 PB 变更的用户不会自愈。刷新 PB rank、新闻快照与 top 锚点不递归触发衍生重算。只读 API 不扫描数据库、不自动重建；分段或频率表变更后成绩按旧口径计算，必须执行 `rebuild_pb_derived_ranks` 整榜重建，缓存未命中只由管理员单项修复或整榜重建补齐。数学口径与键名见 `back_end/saolei/speedranking/pb_derived/README.md`。
 
 管理员页面的“排行纪录重建” tab 可按大榜、小榜和用户 ID 修复单项缓存，对应接口为 `POST /api/speedranking/admin/rebuild_record`；具体更新范围和并发约定见上述 README。
 

@@ -97,6 +97,57 @@ def bvs(bv: int, timems: int) -> float:
     return 1000 * bv / timems if timems > 0 else 0.0
 
 
+def _segment_index(level: str, bv: int):
+    for index, (start, end) in enumerate(SEGMENTS[level]):
+        if start <= bv <= end:
+            return index
+    return None
+
+
+def apply_record_delta(values, nf: bool, level: str, bv: int, old_timems, new_timems):
+    """把一个 PB 桶的变化直接加减到三大榜成绩上；values 原地修改。
+
+    values 为 {ranking: {field: value}}，调用前须已包含该类别全部字段。
+    收集与战力按 ΔW = p[bv] * ΔBvs 线性累加；分段典型时是非线性的，
+    由分段战力反推 W_I = skill_I * Q_I 后重算 tt_I，再把 Δtt_I 累加到合计。
+    """
+    if old_timems is not None and new_timems is not None and old_timems == new_timems:
+        return
+    mode = 'nf' if nf else 'std'
+    probabilities = PROBABILITIES[level]
+    weight = probabilities[bv] if 1 <= bv < len(probabilities) and probabilities[bv] > 0 else 0.0
+    old_present = old_timems is not None
+    new_present = new_timems is not None
+    old_value = bvs(bv, old_timems) if old_present else 0.0
+    new_value = bvs(bv, new_timems) if new_present else 0.0
+    delta_bvs = new_value - old_value
+    delta_w = weight * delta_bvs
+    delta_count = int(new_present) - int(old_present)
+
+    collection = values['collection']
+    for prefix in (f'{mode}:{level}', f'{mode}:sum'):
+        collection[f'{prefix}:count'] += delta_count
+        collection[f'{prefix}:probability'] = max(0.0, collection[f'{prefix}:probability'] + weight * delta_count)
+        collection[f'{prefix}:asb'] = max(0.0, collection[f'{prefix}:asb'] + delta_bvs)
+
+    skill = values['skill']
+    typical_time = values['typical_time']
+    delta_skill_level = delta_w / LEVEL_WEIGHTS[level]
+    skill[f'{mode}:{level}:total'] = max(0.0, skill[f'{mode}:{level}:total'] + delta_skill_level)
+    skill[f'{mode}:sum:total'] = max(0.0, skill[f'{mode}:sum:total'] + delta_skill_level)
+    index = _segment_index(level, bv) if weight else None
+    if index is not None and delta_w:
+        field = segment_field(mode, level, index)
+        q = SEGMENT_WEIGHTS[level][index]
+        new_w = max(0.0, skill[field] * q + delta_w)
+        skill[field] = new_w / q
+        new_tt = SEGMENT_MEAN_PARTS[level][index] / new_w if new_w > 0 else ZERO_TT
+        delta_tt = new_tt - typical_time[field]
+        typical_time[field] = new_tt
+        typical_time[f'{mode}:{level}:total'] += delta_tt
+        typical_time[f'{mode}:sum:total'] += delta_tt
+
+
 def compute(pb_values: dict, modes=None):
     """按完整 PB 映射一次算出三个大榜的全部成绩。
 

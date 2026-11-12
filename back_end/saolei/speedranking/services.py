@@ -13,7 +13,6 @@ from .pb import services as pb
 from .pb.cache import PBRankingCache
 from .pb_derived import services as pb_derived
 from .pb_derived.cache import PBDerivedCache
-from .pb_derived.utils import RANKINGS as DERIVED_RANKINGS
 from .saolei import services as saolei
 from .saolei.utils import RANKING_NAMES as SAOLEI_RANKING_NAMES
 from .strict_ng import services as strict_ng
@@ -25,22 +24,23 @@ from .utils import log_update_errors
 
 def _read_records(players):
     players = list(players)
+    derived = PBDerivedCache()
     with pipeline() as pipe:
         saolei.read_records(pipe, players)
         strict_ng.read_records(pipe, players)
         PBRankingCache().read_records(pipe, players)
-        PBDerivedCache().read_records(pipe, players)
+        derived_width = derived.read_records(pipe, players)
         TopRankingCache().read_records(pipe, players)
         results = pipe.execute()
     split = len(SAOLEI_RANKING_NAMES)
     strict_split = split + len(STRICT_NG_RANKING_NAMES)
     pb_split = strict_split + len(players)
-    derived_split = pb_split + len(DERIVED_RANKINGS)
+    derived_split = pb_split + derived_width
     return (
         saolei.unpack_records(results[:split], players),
         strict_ng.unpack_records(results[split:strict_split], players),
         PBRankingCache().unpack_records(results[strict_split:pb_split], players),
-        PBDerivedCache().unpack_records(results[pb_split:derived_split], players),
+        derived.unpack_records(results[pb_split:derived_split], players),
         TopRankingCache.unpack_records(results[-1], players),
     )
 
@@ -123,7 +123,7 @@ def _write_records(previous, saolei_records, strict_ng_records, pb_changes, top_
     ranking = PBRankingCache()
     derived = PBDerivedCache()
     top_ranking = TopRankingCache()
-    derived_changes = pb_derived.prepare_changes(old_pb, pb_changes) if pb_changes else {}
+    derived_changes = pb_derived.prepare_changes(old_pb, pb_changes, old_derived) if pb_changes else {}
     previous_ranks = ranking.read_previous_ranks(old_pb, pb_changes) if pb_changes else {}
     lsf_before = top_ranking.lsf_snapshot(news_targets) if news_targets else {}
     with pipeline() as pipe:
