@@ -6,7 +6,6 @@ from django.core.management import call_command
 from django.tasks import TaskResultStatus
 from django.utils import timezone
 from django_redis import get_redis_connection
-from django_tasks_db.models import DBTaskResult
 from ninja import Field, NinjaAPI, Schema
 from ninja.errors import HttpError
 
@@ -16,14 +15,13 @@ from config.text_choices import Tournament_TextChoices
 from config.tournaments import TournamentWeights
 from identifier.models import Identifier
 from identifier.services import bind_identifier, set_safe, unbind_identifier
-from identifier.tasks import task_sync_identifier_videos
 from tournament.models import GSCTournament, WeeklyTournament
 from tournament.weekly.tasks import _task_weekly_finish_impl
 from userprofile.models import UserProfile
 from utils.schema import IdIn
 from videomanager.models import ExpandVideoModel, VideoModel
 from .decorators import local_only
-from .services import register_users
+from .services import register_users, run_identifier_sync_tasks
 from .tasks import task_echo
 
 api = NinjaAPI()
