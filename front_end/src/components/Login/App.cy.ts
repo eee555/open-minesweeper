@@ -115,7 +115,8 @@ describe('login and register page routes', () => {
     it('returns to the home route when the page dialog is closed', () => {
         const router = mountLogin('/login', null);
         cy.get('.el-dialog').should('be.visible');
-        cy.get('.el-dialog__headerbtn').click();
+        // 其它用例遗留的 ElNotification 浮层会盖住关闭按钮，这里只验证关闭后的路由回跳。
+        cy.get('.el-dialog__headerbtn').click({ force: true });
         cy.wrap(router).its('currentRoute.value.path').should('eq', '/');
         cy.shouldBeAbsentOrHidden('.el-dialog');
     });
