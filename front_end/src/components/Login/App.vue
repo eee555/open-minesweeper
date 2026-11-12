@@ -75,10 +75,10 @@ function syncRouteDialog() {
 }
 
 watch(() => route.path, syncRouteDialog);
+
 watch(dialogVisible, (visible) => {
-    if (visible) return;
+    if (visible || !routeOpenedDialog) return;
     routeOpenedDialog = false;
-    if (routeDialog() === null) return;
     // alias 与原路由是同一条记录，不加 force 会被判为重复导航，地址仍停在 /login。
     void router.replace({ path: '/', force: true });
 });

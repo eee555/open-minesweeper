@@ -115,10 +115,13 @@ describe('login and register page routes', () => {
     it('returns to the home route when the page dialog is closed', () => {
         const router = mountLogin('/login', null);
         cy.get('.el-dialog').should('be.visible');
-        // 其它用例遗留的 ElNotification 浮层会盖住关闭按钮，这里只验证关闭后的路由回跳。
-        cy.get('.el-dialog__headerbtn').click({ force: true });
-        cy.wrap(router).its('currentRoute.value.path').should('eq', '/');
+        // Element Plus 到关闭动画结束才回写 v-model，组件测试里动画不会结束；直接关闭弹窗验证回跳。
+        cy.get('@vue').then((wrapper) => {
+            const state = (wrapper as { vm: { $: { setupState: { dialogVisible: boolean } } } }).vm.$.setupState;
+            state.dialogVisible = false;
+        });
         cy.shouldBeAbsentOrHidden('.el-dialog');
+        cy.wrap(router).its('currentRoute.value.path').should('eq', '/');
     });
 
     it('closes a route-opened dialog when navigating away from the login route', () => {

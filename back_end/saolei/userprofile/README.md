@@ -160,7 +160,7 @@ E2E 使用隔离的测试数据库及 Redis，启用 `E2E_TEST=True` 并完成�
 
 **2026-11-12 代码审查修复（P2 × 3）**：① `alias` 下 `router.replace('/')` 被判为重复导航，关闭弹窗、登录成功、已登录重定向时地址仍停在 `/login`、`/register`；已核对本地 Vue Router 的 `RouteLocationOptions.force`（「位置相同也触发导航」），三处统一改为 `router.replace({ path: '/', force: true })`，并用本地脚本实测 `plain replace: /login` → `force replace: /`。② QQ 菜单入口按钮补 `@keydown.stop`，与 `NavigationControl` 一致，避免键盘事件冒泡到 ElMenu 后被转成点击外层菜单项（该项无 `action`），导致 Enter / 空格无法触发占位提示。③ `syncRouteDialog` 增加 `routeOpenedDialog` 标志：浏览器后退或导航离开这两个路由时，只关闭「由路由打开」的弹窗，用户点导航栏打开的弹窗不受影响。三项均补了组件测试回归。
 
-**CI 修复（2026-11-12）**：固定文案「QQ登录」会让 E2E 的 `cy.contains('登录')` 优先命中 QQ 入口（它在「登录」菜单项左边），`account.cy.ts` 中 4 处打开登录弹窗的点击改为 `[data-cy=app-header] [data-navigation-id=login] .navigation-control` 精确定位，弹窗内的登录提交按钮改用 `^\s*登录\s*$` 精确正则；`Login/App.cy.ts` 关闭弹窗的点击改为 `click({ force: true })`，绕开其它用例遗留的 `ElNotification` 浮层遮挡。以后再新增含「登录」字样的入口，需同步检查 `contains('登录')` 一类的模糊断言。
+**CI 修复（2026-11-12）**：固定文案「QQ登录」会让 E2E 的 `cy.contains('登录')` 优先命中 QQ 入口（它在「登录」菜单项左边），`account.cy.ts` 中 4 处打开登录弹窗的点击改为 `[data-cy=app-header] [data-navigation-id=login] .navigation-control` 精确定位，弹窗内的登录提交按钮改用 `^\s*登录\s*$` 精确正则；`Login/App.cy.ts` 不再用 UI 点击关闭弹窗：Element Plus 的 `useDialog` 要到关闭动画结束（`afterLeave`）才 emit `update:modelValue`，而 Cypress 组件测试禁用过渡，动画不会结束，`dialogVisible` 始终为 `true`，回跳的 watch 便不会触发；通知浮层还会盖住关闭按钮，`click({ force: true })` 只会把事件送到浮层，同样无效。测试改为直接把 `dialogVisible` 置为 `false` 来验证关闭回跳；产品侧回跳判定改用 `routeOpenedDialog` 标志，不再依赖关闭瞬间的 `route.path`。以后再新增含「登录」字样的入口，需同步检查 `contains('登录')` 一类的模糊断言。
 
 ### 已决策事项与编码授权
 
