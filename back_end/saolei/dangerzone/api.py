@@ -29,17 +29,6 @@ from .tasks import task_echo
 api = NinjaAPI()
 
 
-def run_identifier_sync_tasks():
-    """E2E 不启动 worker，夹具同步推进标识录像任务，让后续请求读到最终状态。"""
-    rows = list(DBTaskResult.objects.filter(
-        task_path=task_sync_identifier_videos.module_path,
-        status=TaskResultStatus.READY,
-    ).order_by('id'))
-    for row in rows:
-        task_sync_identifier_videos.call(*row.args_kwargs['args'])
-        DBTaskResult.objects.filter(pk=row.pk).update(status=TaskResultStatus.SUCCESSFUL, finished_at=timezone.now())
-
-
 class UserIdSchema(Schema):
     id: int
 
