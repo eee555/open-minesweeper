@@ -39,7 +39,6 @@ urlpatterns = [
     path('userprofile/', include('userprofile.urls', namespace='userprofile')),
     path('admin/', admin.site.urls),
     # path('gsc/', include('gsc.urls')),
-    path('common/', include('common.urls')),
     path('article/', include('article.urls')),
     path('identifier/', include('identifier.urls')),
     path('robots.txt', serve_robots_txt),

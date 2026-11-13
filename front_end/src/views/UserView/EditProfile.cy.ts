@@ -161,10 +161,12 @@ describe('EditProfile', () => {
 
         it('Update', () => {
             const user = new UserProfile({
+                id: 42,
                 firstname: 'firstname',
                 lastname: 'lastname',
                 signature: 'signature',
             });
+            expect(user.canSubmitReplays).to.eq(false);
 
             mockUpdateResponse({
                 realname: { type: 'success' },
@@ -187,8 +189,11 @@ describe('EditProfile', () => {
                 expect(formData.lastname).to.be.undefined;
             });
 
+            // The response arrives before IndexedDB invalidation and the local profile update finish.
+            cy.contains('Update successful').should('be.visible');
             cy.then(() => {
                 expect(user.realname).to.equal('realname');
+                expect(user.canSubmitReplays).to.eq(true);
             });
         });
     });

@@ -68,7 +68,7 @@ describe('<Common AutoUploader />', () => {
             },
         });
         setDirectoryPicker(directory);
-        cy.intercept('POST', '/common/uploadvideo/', {
+        cy.intercept('POST', '/api/common/uploadvideo', {
             body: { type: 'success', object: 'videomodel', category: 'upload', data: { id: 901, state: MS_State.Official } },
         }).as('upload');
         cy.mount(TestHost, { global: { plugins: [i18n] } });
@@ -104,7 +104,7 @@ describe('<Common AutoUploader />', () => {
         filter.returns(true);
         const TestHost = defineComponent({ setup: () => () => h(AutoUploader, { participant, filter }) });
         setDirectoryPicker(directory);
-        cy.intercept('POST', '/common/uploadvideo/', { statusCode: 500 }).as('upload');
+        cy.intercept('POST', '/api/common/uploadvideo', { statusCode: 500 }).as('upload');
         cy.mount(TestHost, { global: { plugins: [i18n] } });
         setPollInterval(1);
         cy.contains('button', 'Select folder').click();
@@ -130,7 +130,7 @@ describe('<Common AutoUploader />', () => {
         const participant = new TournamentParticipant({ start_time: new Date('2000-01-01'), end_time: new Date('2099-01-01') });
         addReplay(directory, 'baseline.evf');
         setDirectoryPicker(directory);
-        cy.intercept('POST', '/common/uploadvideo/', { body: { type: 'success', object: 'videomodel', category: 'upload', data: { id: 901, state: MS_State.Official } } }).as('upload');
+        cy.intercept('POST', '/api/common/uploadvideo', { body: { type: 'success', object: 'videomodel', category: 'upload', data: { id: 901, state: MS_State.Official } } }).as('upload');
         cy.mount(UploaderHost, { props: { participant }, global: { plugins: [i18n] } });
         setPollInterval(1);
         cy.contains('button', 'Select folder').click();
@@ -161,7 +161,7 @@ describe('<Common AutoUploader />', () => {
         addReplay(directory, 'first.evf');
         addReplay(directory, 'second.evf');
         setDirectoryPicker(directory);
-        cy.intercept('POST', '/common/uploadvideo/', (req) => {
+        cy.intercept('POST', '/api/common/uploadvideo', (req) => {
             started();
             return gate.then(() => {
                 req.reply({ body: { type: 'success', object: 'videomodel', category: 'upload', data: { id: 901, state: MS_State.Official } } });

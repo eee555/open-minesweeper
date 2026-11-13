@@ -99,7 +99,7 @@ class TestWeekly(TournamentTestCaseBase):
         self.assertEqual(truncated_participant.start_time, now)
         self.assertEqual(truncated_participant.end_time, truncated_tournament.end_time)
 
-    def test_weekly_participant_api_requires_realname(self):
+    def test_weekly_participant_api_requires_identity_access(self):
         tournament = self.create_weekly_tournament()
         self.client.force_login(self.user)
 
@@ -108,8 +108,8 @@ class TestWeekly(TournamentTestCaseBase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {
             'type': 'error',
-            'obj': 'userprofile',
-            'category': 'realname_required',
+            'object': 'userprofile',
+            'category': 'identity_access_required',
         })
         self.assertFalse(WeeklyParticipant.objects.filter(tournament=tournament, user=self.user).exists())
 

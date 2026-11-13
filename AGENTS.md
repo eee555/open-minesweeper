@@ -302,11 +302,6 @@ E2E测试速度较慢，请尽量减少初始化与UI操作次数。测试专注
 
 当 AI 运行在 CodeBuddy 环境下时，均按照本节约定执行。CodeBuddy 不是 Codex，通用代码规范仍遵守本文件；「Codex 专用工作流」不适用于本环境，包括 Codex 的分支与远端操作分工、Cypress 沙箱限制和 lintfix/typecheck 跨轮检查安排。E2E 测试（`--e2e` 与 `cypress/e2e` 下的 spec）以及预览/开发服务器仍需用户明确要求，不由助手主动运行。
 
-- Cypress **组件测试可由助手直接运行**，不必等用户代为执行，也不使用 `exec_command` 的沙箱升级机制。习惯用法：
+可以运行静态检查，包括flake8、vue-tsc、eslint。未经用户明确要求，不要执行其他测试，而是由用户提交PR以后，转发GitHub Action的运行结果。收到GitHub Action的报错结果后，如果必须进行本地测试以深度调查，需要征求用户同意。
 
-  ```powershell
-  npx cypress run --component --browser chrome --headless --spec "src/views/HomeView/HomeView.cy.ts"
-  ```
-
-- Vite 冷启动若要清空 `node_modules/.vite/deps`，IDE 的 safe-delete 守卫会因文件数超过阈值而拦截。把该目录**改名保留**（`Rename-Item`，不删除）即可让 Vite 重建缓存；不要绕过守卫，也不要为组件测试申请沙箱外运行审批。
-- 依赖重建会出现 `optimized dependencies changed. reloading`，首次运行可能让 `cy.then(() => import(...))` 在 4s 内超时；缓存稳定后重跑一次即可，不要为此改测试代码或放宽超时。
+面对审核意见时，需先评估该意见是否正确合理。可以拒绝修改并提供理由。

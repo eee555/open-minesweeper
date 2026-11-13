@@ -1,5 +1,5 @@
 <template>
-    <PublicTournament :tournament="tournament" :participants="participants" :index="index" :loading="loading" :refresh-participants="refresh" :auto-uploader-enabled="!store.isUserAnonymous" :auto-uploader-filter="matchesFilter">
+    <PublicTournament :tournament="tournament" :participants="participants" :index="index" :loading="loading" :refresh-participants="refresh" :auto-uploader-enabled="store.canSubmitReplays" :auto-uploader-filter="matchesFilter">
         <template #description>
             <Description />
         </template>

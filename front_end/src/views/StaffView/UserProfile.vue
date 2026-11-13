@@ -8,6 +8,16 @@
     </div>
 
     <template v-if="profile">
+        <div>
+            {{ t('local.verifiedState') }}{{ t('punct.colon') }}{{ profile.verified === true ? t('local.verified') : t('local.unverified') }}
+            <BaseButton :loading="verifying" data-cy="staff-set-verified-true" @click="submitVerified(true)">
+                {{ t('local.setVerified') }}
+            </BaseButton>
+            <BaseButton type="danger" :loading="verifying" data-cy="staff-set-verified-false" @click="submitVerified(false)">
+                {{ t('local.unsetVerified') }}
+            </BaseButton>
+            <span v-if="verificationText" role="status" data-cy="staff-verification-result">{{ verificationText }}</span>
+        </div>
         <VCodeBlock :code="JSON.stringify(profile, null, 2)" lang="json" />
         {{ t('local.userProfile') }}
         <ElInput v-model="userProfileRequestBody" type="textarea" :autosize="{ minRows: 8 }" data-cy="staff-profile-json" />
@@ -23,13 +33,15 @@
 </template>
 
 <script setup lang="ts">
+import { isAxiosError } from 'axios';
 import { ElInput, ElInputNumber } from 'element-plus';
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import VCodeBlock from '@/components/common/BaseCodeBlock.vue';
-import { actionSuccessNotification, baseErrorNotification, httpErrorNotification } from '@/components/Notifications';
+import { actionSuccessNotification, baseErrorNotification, generalErrorNotification, httpErrorNotification } from '@/components/Notifications';
+import { setVerified } from '@/services/playerVerificationService';
 import useCurrentInstance from '@/utils/common/useCurrentInstance';
 import { HIDDEN_NAME } from '@/utils/userprofile';
 
@@ -39,6 +51,8 @@ const userId = ref(1);
 const loading = ref(false);
 const savingUserProfile = ref(false);
 const savingUserMS = ref(false);
+const verifying = ref(false);
+const verificationText = ref('');
 const profile = ref<Record<string, unknown> | null>(null);
 const loadedUserId = ref<number | null>(null);
 const userProfileRequestBody = ref('{}');
@@ -97,6 +111,27 @@ async function saveUserProfile() {
     savingUserProfile.value = false;
 }
 
+async function submitVerified(value: boolean) {
+    if (loadedUserId.value === null) return;
+    const id = loadedUserId.value;
+    verifying.value = true;
+    verificationText.value = '';
+    try {
+        await setVerified(id, value);
+        verificationText.value = t('local.verificationDone');
+        actionSuccessNotification();
+        await reloadUser(id);
+    } catch (error) {
+        verificationText.value = t('local.verificationFailed');
+        if (isAxiosError<{ object?: string; category?: string }>(error) && error.response?.data?.object === 'verification') {
+            generalErrorNotification('verification', error.response.data.category ?? 'not_found');
+        } else {
+            httpErrorNotification(error);
+        }
+    }
+    verifying.value = false;
+}
+
 async function saveUserMS() {
     if (!profile.value || loadedUserId.value === null) return;
 
@@ -130,6 +165,13 @@ const i18nMessages = {
         userMSError: 'UserMS错误',
         missingUserMS: '当前用户没有可用的 userms_id',
         revokePrivacy: '撤销隐藏实名资格后，将关闭隐藏，实名会在缓存正常更新后恢复公开。是否继续？',
+        verifiedState: '玩家认证状态',
+        verified: '已认证',
+        unverified: '未认证',
+        setVerified: '设为已认证',
+        unsetVerified: '设为未认证',
+        verificationDone: '已更新该用户的认证状态。',
+        verificationFailed: '认证状态更新失败。',
     } },
     en: { local: {
         userProfile: 'User profile (UserProfile)',
@@ -141,6 +183,13 @@ const i18nMessages = {
         userMSError: 'UserMS error',
         missingUserMS: 'This user has no available userms_id',
         revokePrivacy: 'Revoking eligibility also turns off hiding. Names become public after normal cache updates. Continue?',
+        verifiedState: 'Player verification',
+        verified: 'Verified',
+        unverified: 'Not verified',
+        setVerified: 'Set verified',
+        unsetVerified: 'Set unverified',
+        verificationDone: 'The verification state was updated.',
+        verificationFailed: 'The verification state could not be updated.',
     } },
 };
 

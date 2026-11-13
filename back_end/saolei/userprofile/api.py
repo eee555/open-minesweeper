@@ -31,8 +31,11 @@ from .models import UserProfile
 from .schema import PUBLIC_NAME_FIELDS, RawUserNames, SelfUserInfoOut, UserDirectoryPageOut, UserDirectoryQuery, UserInfoOut
 from .services import clear_profile_info, has_sub200_expert_video, refresh_avatar_chance, register_user, try_update_user_signature, update_admin_profile, update_user_names, user_metadata
 from .utils import NAME_FIELDS
+from .verification.api import admin_router as verification_admin_router, router as verification_router
 
 router = Router()
+router.add_router('/verification', verification_router)
+router.add_router('/admin/verification', verification_admin_router)
 logger = logging.getLogger('userprofile')
 AVATAR_ACCEL_REDIRECT_PREFIX = '/internal-media/'
 
@@ -154,7 +157,7 @@ AdminUserProfileOut = create_schema(
     fields=[
         'id', 'username', 'email',
         'signature', 'country',
-        'is_banned', 'is_staff', 'is_memorial',
+        'is_banned', 'is_staff', 'is_memorial', 'verified',
         'left_realname_n', 'left_avatar_n', 'left_signature_n',
         'last_change_avatar', 'last_change_signature',
         'date_updated', 'can_hide_realname', 'hide_realname',

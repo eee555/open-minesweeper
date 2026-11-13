@@ -59,7 +59,7 @@ class TopLockTests(SimpleTestCase):
         process, entered, release = self.start_holder(True)
         self.assertTrue(entered.wait(5))
         middleware = TopRankingWriteMiddleware(lambda request: HttpResponse('allowed'))
-        request = RequestFactory().post('/common/uploadvideo/')
+        request = RequestFactory().post('/api/common/uploadvideo')
         with self.assertLogs('speedranking', level='WARNING'):
             response = middleware(request)
         self.assertEqual(response.status_code, 503)
