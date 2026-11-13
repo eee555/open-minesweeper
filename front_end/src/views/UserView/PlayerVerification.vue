@@ -64,7 +64,7 @@ function showError(error: unknown): void {
 }
 
 async function load(): Promise<void> {
-    const userId = props.userId;
+    const { userId } = props;
     const revision = store.sessionRevision;
     const current = await fetchVerificationStatus();
     // 刷新期间若已切换到其他账号，不把旧账号的状态写回这个页面。

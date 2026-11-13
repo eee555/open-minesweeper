@@ -189,6 +189,8 @@ describe('EditProfile', () => {
                 expect(formData.lastname).to.be.undefined;
             });
 
+            // The response arrives before IndexedDB invalidation and the local profile update finish.
+            cy.contains('Update successful').should('be.visible');
             cy.then(() => {
                 expect(user.realname).to.equal('realname');
                 expect(user.canSubmitReplays).to.eq(true);
