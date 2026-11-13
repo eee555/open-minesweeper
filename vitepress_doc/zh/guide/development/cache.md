@@ -45,7 +45,7 @@ GitHub 使用默认 Django cache（当前 Redis DB 1），所有键 TTL 为 600 
 
 用户数据库页 `/database/users` 通过 `GET /api/userprofile/query` 直接读库，不使用用户资料 IndexedDB 缓存：录像统计变化不会更新 `UserProfile.date_updated`。查询集中在 `common.services`，每个非空页执行计数、用户及统计、当前页已验证关联 ID 三次查询。`AccountLinkQueue(platform, identifier)` 联合索引用于平台 ID 精确查询，用户外键索引用于分页后的批量读取。接口用法见仓库 `back_end/saolei/userprofile/README.md`。
 
-玩家认证改为有向边表 `UserVerifyEdge`：`(from_user, to_user)` 唯一约束防止同向重复边，两个外键索引分别支持查入边与出边，允许多入边、多出边和环。图结构与节点状态直接读库，不缓存到 Redis；三类写入（普通主动认证、管理员设置 `verified`、站长完整批次）都在请求内的单个数据库事务完成，公开资料缓存仍按 `infoupdated` 的正常周期失效；本人登录响应中的 `can_submit_replays` 由后端按「实名或玩家认证」即时计算，不缓存。Redis 只保存站长维护会话状态与写入串行锁两个短 TTL key（前缀 `userprofile:verification:`）：会话超时自动恢复服务，提交批次或站长主动结束立即释放，Redis 重启后会话消失、服务按未开启处理；锁带 TTL，进程异常退出后自动释放。规则见仓库 `back_end/saolei/userprofile/PLAYER_VERIFICATION_PLAN.md`。
+玩家认证改为有向边表 `UserVerifyEdge`：`(from_user, to_user)` 唯一约束防止同向重复边，两个外键索引分别支持查入边与出边，允许多入边、多出边和环。图结构与节点状态直接读库，不缓存到 Redis；三类写入（普通主动认证、管理员设置 `verified`、站长完整批次）都在请求内的单个数据库事务完成，公开资料缓存仍按 `infoupdated` 的正常周期失效；本人登录响应中的 `can_submit_replays` 由后端按「实名或玩家认证」即时计算，不缓存。Redis 只保存站长维护会话状态与写入串行锁两个短 TTL key（前缀 `userprofile:verification:`）：会话超时自动恢复服务，提交批次或站长主动结束立即释放，Redis 重启后会话消失、服务按未开启处理；锁带 TTL，进程异常退出后自动释放。读会话状态是无锁的纯读操作，过期或损坏的数据直接视为「未开启」，不在读路径删除 key（否则可能删掉读取之后新建的会话），残留交给 TTL 清理；主动删除只在持有写入锁的结束/提交流程中执行。规则见仓库 `back_end/saolei/userprofile/PLAYER_VERIFICATION_PLAN.md`。
 
 补录逻辑及延迟重算行为保持不变：比赛关联变化不立即调整统计。删除、文件大小及玩家归属变更按该录像当前的比赛标记和关联归类，允许与原先计入的口径存在偏差，统一由 [refresh_video_counts](./management-commands.md#refresh-video-counts) 全量重算修复；不保存历史统计分类字段。迁移后需先运行重算命令补齐历史统计。
 

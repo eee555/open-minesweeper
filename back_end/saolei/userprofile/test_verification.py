@@ -14,6 +14,7 @@ from django_tasks_db.models import DBTaskResult
 from msuser.models import UserMS
 from .models import UserProfile, UserVerifyEdge
 from .utils import has_identity_access
+from .verification.cache import read_maintenance
 from .verification.utils import MAINTENANCE_KEY
 
 TEST_CACHES = {
@@ -233,6 +234,30 @@ class VerificationTests(TestCase):
         self.login(self.superuser)
         self.assertEqual(self.post_json(GRAPH_UPDATE_URL, {}, expected=409)['category'], 'maintenance_required')
 
+    def test_expired_read_never_deletes_a_newer_maintenance_session(self):
+        expired = {
+            'owner_id': self.superuser.pk,
+            'expires_at': (timezone.now() - timedelta(seconds=1)).isoformat(),
+        }
+        fresh = {
+            'owner_id': self.superuser.pk,
+            'expires_at': (timezone.now() + timedelta(minutes=1)).isoformat(),
+        }
+        cache.set(MAINTENANCE_KEY, expired, timeout=60)
+        original_get = cache.get
+
+        def get_after_new_session(key, *args, **kwargs):
+            if key == MAINTENANCE_KEY:
+                # 模拟 GET 读到旧值之后、清理之前，站长已开启新会话。
+                cache.set(MAINTENANCE_KEY, fresh, timeout=60)
+                return expired
+            return original_get(key, *args, **kwargs)
+
+        with patch('userprofile.verification.cache.cache.get', side_effect=get_after_new_session):
+            self.assertIsNone(read_maintenance())
+        self.assertEqual(cache.get(MAINTENANCE_KEY), fresh)
+        self.assertEqual(read_maintenance()['owner_id'], self.superuser.pk)
+
     def test_batch_requires_a_session_and_releases_it_after_success(self):
         self.login(self.superuser)
         self.assertEqual(self.post_json(GRAPH_UPDATE_URL, {}, expected=409)['category'], 'maintenance_required')
@@ -263,14 +288,13 @@ class VerificationTests(TestCase):
             'add_edges': [self.edge(self.alice, self.bob)],
             'set_verified': [{'user_id': self.bob.pk, 'verified': True}],
         }
-        original_filter = UserProfile.objects.filter
+        original_bulk_create = UserVerifyEdge.objects.bulk_create
 
-        def failing_filter(*args, **kwargs):
-            if 'pk' in kwargs:
-                raise RuntimeError('simulated write failure')
-            return original_filter(*args, **kwargs)
+        def failing_bulk_create(objs, *args, **kwargs):
+            original_bulk_create(objs, *args, **kwargs)
+            raise RuntimeError('simulated write failure after edge insert')
 
-        with patch('userprofile.verification.services.UserProfile.objects.filter', side_effect=failing_filter):
+        with patch.object(UserVerifyEdge.objects, 'bulk_create', side_effect=failing_bulk_create):
             with self.assertRaises(RuntimeError):
                 self.client.post(GRAPH_UPDATE_URL, payload, content_type='application/json')
         self.assertFalse(UserVerifyEdge.objects.exists())
@@ -315,6 +339,15 @@ class VerificationTests(TestCase):
         self.assertEqual(UserVerifyEdge.objects.count(), 3)
         self.assertEqual(len(self.get_json(GRAPH_URL)['edges']), 3)
         self.assertEqual(self.get_json(GRAPH_URL)['verified_user_ids'], [self.bob.pk])
+
+    def test_batch_does_not_duplicate_existing_edges(self):
+        UserVerifyEdge.objects.create(from_user=self.alice, to_user=self.bob)
+        self.start_maintenance()
+        result = self.post_json(GRAPH_UPDATE_URL, {
+            'add_edges': [self.edge(self.alice, self.bob), self.edge(self.bob, self.cara)],
+        })
+        self.assertEqual(result, {'added_edges': 1, 'removed_edges': 0, 'updated_nodes': 0})
+        self.assertEqual(UserVerifyEdge.objects.count(), 2)
 
     def test_account_deletion_cascades_edges_without_repairing_other_nodes(self):
         self.set_verified(self.alice, True)

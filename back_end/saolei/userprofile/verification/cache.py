@@ -25,21 +25,23 @@ def graph_write_lock() -> Iterator[None]:
 
 
 def read_maintenance() -> dict | None:
-    """返回当前有效会话；TTL 到期或数据损坏时按「未开启」处理并清除残留。"""
+    """只读返回当前有效会话；过期或数据损坏一律按「未开启」处理。
+
+    绝不在这里删除 key：GET 请求不持有写入锁，无条件 cache.delete() 可能删掉
+    读取之后由站长新建立的会话。键由 cache.set() 的 TTL 自行清理，start_maintenance()
+    会用新值覆盖残留；需要主动删除的 end/release 都在写入锁内执行。
+    """
     state = cache.get(MAINTENANCE_KEY)
     if not isinstance(state, dict):
         return None
     owner_id = state.get('owner_id')
     if not isinstance(owner_id, int):
-        cache.delete(MAINTENANCE_KEY)
         return None
     try:
         expires_at = datetime.fromisoformat(state.get('expires_at'))
     except (TypeError, ValueError):
-        cache.delete(MAINTENANCE_KEY)
         return None
     if expires_at.tzinfo is None or expires_at <= timezone.now():
-        cache.delete(MAINTENANCE_KEY)
         return None
     return {'owner_id': owner_id, 'expires_at': expires_at}
 

@@ -36,6 +36,7 @@ import { useI18n } from 'vue-i18n';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import { generalErrorNotification, httpErrorNotification } from '@/components/Notifications';
+import { applySelfAccess } from '@/services/loginSession';
 import { fetchVerificationStatus, verifyPlayer } from '@/services/playerVerificationService';
 import type { VerificationStatus } from '@/services/playerVerificationService';
 import { store } from '@/store';
@@ -63,10 +64,13 @@ function showError(error: unknown): void {
 }
 
 async function load(): Promise<void> {
+    const revision = store.sessionRevision;
     const current = await fetchVerificationStatus();
     // 刷新期间若已切换到其他账号，不把旧账号的状态写回这个页面。
     if (props.userId > 0 && store.user.id !== props.userId) return;
     status.value = current;
+    // 认证结果同时是登录态里的全站统一准入；原地同步，避免上传/比赛入口要刷新网页才更新。
+    applySelfAccess(props.userId, revision, current);
 }
 
 async function withBusy(action: () => Promise<void>): Promise<void> {

@@ -217,4 +217,14 @@ D5–D10 由项目方在实施前逐轮确认，覆盖第 4、5、6、8、10 节
 - 前端 `PlayerVerification.vue`、`playerVerificationService.ts`、`StaffView/UserProfile.vue` 重写，新增站长图维护页与路由；全局与组件内中英文文案同步；`loginSession.refreshSelfAccess` 原地刷新后端派生准入字段并保留 `store.user` 对象身份（替换整个登录对象会重新加载个人设置页、清掉「修改成功」），同时用 `sessionRevision` 保证刷新不覆盖后来登录的账号。
 - 后端测试 `test_verification.py` 全量重写，`test_admin_csrf.py` 端点清单同步；前端 `PlayerVerification.cy.ts` 与 `UserView/App.cy.ts` fixture 同步，Cypress/E2E 由用户运行。
 
-本地已确认的检查结果见交付说明；生产环境仍需先应用 `0010`、`0011`，停止旧 worker 并确认没有 READY/RUNNING 旧认证任务后再发布新前端。
+### 审核意见修正（2026-11-13）
+
+| 意见 | 评估 | 处理 |
+| --- | --- | --- |
+| P2 新认证结果没有同步到全站准入状态 | 成立：`/verification/status` 返回的 `verified` / `can_submit_replays` 只写入组件局部 `status`，而上传与比赛入口读取 `store.canSubmitReplays` | `load()` 在会话校验后调用 `loginSession.applySelfAccess` 原地同步登录态；`applySelfAccess` 复用 `sessionRevision` 保护，不替换 `store.user` 对象，避免重新加载个人设置页 |
+| P2 同步图批次受 2 秒网关超时限制 | 成立：`default.conf` 的 `^~ /api/` 是 `uwsgi_read_timeout 2`，`uwsgi.ini` 普通请求 `harakiri:10`；逐条 SQL 的批次会让客户端先收到 504 而后端继续提交 | 批次改为批量 SQL：一次读出相关边、`bulk_create(ignore_conflicts=True)`、按主键分块 `delete()`、节点按目标值最多两次 `update()`，所有 IN 列表按 500 分块；`default.conf` 为 `= /api/userprofile/admin/verification/graph-update` 单独设 `uwsgi_read_timeout 12s`，使网关晚于 uWSGI 的 10s 超时，worker 被杀时事务回滚而不是静默提交 |
+| P2 读取过期状态可能删除新维护会话 | 成立：GET 不持有写入锁，`read_maintenance()` 无条件 `cache.delete()` 会删掉读取之后新建的会话 | `read_maintenance()` 改为纯读，过期/损坏数据直接返回「无会话」，交给 Redis TTL 清理并由 `start_maintenance()` 覆盖残留；主动删除只在写入锁内的 `end_maintenance` / `release_maintenance` 执行 |
+
+未采纳的延伸做法：不给完整批次加人为命令数上限（会破坏「一次提交全部需要调整的边和节点」语义）；不把批次加入 `uwsgi.ini` 的 90s 白名单（纯数据库写入不需要外部 I/O 预算，且会超过前端 `$axios` 的 20s 超时）。请求体大小由 Nginx `client_max_body_size` 自然封顶。
+
+本地已确认的检查结果见交付说明；生产环境仍需先应用 `0010`、`0011`，停止旧 worker 并确认没有 READY/RUNNING 旧认证任务后再发布新前端。部署时还需 `nginx -t` 后 reload Nginx，使批次端点的 12s 网关超时生效（仅重启 Django 不更新网关配置）。

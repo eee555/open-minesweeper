@@ -2,7 +2,7 @@ import axios from 'axios';
 import type { AxiosInstance } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { applyLoginSession as applyLoginSessionFunction, refreshSelfAccess as refreshSelfAccessFunction } from './loginSession';
+import type { applyLoginSession as applyLoginSessionFunction, applySelfAccess as applySelfAccessFunction, refreshSelfAccess as refreshSelfAccessFunction } from './loginSession';
 
 import type { UserProfileData } from '@/utils/userprofile';
 
@@ -14,6 +14,7 @@ const { store, moduleLoads, install } = vi.hoisted(() => ({
 vi.mock('@/store', () => ({ store }));
 
 let applyLoginSession: typeof applyLoginSessionFunction;
+let applySelfAccess: typeof applySelfAccessFunction;
 let refreshSelfAccess: typeof refreshSelfAccessFunction;
 let loadGate: Promise<void> | undefined;
 
@@ -55,7 +56,7 @@ describe('lazy administrator session setup', () => {
             if (loadGate) await loadGate;
             return { installAdminCsrfInterceptor: install };
         });
-        ({ applyLoginSession, refreshSelfAccess } = await import('./loginSession'));
+        ({ applyLoginSession, applySelfAccess, refreshSelfAccess } = await import('./loginSession'));
     });
 
     afterEach(() => {
@@ -160,6 +161,25 @@ describe('lazy administrator session setup', () => {
         expect(store.login).not.toHaveBeenCalled();
         expect(await applyLoginSession({ id: 2, is_staff: true }, http)).toBe(true);
         expect(install).toHaveBeenCalledTimes(2);
+    });
+
+    describe('applySelfAccess', () => {
+        it('publishes the backend-derived access fields without replacing the session', () => {
+            store.user.id = 42;
+            const before = store.user;
+            expect(applySelfAccess(42, store.sessionRevision, { verified: true, can_submit_replays: true })).toBe(true);
+            expect(store.user).toBe(before);
+            expect(store.user.verified).toBe(true);
+            expect(store.user.can_submit_replays).toBe(true);
+            expect(store.login).not.toHaveBeenCalled();
+        });
+
+        it('ignores a response from a different account or session', () => {
+            store.user.id = 42;
+            expect(applySelfAccess(99, 0, { verified: true })).toBe(false);
+            expect(applySelfAccess(42, 1, { verified: true })).toBe(false);
+            expect(store.user.verified).toBe(false);
+        });
     });
 
     describe('refreshSelfAccess', () => {

@@ -5,6 +5,7 @@
 """
 
 import logging
+from typing import Iterator
 
 from django.db import transaction
 from django.utils import timezone
@@ -13,13 +14,18 @@ from userprofile.models import UserProfile, UserVerifyEdge
 from userprofile.utils import has_identity_access
 from .cache import (end_maintenance, graph_write_lock, maintenance_is_active, read_maintenance,
                     release_maintenance, require_owned_maintenance, start_maintenance)
-from .utils import MAX_MAINTENANCE_SECONDS, verification_error
+from .utils import GRAPH_BATCH_CHUNK_SIZE, MAX_MAINTENANCE_SECONDS, verification_error
 
 logger = logging.getLogger('userprofile')
 
 
 def _lock_user(user_id: int):
     return UserProfile.objects.select_for_update().filter(pk=user_id).first()
+
+
+def _chunked(values: list, size: int = GRAPH_BATCH_CHUNK_SIZE) -> Iterator[list]:
+    for offset in range(0, len(values), size):
+        yield values[offset:offset + size]
 
 
 def read_verification_status(user: UserProfile) -> dict:
@@ -138,7 +144,9 @@ def _normalize_commands(payload: dict) -> dict:
     referenced = set(nodes)
     for from_id, to_id in [*add_edges, *remove_edges]:
         referenced.update((from_id, to_id))
-    existing = set(UserProfile.objects.filter(pk__in=referenced).values_list('id', flat=True))
+    existing = set()
+    for user_ids in _chunked(sorted(referenced)):
+        existing.update(UserProfile.objects.filter(pk__in=user_ids).values_list('id', flat=True))
     if referenced - existing:
         raise verification_error('not_found', status_code=404)
     return {'add_edges': sorted(add_set), 'remove_edges': sorted(remove_set), 'set_verified': nodes}
@@ -147,27 +155,37 @@ def _normalize_commands(payload: dict) -> dict:
 def submit_graph_update(owner_id: int, payload: dict) -> dict:
     """站长在一个数据库事务中提交完整批次；任一写入失败整体回滚，不留下半生效状态。"""
     commands = _normalize_commands(payload)
+    add_edges, remove_edges, nodes = commands['add_edges'], commands['remove_edges'], commands['set_verified']
     with graph_write_lock():
         require_owned_maintenance(owner_id)
         with transaction.atomic():
-            affected = set(commands['set_verified'])
-            for from_id, to_id in [*commands['add_edges'], *commands['remove_edges']]:
+            affected = set(nodes)
+            for from_id, to_id in [*add_edges, *remove_edges]:
                 affected.update((from_id, to_id))
             # 固定顺序锁定受影响节点，避免不同批次之间形成死锁。
-            list(UserProfile.objects.select_for_update().filter(pk__in=affected).order_by('pk'))
+            for user_ids in _chunked(sorted(affected)):
+                list(UserProfile.objects.select_for_update().filter(pk__in=user_ids).order_by('pk'))
 
-            added = 0
-            for from_id, to_id in commands['add_edges']:
-                _, created = UserVerifyEdge.objects.get_or_create(from_user_id=from_id, to_user_id=to_id)
-                added += int(created)
-            removed = 0
-            for from_id, to_id in commands['remove_edges']:
-                removed += UserVerifyEdge.objects.filter(from_user_id=from_id, to_user_id=to_id).delete()[0]
+            # 一次查出相关边，新增去重与删除都据此决定；SQL 次数只按分块数增长，不按命令数逐条增长。
+            from_ids = sorted({from_id for from_id, _ in [*add_edges, *remove_edges]})
+            existing_edges = []
+            for source_ids in _chunked(from_ids):
+                existing_edges.extend(UserVerifyEdge.objects.filter(from_user_id__in=source_ids).values_list('pk', 'from_user_id', 'to_user_id'))
+            existing_pairs = {(from_id, to_id) for _, from_id, to_id in existing_edges}
+            remove_set = set(remove_edges)
+            remove_pks = [pk for pk, from_id, to_id in existing_edges if (from_id, to_id) in remove_set]
+            to_create = [UserVerifyEdge(from_user_id=from_id, to_user_id=to_id) for from_id, to_id in add_edges if (from_id, to_id) not in existing_pairs]
+
+            UserVerifyEdge.objects.bulk_create(to_create, ignore_conflicts=True, batch_size=GRAPH_BATCH_CHUNK_SIZE)
+            for pks in _chunked(remove_pks):
+                UserVerifyEdge.objects.filter(pk__in=pks).delete()
+
             updated = 0
             now = timezone.now()
-            for user_id, value in commands['set_verified'].items():
-                updated += UserProfile.objects.filter(pk=user_id).exclude(verified=value).update(verified=value, date_updated=now)
+            for value in (True, False):
+                for user_ids in _chunked([user_id for user_id, target in nodes.items() if target == value]):
+                    updated += UserProfile.objects.filter(pk__in=user_ids).exclude(verified=value).update(verified=value, date_updated=now)
         release_maintenance()
-    result = {'added_edges': added, 'removed_edges': removed, 'updated_nodes': updated}
+    result = {'added_edges': len(to_create), 'removed_edges': len(remove_pks), 'updated_nodes': updated}
     logger.info('Verification graph batch by #%s committed: %s', owner_id, result)
     return result
