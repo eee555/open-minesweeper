@@ -7,7 +7,6 @@ from pydantic import model_validator
 
 from msuser.models import UserMS
 from .models import UserProfile
-from .utils import has_identity_access
 
 
 USER_INFO_FIELDS = [
@@ -39,21 +38,14 @@ UserInfoOut = create_schema(
 )
 
 
-class SelfUserInfoOutBase(RawUserNames):
-    @staticmethod
-    def resolve_can_submit_replays(user: UserProfile) -> bool:
-        return has_identity_access(user)
-
-
 SelfUserInfoOut = create_schema(
     UserProfile, name='SelfUserInfoOut', fields=[*USER_INFO_FIELDS, 'can_hide_realname', 'hide_realname', 'is_superuser'],
-    custom_fields=[*PUBLIC_NAME_FIELDS, ('can_submit_replays', bool, False)], base_class=SelfUserInfoOutBase,
+    custom_fields=PUBLIC_NAME_FIELDS, base_class=RawUserNames,
 )
 
 
 class VerificationStatusOut(Schema):
     verified: bool
-    can_submit_replays: bool
     can_verify: bool
     maintenance_active: bool
 

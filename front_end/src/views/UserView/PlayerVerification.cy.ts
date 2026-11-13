@@ -11,7 +11,6 @@ import { pinia } from '@/store/create';
 function verificationStatus(overrides: Partial<VerificationStatus> = {}): VerificationStatus {
     return {
         verified: false,
-        can_submit_replays: false,
         can_verify: false,
         maintenance_active: false,
         ...overrides,
@@ -44,16 +43,16 @@ describe('<PlayerVerification />', () => {
     });
 
     it('syncs a newly granted verification into the site-wide login session', () => {
-        mountVerification(verificationStatus({ verified: true, can_submit_replays: true, can_verify: true }));
+        mountVerification(verificationStatus({ verified: true, can_verify: true }));
         cy.then(() => {
             expect(store.user.verified).to.eq(true);
-            expect(store.user.can_submit_replays).to.eq(true);
+            expect(store.canSubmitReplays).to.eq(true);
         });
         cy.contains('Granted').should('be.visible');
     });
 
     it('lets a verified user verify another user by site ID', () => {
-        mountVerification(verificationStatus({ verified: true, can_submit_replays: true, can_verify: true }));
+        mountVerification(verificationStatus({ verified: true, can_verify: true }));
         cy.get('[data-cy=verification-state]').should('contain.text', 'Verified');
         cy.contains('Granted').should('be.visible');
         cy.get('#verification-target-id').type('9');

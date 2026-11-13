@@ -43,7 +43,6 @@ export interface GetUserInfoResponse {
     is_superuser?: boolean;
     is_memorial?: boolean;
     verified?: boolean;
-    can_submit_replays?: boolean;
     country: string;
     signature: string;
     last_change_avatar: string;

@@ -6,21 +6,11 @@ import type { UserProfileData } from '@/utils/userprofile';
 const csrfReady = new WeakMap<AxiosInstance, Promise<void>>();
 let loginVersion = 0;
 
-export function applySelfAccess(userId: number, revision: number, access: Pick<UserProfileData, 'verified' | 'can_submit_replays'>): boolean {
-    // 只原地更新后端派生的准入字段，保留 store.user 的对象身份；替换整个对象会让个人设置页被重新加载并丢失保存结果。
+export function applySelfVerification(userId: number, revision: number, verified: boolean): boolean {
+    // 原地同步认证，准入由 UserProfile getter 计算；保留对象身份以免个人设置页丢失保存结果。
     if (userId <= 0 || store.user.id !== userId || revision !== store.sessionRevision) return false;
-    store.user.verified = access.verified ?? false;
-    store.user.can_submit_replays = access.can_submit_replays ?? false;
+    store.user.verified = verified;
     return true;
-}
-
-export async function refreshSelfAccess(userId: number, client: AxiosInstance): Promise<boolean> {
-    if (userId <= 0 || store.user.id !== userId) return false;
-    const revision = store.sessionRevision;
-    const { data } = await client.get<{ user: UserProfileData | null }>('/api/common/loginauto', { params: { _t: Date.now() } });
-    // 期间若已切换到其他账号，不能把这个页面的刷新结果写回登录态。
-    if (data.user?.id !== userId) return false;
-    return applySelfAccess(userId, revision, data.user);
 }
 
 export async function applyLoginSession(user: UserProfileData, client: AxiosInstance): Promise<boolean> {

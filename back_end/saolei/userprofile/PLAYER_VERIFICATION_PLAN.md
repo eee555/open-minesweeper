@@ -21,7 +21,7 @@
 现有代码中真正可复用的是通用能力，不是树语义：
 
 - `UserProfile.verified`、`has_identity_access` 和“实名或玩家认证”准入。
-- 登录、自动登录、本人资料中的 `can_submit_replays`，公开认证标识和用户资料缓存。
+- 登录、自动登录和本人资料中的实名、`verified`，前端 `canSubmitReplays` getter、公开认证标识和用户资料缓存。
 - Ninja API、现有权限/CSRF 机制、Django Tasks + django-tasks-db、任务结果查询。
 - 全局协调、事务与幂等的设计思路；现有具体实现需重新审查，不能直接保留“等待 120 秒后放行”等行为。
 - 上传接口迁移及周赛/GSC 的准入接入，无需再次重写。
@@ -125,7 +125,7 @@ D2 已确认：管理员可显式设置目标 UserProfile.verified 为 True 或 
 | VerificationStatusOut 中申请状态和冷却字段 | 删除，返回本人当前认证与准入、本人任务状态等必要数据 |
 | PlayerVerification.vue / playerVerificationService.ts | 重写为目标 ID + 主动认证 + 本人任务结果，移除申请、拒绝、冷却、解除与根节点文案 |
 | StaffView/UserProfile.vue 的旧单用户 grant/revoke | 改为管理员设置当前节点 verified；站长另有完整图批次入口，取消旧单用户自动级联行为 |
-| 公开认证标识、上传/比赛入口、can_submit_replays | 保留，只跟随 UserProfile.verified 和实名变化刷新 |
+| 公开认证标识、上传/比赛入口、前端 canSubmitReplays getter | 保留，由 verified 和实名即时计算准入 |
 | 旧申请/树/冷却/解除测试 | 移除失效用例，用图关系与批次原子性测试替换；保留不同业务的准入、CSRF 与缓存覆盖 |
 
 普通认证建议为 `POST /api/userprofile/verification/verify`，只接收目标 ID；管理员设置属性建议为 `POST /api/userprofile/admin/verification/set-verified`；站长批次建议为 `POST /api/userprofile/admin/verification/graph-update`，路径为草案。任务提交和结果查询沿用既有返回与权限模式，不另建消息系统。
@@ -214,14 +214,16 @@ D5–D10 由项目方在实施前逐轮确认，覆盖第 4、5、6、8、10 节
 - 模型 `UserVerifyEdge` 替换 `UserVerifyTree` / `UserVerifyCoordinator`；`0010` 保留，`0011` 由 `makemigrations` 自动生成（未手写）。按项目方要求**不执行 `migrate`、不改 git 索引、不提交迁移文件**（`**/migrations/*` 仍被 `.gitignore` 忽略，需自行 `git add -f` 提交）。
 - 三类写入都在 `transaction.atomic()` 内完成；站长批次在同一事务中执行全部边与节点命令，失败整体回滚，不自动恢复下游、不计算可达性或撤销闭包。允许环、多入边、反向边，禁止自认证边。
 - 维护会话与写入锁位于 `userprofile/verification/cache.py`；`userprofile/verification/{utils,services,api}.py` 全部重写，旧申请、冷却、拒绝、解除、根节点文案与接口删除。
-- 前端 `PlayerVerification.vue`、`playerVerificationService.ts`、`StaffView/UserProfile.vue` 重写，新增站长图维护页与路由；全局与组件内中英文文案同步；`loginSession.refreshSelfAccess` 原地刷新后端派生准入字段并保留 `store.user` 对象身份（替换整个登录对象会重新加载个人设置页、清掉「修改成功」），同时用 `sessionRevision` 保证刷新不覆盖后来登录的账号。
+- 前端 `PlayerVerification.vue`、`playerVerificationService.ts`、`StaffView/UserProfile.vue` 重写，新增站长图维护页与路由；全局与组件内中英文文案同步；`loginSession.applySelfVerification` 原地同步认证并保留 `store.user` 对象身份（替换整个登录对象会重新加载个人设置页、清掉「修改成功」），同时用 `sessionRevision` 保证刷新不覆盖后来登录的账号。准入由前端 getter 根据实名和认证即时计算，填写实名后无需额外刷新登录接口。
 - 后端测试 `test_verification.py` 全量重写，`test_admin_csrf.py` 端点清单同步；前端 `PlayerVerification.cy.ts` 与 `UserView/App.cy.ts` fixture 同步，Cypress/E2E 由用户运行。
 
 ### 审核意见修正（2026-11-13）
 
+准入字段调整：后端不再返回 `can_submit_replays`，由前端 `UserProfile.canSubmitReplays` 统一根据有效用户 ID、实名和 `verified` 计算；后端上传和比赛接口继续通过 `has_identity_access()` 校验实际准入。
+
 | 意见 | 评估 | 处理 |
 | --- | --- | --- |
-| P2 新认证结果没有同步到全站准入状态 | 成立：`/verification/status` 返回的 `verified` / `can_submit_replays` 只写入组件局部 `status`，而上传与比赛入口读取 `store.canSubmitReplays` | `load()` 在会话校验后调用 `loginSession.applySelfAccess` 原地同步登录态；`applySelfAccess` 复用 `sessionRevision` 保护，不替换 `store.user` 对象，避免重新加载个人设置页 |
+| P2 新认证结果没有同步到全站准入状态 | 成立：认证结果只写入组件局部 `status`，而上传与比赛入口读取登录态 | `load()` 在会话校验后调用 `loginSession.applySelfVerification` 原地同步 verified；复用 `sessionRevision` 保护，不替换 `store.user` 对象，避免重新加载个人设置页；前端 getter 随认证变化即时更新准入 |
 | P2 同步图批次受 2 秒网关超时限制 | 成立：`default.conf` 的 `^~ /api/` 是 `uwsgi_read_timeout 2`，`uwsgi.ini` 普通请求 `harakiri:10`；逐条 SQL 的批次会让客户端先收到 504 而后端继续提交 | 批次改为批量 SQL：一次读出相关边、`bulk_create(ignore_conflicts=True)`、按主键分块 `delete()`、节点按目标值最多两次 `update()`，所有 IN 列表按 500 分块；`default.conf` 为 `= /api/userprofile/admin/verification/graph-update` 单独设 `uwsgi_read_timeout 12s`，使网关晚于 uWSGI 的 10s 超时，worker 被杀时事务回滚而不是静默提交 |
 | P2 读取过期状态可能删除新维护会话 | 成立：GET 不持有写入锁，`read_maintenance()` 无条件 `cache.delete()` 会删掉读取之后新建的会话 | `read_maintenance()` 改为纯读，过期/损坏数据直接返回「无会话」，交给 Redis TTL 清理并由 `start_maintenance()` 覆盖残留；主动删除只在写入锁内的 `end_maintenance` / `release_maintenance` 执行 |
 

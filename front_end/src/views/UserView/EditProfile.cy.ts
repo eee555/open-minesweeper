@@ -161,10 +161,12 @@ describe('EditProfile', () => {
 
         it('Update', () => {
             const user = new UserProfile({
+                id: 42,
                 firstname: 'firstname',
                 lastname: 'lastname',
                 signature: 'signature',
             });
+            expect(user.canSubmitReplays).to.eq(false);
 
             mockUpdateResponse({
                 realname: { type: 'success' },
@@ -189,6 +191,7 @@ describe('EditProfile', () => {
 
             cy.then(() => {
                 expect(user.realname).to.equal('realname');
+                expect(user.canSubmitReplays).to.eq(true);
             });
         });
     });

@@ -57,7 +57,7 @@ def get_verification_status(request):
     - cache_control(no_store=True, private=True)
     - ratelimit(key='user', rate='60/m')
 
-    只返回本人当前认证、统一准入与全站维护状态；不展示认证来源或关系历史。
+    只返回本人当前认证、可认证权限与全站维护状态；不展示认证来源或关系历史。
     """
     return read_verification_status(request.user)
 

@@ -11,7 +11,6 @@ from django.db import transaction
 from django.utils import timezone
 
 from userprofile.models import UserProfile, UserVerifyEdge
-from userprofile.utils import has_identity_access
 from .cache import (end_maintenance, graph_write_lock, maintenance_is_active, read_maintenance,
                     release_maintenance, require_owned_maintenance, start_maintenance)
 from .utils import GRAPH_BATCH_CHUNK_SIZE, MAX_MAINTENANCE_SECONDS, verification_error
@@ -29,10 +28,9 @@ def _chunked(values: list, size: int = GRAPH_BATCH_CHUNK_SIZE) -> Iterator[list]
 
 
 def read_verification_status(user: UserProfile) -> dict:
-    """只读取本人当前认证、准入与全站维护状态，不在 GET 中写库，不展示认证来源。"""
+    """只读取本人当前认证、可认证权限与全站维护状态，不在 GET 中写库，不展示认证来源。"""
     return {
         'verified': user.verified,
-        'can_submit_replays': has_identity_access(user),
         'can_verify': user.verified,
         'maintenance_active': maintenance_is_active(),
     }

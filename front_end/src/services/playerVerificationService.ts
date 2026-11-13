@@ -2,7 +2,6 @@ import $axios from '@/http';
 
 export interface VerificationStatus {
     verified: boolean;
-    can_submit_replays: boolean;
     can_verify: boolean;
     maintenance_active: boolean;
 }

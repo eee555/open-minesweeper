@@ -2,20 +2,19 @@ import axios from 'axios';
 import type { AxiosInstance } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { applyLoginSession as applyLoginSessionFunction, applySelfAccess as applySelfAccessFunction, refreshSelfAccess as refreshSelfAccessFunction } from './loginSession';
+import type { applyLoginSession as applyLoginSessionFunction, applySelfVerification as applySelfVerificationFunction } from './loginSession';
 
 import type { UserProfileData } from '@/utils/userprofile';
 
 const { store, moduleLoads, install } = vi.hoisted(() => ({
-    store: { sessionRevision: 0, user: { id: 0, is_staff: false, is_superuser: false, verified: false, can_submit_replays: false }, login: vi.fn<(user: UserProfileData) => void>() },
+    store: { sessionRevision: 0, user: { id: 0, is_staff: false, is_superuser: false, verified: false }, login: vi.fn<(user: UserProfileData) => void>() },
     moduleLoads: vi.fn(),
     install: vi.fn<(client: AxiosInstance, isAdmin: () => boolean) => number>(),
 }));
 vi.mock('@/store', () => ({ store }));
 
 let applyLoginSession: typeof applyLoginSessionFunction;
-let applySelfAccess: typeof applySelfAccessFunction;
-let refreshSelfAccess: typeof refreshSelfAccessFunction;
+let applySelfVerification: typeof applySelfVerificationFunction;
 let loadGate: Promise<void> | undefined;
 
 function deferred() {
@@ -32,18 +31,14 @@ function client() {
     return axios.create({ adapter: (config) => Promise.resolve({ config, data: config.headers.get('X-CSRFToken') ?? null, status: 200, statusText: 'OK', headers: {} }) });
 }
 
-function loginAutoClient(user: unknown) {
-    return axios.create({ adapter: (config) => Promise.resolve({ config, data: { user }, status: 200, statusText: 'OK', headers: {} }) });
-}
-
 describe('lazy administrator session setup', () => {
     beforeEach(async () => {
         vi.resetModules();
         moduleLoads.mockClear();
         store.sessionRevision = 0;
-        store.user = { id: 0, is_staff: false, is_superuser: false, verified: false, can_submit_replays: false };
+        store.user = { id: 0, is_staff: false, is_superuser: false, verified: false };
         store.login.mockReset().mockImplementation((user) => {
-            store.user = { id: user.id ?? 0, is_staff: user.is_staff ?? false, is_superuser: user.is_superuser ?? false, verified: false, can_submit_replays: false };
+            store.user = { id: user.id ?? 0, is_staff: user.is_staff ?? false, is_superuser: user.is_superuser ?? false, verified: user.verified ?? false };
             store.sessionRevision++;
         });
         install.mockReset().mockImplementation((http, isAdmin) => http.interceptors.request.use((config) => {
@@ -56,7 +51,7 @@ describe('lazy administrator session setup', () => {
             if (loadGate) await loadGate;
             return { installAdminCsrfInterceptor: install };
         });
-        ({ applyLoginSession, applySelfAccess, refreshSelfAccess } = await import('./loginSession'));
+        ({ applyLoginSession, applySelfVerification } = await import('./loginSession'));
     });
 
     afterEach(() => {
@@ -163,65 +158,33 @@ describe('lazy administrator session setup', () => {
         expect(install).toHaveBeenCalledTimes(2);
     });
 
-    describe('applySelfAccess', () => {
-        it('publishes the backend-derived access fields without replacing the session', () => {
+    describe('applySelfVerification', () => {
+        it.each([true, false])('publishes verified=%s without replacing the session', (verified) => {
             store.user.id = 42;
+            store.user.verified = !verified;
             const before = store.user;
-            expect(applySelfAccess(42, store.sessionRevision, { verified: true, can_submit_replays: true })).toBe(true);
+            expect(applySelfVerification(42, store.sessionRevision, verified)).toBe(true);
             expect(store.user).toBe(before);
-            expect(store.user.verified).toBe(true);
-            expect(store.user.can_submit_replays).toBe(true);
+            expect(store.user.verified).toBe(verified);
             expect(store.login).not.toHaveBeenCalled();
         });
 
         it('ignores a response from a different account or session', () => {
             store.user.id = 42;
-            expect(applySelfAccess(99, 0, { verified: true })).toBe(false);
-            expect(applySelfAccess(42, 1, { verified: true })).toBe(false);
+            expect(applySelfVerification(99, 0, true)).toBe(false);
+            expect(applySelfVerification(42, 1, true)).toBe(false);
             expect(store.user.verified).toBe(false);
         });
-    });
 
-    describe('refreshSelfAccess', () => {
-        it('updates the backend-derived access fields without replacing the session object', async () => {
+        it('ignores guests and responses from an earlier login to the same account', () => {
+            expect(applySelfVerification(0, store.sessionRevision, true)).toBe(false);
             store.user.id = 42;
             const before = store.user;
-            expect(await refreshSelfAccess(42, loginAutoClient({ id: 42, verified: true, can_submit_replays: true }))).toBe(true);
-            expect(store.user).toBe(before);
-            expect(store.user.verified).toBe(true);
-            expect(store.user.can_submit_replays).toBe(true);
-            expect(store.login).not.toHaveBeenCalled();
-        });
-
-        it('does not overwrite a later login with a different account', async () => {
-            store.user.id = 42;
-            expect(await refreshSelfAccess(42, loginAutoClient({ id: 99, can_submit_replays: true }))).toBe(false);
-            expect(store.user.can_submit_replays).toBe(false);
-            expect(store.login).not.toHaveBeenCalled();
-        });
-
-        it('skips a stale page whose account has already changed', async () => {
-            store.user.id = 99;
-            expect(await refreshSelfAccess(42, loginAutoClient({ id: 42, can_submit_replays: true }))).toBe(false);
-            expect(store.login).not.toHaveBeenCalled();
-        });
-
-        it('skips guests and logged-out sessions', async () => {
-            expect(await refreshSelfAccess(0, loginAutoClient({ id: 0 }))).toBe(false);
-            expect(await refreshSelfAccess(42, loginAutoClient(null))).toBe(false);
-            expect(store.login).not.toHaveBeenCalled();
-        });
-
-        it('ignores a response when another login happened while the request was pending', async () => {
-            store.user.id = 42;
-            const before = store.user;
-            const http = axios.create({ adapter: (config) => {
-                store.login({ id: 42 });
-                return Promise.resolve({ config, data: { user: { id: 42, verified: true, can_submit_replays: true } }, status: 200, statusText: 'OK', headers: {} });
-            } });
-            expect(await refreshSelfAccess(42, http)).toBe(false);
+            const revision = store.sessionRevision;
+            store.login({ id: 42 });
+            expect(applySelfVerification(42, revision, true)).toBe(false);
             expect(before.verified).toBe(false);
-            expect(before.can_submit_replays).toBe(false);
+            expect(store.user.verified).toBe(false);
         });
     });
 });

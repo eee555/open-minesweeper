@@ -67,7 +67,7 @@ function mountWeekly(options: {
     };
     store.login_status = options.loginStatus;
     if (options.loginStatus === LoginStatus.IsLogin) {
-        store.login({ id: 99, username: 'player', realname: options.realname ?? 'Player', is_staff: options.isStaff, can_submit_replays: (options.realname ?? 'Player') !== '' });
+        store.login({ id: 99, username: 'player', realname: options.realname ?? 'Player', is_staff: options.isStaff });
     } else {
         store.logout();
         store.login_status = options.loginStatus;

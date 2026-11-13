@@ -54,7 +54,7 @@ function mountGSC(options: {
     const tournament = options.tournament ?? gscTournament();
     store.login_status = options.loginStatus;
     if (options.loginStatus === LoginStatus.IsLogin) {
-        store.login({ id: 99, username: 'player', realname: options.realname ?? 'Player', can_submit_replays: (options.realname ?? 'Player') !== '' });
+        store.login({ id: 99, username: 'player', realname: options.realname ?? 'Player' });
     } else {
         store.logout();
         store.login_status = options.loginStatus;

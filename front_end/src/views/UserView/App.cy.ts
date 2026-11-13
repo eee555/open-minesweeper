@@ -26,7 +26,6 @@ function mountProfile(path: string, loggedIn = true) {
     cy.intercept('GET', '/api/userprofile/videolist*', []).as('videos');
     cy.intercept('GET', '/api/userprofile/verification/status*', {
         verified: false,
-        can_submit_replays: true,
         can_verify: false,
         maintenance_active: false,
     }).as('verificationStatus');

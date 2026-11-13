@@ -8,7 +8,7 @@
             <span :class="status?.verified ? 'text-success' : 'text-danger'" data-cy="verification-state">
                 {{ status?.verified ? t('local.verified') : t('local.unverified') }}
             </span>
-            <span>{{ t('local.access') }}{{ t('punct.colon') }}{{ status?.can_submit_replays ? t('local.allowed') : t('local.blocked') }}</span>
+            <span>{{ t('local.access') }}{{ t('punct.colon') }}{{ store.canSubmitReplays ? t('local.allowed') : t('local.blocked') }}</span>
         </div>
         <p class="text-regular text-small">
             {{ t('local.hint') }}
@@ -36,7 +36,7 @@ import { useI18n } from 'vue-i18n';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import { generalErrorNotification, httpErrorNotification } from '@/components/Notifications';
-import { applySelfAccess } from '@/services/loginSession';
+import { applySelfVerification } from '@/services/loginSession';
 import { fetchVerificationStatus, verifyPlayer } from '@/services/playerVerificationService';
 import type { VerificationStatus } from '@/services/playerVerificationService';
 import { store } from '@/store';
@@ -64,13 +64,12 @@ function showError(error: unknown): void {
 }
 
 async function load(): Promise<void> {
+    const userId = props.userId;
     const revision = store.sessionRevision;
     const current = await fetchVerificationStatus();
     // 刷新期间若已切换到其他账号，不把旧账号的状态写回这个页面。
-    if (props.userId > 0 && store.user.id !== props.userId) return;
+    if (props.userId !== userId || !applySelfVerification(userId, revision, current.verified)) return;
     status.value = current;
-    // 认证结果同时是登录态里的全站统一准入；原地同步，避免上传/比赛入口要刷新网页才更新。
-    applySelfAccess(props.userId, revision, current);
 }
 
 async function withBusy(action: () => Promise<void>): Promise<void> {

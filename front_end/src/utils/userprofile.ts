@@ -24,8 +24,6 @@ export interface UserProfileData {
     is_superuser?: boolean;
     is_memorial?: boolean;
     verified?: boolean;
-    // 仅登录/自动登录返回，由后端按实名或玩家认证统一计算。
-    can_submit_replays?: boolean;
     country?: string;
     signature?: string;
     last_change_avatar?: string | Date | null;
@@ -49,7 +47,6 @@ export class UserProfile {
     public is_superuser = false;
     public is_memorial = false;
     public verified = false;
-    public can_submit_replays = false;
     public country = '';
     public signature = '';
     public last_change_avatar: Date = new Date();
@@ -79,7 +76,6 @@ export class UserProfile {
         this.is_superuser = data.is_superuser ?? false;
         this.is_memorial = data.is_memorial ?? false;
         this.verified = data.verified ?? false;
-        this.can_submit_replays = data.can_submit_replays ?? false;
         this.country = data.country ?? '';
         this.signature = data.signature ?? '';
 
@@ -97,9 +93,9 @@ export class UserProfile {
         return !hasHiddenName(this) && !hasRealname(this.realname);
     }
 
-    // 实名或玩家认证的后端统一结论；公开资料不携带该字段时保持安全的 false。
+    // 复用实名判断（含隐藏姓名），避免存储需要随实名和认证同步的派生状态。
     public get canSubmitReplays(): boolean {
-        return this.can_submit_replays;
+        return this.id > 0 && (this.verified || !this.isAnonymous);
     }
 
     public get isNameHidden(): boolean {

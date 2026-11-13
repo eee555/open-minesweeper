@@ -13,6 +13,7 @@ from django_tasks_db.models import DBTaskResult
 
 from msuser.models import UserMS
 from .models import UserProfile, UserVerifyEdge
+from .services import user_metadata
 from .utils import has_identity_access
 from .verification.cache import read_maintenance
 from .verification.utils import MAINTENANCE_KEY
@@ -99,11 +100,18 @@ class VerificationTests(TestCase):
 
     def test_defaults_and_management_roles_do_not_grant_verification(self):
         self.assertEqual(self.status(self.alice), {
-            'verified': False, 'can_submit_replays': False, 'can_verify': False, 'maintenance_active': False,
+            'verified': False, 'can_verify': False, 'maintenance_active': False,
         })
         self.assertFalse(UserProfile.objects.get(pk=self.staff.pk).verified)
         self.assertFalse(UserProfile.objects.get(pk=self.superuser.pk).verified)
         self.assertFalse(UserVerifyEdge.objects.exists())
+
+    def test_self_responses_return_identity_fields_without_derived_access(self):
+        self.login(self.alice)
+        for body in (self.get_json('/api/userprofile/info/0'), user_metadata(self.alice, self.alice)):
+            self.assertNotIn('can_submit_replays', body)
+            self.assertEqual(body['realname'], '匿名')
+            self.assertFalse(body['verified'])
 
     def test_unverified_user_cannot_verify_and_self_verification_is_rejected(self):
         body = self.verify(self.alice, self.bob, expected=403)
