@@ -174,6 +174,7 @@ AdminUserProfileOut = create_schema(
 ADMIN_USERPROFILE_FIELDS = (
     'username', 'email',
     'signature', 'country', 'is_banned',
+    'verified',
     'left_realname_n', 'left_avatar_n', 'left_signature_n', 'can_hide_realname',
 )
 
