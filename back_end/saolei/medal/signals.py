@@ -11,6 +11,7 @@ from videomanager.models import VideoModel
 from .cache import delete_player_states
 from .models import MedalGrant, PlayerMedalSummary
 from .tasks import enqueue_player_refresh
+from .utils import REFRESH_VIDEO_ID_LIMIT
 
 
 @receiver(pre_delete, sender=VideoModel, dispatch_uid='medal.invalidate_summary_on_video_delete')
@@ -109,9 +110,16 @@ def enqueue_medal_refresh_on_video(sender, instance, created=False, **kwargs):
 
 
 @receiver(videos_bulk_changed, dispatch_uid='medal.refresh_on_videos_bulk_changed')
-def enqueue_medal_refresh_on_bulk_videos(sender, player_ids, **kwargs):
-    for player_id in sorted(set(player_ids) - {None}):
-        transaction.on_commit(lambda player_id=player_id: enqueue_player_refresh(player_id), robust=True)
+def enqueue_medal_refresh_on_bulk_videos(sender, player_ids, video_ids=None, lost_qualification=None, lost_levels=(), **kwargs):
+    players = sorted(set(player_ids) - {None})
+    refresh = {}
+    # 单名玩家、显式声明 lost_qualification、失去资格时附带难度才走增量；其余按全量重算，不会少撤勋章。
+    declared = lost_qualification is False or (lost_qualification is True and bool(lost_levels))
+    if video_ids and declared and len(players) == 1 and len(video_ids) <= REFRESH_VIDEO_ID_LIMIT:
+        # 失去资格与单条录像退审一致：重算受影响难度，新手集合过期。
+        refresh = {'video_ids': list(video_ids), 'degrade_levels': list(lost_levels), 'invalidate_once': bool(lost_qualification)}
+    for player_id in players:
+        transaction.on_commit(lambda player_id=player_id: enqueue_player_refresh(player_id, **refresh), robust=True)
 
 
 @receiver(post_save, sender=UserProfile, dispatch_uid='medal.refresh_on_profile_save')
