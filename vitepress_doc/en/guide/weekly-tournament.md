@@ -7,7 +7,7 @@ description: Weekly minesweeper tournament rules held by Open Minesweeper, inclu
 
 The Weekly Tournament is a small official tournament hosted by Open Minesweeper. It is held once a week and pauses when another tournament is taking place.
 
-Registration requires a real name or player verification. See [Minesweeper Tournaments](./tournament.md).
+Registration requires a real name or verification by a verified player. See [Minesweeper Tournaments](./tournament.md).
 
 ## Rules
 

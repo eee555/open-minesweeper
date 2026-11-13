@@ -220,12 +220,13 @@ E2E 使用隔离的测试数据库及 Redis，启用 `E2E_TEST=True` 并完成�
 
 ## 玩家认证
 
-完整规则见 `PLAYER_VERIFICATION_PLAN.md`，本节只记录部署与维护要点。
+完整规则与实施决策见 `PLAYER_VERIFICATION_PLAN.md`，本节只记录部署与维护要点。
 
-- `UserProfile.verified` 是当前有效认证结果，不是「已实名」，也不代表管理身份。`UserVerifyTree` 只有 `user`、`parent`、`created_at`、`verified` 四个字段：`created_at` 是申请发出或管理员主动认证的时间，`verified` 表示节点入边已批准或本根已由管理员认证，两者组合表达当前树；没有申请表和历史表。`UserVerifyCoordinator` 是单行协调表，用于串行化认证写入、保存受理顺序和短期任务幂等标记。
-- 部署顺序：先执行 `migrate` 建表和索引，再发布新前端；现有用户 `verified` 缺省为 false，已有实名用户仍按实名条件准入。认证写任务路径 `userprofile.tasks.task_apply_verification` 已加入 `TASK_CLEANUP_CONFIGS`，worker 需要能加载 `userprofile.tasks`。
-- 认证树变更全部由后台任务 `task_apply_verification` 在一个事务内完成：批准、主动认证、站长取消和本人解除先锁定同一协调行，再按有效后代级联更新 `UserProfile.verified` 和 `date_updated`；失败整体回滚。短 API 用 `skip_locked` 获取协调锁，遇到正在执行的级联会立即返回 `processing`，不会让 HTTP 请求等待整棵子树。
-- API 集中在 `userprofile/verification/api.py`：`/api/userprofile/verification/*` 为普通用户接口，`/api/userprofile/admin/verification/*` 为管理接口。主动认证用 `staff_or_superuser_required`，站长取消用 `auth=django_auth_superuser`，本人解除在有管理员身份时走 `admin_csrf_required`；发送申请和批准按项目方决定不加限流，其余按普通接口限流。
+- `UserProfile.verified` 是当前有效认证结果，不是「已实名」，也不代表管理身份。`UserVerifyEdge` 只保存当前存在的有向边（`from_user`、`to_user`、`created_at`），以 `UniqueConstraint(from_user, to_user)` 防止同向重复边，以检查约束禁止自认证边；允许多入边、多出边、反向边和环，没有申请表、根节点或历史表。
+- 三类写入（普通主动认证、管理员设置 `verified`、站长完整图批次）都在 HTTP 请求内的单个数据库事务中同步完成，不使用 Django Tasks、任务查询或任务清理配置。普通认证只新增当前用户到目标的边并把目标设为已认证，不遍历下游；管理员只改指定节点；站长一次提交全部边与节点命令，后端不推导可达性或撤销范围。
+- 站长批次先开启独占维护会话（时长由站长指定，上限 1 小时）。会话状态与图写入串行锁放在 Redis 缓存 `userprofile/verification/cache.py`，TTL 到期自动恢复服务；提交成功或站长主动结束会立即释放。维护期间 `/verification/verify` 与 `/admin/verification/set-verified` 返回 409，读接口与站长批次提交仍可用。没有 `UserVerifyCoordinator` 表。
+- API 集中在 `userprofile/verification/api.py`：`/api/userprofile/verification/status|verify` 为普通用户接口，`/api/userprofile/admin/verification/*` 为管理接口。管理员设置 `verified` 用 `staff_or_superuser_required`，站长读取、维护会话与批次用 `auth=django_auth_superuser`；管理员接口无限流，普通接口按项目约定限流。
+- 部署顺序：先执行 `migrate` 应用 `0010`、`0011` 建表并移除旧树表，再发布新前端；现有用户 `verified` 缺省为 false，已有实名用户仍按实名条件准入。旧树方案未部署到生产，不需要数据转换；本地切换前停止旧 worker 并确认没有 READY/RUNNING 的旧认证任务。
 - 录像上传已迁移到 Ninja 的 `POST /api/common/uploadvideo`，旧 Django view 和 `/common/uploadvideo/` 路由已移除；nginx 的限流 location 与排名维护锁路径需同步部署。上传、`create_weekly_participant` 和 `create_gsc_participant` 统一使用 `userprofile.utils.has_identity_access`，错误为 `userprofile/identity_access_required`。登录、自动登录和本人资料返回 `verified` 与 `can_submit_replays`，公开资料只返回 `verified`，不返回认证来源。
 
 新版功能：静态 `QQLogin.init(config)` / `getAuthUrl(config)` / `QQLogin.VERSION`；实例 `show()` / `hide()` / `isVisible()` / `destroy()` / `setConfig(patch)`。config 必填 `appid`、`redirect_uri`、`element`、`onMessage`，可选 `response_type`（code/token）、`state`、`scope`、`redirect_type`（parent/self）、`lang`（zh_CN/zh_TW/en_US）、`color_theme`（light/dark/auto）。事件有 `app:page_loaded`、`app:page_ready`、`app:page_error`（reason 为 `invalid_config` / `qr_load_failed` / `runtime_error`）、`app:set_theme`、`login:success`；`setConfig` 可在 `app:page_loaded` 后热切换语言、主题、跳转方式与回调。容器最低 280×280，宽高都超 380px 时切大组件。登录成功后把 code/token/state 拼到 `redirect_uri` 并跳转。登录页最佳 Chrome 49+，运行时下限 IE 10；外链脚本无需 polyfill。旧版功能：`QC.Login()` 渲染按钮（7 种尺寸）、`showPopup()`、`check()`、`getMe()`、`signOut()`、`QC.api()` 封装全部 OpenAPI 及 `cbLoginFun` 资料回调。

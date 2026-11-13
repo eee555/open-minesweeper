@@ -24,17 +24,11 @@ function mountProfile(path: string, loggedIn = true) {
     cy.intercept('GET', '/api/userprofile/info/43*', { id: 43, username: 'other', realname: 'Other' });
     cy.intercept('GET', '/api/userprofile/identifier*', ['Owned identifier']).as('identifiers');
     cy.intercept('GET', '/api/userprofile/videolist*', []).as('videos');
-    cy.intercept('GET', '/api/userprofile/verification/request*', {
+    cy.intercept('GET', '/api/userprofile/verification/status*', {
         verified: false,
         can_submit_replays: true,
-        has_relation: false,
-        request_state: 'none',
-        request_parent_id: null,
-        created_at: null,
-        expires_at: null,
-        cooldown_until: null,
-        can_request: true,
-        processing_task_id: null,
+        can_verify: false,
+        maintenance_active: false,
     }).as('verificationStatus');
     cy.intercept('GET', '/api/speedranking/player/42', { saolei: { et: 35090 } }).as('qualification');
     const router = createRouter({

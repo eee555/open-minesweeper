@@ -110,6 +110,7 @@ import { useI18n } from 'vue-i18n';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import { httpErrorNotification } from '@/components/Notifications';
+import { refreshSelfSession } from '@/services/loginSession';
 import { invalidateUserInfo } from '@/services/userService';
 import type { EnumMap } from '@/utils';
 import { createEnumMap } from '@/utils';
@@ -253,6 +254,8 @@ async function updateProfile() {
         ).then(async (response) => {
             const data = response.data as EnumMap<UpdateProfileField, UpdateProfileResponseSingle> & { hide_realname?: UpdateProfileResponseSingle };
             if ([...UpdateProfileFields, 'hide_realname' as const].some((field) => data[field]?.type === 'success')) await invalidateUserInfo(owner.id);
+            // 首次填写实名会改变后端派生的统一准入；刷新失败不影响已保存的资料。
+            if (data.realname?.type === 'success') await refreshSelfSession(owner.id, proxy.$axios).catch(() => false);
             if (user.value !== owner) return;
             for (const field of UpdateProfileFields) {
                 processUpdateResponse(field, data[field]);

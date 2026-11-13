@@ -1,13 +1,12 @@
 """玩家认证模块的基础常量，不引用本 APP 的任何其他模块。"""
 
-REQUEST_WINDOW_HOURS = 168
-VERIFICATION_TASK_PATH = 'userprofile.tasks.task_apply_verification'
-COORDINATOR_ID = 1
-APPLIED_TASK_LIMIT = 64
-ORDER_WAIT_SECONDS = 120
+from utils.exceptions import ExceptionToResponse
 
-OPERATION_APPROVE = 'approve'
-OPERATION_GRANT = 'grant'
-OPERATION_REVOKE = 'revoke'
-OPERATION_DETACH = 'detach'
-OPERATIONS = frozenset({OPERATION_APPROVE, OPERATION_GRANT, OPERATION_REVOKE, OPERATION_DETACH})
+MAINTENANCE_KEY = 'userprofile:verification:maintenance'
+GRAPH_WRITE_LOCK_KEY = 'userprofile:verification:write_lock'
+GRAPH_WRITE_LOCK_SECONDS = 30
+MAX_MAINTENANCE_SECONDS = 3600
+
+
+def verification_error(category: str, status_code: int = 409):
+    return ExceptionToResponse('verification', category, status_code=status_code)

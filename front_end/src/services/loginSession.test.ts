@@ -2,18 +2,19 @@ import axios from 'axios';
 import type { AxiosInstance } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { applyLoginSession as applyLoginSessionFunction } from './loginSession';
+import type { applyLoginSession as applyLoginSessionFunction, refreshSelfSession as refreshSelfSessionFunction } from './loginSession';
 
 import type { UserProfileData } from '@/utils/userprofile';
 
 const { store, moduleLoads, install } = vi.hoisted(() => ({
-    store: { sessionRevision: 0, user: { is_staff: false, is_superuser: false }, login: vi.fn<(user: UserProfileData) => void>() },
+    store: { sessionRevision: 0, user: { id: 0, is_staff: false, is_superuser: false }, login: vi.fn<(user: UserProfileData) => void>() },
     moduleLoads: vi.fn(),
     install: vi.fn<(client: AxiosInstance, isAdmin: () => boolean) => number>(),
 }));
 vi.mock('@/store', () => ({ store }));
 
 let applyLoginSession: typeof applyLoginSessionFunction;
+let refreshSelfSession: typeof refreshSelfSessionFunction;
 let loadGate: Promise<void> | undefined;
 
 function deferred() {
@@ -30,14 +31,18 @@ function client() {
     return axios.create({ adapter: (config) => Promise.resolve({ config, data: config.headers.get('X-CSRFToken') ?? null, status: 200, statusText: 'OK', headers: {} }) });
 }
 
+function loginAutoClient(user: unknown) {
+    return axios.create({ adapter: (config) => Promise.resolve({ config, data: { user }, status: 200, statusText: 'OK', headers: {} }) });
+}
+
 describe('lazy administrator session setup', () => {
     beforeEach(async () => {
         vi.resetModules();
         moduleLoads.mockClear();
         store.sessionRevision = 0;
-        store.user = { is_staff: false, is_superuser: false };
+        store.user = { id: 0, is_staff: false, is_superuser: false };
         store.login.mockReset().mockImplementation((user) => {
-            store.user = { is_staff: user.is_staff ?? false, is_superuser: user.is_superuser ?? false };
+            store.user = { id: user.id ?? 0, is_staff: user.is_staff ?? false, is_superuser: user.is_superuser ?? false };
             store.sessionRevision++;
         });
         install.mockReset().mockImplementation((http, isAdmin) => http.interceptors.request.use((config) => {
@@ -50,7 +55,7 @@ describe('lazy administrator session setup', () => {
             if (loadGate) await loadGate;
             return { installAdminCsrfInterceptor: install };
         });
-        ({ applyLoginSession } = await import('./loginSession'));
+        ({ applyLoginSession, refreshSelfSession } = await import('./loginSession'));
     });
 
     afterEach(() => {
@@ -155,5 +160,32 @@ describe('lazy administrator session setup', () => {
         expect(store.login).not.toHaveBeenCalled();
         expect(await applyLoginSession({ id: 2, is_staff: true }, http)).toBe(true);
         expect(install).toHaveBeenCalledTimes(2);
+    });
+
+    describe('refreshSelfSession', () => {
+        it('publishes the backend-derived access fields for the current account', async () => {
+            store.user.id = 42;
+            const user = { id: 42, verified: false, can_submit_replays: true };
+            expect(await refreshSelfSession(42, loginAutoClient(user))).toBe(true);
+            expect(store.login).toHaveBeenCalledExactlyOnceWith(user);
+        });
+
+        it('does not overwrite a later login with a different account', async () => {
+            store.user.id = 42;
+            expect(await refreshSelfSession(42, loginAutoClient({ id: 99, can_submit_replays: true }))).toBe(false);
+            expect(store.login).not.toHaveBeenCalled();
+        });
+
+        it('skips a stale page whose account has already changed', async () => {
+            store.user.id = 99;
+            expect(await refreshSelfSession(42, loginAutoClient({ id: 42, can_submit_replays: true }))).toBe(false);
+            expect(store.login).not.toHaveBeenCalled();
+        });
+
+        it('skips guests and logged-out sessions', async () => {
+            expect(await refreshSelfSession(0, loginAutoClient({ id: 0 }))).toBe(false);
+            expect(await refreshSelfSession(42, loginAutoClient(null))).toBe(false);
+            expect(store.login).not.toHaveBeenCalled();
+        });
     });
 });

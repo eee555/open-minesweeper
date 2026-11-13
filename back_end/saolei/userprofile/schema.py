@@ -51,39 +51,56 @@ SelfUserInfoOut = create_schema(
 )
 
 
-class VerificationOperationResultOut(Schema):
-    status: Literal['applied', 'conflict']
-    operation: str
-    target_id: int
-    affected: int
-    verified: bool | None
-    reason: str | None
-
-
 class VerificationStatusOut(Schema):
     verified: bool
     can_submit_replays: bool
-    has_relation: bool
-    request_state: Literal['none', 'pending', 'expired', 'rejected', 'approved', 'verified_root', 'unverified_root']
-    request_parent_id: int | None
-    created_at: datetime | None
+    can_verify: bool
+    maintenance_active: bool
+
+
+class VerificationActionOut(Schema):
+    target_id: int
+    verified: bool
+    edge_created: bool
+    nodes_updated: int
+
+
+class SetVerifiedOut(Schema):
+    user_id: int
+    verified: bool
+    nodes_updated: int
+
+
+class VerificationEdgeOut(Schema):
+    from_user_id: int
+    to_user_id: int
+    created_at: datetime
+
+
+class MaintenanceStateOut(Schema):
+    active: bool
+    owner_id: int | None
     expires_at: datetime | None
-    cooldown_until: datetime | None
-    can_request: bool
-    processing_task_id: str | None
+    owned_by_requester: bool
 
 
-class VerificationTaskAcceptedOut(Schema):
-    task_id: str
-    existing: bool = False
+class GraphSnapshotOut(Schema):
+    edges: list[VerificationEdgeOut]
+    verified_user_ids: list[int]
+    maintenance: MaintenanceStateOut
 
 
-class VerificationTaskResultOut(Schema):
-    task_id: str
-    status: str
-    finished_at: datetime | None
-    result: VerificationOperationResultOut | None
-    error: str | None
+class GraphNodeOut(Schema):
+    user_id: int
+    verified: bool
+    in_edges: list[int]
+    out_edges: list[int]
+
+
+class GraphUpdateResultOut(Schema):
+    added_edges: int
+    removed_edges: int
+    updated_nodes: int
 
 
 UserVideoStatisticsOut = create_schema(

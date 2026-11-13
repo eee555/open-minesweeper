@@ -35,10 +35,6 @@ TASK_CLEANUP_CONFIGS = [
         'expires': timedelta(days=7),
     },
     {
-        'task_path': 'userprofile.tasks.task_apply_verification',
-        'expires': timedelta(days=7),
-    },
-    {
         'task_path': 'tournament.tasks.task_award_tournament',
         'expires': timedelta(days=30),
     },

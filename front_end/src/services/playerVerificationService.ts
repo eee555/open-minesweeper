@@ -1,81 +1,112 @@
 import $axios from '@/http';
-import { Dict2FormData as toFormData } from '@/utils/forms';
-
-export type VerificationRequestState = 'none' | 'pending' | 'expired' | 'rejected' | 'approved' | 'verified_root' | 'unverified_root';
 
 export interface VerificationStatus {
     verified: boolean;
     can_submit_replays: boolean;
-    has_relation: boolean;
-    request_state: VerificationRequestState;
-    request_parent_id: number | null;
-    created_at: string | null;
-    expires_at: string | null;
-    cooldown_until: string | null;
-    can_request: boolean;
-    processing_task_id: string | null;
+    can_verify: boolean;
+    maintenance_active: boolean;
 }
 
-export interface VerificationTaskAccepted {
-    task_id: string;
-    existing: boolean;
-}
-
-export interface VerificationOperationResult {
-    status: 'applied' | 'conflict';
-    operation: string;
+export interface VerificationActionResult {
     target_id: number;
-    affected: number;
-    verified: boolean | null;
-    reason: string | null;
+    verified: boolean;
+    edge_created: boolean;
+    nodes_updated: number;
 }
 
-export interface VerificationTaskResult {
-    task_id: string;
-    status: string;
-    finished_at: string | null;
-    result: VerificationOperationResult | null;
-    error: string | null;
+export interface SetVerifiedResult {
+    user_id: number;
+    verified: boolean;
+    nodes_updated: number;
+}
+
+export interface VerificationEdge {
+    from_user_id: number;
+    to_user_id: number;
+    created_at: string;
+}
+
+export interface MaintenanceState {
+    active: boolean;
+    owner_id: number | null;
+    expires_at: string | null;
+    owned_by_requester: boolean;
+}
+
+export interface VerificationGraph {
+    edges: VerificationEdge[];
+    verified_user_ids: number[];
+    maintenance: MaintenanceState;
+}
+
+export interface VerificationNode {
+    user_id: number;
+    verified: boolean;
+    in_edges: number[];
+    out_edges: number[];
+}
+
+export interface GraphEdgeCommand {
+    from_user_id: number;
+    to_user_id: number;
+}
+
+export interface GraphNodeCommand {
+    user_id: number;
+    verified: boolean;
+}
+
+export interface GraphUpdateCommand {
+    add_edges: GraphEdgeCommand[];
+    remove_edges: GraphEdgeCommand[];
+    set_verified: GraphNodeCommand[];
+}
+
+export interface GraphUpdateResult {
+    added_edges: number;
+    removed_edges: number;
+    updated_nodes: number;
 }
 
 const BASE = '/api/userprofile/verification';
 const ADMIN_BASE = '/api/userprofile/admin/verification';
+const JSON_CONFIG = { headers: { 'Content-Type': 'application/json' } };
 
 export async function fetchVerificationStatus(): Promise<VerificationStatus> {
-    const { data } = await $axios.get<VerificationStatus>(`${BASE}/request`);
+    const { data } = await $axios.get<VerificationStatus>(`${BASE}/status`);
     return data;
 }
 
-export async function createVerificationRequest(userId: number): Promise<VerificationStatus> {
-    const { data } = await $axios.post<VerificationStatus>(`${BASE}/requests`, toFormData({ user_id: userId }));
+export async function verifyPlayer(userId: number): Promise<VerificationActionResult> {
+    const { data } = await $axios.post<VerificationActionResult>(`${BASE}/verify`, { user_id: userId }, JSON_CONFIG);
     return data;
 }
 
-export async function approveVerificationRequest(userId: number): Promise<VerificationTaskAccepted> {
-    const { data } = await $axios.post<VerificationTaskAccepted>(`${BASE}/requests/${userId}/approve`);
+export async function setVerified(userId: number, verified: boolean): Promise<SetVerifiedResult> {
+    const { data } = await $axios.post<SetVerifiedResult>(`${ADMIN_BASE}/set-verified`, { user_id: userId, verified }, JSON_CONFIG);
     return data;
 }
 
-export async function rejectVerificationRequest(userId: number): Promise<void> {
-    await $axios.post(`${BASE}/requests/${userId}/reject`);
-}
-
-export async function detachVerification(): Promise<VerificationTaskAccepted> {
-    const { data } = await $axios.post<VerificationTaskAccepted>(`${BASE}/detach`);
+export async function fetchVerificationGraph(): Promise<VerificationGraph> {
+    const { data } = await $axios.get<VerificationGraph>(`${ADMIN_BASE}/graph`);
     return data;
 }
 
-export async function fetchVerificationTask(taskId: string): Promise<VerificationTaskResult> {
-    const { data } = await $axios.get<VerificationTaskResult>(`${BASE}/tasks/${taskId}`);
+export async function fetchVerificationNode(userId: number): Promise<VerificationNode> {
+    const { data } = await $axios.get<VerificationNode>(`${ADMIN_BASE}/graph/${userId}`);
     return data;
 }
 
-export async function grantVerification(userId: number): Promise<VerificationTaskAccepted> {
-    const { data } = await $axios.post<VerificationTaskAccepted>(`${ADMIN_BASE}/grant`, toFormData({ user_id: userId }));
+export async function startVerificationMaintenance(durationSeconds: number): Promise<MaintenanceState> {
+    const { data } = await $axios.post<MaintenanceState>(`${ADMIN_BASE}/maintenance`, { duration_seconds: durationSeconds }, JSON_CONFIG);
     return data;
 }
 
-export async function revokeVerification(userId: number): Promise<VerificationTaskAccepted> {
-    const { data } = await $axios.post<VerificationTaskAccepted>(`${ADMIN_BASE}/revoke`, toFormData({ user_id: userId }));
+export async function endVerificationMaintenance(): Promise<void> {
+    await $axios.delete(`${ADMIN_BASE}/maintenance`);
+}
+
+export async function submitVerificationGraphUpdate(command: GraphUpdateCommand): Promise<GraphUpdateResult> {
+    const { data } = await $axios.post<GraphUpdateResult>(`${ADMIN_BASE}/graph-update`, command, JSON_CONFIG);
     return data;
 }

@@ -1,21 +1,20 @@
-"""玩家认证 API。权限、CSRF 与限流都只在 API 层处理。
+"""玩家认证 API。权限、CSRF 与限流只在 API 层处理。
 
-认证和取消认证只提交后台任务并返回 202；树和有效认证状态在任务完整提交后才变化。
+所有图写入都在 HTTP 请求内的单个事务中同步完成并返回结果，没有后台任务与任务查询。
 """
-
-from uuid import UUID
 
 from django.views.decorators.cache import cache_control
 from django_ratelimit.decorators import ratelimit
-from ninja import Form, Router, Schema
+from ninja import Field, Router, Schema
 from ninja.decorators import decorate_view
 from ninja.security import django_auth_superuser
 
-from userprofile.decorators import admin_csrf_required, login_required_error, staff_or_superuser_required
-from userprofile.schema import VerificationStatusOut, VerificationTaskAcceptedOut, VerificationTaskResultOut
-from userprofile.tasks import task_apply_verification
-from .services import create_request, read_task_result, read_verification_status, reject_request, submit_approval, submit_operation
-from .utils import OPERATION_DETACH, OPERATION_GRANT, OPERATION_REVOKE
+from userprofile.decorators import login_required_error, staff_or_superuser_required
+from userprofile.schema import (GraphNodeOut, GraphSnapshotOut, GraphUpdateResultOut, MaintenanceStateOut,
+                                SetVerifiedOut, VerificationActionOut, VerificationStatusOut)
+from .services import (end_maintenance_session, read_graph, read_node, read_verification_status, set_user_verified,
+                       start_maintenance_session, submit_graph_update, verify_player)
+from .utils import MAX_MAINTENANCE_SECONDS
 
 router = Router()
 admin_router = Router()
@@ -25,113 +24,123 @@ class VerificationTargetIn(Schema):
     user_id: int
 
 
-class VerificationRequestIn(Schema):
+class SetVerifiedIn(Schema):
     user_id: int
+    verified: bool
 
 
-@router.get('/request', response=VerificationStatusOut)
+class VerificationEdgeIn(Schema):
+    from_user_id: int
+    to_user_id: int
+
+
+class VerifiedNodeIn(Schema):
+    user_id: int
+    verified: bool
+
+
+class GraphUpdateIn(Schema):
+    add_edges: list[VerificationEdgeIn] = Field(default_factory=list)
+    remove_edges: list[VerificationEdgeIn] = Field(default_factory=list)
+    set_verified: list[VerifiedNodeIn] = Field(default_factory=list)
+
+
+class MaintenanceStartIn(Schema):
+    duration_seconds: int = Field(..., ge=1, le=MAX_MAINTENANCE_SECONDS)
+
+
+@router.get('/status', response=VerificationStatusOut)
 @decorate_view(login_required_error, cache_control(no_store=True, private=True), ratelimit(key='user', rate='60/m'))
-def get_verification_request(request):
+def get_verification_status(request):
     """
     - login_required_error
     - cache_control(no_store=True, private=True)
     - ratelimit(key='user', rate='60/m')
 
-    只返回本人当前申请、冷却与本人已提交任务的受理状态；不提供收到申请的列表，
-    也不展示认证来源、认证人或历史。GET 不写库。
+    只返回本人当前认证、统一准入与全站维护状态；不展示认证来源或关系历史。
     """
     return read_verification_status(request.user)
 
 
-@router.post('/requests', response=VerificationStatusOut)
-@decorate_view(login_required_error)
-def create_verification_request(request, data: VerificationRequestIn = Form(...)):  # noqa: B008
+@router.post('/verify', response=VerificationActionOut)
+@decorate_view(login_required_error, ratelimit(key='user', rate='10/m'))
+def verify_player_api(request, data: VerificationTargetIn):
     """
     - login_required_error
-    - 无发送额度或速率限额（按项目方决定）
-
-    以本人为申请人，向指定的另一名本站用户发出申请。未到期的当前申请会被拒绝；
-    已到期的未批准申请在本短事务内删除后重建。已批准或管理员认证的节点不按时间删除。
-    """
-    return create_request(request.user.pk, data.user_id)
-
-
-@router.post('/requests/{user_id}/approve', response={202: VerificationTaskAcceptedOut})
-@decorate_view(login_required_error)
-def approve_verification_request(request, user_id: int):
-    """
-    - login_required_error
-    - 无批准额度或速率限额（按项目方决定）
-
-    认证方直接输入申请人 ID。服务端核对申请发给当前用户、未批准、未到期后提交后台任务；
-    收件人是否已认证不影响受理权限，202 只表示已入队。
-    """
-    task_id, existing = submit_approval(task_apply_verification, request.user.pk, user_id)
-    return 202, {'task_id': task_id, 'existing': existing}
-
-
-@router.post('/requests/{user_id}/reject', response={204: None})
-@decorate_view(login_required_error, ratelimit(key='user', rate='30/m'))
-def reject_verification_request(request, user_id: int):
-    """
-    - login_required_error
-    - ratelimit(key='user', rate='30/m')
-
-    指定收件人直接输入申请人 ID 拒绝。保留 created_at，七天冷却不提前结束。
-    """
-    reject_request(request.user.pk, user_id)
-    return 204, None
-
-
-@router.post('/detach', response={202: VerificationTaskAcceptedOut})
-@decorate_view(login_required_error, admin_csrf_required, ratelimit(key='user', rate='10/m'))
-def detach_verification(request):
-    """
-    - login_required_error
-    - admin_csrf_required
     - ratelimit(key='user', rate='10/m')
 
-    本人解除已被认证的入边，不接收目标用户 ID。已经因上游失效而未认证但关系仍在时也可提交。
+    已认证用户按本站 ID 主动认证另一名用户；不要求对方申请、确认或批准，请求内即生效。
     """
-    task_id, existing = submit_operation(task_apply_verification, OPERATION_DETACH, request.user.pk, request.user.pk)
-    return 202, {'task_id': task_id, 'existing': existing}
+    return verify_player(request.user.pk, data.user_id)
 
 
-@router.get('/tasks/{task_id}', response=VerificationTaskResultOut)
-@decorate_view(login_required_error, cache_control(no_store=True, private=True), ratelimit(key='user', rate='120/m'))
-def get_verification_task(request, task_id: UUID):
-    """
-    - login_required_error
-    - cache_control(no_store=True, private=True)
-    - ratelimit(key='user', rate='120/m')
-
-    仅任务提交者可查询，且只接受本模块的任务。不返回任务原始参数或认证关系。
-    """
-    return read_task_result(request.user.pk, task_id)
-
-
-@admin_router.post('/grant', response={202: VerificationTaskAcceptedOut})
+@admin_router.post('/set-verified', response=SetVerifiedOut)
 @decorate_view(staff_or_superuser_required)
-def grant_verification(request, data: VerificationTargetIn = Form(...)):  # noqa: B008
+def set_verified(request, data: SetVerifiedIn):
     """
     - staff_or_superuser_required（is_staff 或 is_superuser + CSRF）
     - 管理员专用接口无限流
 
-    管理员或站长主动认证目标（可为自己），后台任务完成后目标成为独立根节点并恢复有效子树。
-    不要求操作者本身已认证。
+    管理员显式设置目标用户的 verified=True/False，可为自己；不创建或删除边，不改动其他节点。
     """
-    task_id, existing = submit_operation(task_apply_verification, OPERATION_GRANT, request.user.pk, data.user_id)
-    return 202, {'task_id': task_id, 'existing': existing}
+    return set_user_verified(request.user.pk, data.user_id, data.verified)
 
 
-@admin_router.post('/revoke', auth=django_auth_superuser, response={202: VerificationTaskAcceptedOut})
-def revoke_verification(request, data: VerificationTargetIn = Form(...)):  # noqa: B008
+@admin_router.get('/graph', auth=django_auth_superuser, response=GraphSnapshotOut)
+@decorate_view(cache_control(no_store=True, private=True))
+def get_verification_graph(request):
+    """
+    - auth=django_auth_superuser（会话认证，写操作自带 CSRF）
+    - cache_control(no_store=True, private=True)
+    - 管理员专用接口无限流
+
+    读取当前全部有向边、已认证节点与维护会话状态；图结构不向普通用户公开。
+    """
+    return read_graph(request.user.pk)
+
+
+@admin_router.get('/graph/{user_id}', auth=django_auth_superuser, response=GraphNodeOut)
+def get_verification_node(request, user_id: int):
+    """
+    - auth=django_auth_superuser（会话认证，写操作自带 CSRF）
+    - 管理员专用接口无限流
+
+    按用户读取单节点的认证状态、入边与出边，供站长分次核对完整批次。
+    """
+    return read_node(user_id)
+
+
+@admin_router.post('/maintenance', auth=django_auth_superuser, response=MaintenanceStateOut)
+def start_verification_maintenance(request, data: MaintenanceStartIn):
     """
     - auth=django_auth_superuser（会话认证自带 CSRF）
     - 管理员专用接口无限流
 
-    仅站长可取消任意用户的认证：后台任务切断目标入边，目标及有效后代均未认证，
-    后代内部已批准关系保留。已实名用户仍可通过实名条件准入。
+    站长开启独占维护会话，时长由站长指定且不超过 1 小时。期间普通主动认证与管理员设置
+    verified 返回 409，读接口与批次提交仍可用；超时自动恢复，站长需重新发起流程。
     """
-    task_id, existing = submit_operation(task_apply_verification, OPERATION_REVOKE, request.user.pk, data.user_id)
-    return 202, {'task_id': task_id, 'existing': existing}
+    return start_maintenance_session(request.user.pk, data.duration_seconds)
+
+
+@admin_router.delete('/maintenance', auth=django_auth_superuser, response={204: None})
+def end_verification_maintenance(request):
+    """
+    - auth=django_auth_superuser（会话认证自带 CSRF）
+    - 管理员专用接口无限流
+
+    站长主动结束自己开启的维护会话，立即恢复图写入服务。
+    """
+    end_maintenance_session(request.user.pk)
+    return 204, None
+
+
+@admin_router.post('/graph-update', auth=django_auth_superuser, response=GraphUpdateResultOut)
+def update_verification_graph(request, data: GraphUpdateIn):
+    """
+    - auth=django_auth_superuser（会话认证自带 CSRF）
+    - 管理员专用接口无限流
+
+    站长一次提交全部新增边、删除边与节点最终状态；后端在同一事务内原子执行，
+    不推导可达性、替代路径或撤销范围。提交成功后立即结束维护会话。
+    """
+    return submit_graph_update(request.user.pk, data.model_dump())

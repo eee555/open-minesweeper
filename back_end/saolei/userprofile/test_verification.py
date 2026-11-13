@@ -1,27 +1,39 @@
-"""玩家认证与统一准入的后端回归测试。
+"""玩家认证有向图、独占维护会话与统一准入的后端回归测试。
 
-后台任务在测试中直接以任务参数执行业务入口，模拟 worker 完成一次完整提交；
-并发行锁行为另需 MySQL TransactionTestCase 验证。
+所有图写入均为请求内的同步事务；测试直接断言请求完成后的数据库状态。
 """
 
 from datetime import timedelta
-from types import SimpleNamespace
+from unittest.mock import patch
 
-from django.tasks import TaskResultStatus
+from django.core.cache import cache
 from django.test import override_settings, TestCase
 from django.utils import timezone
 from django_tasks_db.models import DBTaskResult
 
 from msuser.models import UserMS
-from .models import UserProfile, UserVerifyTree
-from .tasks import task_apply_verification
+from .models import UserProfile, UserVerifyEdge
 from .utils import has_identity_access
-from .verification.utils import VERIFICATION_TASK_PATH
+from .verification.utils import MAINTENANCE_KEY
+
+TEST_CACHES = {
+    'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache', 'LOCATION': 'verification-default'},
+    'saolei_website': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache', 'LOCATION': 'verification-sessions'},
+}
+
+STATUS_URL = '/api/userprofile/verification/status'
+VERIFY_URL = '/api/userprofile/verification/verify'
+SET_VERIFIED_URL = '/api/userprofile/admin/verification/set-verified'
+GRAPH_URL = '/api/userprofile/admin/verification/graph'
+MAINTENANCE_URL = '/api/userprofile/admin/verification/maintenance'
+GRAPH_UPDATE_URL = '/api/userprofile/admin/verification/graph-update'
 
 
-@override_settings(RATELIMIT_ENABLE=False)
+@override_settings(RATELIMIT_ENABLE=False, CACHES=TEST_CACHES)
 class VerificationTests(TestCase):
     def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
         self.alice = self.create_user('alice')
         self.bob = self.create_user('bob')
         self.cara = self.create_user('cara')
@@ -39,51 +51,37 @@ class VerificationTests(TestCase):
     def login(self, user):
         self.client.force_login(user)
 
-    def status(self, user=None):
-        if user is not None:
-            self.login(user)
-        response = self.client.get('/api/userprofile/verification/request')
-        self.assertEqual(response.status_code, 200, response.content)
-        return response.json()
-
-    def post(self, path, data=None, expected=202):
-        response = self.client.post(path, data or {})
+    def get_json(self, path, expected=200):
+        response = self.client.get(path)
         self.assertEqual(response.status_code, expected, response.content)
         return response.json() if response.content else None
 
-    def submit_task(self, path, data=None):
-        body = self.post(path, data)
-        self.assertIn('task_id', body)
-        self.assertEqual(DBTaskResult.objects.filter(pk=body['task_id'], task_path=VERIFICATION_TASK_PATH).count(), 1)
-        return body['task_id']
+    def post_json(self, path, data=None, expected=200):
+        response = self.client.post(path, data or {}, content_type='application/json')
+        self.assertEqual(response.status_code, expected, response.content)
+        return response.json() if response.content else None
 
-    def run_task(self, task_id):
-        row = DBTaskResult.objects.get(pk=task_id)
-        kwargs = dict(row.args_kwargs['kwargs'])
-        context = SimpleNamespace(task_result=SimpleNamespace(id=str(row.id)))
-        result = task_apply_verification.func(context, **kwargs)
-        row.status = TaskResultStatus.SUCCESSFUL
-        row.return_value = result
-        row.save(update_fields=['status', 'return_value'])
-        return result
-
-    def age_request(self, user, hours):
-        UserVerifyTree.objects.filter(user_id=user.pk).update(created_at=timezone.now() - timedelta(hours=hours))
-
-    def grant(self, actor, target):
-        self.login(actor)
-        return self.run_task(self.submit_task('/api/userprofile/admin/verification/grant', {'user_id': target.pk}))
-
-    def request_from(self, applicant, parent):
-        self.login(applicant)
-        return self.post('/api/userprofile/verification/requests', {'user_id': parent.pk}, expected=200)
-
-    def approve(self, actor, applicant):
-        self.login(actor)
-        return self.run_task(self.submit_task(f'/api/userprofile/verification/requests/{applicant.pk}/approve'))
+    def set_verified(self, user, value):
+        UserProfile.objects.filter(pk=user.pk).update(verified=value, date_updated=timezone.now())
 
     def verified(self, *users):
         return [UserProfile.objects.get(pk=user.pk).verified for user in users]
+
+    def status(self, user=None):
+        if user is not None:
+            self.login(user)
+        return self.get_json(STATUS_URL)
+
+    def verify(self, actor, target, expected=200):
+        self.login(actor)
+        return self.post_json(VERIFY_URL, {'user_id': target.pk}, expected=expected)
+
+    def start_maintenance(self, user=None, seconds=60, expected=200):
+        self.login(user or self.superuser)
+        return self.post_json(MAINTENANCE_URL, {'duration_seconds': seconds}, expected=expected)
+
+    def edge(self, from_user, to_user):
+        return {'from_user_id': from_user.pk, 'to_user_id': to_user.pk}
 
     def test_identity_access_predicate(self):
         self.assertFalse(has_identity_access(self.alice))
@@ -99,150 +97,237 @@ class VerificationTests(TestCase):
         self.assertFalse(has_identity_access(self.superuser))
 
     def test_defaults_and_management_roles_do_not_grant_verification(self):
-        state = self.status(self.alice)
-        self.assertFalse(state['verified'])
-        self.assertFalse(state['can_submit_replays'])
-        self.assertEqual(state['request_state'], 'none')
-        self.assertTrue(state['can_request'])
+        self.assertEqual(self.status(self.alice), {
+            'verified': False, 'can_submit_replays': False, 'can_verify': False, 'maintenance_active': False,
+        })
         self.assertFalse(UserProfile.objects.get(pk=self.staff.pk).verified)
         self.assertFalse(UserProfile.objects.get(pk=self.superuser.pk).verified)
+        self.assertFalse(UserVerifyEdge.objects.exists())
 
-    def test_self_request_and_cycle_are_rejected(self):
+    def test_unverified_user_cannot_verify_and_self_verification_is_rejected(self):
+        body = self.verify(self.alice, self.bob, expected=403)
+        self.assertEqual(body['category'], 'not_verified')
+        self.set_verified(self.alice, True)
+        body = self.verify(self.alice, self.alice, expected=400)
+        self.assertEqual(body['category'], 'self_verify')
+        self.assertFalse(UserVerifyEdge.objects.exists())
+
+    def test_verification_needs_no_request_and_only_touches_current_edge_and_target(self):
+        self.set_verified(self.alice, True)
+        UserVerifyEdge.objects.create(from_user=self.alice, to_user=self.bob)
+        UserVerifyEdge.objects.create(from_user=self.bob, to_user=self.cara)
+        self.set_verified(self.bob, True)
+        self.set_verified(self.cara, True)
+        result = self.verify(self.alice, self.dave)
+        self.assertTrue(result['edge_created'])
+        self.assertTrue(result['verified'])
+        self.assertEqual(result['target_id'], self.dave.pk)
+        self.assertEqual(UserVerifyEdge.objects.count(), 3)
+        self.assertEqual(self.verified(self.bob, self.cara, self.dave), [True, True, True])
+        self.assertEqual(DBTaskResult.objects.filter(task_path__contains='verification').count(), 0)
+
+    def test_multiple_in_edges_reverse_edges_and_cycles_are_allowed(self):
+        for user in (self.alice, self.bob, self.cara):
+            self.set_verified(user, True)
+        self.verify(self.alice, self.bob)
+        self.verify(self.alice, self.cara)
+        self.verify(self.bob, self.alice)
+        self.verify(self.bob, self.cara)
+        self.verify(self.cara, self.alice)
+        self.assertEqual(UserVerifyEdge.objects.count(), 5)
+        self.assertEqual(UserVerifyEdge.objects.filter(to_user=self.cara).count(), 2)
+        self.assertTrue(UserVerifyEdge.objects.filter(from_user=self.alice, to_user=self.bob).exists())
+        self.assertTrue(UserVerifyEdge.objects.filter(from_user=self.bob, to_user=self.alice).exists())
+
+    def test_duplicate_verification_is_idempotent_and_keeps_the_original_edge_time(self):
+        self.set_verified(self.alice, True)
+        self.assertTrue(self.verify(self.alice, self.bob)['edge_created'])
+        created_at = UserVerifyEdge.objects.get().created_at
+        self.assertFalse(self.verify(self.alice, self.bob)['edge_created'])
+        self.assertEqual(UserVerifyEdge.objects.count(), 1)
+        self.assertEqual(UserVerifyEdge.objects.get().created_at, created_at)
+
+    def test_old_request_detach_and_task_endpoints_are_gone(self):
         self.login(self.alice)
-        response = self.client.post('/api/userprofile/verification/requests', {'user_id': self.alice.pk})
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()['category'], 'self_request')
+        for path in (
+            '/api/userprofile/verification/requests',
+            '/api/userprofile/verification/detach',
+            '/api/userprofile/verification/requests/1/approve',
+            '/api/userprofile/verification/requests/1/reject',
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(self.client.post(path, {}, content_type='application/json').status_code, 404)
+        self.assertEqual(self.client.get('/api/userprofile/verification/tasks/1').status_code, 404)
 
-    def test_request_cooldown_reject_and_lazy_expiry_replacement(self):
-        state = self.request_from(self.alice, self.bob)
-        self.assertEqual(state['request_state'], 'pending')
-        self.assertEqual(state['request_parent_id'], self.bob.pk)
-        self.assertFalse(state['can_request'])
-        self.login(self.alice)
-        response = self.client.post('/api/userprofile/verification/requests', {'user_id': self.cara.pk})
-        self.assertEqual(response.json()['category'], 'cooldown')
-
-        self.login(self.bob)
-        self.post(f'/api/userprofile/verification/requests/{self.alice.pk}/reject', expected=204)
-        state = self.status(self.alice)
-        self.assertEqual(state['request_state'], 'rejected')
-        self.assertFalse(state['request_parent_id'])
-        self.assertFalse(state['can_request'])
-        self.assertIsNotNone(state['cooldown_until'])
-
-        self.login(self.bob)
-        self.assertEqual(self.client.post(f'/api/userprofile/verification/requests/{self.alice.pk}/approve').json()['category'], 'not_found')
-
-        self.age_request(self.alice, 169)
-        state = self.request_from(self.alice, self.cara)
-        self.assertEqual(state['request_parent_id'], self.cara.pk)
-        self.assertEqual(UserVerifyTree.objects.filter(user_id=self.alice.pk).count(), 1)
-        self.assertFalse(UserVerifyTree.objects.get(user_id=self.alice.pk).verified)
-
-    def test_exact_expiry_rejects_approval(self):
-        self.request_from(self.alice, self.bob)
-        self.age_request(self.alice, 168)
-        self.login(self.bob)
-        response = self.client.post(f'/api/userprofile/verification/requests/{self.alice.pk}/approve')
-        self.assertEqual(response.status_code, 409)
-        self.assertEqual(response.json()['category'], 'expired')
-
-    def test_approval_only_by_named_recipient_and_not_applied_before_task(self):
-        self.request_from(self.alice, self.bob)
-        self.login(self.cara)
-        self.assertEqual(self.client.post(f'/api/userprofile/verification/requests/{self.alice.pk}/approve').json()['category'], 'not_found')
-        self.login(self.bob)
-        task_id = self.submit_task(f'/api/userprofile/verification/requests/{self.alice.pk}/approve')
-        self.assertFalse(UserVerifyTree.objects.get(user_id=self.alice.pk).verified)
-        self.assertEqual(self.verified(self.alice), [False])
-        result = self.run_task(task_id)
-        self.assertEqual(result['status'], 'applied')
-        self.assertTrue(UserVerifyTree.objects.get(user_id=self.alice.pk).verified)
-        # 未认证的收件人批准后，关系成立但申请人仍未认证。
-        self.assertEqual(self.verified(self.alice, self.bob), [False, False])
-
-    def test_unverified_approver_propagates_when_later_verified(self):
-        self.request_from(self.bob, self.dave)
-        self.login(self.dave)
-        self.run_task(self.submit_task(f'/api/userprofile/verification/requests/{self.bob.pk}/approve'))
-        self.assertTrue(UserVerifyTree.objects.get(user_id=self.bob.pk).verified)
-        self.assertEqual(self.verified(self.bob, self.dave), [False, False])
-        self.grant(self.staff, self.dave)
-        self.assertEqual(self.verified(self.bob, self.dave), [True, True])
-
-    def test_grant_makes_root_and_revoke_cascades_only_effective_descendants(self):
-        self.grant(self.staff, self.alice)
-        self.request_from(self.bob, self.alice)
-        self.approve(self.alice, self.bob)
-        self.request_from(self.cara, self.bob)
-        self.approve(self.bob, self.cara)
-        self.assertEqual(self.verified(self.alice, self.bob, self.cara), [True, True, True])
-
-        self.login(self.superuser)
-        self.run_task(self.submit_task('/api/userprofile/admin/verification/revoke', {'user_id': self.alice.pk}))
-        self.assertEqual(self.verified(self.alice, self.bob, self.cara), [False, False, False])
-        # 后代内部已批准的边保留。
-        self.assertTrue(UserVerifyTree.objects.get(user_id=self.cara.pk).verified)
-        self.assertEqual(UserVerifyTree.objects.get(user_id=self.cara.pk).parent_id, self.bob.pk)
-
-        self.grant(self.staff, self.bob)
-        self.assertEqual(self.verified(self.alice, self.bob, self.cara), [False, True, True])
-        self.assertIsNone(UserVerifyTree.objects.get(user_id=self.bob.pk).parent_id)
-
-    def test_detach_keeps_descendant_edges_and_cascades(self):
-        self.grant(self.staff, self.alice)
-        self.request_from(self.bob, self.alice)
-        self.approve(self.alice, self.bob)
-        self.request_from(self.cara, self.bob)
-        self.approve(self.bob, self.cara)
-        self.login(self.bob)
-        self.run_task(self.submit_task('/api/userprofile/verification/detach'))
-        self.assertEqual(self.verified(self.alice, self.bob, self.cara), [True, False, False])
-        self.assertTrue(UserVerifyTree.objects.get(user_id=self.cara.pk).verified)
-        self.assertIsNone(UserVerifyTree.objects.get(user_id=self.bob.pk).parent_id)
-
-    def test_pending_request_cannot_be_detached_and_cycle_is_blocked(self):
-        self.request_from(self.alice, self.bob)
-        self.login(self.alice)
-        self.assertEqual(self.client.post('/api/userprofile/verification/detach').json()['category'], 'no_relation')
-
-    def test_revoke_requires_superuser_and_grant_allows_both_roles(self):
+    def test_admin_sets_verified_both_ways_without_touching_edges_or_other_nodes(self):
         self.login(self.staff)
-        self.assertIn(self.client.post('/api/userprofile/admin/verification/revoke', {'user_id': self.alice.pk}).status_code, (401, 403))
-        self.login(self.alice)
-        self.assertIn(self.client.post('/api/userprofile/admin/verification/revoke', {'user_id': self.alice.pk}).status_code, (401, 403))
-        self.assertEqual(self.client.post('/api/userprofile/admin/verification/grant', {'user_id': self.alice.pk}).status_code, 403)
-        self.grant(self.staff, self.staff)
-        self.grant(self.superuser, self.superuser)
-        self.assertEqual(self.verified(self.staff, self.superuser), [True, True])
+        result = self.post_json(SET_VERIFIED_URL, {'user_id': self.staff.pk, 'verified': True})
+        self.assertTrue(result['verified'])
+        self.assertEqual(self.verified(self.staff), [True])
+        result = self.post_json(SET_VERIFIED_URL, {'user_id': self.bob.pk, 'verified': True})
+        self.assertEqual(result['nodes_updated'], 1)
+        UserVerifyEdge.objects.create(from_user=self.staff, to_user=self.bob)
+        self.post_json(SET_VERIFIED_URL, {'user_id': self.bob.pk, 'verified': False})
+        self.assertEqual(self.verified(self.staff, self.bob, self.cara), [True, False, False])
+        self.assertEqual(UserVerifyEdge.objects.count(), 1)
 
-    def test_task_result_only_visible_to_submitter(self):
-        self.request_from(self.alice, self.bob)
-        self.login(self.bob)
-        task_id = self.submit_task(f'/api/userprofile/verification/requests/{self.alice.pk}/approve')
-        response = self.client.get(f'/api/userprofile/verification/tasks/{task_id}')
-        self.assertEqual(response.json()['status'], 'READY')
-        self.assertIsNone(response.json()['result'])
+    def test_ordinary_user_cannot_use_admin_endpoints(self):
         self.login(self.alice)
-        self.assertEqual(self.client.get(f'/api/userprofile/verification/tasks/{task_id}').status_code, 404)
+        self.assertEqual(self.client.post(SET_VERIFIED_URL, {'user_id': self.alice.pk, 'verified': True}, content_type='application/json').status_code, 403)
+        self.assertIn(self.client.get(GRAPH_URL).status_code, (401, 403))
+        for path in (MAINTENANCE_URL, GRAPH_UPDATE_URL):
+            with self.subTest(path=path):
+                self.assertIn(self.client.post(path, {}, content_type='application/json').status_code, (401, 403))
 
-    def test_duplicate_submission_returns_existing_task_and_conflicting_op_is_processing(self):
-        self.request_from(self.alice, self.bob)
-        self.login(self.bob)
-        first = self.post(f'/api/userprofile/verification/requests/{self.alice.pk}/approve')
-        second = self.post(f'/api/userprofile/verification/requests/{self.alice.pk}/approve')
-        self.assertEqual(first['task_id'], second['task_id'])
-        self.assertTrue(second['existing'])
+    def test_maintenance_blocks_two_writes_while_reads_and_batch_remain_available(self):
+        self.set_verified(self.alice, True)
+        state = self.start_maintenance()
+        self.assertTrue(state['active'])
+        self.assertEqual(state['owner_id'], self.superuser.pk)
+        self.assertTrue(state['owned_by_requester'])
+        self.assertIsNotNone(state['expires_at'])
+
+        self.assertEqual(self.verify(self.alice, self.bob, expected=409)['category'], 'maintenance_active')
+        self.assertTrue(self.status(self.alice)['maintenance_active'])
+        self.login(self.staff)
+        body = self.post_json(SET_VERIFIED_URL, {'user_id': self.bob.pk, 'verified': True}, expected=409)
+        self.assertEqual(body['category'], 'maintenance_active')
+
         self.login(self.superuser)
-        response = self.client.post('/api/userprofile/admin/verification/revoke', {'user_id': self.alice.pk})
-        self.assertEqual(response.json()['category'], 'processing')
+        graph = self.get_json(GRAPH_URL)
+        self.assertTrue(graph['maintenance']['active'])
+        result = self.post_json(GRAPH_UPDATE_URL, {
+            'add_edges': [self.edge(self.alice, self.bob)],
+            'set_verified': [{'user_id': self.bob.pk, 'verified': True}],
+        })
+        self.assertEqual(result, {'added_edges': 1, 'removed_edges': 0, 'updated_nodes': 1})
+        self.assertFalse(self.get_json(GRAPH_URL)['maintenance']['active'])
+        self.assertEqual(self.verified(self.bob), [True])
+        self.assertTrue(UserVerifyEdge.objects.filter(from_user=self.alice, to_user=self.bob).exists())
+
+    def test_maintenance_duration_and_ownership(self):
+        self.login(self.superuser)
+        self.post_json(MAINTENANCE_URL, {'duration_seconds': 0}, expected=422)
+        self.post_json(MAINTENANCE_URL, {'duration_seconds': 3601}, expected=422)
+        self.start_maintenance()
+        self.assertEqual(self.start_maintenance(expected=409)['category'], 'maintenance_active')
+        other = self.create_user('root2', is_superuser=True)
+        self.login(other)
+        self.assertFalse(self.get_json(GRAPH_URL)['maintenance']['owned_by_requester'])
+        self.assertEqual(self.post_json(GRAPH_UPDATE_URL, {}, expected=403)['category'], 'maintenance_owner')
+        response = self.client.delete(MAINTENANCE_URL, content_type='application/json')
+        self.assertEqual(response.status_code, 403)
+        self.login(self.superuser)
+        self.assertEqual(self.client.delete(MAINTENANCE_URL, content_type='application/json').status_code, 204)
+        self.assertFalse(self.get_json(GRAPH_URL)['maintenance']['active'])
+
+    def test_expired_maintenance_restores_service(self):
+        self.start_maintenance(seconds=1)
+        cache.set(MAINTENANCE_KEY, {
+            'owner_id': self.superuser.pk,
+            'expires_at': (timezone.now() - timedelta(seconds=1)).isoformat(),
+        }, timeout=60)
+        self.set_verified(self.alice, True)
+        self.verify(self.alice, self.bob)
+        self.assertTrue(UserVerifyEdge.objects.filter(from_user=self.alice, to_user=self.bob).exists())
+        self.login(self.superuser)
+        self.assertEqual(self.post_json(GRAPH_UPDATE_URL, {}, expected=409)['category'], 'maintenance_required')
+
+    def test_batch_requires_a_session_and_releases_it_after_success(self):
+        self.login(self.superuser)
+        self.assertEqual(self.post_json(GRAPH_UPDATE_URL, {}, expected=409)['category'], 'maintenance_required')
+        self.start_maintenance()
+        self.post_json(GRAPH_UPDATE_URL, {'set_verified': [{'user_id': self.alice.pk, 'verified': True}]})
+        self.assertEqual(self.post_json(GRAPH_UPDATE_URL, {}, expected=409)['category'], 'maintenance_required')
+
+    def test_batch_validation_rejects_only_invalid_commands(self):
+        self.start_maintenance()
+        cases = [
+            ({'add_edges': [self.edge(self.alice, self.alice)]}, 400, 'self_edge'),
+            ({'add_edges': [self.edge(self.alice, self.bob)], 'remove_edges': [self.edge(self.alice, self.bob)]}, 400, 'conflicting_edge'),
+            ({'add_edges': [self.edge(self.alice, self.bob), self.edge(self.alice, self.bob)]}, 400, 'duplicate_input'),
+            ({'set_verified': [{'user_id': self.alice.pk, 'verified': True}, {'user_id': self.alice.pk, 'verified': True}]}, 400, 'duplicate_input'),
+            ({'set_verified': [{'user_id': self.alice.pk, 'verified': True}, {'user_id': self.alice.pk, 'verified': False}]}, 400, 'conflicting_node'),
+            ({'set_verified': [{'user_id': 999999, 'verified': True}]}, 404, 'not_found'),
+        ]
+        for payload, expected, category in cases:
+            with self.subTest(category=category):
+                self.assertEqual(self.post_json(GRAPH_UPDATE_URL, payload, expected=expected)['category'], category)
+        self.assertFalse(UserVerifyEdge.objects.exists())
+        self.assertEqual(self.verified(self.alice), [False])
+        self.assertTrue(self.get_json(GRAPH_URL)['maintenance']['active'])
+
+    def test_batch_failure_rolls_back_every_write_and_allows_retry(self):
+        self.start_maintenance()
+        payload = {
+            'add_edges': [self.edge(self.alice, self.bob)],
+            'set_verified': [{'user_id': self.bob.pk, 'verified': True}],
+        }
+        original_filter = UserProfile.objects.filter
+
+        def failing_filter(*args, **kwargs):
+            if 'pk' in kwargs:
+                raise RuntimeError('simulated write failure')
+            return original_filter(*args, **kwargs)
+
+        with patch('userprofile.verification.services.UserProfile.objects.filter', side_effect=failing_filter):
+            with self.assertRaises(RuntimeError):
+                self.client.post(GRAPH_UPDATE_URL, payload, content_type='application/json')
+        self.assertFalse(UserVerifyEdge.objects.exists())
+        self.assertEqual(self.verified(self.bob), [False])
+        self.assertTrue(self.get_json(GRAPH_URL)['maintenance']['active'])
+        self.assertEqual(self.post_json(GRAPH_UPDATE_URL, payload), {
+            'added_edges': 1, 'removed_edges': 0, 'updated_nodes': 1,
+        })
+        self.assertEqual(UserVerifyEdge.objects.count(), 1)
+
+    def test_batch_applies_only_explicit_commands_and_does_not_restore_downstream(self):
+        self.set_verified(self.alice, True)
+        UserVerifyEdge.objects.create(from_user=self.alice, to_user=self.bob)
+        UserVerifyEdge.objects.create(from_user=self.bob, to_user=self.cara)
+        self.set_verified(self.bob, True)
+        self.set_verified(self.cara, True)
+        self.start_maintenance()
+        result = self.post_json(GRAPH_UPDATE_URL, {
+            'remove_edges': [self.edge(self.alice, self.bob)],
+            'set_verified': [
+                {'user_id': self.bob.pk, 'verified': False},
+                {'user_id': self.cara.pk, 'verified': False},
+            ],
+        })
+        self.assertEqual(result, {'added_edges': 0, 'removed_edges': 1, 'updated_nodes': 2})
+        self.assertTrue(UserVerifyEdge.objects.filter(from_user=self.bob, to_user=self.cara).exists())
+        self.verify(self.alice, self.bob)
+        self.assertEqual(self.verified(self.alice, self.bob, self.cara), [True, True, False])
+        self.login(self.superuser)
+        node = self.get_json(f'{GRAPH_URL}/{self.bob.pk}')
+        self.assertTrue(node['verified'])
+        self.assertEqual(node['in_edges'], [self.alice.pk])
+        self.assertEqual(node['out_edges'], [self.cara.pk])
+
+    def test_batch_supports_cycles_and_multiple_in_edges(self):
+        self.start_maintenance()
+        result = self.post_json(GRAPH_UPDATE_URL, {
+            'add_edges': [self.edge(self.alice, self.bob), self.edge(self.bob, self.alice), self.edge(self.cara, self.bob)],
+            'set_verified': [{'user_id': self.bob.pk, 'verified': True}],
+        })
+        self.assertEqual(result['added_edges'], 3)
+        self.assertEqual(UserVerifyEdge.objects.count(), 3)
+        self.assertEqual(len(self.get_json(GRAPH_URL)['edges']), 3)
+        self.assertEqual(self.get_json(GRAPH_URL)['verified_user_ids'], [self.bob.pk])
+
+    def test_account_deletion_cascades_edges_without_repairing_other_nodes(self):
+        self.set_verified(self.alice, True)
+        self.set_verified(self.bob, True)
+        UserVerifyEdge.objects.create(from_user=self.alice, to_user=self.bob)
+        self.alice.delete()
+        self.assertFalse(UserVerifyEdge.objects.exists())
+        self.assertEqual(self.verified(self.bob), [True])
 
     def test_identity_access_errors_and_player_verification_allows_registration(self):
         self.login(self.alice)
         response = self.client.post('/api/tournament/gsc/participant', {'order': 999})
-        # 赛事不存在时仍先按统一准入拒绝。
         self.assertEqual(response.json(), {'type': 'error', 'object': 'userprofile', 'category': 'identity_access_required'})
-        self.alice.verified = True
-        self.alice.save(update_fields=['verified', 'date_updated'])
+        self.set_verified(self.alice, True)
         response = self.client.post('/api/tournament/gsc/participant', {'order': 999})
         self.assertEqual(response.status_code, 404)
