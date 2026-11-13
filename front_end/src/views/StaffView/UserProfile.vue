@@ -8,6 +8,16 @@
     </div>
 
     <template v-if="profile">
+        <div>
+            {{ t('local.verifiedState') }}{{ t('punct.colon') }}{{ profile.verified === true ? t('local.verified') : t('local.unverified') }}
+            <BaseButton :loading="verifying" data-cy="staff-grant-verification" @click="submitVerification('grant')">
+                {{ t('local.grantVerification') }}
+            </BaseButton>
+            <BaseButton v-if="store.user.is_superuser" type="danger" :loading="verifying" data-cy="staff-revoke-verification" @click="submitVerification('revoke')">
+                {{ t('local.revokeVerification') }}
+            </BaseButton>
+            <span v-if="verificationTaskText" role="status" data-cy="staff-verification-task">{{ verificationTaskText }}</span>
+        </div>
         <VCodeBlock :code="JSON.stringify(profile, null, 2)" lang="json" />
         {{ t('local.userProfile') }}
         <ElInput v-model="userProfileRequestBody" type="textarea" :autosize="{ minRows: 8 }" data-cy="staff-profile-json" />
@@ -23,13 +33,16 @@
 </template>
 
 <script setup lang="ts">
+import { isAxiosError } from 'axios';
 import { ElInput, ElInputNumber } from 'element-plus';
-import { ref } from 'vue';
+import { onUnmounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import VCodeBlock from '@/components/common/BaseCodeBlock.vue';
-import { actionSuccessNotification, baseErrorNotification, httpErrorNotification } from '@/components/Notifications';
+import { actionSuccessNotification, baseErrorNotification, generalErrorNotification, httpErrorNotification } from '@/components/Notifications';
+import { fetchVerificationTask, grantVerification, revokeVerification } from '@/services/playerVerificationService';
+import { store } from '@/store';
 import useCurrentInstance from '@/utils/common/useCurrentInstance';
 import { HIDDEN_NAME } from '@/utils/userprofile';
 
@@ -39,6 +52,9 @@ const userId = ref(1);
 const loading = ref(false);
 const savingUserProfile = ref(false);
 const savingUserMS = ref(false);
+const verifying = ref(false);
+const verificationTaskText = ref('');
+let verificationTimer: ReturnType<typeof setInterval> | undefined;
 const profile = ref<Record<string, unknown> | null>(null);
 const loadedUserId = ref<number | null>(null);
 const userProfileRequestBody = ref('{}');
@@ -97,6 +113,50 @@ async function saveUserProfile() {
     savingUserProfile.value = false;
 }
 
+async function checkVerificationTask(targetId: number, taskId: string): Promise<void> {
+    try {
+        const result = await fetchVerificationTask(taskId);
+        if (result.status === 'READY' || result.status === 'RUNNING') return;
+        if (verificationTimer !== undefined) clearInterval(verificationTimer);
+        verificationTimer = undefined;
+        const applied = result.status === 'SUCCESSFUL' && result.result?.status === 'applied';
+        verificationTaskText.value = applied ? t('local.verificationDone') : t('local.verificationConflict');
+        if (applied) actionSuccessNotification();
+        await reloadUser(targetId);
+    } catch (error) {
+        if (verificationTimer !== undefined) clearInterval(verificationTimer);
+        verificationTimer = undefined;
+        verificationTaskText.value = t('local.verificationConflict');
+        httpErrorNotification(error);
+    }
+}
+
+async function submitVerification(operation: 'grant' | 'revoke') {
+    if (loadedUserId.value === null) return;
+    if (!window.confirm(t(operation === 'grant' ? 'local.grantConfirm' : 'local.revokeConfirm', { id: loadedUserId.value }))) return;
+    const id = loadedUserId.value;
+    verifying.value = true;
+    try {
+        const task = operation === 'grant' ? await grantVerification(id) : await revokeVerification(id);
+        verificationTaskText.value = t('local.verificationQueued', { id: task.task_id });
+        if (verificationTimer !== undefined) clearInterval(verificationTimer);
+        verificationTimer = setInterval(() => {
+            void checkVerificationTask(id, task.task_id);
+        }, 1000);
+    } catch (error) {
+        if (isAxiosError<{ object?: string; category?: string }>(error) && error.response?.data?.object === 'verification') {
+            generalErrorNotification('verification', error.response.data.category ?? 'not_found');
+        } else {
+            httpErrorNotification(error);
+        }
+    }
+    verifying.value = false;
+}
+
+onUnmounted(() => {
+    if (verificationTimer !== undefined) clearInterval(verificationTimer);
+});
+
 async function saveUserMS() {
     if (!profile.value || loadedUserId.value === null) return;
 
@@ -130,6 +190,16 @@ const i18nMessages = {
         userMSError: 'UserMS错误',
         missingUserMS: '当前用户没有可用的 userms_id',
         revokePrivacy: '撤销隐藏实名资格后，将关闭隐藏，实名会在缓存正常更新后恢复公开。是否继续？',
+        verifiedState: '玩家认证状态',
+        verified: '已认证',
+        unverified: '未认证',
+        grantVerification: '主动认证该用户',
+        revokeVerification: '取消该用户认证',
+        grantConfirm: '确定将用户 #{id} 设为已认证根节点吗？已有申请或入边会被覆盖。',
+        revokeConfirm: '确定取消用户 #{id} 的认证吗？其有效后代也会失去本站认证。',
+        verificationQueued: '认证任务已受理：{id}',
+        verificationDone: '认证任务已完成。',
+        verificationConflict: '认证任务未生效，请刷新后重试。',
     } },
     en: { local: {
         userProfile: 'User profile (UserProfile)',
@@ -141,6 +211,16 @@ const i18nMessages = {
         userMSError: 'UserMS error',
         missingUserMS: 'This user has no available userms_id',
         revokePrivacy: 'Revoking eligibility also turns off hiding. Names become public after normal cache updates. Continue?',
+        verifiedState: 'Player verification',
+        verified: 'Verified',
+        unverified: 'Not verified',
+        grantVerification: 'Verify this user',
+        revokeVerification: 'Revoke verification',
+        grantConfirm: 'Make user #{id} a verified root? An existing request or edge will be overwritten.',
+        revokeConfirm: 'Revoke verification for user #{id}? Effective descendants also lose site verification.',
+        verificationQueued: 'Verification task accepted: {id}',
+        verificationDone: 'Verification task completed.',
+        verificationConflict: 'The verification task did not apply. Refresh and try again.',
     } },
 };
 

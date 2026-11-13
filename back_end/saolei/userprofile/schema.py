@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal, Self
 
 from ninja import Field, Schema
@@ -6,12 +7,13 @@ from pydantic import model_validator
 
 from msuser.models import UserMS
 from .models import UserProfile
+from .utils import has_identity_access
 
 
 USER_INFO_FIELDS = [
     'id', 'username',
     'signature', 'country',
-    'is_banned', 'is_staff', 'is_memorial',
+    'is_banned', 'is_staff', 'is_memorial', 'verified',
     'last_change_avatar', 'last_change_signature',
     'left_avatar_n', 'left_signature_n',
 ]
@@ -35,10 +37,53 @@ class RawUserNames(Schema):
 UserInfoOut = create_schema(
     UserProfile, name='UserInfoOut', fields=USER_INFO_FIELDS, custom_fields=PUBLIC_NAME_FIELDS,
 )
+
+
+class SelfUserInfoOutBase(RawUserNames):
+    @staticmethod
+    def resolve_can_submit_replays(user: UserProfile) -> bool:
+        return has_identity_access(user)
+
+
 SelfUserInfoOut = create_schema(
     UserProfile, name='SelfUserInfoOut', fields=[*USER_INFO_FIELDS, 'can_hide_realname', 'hide_realname', 'is_superuser'],
-    custom_fields=PUBLIC_NAME_FIELDS, base_class=RawUserNames,
+    custom_fields=[*PUBLIC_NAME_FIELDS, ('can_submit_replays', bool, False)], base_class=SelfUserInfoOutBase,
 )
+
+
+class VerificationOperationResultOut(Schema):
+    status: Literal['applied', 'conflict']
+    operation: str
+    target_id: int
+    affected: int
+    verified: bool | None
+    reason: str | None
+
+
+class VerificationStatusOut(Schema):
+    verified: bool
+    can_submit_replays: bool
+    has_relation: bool
+    request_state: Literal['none', 'pending', 'expired', 'rejected', 'approved', 'verified_root', 'unverified_root']
+    request_parent_id: int | None
+    created_at: datetime | None
+    expires_at: datetime | None
+    cooldown_until: datetime | None
+    can_request: bool
+    processing_task_id: str | None
+
+
+class VerificationTaskAcceptedOut(Schema):
+    task_id: str
+    existing: bool = False
+
+
+class VerificationTaskResultOut(Schema):
+    task_id: str
+    status: str
+    finished_at: datetime | None
+    result: VerificationOperationResultOut | None
+    error: str | None
 
 
 UserVideoStatisticsOut = create_schema(

@@ -67,7 +67,7 @@ function mountWeekly(options: {
     };
     store.login_status = options.loginStatus;
     if (options.loginStatus === LoginStatus.IsLogin) {
-        store.login({ id: 99, username: 'player', realname: options.realname ?? 'Player', is_staff: options.isStaff });
+        store.login({ id: 99, username: 'player', realname: options.realname ?? 'Player', is_staff: options.isStaff, can_submit_replays: (options.realname ?? 'Player') !== '' });
     } else {
         store.logout();
         store.login_status = options.loginStatus;
@@ -196,7 +196,7 @@ describe('<Weekly App />', () => {
 
         cy.contains('button', 'Start my session').should('be.disabled');
         cy.contains('.el-dialog', 'Are you ready?').should('not.exist');
-        cy.contains('Real name required').should('be.visible');
+        cy.contains('Real name or player verification required').should('be.visible');
         cy.contains('WEEKLY-TOKEN').should('not.exist');
         cy.contains('Real-Time Score').should('not.exist');
         cy.get('@createWeeklyParticipant.all').should('have.length', 0);

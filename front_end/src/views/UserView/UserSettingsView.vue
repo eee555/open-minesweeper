@@ -11,6 +11,9 @@
             </EditProfile>
         </section>
         <section class="card">
+            <PlayerVerification :user-id="user.id" />
+        </section>
+        <section class="card">
             <h2 class="text-large">
                 {{ t('identifierManager.title') }}
                 <BaseOverlay>
@@ -33,6 +36,7 @@ import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 
 import EditProfile from './EditProfile.vue';
+import PlayerVerification from './PlayerVerification.vue';
 import ProfileQualification from './ProfileQualification.vue';
 
 import BaseOverlay from '@/components/common/BaseOverlay.vue';

@@ -24,6 +24,8 @@ class UserProfile(AbstractUser):
 
     date_updated = models.DateTimeField(auto_now=True)
     is_memorial = models.BooleanField(default=False)
+    # 当前有效的玩家认证结果。不表示已实名，也不表示管理身份。
+    verified = models.BooleanField(default=False)
 
     username = models.CharField(
         _('username'),
@@ -163,3 +165,40 @@ class EmailVerifyRecord(models.Model):
 
     def __unicode__(self):
         return '{0}({1})'.format(self.code, self.email)
+
+
+class UserVerifyTree(models.Model):
+    """当前申请与当前认证树。四个字段之外不保存状态、期限或历史。
+
+    ``verified`` 只表示本节点入边是否已获批准或本根是否已获管理员认证；
+    用户当前的有效认证结果保存在 ``UserProfile.verified``，由后台任务级联维护。
+    """
+
+    user = models.OneToOneField(UserProfile, primary_key=True, on_delete=models.CASCADE, related_name='verify_node')
+    # 关联用户而不是树节点，使尚无树记录的用户也能接收申请；删除当前节点不会级联删除后代。
+    parent = models.ForeignKey(UserProfile, null=True, blank=True, on_delete=models.CASCADE, related_name='verify_children')
+    # 申请发送时间或管理员直接认证时间，管理员认证已有节点时必须显式更新。
+    created_at = models.DateTimeField()
+    verified = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=models.Q(parent__isnull=True) | ~models.Q(parent=models.F('user')), name='verify_tree_no_self_parent'),
+        ]
+        indexes = [
+            models.Index(fields=['parent', 'verified'], name='verify_tree_parent_ver_idx'),
+        ]
+
+
+class UserVerifyCoordinator(models.Model):
+    """认证写入的全局协调行，同时保存受理顺序与短期任务幂等标记。
+
+    该行不是认证历史；``applied_tasks`` 只保留最近若干任务的执行结果，
+    用于识别「业务已提交但任务完成标记丢失」后的重复执行。
+    """
+
+    COORDINATOR_ID = 1
+
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1)
+    sequence = models.PositiveBigIntegerField(default=0)
+    applied_tasks = models.JSONField(default=dict)

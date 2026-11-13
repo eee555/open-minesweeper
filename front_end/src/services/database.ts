@@ -71,7 +71,8 @@ export const CACHE_STORE_DEFINITIONS = {
     [USER_INFO_STORE_NAME]: {
         name: USER_INFO_STORE_NAME,
         keyPath: 'id',
-        version: 1,
+        // Bumped when the public user fields gained verified; old rows lack the field.
+        version: 2,
     },
     // Video fields deliberately have no row schema: upgrades clear this store instead of reading/migrating all rows.
     [VIDEO_INFO_STORE_NAME]: {

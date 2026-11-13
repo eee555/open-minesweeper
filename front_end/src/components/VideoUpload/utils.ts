@@ -8,7 +8,7 @@ import { MS_State } from '@/utils/ms_const';
 import { getFileExtension } from '@/utils/strings';
 import type { VideoAbstract } from '@/utils/videoabstract';
 
-export const UploadStatus = ['parse', 'pass', 'filename', 'filesize', 'fileext', 'custom', 'invalid', 'identifier', 'needApprove', 'censorship', 'collision', 'quota', 'upload', 'process', 'success', 'incomplete'] as const;
+export const UploadStatus = ['parse', 'pass', 'filename', 'filesize', 'fileext', 'custom', 'invalid', 'identifier', 'needApprove', 'censorship', 'collision', 'identity', 'quota', 'upload', 'process', 'success', 'incomplete'] as const;
 export type UploadStatus = typeof UploadStatus[number];
 
 export interface UploadEntry {

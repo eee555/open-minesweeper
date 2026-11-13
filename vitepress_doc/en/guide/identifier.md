@@ -7,6 +7,8 @@ description: How to set player identifiers and tournament tokens in minesweeper 
 
 An identifier is a string signature filled in by the player and stored in the replay. In Minesweeper Arbiter, it is called "player identity". In MetaSweeper settings, it is called "identifier".
 
+Before uploading replays manually you need either a real name on your profile or player verification from a verified player. Without either, the upload entry is disabled. Access updates as soon as either condition changes.
+
 ## Setting identifiers in different software
 
 <details>

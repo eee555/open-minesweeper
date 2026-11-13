@@ -45,6 +45,8 @@ GitHub 使用默认 Django cache（当前 Redis DB 1），所有键 TTL 为 600 
 
 用户数据库页 `/database/users` 通过 `GET /api/userprofile/query` 直接读库，不使用用户资料 IndexedDB 缓存：录像统计变化不会更新 `UserProfile.date_updated`。查询集中在 `common.services`，每个非空页执行计数、用户及统计、当前页已验证关联 ID 三次查询。`AccountLinkQueue(platform, identifier)` 联合索引用于平台 ID 精确查询，用户外键索引用于分页后的批量读取。接口用法见仓库 `back_end/saolei/userprofile/README.md`。
 
+玩家认证树 `UserVerifyTree` 以 `user` 为主键，`parent` 关联 `UserProfile`，`(parent, verified)` 联合索引用于按父节点遍历已批准后代；`UserVerifyCoordinator` 是单行协调表，所有认证写事务先锁定该行，不读 Redis。级联只更新受影响用户的 `UserProfile.verified` 和 `date_updated`，公开资料缓存仍按 `infoupdated` 的正常周期失效；本人登录响应中的 `can_submit_replays` 由后端按「实名或玩家认证」即时计算，不缓存。规则见仓库 `back_end/saolei/userprofile/PLAYER_VERIFICATION_PLAN.md`。
+
 补录逻辑及延迟重算行为保持不变：比赛关联变化不立即调整统计。删除、文件大小及玩家归属变更按该录像当前的比赛标记和关联归类，允许与原先计入的口径存在偏差，统一由 [refresh_video_counts](./management-commands.md#refresh-video-counts) 全量重算修复；不保存历史统计分类字段。迁移后需先运行重算命令补齐历史统计。
 
 保存信号中数量、文件空间及需要提升的上传额度合并到一次 `UserMS UPDATE`；归属变化通过一条 `CASE WHEN UPDATE` 同时处理两位玩家。手动压缩切换 `stored_file_size` 后，在同一事务发送 `video_storage_changed`，只查询该录像当前比赛归属，再按存储大小差额更新对应口径，不重算该用户的全部录像，也不修改原始 `file_size`。所有统计字段使用固定字段名与 `if/else` 分支，不动态拼接。部署此统计口径变更后，运行一次 `refresh_video_counts` 修正已有统计。
@@ -185,7 +187,7 @@ digraph cache {
         view_saolei_get_import_summary [label="/accountlink/saolei/videoimport/stat/"];
         task_summary [label="/api/common/tasks/summary (staff)"];
         monitor_summary [label="/api/monitor/summary (Nginx)"];
-        video_upload [label="/common/uploadvideo/"];
+        video_upload [label="/api/common/uploadvideo"];
         pluck_rank [label="/api/customranking/pluck"];
         minigame_score [label="POST /api/minigame/{ranking_key}/score"];
         minigame_rank [label="/api/minigame/{game}/rank\n/api/minigame/{game}/player/{id}"];

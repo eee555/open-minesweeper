@@ -16,7 +16,7 @@ from utils.exceptions import ExceptionToResponse
 from videomanager.models import VideoModel
 from .forms import UserRegisterForm
 from .models import EmailVerifyRecord, UserProfile
-from .utils import count_new_avatar_chance, count_new_signature_chance, NAME_FIELDS, validate_name
+from .utils import count_new_avatar_chance, count_new_signature_chance, has_identity_access, NAME_FIELDS, validate_name
 
 logger = logging.getLogger('userprofile')
 
@@ -284,6 +284,8 @@ def user_metadata(user: UserProfile, client):
         'is_staff': user.is_staff,
         'is_superuser': user.is_superuser if client == user else False,
         'is_memorial': user.is_memorial,
+        'verified': user.verified,
+        'can_submit_replays': has_identity_access(user),
         'country': user.country,
         'videos': list(videos),
     }

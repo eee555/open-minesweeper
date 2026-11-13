@@ -7,6 +7,8 @@ description: Points, identifiers, replay visibility rules and automatic uploadin
 
 The website supports Golden Sheep Cups and Weekly Tournaments. Contact the developers to host other tournament formats.
 
+To register or upload tournament replays you need either a real name on your profile or player verification from a verified player. Staff and superuser roles alone do not grant access. If player verification is revoked, a real-name user can still take part.
+
 ## Tournament Points
 
 Ranking points are awarded after tournament results are finalized. Converting prize money into points is not yet supported.

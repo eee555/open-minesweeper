@@ -7,11 +7,11 @@
             {{ t('gsc.identifierGuide.preparing') }}
         </div>
         <div v-else-if="token === ''">
-            <BaseButton :disabled="store.isUserAnonymous" :loading="registeringParticipant" @click="registerDialogVisible = true">
+            <BaseButton :disabled="!store.canSubmitReplays" :loading="registeringParticipant" @click="registerDialogVisible = true">
                 {{ t('local.register') }}
             </BaseButton>
-            <span v-if="store.isUserAnonymous" class="text-danger">
-                {{ t('msg.realNameRequired') }}
+            <span v-if="!store.canSubmitReplays" class="text-danger">
+                {{ t('msg.identityAccessRequired') }}
             </span>
             <ElDialog v-model="registerDialogVisible">
                 <template #header>

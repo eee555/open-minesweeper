@@ -29,7 +29,7 @@ Final rankings are based on the total time of these replays. Lower total time ra
 
 ## Participation
 
-Once the tournament is approved, click "Register" on the tournament detail page, even before it starts. The tournament identifier is revealed when the tournament starts.
+Registration requires a real name or player verification. See [Minesweeper Tournaments](./tournament.md). Once the tournament is approved, click "Register" on the tournament detail page, even before it starts. The tournament identifier is revealed when the tournament starts.
 
 After registering, you can [automatically upload tournament replays](./tournament.md#automatically-uploading-tournament-replays), including MetaSweeper replays and AVF replays with your registered Arbiter identifier.
 
