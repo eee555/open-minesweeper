@@ -6,12 +6,16 @@ import type { UserProfileData } from '@/utils/userprofile';
 const csrfReady = new WeakMap<AxiosInstance, Promise<void>>();
 let loginVersion = 0;
 
-export async function refreshSelfSession(userId: number, client: AxiosInstance): Promise<boolean> {
+export async function refreshSelfAccess(userId: number, client: AxiosInstance): Promise<boolean> {
     if (userId <= 0 || store.user.id !== userId) return false;
+    const revision = store.sessionRevision;
     const { data } = await client.get<{ user: UserProfileData | null }>('/api/common/loginauto', { params: { _t: Date.now() } });
     // 期间若已切换到其他账号，不能把这个页面的刷新结果写回登录态。
-    if (data.user?.id !== userId || store.user.id !== userId) return false;
-    return applyLoginSession(data.user, client);
+    if (data.user?.id !== userId || store.user.id !== userId || revision !== store.sessionRevision) return false;
+    // 只更新后端派生的准入字段，保留 store.user 的对象身份；替换整个对象会让个人设置页被重新加载并丢失保存结果。
+    store.user.verified = data.user.verified ?? false;
+    store.user.can_submit_replays = data.user.can_submit_replays ?? false;
+    return true;
 }
 
 export async function applyLoginSession(user: UserProfileData, client: AxiosInstance): Promise<boolean> {

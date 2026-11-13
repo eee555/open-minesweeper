@@ -214,7 +214,7 @@ D5–D10 由项目方在实施前逐轮确认，覆盖第 4、5、6、8、10 节
 - 模型 `UserVerifyEdge` 替换 `UserVerifyTree` / `UserVerifyCoordinator`；`0010` 保留，`0011` 由 `makemigrations` 自动生成（未手写）。按项目方要求**不执行 `migrate`、不改 git 索引、不提交迁移文件**（`**/migrations/*` 仍被 `.gitignore` 忽略，需自行 `git add -f` 提交）。
 - 三类写入都在 `transaction.atomic()` 内完成；站长批次在同一事务中执行全部边与节点命令，失败整体回滚，不自动恢复下游、不计算可达性或撤销闭包。允许环、多入边、反向边，禁止自认证边。
 - 维护会话与写入锁位于 `userprofile/verification/cache.py`；`userprofile/verification/{utils,services,api}.py` 全部重写，旧申请、冷却、拒绝、解除、根节点文案与接口删除。
-- 前端 `PlayerVerification.vue`、`playerVerificationService.ts`、`StaffView/UserProfile.vue` 重写，新增站长图维护页与路由；全局与组件内中英文文案同步；`loginSession.refreshSelfSession` 保证刷新不覆盖后来登录的账号，首次填写实名后刷新后端派生准入字段。
+- 前端 `PlayerVerification.vue`、`playerVerificationService.ts`、`StaffView/UserProfile.vue` 重写，新增站长图维护页与路由；全局与组件内中英文文案同步；`loginSession.refreshSelfAccess` 原地刷新后端派生准入字段并保留 `store.user` 对象身份（替换整个登录对象会重新加载个人设置页、清掉「修改成功」），同时用 `sessionRevision` 保证刷新不覆盖后来登录的账号。
 - 后端测试 `test_verification.py` 全量重写，`test_admin_csrf.py` 端点清单同步；前端 `PlayerVerification.cy.ts` 与 `UserView/App.cy.ts` fixture 同步，Cypress/E2E 由用户运行。
 
 本地已确认的检查结果见交付说明；生产环境仍需先应用 `0010`、`0011`，停止旧 worker 并确认没有 READY/RUNNING 旧认证任务后再发布新前端。
