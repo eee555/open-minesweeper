@@ -741,7 +741,7 @@ class VideoUploadRankingIntegrationTest(TestCase):
             uploaded_file = SimpleUploadedFile(path.name, file.read())
 
         with self.captureOnCommitCallbacks(execute=True):
-            response = self.client.post('/common/uploadvideo/', {'file': uploaded_file})
+            response = self.client.post('/api/common/uploadvideo', {'file': uploaded_file})
         self.assertEqual(response.status_code, 200, response.content)
         data = json.loads(response.content)
         video = VideoModel.objects.select_related('video', 'player__userms').get(pk=data['data']['id'])
@@ -753,7 +753,7 @@ class VideoUploadRankingIntegrationTest(TestCase):
         VideoModel.objects.filter(pk=video.pk).update(file='missing.evf', file_size=video.file_size + 1, timems=video.timems + 1, bv=video.bv + 1)
         path = self.fixture_path('beginner_personal.evf')
         with patch('common.services.MSVideoParser') as parse:
-            response = self.client.post('/common/uploadvideo/', {'file': SimpleUploadedFile(path.name, path.read_bytes())})
+            response = self.client.post('/api/common/uploadvideo', {'file': SimpleUploadedFile(path.name, path.read_bytes())})
         self.assertEqual(response.json(), {'type': 'error', 'object': 'file', 'category': 'collision'})
         self.assertEqual(VideoModel.objects.count(), 1)
         parse.assert_not_called()
@@ -798,11 +798,24 @@ class VideoUploadRankingIntegrationTest(TestCase):
         self.assertTrue(video.ongoing_tournament)
         self.assertTrue(tournament.videos.filter(pk=video.pk).exists())
 
+    def test_upload_requires_realname_or_player_verification(self):
+        path = self.fixture_path('incomplete.evf')
+        self.user.realname = '匿名'
+        self.user.save(update_fields=['_realname', 'date_updated'])
+
+        response = self.client.post('/api/common/uploadvideo', {'file': SimpleUploadedFile(path.name, path.read_bytes())})
+        self.assertEqual(response.json(), {'type': 'error', 'object': 'userprofile', 'category': 'identity_access_required'})
+
+        self.user.verified = True
+        self.user.save(update_fields=['verified', 'date_updated'])
+        response = self.client.post('/api/common/uploadvideo', {'file': SimpleUploadedFile(path.name, path.read_bytes())})
+        self.assertEqual(response.json(), {'type': 'error', 'object': 'file', 'category': 'incomplete'})
+
     def test_upload_incomplete_video_does_not_create_records_or_store_files(self):
         path = self.fixture_path('incomplete.evf')
         uploaded_file = SimpleUploadedFile(path.name, path.read_bytes())
 
-        response = self.client.post('/common/uploadvideo/', {'file': uploaded_file})
+        response = self.client.post('/api/common/uploadvideo', {'file': uploaded_file})
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {'type': 'error', 'object': 'file', 'category': 'incomplete'})

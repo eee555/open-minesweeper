@@ -55,11 +55,12 @@ describe('Personal Profile', () => {
         cy.url().should('eq', `http://localhost:8080/#/player/${USER_ID}/settings`);
     });
 
-    it('Cannot upload videos without real name', () => {
+    it('Cannot upload videos without real name or player verification', () => {
         cy.login(USERNAME, PASSWORD);
         cy.visitUser(USER_ID);
         cy.get('div.el-tabs__item').contains('上传').click();
-        cy.contains('请修改为实名');
+        cy.contains('请先完成实名或玩家认证').should('be.visible');
+        cy.get('.base-file-input input[type=file]').should('be.disabled');
     });
 
     it('Change local name', () => {

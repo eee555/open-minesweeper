@@ -24,6 +24,8 @@ class UserProfile(AbstractUser):
 
     date_updated = models.DateTimeField(auto_now=True)
     is_memorial = models.BooleanField(default=False)
+    # 当前有效的玩家认证结果。不表示已实名，也不表示管理身份。
+    verified = models.BooleanField(default=False)
 
     username = models.CharField(
         _('username'),
@@ -163,3 +165,21 @@ class EmailVerifyRecord(models.Model):
 
     def __unicode__(self):
         return '{0}({1})'.format(self.code, self.email)
+
+
+class UserVerifyEdge(models.Model):
+    """当前存在的玩家认证有向边，方向为「认证人 → 被认证人」。不保存申请、状态或历史。
+
+    用户可以有多条入边和多条出边，反向边与环都是独立且合法的关系；
+    用户当前的有效认证结果只保存在 ``UserProfile.verified``。
+    """
+
+    from_user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='verify_out_edges')
+    to_user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='verify_in_edges')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['from_user', 'to_user'], name='verify_edge_unique'),
+            models.CheckConstraint(condition=~models.Q(from_user=models.F('to_user')), name='verify_edge_no_self'),
+        ]

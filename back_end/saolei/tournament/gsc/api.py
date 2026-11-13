@@ -20,8 +20,9 @@ from tournament.models import GSCParticipant, GSCTournament
 from tournament.schema import ParticipantOutBase
 from userprofile.decorators import admin_csrf_required, login_required_error
 from userprofile.models import UserProfile
+from userprofile.utils import has_identity_access
 from utils.exceptions import ExceptionToResponse
-from utils.response import HttpResponseConflict, realname_required_response
+from utils.response import HttpResponseConflict, identity_access_required_response
 from utils.schema import DBTaskOut, MySQLPositiveInteger
 from videomanager.schema import VideoBaseOut
 from .services import bind_gsc_history_identifier, get_gsc_scores, import_gsc_history_scores, prepare_gsc_history_videos, upload_gsc_history_video
@@ -251,8 +252,8 @@ def get_results(request: HttpRequest, tournament_id: int):
 @decorate_view(login_required_error)
 def create_gsc_participant(request: HttpRequest, data: GSCOrderIn = Form(...)):  # noqa: B008
     user = request.user
-    if not user.has_realname():
-        return realname_required_response()
+    if not has_identity_access(user):
+        return identity_access_required_response()
     tournament = get_object_or_404(GSCTournament, order=data.order)
     if tournament.state != Tournament_TextChoices.State.NORMAL or tournament.end_time is None or timezone.now() >= tournament.end_time:
         return HttpResponseForbidden()

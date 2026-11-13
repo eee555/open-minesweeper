@@ -25,6 +25,7 @@
             </template>
         </div>
         <MemorialBadge v-if="user.is_memorial" />
+        <span v-if="user.verified" class="verification-badge" data-cy="verification-badge">{{ t('local.verified') }}</span>
         <RouterLink v-if="user.is_memorial && store.user.is_superuser" :to="{ path: '/superuser/memorial', query: { id: user.id } }" class="link">
             {{ t('local.uploadMemorial') }}
         </RouterLink>
@@ -72,11 +73,13 @@ const i18nMessages = {
         editButton: '编辑信息',
         hiddenName: '用户 #{id}',
         uploadMemorial: '补传纪念录像',
+        verified: '已认证玩家',
     } },
     en: { local: {
         editButton: 'Edit Profile',
         hiddenName: 'User #{id}',
         uploadMemorial: 'Upload memorial replays',
+        verified: 'Verified player',
     } },
 };
 
@@ -86,6 +89,14 @@ const { t } = useI18n({ messages: i18nMessages });
 <style scoped lang="less">
 .profile-pins {
     width: 100%;
+}
+
+.verification-badge {
+    display: inline-block;
+    padding: 0 0.4rem;
+    border: 1px solid var(--el-color-primary);
+    color: var(--el-color-primary);
+    font-size: 0.8rem;
 }
 
 /* 横向布局：窄屏顶部栏 */

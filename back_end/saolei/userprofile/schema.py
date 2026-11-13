@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal, Self
 
 from ninja import Field, Schema
@@ -11,7 +12,7 @@ from .models import UserProfile
 USER_INFO_FIELDS = [
     'id', 'username',
     'signature', 'country',
-    'is_banned', 'is_staff', 'is_memorial',
+    'is_banned', 'is_staff', 'is_memorial', 'verified',
     'last_change_avatar', 'last_change_signature',
     'left_avatar_n', 'left_signature_n',
 ]
@@ -35,10 +36,63 @@ class RawUserNames(Schema):
 UserInfoOut = create_schema(
     UserProfile, name='UserInfoOut', fields=USER_INFO_FIELDS, custom_fields=PUBLIC_NAME_FIELDS,
 )
+
+
 SelfUserInfoOut = create_schema(
     UserProfile, name='SelfUserInfoOut', fields=[*USER_INFO_FIELDS, 'can_hide_realname', 'hide_realname', 'is_superuser'],
     custom_fields=PUBLIC_NAME_FIELDS, base_class=RawUserNames,
 )
+
+
+class VerificationStatusOut(Schema):
+    verified: bool
+    can_verify: bool
+    maintenance_active: bool
+
+
+class VerificationActionOut(Schema):
+    target_id: int
+    verified: bool
+    edge_created: bool
+    nodes_updated: int
+
+
+class SetVerifiedOut(Schema):
+    user_id: int
+    verified: bool
+    nodes_updated: int
+
+
+class VerificationEdgeOut(Schema):
+    from_user_id: int
+    to_user_id: int
+    created_at: datetime
+
+
+class MaintenanceStateOut(Schema):
+    active: bool
+    owner_id: int | None
+    expires_at: datetime | None
+    owned_by_requester: bool
+
+
+class GraphSnapshotOut(Schema):
+    edges: list[VerificationEdgeOut]
+    verified_user_ids: list[int]
+    maintenance: MaintenanceStateOut
+
+
+class GraphNodeOut(Schema):
+    user_id: int
+    verified: bool
+    in_edges: list[int]
+    out_edges: list[int]
+
+
+class GraphUpdateResultOut(Schema):
+    added_edges: int
+    removed_edges: int
+    updated_nodes: int
 
 
 UserVideoStatisticsOut = create_schema(

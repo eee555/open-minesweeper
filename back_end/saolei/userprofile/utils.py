@@ -9,6 +9,11 @@ HIDDEN_NAME = 'hidden'
 NAME_FIELDS = {'realname': '_realname', 'firstname': '_firstname', 'lastname': '_lastname'}
 
 
+def has_identity_access(user) -> bool:
+    """实名或玩家认证满足其一即具备身份准入，管理身份本身不算准入。"""
+    return user.has_realname() or user.verified
+
+
 def validate_name(value):
     if value.strip() == HIDDEN_NAME:
         raise ValidationError('The name cannot be the reserved value hidden.', code='reserved')

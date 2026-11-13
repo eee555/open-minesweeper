@@ -218,6 +218,18 @@ E2E 使用隔离的测试数据库及 Redis，启用 `E2E_TEST=True` 并完成�
 | 形态 | 容器内渲染托管登录组件（互联侧 iframe，扫码 / PC QQ 快捷登录 / 账密登录） | 只渲染登录按钮 + 封装 client-side OAuth |
 | 文档 | 2026-10-30 首次发布，结构完整 | 陈旧，仍写「老浏览器需要 Flash 插件完成跨域通信」、明文 `http://` 脚本 |
 
+## 玩家认证
+
+完整规则与实施决策见 `PLAYER_VERIFICATION_PLAN.md`，本节只记录部署与维护要点。
+
+- `UserProfile.verified` 是当前有效认证结果，不是「已实名」，也不代表管理身份。`UserVerifyEdge` 只保存当前存在的有向边（`from_user`、`to_user`、`created_at`），以 `UniqueConstraint(from_user, to_user)` 防止同向重复边，以检查约束禁止自认证边；允许多入边、多出边、反向边和环，没有申请表、根节点或历史表。
+- 三类写入（普通主动认证、管理员设置 `verified`、站长完整图批次）都在 HTTP 请求内的单个数据库事务中同步完成，不使用 Django Tasks、任务查询或任务清理配置。普通认证只新增当前用户到目标的边并把目标设为已认证，不遍历下游；管理员只改指定节点；站长一次提交全部边与节点命令，后端不推导可达性或撤销范围。
+- 站长批次先开启独占维护会话（时长由站长指定，上限 1 小时）。会话状态与图写入串行锁放在 Redis 缓存 `userprofile/verification/cache.py`，TTL 到期自动恢复服务；提交成功或站长主动结束会立即释放。维护期间 `/verification/verify` 与 `/admin/verification/set-verified` 返回 409，读接口与站长批次提交仍可用。读路径只判断状态、不删除 key（避免删掉读取之后新建的会话），过期键由 TTL 清理；主动删除只在写入锁内进行。没有 `UserVerifyCoordinator` 表。
+- 批次用批量 SQL：一次读出相关边、`bulk_create(ignore_conflicts=True)`、按主键分块删除、节点按目标值最多两次 `update()`；所有 IN 列表按 `GRAPH_BATCH_CHUNK_SIZE=500` 分块，SQL 次数不随命令数逐条增长。超时链为 uWSGI `harakiri:10` < nginx `location = /api/userprofile/admin/verification/graph-update` 的 `uwsgi_read_timeout 12s` < 前端 `$axios` 20s；网关必须晚于 worker 超时，否则会先返回 504 而后端静默提交。部署需 `nginx -t` 后 reload Nginx，仅重启 Django 不更新网关配置。
+- API 集中在 `userprofile/verification/api.py`：`/api/userprofile/verification/status|verify` 为普通用户接口，`/api/userprofile/admin/verification/*` 为管理接口。管理员设置 `verified` 用 `staff_or_superuser_required`，站长读取、维护会话与批次用 `auth=django_auth_superuser`；管理员接口无限流，普通接口按项目约定限流。
+- 部署顺序：先执行 `migrate` 应用 `0010`、`0011` 建表并移除旧树表，再发布新前端；现有用户 `verified` 缺省为 false，已有实名用户仍按实名条件准入。旧树方案未部署到生产，不需要数据转换；本地切换前停止旧 worker 并确认没有 READY/RUNNING 的旧认证任务。
+- 录像上传已迁移到 Ninja 的 `POST /api/common/uploadvideo`，旧 Django view 和 `/common/uploadvideo/` 路由已移除；nginx 的限流 location 与排名维护锁路径需同步部署。上传、`create_weekly_participant` 和 `create_gsc_participant` 统一使用 `userprofile.utils.has_identity_access`，错误为 `userprofile/identity_access_required`。登录、自动登录和本人资料返回实名与 `verified`，前端 `UserProfile.canSubmitReplays` 统一根据有效用户 ID、实名（含隐藏姓名）或认证计算准入，不保存额外的准入字段；认证状态刷新原地更新 `verified` 并校验会话版本。公开资料返回 `verified`，不返回认证来源。
+
 新版功能：静态 `QQLogin.init(config)` / `getAuthUrl(config)` / `QQLogin.VERSION`；实例 `show()` / `hide()` / `isVisible()` / `destroy()` / `setConfig(patch)`。config 必填 `appid`、`redirect_uri`、`element`、`onMessage`，可选 `response_type`（code/token）、`state`、`scope`、`redirect_type`（parent/self）、`lang`（zh_CN/zh_TW/en_US）、`color_theme`（light/dark/auto）。事件有 `app:page_loaded`、`app:page_ready`、`app:page_error`（reason 为 `invalid_config` / `qr_load_failed` / `runtime_error`）、`app:set_theme`、`login:success`；`setConfig` 可在 `app:page_loaded` 后热切换语言、主题、跳转方式与回调。容器最低 280×280，宽高都超 380px 时切大组件。登录成功后把 code/token/state 拼到 `redirect_uri` 并跳转。登录页最佳 Chrome 49+，运行时下限 IE 10；外链脚本无需 polyfill。旧版功能：`QC.Login()` 渲染按钮（7 种尺寸）、`showPopup()`、`check()`、`getMe()`、`signOut()`、`QC.api()` 封装全部 OpenAPI 及 `cbLoginFun` 资料回调。
 
 **维护质量判断**：官方「重要更新」页自 2012 年起，Web/JS SDK 只有 **2026-10-30 一条**（首次支持 CDN 接入），此前全是移动端 SDK 发版（Android / iOS / HarmonyOS 在 2020–2026 持续迭代）和协议侧通知（回调地址校验、头像域名变更、登录短信验证、`access_token` 有效期调整等）。所以团队整体活跃、服务端协议可信，但 **Web JS SDK 是发布仅约两周的新产物**，没有版本历史、changelog、社区反馈或生产验证沉淀；新版文档质量明显高于旧版（API 参考、事件清单、错误原因、兼容性表齐全），但旧版 `qc_jssdk.js` 应视为遗留，不要照旧博客接入。

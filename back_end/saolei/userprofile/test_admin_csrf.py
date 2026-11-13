@@ -36,6 +36,17 @@ class AdminCsrfTests(TestCase):
         self.get_token(self.staff)
         self.get_token(self.superuser)
 
+    def test_verification_set_verified_accepts_superuser_without_is_staff(self):
+        token = self.get_token(self.superuser)
+        response = self.client.post(
+            '/api/userprofile/admin/verification/set-verified',
+            {'user_id': self.superuser.pk, 'verified': True},
+            content_type='application/json',
+            HTTP_X_CSRFTOKEN=token,
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(response.json()['verified'])
+
     def test_all_admin_write_families_reject_missing_tokens_before_processing(self):
         self.client.force_login(self.staff)
         paths = [
@@ -46,6 +57,10 @@ class AdminCsrfTests(TestCase):
             ('post', '/api/video/newest_queue/remove'), ('post', '/api/video/admin/freeze'),
             ('post', '/api/video/admin/delete'), ('post', '/api/userprofile/admin/staff'),
             ('post', '/api/userprofile/admin/clear-info'), ('post', '/api/article/admin/refresh'),
+            ('post', '/api/userprofile/admin/verification/set-verified'),
+            ('post', '/api/userprofile/admin/verification/maintenance'), ('delete', '/api/userprofile/admin/verification/maintenance'),
+            ('post', '/api/userprofile/admin/verification/graph-update'),
+
             ('post', '/api/common/admin/memorial/users/1/videos'),
             ('post', '/api/medal/staff/grants'), ('post', '/api/medal/staff/grants/1/revoke'),
             ('post', '/api/medal/staff/rebuild'), ('post', '/api/medal/staff/overrides'),

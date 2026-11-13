@@ -2,18 +2,19 @@ import axios from 'axios';
 import type { AxiosInstance } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { applyLoginSession as applyLoginSessionFunction } from './loginSession';
+import type { applyLoginSession as applyLoginSessionFunction, applySelfVerification as applySelfVerificationFunction } from './loginSession';
 
 import type { UserProfileData } from '@/utils/userprofile';
 
 const { store, moduleLoads, install } = vi.hoisted(() => ({
-    store: { sessionRevision: 0, user: { is_staff: false, is_superuser: false }, login: vi.fn<(user: UserProfileData) => void>() },
+    store: { sessionRevision: 0, user: { id: 0, is_staff: false, is_superuser: false, verified: false }, login: vi.fn<(user: UserProfileData) => void>() },
     moduleLoads: vi.fn(),
     install: vi.fn<(client: AxiosInstance, isAdmin: () => boolean) => number>(),
 }));
 vi.mock('@/store', () => ({ store }));
 
 let applyLoginSession: typeof applyLoginSessionFunction;
+let applySelfVerification: typeof applySelfVerificationFunction;
 let loadGate: Promise<void> | undefined;
 
 function deferred() {
@@ -35,9 +36,9 @@ describe('lazy administrator session setup', () => {
         vi.resetModules();
         moduleLoads.mockClear();
         store.sessionRevision = 0;
-        store.user = { is_staff: false, is_superuser: false };
+        store.user = { id: 0, is_staff: false, is_superuser: false, verified: false };
         store.login.mockReset().mockImplementation((user) => {
-            store.user = { is_staff: user.is_staff ?? false, is_superuser: user.is_superuser ?? false };
+            store.user = { id: user.id ?? 0, is_staff: user.is_staff ?? false, is_superuser: user.is_superuser ?? false, verified: user.verified ?? false };
             store.sessionRevision++;
         });
         install.mockReset().mockImplementation((http, isAdmin) => http.interceptors.request.use((config) => {
@@ -50,7 +51,7 @@ describe('lazy administrator session setup', () => {
             if (loadGate) await loadGate;
             return { installAdminCsrfInterceptor: install };
         });
-        ({ applyLoginSession } = await import('./loginSession'));
+        ({ applyLoginSession, applySelfVerification } = await import('./loginSession'));
     });
 
     afterEach(() => {
@@ -155,5 +156,35 @@ describe('lazy administrator session setup', () => {
         expect(store.login).not.toHaveBeenCalled();
         expect(await applyLoginSession({ id: 2, is_staff: true }, http)).toBe(true);
         expect(install).toHaveBeenCalledTimes(2);
+    });
+
+    describe('applySelfVerification', () => {
+        it.each([true, false])('publishes verified=%s without replacing the session', (verified) => {
+            store.user.id = 42;
+            store.user.verified = !verified;
+            const before = store.user;
+            expect(applySelfVerification(42, store.sessionRevision, verified)).toBe(true);
+            expect(store.user).toBe(before);
+            expect(store.user.verified).toBe(verified);
+            expect(store.login).not.toHaveBeenCalled();
+        });
+
+        it('ignores a response from a different account or session', () => {
+            store.user.id = 42;
+            expect(applySelfVerification(99, 0, true)).toBe(false);
+            expect(applySelfVerification(42, 1, true)).toBe(false);
+            expect(store.user.verified).toBe(false);
+        });
+
+        it('ignores guests and responses from an earlier login to the same account', () => {
+            expect(applySelfVerification(0, store.sessionRevision, true)).toBe(false);
+            store.user.id = 42;
+            const before = store.user;
+            const revision = store.sessionRevision;
+            store.login({ id: 42 });
+            expect(applySelfVerification(42, revision, true)).toBe(false);
+            expect(before.verified).toBe(false);
+            expect(store.user.verified).toBe(false);
+        });
     });
 });

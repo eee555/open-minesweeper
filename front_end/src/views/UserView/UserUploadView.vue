@@ -1,5 +1,5 @@
 <template>
-    <VideoUpload :is-user-anonymous="user.isAnonymous" @on-upload="handleUpload" />
+    <VideoUpload :can-submit-replays="user.canSubmitReplays" @on-upload="handleUpload" />
 </template>
 
 <script setup lang="ts">

@@ -120,6 +120,37 @@ describe('UserProfile', () => {
         });
     });
 
+    describe('getter: canSubmitReplays', () => {
+        it.each(['', '   ', '匿名'])('requires verification when the real name is %j', (realname) => {
+            const profile = new UserProfile({ id: 42, realname });
+            expect(profile.canSubmitReplays).toBe(false);
+            profile.verified = true;
+            expect(profile.canSubmitReplays).toBe(true);
+        });
+
+        it.each(['Alice', 'hidden'])('accepts the existing real name representation %j', (realname) => {
+            expect(new UserProfile({ id: 42, realname }).canSubmitReplays).toBe(true);
+        });
+
+        it('does not grant access to guests or through a management role', () => {
+            expect(new UserProfile({ realname: 'Alice', verified: true }).canSubmitReplays).toBe(false);
+            expect(new UserProfile({ id: 42, is_staff: true, is_superuser: true }).canSubmitReplays).toBe(false);
+        });
+
+        it('updates access immediately when the real name or verification changes', () => {
+            const profile = new UserProfile({ id: 42 });
+            expect(profile.canSubmitReplays).toBe(false);
+            profile.realname = 'Alice';
+            expect(profile.canSubmitReplays).toBe(true);
+            profile.realname = '';
+            expect(profile.canSubmitReplays).toBe(false);
+            profile.verified = true;
+            expect(profile.canSubmitReplays).toBe(true);
+            profile.verified = false;
+            expect(profile.canSubmitReplays).toBe(false);
+        });
+    });
+
     describe('getter: canSetName', () => {
         it('realname not set', () => {
             const profile = new UserProfile({ firstname: 'a', lastname: 'b' });

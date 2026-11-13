@@ -284,6 +284,7 @@ def user_metadata(user: UserProfile, client):
         'is_staff': user.is_staff,
         'is_superuser': user.is_superuser if client == user else False,
         'is_memorial': user.is_memorial,
+        'verified': user.verified,
         'country': user.country,
         'videos': list(videos),
     }

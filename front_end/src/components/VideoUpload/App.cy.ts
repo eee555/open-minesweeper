@@ -72,7 +72,7 @@ function loadFixture(label: keyof typeof fixtures, alias: string) {
 }
 
 function mockUploadResponse() {
-    cy.intercept('POST', '/common/uploadvideo/', (req) => {
+    cy.intercept('POST', '/api/common/uploadvideo', (req) => {
         switch (interceptFormData(req).file) {
             case 'exp.avf':
                 req.reply({
@@ -118,20 +118,20 @@ describe('VideoUpload Component', () => {
     });
 
     it('shows real name required when user is anonymous', () => {
-        cy.mount(App, mountOptions({ isUserAnonymous: true }));
-        cy.contains('Real name required').should('be.visible');
+        cy.mount(App, mountOptions({ canSubmitReplays: false }));
+        cy.contains('Real name or player verification required').should('be.visible');
         cy.get('input[type="file"]').should('be.disabled');
     });
 
     it('shows drag area and checkboxes when user is not anonymous', () => {
-        cy.mount(App, mountOptions({ isUserAnonymous: false }));
+        cy.mount(App, mountOptions({ canSubmitReplays: true }));
         cy.contains('Drag files here or click here to select').should('be.visible');
         cy.contains('Auto-upload after parsing').should('be.visible');
         cy.contains('Auto-remove after uploading').should('be.visible');
     });
 
     it('keeps upload options outside the file picker button', () => {
-        cy.mount(App, mountOptions({ isUserAnonymous: false }));
+        cy.mount(App, mountOptions({ canSubmitReplays: true }));
         cy.get('input[type=file]').then(($input) => {
             cy.stub($input[0] as HTMLInputElement, 'click').as('pick');
         });
@@ -156,7 +156,7 @@ describe('VideoUpload Component', () => {
     it('File parsing and table rendering', () => {
         cy.viewport(500, 1000);
         cy.mount(App, mountOptions({
-            isUserAnonymous: false,
+            canSubmitReplays: true,
         }));
 
         // 准备录像文件
@@ -204,7 +204,7 @@ describe('VideoUpload Component', () => {
     });
 
     it('Table multi-selection', () => {
-        cy.mount(App, mountOptions({ isUserAnonymous: false }));
+        cy.mount(App, mountOptions({ canSubmitReplays: true }));
 
         // 准备录像文件
         loadFixture('expAvf', 'videoFileExpAvf');
@@ -259,7 +259,7 @@ describe('VideoUpload Component', () => {
 
     it('Response status', () => {
         mockUploadResponse();
-        cy.mount(App, mountOptions({ isUserAnonymous: false }));
+        cy.mount(App, mountOptions({ canSubmitReplays: true }));
 
         loadFixture('expAvf', 'videoFileExpAvf');
         loadFixture('intRmv', 'videoFileIntRmv');
@@ -296,9 +296,9 @@ describe('VideoUpload Component', () => {
                 const expectedStatus = statusCode === 402 ? 'Video quota reached' : 'Upload fail';
                 local.value.autoUploadAfterParse = autoUpload;
                 local.value.autoRemoveAfterUpload = true;
-                cy.intercept('POST', '/common/uploadvideo/', { statusCode, body: '' }).as('uploadRequest');
+                cy.intercept('POST', '/api/common/uploadvideo', { statusCode, body: '' }).as('uploadRequest');
                 const onUpload = cy.spy().as('onUpload');
-                cy.mount(App, mountOptions({ isUserAnonymous: false, onOnUpload: onUpload }));
+                cy.mount(App, mountOptions({ canSubmitReplays: true, onOnUpload: onUpload }));
 
                 loadFixture('expAvf', 'videoFileExpAvf');
                 cy.get('input[type=file]').selectFile([
@@ -327,8 +327,8 @@ describe('VideoUpload Component', () => {
     it('retains a rejected upload for retry while ranking anchors refresh', () => {
         local.value.autoUploadAfterParse = true;
         local.value.autoRemoveAfterUpload = true;
-        cy.intercept('POST', '/common/uploadvideo/', { statusCode: 503, headers: { 'Retry-After': '1' }, body: { type: 'error', object: 'top', category: 'refreshing' } }).as('busy');
-        cy.mount(App, mountOptions({ isUserAnonymous: false }));
+        cy.intercept('POST', '/api/common/uploadvideo', { statusCode: 503, headers: { 'Retry-After': '1' }, body: { type: 'error', object: 'top', category: 'refreshing' } }).as('busy');
+        cy.mount(App, mountOptions({ canSubmitReplays: true }));
         loadFixture('expAvf', 'videoFileExpAvf');
         cy.get('input[type=file]').selectFile([{ contents: '@videoFileExpAvf', fileName: 'exp.avf' }], { force: true });
         cy.wait('@busy');
@@ -346,7 +346,7 @@ describe('VideoUpload Component', () => {
     it('Auto-remove after upload', () => {
         mockUploadResponse();
         local.value.autoRemoveAfterUpload = true;
-        cy.mount(App, mountOptions({ isUserAnonymous: false }));
+        cy.mount(App, mountOptions({ canSubmitReplays: true }));
 
         loadFixture('expAvf', 'videoFileExpAvf');
         loadFixture('intRmv', 'videoFileIntRmv');
@@ -369,7 +369,7 @@ describe('VideoUpload Component', () => {
     it('Auto-upload after parse', () => {
         mockUploadResponse();
         local.value.autoUploadAfterParse = true;
-        cy.mount(App, mountOptions({ isUserAnonymous: false }));
+        cy.mount(App, mountOptions({ canSubmitReplays: true }));
 
         loadFixture('expAvf', 'videoFileExpAvf');
         loadFixture('intRmv', 'videoFileIntRmv');
@@ -392,7 +392,7 @@ describe('VideoUpload Component', () => {
         mockUploadResponse();
         local.value.autoUploadAfterParse = true;
         local.value.autoRemoveAfterUpload = true;
-        cy.mount(App, mountOptions({ isUserAnonymous: false }));
+        cy.mount(App, mountOptions({ canSubmitReplays: true }));
 
         loadFixture('expAvf', 'videoFileExpAvf');
         loadFixture('intRmv', 'videoFileIntRmv');

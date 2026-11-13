@@ -49,6 +49,7 @@ export const store = defineStore('user', {
         // 纪念账号无法登录，管理员访问其主页时视同本人，可操作已关联的账号。
         isMemorialProfileAdmin: (state): boolean => state.user.id > 0 && state.user.id !== state.player.id && (state.user.is_staff || state.user.is_superuser) && state.player.is_memorial,
         isUserAnonymous: (state) => state.user.isAnonymous,
+        canSubmitReplays: (state) => state.user.canSubmitReplays,
         expTimeMs: (state) => state.expertTimeMs ?? 999999,
     },
     actions: {
