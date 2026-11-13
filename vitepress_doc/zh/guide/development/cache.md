@@ -11,13 +11,17 @@ description: 开源扫雷网Redis/Django缓存结构详解，包括录像队列�
 
 GitHub 使用默认 Django cache（当前 Redis DB 1），所有键 TTL 为 600 秒，不保存访问令牌或公开资料。`accountlink:github:flow:{state}` 保存用户 ID、登录会话 HMAC 指纹和 PKCE verifier；`accountlink:github:active:{user_id}` 保存该用户最新的 state，新授权覆盖旧流程；`accountlink:github:used:{state}` 通过 `cache.add` 原子占用为 `True`，防止多个 worker 重复消费同一回调。只有匹配本人及会话的请求能占用状态。撤销时该 state 的 used 标记改为 `revoked` 并删除 flow 数据，不删除 active 指针；指针自然过期或被下一次授权覆盖，避免误删并发创建的新授权。删除已绑定账号在删除事务内持有用户行锁时立即撤销，不推迟到 `on_commit`，确保在途回调取得同一行锁后无法恢复关联。删除回滚保留数据库关联，但不恢复授权缓存，用户需重新发起授权；没有绑定账号可删除的本人取消操作也立即撤销。前端取消接口按 state、本人及会话校验，不影响较新的授权。清理缓存只会使未完成授权失效，用户重新发起即可，不影响已验证的数据库关联。
 
+## 扫雷网绑定确认凭据
+
+扫雷网绑定协议 v2 使用默认 Django cache（当前 Redis DB 1）保存短期确认凭据，键为 `accountlink:saolei:bind:{token}`，TTL 为 24 小时。值为 `{confirmer_id, uid, username, sync}`：分别表示本站确认者 ID、扫雷网 uid、确认时的扫雷网用户名和同步开关。只有绑定事务成功提交后才写入；`/api/accountlink/saolei/bind/status` 只接受本次令牌自己的凭据，并要求扫雷网 uid 一致、当前 `AccountSaolei.parent_id` 仍等于 `confirmer_id`。扫雷网侧取消申请时直接返回 pending；历史绑定、换绑后的旧凭据以及没有凭据的已核销申请均不视为本次确认。清理缓存不会影响数据库中的既有绑定，但尚未核销的申请需要在开源扫雷网授权页重新确认以生成新凭据。
+
 ## 录像与账号数据
 
-扫雷网首批迁移由 [sync_saolei_api](./management-commands.md#sync-saolei-api) 串行执行。迁移后开放前端逐页、逐条手动同步；`AccountSaolei.auto_sync=True` 的账号（默认开启）每日由 APScheduler 直接同步目录并每批最多 50 条取得详情及 URL，每小时由 Django Task 按已存 URL 最多尝试导入 100 条。没有专用 Redis 进度或任务缓存；目录与 `AccountSaolei.video_sync_cursor` 同数据库事务提交，`video_update_time` 仅标记目录扫描完成，不代表全部详情或文件成功；游标不等待详情或文件导入，未完成来源独立补取。旧账号成绩、人气、三级录像数量及任务指针字段随迁移删除，不再维护对应历史值。创建本站录像和同主重复文件的更早上传时间仍经过既有保存信号及排行缓存更新，不清理本站录像缓存来重建来源目录。
+扫雷网首批迁移由 [sync_saolei_api](./management-commands.md#sync-saolei-api) 串行执行。迁移后开放前端逐页、逐条手动同步；`AccountSaolei.auto_sync=True` 的账号（默认开启）每日由 APScheduler 直接同步目录并每批最多 50 条刷新详情元数据，每小时由 Django Task 按录像 ID 最多尝试导入 100 条。没有专用 Redis 进度或任务缓存；目录与 `AccountSaolei.video_sync_cursor` 同数据库事务提交，`video_update_time` 仅标记目录扫描完成，不代表全部详情或文件成功；游标不等待详情或文件导入，未完成来源独立补取。旧账号成绩、人气、三级录像数量及任务指针字段随迁移删除，不再维护对应历史值。创建本站录像和同主重复文件的更早上传时间仍经过既有保存信号及排行缓存更新，不清理本站录像缓存来重建来源目录。
 
 `saolei:throttle:data` 和 `saolei:throttle:download` 是网页、worker 和命令共享的上游节流键，只存常量 `1`，由 Redis `SET NX PX` 原子占用，分别在 2100ms、400ms 后自动过期。没有用户数据或密钥。各客户端竞争同一额度，最多等待 6 秒；不要手动清除正在使用的键。
 
-`SaoleiApiVideo.file_url` 将详情返回的文件地址以客户端规范化后缀 `YYYY/MM/DD/filename` 保存到数据库，供文件导入使用，没有单独的 URL 缓存。目录列表不含此字段，目录刷新保留已存后缀；批量详情校验归属后整批落库，详情缺项保留已有信息，明确返回无文件时置空。自动导入和命令 videos 阶段直接使用已存 URL，不重复请求详情；URL 缺失先由 metadata 阶段补取。前端单条手动导入仍先取得该条最新详情。
+`SaoleiApiVideo` 不保存录像文件地址，也没有单独的 URL 缓存：上游不再返回 `fileUrl`，导入直接用 `remote_id` 请求 `https://saolei.wang/video/download/{id}`，文件名取下载响应的 `Content-Disposition`。目录与批量详情只维护元数据；详情缺项保留已有信息。自动导入和命令 videos 阶段不重复请求详情，前端单条手动导入仍先取得该条最新详情。
 
 `SaoleiApiVideo.import_rejected` 在数据库中持久化本站文件校验直接拒收的结果，不使用缓存。导入事务回滚后单独写入；后续同步在请求详情和下载文件前跳过，目录刷新及 `--full` 不清除此标记。需人工重试时由站长在 Django shell 清除；网络、上游及其他非文件校验故障不设置标记，仍按本地未完成来源补导。
 
@@ -53,6 +57,18 @@ redis-cli -n 0 DEL io_s_old io_r_old io_s_spds io_r_spds cpus
 
 扫雷网旧站爬取及旧来源列表、统计查询已关闭，账号关联保留。首批仅由管理命令使用新来源结构同步目录和导入文件；旧爬取任务不会访问外站或写入业务数据。具体入口见仓库 `back_end/saolei/accountlink/README.md`。
 
+## 作品排行
+
+作品页实时热度 / 累计投喂排序与排行榜页《作品》tab 使用五个固定 Redis key（DB `saolei_website`）：`media:rank:hot`、`media:rank:likes` 是作品维度 zset，`media:rank:user:hot`、`media:rank:user:likes` 是作者维度求和 zset，`media:hot:anchor` 保存 Redis 侧热度基准 `T_r`（ISO 8601 UTC）。四个 zset 没有 TTL，只有 `verified` 作品入榜；`pending` 作品可以投喂但只写数据库，审核通过时按 DB 当前值补齐。作品页按发表时间排序（原《最新》tab）直接查库；待审核作品不再有作品页入口，仅在个人主页与管理端可见。五个固定 key 已纳入服务器监控快照的固定内存统计清单，**没有临时锁 key**。
+
+热度采用双基准（`back_end/saolei/media/MEDIA_PLAN.md` 附录 A）：`T_db` 是 `Media.hot_value_updated_at` 的全表统一值，数据库的 `hot_value` 全部以它为基准；`T_r` 存 `media:hot:anchor`，四个 zset 的 hot 分数以它为基准。两者各自内部自洽、不要求相等，相差一个共同因子 `decay(T_db, T_r)`，排序一致。`T_r` 缺失时首次读写按 `T_db` 用 `SET NX` 初始化；`likes` 不衰减。作品分页响应返回 `T_db`，作品字段与实时热度以 DB 为准；作者榜响应返回 `T_r` 与 zset 原值，由前端按 `0.99 ** ((now - T_r) / 1 天)` 折算，两处 anchor 不可混用。
+
+**写入在请求路径完成**：投喂（仅 `verified`）、审核通过、投稿与站长硬删除在数据库事务提交后调用 `services.sync_media_scores()`，重查 DB 得到该作者所有 `verified` 作品的绝对分数，由 `cache.set_media_scores()` 用一个显式 `pipeline(transaction=True)` 覆盖四个 zset（作品不存在则 `ZREM`）。请求路径使用 1 秒短超时的 Redis 客户端（`MEDIA_SOCKET_TIMEOUT`，现网缓存连接是 5 秒），不吃掉普通 API 的 2 秒网关预算。Redis 异常只记 `media` error 日志：不回滚已提交的数据库事务、不入队后台任务、不重试补偿，残留漂移由低频管理命令纠正。`MULTI/EXEC` 没有回滚，因此绝不把抛异常当作「未写入」；一律写绝对 `ZADD` 而不是 `ZINCRBY`，迟到、乱序或响应丢失都不会重复累加。没有 `media:cache:lock`、`WATCH`、`ZUNIONSTORE`、模型信号或 `on_commit` 回调。
+
+`T` 仍需低频推进以防 `1 / decay(T, now)` 长期指数增长到浮点上溢，但不需要月度作业：APScheduler 的 `refresh_media_hot_reference` 作业、media 的后台同步任务、任务清理配置与任务重启服务均已删除。低频人工执行 [refresh_media_rankings](./management-commands.md#refresh-media-rankings)：`--reference` 在数据库事务内用 `F()` 把全表 `hot_value` 乘 `decay(T_db_old, T_new)` 并写入新 `T_db`，再全量重算四个 zset、与 `T_r` 一起原子发布；`--rebuild-only` 只纠偏；`--check` 只读巡检，按 `decay(T_db, T_r)` 从 DB 派生期望分数，漂移或 `T_r` 缺失以非零退出码告警，可接入外部定时巡检。命令不进部署流程、不持锁、不阻塞请求写；执行期间正式 key 上的增量可能被 `rename` 覆盖而短暂漂移，数据库始终正确，重跑即可收敛。
+
+驳回只发生在 `pending`，从未入榜，不需要回退。全量重建只读取 `verified` 行，写入 `media:rebuild:*` 临时 key 后在一次 `MULTI/EXEC` 里 `rename` 四个正式 zset 并发布 `T_r`；失败时旧榜保留并抛 `CommandError`，提示 `T_db` 已是权威值、重跑命令。缓存滞后时人工执行 `--rebuild-only` 恢复。
+
 ## 服务器监控快照
 
 `GET /api/monitor/summary` 一次返回 `{videosummary, tasksummary, diskusage, memoryusage}`，前端服务器页面只请求一次，再分发给各张卡片。APScheduler 的 `refresh_monitor_snapshot` 启动时立即执行，此后每 5 分钟复用 `monitor/services.py` 的采集函数，发布监控 JSON。开发环境默认写入 `BASE_DIR/runtime/monitor.json`；生产环境写入与 `STATIC_ROOT` 同级的 `runtime/monitor.json`，与源码目录分离。生产 Nginx 直接提供该文件；本地 Ninja 接口也只读文件，不在请求中采集。文件不存在时返回 503。
@@ -73,7 +89,7 @@ Redis 分类只读取业务代码直接确定的 DB 0 key，不执行 `SCAN`、`
 
 | 分类 | key 来源 |
 | --- | --- |
-| PB 榜 | `PBRankingCache.counts_key`；固定 hash 的 `HKEYS` 经校验后构造小榜 key；从 `UserProfile` 主键顺序每批最多 1,000 个 ID 构造用户 hash key。元数据缺失不发现 key、不触发重建。 |
+| PB 榜 | `PBRankingCache.counts_key`；固定 hash 的 `HKEYS` 经校验后构造小榜 key；从 `UserProfile` 主键顺序每批最多 1,000 个 ID 构造用户 hash key。PB 衍生榜另由 `PBDerivedCache().keys()` 枚举 3 个成绩 hash 与 132 个小榜 key，均计入 `pb_rankings` 分类。元数据缺失不发现 key、不触发重建。 |
 | 其他排行榜 | 扫雷网与强无猜各自的 `SpeedRankingCache(name, stats=RANK_STATS).keys`（各两个大榜，共 36 个 key）、`TopRankingCache().keys`、`ThrpRankingCache().keys`、`NFIOERankingCache().keys`、`MiniGameRankingCache().keys`、四种自定义 pluck 配置的 rank/detail key、比赛用户榜 key 和积分时间 key；当前共 162 个 key。 |
 | 最新录像 | `newest_cache.key`（`newest_queue`）。 |
 | 其他 | `INFO memory.used_memory` 减去前三类；包含其他业务、会话、同实例 DB 1 通用缓存、孤立/历史/临时 key 和 Redis 开销，不枚举 DB 1。 |
@@ -100,7 +116,7 @@ Redis 分类只读取业务代码直接确定的 DB 0 key，不执行 `SCAN`、`
 
 前端 `user-info` 的姓名列直接兼容隐藏标记 `hidden`，无需调整数据库版本或检查间隔。资料保存成功后，`invalidateUserInfo(id)` 删除该用户的本地缓存并通知已挂载的 `PlayerName` 重新读取公开姓名；失效前发出的响应不会写回旧值。缓存删除失败时不影响已保存的设置，跳过该用户的旧缓存并重置检查时间以便重试。资格及隐藏状态变更更新 `date_updated`，其他浏览器仍由现有 `infoupdated` 流程按正常周期更新。Redis 排行继续只引用用户 ID。缓存流程见仓库 `front_end/src/services/userService.md`；授权、展示与迁移约定见 `back_end/saolei/userprofile/README.md`。
 
-独立的本地初始化脚本 `dangerzone/init_local_test.py` 会清空本地 `saolei_website` Redis 数据库（包含会话），然后根据导入的公开录像重建竞速榜（扫雷网普通/NF、强无猜普通/NF、PB 普通/NF、top 十八项及锚点）、效率 Thrp 榜、pluck 纪录缓存和录像状态队列。在 `back_end/saolei` 目录使用 `python -m dangerzone.init_local_test` 启动。只允许本地测试配置，并拒绝存在 `.production` 标记的环境；不注册 `import_public_data` 管理命令。详情及数据缺失限制见[本地公开数据快照](./management-commands.md#本地公开数据快照)。
+独立的本地初始化脚本 `dangerzone/init_local_test.py` 会清空本地 `saolei_website` Redis 数据库（包含会话），然后根据导入的公开录像重建竞速榜（扫雷网普通/NF、强无猜普通/NF、PB 普通/NF、PB 衍生三大榜、top 十八项及锚点）、效率 Thrp 榜、pluck 纪录缓存和录像状态队列。PB 衍生榜由 `rebuild_pb_ranks` 末尾统一重建，不单独扫描录像表。在 `back_end/saolei` 目录使用 `python -m dangerzone.init_local_test` 启动。只允许本地测试配置，并拒绝存在 `.production` 标记的环境；不注册 `import_public_data` 管理命令。详情及数据缺失限制见[本地公开数据快照](./management-commands.md#本地公开数据快照)。
 
 ### 标识管理
 
@@ -121,6 +137,8 @@ top 由 `speedranking.top.cache.TopRankingCache` 管理，包含用户前五明�
 PB 只读接口不自动回源，初始化和修复用法见 [PB 重建命令](./management-commands.md#rebuild-pb-ranks)。前端 PB 排行页面已实现，分页上传时间直接由 zset score 解码，不增加查询或 hash 字段。
 
 PB 另使用 `speedranking:pb:counts` hash 汇总各小榜人数，可通过 `GET /api/speedranking/pb/counts` 一次读取，随 rank 刷新同步更新；前端用于筛选网格的人数显示。已有缓存通过 PB 重建命令补齐。具体 field 及空榜约定见 app README。
+
+PB 衍生榜由 `speedranking.pb_derived.cache.PBDerivedCache` 管理：三个 `speedranking:pb_derived:{collection|skill|typical_time}:records` hash 保存用户全部衍生成绩，132 个 `speedranking:pb_derived:{ranking}:{field}` zset 各自保存一个用户排序索引；前后端分段配置分别硬编码，不设置 version，Redis 也没有版本 key。它与 PB 原榜共用同一次 `sync_video` / `_update_videos` 的共享读写 pipeline（单条与批量路径同样适用）：三次 HMGET 中 `skill` hash 的分段战力是计算分段典型时及其差量的必要输入，缺失时该次变更回退全量重算；日常变更以旧成绩为基准，直接加减变化 PB 桶的贡献——收集三列与分段/级别战力按 `ΔW = p_l[v] * ΔBvs` 线性累加，分段典型时由分段战力反推 `W_I` 重算后把变化量累加到合计——只写入发生变化的成绩 hash 与 zset，不额外维护中间量、不重算全部 132 项；反复加减的 double 累计误差按约定忽略，但分段贡献归零是例外：必须精确置零并把分段典型时直接复位为 `999.999` 秒、用对应差量累加合计，否则 `H_I / 浮点残差` 会被放大到天文数字并污染后续合计。录像 id 或上传时间变化但 BV、用时不变时不刷新索引；成绩 hash 缺失或类别不一致时该次变更回退全量重算，但没有 PB 变更的用户不会自愈。刷新 PB rank、新闻快照与 top 锚点不递归触发衍生重算。只读 API 不扫描数据库、不自动重建；分段或频率表变更后成绩按旧口径计算，必须执行 `rebuild_pb_derived_ranks` 整榜重建，缓存未命中只由管理员单项修复或整榜重建补齐。数学口径与键名见 `back_end/saolei/speedranking/pb_derived/README.md`。
 
 管理员页面的“排行纪录重建” tab 可按大榜、小榜和用户 ID 修复单项缓存，对应接口为 `POST /api/speedranking/admin/rebuild_record`；具体更新范围和并发约定见上述 README。
 
@@ -161,8 +179,8 @@ digraph cache {
     subgraph api_nodes {
         get_account_links [label="/api/accountlink/{user_id}"];
         create_account_link [label="/api/accountlink/create/"];
-        delete_link [label="/accountlink/delete/"];
-        update_link [label="/accountlink/update/"];
+        delete_link [label="/api/accountlink/delete/"];
+        update_link [label="/api/accountlink/update/"];
         view_saolei_get_import_list [label="/accountlink/saolei/videolist/get/"];
         view_saolei_get_import_summary [label="/accountlink/saolei/videoimport/stat/"];
         task_summary [label="/api/common/tasks/summary (staff)"];

@@ -4,7 +4,6 @@ from urllib.parse import quote
 
 from django.conf import settings
 from django.core.files.storage import default_storage
-from django.core.paginator import Paginator
 from django.db.models import F, Q
 from django.http import FileResponse, HttpRequest, HttpResponse
 from django.middleware.csrf import get_token
@@ -24,11 +23,10 @@ from userprofile.decorators import staff_required
 from userprofile.models import UserProfile
 from .cache import cache, newest_cache
 from .files import original_file
-from .models import ExpandVideoModel, STNB_COEFFICIENTS, VideoModel
-from .schema import ParsedVideoOut, PUBLIC_VIDEO_METADATA_FIELDS, PublicVideoMetadataOut, VIDEO_INFO_BATCH_LIMIT, VIDEO_METADATA_FIELDS, VideoBaseOut, VideoMetadataOut
-from .services import delete_video_by_id, freeze_video_by_id
-from .utils import replay_filename, unpack_compression_format
-from .view_utils import video_all_fields
+from .models import ExpandVideoModel, VideoModel
+from .schema import ParsedVideoOut, PUBLIC_VIDEO_METADATA_FIELDS, PublicVideoMetadataOut, VIDEO_INFO_BATCH_LIMIT, VIDEO_METADATA_FIELDS, VideoBaseOut, VideoMetadataOut, VideoQueryOut
+from .services import delete_video_by_id, freeze_video_by_id, query_videos
+from .utils import replay_filename, unpack_compression_format, VIDEO_QUERY_ALLOWED_PARAMS, VideoQueryError
 
 router = Router()
 VIDEO_ACCEL_REDIRECT_PREFIX = '/internal-media/'
@@ -118,31 +116,25 @@ def remove_newest_queue_video(request, video_id: int = Form(..., alias='id')):  
     return 204, None
 
 
-@router.get('/query')
-@decorate_view(ratelimit(key='ip', rate='60/m'))
-def video_query(request, level: MS_TextChoices.Level, mode: MS_TextChoices.Mode, o: str = 'timems', r: bool = False, ps: int = 20, page: int = 1, bmin: int = 0, bmax: int = 1000, nf: bool = False, states: list[MS_TextChoices.State] = Query(None, alias='s[]')):  # noqa: B008
+@router.get('/query', response=VideoQueryOut)
+@decorate_view(ratelimit(group='video-query', key='ip', rate='1/5s', block=True))
+def video_query(request, filters: str = '[]', sorts: str = '[]'):
     """
-    - ratelimit(key='ip', rate='60/m')
+    - ratelimit(group='video-query', key='ip', rate='1/5s', block=True)
+
+    Filter and sort videos by whitelisted fields; returns at most 1000 website metadata rows.
     """
-    if o == 'player__realname' or (o not in video_all_fields and o != 'stnb'):
-        raise HttpError(400, 'Invalid sort field.')
-    videos = VideoModel.objects.filter(level=level, mode=mode, bv__range=(bmin, bmax))
-    if nf:
-        videos = videos.filter(right_ce=0)
-    if states:
-        videos = videos.filter(state__in=states)
-    if not request.user.is_staff:
-        videos = videos.filter(ongoing_tournament=False)
-    videos = videos.annotate(stnb=F('iqg') * STNB_COEFFICIENTS.get(level))
-    order = ('-' if r else '') + o
-    orderby = (order,) if o == 'timems' else (order, 'timems')
-    videos = videos.order_by(*orderby).values('id', 'upload_time', 'state', 'ongoing_tournament', 'player__id')
-    paginator = Paginator(videos, max(1, min(ps, 100)))
-    rows = list(paginator.get_page(page))
-    players = UserProfile.objects.in_bulk({row['player__id'] for row in rows})
+    if set(request.GET) - VIDEO_QUERY_ALLOWED_PARAMS:
+        raise HttpError(400, 'Unknown query parameters.')
+    base_qs = VideoModel.objects.filter(ongoing_tournament=False)
+    try:
+        rows = query_videos(base_qs, filters, sorts)
+    except VideoQueryError as exc:
+        raise HttpError(400, str(exc)) from exc
+    players = UserProfile.objects.in_bulk({row['player_id'] for row in rows})
     for row in rows:
-        row['player__realname'] = players[row['player__id']].realname
-    return {'count': paginator.count, 'videos': rows}
+        row['player__realname'] = players[row['player_id']].realname
+    return {'videos': rows}
 
 
 @router.get('/admin/detail/{video_id}')

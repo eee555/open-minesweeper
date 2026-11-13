@@ -9,6 +9,7 @@ description: Open Minesweeper donation income and server expense details, showin
 
 | Sponsor | Amount | Date | Channel | Sponsored object | Allocation |
 | :------: | :-----: | :----------: | :------: | :------: | :------: |
+| 来自钮志峰（PQ代捐）      | ¥50.00 | 2026-11-12 | WeChat | Website | -- |
 | xiean             | ¥99.00 | 2026-11-5 | QQ | Website | -- |
 | 18875             | ¥63.00 | 2026-10-31 | Alipay | Website | -- |
 | Vostok             | ¥5.00 | 2026-10-31 | WeChat | Website | -- |
@@ -44,7 +45,7 @@ description: Open Minesweeper donation income and server expense details, showin
 | Domain | ¥1.00 | 2023-12-11 | Huawei Cloud | fff666.top |
 | Server | ¥89.14 | 2023-12-03 | Huawei Cloud | East China-Shanghai 1, 2 vCPU, 2 GiB memory, 40 GiB system disk, 400 GB traffic package, 3 Mbit/s peak bandwidth |
 
-Current account balance: ¥628.18
+Current account balance: ¥678.18
 
 Resource expiration dates and next renewal amounts:
 
@@ -54,6 +55,8 @@ Resource expiration dates and next renewal amounts:
 | Server | 2027.12.02 | ¥550.00 |
 
 ## Sponsorship Methods
+
+Thank you for considering supporting our open-source project. Please include your name and the designated sponsorship purpose in the note when donating. Sponsorship purposes are divided into team compensation, website operation, and personal tip. If no note is provided, the donation will default to website operation. Your sponsorship helps sustain and improve the project and allows us to keep enhancing the software quality. For general donations to the team, the site owner commits to distributing the proceeds among all contributors proportionally based on commit count.
 
 ### WeChat
 ![](/donation/wechat.png)

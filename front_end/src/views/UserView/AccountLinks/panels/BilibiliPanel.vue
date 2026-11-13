@@ -83,7 +83,7 @@
 import '@/styles/descriptions.css';
 import '../page.css';
 
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import { useActivePanel } from '../useActivePanel';
@@ -93,6 +93,7 @@ import BaseButton from '@/components/common/BaseButton.vue';
 import IconTaskStatus from '@/components/common/IconTaskStatus.vue';
 import { httpErrorNotification } from '@/components/Notifications';
 import { getAccountLinkUpdateErrorMessageKey, updateAccountLink } from '@/services/accountLinkService';
+import { store } from '@/store';
 import { AccountBilibili, AccountLinkPlatform } from '@/utils/accountlinks';
 import type { TaskStatus } from '@/utils/common/structInterface';
 import { toISODateTimeString } from '@/utils/datetime';
@@ -108,11 +109,12 @@ const isActive = useActivePanel();
 
 const errorMsg = ref('');
 const taskStatus = ref<TaskStatus>('');
+const targetUserId = computed(() => (store.isMemorialProfileAdmin ? store.player.id : undefined));
 
 async function updateLink() {
     if (taskStatus.value === 'loading') return;
     taskStatus.value = 'loading';
-    await updateAccountLink(AccountLinkPlatform.Bilibili).then(function (data) {
+    await updateAccountLink(AccountLinkPlatform.Bilibili, targetUserId.value).then(function (data) {
         if (!isActive()) return;
         errorMsg.value = '';
         taskStatus.value = data.type;

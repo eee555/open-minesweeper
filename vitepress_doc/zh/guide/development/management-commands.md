@@ -26,7 +26,7 @@ ID 和资料仅为示例，须替换为已核实的空缺；另支持 `--firstna
 
 ### `sync_saolei_api`
 
-位置：`accountlink/management/commands/sync_saolei_api.py`。使用服务器 `secrets.json` 的 `saolei_api_key`，只处理已验证且关联一致的扫雷网账号。首批由此命令完成；迁移后已开放新 Ninja API 与前端手动同步，并增加每日自动同步任务。站长命令不受用户 `auto_sync` 开关影响；涉及文件导入的阶段无视 `import_rejected` 标记，会重试所有尚未关联本站录像且已取得文件 URL 的白名单来源，是导入失败后的强制重试通道。
+位置：`accountlink/management/commands/sync_saolei_api.py`。使用服务器 `secrets.json` 的 `saolei_api_key`，只处理已验证且关联一致的扫雷网账号。首批由此命令完成；迁移后已开放新 Ninja API 与前端手动同步，并增加每日自动同步任务。站长命令不受用户 `auto_sync` 开关影响；涉及文件导入的阶段无视 `import_rejected` 标记，会重试所有尚未关联本站录像的白名单来源，是导入失败后的强制重试通道。
 
 部署时先使用已有 `backfill_video_hashes` 补齐存量原文件哈希，再运行 `makemigrations accountlink --noinput` 并核对生成结果，最后运行 `migrate`。迁移文件按仓库惯例不跟踪，编号取决于服务器已有历史；应生成删除旧 `VideoSaolei`、创建独立 `SaoleiApiVideo` 及账号字段变更的结构迁移，保留账号绑定、本站录像、扩展记录及文件。首次运行可先指定一个扫雷网账号 ID 核对结果，再处理全部绑定：
 
@@ -40,7 +40,7 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 
 `--account-id` 可重复指定；`--all-linked` 表示全部已验证绑定，两者必须选择其一。`--full` 从 0 重新扫描目录，不清空数据、不回退账号成功游标；去掉此选项用于增量和中断续跑。`--page-size` 默认为 200，取值 1 至 1000。
 
-`--phase` 默认为 `all`：先完成选中账号的资料、目录和批量详情同步（`video_info` 每批最多 50 个 ID，保存 URL），再逐个下载导入。`--phase metadata` 只更新元数据，不下载文件；`--phase videos` 只使用已存 URL，不请求 `stats`、`video_list` 或 `video_info`，缺少 URL 的记录先运行 metadata 阶段补齐。`--limit` 是整轮导入的尝试次数上限（失败也计入），默认不限；`--full` 不能与 `--phase videos` 一起使用。涉及文件导入的阶段要求所有存量录像的原文件哈希完整，metadata 阶段不要求。
+`--phase` 默认为 `all`：先完成选中账号的资料、目录和批量详情同步（`video_info` 每批最多 50 个 ID，刷新元数据），再按录像 ID 逐个下载导入。`--phase metadata` 只更新元数据，不下载文件；`--phase videos` 不请求 `stats`、`video_list` 或 `video_info`，直接按录像 ID 下载待导入来源。`--limit` 是整轮导入的尝试次数上限（失败也计入），默认不限；`--full` 不能与 `--phase videos` 一起使用。涉及文件导入的阶段要求所有存量录像的原文件哈希完整，metadata 阶段不要求。
 
 整个命令串行共用一个客户端，数据请求间隔 2.1 秒，文件请求间隔 0.4 秒；Redis 节流与网页、每日目录调度和每小时导入 worker 共用，仍不要并行启动多个同步命令。目录页和 `AccountSaolei.video_sync_cursor` 同事务提交，失败不推进；详情及文件独立补取，避免游标已推进但后续未完成时漏导。软件精确白名单为 `Clone`、`Vienna`、`Arbiter`、`元扫雷`，其他名称只保存目录并跳过；上游 `status` 不限制导入。
 
@@ -51,6 +51,34 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 同主文件哈希命中时复用既有本站录像，异主冲突不改归属或上传时间。单项失败保留成功进度并汇总，退出码非零；鉴权失败和限流立即停止，不自动重试。进度见命令输出和 `accountlink` 日志；客户端错误保留异常类型和具体原因，不输出认证头或响应体。账号资料仅采用 ID、姓名和外站封禁状态，不同步成绩或标识列表。部署每日同步功能时自动生成并执行 `auto_sync` 默认开启字段的迁移，再重启 Web、worker 与统一 APScheduler；不重新清空来源表或全量导入。
 
 文件解析通过独立子进程执行，每条最多 60 秒，原生崩溃或超时计为 `rust/panic`，继续处理下一条，不设置永久拒收标记。`accountlink` 日志在解析前记录来源录像 ID、账号 ID 和文件相对 URL，`utils.parser` 日志记录异常退出码及诊断尾部；下一轮同步会重试这类失败。隔离使用 Python 标准库 [`subprocess.run`](https://docs.python.org/3.12/library/subprocess.html#subprocess.run)，不复制 worker 的数据库连接。
+
+## 作品排行
+
+### `refresh_media_rankings`
+
+位置：`media/management/commands/refresh_media_rankings.py`。低频人工命令，用于推进热度基准、从数据库全量重建四个作品排行 zset，以及只读巡检；**不加入部署流程，也不加入 `start.sh` / `stop.sh`**。原 `rebuild_media_rankings` 与 `check_media_rankings` 已合并进此命令，APScheduler 的月度 `refresh_media_hot_reference` 作业与 media 后台同步任务均已删除。
+
+```bash
+python manage.py refresh_media_rankings --check
+python manage.py refresh_media_rankings --check --max-examples 20
+python manage.py refresh_media_rankings --rebuild-only
+python manage.py refresh_media_rankings --reference 2026-12-01T00:00:00+00:00
+python manage.py refresh_media_rankings --batch-size 500
+```
+
+`--check` 只读：按 `decay(T_db, T_r)` 把每个 `verified` 作品的 `hot_value` 折算成期望分数并累加出作者维度分数，与四个 zset 逐一比较（相对/绝对容差 `1e-6`）。一致时输出 `matches the database` 并正常退出；发现多余成员、缺失成员、分数不符或 `T_r` 缺失时抛 `CommandError`，以非零退出码报出漂移样例和修复建议，便于外部巡检按退出码告警。数据库始终是权威值；巡检不再输出 FAILED / 积压同步任务数（media 没有后台任务），也不需要避开月度刷新窗口。
+
+`--rebuild-only` 不推进 `T`，只按当前 `T_r` 从数据库全量重建四个 zset，用于修复竞态或 Redis 故障造成的漂移；空库时删除旧的四个 zset。不带 `--check` 且不带 `--rebuild-only` 时，`--reference`（默认当前时刻，ISO 8601 UTC，不得早于当前 `T_db`）先在数据库事务内用 `F()` 把全表 `hot_value` 乘 `decay(T_db_old, T_new)` 并写入新 `T_db`，再全量重建并发布 `T_r`。对同一 `--reference` 重跑不会重复缩放数据库。`--batch-size`（默认 1000，必须为正）与 `--max-examples`（默认 10，必须为正）分别控制重建批量与巡检样例数。
+
+全量重建只取 `status='verified'`，写入 `media:rebuild:<uuid>:*` 临时 key，最后在**一个 `MULTI/EXEC`** 里 `rename` 四个正式 zset 并 `SET media:hot:anchor`；失败时删除临时 key、旧榜保留。命令**不持锁、不阻塞请求写**：执行期间正式 key 上的增量可能被 `rename` 覆盖而短暂漂移，已确认接受；数据库始终正确，重跑或下一次请求路径写入即可收敛。Redis 发布失败时命令抛 `CommandError`，提示 `T_db` 已是权威值、重跑命令即可，不阻断服务。
+
+热度基准 `T` 仍需推进，理由是防止 `1 / decay(T, now)` 长期指数增长到浮点上溢；double 下至少以年为单位即可，因此按年人工执行一次 `--reference` 即可。`T_r` 在首次调用 `get_hot_reference()`（作者榜读取或请求路径缓存同步）时以 `T_db` 用 `SET NX` 初始化，空库时四个 zset 为空即正确，部署流程不需要全量重建。
+
+### 失败检测
+
+数据库是事实来源，Redis 是排序索引。请求路径的缓存同步异常只在 `logs/media.log` 留 `media` error 日志，不回滚数据库、不产生 FAILED 任务，也没有任务重启或积压统计。检测手段是 `refresh_media_rankings --check`：以非零退出码暴露四个 zset 与数据库的漂移（含 `T_r` 缺失），建议接入外部定时巡检告警；修复手段是 `--rebuild-only`（只纠偏）或带 `--reference` 的低频基准推进。
+
+审核通过的作品出现在发表时间排序却没出现在实时热度 / 累计投喂时，先运行 `--check`；报 `missing member` 说明四个 zset 尚未同步，执行 `--rebuild-only` 即可。表格的实时热度 / 累计投喂排序读 Redis zset，发表时间排序直接查数据库；`likes` / `hot_value` 为 0 的作品仍会入榜但排在末尾，作品数超过一页时需要翻页。点击表头会重新拉列表，也可用表格上方的刷新按钮手动重拉。
 
 ## 勋章补发
 
@@ -207,7 +235,19 @@ python manage.py rebuild_strict_ng_ranks --ranking-name strict_ng_nf --batch-siz
 python manage.py rebuild_pb_ranks
 ```
 
-首次建榜或缓存丢失后执行，API 不回源。执行前暂停 PB 相关读写，包括上传、审核、绑定/解绑、删除及比赛公开。命令直接清空 PB 命名空间后重建，失败可能留下部分缓存，排除错误后重新运行。
+首次建榜或缓存丢失后执行，API 不回源。执行前暂停 PB 相关读写，包括上传、审核、绑定/解绑、删除及比赛公开。命令直接清空 PB 命名空间后重建，失败可能留下部分缓存，排除错误后重新运行。PB 原榜与小榜 rank 全部刷新后，命令末尾统一调用一次 PB 衍生榜整榜重建，因此不需要再单独执行 `rebuild_pb_derived_ranks`。
+
+### `rebuild_pb_derived_ranks`
+
+位置：`speedranking/management/commands/rebuild_pb_derived_ranks.py`
+
+从现有 `speedranking:pb:player:*` 用户 hash 全量重算收集、战力、典型时三个大榜，不重新扫描录像表。`--batch-size` 默认 100，必须为正数。
+
+```bash
+python manage.py rebuild_pb_derived_ranks
+```
+
+用于 BV 频率表、分段边界或概率变更后整榜刷新，也可修复衍生缓存丢失或不一致。分段边界变更还需同步前端 `services/pbDerivedService.ts` 的静态副本 `derivedSegments`；前后端配置都硬编码到代码中，不设置 version，也没有配置摘要能提示后端变更或前端漂移。命令先清空 `speedranking:pb_derived:*`，再按批写入；第一版不引入双写切换，执行前须暂停录像上传、审核、绑定/解绑、删除、比赛公开等 PB 写入及相关读取。失败会记录异常并中断，可能留下部分缓存，排除错误后必须重跑。执行顺序必须是「先 PB、后衍生」：`rebuild_pb_derived_ranks` 不会补建缺失的 PB 原榜。日常更新直接在成绩值上差量累加；成绩 hash 缺失或类别不一致时该次变更回退全量重算，但没有 PB 变更的用户不会自愈。分段或频率表变更后成绩按旧口径计算，缓存丢失与配置变更都须整榜重建或单项修复。单独修复某个用户可在管理员页面使用“排行纪录重建”的 `PB 衍生榜` 选项，对应 `POST /api/speedranking/pb_derived/admin/rebuild_player`。
 
 ### `rebuild_top_ranks`
 
@@ -503,7 +543,7 @@ python manage.py refresh_monitor_snapshot
 | --- | --- | --- |
 | `refresh_monitor_snapshot` | 启动时及每 5 分钟 | 生成统一监控 JSON；单实例执行，错过多次调度时合并执行 |
 | `sync_saolei_metadata_daily` | 每天 03:30（调度器时区，当前 UTC） | APScheduler 直接同步启用账号的资料和增量目录，每批最多 50 个 ID 补取详情及 URL；不下载文件、不创建 Django Task |
-| `import_saolei_hourly` | 每小时整点 | 入队一条低优先级 Django Task，按 `remote_id` 升序从已存 URL 逐个导入启用账号的录像，整轮最多尝试 100 条（含失败）；任何失败都标记来源并交由 `sync_saolei_api` 重试；上一轮未完成时不重复入队 |
+| `import_saolei_hourly` | 每小时整点 | 入队一条低优先级 Django Task，按 `remote_id` 升序逐个下载启用账号的待导入录像，整轮最多尝试 100 条（含失败）；任何失败都标记来源并交由 `sync_saolei_api` 重试；上一轮未完成时不重复入队 |
 | `delete_old_job_executions` | 每天 00:03 | 清理超过 7 天的 APScheduler 执行记录 |
 | `delete_newest_queue` | 每天 01:08 | 按上传时间保留最新 1000 条，允许两次清理之间暂时超过上限 |
 | `delete_overdue_emailverifyrecord` | 每周一 01:03 | 清理 1 小时以前的邮箱验证码 |
@@ -537,6 +577,8 @@ python manage.py runapscheduler
 | --- | --- | --- | --- | --- | --- |
 | APScheduler | `START_APSCHEDULER`，默认 `1` | `APSCHEDULER_START_DELAY`，默认 `10` | `APSCHEDULER_NICE`，默认 `10` | — | `logs/apscheduler.log` |
 | worker | `START_DB_WORKER`，默认 `1` | `DB_WORKER_START_DELAY`，默认 `20` | `DB_WORKER_NICE`，默认 `10` | `DB_WORKER_INTERVAL`，默认 `2` | `logs/db_worker.log` |
+
+重新部署前必须运行 `stop.sh`：它先向 launcher（`run_background.sh`）与已启动的 `db_worker_robust` / `runapscheduler` 发 `SIGTERM`，宽限 `${STOP_GRACE_SECONDS:-5}` 秒后再 `SIGKILL`，最后用 `pgrep` 校验并列出残留进程（有残留时退出码非零）。launcher 有 10 / 20 秒启动延迟，只杀 Python 子进程会让尚在 `sleep` 的旧 launcher 在部署后拉起旧版本代码；`db_worker_robust` 检测到已有 db_worker 进程会直接退出，于是新任务继续被旧 worker 消费；旧 worker 不认识新任务时可能因函数签名不匹配而变成 FAILED。`STOP_DRY_RUN=1 bash stop.sh` 可只打印将要执行的命令。
 
 ### 后台进程退出排查
 

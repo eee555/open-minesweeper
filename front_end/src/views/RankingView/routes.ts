@@ -14,6 +14,8 @@ export const rankingRoutes: RouteRecordRaw[] = [
             { path: 'saolei', name: 'ranking_speed_saolei', component: () => import('./SaoleiRanking.vue') },
             { path: 'strict_ng', name: 'ranking_speed_strict_ng', component: () => import('./StrictNgRanking.vue') },
             { path: 'pb', name: 'ranking_speed_pb', component: () => import('./PBRanking.vue') },
+            { path: 'collection', name: 'ranking_speed_collection', component: () => import('./CollectionRanking.vue') },
+            { path: 'skill_tt', name: 'ranking_speed_skill_tt', component: () => import('./SkillTTRanking.vue') },
         ],
     },
     {
@@ -47,5 +49,10 @@ export const rankingRoutes: RouteRecordRaw[] = [
         path: 'tournament',
         name: 'ranking_tournament',
         component: () => import('./TournamentRanking.vue'),
+    },
+    {
+        path: 'media',
+        name: 'ranking_media',
+        component: () => import('./MediaRanking.vue'),
     },
 ];

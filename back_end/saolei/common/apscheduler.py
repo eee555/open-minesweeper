@@ -63,7 +63,9 @@ def refresh_tournament_score_reference():
 
 def register_jobs(scheduler):
     # Remove the persisted job before the job store restores its deleted callable.
-    DjangoJob.objects.filter(id__in=['refresh_state_always', 'delete_freezed_video', 'sync_saolei_daily']).delete()
+    DjangoJob.objects.filter(id__in=[
+        'refresh_state_always', 'delete_freezed_video', 'sync_saolei_daily', 'refresh_media_hot_reference',
+    ]).delete()
 
     scheduler.add_job(
         sync_saolei_daily_catalogue,

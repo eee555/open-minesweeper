@@ -177,7 +177,7 @@
 import '@/styles/descriptions.css';
 import '../page.css';
 
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import { useActivePanel } from '../useActivePanel';
@@ -187,6 +187,7 @@ import BaseButton from '@/components/common/BaseButton.vue';
 import IconTaskStatus from '@/components/common/IconTaskStatus.vue';
 import { httpErrorNotification } from '@/components/Notifications';
 import { getAccountLinkUpdateErrorMessageKey, updateAccountLink } from '@/services/accountLinkService';
+import { store } from '@/store';
 import { ms_to_s } from '@/utils';
 import { AccountLinkPlatform, AccountWoM } from '@/utils/accountlinks';
 import type { TaskStatus } from '@/utils/common/structInterface';
@@ -203,6 +204,7 @@ const isActive = useActivePanel();
 
 const errorMsg = ref('');
 const taskStatus = ref<TaskStatus>('');
+const targetUserId = computed(() => (store.isMemorialProfileAdmin ? store.player.id : undefined));
 
 function maybeUndefined(value?: number) {
     return value ?? '-';
@@ -219,7 +221,7 @@ function formatDuration(value?: number) {
 async function updateLink() {
     if (taskStatus.value === 'loading') return;
     taskStatus.value = 'loading';
-    await updateAccountLink(AccountLinkPlatform.WoM).then(function (data) {
+    await updateAccountLink(AccountLinkPlatform.WoM, targetUserId.value).then(function (data) {
         if (!isActive()) return;
         errorMsg.value = '';
         taskStatus.value = data.type;

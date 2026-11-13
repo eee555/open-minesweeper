@@ -15,8 +15,8 @@ logger = logging.getLogger('accountlink')
 
 @task(priority=-1)
 def task_import_saolei_hourly():
-    """每小时最多尝试 1000 条已取得 URL 的录像，失败的来源不再自动重试；不再请求目录或 video_info。"""
-    sources = pending_saolei_videos(ready=True).filter(user__auto_sync=True)
+    """每小时最多尝试 1000 条待导入录像，失败的来源不再自动重试；不再请求目录或 video_info。"""
+    sources = pending_saolei_videos().filter(user__auto_sync=True)
     if not sources.exists():
         return {}
     if VideoModel.objects.filter(Q(original_hash__isnull=True) | Q(original_hash='')).exists():

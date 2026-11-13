@@ -27,6 +27,10 @@
         <GitHubUser username="LockhartANR" />
         <GitHubUser username="hgraceb" />
         <GitHubUser username="Corday-nkusky" />
+        <GitHubUser username="xiean-cn" />
+        <GitHubUser username="shenjia" />
+        <GitHubUser username="trixyz28" />
+        <GitHubUser username="gacord9672" />
     </div>
     <div class="section-label">
         <strong>{{ t('local.localization') }}</strong>
@@ -78,13 +82,13 @@ const acknowledgements = [
     { text: 'Arya' },
     { text: 'jabajop' },
     { text: 'qqwref' },
-    { text: 'gacord' },
     { text: 'Nanaka.' },
     { text: '购置拆解' },
     { text: '毛毛虫' },
     { text: '铧嵇' },
     { text: 'Vostok' },
     { text: 'Oskain' },
+    { text: 'wyw雨' },
 ];
 
 /* 本地化 Localization */

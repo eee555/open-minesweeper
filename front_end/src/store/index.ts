@@ -3,6 +3,7 @@ import { defineStore } from 'pinia';
 
 import { pinia } from './create';
 
+import type { PlayerMainConfig } from '@/components/VideoPlayer/types';
 import { fetchProfileSaoleiRecords, profileDataRevision } from '@/services/profileDataService';
 import type { TopAnchors } from '@/services/topRankingService';
 import { setVideoInfoViewer } from '@/services/videoInfoService';
@@ -45,6 +46,8 @@ export const store = defineStore('user', {
     }),
     getters: {
         isSelf: (state) => state.user.id === state.player.id && state.user.id !== 0,
+        // 纪念账号无法登录，管理员访问其主页时视同本人，可操作已关联的账号。
+        isMemorialProfileAdmin: (state): boolean => state.user.id > 0 && state.user.id !== state.player.id && (state.user.is_staff || state.user.is_superuser) && state.player.is_memorial,
         isUserAnonymous: (state) => state.user.isAnonymous,
         expTimeMs: (state) => state.expertTimeMs ?? 999999,
     },
@@ -98,7 +101,7 @@ export const videoplayerstore = defineStore('videoplayer', {
 export { local } from './local';
 export type { LocalSettings } from './local';
 
-export const videoPlayerConfig = useLocalStorage(
+export const videoPlayerConfig = useLocalStorage<PlayerMainConfig>(
     'video-player-config',
     {
         cellSize: 24,
@@ -107,6 +110,8 @@ export const videoPlayerConfig = useLocalStorage(
             colors: ['#15803d', '#0f766e', '#2563eb', '#b45309', '#dc2626', '#7f1d1d'],
             thresholds: [10, 25, 50, 75, 90],
         },
+        transposeBoard: false,
+        counterPosition: 'left',
     },
     { mergeDefaults: true },
 );
@@ -191,6 +196,7 @@ export const VideoListConfig = useLocalStorage(
     {
         profile: ['state', 'upload_time', 'software', 'level', 'mode', 'time', 'bv', 'bvs', 'ioe', 'thrp', 'path', 'file_size'] as ColumnChoice[],
         tournament: ['state', 'upload_time', 'software', 'level', 'mode', 'time', 'bv', 'bvs', 'ioe', 'thrp', 'path'] as ColumnChoice[],
+        query: ['state', 'upload_time', 'time', 'bv', 'bvs', 'stnb', 'file_size'] as ColumnChoice[],
     },
     { mergeDefaults: true },
 );

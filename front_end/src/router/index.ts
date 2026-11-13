@@ -10,6 +10,8 @@ const routes: RouteRecordRaw[] = [
     {
         path: '/',
         name: 'home',
+        // 登录页与注册页地址仍渲染首页，由 Login/App.vue 按路径打开对应弹窗。
+        alias: ['/login', '/register'],
         component: () => import('../views/HomeView/App.vue'),
     },
     {
@@ -31,9 +33,15 @@ const routes: RouteRecordRaw[] = [
         redirect: { name: 'database-users' },
         children: [
             { path: 'users', name: 'database-users', component: () => import('../views/DatabaseView/UserView.vue') },
-            { path: 'videos', name: 'database-videos', component: () => import('../views/VideoView.vue') },
+            { path: 'videos', name: 'database-videos', component: () => import('../views/DatabaseView/VideoView.vue') },
             { path: 'identifiers', name: 'database-identifiers', component: () => import('../views/DatabaseView/IdentifierView.vue') },
+            { path: 'works', name: 'database-works', component: () => import('../views/DatabaseView/MediaQueryView.vue') },
         ],
+    },
+    {
+        path: '/works',
+        name: 'works',
+        component: () => import('../views/WorksView/App.vue'),
     },
     {
         path: '/video/:id',
@@ -66,6 +74,11 @@ const routes: RouteRecordRaw[] = [
         path: '/settings',
         name: 'settings',
         component: () => import('../views/SettingView/App.vue'),
+    },
+    {
+        path: '/bind/saolei',
+        name: 'bind_saolei',
+        component: () => import('../views/BindSaoleiView/App.vue'),
     },
     {
         path: '/player/:id',

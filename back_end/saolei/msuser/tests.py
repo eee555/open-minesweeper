@@ -175,16 +175,16 @@ class UserMSVideoTests(TestCase):
         unknown = self.create_video(mode=MS_TextChoices.Mode.JSW, right_ce=None)
         self.create_video(mode=MS_TextChoices.Mode.JSW, right_ce=0, ongoing_tournament=True)
         self.create_video(right_ce=0)
-        params = {'level': 'b', 'mode': '05', 'nf': True}
+        params = {'filters': '[{"field":"level","eq":"b"},{"field":"mode","eq":"05"},{"field":"right_ce","eq":0}]'}
         response = self.client.get('/api/video/query', params)
         self.assertEqual(response.status_code, 200, response.content)
-        self.assertEqual(response.json()['count'], 1)
+        self.assertEqual(len(response.json()['videos']), 1)
         self.assertEqual(response.json()['videos'][0]['id'], nf.id)
         self.assertNotIn('right_ce', response.json()['videos'][0])
         parsed = self.client.get('/api/video/staticdetailbatch', {'ids': nf.id}).json()[0]
         self.assertEqual(parsed['right_ce'], 0)
-        response = self.client.get('/api/video/query', {**params, 'nf': False})
-        self.assertEqual(response.json()['count'], 3)
+        response = self.client.get('/api/video/query', {'filters': '[{"field":"level","eq":"b"},{"field":"mode","eq":"05"}]'})
+        self.assertEqual(len(response.json()['videos']), 3)
         response = self.client.get('/api/video/query_by_id', {'id': self.user.id})
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(len(response.json()), 4)

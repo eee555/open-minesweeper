@@ -50,6 +50,7 @@
             </BaseTextButton>
         </ElFormItem>
     </ElForm>
+    <QQLoginEntry />
 </template>
 
 <script setup lang="ts">
@@ -64,6 +65,7 @@ import BaseIconInfo from '../common/icons/BaseIconInfo.vue';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import BaseTextButton from '@/components/common/BaseTextButton.vue';
+import QQLoginEntry from '@/components/Login/QQLoginEntry.vue';
 import { httpErrorNotification } from '@/components/Notifications';
 import ValidCode from '@/components/ValidCode.vue';
 import useCurrentInstance from '@/utils/common/useCurrentInstance';

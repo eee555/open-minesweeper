@@ -39,6 +39,7 @@ describe('<LoginForm />', () => {
         cy.contains('button', /^Log in$/).should('have.attr', 'type', 'button');
         cy.contains('button', 'Forget password?').should('have.attr', 'type', 'button');
         cy.contains('button', 'Log in with Discord').should('not.exist');
+        cy.get('.qq-login-label').should('have.text', 'QQ登录');
     });
 
     it('Normal Flow', () => {

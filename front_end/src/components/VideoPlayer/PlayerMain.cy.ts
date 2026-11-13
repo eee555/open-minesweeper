@@ -1,10 +1,12 @@
-import { BoardBackground } from '@putianyi888/vue3-minesweeper-board';
+import { BoardBackground, BoardProbability, MinesweeperBoard } from '@putianyi888/vue3-minesweeper-board';
 import type { VueWrapper } from '@vue/test-utils';
+import { transpose } from 'd3-array';
 import { defineComponent, h, ref } from 'vue';
 
 import PlayerMain from './PlayerMain.vue';
 
 import type { AnyVideo } from '@/utils/fileIO';
+import { replayPressedBackground } from '@/utils/replayBoardPress';
 
 describe('<PlayerMain />', () => {
     it('updates pressed backgrounds on playback frames while preserving flags', () => {
@@ -30,5 +32,78 @@ describe('<PlayerMain />', () => {
                 expect(wrapper.findComponent(BoardBackground).props('board')).to.deep.eq(expected);
             });
         }
+    });
+
+    for (const transposed of [false, true]) {
+        it(`refreshes the ${transposed ? 'transposed ' : ''}board on each playback frame`, () => {
+            const initialBoard = [[10, 10], [10, 10]];
+            const openedBoard = [[0, 1], [10, 11]];
+            let board = initialBoard;
+            let mouseState = 1;
+            const video = {
+                get game_board() {
+                    return board;
+                },
+                get mouse_state() {
+                    return mouseState;
+                },
+                game_board_poss: [[0, 0], [0, 0]],
+                mine_num: 1,
+                flag: 0,
+            } as unknown as AnyVideo;
+            const currentMs = ref(0);
+            const cursorPosition = { rowIndex: 0.5, columnIndex: 1.5 };
+            function display<T>(source: T[][]): T[][] {
+                return transposed ? transpose(source) : source;
+            }
+            cy.mount(defineComponent({
+                setup: () => () => h(PlayerMain, { video, currentMs: currentMs.value, cursorPosition, showProbability: false, transposed }),
+            })).then(({ wrapper }) => {
+                cy.wrap(wrapper).as('player');
+            });
+
+            cy.get<VueWrapper>('@player').should((wrapper) => {
+                expect(wrapper.findComponent(MinesweeperBoard).props('board')).to.deep.eq(display(initialBoard));
+            });
+
+            cy.then(() => {
+                board = openedBoard;
+                currentMs.value += 16;
+            });
+            cy.get<VueWrapper>('@player').should((wrapper) => {
+                expect(wrapper.findComponent(MinesweeperBoard).props('board')).to.deep.eq(display(openedBoard));
+                expect(wrapper.findComponent(BoardBackground).props('board')).to.be.undefined;
+            });
+
+            cy.then(() => {
+                mouseState = 4;
+                currentMs.value += 16;
+            });
+            const pressed = replayPressedBackground(openedBoard, 4, cursorPosition);
+            if (pressed === undefined) throw new Error('Expected a pressed background.');
+            cy.get<VueWrapper>('@player').should((wrapper) => {
+                expect(wrapper.findComponent(BoardBackground).props('board')).to.deep.eq(display(pressed));
+            });
+        });
+    }
+
+    it('transposes every board layer and swaps the display cursor', () => {
+        const board = [[10, 11, 10], [12, 13, 14], [15, 16, 17]];
+        const probability = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], [0.7, 0.8, 0.9]];
+        const cursorPosition = { rowIndex: 1.5, columnIndex: 2.5 };
+        const pressed = replayPressedBackground(board, 4, cursorPosition);
+        if (pressed === undefined) throw new Error('Expected a pressed background.');
+        const video = { game_board: board, game_board_poss: probability, mine_num: 1, flag: 1, mouse_state: 4 } as unknown as AnyVideo;
+        cy.mount(defineComponent({
+            setup: () => () => h(PlayerMain, { video, currentMs: 0, cursorPosition, showProbability: true, transposed: true }),
+        })).then(({ wrapper }) => {
+            cy.wrap(wrapper).as('player');
+        });
+        cy.get<VueWrapper>('@player').should((wrapper) => {
+            expect(wrapper.findComponent(MinesweeperBoard).props('board')).to.deep.eq(transpose(board));
+            expect(wrapper.findComponent(MinesweeperBoard).props('cursorPosition')).to.deep.eq({ rowIndex: 2.5, columnIndex: 1.5 });
+            expect(wrapper.findComponent(BoardBackground).props('board')).to.deep.eq(transpose(pressed));
+            expect(wrapper.findComponent(BoardProbability).props('board')).to.deep.eq(transpose(probability));
+        });
     });
 });

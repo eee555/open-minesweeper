@@ -10,7 +10,8 @@ from ninja.orm import create_schema
 
 from accountlink.models import AccountLinkQueue, AccountMinesweeperGames, Platform, VideoMSGames
 from accountlink.services import msgames_video_import_one, update_msgames_video_list
-from userprofile.decorators import login_required_error
+from accountlink.utils import is_memorial_admin
+from userprofile.decorators import admin_csrf_required, login_required_error
 from utils.exceptions import ExceptionToResponse
 
 router = Router()
@@ -42,12 +43,13 @@ def _msgames_account(request, msgames_id: int, *, owner: bool = False):
     if account is None:
         raise HttpError(404, 'MSGames account not found.')
     own_account = request.user.is_authenticated and request.user.id == account.parent_id
-    if owner and not own_account:
+    memorial_admin = is_memorial_admin(request.user, account.parent)
+    if owner and not (own_account or memorial_admin):
         raise HttpError(403, 'Only the linked account owner can import videos.')
     verified = AccountLinkQueue.objects.filter(userprofile_id=account.parent_id, platform=Platform.MSGAMES, verified=True).exists()
     if owner and not verified:
         raise HttpError(403, 'The MSGames account must be verified.')
-    if not own_account and not request.user.is_staff and not verified:
+    if not own_account and not memorial_admin and not request.user.is_staff and not verified:
         raise HttpError(404, 'MSGames account not found.')
     return account
 
@@ -82,10 +84,11 @@ def get_msgames_import_summary(request, msgames_id: int):
 
 
 @router.post('/{msgames_id}/sync', response=MSGamesSyncOut)
-@decorate_view(login_required_error, ratelimit(key='user', rate='6/h'))
+@decorate_view(login_required_error, admin_csrf_required, ratelimit(key='user', rate='6/h'))
 def sync_msgames_videos(request, msgames_id: int):
     """
     - login_required_error
+    - admin_csrf_required
     - ratelimit(key='user', rate='6/h')
 
     Refresh all five score histories synchronously without importing their replays.
@@ -100,10 +103,11 @@ def sync_msgames_videos(request, msgames_id: int):
 
 
 @router.post('/videos/{video_id}/import', response=MSGamesImportOut)
-@decorate_view(login_required_error, ratelimit(key='user', rate='60/m', block=True))
+@decorate_view(login_required_error, admin_csrf_required, ratelimit(key='user', rate='60/m', block=True))
 def import_msgames_video(request, video_id: int):
     """
     - login_required_error
+    - admin_csrf_required
     - ratelimit(key='user', rate='60/m', block=True)
 
     Import an original file synchronously and return its local video ID and review state.

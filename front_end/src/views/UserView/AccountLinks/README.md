@@ -17,6 +17,8 @@
 
 GitHub 使用 `linking/GitHubLink.vue` 发起 OAuth，回到本人的关联页后由 `AccountPage.vue` 显示受控结果并选中 GitHub 平台。`panels/GitHubPanel.vue` 默认仅展示公开数字 ID，用户点击后通过原生 fetch 直接匿名获取公开用户名，不使用本站 axios、Cookie 或持久缓存；网络失败保留已验证 ID。本人可解除关联，管理员沿用后台解除关联接口。
 
+`store.isMemorialProfileAdmin` 是「管理员访问纪念账号主页」的唯一判断：已关联账号的同步、导入、资料刷新与自动同步控件据此与本人一致，WoM／Bilibili 刷新还会把 `store.player.id` 作为 `user_id` 提交到 `POST /api/accountlink/update/`。新建关联表单、确认会话、OAuth 回跳和 GitHub 解绑仍使用 `ownPage`，只限本人。各面板另外校验关联账号的 `parent` 属于当前主页用户。
+
 ## 图标来源
 
 `platforms.ts` 每项配置图标地址、图片/遮罩方式及可见性。未关联图标使用 50% 透明度，待验证的关联保持正常；首次加载或首次失败时不推断状态，无权查看的 QQ / Discord 不通过透明度区分是否关联。
@@ -40,11 +42,11 @@ GitHub 使用 `linking/GitHubLink.vue` 发起 OAuth，回到本人的关联页�
 | 文件 | 行为范围 |
 | --- | --- |
 | `App.cy.ts` | 固定导航顺序、键盘选择、草稿、六个平台的提交参数、待验证状态与图标反馈、刷新和 KeepAlive |
-| `App.states.cy.ts` | 加载重试、无 summary 的已有绑定、跨平台/用户异步隔离、私密查看权限 |
+| `App.states.cy.ts` | 加载重试、无 summary 的已有绑定、跨平台/用户异步隔离、私密查看权限、管理员在纪念账号主页的同步控件 |
 | `linking/Forms.cy.ts` | 六个独立表单的校验、字符串保留、回车提交、发送中禁用与失败后编辑 |
 | `linking/ConfirmationFlows.cy.ts` | Classic / Mineracer 的确认、冲突/过期重试、跨平台保留会话及完成后只刷新一次 |
-| `panels/Profiles.cy.ts` | 资料、空值格式、国际网资料暂缺、同步错误和未验证状态 |
-| `panels/SaoleiPanel.cy.ts` | 资料、统一录像列表入口、本人导入/访客只读、自动同步受控保存和失败回退 |
+| `panels/Profiles.cy.ts` | 资料、空值格式、国际网资料暂缺、同步错误、未验证状态与纪念账号代管权限 |
+| `panels/SaoleiPanel.cy.ts` | 资料、统一录像列表入口、本人/纪念账号管理员导入与访客只读、自动同步受控保存和失败回退 |
 
 在 `front_end` 下运行；代理不自动执行 Cypress：
 

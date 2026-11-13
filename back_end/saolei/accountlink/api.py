@@ -1,7 +1,7 @@
 from datetime import datetime
 import logging
 import re
-from typing import List
+from typing import List, Literal
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFound
@@ -9,18 +9,20 @@ from django.views.decorators.cache import never_cache
 from django_ratelimit.decorators import ratelimit
 from ninja import Form, Router, Schema
 from ninja.decorators import decorate_view
+from ninja.errors import HttpError
 from ninja.orm import create_schema
 from pydantic import field_validator, ValidationInfo
 
-from userprofile.decorators import login_required_error, staff_required
+from userprofile.decorators import admin_csrf_required, login_required_error, staff_required
 from userprofile.models import UserProfile
+from utils.exceptions import ExceptionToResponse
 from utils.response import HttpResponseConflict
 from .classic.services import classic_bind_status, handle_classic_callback, handle_classic_replay_push, start_classic_bind
 from .github.schema import GitHubAccountOut
 from .mineracer.sessions import poll_mineracer_account_link_session, start_mineracer_account_link
 from .models import AccountBilibili, AccountClassicMinesweeper, AccountDiscord, AccountLinkQueue, AccountMineracer, AccountMinesweeperGames, AccountQQ, AccountSaolei, AccountWorldOfMinesweeper, Platform, PLATFORM_CONFIG
 from .services import unverify_account_link, update_account, verify_account_link
-from .utils import private_platforms
+from .utils import delete_account, is_memorial_admin, private_platforms
 
 router = Router()
 logger = logging.getLogger('accountlink')
@@ -74,6 +76,19 @@ class AccountLinkCreateIn(Schema):
 
 class AccountLinkVerifyIn(AccountLinkCreateIn):
     id: int
+
+
+class AccountLinkUpdateIn(Schema):
+    platform: str
+    user_id: int | None = None
+
+
+class AccountLinkDeleteIn(Schema):
+    platform: str
+
+
+class AccountLinkActionOut(Schema):
+    type: Literal['success']
 
 
 @router.post('/verify/')
@@ -172,6 +187,52 @@ def get_account_links(request, user_id: int):
             data[platform.value] = get_account_data(user, platform)
 
     return data
+
+
+def account_link_target(request, user_id: int | None):
+    """API 层解析资料刷新的目标账号，仅管理员可代操作纪念账号的已关联账号。"""
+    if user_id is None or user_id == request.user.pk:
+        return request.user
+    target = UserProfile.objects.filter(pk=user_id).first()
+    if target is None:
+        raise HttpError(404, 'User not found.')
+    if not is_memorial_admin(request.user, target):
+        raise HttpError(403, 'Only a moderator can manage a memorial account.')
+    return target
+
+
+@router.post('/update/', response=AccountLinkActionOut)
+@decorate_view(login_required_error, admin_csrf_required, ratelimit(key='user', rate='6/h'))
+def update_link(request, data: AccountLinkUpdateIn = Form(...)):  # noqa: B008
+    """- login_required_error
+    - admin_csrf_required
+    - ratelimit(key='user', rate='6/h')
+
+    Refresh a linked platform profile; moderators may target a memorial account.
+    """
+    update_account(data.platform, account_link_target(request, data.user_id))
+    return {'type': 'success'}
+
+
+@router.post('/delete/')
+@decorate_view(login_required_error, ratelimit(key='user', rate='6/h'))
+def delete_link(request, data: AccountLinkDeleteIn = Form(...)):  # noqa: B008
+    """- login_required_error
+    - ratelimit(key='user', rate='6/h')
+
+    Unlink the current user's own account; memorial account links stay under superuser control.
+    """
+    if not data.platform:
+        return HttpResponseBadRequest()
+    if data.platform in (Platform.MINERACER, Platform.CLASSIC):
+        raise ExceptionToResponse('mineracer' if data.platform == Platform.MINERACER else 'classic', 'unlink_not_supported', status_code=409)
+    accountlink = AccountLinkQueue.objects.filter(platform=data.platform, userprofile=request.user).first()
+    if accountlink is None:
+        return HttpResponseNotFound()
+    if accountlink.verified:
+        delete_account(request.user, data.platform)
+    accountlink.delete()
+    return HttpResponse()
 
 
 @router.post('/create/', response=AccountLinkOut)

@@ -13,7 +13,7 @@ import { store } from '@/store';
 
 const props = defineProps({ userId: { type: Number, default: 0 } });
 const active = ref(true);
-const context = computed(() => `${props.userId}:${store.sessionRevision}:${store.user.id}:${store.user.is_staff}`);
+const context = computed(() => `${props.userId}:${store.sessionRevision}:${store.user.id}:${store.user.is_staff}:${store.user.is_superuser}:${store.player?.is_memorial}`);
 onActivated(() => {
     active.value = true;
 });

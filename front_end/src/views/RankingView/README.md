@@ -9,6 +9,8 @@
 | `/ranking/speed/saolei` | `sort`：`bt/bb/it/ib/et/eb/sumt/sumb`；`nf` | `sumt`，普通榜 |
 | `/ranking/speed/strict_ng` | `sort`：`bt/bb/it/ib/et/eb/sumt/sumb`；`nf` | `sumt`，普通榜 |
 | `/ranking/speed/pb` | `level`：`b/i/e`；`bv`；`nf` | `b`、`1`，普通榜 |
+| `/ranking/speed/collection` | `sort`：`collection:{b/i/e/sum}:{count/probability/asb}`；`nf` | `collection:sum:count`，普通榜 |
+| `/ranking/speed/skill_tt` | `view`：`overview/skill_b/skill_i/skill_e/tt_b/tt_i/tt_e`；`sort`：`{skill/typical_time}:{b/i/e/sum}:{total/s1…s11}`；`nf` | `overview`、`skill:sum:total`，普通榜 |
 | `/ranking/efficiency/thrp` | `sort`：`b/i/e/sum/e_nf` | `sum` |
 | `/ranking/efficiency/nf-ioe` | `sort`：`b/i/e/sum` | `sum` |
 | `/ranking/minigame/left-click` | `sort`：本游戏 9 个榜单 key 之一 | `left-click-b-50-v1` |
@@ -24,13 +26,15 @@
 
 ```text
 /#/ranking/speed/pb?level=e&bv=150&nf=1&page=2&page_size=50
+/#/ranking/speed/collection?sort=collection:sum:probability&nf=1
+/#/ranking/speed/skill_tt?view=tt_e&sort=typical_time:e:s3&nf=1
 /#/ranking/speed/top?sort=eb&detail=es&nf=1
 /#/ranking/speed/lsf?sort=nf:sum
 /#/ranking/density?level=c24_30_200
 /#/ranking/tournament?sort=weekly_classic_total
 ```
 
-`useRankingQuery.ts` 统一解析和同步 query，不改变后端 API。控件操作使用 `router.push`，支持复制链接、重载和浏览器前进/后退。筛选、排序或每页条数变化时重置到第一页；恢复历史 URL 时保留其页码。top 单独切换 `detail` 不重置页码、不请求榜单，切换排序时同步明细。
+`useRankingQuery.ts` 统一解析和同步 query，不改变后端 API。控件操作使用 `router.push`，支持复制链接、重载和浏览器前进/后退。筛选、排序或每页条数变化时重置到第一页；恢复历史 URL 时保留其页码。top 单独切换 `detail` 不重置页码、不请求榜单，切换排序时同步明细。`collection` 与 `skill_tt` 的排序键在解析期用静态 field 列表校验；`skill_tt` 的排序键还必须属于当前子页，否则回退到该子页默认排序，不把非法字符串交给后端。
 
 缓存但未激活的页面不响应其他大榜的 query。配色仍是全局 localStorage 设置，不放进 URL。
 

@@ -17,7 +17,7 @@ logger = logging.getLogger('accountlink')
 
 # 超时预算链，改动其中任一层都要同步检查其余三层：
 #   客户端：总预算 10s，单次请求超时 6s，最多 2 次，退避上限 2s
-#   nginx：/accountlink/update/ 与 /api/accountlink/verify/ 18s（default.conf）
+#   nginx：/api/accountlink/update/ 与 /api/accountlink/verify/ 18s（default.conf）
 #   uwsgi：这两条路径跳过 harakiri:10，用全局 90s（uwsgi.ini 的 route 例外）
 #   前端：axios 20s
 ATTEMPTS = 2

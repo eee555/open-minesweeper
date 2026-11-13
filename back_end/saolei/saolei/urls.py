@@ -42,7 +42,6 @@ urlpatterns = [
     path('common/', include('common.urls')),
     path('article/', include('article.urls')),
     path('identifier/', include('identifier.urls')),
-    path('accountlink/', include('accountlink.urls')),
     path('robots.txt', serve_robots_txt),
     path(r'', TemplateView.as_view(template_name='index.html')),
 ]

@@ -330,7 +330,7 @@ export default defineConfig({
         'src/views/ResourcesView/ViennaSweeperHelper.vue',
         'src/views/SettingView/Appearance.vue',
         'src/views/SettingView/App.vue',
-        'src/views/VideoView.vue',
+        'src/views/DatabaseView/VideoView.vue',
         'src/components/VideoUpload/Table.vue',
     ],
     rules: {
