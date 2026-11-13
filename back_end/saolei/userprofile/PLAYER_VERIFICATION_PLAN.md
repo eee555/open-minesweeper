@@ -229,4 +229,9 @@ D5–D10 由项目方在实施前逐轮确认，覆盖第 4、5、6、8、10 节
 
 未采纳的延伸做法：不给完整批次加人为命令数上限（会破坏「一次提交全部需要调整的边和节点」语义）；不把批次加入 `uwsgi.ini` 的 90s 白名单（纯数据库写入不需要外部 I/O 预算，且会超过前端 `$axios` 的 20s 超时）。请求体大小由 Nginx `client_max_body_size` 自然封顶。
 
+### 维护期调整（2026-11-13 部署后）
+
+- 个人设置页《玩家认证》板块移到第一位，并去掉其外层多余的 `<section class="card">` 嵌套（组件自身已是 `<section class="card">`）。
+- 管理员页面不再提供「设为已认证 / 设为未认证」按钮，改由通用的 `PATCH /api/userprofile/admin/update/{id}` 请求体（已把 `verified` 加入 `ADMIN_USERPROFILE_FIELDS`）直接修改；管理员页只保留当前认证状态展示，以及既有的 UserProfile / UserMS JSON 补丁编辑框。旧的 `/admin/verification/set-verified` 接口保留给程序化调用（维护期仍返回 409）。
+
 本地已确认的检查结果见交付说明；生产环境仍需先应用 `0010`、`0011`，停止旧 worker 并确认没有 READY/RUNNING 旧认证任务后再发布新前端。部署时还需 `nginx -t` 后 reload Nginx，使批次端点的 12s 网关超时生效（仅重启 Django 不更新网关配置）。
