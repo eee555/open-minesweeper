@@ -28,6 +28,8 @@ npx.cmd cypress run --component --browser chrome --headless --spec "src/componen
 
 `button.css` 保持原有导入路径，按顺序汇总 `buttons/base.css`、`buttons/variants.css`、`buttons/states.css`，分别负责基础布局、类型配色、尺寸与交互状态。
 
+`pagination.css` 由 `BasePagination.vue` 按需导入，只描述分页器自身的换行、字段与跳转输入，通用按钮与 Select 参数继续来自 `button.css` / `select.css`。跳转输入复用 `--ui-select-*` 参数保持与小尺寸 Select 一致的高度、边框和焦点反馈；容器较窄时两组控件各自换行，不设置视口断点。分页区间计算集中在 `components/common/pagination.ts`，组件只负责控件、模型同步与 `change` 事件，便于 Vitest 直接覆盖边界。
+
 `select.css` 由 `setup.ts` 全局加载，提供原生单选的 `.base-select`，不新增 Vue 组件。默认最小高度 28px、14px 字号、直角边框与紧凑内边距，尺寸和状态颜色使用 `--ui-select-*` 参数，可在调用方局部覆盖；颜色继续引用深浅主题变量。普通悬停使用灰色边框，鼠标或键盘聚焦时使用主色边框并优先于悬停，不叠加 outline 或 box-shadow。保留系统原生箭头、选项菜单及键盘操作，样式仅作用于显式 class。宽度由调用方控制，公共样式提供 `min-width: 0` / `max-width: 100%`；关联 label 或本地化 aria-label 由调用方提供。保留的复杂选择器通过 vendors 适配复用这些参数，原生选项菜单仍遵循浏览器及系统外观限制，见 [MDN Select](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/select#styling_with_css)。
 
 `vendors/element-plus-select.css` 汇总 `element-plus-select-tags.css`、`element-plus-select-dropdown.css`，分别负责 ElSelect 的闭合控件、多选标签及下拉浮层。使用 ElSelect 或带 `sizes` 的 ElPagination 的组件导入该入口，固定页容量的分页器无需导入。控件复用普通 / 小尺寸参数，标签和搜索输入同步紧凑化，保留标签删除、折叠计数与自然换行增高；浮层统一使用 14px 字号、28px 最小选项高度和项目背景、选中及禁用配色，保留原有滚动高度和键盘行为。浮层通过公开的 `.el-select__popper` 接入，脱离业务容器后仍直接引用全局项目参数；调用方局部覆盖的参数不会自动继承到 body 下的浮层，需要同时通过 `popper-style` 设置。接口与覆盖方式参考 [Element Plus Select](https://element-plus.org/en-US/component/select.html) 与[主题说明](https://element-plus.org/en-US/guide/theming)。
