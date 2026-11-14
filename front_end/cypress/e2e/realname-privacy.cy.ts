@@ -134,7 +134,7 @@ describe('Real name privacy against the backend', () => {
         });
         cy.get('[data-cy=real-name-section] [data-cy=hide-realname-toggle]').should('be.checked');
         self().its('body').should('include', { realname: '隐藏测试姓名', hide_realname: true });
-        cy.get('.profile:visible').should('contain.text', `用户 #${user.id}`).and('not.contain.text', '隐藏测试姓名').and('not.contain.text', user.username);
+        cy.get('.profile:visible').should('contain.text', user.username).and('not.contain.text', '隐藏测试姓名');
         publicNames(user.id, 'hidden');
         cy.visitUser(user.id, 'upload');
         cy.contains('请修改为实名').should('not.exist');
@@ -142,7 +142,7 @@ describe('Real name privacy against the backend', () => {
 
         cy.clearCookies();
         cy.visitUser(user.id);
-        cy.get('.profile:visible').should('contain.text', `用户 #${user.id}`).and('not.contain.text', '隐藏测试姓名');
+        cy.get('.profile:visible').should('contain.text', user.username).and('not.contain.text', '隐藏测试姓名');
         publicNames(user.id, 'hidden');
         cy.intercept('GET', '**/api/video/query*').as('videoQuery');
         cy.visit('/#/database/videos');
@@ -154,7 +154,7 @@ describe('Real name privacy against the backend', () => {
             expect(body?.videos.find((row) => row.player_id === user.id)?.player__realname).to.eq('hidden');
         });
         showPlayerColumn();
-        cy.get(`.player-name a[href="#/player/${user.id}"]`).should('have.text', `用户 #${user.id}`).closest('.player-name').should('have.attr', 'title', `用户 #${user.id}`);
+        cy.get(`.player-name a[href="#/player/${user.id}"]`).should('have.text', user.username).closest('.player-name').should('have.attr', 'title', `${user.username}#${user.id}`);
     });
 
     it('persists later toggles and lets an administrator revoke eligibility', () => {
@@ -217,10 +217,10 @@ describe('Real name privacy against the backend', () => {
         cy.get('[data-cy=privacy-save-status]').should('contain.text', '隐藏设置已保存');
         navigate('#/database/videos');
         cy.wait('@publicBatch').its('response.statusCode').should('eq', 200);
-        cy.get(`.player-name a[href="#/player/${user.id}"]`).should('have.text', `用户 #${user.id}`);
+        cy.get(`.player-name a[href="#/player/${user.id}"]`).should('have.text', user.username);
         cachedName(user.id).should('eq', 'hidden');
         cy.reload();
-        cy.get(`.player-name a[href="#/player/${user.id}"]`).should('have.text', `用户 #${user.id}`);
+        cy.get(`.player-name a[href="#/player/${user.id}"]`).should('have.text', user.username);
         cachedName(user.id).should('eq', 'hidden');
     });
 
