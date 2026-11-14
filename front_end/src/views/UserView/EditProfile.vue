@@ -15,7 +15,7 @@
     <!-- 真实姓名 -->
     <div class="input-label" data-cy="real-name-section">
         <div class="realname-heading text-large">
-            <span :title="user.can_hide_realname ? t('local.realnameTooltip') : `${t('local.realnameTooltip')} ${t('local.privacyAuthorization')}`">{{ t('local.realname') }}</span>
+            <span :title="user.verified ? t('local.realnameTooltip') : `${t('local.realnameTooltip')} ${t('local.privacyAuthorization')}`">{{ t('local.realname') }}</span>
             <label v-if="canChoosePrivacy" class="name-privacy text-small" :title="`${user.isAnonymous ? t('local.privacySaveWithName') : t('local.privacyAutoSave')} ${t('local.privacyScope')}`">
                 <input v-model="hideRealname" type="checkbox" :disabled="updating" data-cy="hide-realname-toggle" @change="onPrivacyChange">
                 {{ user.isAnonymous ? t('local.hideWithName') : t('local.hideRealname') }}
@@ -163,7 +163,7 @@ function refresh() {
 }
 
 watch(user, refresh, { immediate: true });
-const canChoosePrivacy = computed(() => user.value.can_hide_realname && hasRealname(formStatus.value.realname.new) && formStatus.value.realname.new.trim() !== HIDDEN_NAME);
+const canChoosePrivacy = computed(() => user.value.verified && hasRealname(formStatus.value.realname.new) && formStatus.value.realname.new.trim() !== HIDDEN_NAME);
 
 const signatureDisabled = computed(() => props.qualificationStatus !== 'ready' || user.value.nextSignatureAvailable > globalNow.value || props.expTimeMs >= 200000);
 
@@ -290,7 +290,7 @@ const i18nMessages = {
         privacySaveWithName: '请点击“保存”，将实名和隐藏设置一起保存。',
         privacySaving: '正在保存…',
         privacySaved: '隐藏设置已保存',
-        privacyAuthorization: '需要管理员授权或成功绑定 MSGames。已经绑定的用户可联系管理员补发资格。',
+        privacyAuthorization: '完成玩家认证后即可隐藏实名。',
         privacyScope: '仅隐藏本站姓名，账号关联姓名和原始录像不受影响。由于缓存的原因，隐藏可能不会立刻生效。',
         signatureTooltip: ({ named }: { named: { (key: 'left'): number; (key: 'next'): string } }) => {
             if (named('left') > 0) {
@@ -327,7 +327,7 @@ const i18nMessages = {
         privacySaveWithName: 'Click Save to save your real name and privacy setting together.',
         privacySaving: 'Saving…',
         privacySaved: 'Name privacy saved',
-        privacyAuthorization: 'Requires administrator approval or a successful MSGames binding. If already linked, ask an administrator to grant eligibility.',
+        privacyAuthorization: 'Player verification is required to hide your real name.',
         privacyScope: 'Hides site profile names. Linked account names and original replays are unaffected. Due to caching, name hiding may not take effect immediately.',
         signatureTooltip: ({ named }: { named: { (key: 'left'): number; (key: 'next'): string } }) => {
             if (named('left') > 0) {

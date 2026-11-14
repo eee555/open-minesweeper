@@ -58,7 +58,6 @@ class UserProfile(AbstractUser):
     # 考虑了中英文、俄罗斯用户名字，长度需要达到100（虽然还不够）
     _realname = models.CharField(
         db_column='realname', max_length=MaxSizes.REALNAME, unique=False, blank=True, default='匿名', null=False)
-    can_hide_realname = models.BooleanField(default=False)
     hide_realname = models.BooleanField(default=False)
     # 头像
     avatar = RestrictedImageField(upload_to='avatar/%Y%m%d/', max_length=100,
@@ -121,7 +120,7 @@ class UserProfile(AbstractUser):
 
     @property
     def is_name_hidden(self) -> bool:
-        return self.has_realname() and self.can_hide_realname and self.hide_realname
+        return self.has_realname() and self.verified and self.hide_realname
 
     @property
     def realname(self):

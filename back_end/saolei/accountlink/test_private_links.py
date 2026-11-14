@@ -54,7 +54,7 @@ class PrivateAccountLinkTests(TestCase):
                 self.assertTrue(AccountLinkQueue.objects.get(platform=platform, userprofile=self.user).verified)
                 self.assertEqual(self.moderate(platform, identifier).status_code, 200)
                 self.user.refresh_from_db()
-                self.assertFalse(self.user.can_hide_realname)
+                self.assertFalse(self.user.verified)
 
     def test_discord_rejects_invalid_ids_before_creating_or_moderating(self):
         for identifier in ('0', '01', '-1', '1.5', '1e18', 'player', '１２３', '123 ', ' 123', '1' * 21):

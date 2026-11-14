@@ -58,7 +58,7 @@ describe('EditProfile', () => {
 
     for (const hide of [true, false]) {
         it(`automatically saves hide_realname=${String(hide)} when toggled`, () => {
-            const user = new UserProfile({ realname: 'Real Name', can_hide_realname: true, hide_realname: !hide });
+            const user = new UserProfile({ realname: 'Real Name', verified: true, hide_realname: !hide });
             mockPrivacyResponse(hide);
             mountProfile({ user });
             cy.get('[data-cy=real-name-section] .realname-heading').should('contain.text', 'Real Name').find('label').should('have.attr', 'title').and('contain', 'Changes save automatically.');
@@ -75,7 +75,7 @@ describe('EditProfile', () => {
     }
 
     it('saves a new real name and hiding together only after clicking Save', () => {
-        const user = new UserProfile({ can_hide_realname: true });
+        const user = new UserProfile({ verified: true });
         mockUpdateResponse({ realname: { type: 'success' }, firstname: null, lastname: null, signature: null, hide_realname: { type: 'success' } });
         mountProfile({ user });
         cy.get('[data-cy=hide-realname-toggle]').should('not.exist');
@@ -95,7 +95,7 @@ describe('EditProfile', () => {
     });
 
     it('leaves unrelated name and signature drafts unsaved when toggling privacy', () => {
-        const user = new UserProfile({ realname: 'Real Name', can_hide_realname: true, signature: 'Original', left_signature_n: 1 });
+        const user = new UserProfile({ realname: 'Real Name', verified: true, signature: 'Original', left_signature_n: 1 });
         mockPrivacyResponse(true);
         mockUpdateResponse({ realname: null, firstname: null, lastname: null, signature: null });
         mountProfile({ user, expTimeMs: 30000 });
@@ -117,7 +117,7 @@ describe('EditProfile', () => {
     });
 
     it('restores the saved hiding state when the privacy API rejects the change', () => {
-        const user = new UserProfile({ realname: 'Real Name', can_hide_realname: true });
+        const user = new UserProfile({ realname: 'Real Name', verified: true });
         cy.intercept('POST', '/api/userprofile/name-privacy', { statusCode: 403, body: { type: 'error', object: 'privacy', category: 'not_authorized' } }).as('updatePrivacy');
         mountProfile({ user });
         cy.get('[data-cy=hide-realname-toggle]').check();
@@ -130,7 +130,7 @@ describe('EditProfile', () => {
     });
 
     it('restores the saved privacy checkbox when the save is rate limited', () => {
-        const user = new UserProfile({ realname: 'Real Name', can_hide_realname: true });
+        const user = new UserProfile({ realname: 'Real Name', verified: true });
         cy.intercept('POST', '/api/userprofile/name-privacy', { statusCode: 429 }).as('updatePrivacy');
         mountProfile({ user });
         cy.get('[data-cy=hide-realname-toggle]').check();

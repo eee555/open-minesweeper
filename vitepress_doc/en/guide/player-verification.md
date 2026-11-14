@@ -24,7 +24,7 @@ Either of the following is enough:
 
 ### Option 1: Add your real name
 
-Fill in your real name on your profile. The real name acts as your identity credential, and access opens immediately. If you qualify for name privacy, you can enable hiding later; verified players can still verify you afterwards.
+Fill in your real name on your profile. The real name acts as your identity credential, and access opens immediately. Once you are player-verified, you can enable name hiding on your profile; verified players can still verify you afterwards.
 
 ### Option 2: Be verified by a verified player
 
