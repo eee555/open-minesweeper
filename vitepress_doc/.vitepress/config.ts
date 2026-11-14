@@ -100,6 +100,7 @@ export default defineConfig({
                             text: '使用指南',
                             items: [
                                 { text: '账号关联', link: '/zh/guide/account-links' },
+                                { text: '纪念账号', link: '/zh/guide/memorial-accounts' },
                                 { text: '作品页', link: '/zh/guide/works' },
                                 { text: '扫雷软件', link: '/zh/guide/software' },
                                 { text: '录像播放器', link: '/zh/guide/video-player' },
@@ -183,6 +184,7 @@ export default defineConfig({
                             text: 'User Guide',
                             items: [
                                 { text: 'Account Links', link: '/en/guide/account-links' },
+                                { text: 'Memorial Accounts', link: '/en/guide/memorial-accounts' },
                                 { text: 'Works', link: '/en/guide/works' },
                                 { text: 'Minesweeper Software', link: '/en/guide/software' },
                                 { text: 'Video Player', link: '/en/guide/video-player' },
