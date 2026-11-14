@@ -2,7 +2,7 @@
  * @description 把时间戳从UTC转为当地时间
  * @param {String} t 需要转换的时间戳
  */
-export function utc_to_local_format(t = '2024-01-10T14:03:09Z'): string {
+export function utc_to_local_format(t: string | Date = '2024-01-10T14:03:09Z'): string {
     const utc_time = new Date(t);
     return utc_time.toLocaleString('default', {
         year: 'numeric',

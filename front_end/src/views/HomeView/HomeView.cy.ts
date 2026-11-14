@@ -1,5 +1,3 @@
-import PrimeVue from 'primevue/config';
-
 import $axios from '@/http';
 import i18n from '@/i18n';
 import { serviceConfig } from '@/services/store';
@@ -145,7 +143,7 @@ function normalTournamentResponse() {
 
 function mountGlobal() {
     return {
-        plugins: [i18n, PrimeVue, hashRouter()],
+        plugins: [i18n, hashRouter()],
         config: {
             globalProperties: {
                 $axios,

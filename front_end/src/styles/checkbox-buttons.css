@@ -1,5 +1,5 @@
 @import './choice-buttons.css';
 
-.checkbox-buttons--compact .checkbox-button-content {
+.checkbox-buttons--compact :is(.checkbox-button-content, .radio-button-content) {
     padding: 1px 3px;
 }

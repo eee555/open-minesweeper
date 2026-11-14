@@ -28,6 +28,10 @@ npx.cmd cypress run --component --browser chrome --headless --spec "src/componen
 
 `button.css` 保持原有导入路径，按顺序汇总 `buttons/base.css`、`buttons/variants.css`、`buttons/states.css`，分别负责基础布局、类型配色、尺寸与交互状态。
 
+`pagination.css` 由 `BasePagination.vue` 按需导入，只描述分页器自身的换行、字段与跳转输入，通用按钮与 Select 参数继续来自 `button.css` / `select.css`。跳转输入复用 `--ui-select-*` 参数保持与小尺寸 Select 一致的高度、边框和焦点反馈；容器较窄时两组控件各自换行，不设置视口断点。分页区间计算集中在 `components/common/pagination.ts`，组件只负责控件、模型同步与 `change` 事件，便于 Vitest 直接覆盖边界。
+
+`videoList.css` 由 `components/VideoList/App.vue` 按需导入，只描述原生录像表格的列头排序按钮、列头筛选按钮、弹层菜单、图标列与行焦点样式；表格、按钮、Select、文字与主题的公共参数继续来自 `table.css` / `theme/tables.css`、`button.css`、`select.css` 和 `text.css`。该表格不复用 PrimeVue 的 `primevue-table*.css`，后者仍由其余表格按需导入。
+
 `select.css` 由 `setup.ts` 全局加载，提供原生单选的 `.base-select`，不新增 Vue 组件。默认最小高度 28px、14px 字号、直角边框与紧凑内边距，尺寸和状态颜色使用 `--ui-select-*` 参数，可在调用方局部覆盖；颜色继续引用深浅主题变量。普通悬停使用灰色边框，鼠标或键盘聚焦时使用主色边框并优先于悬停，不叠加 outline 或 box-shadow。保留系统原生箭头、选项菜单及键盘操作，样式仅作用于显式 class。宽度由调用方控制，公共样式提供 `min-width: 0` / `max-width: 100%`；关联 label 或本地化 aria-label 由调用方提供。保留的复杂选择器通过 vendors 适配复用这些参数，原生选项菜单仍遵循浏览器及系统外观限制，见 [MDN Select](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/select#styling_with_css)。
 
 `vendors/element-plus-select.css` 汇总 `element-plus-select-tags.css`、`element-plus-select-dropdown.css`，分别负责 ElSelect 的闭合控件、多选标签及下拉浮层。使用 ElSelect 或带 `sizes` 的 ElPagination 的组件导入该入口，固定页容量的分页器无需导入。控件复用普通 / 小尺寸参数，标签和搜索输入同步紧凑化，保留标签删除、折叠计数与自然换行增高；浮层统一使用 14px 字号、28px 最小选项高度和项目背景、选中及禁用配色，保留原有滚动高度和键盘行为。浮层通过公开的 `.el-select__popper` 接入，脱离业务容器后仍直接引用全局项目参数；调用方局部覆盖的参数不会自动继承到 body 下的浮层，需要同时通过 `popper-style` 设置。接口与覆盖方式参考 [Element Plus Select](https://element-plus.org/en-US/component/select.html) 与[主题说明](https://element-plus.org/en-US/guide/theming)。
@@ -60,7 +64,7 @@ npx.cmd cypress run --component --browser chrome --headless --spec "src/componen
 
 当 `.checkbox` 是描述列表 dd 的唯一直接子元素时，使用内容宽度的块级 flex，交由 dd 居中；避免 inline-flex 的行盒基线影响它与前方 dt 标签的垂直对齐，不使用固定像素偏移。其他上下文继续使用行内布局。
 
-`checkbox-buttons.css` 由 setup.ts 加载，并汇总 `choice-buttons.css` 的 Checkbox / Radio 公共外观；离线小游戏沿原有 Checkbox 按钮入口加载同一依赖。`.checkbox-buttons`、`.checkbox-button`、`.checkbox-button-input` 与 `.checkbox-button-content` 保持原有 API，组件不再重复导入共用样式。底层仍是可聚焦的原生 input，选中、禁用和键盘焦点映射到可见的内容框；鼠标点击 label，键盘使用 Tab / Space。`.checkbox-buttons--compact` 保留软件图标按钮的 1px × 3px 内边距，普通变体使用 12px 字号、2px × 6px 内边距；两者均为直角，并按容器宽度换行。强制颜色模式用系统选中色。筛选组件在 nextTick 后显式发出一次数组 change，组件事件不透传为原生 DOM Event，避免重复请求。
+`checkbox-buttons.css` 由 setup.ts 加载，并汇总 `choice-buttons.css` 的 Checkbox / Radio 公共外观；离线小游戏沿原有 Checkbox 按钮入口加载同一依赖。`.checkbox-buttons`、`.checkbox-button`、`.checkbox-button-input` 与 `.checkbox-button-content` 保持原有 API，组件不再重复导入共用样式。底层仍是可聚焦的原生 input，选中、禁用和键盘焦点映射到可见的内容框；鼠标点击 label，键盘使用 Tab / Space。`.checkbox-buttons--compact` 对 Checkbox / Radio 按钮内容统一使用 1px × 3px 内边距，普通变体使用 12px 字号、2px × 6px 内边距；两者均为直角，并按容器宽度换行。强制颜色模式用系统选中色。筛选组件在 nextTick 后显式发出一次数组 change，组件事件不透传为原生 DOM Event，避免重复请求。
 
 原生 Radio 复用 `.radio-buttons`、`.radio-button`、`.radio-button-input`、`.radio-button-content`，无 BaseRadio 组件：外层带 `role="radiogroup"` 与可访问名称，内部每项为 `<label class="radio-button"><input v-model="value" class="radio-button-input" type="radio" :name="groupName" :value="option"><span class="radio-button-content">标签</span></label>`。组内共用 name，不同组件实例使用带 useId() 的独立组名；数字选项通过 :value 保持 number。互斥、Tab / 方向键 / Space 由原生控件处理，不编写自定义键盘状态层；选中、禁用、焦点和深浅主题与 Checkbox 按钮共用外观规则，参见 [Vue 值绑定](https://vuejs.org/guide/essentials/forms.html#value-bindings)及 [MDN Radio](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/radio)。
 
@@ -92,7 +96,8 @@ npx.cmd cypress run --component --browser chrome --headless --spec "src/componen
 | --- | --- | --- |
 | `table-col-rank` | 排名、序号 | 宽度 3em、居中、不换行 |
 | `table-col-player` | PlayerName、玩家名 | 宽度 12em、左对齐 |
-| `table-col-mode` / `table-col-prop` | 模式、属性标签 | 宽度 5em、居中 |
+| `table-col-mode` | 模式 | 宽度 5em、居中、不换行 |
+| `table-col-prop` | 属性标签 | 宽度 5em、居中 |
 | `table-col-bv` | 3BV 等较短数值 | 宽度 3em、右对齐、不换行、等宽数字 |
 | `table-col-number` | Time、Bvs、STNB、Pluck 等数值 | 宽度 5em、右对齐、不换行、等宽数字 |
 | `table-col-datetime` | 上传时间等日期时间 | 宽度 10em、居中、不换行 |
