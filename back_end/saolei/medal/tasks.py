@@ -1,11 +1,13 @@
-from django.db import transaction
+from contextlib import contextmanager
+
+from django.db import connection, transaction
 from django.tasks import task, TaskResultStatus
 from django.utils import timezone
 from django_tasks_db.models import DBTaskResult
 
 from userprofile.models import UserProfile
 from .services import evaluate_player, refresh_player_medals
-from .utils import REFRESH_COALESCE_DELAY
+from .utils import QUEUE_LOCK_TIMEOUT, REFRESH_COALESCE_DELAY
 
 
 @task(priority=1)
@@ -69,11 +71,27 @@ def _merge_refresh_kwargs(row, incoming):
     return ['args_kwargs']
 
 
+@contextmanager
+def _queue_lock(user_id):
+    """同一玩家的入队串行化。不锁玩家行，评估任务整轮持有该行锁。命名锁按会话持有，须在入队事务提交后释放。"""
+    name = f'medal-queue:{user_id}'
+    with connection.cursor() as cursor:
+        cursor.execute('SELECT GET_LOCK(%s, %s)', [name, QUEUE_LOCK_TIMEOUT])
+        acquired = cursor.fetchone()[0] == 1
+    try:
+        # 拿不到锁也照常入队：重复任务只会多算一次，丢任务则勋章不更新。
+        yield
+    finally:
+        if acquired:
+            with connection.cursor() as cursor:
+                cursor.execute('SELECT RELEASE_LOCK(%s)', [name])
+
+
 def _enqueue_player_task(player_task, user_id, defer=False, **kwargs):
-    # Serialize producers for this player, including the empty-queue case.
     run_after = timezone.now() + REFRESH_COALESCE_DELAY if defer else timezone.now()
-    with transaction.atomic():
-        if not UserProfile.objects.select_for_update().filter(pk=user_id).exists():
+    # durable：嵌在外层事务里时命名锁会早于提交释放，直接报错，调用方应改用 on_commit。
+    with _queue_lock(user_id), transaction.atomic(durable=True):
+        if not UserProfile.objects.filter(pk=user_id).exists():
             return None
         ready = DBTaskResult.objects.filter(
             task_path=player_task.module_path, status=TaskResultStatus.READY, args_kwargs__args=[user_id],
