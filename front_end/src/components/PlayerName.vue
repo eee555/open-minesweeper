@@ -89,14 +89,14 @@ function nameFor(source: typeof local.value.playerName1): string {
 }
 const nameShown = computed(() => {
     if (props.userId === 0) return '';
-    if (user.value.isNameHidden) return `${t('local.user')} #${props.userId}`;
+    if (user.value.isNameHidden) return user.value.username || `${t('local.user')}#${props.userId}`;
     if (loading.value || user.value.id !== props.userId) return `${t('local.user')}#${props.userId}`;
     const name1 = nameFor(local.value.playerName1) || user.value.username || `${t('local.user')}#${props.userId}`;
     const name2 = nameFor(local.value.playerName2);
     return local.value.playerNameFormat === 'name1 (name2)' && name2 ? `${name1} (${name2})` : name1;
 });
 const nameTitle = computed(() => (user.value.isNameHidden
-    ? nameShown.value
+    ? `${user.value.username || t('local.user')}#${props.userId}`
     : [
         `${user.value.username || '--'}#${props.userId}`,
         `${user.value.realname || '--'} (${internationalName.value || '--'})`,

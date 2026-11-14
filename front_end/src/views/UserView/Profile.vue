@@ -4,18 +4,18 @@
             <div class="avatar">
                 <Avatar v-model:user="store.player" :is-self="user.id === store.user.id" :exp-time-ms="store.expTimeMs" :qualification-status="store.qualificationStatus" />
             </div>
+            <div>
+                <span class="username">
+                    {{ user.username }}
+                </span>
+                <span class="id">
+                    #{{ user.id }}
+                </span>
+            </div>
             <div v-if="user.isNameHidden" class="realname" data-cy="hidden-profile-name">
-                {{ t('local.hiddenName', { id: user.id }) }}
+                {{ t('local.hiddenName') }}
             </div>
             <template v-else>
-                <div>
-                    <span class="username">
-                        {{ user.username }}
-                    </span>
-                    <span class="id">
-                        #{{ user.id }}
-                    </span>
-                </div>
                 <div class="realname">
                     {{ user.isAnonymous ? t('anonymous') : user.realname }}
                 </div>
@@ -71,13 +71,13 @@ const router = useRouter();
 const i18nMessages = {
     'zh-cn': { local: {
         editButton: '编辑信息',
-        hiddenName: '用户 #{id}',
+        hiddenName: '已隐藏',
         uploadMemorial: '补传纪念录像',
         verified: '已认证玩家',
     } },
     en: { local: {
         editButton: 'Edit Profile',
-        hiddenName: 'User #{id}',
+        hiddenName: 'Hidden',
         uploadMemorial: 'Upload memorial replays',
         verified: 'Verified player',
     } },
