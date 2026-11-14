@@ -148,7 +148,7 @@ describe('PlayerName', () => {
         expectName('Alice');
         cy.then(() => invalidateUserInfo(user.id));
         cy.wait('@fetchUser');
-        expectName(`User #${user.id}`, `User #${user.id}`);
+        expectName(user.username, `${user.username}#${user.id}`);
     });
 
     it('uses the fallback fixture even when the player name was previously cached', () => {
@@ -192,14 +192,14 @@ describe('PlayerName', () => {
     it('hides the whole name and title regardless of name preferences', () => {
         mockUserInfo({ body: [{ ...user, realname: 'hidden', firstname: 'hidden', lastname: 'hidden' }] });
         mountPlayerName(user.id);
-        expectName('User #42', 'User #42');
+        expectName(user.username, `${user.username}#${user.id}`);
         cy.then(() => {
             local.value.playerNameFormat = 'name1 (name2)';
             local.value.playerName1 = 'international';
             local.value.playerName2 = 'username';
             local.value.nameFormat = 'last-first';
         });
-        expectName('User #42', 'User #42');
+        expectName(user.username, `${user.username}#${user.id}`);
         cy.get('.player-name a').should('have.attr', 'href', '#/player/42');
     });
 

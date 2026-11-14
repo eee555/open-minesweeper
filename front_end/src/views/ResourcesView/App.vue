@@ -24,6 +24,7 @@ import type { Component } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 
+import browserExtensionIcon from '@/assets/img/browser-extension.webp';
 import yuanshenToolboxIcon from '@/assets/img/yuanshen-toolbox.png';
 import analyzerIcon from '@/assets/video-analyzer.svg';
 import SoftwareIcon from '@/components/widgets/SoftwareIcon.vue';
@@ -38,6 +39,7 @@ const sections: { id: string; label: string; software?: MS_Software; icon?: stri
     { id: 'classic95', label: '95 Classic', software: 'x', component: defineAsyncComponent(() => import('./ClassicMinesweeper95.vue')) },
     { id: 'analyzer', label: 'OpenMinesweeper Video Analyzer', icon: analyzerIcon, component: defineAsyncComponent(() => import('./AnalyzerHelper.vue')) },
     { id: 'yuanshen', label: 'Yuanshen Toolbox', icon: yuanshenToolboxIcon, component: defineAsyncComponent(() => import('./YuanshenToolboxHelper.vue')) },
+    { id: 'browser-extension', label: 'Browser Extension', icon: browserExtensionIcon, component: defineAsyncComponent(() => import('./BrowserExtensionHelper.vue')) },
 ];
 const defaultTab = sections[0].id;
 
@@ -63,6 +65,7 @@ const i18nMessages = {
         classic95: '95经典扫雷',
         analyzer: '录像分析器',
         yuanshen: '元神工具箱',
+        'browser-extension': '浏览器扩展',
     } },
     en: { local: {
         metasweeper: 'Metasweeper',
@@ -71,6 +74,7 @@ const i18nMessages = {
         classic95: '95 Classic',
         analyzer: 'Video Analyzer',
         yuanshen: 'Yuanshen Toolbox',
+        'browser-extension': 'Browser Extension',
     } },
 };
 

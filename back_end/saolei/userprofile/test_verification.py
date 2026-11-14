@@ -92,7 +92,6 @@ class VerificationTests(TestCase):
         self.alice.verified = False
         self.alice.realname = 'Alice'
         self.assertTrue(has_identity_access(self.alice))
-        self.alice.can_hide_realname = True
         self.alice.hide_realname = True
         self.assertTrue(has_identity_access(self.alice))
         self.assertFalse(has_identity_access(self.staff))

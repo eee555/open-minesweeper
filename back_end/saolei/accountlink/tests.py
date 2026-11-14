@@ -103,11 +103,11 @@ class NamePrivacyBindingTests(TestCase):
         remote.assert_not_called()
 
     @patch('accountlink.services.fetch_msgames_profile', return_value={'name': 'Linked Name', 'local_name': '关联姓名'})
-    def test_binding_grants_once_and_unlink_keeps_privacy(self, sync):
-        self.assertFalse(self.user.can_hide_realname)
+    def test_binding_does_not_grant_verification_and_unlink_keeps_hiding(self, sync):
+        self.assertFalse(self.user.verified)
         self.assertEqual(self.verify().status_code, 200)
         self.user.refresh_from_db()
-        self.assertTrue(self.user.can_hide_realname)
+        self.assertFalse(self.user.verified)
         self.assertFalse(self.user.hide_realname)
         self.assertEqual(AccountMinesweeperGames.objects.get(pk=1234).parent_id, self.user.pk)
         self.user.hide_realname = True
@@ -115,28 +115,28 @@ class NamePrivacyBindingTests(TestCase):
         self.client.force_login(self.user)
         self.assertEqual(self.client.post('/api/accountlink/delete/', {'platform': Platform.MSGAMES}).status_code, 200)
         self.user.refresh_from_db()
-        self.assertTrue(self.user.can_hide_realname)
+        self.assertFalse(self.user.verified)
         self.assertTrue(self.user.hide_realname)
         self.assertFalse(AccountMinesweeperGames.objects.filter(pk=1234).exists())
 
     @patch('accountlink.services.fetch_msgames_profile', return_value={'name': 'Linked Name', 'local_name': '关联姓名'})
     def test_retry_does_not_override_admin_revocation(self, sync):
         self.verify()
-        UserProfile.objects.filter(pk=self.user.pk).update(can_hide_realname=False)
+        UserProfile.objects.filter(pk=self.user.pk).update(verified=False)
         self.assertEqual(self.verify().status_code, 200)
         self.user.refresh_from_db()
-        self.assertFalse(self.user.can_hide_realname)
+        self.assertFalse(self.user.verified)
         sync.assert_called_once()
 
     @patch('accountlink.services.fetch_msgames_profile', side_effect=ExceptionToResponse('import', 'timeout', status_code=503))
-    def test_remote_failure_returns_success_and_keeps_binding_and_grant(self, sync):
+    def test_remote_failure_returns_success_and_keeps_binding_without_grant(self, sync):
         with self.assertLogs('accountlink', level='ERROR'):
             response = self.verify()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.content, b'')
         self.user.refresh_from_db()
         self.link.refresh_from_db()
-        self.assertTrue(self.user.can_hide_realname)
+        self.assertFalse(self.user.verified)
         self.assertTrue(self.link.verified)
         self.assertTrue(AccountMinesweeperGames.objects.filter(parent=self.user).exists())
 
@@ -155,10 +155,10 @@ class NamePrivacyBindingTests(TestCase):
         self.link.save(update_fields=['verified'])
         self.assertEqual(self.verify().status_code, 200)
         self.user.refresh_from_db()
-        self.assertFalse(self.user.can_hide_realname)
-        self.user.can_hide_realname = True
+        self.assertFalse(self.user.verified)
+        self.user.verified = True
         self.user.hide_realname = True
-        self.user.save(update_fields=['can_hide_realname', 'hide_realname'])
+        self.user.save(update_fields=['verified', 'hide_realname'])
         self.client.logout()
         response = self.client.get(f'/api/accountlink/{self.user.pk}')
         self.assertEqual(response.json()['a']['name'], account.name)
@@ -174,18 +174,18 @@ class NamePrivacyBindingTests(TestCase):
                 self.user.refresh_from_db()
                 self.link.refresh_from_db()
                 self.assertTrue(self.link.verified)
-                self.assertTrue(self.user.can_hide_realname)
+                self.assertFalse(self.user.verified)
                 self.assertEqual(AccountMinesweeperGames.objects.get(parent=self.user).name, '')
 
     @patch('accountlink.services.fetch_msgames_profile', side_effect=[ExceptionToResponse('import', 'timeout', status_code=503), {'name': 'Recovered Name', 'local_name': '关联姓名'}])
     def test_retry_after_sync_failure_repairs_profile_without_regranting(self, sync):
         with self.assertLogs('accountlink', level='ERROR'):
             self.assertEqual(self.verify().status_code, 200)
-        UserProfile.objects.filter(pk=self.user.pk).update(can_hide_realname=False)
+        UserProfile.objects.filter(pk=self.user.pk).update(verified=False)
         self.assertEqual(self.verify().status_code, 200)
         self.assertEqual(AccountMinesweeperGames.objects.get(parent=self.user).name, 'Recovered Name')
         self.user.refresh_from_db()
-        self.assertFalse(self.user.can_hide_realname)
+        self.assertFalse(self.user.verified)
         self.assertEqual(sync.call_count, 2)
 
     @patch('accountlink.api.update_account', side_effect=RuntimeError('third-party client failed'))
@@ -207,7 +207,7 @@ class NamePrivacyBindingTests(TestCase):
         self.assertEqual(self.verify().status_code, 200)
         self.assertEqual(AccountMinesweeperGames.objects.get(parent=self.user).name, 'Recovered Name')
         self.user.refresh_from_db()
-        self.assertFalse(self.user.can_hide_realname)
+        self.assertFalse(self.user.verified)
         sync.assert_called_once_with(1234)
 
     def unverify(self, identifier='1234'):
@@ -223,7 +223,7 @@ class NamePrivacyBindingTests(TestCase):
         self.assertFalse(AccountLinkQueue.objects.filter(pk=self.link.pk).exists())
         self.assertFalse(AccountMinesweeperGames.objects.filter(parent=self.user).exists())
         self.user.refresh_from_db()
-        self.assertTrue(self.user.can_hide_realname)
+        self.assertFalse(self.user.verified)
         self.assertTrue(self.user.hide_realname)
         self.client.force_login(self.user)
         response = self.client.post('/api/accountlink/create/', {'platform': Platform.MSGAMES, 'identifier': '5678'})

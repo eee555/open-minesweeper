@@ -1,6 +1,9 @@
 <template>
     <div v-if="canEdit" class="layout-stack user-settings">
         <section class="card">
+            <PlayerVerification :user-id="user.id" />
+        </section>
+        <section class="card">
             <EditProfile :key="user.id" v-model:user="user" :exp-time-ms="store.expTimeMs" :qualification-status="store.qualificationStatus">
                 <template #heading>
                     <h2 class="text-large">
@@ -9,9 +12,6 @@
                     <ProfileQualification />
                 </template>
             </EditProfile>
-        </section>
-        <section class="card">
-            <PlayerVerification :user-id="user.id" />
         </section>
         <section class="card">
             <h2 class="text-large">

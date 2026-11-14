@@ -13,12 +13,6 @@ export interface VerificationActionResult {
     nodes_updated: number;
 }
 
-export interface SetVerifiedResult {
-    user_id: number;
-    verified: boolean;
-    nodes_updated: number;
-}
-
 export interface VerificationEdge {
     from_user_id: number;
     to_user_id: number;
@@ -78,11 +72,6 @@ export async function fetchVerificationStatus(): Promise<VerificationStatus> {
 
 export async function verifyPlayer(userId: number): Promise<VerificationActionResult> {
     const { data } = await $axios.post<VerificationActionResult>(`${BASE}/verify`, { user_id: userId }, JSON_CONFIG);
-    return data;
-}
-
-export async function setVerified(userId: number, verified: boolean): Promise<SetVerifiedResult> {
-    const { data } = await $axios.post<SetVerifiedResult>(`${ADMIN_BASE}/set-verified`, { user_id: userId, verified }, JSON_CONFIG);
     return data;
 }
 

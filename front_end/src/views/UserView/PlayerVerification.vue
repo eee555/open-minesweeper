@@ -1,5 +1,5 @@
 <template>
-    <section class="card verification">
+    <section class="verification">
         <h2 class="text-large">
             {{ t('local.title') }}
         </h2>

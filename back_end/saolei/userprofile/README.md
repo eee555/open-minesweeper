@@ -41,9 +41,9 @@
 
 ### 授权与设置
 
-- `can_hide_realname` 记录资格，`hide_realname` 记录用户选择，默认均为 False。管理员可授权或撤销；撤销同时关闭隐藏。
-- 新的 MSGames 正式绑定事件自动授权，不自动开启隐藏；绑定与资格同事务提交，第三方资料同步在提交后执行。远端请求失败或返回空白姓名不影响绑定成功及已有资格，后续可刷新或重试验证以补齐资料。解绑保留资格及选择，重复验证、登录和同步不重新授权；上线前已绑定的用户由管理员手动补发资格。
-- 有效实名是非空、非纯空白且不为“匿名”的 `realname`。没有实名时不能开启隐藏；已有资格的用户可以在首次设置有效实名时同时选择隐藏。清除实名会关闭隐藏并保留资格。
+- 隐藏实名资格现在由 `verified`（玩家认证）触发，不再有独立的 `can_hide_realname` 字段；`hide_realname` 记录用户选择，默认 False。管理员可通过通用 `PATCH /api/userprofile/admin/update/{id}` 修改 `verified` 来授权或撤销；撤销同时关闭隐藏。
+- 账号绑定（含 MSGames）不再自动授予隐藏资格，也不改动 `verified` 或 `hide_realname`；资格来自玩家认证（由已认证玩家认证你，或管理员设置 `verified`）。绑定与第三方资料同步在提交后执行，远端请求失败或返回空白姓名不影响绑定成功，后续可刷新或重试验证补齐资料。
+- 有效实名是非空、非纯空白且不为“匿名”的 `realname`。没有实名时不能开启隐藏；已有资格的用户可以在首次设置有效实名时同时选择隐藏。清除实名会关闭隐藏并保留认证（verified）。
 - 隐藏开关位于个人设置的“真实姓名”标题旁，已有实名时通过独立接口自动保存；首次填写实名时与姓名一起点击“保存”，同事务提交。失败恢复原选择，说明放在开关的 title 中。接口参数与限流以 Ninja API 文档为准。
 
 ### 姓名读取与缓存
@@ -223,7 +223,7 @@ E2E 使用隔离的测试数据库及 Redis，启用 `E2E_TEST=True` 并完成�
 完整规则与实施决策见 `PLAYER_VERIFICATION_PLAN.md`，本节只记录部署与维护要点。
 
 - `UserProfile.verified` 是当前有效认证结果，不是「已实名」，也不代表管理身份。`UserVerifyEdge` 只保存当前存在的有向边（`from_user`、`to_user`、`created_at`），以 `UniqueConstraint(from_user, to_user)` 防止同向重复边，以检查约束禁止自认证边；允许多入边、多出边、反向边和环，没有申请表、根节点或历史表。
-- 三类写入（普通主动认证、管理员设置 `verified`、站长完整图批次）都在 HTTP 请求内的单个数据库事务中同步完成，不使用 Django Tasks、任务查询或任务清理配置。普通认证只新增当前用户到目标的边并把目标设为已认证，不遍历下游；管理员只改指定节点；站长一次提交全部边与节点命令，后端不推导可达性或撤销范围。
+- 三类写入（普通主动认证、管理员设置 `verified`、站长完整图批次）都在 HTTP 请求内的单个数据库事务中同步完成，不使用 Django Tasks、任务查询或任务清理配置。普通认证只新增当前用户到目标的边并把目标设为已认证，不遍历下游；管理员只改指定节点；站长一次提交全部边与节点命令，后端不推导可达性或撤销范围。管理员修改 `verified` 不再走单独的按钮接口，而是复用通用的 `PATCH /api/userprofile/admin/update/{id}`（字段列表 `ADMIN_USERPROFILE_FIELDS` 已含 `verified`）；`/admin/verification/set-verified` 接口保留，仅在维护期返回 409，供程序化调用。
 - 站长批次先开启独占维护会话（时长由站长指定，上限 1 小时）。会话状态与图写入串行锁放在 Redis 缓存 `userprofile/verification/cache.py`，TTL 到期自动恢复服务；提交成功或站长主动结束会立即释放。维护期间 `/verification/verify` 与 `/admin/verification/set-verified` 返回 409，读接口与站长批次提交仍可用。读路径只判断状态、不删除 key（避免删掉读取之后新建的会话），过期键由 TTL 清理；主动删除只在写入锁内进行。没有 `UserVerifyCoordinator` 表。
 - 批次用批量 SQL：一次读出相关边、`bulk_create(ignore_conflicts=True)`、按主键分块删除、节点按目标值最多两次 `update()`；所有 IN 列表按 `GRAPH_BATCH_CHUNK_SIZE=500` 分块，SQL 次数不随命令数逐条增长。超时链为 uWSGI `harakiri:10` < nginx `location = /api/userprofile/admin/verification/graph-update` 的 `uwsgi_read_timeout 12s` < 前端 `$axios` 20s；网关必须晚于 worker 超时，否则会先返回 504 而后端静默提交。部署需 `nginx -t` 后 reload Nginx，仅重启 Django 不更新网关配置。
 - API 集中在 `userprofile/verification/api.py`：`/api/userprofile/verification/status|verify` 为普通用户接口，`/api/userprofile/admin/verification/*` 为管理接口。管理员设置 `verified` 用 `staff_or_superuser_required`，站长读取、维护会话与批次用 `auth=django_auth_superuser`；管理员接口无限流，普通接口按项目约定限流。

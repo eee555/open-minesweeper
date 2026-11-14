@@ -104,7 +104,7 @@ def clean_user_name(user: UserProfile, field_name: str, value: str) -> str:
 def apply_privacy(user: UserProfile, hide: bool):
     if hide and not user.has_realname():
         raise ExceptionToResponse('privacy', 'realname_required', status_code=403)
-    if hide and not user.can_hide_realname:
+    if hide and not user.verified:
         raise ExceptionToResponse('privacy', 'not_authorized', status_code=403)
     user.hide_realname = hide
 
@@ -126,20 +126,12 @@ def update_user_names(user_id: int, names: dict, user_ip: str, hide: bool | None
     return user
 
 
-def grant_name_privacy(user: UserProfile, actor: str):
-    """The caller holds the user row lock and commits the binding in its transaction."""
-    old = user.can_hide_realname
-    user.can_hide_realname = True
-    user.save(update_fields=['can_hide_realname', 'date_updated'])
-    logger.info('%s granted name privacy to user #%s: %s -> True', actor, user.pk, old)
-
-
 @transaction.atomic
 def update_admin_profile(user_id: int, updates: dict, actor: UserProfile) -> UserProfile:
     user = UserProfile.objects.select_for_update().get(pk=user_id)
     if user.is_memorial and 'email' in updates and updates['email'] != user.email:
         raise ExceptionToResponse('memorial', 'email_readonly', status_code=400)
-    old_privacy = (user.can_hide_realname, user.hide_realname)
+    old_privacy = (user.verified, user.hide_realname)
     fields = []
     for field, value in updates.items():
         if field in NAME_FIELDS:
@@ -147,12 +139,12 @@ def update_admin_profile(user_id: int, updates: dict, actor: UserProfile) -> Use
         model_field = NAME_FIELDS.get(field, field)
         setattr(user, model_field, value)
         fields.append(model_field)
-    if not user.can_hide_realname or not user.has_realname():
+    if not user.verified or not user.has_realname():
         user.hide_realname = False
         fields.append('hide_realname')
     if updates:
         user.save(update_fields=[*set(fields), 'date_updated'])
-        logger.warning('Staff #%s updated user #%s fields %s; privacy %s -> %s', actor.pk, user.pk, list(updates), old_privacy, (user.can_hide_realname, user.hide_realname))
+        logger.warning('Staff #%s updated user #%s fields %s; privacy %s -> %s', actor.pk, user.pk, list(updates), old_privacy, (user.verified, user.hide_realname))
     return user
 
 
@@ -275,7 +267,6 @@ def user_metadata(user: UserProfile, client):
         'realname': user._realname,
         'firstname': user._firstname,
         'lastname': user._lastname,
-        'can_hide_realname': user.can_hide_realname,
         'hide_realname': user.hide_realname,
         'signature': user.signature,
         'popularity': user.popularity,

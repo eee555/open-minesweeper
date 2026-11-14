@@ -160,7 +160,7 @@ AdminUserProfileOut = create_schema(
         'is_banned', 'is_staff', 'is_memorial', 'verified',
         'left_realname_n', 'left_avatar_n', 'left_signature_n',
         'last_change_avatar', 'last_change_signature',
-        'date_updated', 'can_hide_realname', 'hide_realname',
+        'date_updated', 'hide_realname',
     ],
     custom_fields=[
         *PUBLIC_NAME_FIELDS,
@@ -174,7 +174,8 @@ AdminUserProfileOut = create_schema(
 ADMIN_USERPROFILE_FIELDS = (
     'username', 'email',
     'signature', 'country', 'is_banned',
-    'left_realname_n', 'left_avatar_n', 'left_signature_n', 'can_hide_realname',
+    'verified',
+    'left_realname_n', 'left_avatar_n', 'left_signature_n',
 )
 
 AdminUserProfileUpdateIn = create_schema(

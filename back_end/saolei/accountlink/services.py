@@ -9,7 +9,6 @@ from config.text_choices import MS_TextChoices
 from identifier.models import Identifier
 from msuser.models import UserMS
 from userprofile.models import UserProfile
-from userprofile.services import grant_name_privacy
 from utils.exceptions import ExceptionToResponse
 from utils.parser import MSVideoParser
 from utils.ranking_lock import ranking_access
@@ -80,8 +79,6 @@ def verify_account_link(user_id: int, platform: str, identifier: str, actor_id: 
     link_account(platform, identifier, user)
     link.verified = True
     link.save(update_fields=['verified'])
-    if platform == Platform.MSGAMES:
-        grant_name_privacy(user, f'Staff #{actor_id}, MSGames #{identifier}')
     return user, True
 
 
