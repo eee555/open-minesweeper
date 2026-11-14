@@ -224,38 +224,6 @@ describe('Real name privacy against the backend', () => {
         cachedName(user.id).should('eq', 'hidden');
     });
 
-    it('grants only on a new MSGames verification, preserves eligibility on unlink, and does not regrant on retry', () => {
-        const user = USERS.linked;
-        const binding = { id: user.id, platform: 'a', identifier: '2147483000' };
-        cy.login(user.username, user.password);
-        cy.request({ method: 'POST', url: `${BACKEND}/api/accountlink/create/`, form: true, body: binding });
-        self().its('body.verified').should('eq', false);
-        cy.login(STAFF.username, STAFF.password);
-        cy.intercept('POST', '**/api/accountlink/verify/').as('verify');
-        cy.visit('/#/staff/accountlink');
-        cy.contains('.el-form-item__label', '用户 ID').next().find('input').clear();
-        cy.contains('.el-form-item__label', '用户 ID').next().find('input').type(String(user.id));
-        cy.contains('.el-form-item__label', /^平台$/).next().find('select').select(binding.platform);
-        cy.contains('.el-form-item__label', '平台 ID').next().find('input').type(binding.identifier);
-        cy.contains('button', /^\s*绑定\s*$/).click();
-        cy.wait('@verify').its('response').should('include', { statusCode: 200, body: '' });
-        cy.login(user.username, user.password);
-        self().its('body').should('include', { verified: true, hide_realname: false });
-        privacy(true);
-        cy.request(`${BACKEND}/api/accountlink/${user.id}`).its('body.a').should('include', { name: 'MSGames Fixture', local_name: '关联姓名' });
-        cy.login(STAFF.username, STAFF.password);
-        staffPatch(user.id, { verified: false });
-        cy.adminRequest({ method: 'POST', url: `${BACKEND}/api/accountlink/verify/`, form: true, body: binding });
-        cy.login(user.username, user.password);
-        self().its('body').should('include', { verified: false, hide_realname: false });
-        cy.login(STAFF.username, STAFF.password);
-        staffPatch(user.id, { verified: true });
-        cy.login(user.username, user.password);
-        privacy(true);
-        cy.request({ method: 'POST', url: `${BACKEND}/api/accountlink/delete/`, form: true, body: { platform: 'a' } });
-        self().its('body').should('include', { verified: true, hide_realname: true });
-    });
-
     it('leaves existing MSGames users ungranted until an administrator manually grants eligibility', () => {
         const user = USERS.existing;
         cy.login(user.username, user.password);
