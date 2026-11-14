@@ -17,7 +17,6 @@ export interface UserProfileData {
     realname?: string;
     firstname?: string;
     lastname?: string;
-    can_hide_realname?: boolean;
     hide_realname?: boolean;
     is_banned?: boolean;
     is_staff?: boolean;
@@ -40,7 +39,6 @@ export class UserProfile {
     public realname = '';
     public firstname = '';
     public lastname = '';
-    public can_hide_realname = false;
     public hide_realname = false;
     public is_banned = false;
     public is_staff = false;
@@ -69,7 +67,6 @@ export class UserProfile {
 
         this.firstname = data.firstname ?? '';
         this.lastname = data.lastname ?? '';
-        this.can_hide_realname = data.can_hide_realname ?? false;
         this.hide_realname = data.hide_realname ?? false;
         this.is_banned = data.is_banned ?? false;
         this.is_staff = data.is_staff ?? false;
@@ -99,7 +96,7 @@ export class UserProfile {
     }
 
     public get isNameHidden(): boolean {
-        return hasHiddenName(this) || (!this.isAnonymous && this.can_hide_realname && this.hide_realname);
+        return hasHiddenName(this) || (!this.isAnonymous && this.verified && this.hide_realname);
     }
 
     public get hasInternationalName(): boolean {

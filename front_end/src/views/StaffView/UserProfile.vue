@@ -89,7 +89,7 @@ async function saveUserProfile() {
         baseErrorNotification(t('local.jsonError'), t('msg.reservedName'));
         return;
     }
-    if (profile.value.can_hide_realname === true && payload.can_hide_realname === false && !window.confirm(t('local.revokePrivacy'))) return;
+    if (profile.value.verified === true && payload.verified === false && !window.confirm(t('local.revokePrivacy'))) return;
 
     savingUserProfile.value = true;
     await proxy.$axios.patch<Record<string, unknown>>(`/api/userprofile/admin/update/${loadedUserId.value}`, payload).then((response) => {
@@ -132,7 +132,7 @@ const i18nMessages = {
         jsonObjectRequired: '请求体必须是 JSON 对象',
         userMSError: 'UserMS错误',
         missingUserMS: '当前用户没有可用的 userms_id',
-        revokePrivacy: '撤销隐藏实名资格后，将关闭隐藏，实名会在缓存正常更新后恢复公开。是否继续？',
+        revokePrivacy: '撤销玩家认证后，将关闭隐藏实名资格，实名会在缓存正常更新后恢复公开。是否继续？',
         verifiedState: '玩家认证状态',
         verified: '已认证',
         unverified: '未认证',
@@ -146,7 +146,7 @@ const i18nMessages = {
         jsonObjectRequired: 'The request body must be a JSON object',
         userMSError: 'UserMS error',
         missingUserMS: 'This user has no available userms_id',
-        revokePrivacy: 'Revoking eligibility also turns off hiding. Names become public after normal cache updates. Continue?',
+        revokePrivacy: 'Revoking player verification also removes name-hiding eligibility. Names become public after normal cache updates. Continue?',
         verifiedState: 'Player verification',
         verified: 'Verified',
         unverified: 'Not verified',

@@ -104,13 +104,13 @@ describe('UserProfile', () => {
         });
 
         it('hides an owner profile while preserving original names and editability', () => {
-            const profile = new UserProfile({ realname: 'Original', can_hide_realname: true, hide_realname: true });
+            const profile = new UserProfile({ realname: 'Original', verified: true, hide_realname: true });
             expect(profile.isNameHidden).toBe(true);
             expect(profile.realname).toBe('Original');
             expect(profile.canSetName).toBe(true);
-            profile.can_hide_realname = false;
+            profile.verified = false;
             expect(profile.isNameHidden).toBe(false);
-            profile.can_hide_realname = true;
+            profile.verified = true;
             profile.realname = '';
             expect(profile.isNameHidden).toBe(false);
         });
