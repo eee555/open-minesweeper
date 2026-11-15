@@ -49,37 +49,37 @@
         <BaseTable :empty="pageRows.length === 0" :empty-text="t('local.empty')" :column-count="8" data-cy="saolei-import-table">
             <template #head>
                 <tr>
-                    <th scope="col" class="table-col-number" :aria-sort="ariaSort('remote_id')">
+                    <th scope="col" class="table-col-number" :aria-sort="sortState(sortOrder, sortField === 'remote_id')">
                         <BaseButton size="small" text aria-label="ID" data-cy="sort-remote-id" @click="toggleSort('remote_id')">
                             ID
-                            <SortIcon :state="ariaSort('remote_id')" />
+                            <SortIcon :state="sortState(sortOrder, sortField === 'remote_id')" />
                         </BaseButton>
                     </th>
-                    <th scope="col" class="table-col-datetime" :aria-sort="ariaSort('upload_time')">
+                    <th scope="col" class="table-col-datetime" :aria-sort="sortState(sortOrder, sortField === 'upload_time')">
                         <BaseButton size="small" text :aria-label="t('prop.upload_time')" data-cy="sort-upload-time" @click="toggleSort('upload_time')">
                             {{ t('prop.upload_time') }}
-                            <SortIcon :state="ariaSort('upload_time')" />
+                            <SortIcon :state="sortState(sortOrder, sortField === 'upload_time')" />
                         </BaseButton>
                     </th>
                     <th scope="col" class="table-col-center">
                         {{ t('prop.level') }}
                     </th>
-                    <th scope="col" class="table-col-number" :aria-sort="ariaSort('timems')">
+                    <th scope="col" class="table-col-number" :aria-sort="sortState(sortOrder, sortField === 'timems')">
                         <BaseButton size="small" text :aria-label="t('prop.time')" data-cy="sort-timems" @click="toggleSort('timems')">
                             {{ t('prop.time') }}
-                            <SortIcon :state="ariaSort('timems')" />
+                            <SortIcon :state="sortState(sortOrder, sortField === 'timems')" />
                         </BaseButton>
                     </th>
-                    <th scope="col" class="table-col-bv" :aria-sort="ariaSort('bv')">
+                    <th scope="col" class="table-col-bv" :aria-sort="sortState(sortOrder, sortField === 'bv')">
                         <BaseButton size="small" text :aria-label="t('prop.bv')" data-cy="sort-bv" @click="toggleSort('bv')">
                             {{ t('prop.bv') }}
-                            <SortIcon :state="ariaSort('bv')" />
+                            <SortIcon :state="sortState(sortOrder, sortField === 'bv')" />
                         </BaseButton>
                     </th>
-                    <th scope="col" class="table-col-center" :aria-sort="ariaSort('software')">
+                    <th scope="col" class="table-col-center" :aria-sort="sortState(sortOrder, sortField === 'software')">
                         <BaseButton size="small" text :aria-label="t('local.software')" data-cy="sort-software" @click="toggleSort('software')">
                             {{ t('local.software') }}
-                            <SortIcon :state="ariaSort('software')" />
+                            <SortIcon :state="sortState(sortOrder, sortField === 'software')" />
                         </BaseButton>
                     </th>
                     <th scope="col" class="table-col-center">
@@ -143,6 +143,7 @@ import BaseButton from '@/components/common/BaseButton.vue';
 import BasePagination from '@/components/common/BasePagination.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
 import SortIcon from '@/components/common/SortIcon.vue';
+import { sortState } from '@/components/common/sortState';
 import { httpErrorNotification } from '@/components/Notifications';
 import VideoPreviewLink from '@/components/VideoPreviewLink.vue';
 import GameLevelIcon from '@/components/widgets/GameLevelIcon.vue';
@@ -190,11 +191,6 @@ const pageRows = computed(() => sliceImportQueue(processed.value, first.value, p
 watch(filters, () => {
     currentStart.value = 1;
 });
-
-function ariaSort(field: SortField): 'ascending' | 'descending' | 'none' {
-    if (sortField.value !== field || sortOrder.value === undefined || sortOrder.value === 0) return 'none';
-    return sortOrder.value < 0 ? 'descending' : 'ascending';
-}
 
 function toggleSort(field: SortField) {
     if (sortField.value !== field) {

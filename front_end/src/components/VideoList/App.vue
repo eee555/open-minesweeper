@@ -9,12 +9,12 @@
                     <th
                         v-for="entry in columnConfigs" :key="entry.choice" scope="col"
                         :class="[entry.config.cellClass, { 'video-list__th--sorted': isSortedColumn(entry.config) }]"
-                        :aria-sort="ariaSort(entry.config)" :aria-label="entry.config.headLabel ? undefined : t(`prop.${entry.choice}`)"
+                        :aria-sort="showFilters && entry.config.sortable ? sortState(sortOrder, sortField === entry.config.sortField) : undefined" :aria-label="entry.config.headLabel ? undefined : t(`prop.${entry.choice}`)"
                     >
                         <span class="video-list__head">
                             <button v-if="showSort && entry.config.sortable" type="button" class="video-list__sort" :data-cy="`video-sort-${entry.choice}`" @click="toggleSort(entry.config.sortField)">
                                 {{ t(`prop.${entry.choice}`) }}
-                                <SortIcon :state="ariaSort(entry.config) ?? 'none'" class="video-list__sort-icon" :class="{ 'video-list__sort-icon--inactive': !isSortedColumn(entry.config) }" />
+                                <SortIcon :state="sortState(sortOrder, sortField === entry.config.sortField)" class="video-list__sort-icon" :class="{ 'video-list__sort-icon--inactive': !isSortedColumn(entry.config) }" />
                             </button>
                             <span v-else-if="entry.config.headLabel">
                                 {{ t(`prop.${entry.choice}`) }}
@@ -81,6 +81,7 @@ import VideoListFilter from './VideoListFilter.vue';
 import BasePagination from '@/components/common/BasePagination.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
 import SortIcon from '@/components/common/SortIcon.vue';
+import { sortState } from '@/components/common/sortState';
 import { preview } from '@/utils/common/PlayerDialog';
 import type { ColumnChoice } from '@/utils/ms_const';
 import type { VideoAbstract } from '@/utils/videoabstract';
@@ -156,12 +157,6 @@ function toggleSort(field: string) {
 
 function isSortedColumn(config: VideoListColumnConfig): boolean {
     return activeSortField.value !== '' && config.sortable && activeSortField.value === config.sortField;
-}
-
-function ariaSort(config: VideoListColumnConfig): 'ascending' | 'descending' | 'none' | undefined {
-    if (props.displayOnly || !config.sortable) return undefined;
-    if (sortField.value !== config.sortField || sortOrder.value === undefined || sortOrder.value === 0) return 'none';
-    return sortOrder.value < 0 ? 'descending' : 'ascending';
 }
 
 function handleRowClick(video: VideoAbstract, event: MouseEvent) {

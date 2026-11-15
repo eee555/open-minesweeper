@@ -6,8 +6,7 @@
 import type { PropType } from 'vue';
 
 import 'primeicons/primeicons.css';
-
-type SortState = 'none' | 'ascending' | 'descending';
+import type { SortState } from '@/components/common/sortState';
 
 const props = defineProps({
     state: { type: String as PropType<SortState>, default: 'none' },

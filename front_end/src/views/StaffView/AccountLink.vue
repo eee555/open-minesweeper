@@ -48,10 +48,10 @@
         <BaseTable :empty="accountLinks.length === 0" :empty-text="t('local.empty')" :column-count="4" data-cy="account-link-table">
             <template #head>
                 <tr>
-                    <th scope="col" :aria-sort="ariaSort" data-cy="header-user-id">
+                    <th scope="col" :aria-sort="sortState(sortOrder)" data-cy="header-user-id">
                         <BaseButton size="small" text :aria-label="t('prop.userId')" data-cy="sort-user-id" @click="toggleSort">
                             {{ t('prop.userId') }}
-                            <SortIcon :state="ariaSort" />
+                            <SortIcon :state="sortState(sortOrder)" />
                         </BaseButton>
                     </th>
                     <th scope="col">
@@ -89,6 +89,7 @@ import BaseButton from '@/components/common/BaseButton.vue';
 import BasePagination from '@/components/common/BasePagination.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
 import SortIcon from '@/components/common/SortIcon.vue';
+import { sortState } from '@/components/common/sortState';
 import { httpErrorNotification } from '@/components/Notifications';
 import { AccountLinkPlatform, manualAccountLinkPlatforms } from '@/utils/accountlinks';
 import type { AccountLinkQueuePageResponse, AccountLinkQueueResponse } from '@/utils/accountlinks/common';
@@ -110,10 +111,6 @@ const pageSize = ref(10);
 const platformFilter = ref('');
 const verifiedFilter = ref('');
 const sortOrder = ref<number | undefined>(undefined);
-const ariaSort = computed<'none' | 'ascending' | 'descending'>(() => {
-    if (sortOrder.value === undefined) return 'none';
-    return sortOrder.value > 0 ? 'ascending' : 'descending';
-});
 const orderParam = computed(() => {
     if (sortOrder.value === undefined) return '';
     return sortOrder.value > 0 ? 'asc' : 'desc';
