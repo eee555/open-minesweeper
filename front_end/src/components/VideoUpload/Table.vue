@@ -36,11 +36,12 @@
                 {{ t(`local.${data.status}`) }}
             </template>
             <template #filter="{ filterModel, applyFilter }">
-                <PrListbox v-model="filterModel.value" :options="[...UploadStatus]" @change="applyFilter()">
-                    <template #option="slotProps">
-                        {{ t(`local.${slotProps.option}`) }}
-                    </template>
-                </PrListbox>
+                <div class="checkbox-buttons--vertical radio-buttons" role="group" :aria-label="t('prop.status')" data-cy="filter-status">
+                    <label v-for="status of UploadStatus" :key="status" class="radio-button">
+                        <input class="radio-button-input" type="radio" :name="`${filterName}-status`" :value="status" :checked="filterModel.value === status" @change="filterModel.value = status; applyFilter()">
+                        <span class="radio-button-content">{{ t(`local.${status}`) }}</span>
+                    </label>
+                </div>
             </template>
         </PrColumn>
         <PrColumn field="stat.end_time" :header="t('prop.end_time')" sortable>
@@ -53,11 +54,12 @@
                 {{ data.stat ? formatLevel(data.stat.level) : '' }}
             </template>
             <template #filter="{ filterModel, applyFilter }">
-                <PrListbox v-model="filterModel.value" :options="[...MS_Levels]" @change="applyFilter()">
-                    <template #option="slotProps">
-                        {{ formatLevel(slotProps.option) }}
-                    </template>
-                </PrListbox>
+                <div class="checkbox-buttons--vertical radio-buttons" role="group" :aria-label="t('prop.level')" data-cy="filter-level">
+                    <label v-for="level of MS_Levels" :key="level" class="radio-button">
+                        <input class="radio-button-input" type="radio" :name="`${filterName}-level`" :value="level" :checked="filterModel.value === level" @change="filterModel.value = level; applyFilter()">
+                        <span class="radio-button-content">{{ formatLevel(level) }}</span>
+                    </label>
+                </div>
             </template>
         </PrColumn>
         <PrColumn field="stat.mode" :header="t('prop.mode')" :show-filter-match-modes="false" :show-filter-operator="false">
@@ -65,11 +67,12 @@
                 {{ data.stat ? t(`mode.code${data.stat.mode}`) : '' }}
             </template>
             <template #filter="{ filterModel, applyFilter }">
-                <PrListbox v-model="filterModel.value" :options="Object.keys(MS_Mode)" @change="applyFilter()">
-                    <template #option="slotProps">
-                        {{ t(`level.${slotProps.option}`) }}
-                    </template>
-                </PrListbox>
+                <div class="checkbox-buttons--vertical radio-buttons" role="group" :aria-label="t('prop.mode')" data-cy="filter-mode">
+                    <label v-for="mode of Object.keys(MS_Mode)" :key="mode" class="radio-button">
+                        <input class="radio-button-input" type="radio" :name="`${filterName}-mode`" :value="mode" :checked="filterModel.value === mode" @change="filterModel.value = mode; applyFilter()">
+                        <span class="radio-button-content">{{ t(`level.${mode}`) }}</span>
+                    </label>
+                </div>
             </template>
         </PrColumn>
         <PrColumn field="stat.timems" :header="t('prop.time')" sortable>
@@ -149,9 +152,8 @@ import { FilterMatchMode } from '@primevue/core/api';
 import PrColumn from 'primevue/column';
 import type { DataTableFilterEvent } from 'primevue/datatable';
 import PrDataTable from 'primevue/datatable';
-import PrListbox from 'primevue/listbox';
 import type { PropType } from 'vue';
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, ref, useId, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import type { UploadEntry } from './utils';
@@ -173,6 +175,7 @@ const selectedRows = defineModel<UploadEntry[]>(
     { default: () => [] },
 );
 
+const filterName = useId();
 const filters = ref({
     status: { value: null, matchMode: FilterMatchMode.EQUALS },
     'stat.level': { value: null, matchMode: FilterMatchMode.EQUALS },

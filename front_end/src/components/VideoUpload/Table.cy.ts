@@ -27,7 +27,7 @@ function mountTable() {
 
 function filterStatus(label: string) {
     cy.contains('th', 'Status').find('button').click();
-    cy.contains('.p-listbox-option:visible', label).click();
+    cy.contains('[data-cy=filter-status] .radio-button-content:visible', label).click();
 }
 
 describe('<VideoUpload Table /> selection', () => {

@@ -90,15 +90,18 @@
                     <span v-else>{{ t('local.unbound') }}</span>
                 </template>
                 <template #filter="{ filterModel, filterCallback }">
-                    <PrListbox
-                        v-model="filterModel.value" class="owner-filter" :options="ownerOptions" option-label="label" option-value="id" multiple checkmark filter scroll-height="12rem"
-                        :filter-placeholder="t('local.filterOwner')" :aria-label="t('local.filterOwner')" @change="filterCallback()"
-                    >
-                        <template #option="{ option }: { option: OwnerOption }">
-                            <PlayerName v-if="option.id > 0" :user-id="option.id" :interactive="false" />
-                            <span v-else>{{ t('local.unbound') }}</span>
-                        </template>
-                    </PrListbox>
+                    <div class="owner-filter">
+                        <input v-model="ownerSearch" class="base-select owner-filter__search" type="text" :placeholder="t('local.filterOwner')" :aria-label="t('local.filterOwner')" data-cy="filter-owner-search">
+                        <div class="checkbox-buttons checkbox-buttons--vertical" role="group" :aria-label="t('local.filterOwner')" data-cy="filter-owner">
+                            <label v-for="option of visibleOwnerOptions" :key="option.id" class="checkbox-button">
+                                <input class="checkbox-button-input" type="checkbox" :value="option.id" :aria-label="option.label" :checked="(filterModel.value ?? []).includes(option.id)" @change="toggleOwner($event, option.id, filterModel, filterCallback)">
+                                <span class="checkbox-button-content">
+                                    <PlayerName v-if="option.id > 0" :user-id="option.id" :interactive="false" />
+                                    <span v-else>{{ t('local.unbound') }}</span>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
                 </template>
                 <template #filterclear="{ filterCallback }">
                     <BaseButton size="small" text @click="filterCallback()">
@@ -161,7 +164,6 @@ import { isAxiosError } from 'axios';
 import { ElDialog, ElInput } from 'element-plus';
 import PrColumn from 'primevue/column';
 import PrDataTable from 'primevue/datatable';
-import PrListbox from 'primevue/listbox';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Tippy } from 'vue-tippy';
@@ -217,6 +219,18 @@ const ownerOptions = computed<OwnerOption[]>(() => [...new Set(tableData.value.m
     id,
     label: id === 0 ? t('local.unbound') : t('local.ownerId', { id }),
 })));
+const ownerSearch = ref('');
+const visibleOwnerOptions = computed<OwnerOption[]>(() => {
+    const keyword = ownerSearch.value.trim().toLowerCase();
+    return keyword === '' ? ownerOptions.value : ownerOptions.value.filter((option) => option.label.toLowerCase().includes(keyword));
+});
+function toggleOwner(event: Event, id: number, model: { value: number[] | null }, apply: () => void) {
+    const { checked } = event.currentTarget as HTMLInputElement;
+    const current = model.value ?? [];
+    const next = checked ? [...current, id] : current.filter((value) => value !== id);
+    model.value = next.length > 0 ? next : null;
+    apply();
+}
 const validPlayerId = computed(() => (/^\d+$/).test(playerId.value) && Number.isSafeInteger(Number(playerId.value)) && Number(playerId.value) > 0);
 
 async function query(getResults: () => Promise<IdentifierResult[]>) {
@@ -460,16 +474,14 @@ p {
 }
 
 .owner-filter {
-    --p-listbox-border-radius: 0;
-    --p-listbox-list-padding: 2px;
-    --p-listbox-list-gap: 0;
-    --p-listbox-list-header-padding: 4px;
-    --p-listbox-option-padding: 2px 6px;
-    --p-listbox-option-border-radius: 0;
-    --p-inputtext-border-radius: 0;
-    --p-inputtext-padding-y: 2px;
-    --p-inputtext-padding-x: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
     width: 16rem;
     max-width: calc(100vw - 2rem);
+}
+
+.owner-filter__search {
+    width: 100%;
 }
 </style>

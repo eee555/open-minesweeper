@@ -47,7 +47,7 @@
                 <template #header>
                     <div class="msgames-filter-header">
                         <span>{{ t('local.category') }}</span>
-                        <PrInputText v-model="filters.category.value" :aria-label="t('local.categoryQuery')" :placeholder="t('local.categoryQuery')" />
+                        <input v-model="filters.category.value" class="msgames-filter-control" type="text" :aria-label="t('local.categoryQuery')" :placeholder="t('local.categoryQuery')">
                     </div>
                 </template>
             </PrColumn>
@@ -56,7 +56,7 @@
                 <template #header>
                     <div class="msgames-filter-header">
                         <span>{{ t('button.import') }}</span>
-                        <select v-model="filters.import_status.value" :aria-label="t('local.statusFilter')" class="msgames-status-filter">
+                        <select v-model="filters.import_status.value" :aria-label="t('local.statusFilter')" class="msgames-filter-control">
                             <option :value="null">
                                 {{ t('local.allStatuses') }}
                             </option>
@@ -91,7 +91,6 @@ import { isAxiosError } from 'axios';
 import { vLoading } from 'element-plus';
 import PrColumn from 'primevue/column';
 import PrDataTable from 'primevue/datatable';
-import PrInputText from 'primevue/inputtext';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -333,7 +332,7 @@ const { t } = useI18n({ messages: {
     vertical-align: top;
     overflow-wrap: anywhere;
 }
-.msgames-status-filter {
+.msgames-filter-control {
     font: inherit;
     color: var(--el-text-color-primary);
     background: var(--el-bg-color);
@@ -345,8 +344,5 @@ const { t } = useI18n({ messages: {
     align-items: center;
     gap: 0.5em;
     white-space: nowrap;
-}
-:deep(.p-inputtext), :deep(.p-select) {
-    border-radius: 0;
 }
 </style>
