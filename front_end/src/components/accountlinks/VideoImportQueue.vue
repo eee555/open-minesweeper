@@ -26,54 +26,78 @@
         <p v-if="summary">
             {{ t('local.summary', { ...summary }) }}
         </p>
-        <div class="saolei-import__filters">
-            <div class="saolei-import__filter">
-                <span class="text-small">{{ t('prop.level') }}</span>
-                <BaseListbox v-model="filters.level" :options="levelOptions" :aria-label="t('prop.level')" data-cy="filter-level" />
-            </div>
-            <div class="saolei-import__filter">
-                <span class="text-small">{{ t('prop.state') }}</span>
-                <BaseListbox v-model="filters.import_status" :options="statusOptions" :aria-label="t('prop.state')" data-cy="filter-import-status" />
-            </div>
-        </div>
         <BaseTable :empty="pageRows.length === 0" :empty-text="t('local.empty')" :column-count="8" data-cy="saolei-import-table">
             <template #head>
                 <tr>
                     <th scope="col" class="table-col-number" :aria-sort="sortState(sortOrder, sortField === 'remote_id')">
-                        <BaseButton size="small" text aria-label="ID" data-cy="sort-remote-id" @click="toggleSort('remote_id')">
-                            ID
-                            <SortIcon :state="sortState(sortOrder, sortField === 'remote_id')" />
-                        </BaseButton>
+                        <span class="import-head">
+                            <button type="button" class="import-head__sort" data-cy="sort-remote-id" @click="toggleSort('remote_id')">
+                                <span>ID</span>
+                                <SortIcon :state="sortState(sortOrder, sortField === 'remote_id')" class="import-head__sort-icon" :class="{ 'import-head__sort-icon--inactive': !isSortedColumn('remote_id') }" />
+                            </button>
+                        </span>
                     </th>
                     <th scope="col" class="table-col-datetime" :aria-sort="sortState(sortOrder, sortField === 'upload_time')">
-                        <BaseButton size="small" text :aria-label="t('prop.upload_time')" data-cy="sort-upload-time" @click="toggleSort('upload_time')">
-                            {{ t('prop.upload_time') }}
-                            <SortIcon :state="sortState(sortOrder, sortField === 'upload_time')" />
-                        </BaseButton>
+                        <span class="import-head">
+                            <button type="button" class="import-head__sort" data-cy="sort-upload-time" @click="toggleSort('upload_time')">
+                                <span>{{ t('prop.upload_time') }}</span>
+                                <SortIcon :state="sortState(sortOrder, sortField === 'upload_time')" class="import-head__sort-icon" :class="{ 'import-head__sort-icon--inactive': !isSortedColumn('upload_time') }" />
+                            </button>
+                        </span>
                     </th>
                     <th scope="col" class="table-col-center">
-                        {{ t('prop.level') }}
+                        <span class="import-head">
+                            <span>{{ t('prop.level') }}</span>
+                            <Tippy interactive trigger="click" placement="bottom-start" :append-to="appendToBody">
+                                <button type="button" class="import-head__filter" :aria-label="t('prop.level')" :title="t('prop.level')" data-cy="filter-level-trigger">
+                                    <i class="pi" :class="filterIsClear('level') ? 'pi-filter' : 'pi-filter-fill'" aria-hidden="true" />
+                                </button>
+                                <template #content="{ hide }">
+                                    <div class="card card-small import-filter-menu" @click.stop @keydown.esc="hide()">
+                                        <BaseListbox :model-value="filterValue('level')" :options="levelOptions" :aria-label="t('prop.level')" data-cy="filter-level" @update:model-value="applyFilter('level', $event); hide()" />
+                                    </div>
+                                </template>
+                            </Tippy>
+                        </span>
                     </th>
                     <th scope="col" class="table-col-number" :aria-sort="sortState(sortOrder, sortField === 'timems')">
-                        <BaseButton size="small" text :aria-label="t('prop.time')" data-cy="sort-timems" @click="toggleSort('timems')">
-                            {{ t('prop.time') }}
-                            <SortIcon :state="sortState(sortOrder, sortField === 'timems')" />
-                        </BaseButton>
+                        <span class="import-head">
+                            <button type="button" class="import-head__sort" data-cy="sort-timems" @click="toggleSort('timems')">
+                                <span>{{ t('prop.time') }}</span>
+                                <SortIcon :state="sortState(sortOrder, sortField === 'timems')" class="import-head__sort-icon" :class="{ 'import-head__sort-icon--inactive': !isSortedColumn('timems') }" />
+                            </button>
+                        </span>
                     </th>
                     <th scope="col" class="table-col-bv" :aria-sort="sortState(sortOrder, sortField === 'bv')">
-                        <BaseButton size="small" text :aria-label="t('prop.bv')" data-cy="sort-bv" @click="toggleSort('bv')">
-                            {{ t('prop.bv') }}
-                            <SortIcon :state="sortState(sortOrder, sortField === 'bv')" />
-                        </BaseButton>
+                        <span class="import-head">
+                            <button type="button" class="import-head__sort" data-cy="sort-bv" @click="toggleSort('bv')">
+                                <span>{{ t('prop.bv') }}</span>
+                                <SortIcon :state="sortState(sortOrder, sortField === 'bv')" class="import-head__sort-icon" :class="{ 'import-head__sort-icon--inactive': !isSortedColumn('bv') }" />
+                            </button>
+                        </span>
                     </th>
                     <th scope="col" class="table-col-center" :aria-sort="sortState(sortOrder, sortField === 'software')">
-                        <BaseButton size="small" text :aria-label="t('local.software')" data-cy="sort-software" @click="toggleSort('software')">
-                            {{ t('local.software') }}
-                            <SortIcon :state="sortState(sortOrder, sortField === 'software')" />
-                        </BaseButton>
+                        <span class="import-head">
+                            <button type="button" class="import-head__sort" data-cy="sort-software" @click="toggleSort('software')">
+                                <span>{{ t('local.software') }}</span>
+                                <SortIcon :state="sortState(sortOrder, sortField === 'software')" class="import-head__sort-icon" :class="{ 'import-head__sort-icon--inactive': !isSortedColumn('software') }" />
+                            </button>
+                        </span>
                     </th>
                     <th scope="col" class="table-col-center">
-                        {{ t('prop.state') }}
+                        <span class="import-head">
+                            <span>{{ t('prop.state') }}</span>
+                            <Tippy interactive trigger="click" placement="bottom-start" :append-to="appendToBody">
+                                <button type="button" class="import-head__filter" :aria-label="t('prop.state')" :title="t('prop.state')" data-cy="filter-import-status-trigger">
+                                    <i class="pi" :class="filterIsClear('import_status') ? 'pi-filter' : 'pi-filter-fill'" aria-hidden="true" />
+                                </button>
+                                <template #content="{ hide }">
+                                    <div class="card card-small import-filter-menu" @click.stop @keydown.esc="hide()">
+                                        <BaseListbox :model-value="filterValue('import_status')" :options="statusOptions" :aria-label="t('prop.state')" data-cy="filter-import-status" @update:model-value="applyFilter('import_status', $event); hide()" />
+                                    </div>
+                                </template>
+                            </Tippy>
+                        </span>
                     </th>
                     <th scope="col" class="table-col-center" />
                 </tr>
@@ -119,12 +143,14 @@
 </template>
 
 <script setup lang="ts">
+import '@/styles/cards.css';
 import 'primeicons/primeicons.css';
 
 import { promiseTimeout } from '@vueuse/core';
 import { isAxiosError } from 'axios';
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { Tippy } from 'vue-tippy';
 
 import type { ImportQueueFilters, SaoleiTableVideo, SortField } from './videoImportQueueData';
 import { createImportQueueFilters, filterImportQueue, importStatuses, importStatusOf, sliceImportQueue, sortImportQueue } from './videoImportQueueData';
@@ -160,11 +186,14 @@ const currentStart = ref(1);
 const pageSize = ref(10);
 const sortField = ref<SortField>('upload_time');
 const sortOrder = ref<number | undefined>(-1);
+const appendToBody = () => document.body;
 let context = 0;
+
+type ImportFilterField = keyof ImportQueueFilters;
 
 const levelOptions = computed(() => [
     { value: null, label: t('local.all') },
-    ...MS_Levels.map((level) => ({ value: level, label: level })),
+    ...MS_Levels.map((level) => ({ value: level, label: t(`level.${level}`) })),
 ]);
 const statusOptions = computed(() => [
     { value: null, label: t('local.all') },
@@ -181,6 +210,22 @@ const pageRows = computed(() => sliceImportQueue(processed.value, first.value, p
 watch(filters, () => {
     currentStart.value = 1;
 });
+
+function filterIsClear(field: ImportFilterField): boolean {
+    return filters[field] === null;
+}
+
+function filterValue<K extends ImportFilterField>(field: K): ImportQueueFilters[K] {
+    return filters[field];
+}
+
+function applyFilter<K extends ImportFilterField>(field: K, value: ImportQueueFilters[K]) {
+    filters[field] = value;
+}
+
+function isSortedColumn(field: SortField): boolean {
+    return sortState(sortOrder.value, sortField.value === field) !== 'none';
+}
 
 function toggleSort(field: SortField) {
     const active = sortField.value === field;
@@ -333,20 +378,61 @@ const { t } = useI18n({ messages: {
     flex-wrap: wrap;
     gap: 0.5em;
 }
-.saolei-import__filters {
-    display: flex;
-    align-items: flex-start;
-    flex-wrap: wrap;
-    gap: 0.5em 1em;
-    margin: 0.5em 0;
+.import-head {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
 }
-.saolei-import__filter {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.25em;
+
+.import-head__sort,
+.import-head__filter {
+    margin: 0;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
 }
-.saolei-import__filter > .text-small {
-    padding-top: 0.3em;
-    white-space: nowrap;
+
+.import-head__sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.import-head__sort .import-head__sort-icon {
+    font-size: 0.75em;
+}
+
+.import-head__sort .import-head__sort-icon--inactive {
+    opacity: 0.45;
+}
+
+.import-head__sort:focus-visible,
+.import-head__filter:focus-visible {
+    outline: 2px solid var(--ui-color-primary);
+    outline-offset: 1px;
+}
+
+.import-head__filter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    font-size: 0.75em;
+}
+
+.import-head__filter:hover {
+    color: var(--ui-color-primary);
+}
+
+.import-filter-menu {
+    display: flex;
+    flex-direction: column;
+    width: fit-content;
+    max-width: calc(100vw - 2rem);
+    padding: 6px;
 }
 </style>

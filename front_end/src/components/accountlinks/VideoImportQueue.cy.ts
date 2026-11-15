@@ -41,6 +41,11 @@ function expectIds(expected: string[]) {
     });
 }
 
+function chooseFilter(trigger: string, listbox: string, value: string) {
+    cy.get(`[data-cy=${trigger}]`).click();
+    cy.get(`[data-cy=${listbox}] input[data-listbox-value=${value}]`).check();
+}
+
 describe('<VideoImportQueue />', () => {
     beforeEach(() => {
         resetAccountLinkStore();
@@ -124,6 +129,21 @@ describe('<VideoImportQueue />', () => {
         expectIds(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']);
     });
 
+    it('keeps both filters inside their own headers', () => {
+        mountQueue();
+        cy.get('[data-cy=filter-level-trigger]').closest('th').should('contain.text', 'Level');
+        cy.get('[data-cy=filter-import-status-trigger]').closest('th').should('contain.text', 'State');
+        cy.get(`${TABLE} thead th`).should('have.length', COLUMN_COUNT);
+        cy.get('[data-cy=filter-level-trigger] i').should('have.class', 'pi-filter');
+        cy.get('[data-cy=filter-import-status-trigger] i').should('have.class', 'pi-filter');
+    });
+
+    it('localizes the level options inside the header filter', () => {
+        mountQueue();
+        cy.get('[data-cy=filter-level-trigger]').click();
+        cy.get('[data-cy=filter-level]').should('contain.text', 'Beginner').and('contain.text', 'Intermediate').and('contain.text', 'Expert');
+    });
+
     it('filters by level and import status, paginates and resets the start index', () => {
         videoItems = manyRows;
         mountQueue();
@@ -132,16 +152,18 @@ describe('<VideoImportQueue />', () => {
         cy.get(`${PAGINATION} [data-cy=next]`).click();
         cy.get(`${PAGINATION} [data-cy=report]`).should('have.text', '11-12 / 12');
         expectIds(['2', '1']);
-        cy.get('[data-cy=filter-level] input[data-listbox-value=b]').check();
+        chooseFilter('filter-level-trigger', 'filter-level', 'b');
+        cy.get('[data-cy=filter-level-trigger] i').should('have.class', 'pi-filter-fill');
         cy.get(`${PAGINATION} [data-cy=report]`).should('have.text', '1-4 / 4');
         expectIds(['10', '7', '4', '1']);
-        cy.get('[data-cy=filter-import-status] input[data-listbox-value=rejected]').check();
+        chooseFilter('filter-import-status-trigger', 'filter-import-status', 'rejected');
+        cy.get('[data-cy=filter-import-status-trigger] i').should('have.class', 'pi-filter-fill');
         cy.get(`${PAGINATION} [data-cy=report]`).should('have.text', '1-1 / 1');
         expectIds(['7']);
         cy.get(`${PAGINATION} [data-cy=page-size]`).select('5');
         cy.get(`${PAGINATION} [data-cy=report]`).should('have.text', '1-1 / 1');
-        cy.get('[data-cy=filter-level] input[data-listbox-value=null]').check();
-        cy.get('[data-cy=filter-import-status] input[data-listbox-value=null]').check();
+        chooseFilter('filter-level-trigger', 'filter-level', 'null');
+        chooseFilter('filter-import-status-trigger', 'filter-import-status', 'null');
         cy.get(`${PAGINATION} [data-cy=report]`).should('have.text', '1-5 / 12');
         expectIds(['12', '11', '10', '9', '8']);
         cy.get(`${PAGINATION} [data-cy=jump]`).clear();
