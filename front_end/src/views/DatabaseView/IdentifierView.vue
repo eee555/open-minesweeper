@@ -88,15 +88,12 @@
                                     <template #content="{ hide }">
                                         <div class="card card-small owner-filter" role="group" :aria-label="t('local.filterOwner')" data-cy="owner-filter-panel" @click.stop @keydown.esc="hide()">
                                             <input v-model="ownerSearch" class="base-select owner-filter__search" type="text" :placeholder="t('local.filterOwner')" :aria-label="t('local.filterOwner')" data-cy="filter-owner-search">
-                                            <div class="checkbox-buttons checkbox-buttons--vertical" role="group" :aria-label="t('local.filterOwner')" data-cy="filter-owner">
-                                                <label v-for="option of visibleOwnerOptions" :key="option.id" class="checkbox-button">
-                                                    <input class="checkbox-button-input" type="checkbox" :value="option.id" :aria-label="option.label" :checked="(ownerFilter ?? []).includes(option.id)" @change="toggleOwner($event, option.id)">
-                                                    <span class="checkbox-button-content">
-                                                        <PlayerName v-if="option.id > 0" :user-id="option.id" :interactive="false" />
-                                                        <span v-else>{{ t('local.unbound') }}</span>
-                                                    </span>
-                                                </label>
-                                            </div>
+                                            <BaseListbox :model-value="ownerFilter ?? []" :options="ownerListboxOptions" multiple :aria-label="t('local.filterOwner')" data-cy="filter-owner" @update:model-value="setOwnerFilter">
+                                                <template #option="{ option }">
+                                                    <PlayerName v-if="option.value > 0" :user-id="option.value" :interactive="false" />
+                                                    <span v-else>{{ t('local.unbound') }}</span>
+                                                </template>
+                                            </BaseListbox>
                                             <BaseButton size="small" text data-cy="filter-owner-clear" @click="clearOwnerFilter(); hide()">
                                                 {{ t('local.clearFilter') }}
                                             </BaseButton>
@@ -186,6 +183,7 @@ import type { IdentifierResult, IdentifierSortField, IdentifierTableRow } from '
 import { filterIdentifiersByOwner, sliceIdentifiers, sortIdentifiers, toIdentifierTableRow } from './identifierViewData';
 
 import BaseButton from '@/components/common/BaseButton.vue';
+import BaseListbox from '@/components/common/BaseListbox.vue';
 import BaseOverlay from '@/components/common/BaseOverlay.vue';
 import BasePagination from '@/components/common/BasePagination.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
@@ -245,6 +243,7 @@ const visibleOwnerOptions = computed<OwnerOption[]>(() => {
     const keyword = ownerSearch.value.trim().toLowerCase();
     return keyword === '' ? ownerOptions.value : ownerOptions.value.filter((option) => option.label.toLowerCase().includes(keyword));
 });
+const ownerListboxOptions = computed(() => visibleOwnerOptions.value.map((option) => ({ value: option.id, label: option.label })));
 const ownerFilterTippy = useTemplateRef<{ hide: () => void }>('ownerFilterTippy');
 
 watch(ownerFilter, () => {
@@ -258,10 +257,7 @@ function toggleSort(field: IdentifierSortField) {
     currentStart.value = 1;
 }
 
-function toggleOwner(event: Event, id: number) {
-    const { checked } = event.currentTarget as HTMLInputElement;
-    const current = ownerFilter.value ?? [];
-    const next = checked ? [...current, id] : current.filter((value) => value !== id);
+function setOwnerFilter(next: number[]) {
     ownerFilter.value = next.length > 0 ? next : null;
 }
 
@@ -534,12 +530,13 @@ p {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    width: 16rem;
+    width: fit-content;
     max-width: calc(100vw - 2rem);
     padding: 6px;
 }
 
 .owner-filter__search {
     width: 100%;
+    min-width: 10rem;
 }
 </style>

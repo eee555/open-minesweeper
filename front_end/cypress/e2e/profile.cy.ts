@@ -106,8 +106,8 @@ describe('Personal Profile', () => {
         ], { force: true });
 
         const expectedData = {
-            ExpAvf: { '': '', Bv: '132', Bvs: '3.762', 状态: '通过', 用时: '35.090', 级别: '高级', 模式: '标准', 结束时间: '2023-10-05 21:25:57' },
-            IntRmv: { '': '', Bv: '32', Bvs: '3.379', 状态: '通过', 用时: '9.469', 级别: '中级', 模式: '标准', 结束时间: '2015-10-31 22:53:35' },
+            ExpAvf: { '': '', Bv: '132', Bvs: '3.762', 状态: '通过', 用时: '35.090', 级别: '高级', 模式: '标准', 结束时间: '2023-10-05 21:25:57', 软件: 'Avf', pLuck: '0.080', ThrP: '0.964' },
+            IntRmv: { '': '', Bv: '32', Bvs: '3.379', 状态: '通过', 用时: '9.469', 级别: '中级', 模式: '标准', 结束时间: '2015-10-31 22:53:35', 软件: 'Rmv', pLuck: '0.217', ThrP: '1.000' },
         };
 
         cy.get('table:visible').getTable().should((tableData) => {
@@ -115,6 +115,16 @@ describe('Personal Profile', () => {
             expect(tableData[0]).to.deep.equal(expectedData.ExpAvf);
             expect(tableData[1]).to.deep.equal(expectedData.IntRmv);
         });
+
+        cy.get('[data-cy=upload-pagination] [data-cy=report]').should('have.text', '1-2 / 2');
+        cy.get('[data-cy=filter-status-trigger]').click();
+        cy.get('[data-cy=filter-status] input[aria-label="通过"]').parent().click();
+        cy.shouldBeAbsentOrHidden('[data-cy=filter-status]');
+        cy.get('table:visible .checkbox-input').shouldHaveState([false, false, false]);
+        cy.get('[data-cy=filter-status-trigger]').click();
+        cy.get('[data-cy=filter-status-clear]').click();
+        cy.shouldBeAbsentOrHidden('[data-cy=filter-status]');
+        cy.get('table:visible .checkbox-input').shouldHaveState([false, false, false]);
 
         cy.get('table:visible .checkbox-input').first().click(); // 全选
         cy.get('button').contains(/^\s*上传\s*$/).click();
@@ -126,6 +136,11 @@ describe('Personal Profile', () => {
             expect(tableData[0]).to.deep.equal({ ...expectedData.ExpAvf, 状态: '新标识' });
             expect(tableData[1]).to.deep.equal({ ...expectedData.IntRmv, 状态: '新标识' });
         });
+
+        cy.get('[data-cy=sort-time]').closest('th').should('have.attr', 'aria-sort', 'none');
+        cy.get('[data-cy=sort-time]').click();
+        cy.get('[data-cy=sort-time]').closest('th').should('have.attr', 'aria-sort', 'ascending');
+        cy.get('[data-cy=upload-pagination] [data-cy=report]').should('have.text', '1-2 / 2');
     });
 
     it('Cannot update avatar or signature before sub200', () => {

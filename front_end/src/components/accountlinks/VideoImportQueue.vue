@@ -29,21 +29,11 @@
         <div class="saolei-import__filters">
             <div class="saolei-import__filter">
                 <span class="text-small">{{ t('prop.level') }}</span>
-                <div class="checkbox-buttons--vertical radio-buttons" role="group" :aria-label="t('prop.level')" data-cy="filter-level">
-                    <label v-for="option of levelOptions" :key="option.value ?? 'all'" class="radio-button">
-                        <input v-model="filters.level" class="radio-button-input" type="radio" :name="`${filterName}-level`" :value="option.value" :data-filter-value="option.value ?? 'all'">
-                        <span class="radio-button-content">{{ option.label }}</span>
-                    </label>
-                </div>
+                <BaseListbox v-model="filters.level" :options="levelOptions" :aria-label="t('prop.level')" data-cy="filter-level" />
             </div>
             <div class="saolei-import__filter">
                 <span class="text-small">{{ t('prop.state') }}</span>
-                <div class="checkbox-buttons--vertical radio-buttons" role="group" :aria-label="t('prop.state')" data-cy="filter-import-status">
-                    <label v-for="option of statusOptions" :key="option.value ?? 'all'" class="radio-button">
-                        <input v-model="filters.import_status" class="radio-button-input" type="radio" :name="`${filterName}-status`" :value="option.value" :data-filter-value="option.value ?? 'all'">
-                        <span class="radio-button-content">{{ option.label }}</span>
-                    </label>
-                </div>
+                <BaseListbox v-model="filters.import_status" :options="statusOptions" :aria-label="t('prop.state')" data-cy="filter-import-status" />
             </div>
         </div>
         <BaseTable :empty="pageRows.length === 0" :empty-text="t('local.empty')" :column-count="8" data-cy="saolei-import-table">
@@ -133,13 +123,14 @@ import 'primeicons/primeicons.css';
 
 import { promiseTimeout } from '@vueuse/core';
 import { isAxiosError } from 'axios';
-import { computed, onBeforeUnmount, reactive, ref, useId, watch } from 'vue';
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import type { ImportQueueFilters, SaoleiTableVideo, SortField } from './videoImportQueueData';
 import { createImportQueueFilters, filterImportQueue, importStatuses, importStatusOf, sliceImportQueue, sortImportQueue } from './videoImportQueueData';
 
 import BaseButton from '@/components/common/BaseButton.vue';
+import BaseListbox from '@/components/common/BaseListbox.vue';
 import BasePagination from '@/components/common/BasePagination.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
 import SortIcon from '@/components/common/SortIcon.vue';
@@ -164,7 +155,6 @@ const busy = ref(false);
 const stopping = ref(false);
 const progress = ref<SaoleiSyncProgress>();
 const failures = ref<Record<number, string>>({});
-const filterName = useId();
 const filters = reactive<ImportQueueFilters>(createImportQueueFilters());
 const currentStart = ref(1);
 const pageSize = ref(10);

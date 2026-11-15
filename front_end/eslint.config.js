@@ -324,9 +324,6 @@ export default defineConfig({
     ignores: [
         'src/bootstrap.ts',
         'src/components/VideoPlayer/NativePlayer.cy.ts',
-        'src/components/VideoUpload/App.cy.ts',
-        'src/components/VideoUpload/Table.cy.ts',
-        'src/components/VideoUpload/Table.vue',
         'src/components/common/SelectStyles.cy.ts',
         'src/views/StaffView/Task.cy.ts',
         'src/views/StaffView/Task.vue',

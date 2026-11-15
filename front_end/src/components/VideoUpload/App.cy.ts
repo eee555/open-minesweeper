@@ -1,6 +1,5 @@
 
 import { interceptFormData } from 'cypress-intercept-formdata';
-import PrimeVue from 'primevue/config';
 import type { ComponentProps } from 'vue-component-type-helpers';
 
 import App from './App.vue';
@@ -12,13 +11,13 @@ import { local } from '@/store';
 import { MS_State } from '@/utils/ms_const';
 
 function tableRowError(status: string) {
-    return { '': '', Bv: '', Bvs: '', Status: status, Time: '', Level: '', 'End Time': '', Mode: '' };
+    return { '': '', Bv: '', Bvs: '', Status: status, Time: '', Level: '', 'End Time': '', Mode: '', Software: '', pLuck: '', ThrP: '' };
 }
 
 const fixtures = {
     expAvf: {
         filename: 'Exp_FL_35.09_3BV=132_3BVs=3.76_Pu Tian Yi(Hu Bei).avf',
-        tableData: { '': '', Bv: '132', Bvs: '3.762', Status: 'Pass', Time: '35.090', Level: 'Expert', Mode: 'Standard', 'End Time': '2023-10-05 21:25:57' },
+        tableData: { '': '', Bv: '132', Bvs: '3.762', Status: 'Pass', Time: '35.090', Level: 'Expert', Mode: 'Standard', 'End Time': '2023-10-05 21:25:57', Software: 'Avf', pLuck: '0.080', ThrP: '0.964' },
         response: {
             type: 'success',
             data: {
@@ -29,7 +28,7 @@ const fixtures = {
     },
     expMvf: {
         filename: 'Lin_Jin_Fan_Exp_60.623bv207.mvf',
-        tableData: { '': '', Bv: '207', Bvs: '3.472', Status: 'Need manual approval', Time: '59.620', Level: 'Expert', Mode: 'Standard', 'End Time': '2011-08-03 06:49:03' },
+        tableData: { '': '', Bv: '207', Bvs: '3.472', Status: 'Need manual approval', Time: '59.620', Level: 'Expert', Mode: 'Standard', 'End Time': '2011-08-03 06:49:03', Software: 'Mvf', pLuck: '0.713', ThrP: '1.131' },
         response: {
             type: 'error',
             object: 'file',
@@ -37,19 +36,19 @@ const fixtures = {
     },
     cusAvf: {
         filename: '4376-Custom-FL-30x24-860.360-357-226m-20220522.avf',
-        tableData: { '': '', Bv: '357', Bvs: '0.415', Status: 'This custom board is currently not supported', Time: '860.360', Level: '24x30/226', Mode: 'Standard', 'End Time': '2022-05-22 23:30:49' },
+        tableData: { '': '', Bv: '357', Bvs: '0.415', Status: 'This custom board is currently not supported', Time: '860.360', Level: '24x30/226', Mode: 'Standard', 'End Time': '2022-05-22 23:30:49', Software: 'Avf', pLuck: '3.317', ThrP: '0.707' },
     },
     cusEvf8_8_40: {
         filename: 'c_10_129.073_24_0.186_Pu Tian Yi(Hu Bei).evf',
-        tableData: { '': '', Bv: '24', Bvs: '0.186', Status: 'Pass', Time: '129.073', Level: '8x8/40', Mode: 'Lucky', 'End Time': '2026-06-30 19:25:04' },
+        tableData: { '': '', Bv: '24', Bvs: '0.186', Status: 'Pass', Time: '129.073', Level: '8x8/40', Mode: 'Lucky', 'End Time': '2026-06-30 19:25:04', Software: 'Evf', pLuck: '6.539', ThrP: '0.381' },
     },
     failed: {
         filename: 'c_10_39.832_24_0.477_Pu Tian Yi(Hu Bei)_fail.evf',
-        tableData: { '': '', Bv: '20', Bvs: '0.502', Status: 'Game not finished', Time: '39.832', Level: '8x8/40', Mode: 'Lucky', 'End Time': '2026-07-01 00:34:41' },
+        tableData: { '': '', Bv: '20', Bvs: '0.502', Status: 'Game not finished', Time: '39.832', Level: '8x8/40', Mode: 'Lucky', 'End Time': '2026-07-01 00:34:41', Software: 'Evf', pLuck: '6.872', ThrP: '0.455' },
     },
     intRmv: {
         filename: '3819-Time-1616-NF-9469-32-20151031.rmv',
-        tableData: { '': '', Bv: '32', Bvs: '3.379', Status: 'Pass', Time: '9.469', Level: 'Intermediate', Mode: 'Standard', 'End Time': '2015-10-31 22:53:35' },
+        tableData: { '': '', Bv: '32', Bvs: '3.379', Status: 'Pass', Time: '9.469', Level: 'Intermediate', Mode: 'Standard', 'End Time': '2015-10-31 22:53:35', Software: 'Rmv', pLuck: '0.217', ThrP: '1.000' },
         response: {
             type: 'success',
             object: 'videomodel',
@@ -100,7 +99,7 @@ function mountOptions(props: ComponentProps<typeof App>) {
     return {
         props: props,
         global: {
-            plugins: [i18n, PrimeVue],
+            plugins: [i18n],
             config: {
                 globalProperties: {
                     $axios,
