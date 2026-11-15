@@ -328,8 +328,6 @@ export default defineConfig({
         'src/components/VideoUpload/Table.cy.ts',
         'src/components/VideoUpload/Table.vue',
         'src/components/common/SelectStyles.cy.ts',
-        'src/views/DatabaseView/IdentifierView.cy.ts',
-        'src/views/DatabaseView/IdentifierView.vue',
         'src/views/StaffView/Task.cy.ts',
         'src/views/StaffView/Task.vue',
     ],
