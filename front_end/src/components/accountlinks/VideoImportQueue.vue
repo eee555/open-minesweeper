@@ -42,7 +42,12 @@
                     <GameLevelIcon :level="data.level" />
                 </template>
                 <template #filter="{ filterModel, filterCallback }">
-                    <PrListbox v-model="filterModel.value" :options="[...MS_Levels]" @change="filterCallback()" />
+                    <div class="checkbox-buttons--vertical radio-buttons" role="group" :aria-label="t('prop.level')" data-cy="filter-level">
+                        <label v-for="level of MS_Levels" :key="level" class="radio-button">
+                            <input class="radio-button-input" type="radio" :name="`${filterName}-level`" :value="level" :checked="filterModel.value === level" @change="filterModel.value = level; filterCallback()">
+                            <span class="radio-button-content">{{ level }}</span>
+                        </label>
+                    </div>
                 </template>
             </PrColumn>
             <PrColumn field="timems" :header="t('prop.time')" sortable>
@@ -58,11 +63,12 @@
                     <span v-if="failures[data.id]" class="text-danger">{{ failures[data.id] }}</span>
                 </template>
                 <template #filter="{ filterModel, filterCallback }">
-                    <PrListbox v-model="filterModel.value" :options="['imported', 'pending', 'rejected', 'unsupported']" @change="filterCallback()">
-                        <template #option="{ option }">
-                            {{ t(`local.${ option}`) }}
-                        </template>
-                    </PrListbox>
+                    <div class="checkbox-buttons--vertical radio-buttons" role="group" :aria-label="t('prop.state')" data-cy="filter-import-status">
+                        <label v-for="status of importStatuses" :key="status" class="radio-button">
+                            <input class="radio-button-input" type="radio" :name="`${filterName}-import-status`" :value="status" :checked="filterModel.value === status" @change="filterModel.value = status; filterCallback()">
+                            <span class="radio-button-content">{{ t(`local.${status}`) }}</span>
+                        </label>
+                    </div>
                 </template>
             </PrColumn>
             <PrColumn>
@@ -86,8 +92,7 @@ import { promiseTimeout } from '@vueuse/core';
 import { isAxiosError } from 'axios';
 import PrColumn from 'primevue/column';
 import PrDataTable from 'primevue/datatable';
-import PrListbox from 'primevue/listbox';
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, useId, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import BaseButton from '@/components/common/BaseButton.vue';
@@ -111,6 +116,8 @@ const busy = ref(false);
 const stopping = ref(false);
 const progress = ref<SaoleiSyncProgress>();
 const failures = ref<Record<number, string>>({});
+const filterName = useId();
+const importStatuses = ['imported', 'pending', 'rejected', 'unsupported'] as const;
 const filters = ref({
     level: { value: null, matchMode: FilterMatchMode.EQUALS },
     import_status: { value: null, matchMode: FilterMatchMode.EQUALS },
