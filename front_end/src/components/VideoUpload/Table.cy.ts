@@ -9,10 +9,14 @@ import { VideoAbstract } from '@/utils/videoabstract';
 const TABLE = '[data-cy=upload-table] table';
 const PAGINATION = '[data-cy=upload-pagination]';
 
-function mountTable() {
-    const data = ref<UploadEntry[]>(Array.from({ length: 27 }, (_, index) => ({
-        hash: String(index), file: new File([], `video-${index}.avf`), status: index < 2 ? 'pass' : 'quota',
-    })));
+function mountTable(firstRowStat?: VideoAbstract) {
+    const data = ref<UploadEntry[]>(Array.from({ length: 27 }, (_, index) => {
+        const entry: UploadEntry = {
+            hash: String(index), file: new File([], `video-${index}.avf`), status: index < 2 ? 'pass' : 'quota',
+        };
+        if (index === 0 && firstRowStat !== undefined) entry.stat = firstRowStat;
+        return entry;
+    }));
     const selected = ref<UploadEntry[]>([]);
     cy.mount(defineComponent({
         expose: [],
@@ -137,26 +141,17 @@ describe('<VideoUpload Table /> selection', () => {
     });
 
     it('keeps filter icons in their headers and renders software, pLuck and thrp', () => {
-        const { data } = mountTable();
+        mountTable(new VideoAbstract({ level: 'b', mode: '00', timems: 1000, bv: 10, software: 'a', cl: 10, ce: 20, pluck: 1.25 }));
         cy.get('[data-cy=filter-status-trigger]').closest('th').should('contain.text', 'Status');
         cy.get('[data-cy=filter-level-trigger]').closest('th').should('contain.text', 'Level');
         cy.get('[data-cy=filter-mode-trigger]').closest('th').should('contain.text', 'Mode');
         cy.get(`${TABLE} thead th`).should('have.length', 12);
         cy.get(`${TABLE} colgroup col`).should('have.length', 2);
 
-        cy.then(() => {
-            data.value = data.value.map((entry, index) => {
-                if (index !== 0) return entry;
-                return {
-                    ...entry,
-                    stat: new VideoAbstract({ level: 'b', mode: '00', timems: 1000, bv: 10, software: 'a', cl: 10, ce: 20, pluck: 1.25 }),
-                };
-            });
-        });
-        cy.get(`${TABLE} tbody tr`).first().find('td').then(($cells) => {
-            expect($cells.eq(9).text().trim()).to.equal('Avf');
+        cy.get(`${TABLE} tbody tr`).first().find('td').should(($cells) => {
             expect($cells.eq(10).text().trim()).to.equal('1.250');
             expect($cells.eq(11).text().trim()).to.equal('0.500');
+            expect($cells.eq(9).text().trim()).to.equal('Avf');
         });
     });
 
