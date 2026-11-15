@@ -52,13 +52,13 @@
                     <th scope="col" class="table-col-number" :aria-sort="ariaSort('remote_id')">
                         <BaseButton size="small" text aria-label="ID" data-cy="sort-remote-id" @click="toggleSort('remote_id')">
                             ID
-                            <i class="pi" :class="sortIcon('remote_id')" aria-hidden="true" />
+                            <SortIcon :state="ariaSort('remote_id')" />
                         </BaseButton>
                     </th>
                     <th scope="col" class="table-col-datetime" :aria-sort="ariaSort('upload_time')">
                         <BaseButton size="small" text :aria-label="t('prop.upload_time')" data-cy="sort-upload-time" @click="toggleSort('upload_time')">
                             {{ t('prop.upload_time') }}
-                            <i class="pi" :class="sortIcon('upload_time')" aria-hidden="true" />
+                            <SortIcon :state="ariaSort('upload_time')" />
                         </BaseButton>
                     </th>
                     <th scope="col" class="table-col-center">
@@ -67,19 +67,19 @@
                     <th scope="col" class="table-col-number" :aria-sort="ariaSort('timems')">
                         <BaseButton size="small" text :aria-label="t('prop.time')" data-cy="sort-timems" @click="toggleSort('timems')">
                             {{ t('prop.time') }}
-                            <i class="pi" :class="sortIcon('timems')" aria-hidden="true" />
+                            <SortIcon :state="ariaSort('timems')" />
                         </BaseButton>
                     </th>
                     <th scope="col" class="table-col-bv" :aria-sort="ariaSort('bv')">
                         <BaseButton size="small" text :aria-label="t('prop.bv')" data-cy="sort-bv" @click="toggleSort('bv')">
                             {{ t('prop.bv') }}
-                            <i class="pi" :class="sortIcon('bv')" aria-hidden="true" />
+                            <SortIcon :state="ariaSort('bv')" />
                         </BaseButton>
                     </th>
                     <th scope="col" class="table-col-center" :aria-sort="ariaSort('software')">
                         <BaseButton size="small" text :aria-label="t('local.software')" data-cy="sort-software" @click="toggleSort('software')">
                             {{ t('local.software') }}
-                            <i class="pi" :class="sortIcon('software')" aria-hidden="true" />
+                            <SortIcon :state="ariaSort('software')" />
                         </BaseButton>
                     </th>
                     <th scope="col" class="table-col-center">
@@ -142,6 +142,7 @@ import { createImportQueueFilters, filterImportQueue, importStatuses, importStat
 import BaseButton from '@/components/common/BaseButton.vue';
 import BasePagination from '@/components/common/BasePagination.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
+import SortIcon from '@/components/common/SortIcon.vue';
 import { httpErrorNotification } from '@/components/Notifications';
 import VideoPreviewLink from '@/components/VideoPreviewLink.vue';
 import GameLevelIcon from '@/components/widgets/GameLevelIcon.vue';
@@ -193,12 +194,6 @@ watch(filters, () => {
 function ariaSort(field: SortField): 'ascending' | 'descending' | 'none' {
     if (sortField.value !== field || sortOrder.value === undefined || sortOrder.value === 0) return 'none';
     return sortOrder.value < 0 ? 'descending' : 'ascending';
-}
-
-function sortIcon(field: SortField): string {
-    const state = ariaSort(field);
-    if (state === 'none') return 'pi-sort-alt';
-    return state === 'descending' ? 'pi-sort-amount-down' : 'pi-sort-amount-down-alt';
 }
 
 function toggleSort(field: SortField) {

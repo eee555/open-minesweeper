@@ -14,7 +14,7 @@
                         <span class="video-list__head">
                             <button v-if="showSort && entry.config.sortable" type="button" class="video-list__sort" :data-cy="`video-sort-${entry.choice}`" @click="toggleSort(entry.config.sortField)">
                                 {{ t(`prop.${entry.choice}`) }}
-                                <i class="pi video-list__sort-icon" :class="[sortIcon(entry.config), { 'video-list__sort-icon--inactive': !isSortedColumn(entry.config) }]" aria-hidden="true" />
+                                <SortIcon :state="ariaSort(entry.config) ?? 'none'" class="video-list__sort-icon" :class="{ 'video-list__sort-icon--inactive': !isSortedColumn(entry.config) }" />
                             </button>
                             <span v-else-if="entry.config.headLabel">
                                 {{ t(`prop.${entry.choice}`) }}
@@ -80,6 +80,7 @@ import VideoListFilter from './VideoListFilter.vue';
 
 import BasePagination from '@/components/common/BasePagination.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
+import SortIcon from '@/components/common/SortIcon.vue';
 import { preview } from '@/utils/common/PlayerDialog';
 import type { ColumnChoice } from '@/utils/ms_const';
 import type { VideoAbstract } from '@/utils/videoabstract';
@@ -122,7 +123,6 @@ const showFilters = computed(() => !props.displayOnly);
 const showSort = computed(() => props.sortable && !props.displayOnly);
 const hasLocalVideos = computed(() => props.includeLocal ?? props.videos.some((video) => video.isLocal));
 const activeSortField = computed(() => (showSort.value && sortOrder.value !== undefined && sortOrder.value !== 0 ? sortField.value : ''));
-const activeSortIcon = computed(() => (sortOrder.value !== undefined && sortOrder.value < 0 ? 'pi-sort-amount-down' : 'pi-sort-amount-down-alt'));
 
 const processed = computed<VideoAbstract[]>(() => {
     if (props.displayOnly) return [...props.videos];
@@ -156,10 +156,6 @@ function toggleSort(field: string) {
 
 function isSortedColumn(config: VideoListColumnConfig): boolean {
     return activeSortField.value !== '' && config.sortable && activeSortField.value === config.sortField;
-}
-
-function sortIcon(config: VideoListColumnConfig): string {
-    return isSortedColumn(config) ? activeSortIcon.value : 'pi-sort-alt';
 }
 
 function ariaSort(config: VideoListColumnConfig): 'ascending' | 'descending' | 'none' | undefined {
