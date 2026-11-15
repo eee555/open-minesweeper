@@ -143,7 +143,7 @@ import BaseButton from '@/components/common/BaseButton.vue';
 import BasePagination from '@/components/common/BasePagination.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
 import SortIcon from '@/components/common/SortIcon.vue';
-import { sortState } from '@/components/common/sortState';
+import { nextSortOrder, sortState } from '@/components/common/sortState';
 import { httpErrorNotification } from '@/components/Notifications';
 import VideoPreviewLink from '@/components/VideoPreviewLink.vue';
 import GameLevelIcon from '@/components/widgets/GameLevelIcon.vue';
@@ -193,16 +193,9 @@ watch(filters, () => {
 });
 
 function toggleSort(field: SortField) {
-    if (sortField.value !== field) {
-        sortField.value = field;
-        sortOrder.value = 1;
-    } else if (sortOrder.value === 1) {
-        sortOrder.value = -1;
-    } else if (sortOrder.value === -1) {
-        sortOrder.value = 0;
-    } else {
-        sortOrder.value = 1;
-    }
+    const active = sortField.value === field;
+    sortField.value = field;
+    sortOrder.value = nextSortOrder(sortOrder.value, active);
     currentStart.value = 1;
 }
 

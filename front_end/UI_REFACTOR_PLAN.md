@@ -29,7 +29,7 @@
 | 布局、卡片与操作 | `layout.css`、`cards.css`、`link.css`、`button.css` / `buttons/`；`BaseButton`、`BaseTextButton`、确认/取消按钮、`BaseFileInput` 等已有原生实现 |
 | 描述列表 | [`descriptions.css`](src/styles/descriptions.css) 提供 dl / dt / dd 模板，支持边框、跨列和容器宽度适配，无独立 Vue 组件 |
 | 展示表格 | [`BaseTable`](src/components/common/BaseTable.vue) 封装原生表格、滚动容器、空状态和插槽；`table.css` 提供行悬停高亮，`table-columns.css` 提供排名、玩家、数值、时间等公共列样式 |
-| 表头排序图标与状态 | [`SortIcon`](src/components/common/SortIcon.vue) 按 `aria-sort` 三态统一 PrimeIcons 类名；[`sortState.ts`](src/components/common/sortState.ts) 提供 `SortState` 与 `sortState(order, active)`，由 `<th :aria-sort>` 和 `SortIcon :state` 共用。根元素仍为 `<i>`，支持父级 `class` 合并，供 BaseTable 调用方复用，不接管排序状态或请求；`aria-sort` 仍由列头维护 |
+| 表头排序图标与状态 | [`SortIcon`](src/components/common/SortIcon.vue) 按 `aria-sort` 三态统一 PrimeIcons 类名；[`sortState.ts`](src/components/common/sortState.ts) 提供 `SortState`、`sortState(order, active)` 与 `nextSortOrder(order, active, clearedOrder)`，由 `<th :aria-sort>`、`SortIcon :state` 和表头按钮共用。根元素仍为 `<i>`，支持父级 `class` 合并，供 BaseTable 调用方复用，不接管排序状态或请求；`aria-sort` 仍由列头维护，字段写入、分页重置和后端请求仍由调用方负责 |
 | 保留表格的视觉 | `theme/tables.css` 为 BaseTable、ElTable、PrimeVue DataTable 提供统一参数；`vendors/element-plus-table.css`、`primevue-table.css`、`primevue-table-controls.css` 已接入 |
 | Element Plus 按钮兼容 | `vendors/element-plus.css` 提供直角覆盖；应用模板中 ElButton 已归零，ElLink 仅首页比赛卡片仍有 3 处，不重复安排按钮整体迁移 |
 | 图标注册 | [`bootstrap.ts`](src/bootstrap.ts) 显式全局注册剩余的 7 个图标；导航已改用 PrimeIcons；组件测试按挂载链注册，7.2 其余范围仍待迁移 |
@@ -228,7 +228,7 @@ Slider 使用方涉及公共播放器；实施前检查 Analyzer 与离线入口
 - 数据处理顺序为筛选 → 排序 → 分页。基于原始数值、日期及 `VideoAbstract` getter 排序，显示继续使用现有格式化逻辑；不按显示文字排序，不原地修改传入数组。非有限值、缺失 / 无效日期不论升降序恒排末尾，同值记录保持输入顺序。
 - 分页复用 5.0 的 BasePagination，`currentStart = first + 1`、`pageSize = rows`；区间显示为 `1-25` 等形式，允许任意起点。非空区间 `{ start, end }` 对应 `slice(start - 1, end)`，因为公开 `end` 是包含端点的索引，恰好对应数组切片的排除上界。保留首末页、上一页 / 下一页、每页条数 `[5, 10, 25, 50, 100]`、按起始索引跳转及记录数；筛选、用户切换排序或页容量后将 `first` 重置为 0，刷新后起始索引越界时修正，空结果单独处理。
 - 保留 `rowKey`，兼容本地 CSV 录像的占位显示与禁止预览、隐藏行操作等行为；保留玩家链接、软件说明浮层、录像预览和 `rowActions` 操作菜单，独立单元格操作不误触整行预览。
-- 表头排序采用原生按钮与 `aria-sort`，并通过 `SortIcon` 与 `sortState` 统一三态图标和状态判定（`pi-sort-amount-down` 表示降序、`pi-sort-amount-down-alt` 表示升序，未排序列使用中性图标 `pi-sort-alt`）：当前排序列用主色高亮并显示当前方向，其余列淡色显示中性图标；清除排序只取消高亮，图标仍按未排序列处理。`aria-sort` 仍绑定在 `<th>` 上，图标组件只消费状态。行预览保留鼠标操作并支持键盘触发；分页、筛选及操作菜单保留焦点、禁用和键盘行为。复用项目主题、公共列样式与 Tippy，支持深浅主题和容器内横向滚动。
+- 表头排序采用原生按钮与 `aria-sort`，并通过 `SortIcon`、`sortState` 与 `nextSortOrder` 统一三态图标、状态判定和切换顺序（`pi-sort-amount-down` 表示降序、`pi-sort-amount-down-alt` 表示升序，未排序列使用中性图标 `pi-sort-alt`）：当前排序列用主色高亮并显示当前方向，其余列淡色显示中性图标；清除排序只取消高亮，图标仍按未排序列处理。`aria-sort` 仍绑定在 `<th>` 上，图标组件只消费状态；`nextSortOrder` 只返回下一顺序，字段写入、分页重置和后端请求仍由调用方负责。行预览保留鼠标操作并支持键盘触发；分页、筛选及操作菜单保留焦点、禁用和键盘行为。复用项目主题、公共列样式与 Tippy，支持深浅主题和容器内横向滚动。
 
 `externalFiltering` 只关闭内部筛选计算，列头筛选 UI 仍保留，状态由 `v-model:filters` 交给调用方，且不隐式关闭排序或分页；`displayOnly` 是仅由数据库查询页使用的显式纯展示开关，同时关闭筛选 UI、内部筛选、排序、切片与 BasePagination 渲染。各调用方维持以下分工，避免重复处理：
 

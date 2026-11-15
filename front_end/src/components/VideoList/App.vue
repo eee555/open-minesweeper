@@ -81,7 +81,7 @@ import VideoListFilter from './VideoListFilter.vue';
 import BasePagination from '@/components/common/BasePagination.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
 import SortIcon from '@/components/common/SortIcon.vue';
-import { sortState } from '@/components/common/sortState';
+import { nextSortOrder, sortState } from '@/components/common/sortState';
 import { preview } from '@/utils/common/PlayerDialog';
 import type { ColumnChoice } from '@/utils/ms_const';
 import type { VideoAbstract } from '@/utils/videoabstract';
@@ -142,16 +142,9 @@ function handleFilterChange(patch: Partial<VideoListFilters>) {
 }
 
 function toggleSort(field: string) {
-    if (sortField.value !== field) {
-        sortField.value = field;
-        sortOrder.value = 1;
-    } else if (sortOrder.value === 1) {
-        sortOrder.value = -1;
-    } else if (sortOrder.value === -1) {
-        sortOrder.value = 0;
-    } else {
-        sortOrder.value = 1;
-    }
+    const active = sortField.value === field;
+    sortField.value = field;
+    sortOrder.value = nextSortOrder(sortOrder.value, active);
     first.value = 0;
 }
 

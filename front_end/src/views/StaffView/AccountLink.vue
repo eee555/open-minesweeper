@@ -89,7 +89,7 @@ import BaseButton from '@/components/common/BaseButton.vue';
 import BasePagination from '@/components/common/BasePagination.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
 import SortIcon from '@/components/common/SortIcon.vue';
-import { sortState } from '@/components/common/sortState';
+import { nextSortOrder, sortState } from '@/components/common/sortState';
 import { httpErrorNotification } from '@/components/Notifications';
 import { AccountLinkPlatform, manualAccountLinkPlatforms } from '@/utils/accountlinks';
 import type { AccountLinkQueuePageResponse, AccountLinkQueueResponse } from '@/utils/accountlinks/common';
@@ -152,9 +152,7 @@ function handleFilterChange() {
 watch([platformFilter, verifiedFilter], handleFilterChange);
 
 function toggleSort() {
-    if (sortOrder.value === undefined) sortOrder.value = 1;
-    else if (sortOrder.value === 1) sortOrder.value = -1;
-    else sortOrder.value = undefined;
+    sortOrder.value = nextSortOrder(sortOrder.value, true, undefined);
     currentStart.value = 1;
     void refresh();
 }
