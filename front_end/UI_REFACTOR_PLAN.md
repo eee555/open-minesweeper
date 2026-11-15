@@ -294,7 +294,7 @@ VideoList 已接到上述逻辑，改用 BaseTable、BasePagination 与列头 Ti
 
 1. `VideoUpload/Table.vue` 的 status / stat.level / stat.mode 与 `accountlinks/VideoImportQueue.vue` 的 level / import_status 共 5 个单选改用 `radio-buttons`，用 `useId()` 生成互不冲突的组名；仍以 `filterModel.value` 存值，`@change` 先赋值再调用 `applyFilter()` / `filterCallback()`，避免原生 input 的 v-model 与回调顺序问题；清除筛选仍由 PrimeVue filter menu 的清除按钮承接。
 2. `DatabaseView/IdentifierView.vue` 的 ownerKey 多选改用 `checkbox-buttons`，保留 Listbox 内置搜索（原生 input 按 `ownerOptions.label` 过滤）与 `null` 表示无筛选的语义；自定义 `#filterclear`、`filterCallback()` 和 `:pt` 浮层定制不变，局部 `--p-listbox-*` / `--p-inputtext-*` 覆盖已删除。
-3. 契约：保留 `FilterMatchMode.EQUALS / CONTAINS / IN` 的匹配语义、`filters.*.value` 的 null / 数组 / 字符串值类型、筛选触发时机、清除筛选与 `first=0` 重置；多选的空数组与 null 不合并，不同时重写表格状态。按钮组用 `data-cy=filter-*` 定位，`VideoUpload/Table.cy.ts` 的 `.p-listbox-option` 定位已同步。
+3. 契约：保留 `FilterMatchMode.EQUALS / CONTAINS / IN` 的匹配语义、`filters.*.value` 的 null / 数组 / 字符串值类型、筛选触发时机、清除筛选与 `first=0` 重置；多选的空数组与 null 不合并，不同时重写表格状态。ownerKey 选项保留 `aria-label`（沿用 `ownerOptions.label`），选中态改用原生 `checked`。按钮组用 `data-cy=filter-*` 定位，`VideoUpload/Table.cy.ts` 的 `.p-listbox-option` 与 `IdentifierView.cy.ts` 的 `[role=option]` / `aria-selected` 定位已同步为 label 点击与 `input:checked`。
 
 ##### 5.2.1.2 InputText → 原生输入（已实施，运行验证待用户）
 

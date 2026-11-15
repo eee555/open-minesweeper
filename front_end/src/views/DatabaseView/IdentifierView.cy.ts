@@ -120,13 +120,13 @@ describe('Identifier lookup', () => {
         });
         cy.get('.p-datatable-thead > tr').should('have.length', 1);
         cy.contains('th', 'Owner').find('button[aria-label="Filter owner"]').click();
-        cy.get('[role="option"][aria-label="Player #42"]').click();
+        cy.get('[data-cy=filter-owner] input[aria-label="Player #42"]').parent().click();
         cy.realPress('Escape');
         cy.get('table').getTable().should((rows) => {
             expect(rows.map((row) => row['Identifier / pattern'])).to.deep.equal(items.toReversed().filter((item) => item.user_id === 42).map((item) => item.identifier));
         });
         cy.contains('th', 'Owner').find('button[aria-label="Filter owner"]').click();
-        cy.get('[role="option"][aria-label="Unbound"]').click();
+        cy.get('[data-cy=filter-owner] input[aria-label="Unbound"]').parent().click();
         cy.realPress('Escape');
         cy.get('table').getTable().should((rows) => {
             expect(rows.map((row) => row['Identifier / pattern'])).to.deep.equal(items.toReversed().filter((item) => item.user_id !== 43).slice(0, 25).map((item) => item.identifier));
@@ -139,14 +139,15 @@ describe('Identifier lookup', () => {
         cy.get('@matches.all').should('have.length', 1);
 
         cy.contains('th', 'Owner').find('button[aria-label="Filter owner"]').click();
-        cy.get('[role="option"][aria-label="Unbound"]').click();
+        cy.get('[data-cy=filter-owner] input[aria-label="Unbound"]').parent().click();
         cy.realPress('Escape');
         cy.get('table').getTable().should('have.length', 17);
         cy.get('#identifier-text').clear();
         cy.get('#identifier-text').type('Alpha{enter}');
         cy.wait('@matches');
         cy.contains('th', 'Owner').find('button[aria-label="Filter owner"]').click();
-        cy.get('[role="option"][aria-selected="true"]').should('not.exist');
+        cy.get('[data-cy=filter-owner]').should('be.visible');
+        cy.get('[data-cy=filter-owner] input:checked').should('not.exist');
         cy.realPress('Escape');
         cy.get('table').getTable().should('have.length', 25);
         cy.get('.p-paginator-page-selected').should('have.text', '1');

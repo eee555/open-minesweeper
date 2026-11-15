@@ -94,7 +94,7 @@
                         <input v-model="ownerSearch" class="base-select owner-filter__search" type="text" :placeholder="t('local.filterOwner')" :aria-label="t('local.filterOwner')" data-cy="filter-owner-search">
                         <div class="checkbox-buttons checkbox-buttons--vertical" role="group" :aria-label="t('local.filterOwner')" data-cy="filter-owner">
                             <label v-for="option of visibleOwnerOptions" :key="option.id" class="checkbox-button">
-                                <input class="checkbox-button-input" type="checkbox" :value="option.id" :checked="(filterModel.value ?? []).includes(option.id)" @change="toggleOwner($event, option.id, filterModel, filterCallback)">
+                                <input class="checkbox-button-input" type="checkbox" :value="option.id" :aria-label="option.label" :checked="(filterModel.value ?? []).includes(option.id)" @change="toggleOwner($event, option.id, filterModel, filterCallback)">
                                 <span class="checkbox-button-content">
                                     <PlayerName v-if="option.id > 0" :user-id="option.id" :interactive="false" />
                                     <span v-else>{{ t('local.unbound') }}</span>
