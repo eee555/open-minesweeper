@@ -90,7 +90,7 @@
         <PrColumn field="priority" :header="t('local.priority')" sortable />
         <PrColumn field="task_path" :header="t('local.taskPath')" :show-filter-match-modes="false" :show-filter-operator="false">
             <template #filter="{ filterModel, filterCallback }">
-                <PrInputText v-model="filterModel.value" :aria-label="t('local.taskPath')" @keydown.enter="filterCallback()" />
+                <input v-model="filterModel.value" class="base-select" type="text" :aria-label="t('local.taskPath')" @keydown.enter="filterCallback()">
             </template>
         </PrColumn>
         <PrColumn field="worker_ids" :header="t('local.workerIds')" />
@@ -124,7 +124,6 @@ import { FilterMatchMode } from '@primevue/core/api';
 import { ElDescriptions, ElDescriptionsItem, vLoading } from 'element-plus';
 import PrColumn from 'primevue/column';
 import PrDataTable from 'primevue/datatable';
-import PrInputText from 'primevue/inputtext';
 import PrToolbar from 'primevue/toolbar';
 import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';

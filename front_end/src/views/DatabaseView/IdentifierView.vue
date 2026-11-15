@@ -483,6 +483,5 @@ p {
 
 .owner-filter__search {
     width: 100%;
-    cursor: text;
 }
 </style>

@@ -181,7 +181,7 @@ Slider 使用方涉及公共播放器；实施前检查 Analyzer 与离线入口
 | DataTable / Column | `components/VideoUpload/Table.vue`、`components/accountlinks/VideoImportQueue.vue`、`components/accountlinks/MSGamesVideoImportQueue.vue`、`views/DatabaseView/IdentifierView.vue`、`views/StaffView/AccountLink.vue`、`views/StaffView/Task.vue`，共 6 个表格入口；VideoList 已退出 |
 | Listbox | 5.2.1.1 已把 3 个文件共 6 个实例换成纵向按钮组，无剩余使用方；VideoList 的 4 个列筛选此前已改为原生控件 |
 | Toolbar | 仅 `views/StaffView/Task.vue` 的 1 处；账号关联旧 Toolbar 已随卡片删除 |
-| InputText | `views/StaffView/Task.vue`、`components/accountlinks/MSGamesVideoImportQueue.vue`，共 2 处 |
+| InputText | 5.2.1.2 已把 2 处换成原生 `<input>`，无剩余使用方 |
 | 注册、主题与类型 | [`bootstrap.ts`](src/bootstrap.ts) 中的 PrimeVue / Aura preset，`@primevue/core/api`、DataTable 事件类型及仍使用 PrimeVue 表格的 Cypress 测试注册；VideoList 调用链已清理 |
 
 #### 5.0 独立原生分页器（已实现，接口供 5.1 复用）
@@ -264,7 +264,7 @@ VideoList 已接到上述逻辑，改用 BaseTable、BasePagination 与列头 Ti
 3. 固定替代分工：BaseTable 提供 `head` / `default` 插槽、滚动容器与空状态，表头排序按钮、筛选控件、选择 / 展开状态与分页请求均留在调用方；分页统一复用 BasePagination，不新建通用表格组件或递归列注册体系。
 4. 固定每批验收清单：保留原有排序（前端 / 后端）、筛选、分页、选择、展开、行操作与请求参数；数据处理顺序为筛选 → 排序 → 分页；筛选或页容量变化后重置起始索引；保留 `data-cy` 定位、键盘与禁用行为；深浅主题与窄容器人工检查。
 
-起点事实与迁移顺序（2026-11-14 核对的迁移起点：6 个 DataTable / Column 使用方、3 个文件共 6 个 Listbox 实例、2 处 InputText、1 处 Toolbar；其中 Listbox 已由 5.2.1.1 替换）：
+起点事实与迁移顺序（2026-11-14 核对的迁移起点：6 个 DataTable / Column 使用方、3 个文件共 6 个 Listbox 实例、2 处 InputText、1 处 Toolbar；其中 Listbox、InputText 已分别由 5.2.1.1、5.2.1.2 替换）：
 
 | 批次 | 使用方 | 现有能力 | 迁移重点 |
 | --- | --- | --- | --- |
@@ -296,9 +296,15 @@ VideoList 已接到上述逻辑，改用 BaseTable、BasePagination 与列头 Ti
 2. `DatabaseView/IdentifierView.vue` 的 ownerKey 多选改用 `checkbox-buttons`，保留 Listbox 内置搜索（原生 input 按 `ownerOptions.label` 过滤）与 `null` 表示无筛选的语义；自定义 `#filterclear`、`filterCallback()` 和 `:pt` 浮层定制不变，局部 `--p-listbox-*` / `--p-inputtext-*` 覆盖已删除。
 3. 契约：保留 `FilterMatchMode.EQUALS / CONTAINS / IN` 的匹配语义、`filters.*.value` 的 null / 数组 / 字符串值类型、筛选触发时机、清除筛选与 `first=0` 重置；多选的空数组与 null 不合并，不同时重写表格状态。按钮组用 `data-cy=filter-*` 定位，`VideoUpload/Table.cy.ts` 的 `.p-listbox-option` 定位已同步。
 
-##### 5.2.1.2 InputText → 原生输入（尚未实施）
+##### 5.2.1.2 InputText → 原生输入（已实施，运行验证待用户）
 
-`StaffView/Task.vue`、`accountlinks/MSGamesVideoImportQueue.vue` 的 InputText 换成原生 `<input>`，沿用 BasePagination 跳转输入的写法与主题参数；`MSGamesVideoImportQueue.vue` 的 `:deep(.p-inputtext)` / `:deep(.p-select)` 覆盖随之清理。同一文件先只换控件、不同时重写表格状态；即将进入 5.2.2 的表可合并为一批。`StaffView/Task.vue` 的 PrToolbar 与账号关联卡片按[根目录规范](../AGENTS.md)暂缓，不复制整套 Toolbar API；`VideoUpload/ToolBar.vue` 与 `components/visualization/VideoScatter/Toolbar.vue` 是项目组件，不能仅凭名称列入 PrimeVue 移除清单。
+2 处 `PrInputText` 已换成原生 `<input type="text">`：
+
+1. `StaffView/Task.vue` 的任务路径筛选用 `class="base-select"`，保留 `v-model="filterModel.value"` 和 `@keydown.enter="filterCallback()"` 只在回车提交的行为；`MSGamesVideoImportQueue.vue` 的分类筛选用局部 `.msgames-filter-control`，与同表头的原生 select 共用样式，保留 `filters.category.value` 的 CONTAINS 语义、`watch` 的 `first=0` 重置与 `placeholder` / `aria-label`。
+2. `styles/select.css` 增加 `input.base-select { cursor: text; }`，避免原生 select 的手型光标落到文本输入框上；`.base-select` 的直角、主题变量与焦点态不变。
+3. `MSGamesVideoImportQueue.vue` 的 `:deep(.p-inputtext)` / `:deep(.p-select)` 直角覆盖已删除：InputText 已退出，分页器下拉的圆角由 `vendors/primevue-select.css` 的 `--p-select-border-radius` 统一处理。两个组件的 `PrInputText` 导入已删除；`MSGamesVideoImportQueue.cy.ts` 用 `input[aria-label="Search category"]` 定位，替换后仍有效，`Task.cy.ts` 只覆盖 status select，均无需改定位。
+
+同一文件先只换控件、不同时重写表格状态；即将进入 5.2.2 的表可合并为一批。`StaffView/Task.vue` 的 PrToolbar 与账号关联卡片按[根目录规范](../AGENTS.md)暂缓，不复制整套 Toolbar API；`VideoUpload/ToolBar.vue` 与 `components/visualization/VideoScatter/Toolbar.vue` 是项目组件，不能仅凭名称列入 PrimeVue 移除清单。
 
 ##### 5.2.2 逐表迁移（每表一批，按 a→f）
 

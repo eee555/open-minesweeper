@@ -46,6 +46,10 @@
     cursor: pointer;
 }
 
+input.base-select {
+    cursor: text;
+}
+
 .base-select--small {
     --ui-select-min-height: var(--ui-select-small-min-height);
     --ui-select-font-size: var(--ui-select-small-font-size);
