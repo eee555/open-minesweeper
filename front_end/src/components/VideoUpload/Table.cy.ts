@@ -146,12 +146,15 @@ describe('<VideoUpload Table /> selection', () => {
         cy.get('[data-cy=filter-level-trigger]').closest('th').should('contain.text', 'Level');
         cy.get('[data-cy=filter-mode-trigger]').closest('th').should('contain.text', 'Mode');
         cy.get(`${TABLE} thead th`).should('have.length', 12);
-        cy.get(`${TABLE} colgroup col`).should('have.length', 2);
+        cy.get(`${TABLE} thead th`).eq(2).should('have.text', '');
+        cy.get(`${TABLE} colgroup col`).should('have.length', 3);
 
         cy.get(`${TABLE} tbody tr`).first().find('td').should(($cells) => {
+            expect($cells.eq(4).text().trim()).to.equal('');
             expect($cells.eq(10).text().trim()).to.equal('1.250');
             expect($cells.eq(11).text().trim()).to.equal('0.500');
-            expect($cells.eq(9).text().trim()).to.equal('Avf');
+            expect($cells.eq(2).text().trim()).to.equal('');
+            expect($cells.eq(2).find('img').attr('title')).to.equal('Avf');
         });
     });
 

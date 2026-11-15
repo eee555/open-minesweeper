@@ -220,6 +220,7 @@ export default defineConfig({
         'vue/no-useless-mustaches': 'error',
         'vue/no-useless-v-bind': 'error',
         'vue/no-v-text': 'error',
+        'vue/one-component-per-file': 'off',
         'vue/padding-line-between-blocks': 'error',
         'vue/padding-line-between-tags': 'off',
         // vue/padding-lines-in-component-definition

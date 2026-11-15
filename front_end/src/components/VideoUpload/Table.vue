@@ -2,7 +2,7 @@
     <div v-if="data.length > 0" class="upload-table">
         <BaseTable :empty="pageRows.length === 0" :empty-text="t('local.empty')" :column-count="12" data-cy="upload-table">
             <template #columns>
-                <col class="upload-col-action"><col class="upload-col-action">
+                <col class="upload-col-action"><col class="upload-col-action"><col class="upload-col-software">
             </template>
             <template #head>
                 <tr>
@@ -12,6 +12,7 @@
                             <input class="checkbox-input" type="checkbox" :checked="!selectedNone && selectedAll" :indeterminate.prop="!selectedAll && !selectedNone" :aria-label="t('local.selectAll')" data-cy="select-all" @change="handleSelectAllChange">
                         </label>
                     </th>
+                    <th scope="col" class="table-col-center upload-col-software" />
                     <th v-for="column in columns" :key="column.key" scope="col" :class="column.cellClass" :aria-sort="column.sortField === null ? undefined : sortState(sortOrder, sortField === column.sortField)">
                         <span>{{ column.label }}</span>
                         <BaseButton v-if="column.sortField !== null" class="upload-icon-button" size="small" text :aria-label="column.label" :data-cy="`sort-${column.key}`" @click="toggleColumnSort(column.sortField)">
@@ -45,9 +46,12 @@
                             <input class="checkbox-input" type="checkbox" :checked="selectedRows.includes(row)" :aria-label="t('local.selectVideo', { filename: row.file.name })" @change="(event) => handleSelectOneChange(event, row)">
                         </label>
                     </td>
+                    <td class="table-col-center upload-col-software">
+                        <SoftwareIcon v-if="row.stat" :software="row.stat.software" />
+                    </td>
                     <td>{{ t(`local.${row.status}`) }}</td>
                     <td class="table-col-datetime">
-                        {{ row.stat ? toISODateTimeString(row.stat.end_time!) : '' }}
+                        {{ formatEndTime(row.stat) }}
                     </td>
                     <td class="table-col-mode">
                         {{ row.stat ? formatLevel(row.stat.level) : '' }}
@@ -63,9 +67,6 @@
                     </td>
                     <td class="table-col-number">
                         {{ row.stat ? row.stat.displayStat('bvs') : '' }}
-                    </td>
-                    <td class="table-col-mode">
-                        {{ row.stat ? t(`software.${row.stat.software}`) : '' }}
                     </td>
                     <td class="table-col-number">
                         {{ formatStat(row.stat, 'pluck') }}
@@ -160,6 +161,7 @@ import BasePagination from '@/components/common/BasePagination.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
 import SortIcon from '@/components/common/SortIcon.vue';
 import { nextSortOrder, sortState } from '@/components/common/sortState';
+import SoftwareIcon from '@/components/widgets/SoftwareIcon.vue';
 import { CustomLevel } from '@/utils/customlevel';
 import { toISODateTimeString } from '@/utils/datetime';
 import { MS_Levels, MS_Mode } from '@/utils/ms_const';
@@ -238,6 +240,11 @@ function resetFilter(field: UploadFilterField | null) {
 
 function toggleColumnSort(field: UploadSortField | null) {
     if (field !== null) toggleSort(field);
+}
+
+function formatEndTime(stat: UploadEntry['stat']): string {
+    const end = stat?.end_time;
+    return end === undefined ? '' : toISODateTimeString(end);
 }
 
 function formatStat(stat: UploadEntry['stat'], field: 'pluck' | 'thrp'): string {
@@ -361,7 +368,6 @@ const columns = computed<UploadColumn[]>(() => [
     { key: 'time', label: t('prop.time'), cellClass: 'table-col-number', sortField: 'stat.timems', filterField: null, filterLabel: '', options: [] },
     { key: 'bv', label: t('prop.bv'), cellClass: 'table-col-bv', sortField: 'stat.bv', filterField: null, filterLabel: '', options: [] },
     { key: 'bvs', label: t('prop.bvs'), cellClass: 'table-col-number', sortField: 'stat.bvs', filterField: null, filterLabel: '', options: [] },
-    { key: 'software', label: t('prop.software'), cellClass: 'table-col-mode', sortField: null, filterField: null, filterLabel: '', options: [] },
     { key: 'pluck', label: t('prop.pluck'), cellClass: 'table-col-number', sortField: null, filterField: null, filterLabel: '', options: [] },
     { key: 'thrp', label: t('prop.thrp'), cellClass: 'table-col-number', sortField: null, filterField: null, filterLabel: '', options: [] },
 ]);
@@ -373,7 +379,7 @@ const columns = computed<UploadColumn[]>(() => [
     font: inherit;
 }
 
-.upload-col-action {
+:is(.upload-col-action, .upload-col-software) {
     width: 2.5em;
     min-width: 2.5em;
     max-width: 2.5em;
