@@ -327,8 +327,6 @@ export default defineConfig({
         'src/components/VideoUpload/App.cy.ts',
         'src/components/VideoUpload/Table.cy.ts',
         'src/components/VideoUpload/Table.vue',
-        'src/components/accountlinks/MSGamesVideoImportQueue.vue',
-        'src/components/accountlinks/testUtils.ts',
         'src/components/common/SelectStyles.cy.ts',
         'src/views/DatabaseView/IdentifierView.cy.ts',
         'src/views/DatabaseView/IdentifierView.vue',
