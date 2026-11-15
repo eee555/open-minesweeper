@@ -1,13 +1,13 @@
 from datetime import datetime
 import logging
 import re
-from typing import List, Literal
+from typing import Literal
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFound
 from django.views.decorators.cache import never_cache
 from django_ratelimit.decorators import ratelimit
-from ninja import Form, Router, Schema
+from ninja import Field, Form, Query, Router, Schema
 from ninja.decorators import decorate_view
 from ninja.errors import HttpError
 from ninja.orm import create_schema
@@ -21,7 +21,7 @@ from .classic.services import classic_bind_status, handle_classic_callback, hand
 from .github.schema import GitHubAccountOut
 from .mineracer.sessions import poll_mineracer_account_link_session, start_mineracer_account_link
 from .models import AccountBilibili, AccountClassicMinesweeper, AccountDiscord, AccountLinkQueue, AccountMineracer, AccountMinesweeperGames, AccountQQ, AccountSaolei, AccountWorldOfMinesweeper, Platform, PLATFORM_CONFIG
-from .services import unverify_account_link, update_account, verify_account_link
+from .services import query_account_link_queue_page, unverify_account_link, update_account, verify_account_link
 from .utils import delete_account, is_memorial_admin, private_platforms
 
 router = Router()
@@ -36,6 +36,28 @@ AccountLinkOut = create_schema(
         'verified',
     ],
 )
+
+
+class AccountLinkQueueQuery(Schema):
+    page: int = Field(1, ge=1, le=2147483647)
+    page_size: int = Field(10, ge=1, le=100)
+    platform: str = ''
+    verified: bool | None = None
+    order: Literal['', 'asc', 'desc'] = ''
+
+    @field_validator('platform')
+    @classmethod
+    def validate_platform(cls, value: str) -> str:
+        if value and value not in Platform.values:
+            raise ValueError('unsupported platform')
+        return value
+
+
+class AccountLinkQueuePageOut(Schema):
+    count: int
+    page: int
+    page_size: int
+    items: list[AccountLinkOut]
 
 
 AccountLinkQueueOut = create_schema(AccountLinkQueue)
@@ -379,7 +401,16 @@ def classic_callback(request):
     return HttpResponse()
 
 
-@router.get('/admin/queue', response=List[AccountLinkOut])
+@router.get('/admin/queue', response=AccountLinkQueuePageOut)
 @decorate_view(staff_required)
-def get_account_link_queue(request):
-    return AccountLinkQueue.objects.all()
+def get_account_link_queue(request, filters: Query[AccountLinkQueueQuery]):
+    """
+    - staff_required
+
+    Return one page of account link queue entries. Filter by platform and verification state;
+    sort by linked user ID when requested, with queue ID breaking ties so paging stays stable.
+    """
+    return query_account_link_queue_page(
+        page=filters.page, page_size=filters.page_size,
+        platform=filters.platform, verified=filters.verified, order=filters.order,
+    )

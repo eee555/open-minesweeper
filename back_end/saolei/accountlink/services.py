@@ -197,3 +197,25 @@ def restart_accountlink_task(db_task: DBTaskResult, args: list, kwargs: dict):
     }:
         raise ExceptionToResponse('saolei', 'crawling_disabled', status_code=410)
     return None
+
+
+def query_account_link_queue_page(
+    *, page: int, page_size: int, platform: str = '', verified: bool | None = None, order: str = '',
+):
+    queue = AccountLinkQueue.objects.all()
+    if platform:
+        queue = queue.filter(platform=platform)
+    if verified is not None:
+        queue = queue.filter(verified=verified)
+    if order == 'asc':
+        queue = queue.order_by('userprofile_id', 'id')
+    elif order == 'desc':
+        queue = queue.order_by('-userprofile_id', '-id')
+    else:
+        queue = queue.order_by('id')
+    count = queue.count()
+    start = (page - 1) * page_size
+    return {
+        'count': count, 'page': page, 'page_size': page_size,
+        'items': list(queue[start:start + page_size]),
+    }

@@ -25,54 +25,77 @@
             </BaseButton>
         </ElFormItem>
     </ElForm>
-    <PrDataTable
-        v-loading="loading"
-        :value="accountLinks"
-        row-hover
-        size="small"
-        paginator
-        :rows="10"
-        :rows-per-page-options="[10, 25, 50, 100]"
-        paginator-template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown JumpToPageInput CurrentPageReport"
-    >
-        <PrColumn field="userprofile" :header="t('prop.userId')" sortable />
-        <PrColumn field="platform" :header="t('accountlink.platform')" sortable>
-            <template #body="{ data }: { data: AccountLinkQueueItem }">
-                {{ t(`platform.${data.platform}`) }}
+    <div v-loading="loading" class="account-link-queue">
+        <div class="account-link-queue__filters">
+            <label class="account-link-queue__field">
+                <span>{{ t('accountlink.platform') }}</span>
+                <select v-model="platformFilter" class="base-select base-select--small" :aria-label="t('local.filterPlatform')" data-cy="filter-platform">
+                    <option value="">{{ t('all') }}</option>
+                    <option v-for="platform of AccountLinkPlatform" :key="platform" :value="platform">
+                        {{ t(`platform.${platform}`) }}
+                    </option>
+                </select>
+            </label>
+            <label class="account-link-queue__field">
+                <span>{{ t('accountlink.verified') }}</span>
+                <select v-model="verifiedFilter" class="base-select base-select--small" :aria-label="t('local.filterVerified')" data-cy="filter-verified">
+                    <option value="">{{ t('all') }}</option>
+                    <option value="true">{{ t('accountlink.verified') }}</option>
+                    <option value="false">{{ t('local.unverified') }}</option>
+                </select>
+            </label>
+        </div>
+        <BaseTable :empty="accountLinks.length === 0" :empty-text="t('local.empty')" :column-count="4" data-cy="account-link-table">
+            <template #head>
+                <tr>
+                    <th scope="col" :aria-sort="ariaSort" data-cy="header-user-id">
+                        <BaseButton size="small" text :aria-label="t('prop.userId')" data-cy="sort-user-id" @click="toggleSort">
+                            {{ t('prop.userId') }}
+                            <i class="pi" :class="sortIcon" aria-hidden="true" />
+                        </BaseButton>
+                    </th>
+                    <th scope="col">
+                        {{ t('accountlink.platform') }}
+                    </th>
+                    <th scope="col">
+                        {{ t('local.platformId') }}
+                    </th>
+                    <th scope="col">
+                        {{ t('accountlink.verified') }}
+                    </th>
+                </tr>
             </template>
-        </PrColumn>
-        <PrColumn field="identifier" :header="t('local.platformId')" sortable />
-        <PrColumn field="verified" :header="t('accountlink.verified')" sortable>
-            <template #body="{ data }: { data: AccountLinkQueueItem }">
-                {{ t(data.verified ? 'accountlink.verified' : 'local.unverified') }}
-            </template>
-        </PrColumn>
-    </PrDataTable>
+            <tr v-for="link in accountLinks" :key="link.id">
+                <td>{{ link.userprofile }}</td>
+                <td>{{ t(`platform.${link.platform}`) }}</td>
+                <td>{{ link.identifier }}</td>
+                <td>{{ t(link.verified ? 'accountlink.verified' : 'local.unverified') }}</td>
+            </tr>
+        </BaseTable>
+        <BasePagination
+            v-model:current-start="currentStart" v-model:page-size="pageSize"
+            :total="total" :page-size-options="[10, 25, 50, 100]" :disabled="loading"
+            data-cy="account-link-pagination" @change="handlePageChange"
+        />
+    </div>
 </template>
 
 <script setup lang="ts">
-import '@/styles/vendors/primevue-table.css';
+import 'primeicons/primeicons.css';
+
 import { ElForm, ElFormItem, ElInput, vLoading } from 'element-plus';
-import PrColumn from 'primevue/column';
-import PrDataTable from 'primevue/datatable';
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import BaseButton from '@/components/common/BaseButton.vue';
+import BasePagination from '@/components/common/BasePagination.vue';
+import BaseTable from '@/components/common/BaseTable.vue';
 import { httpErrorNotification } from '@/components/Notifications';
-import type { AccountLinkPlatform } from '@/utils/accountlinks';
-import { manualAccountLinkPlatforms } from '@/utils/accountlinks';
+import { AccountLinkPlatform, manualAccountLinkPlatforms } from '@/utils/accountlinks';
+import type { AccountLinkQueuePageResponse, AccountLinkQueueResponse } from '@/utils/accountlinks/common';
 import useCurrentInstance from '@/utils/common/useCurrentInstance';
 
 const { proxy } = useCurrentInstance();
-
-interface AccountLinkQueueItem {
-    id: number | null;
-    platform: AccountLinkPlatform;
-    identifier: string;
-    userprofile: number;
-    verified: boolean;
-}
 
 const form = reactive({
     id: 0,
@@ -80,16 +103,69 @@ const form = reactive({
     identifier: '',
 });
 
-const accountLinks = ref<AccountLinkQueueItem[]>([]);
+const accountLinks = ref<AccountLinkQueueResponse[]>([]);
 const loading = ref(false);
+const total = ref(0);
+const currentStart = ref(1);
+const pageSize = ref(10);
+const platformFilter = ref('');
+const verifiedFilter = ref('');
+const sortOrder = ref<number | undefined>(undefined);
+const sortIcon = computed(() => {
+    if (sortOrder.value === undefined) return 'pi-sort-alt';
+    return sortOrder.value > 0 ? 'pi-sort-amount-down-alt' : 'pi-sort-amount-down';
+});
+const ariaSort = computed(() => {
+    if (sortOrder.value === undefined) return 'none';
+    return sortOrder.value > 0 ? 'ascending' : 'descending';
+});
+const orderParam = computed(() => {
+    if (sortOrder.value === undefined) return '';
+    return sortOrder.value > 0 ? 'asc' : 'desc';
+});
 
 const refresh = async () => {
     loading.value = true;
-    await proxy.$axios.get('/api/accountlink/admin/queue').then((response) => {
-        accountLinks.value = response.data;
-    }).catch(httpErrorNotification);
+    const page = Math.floor((currentStart.value - 1) / pageSize.value) + 1;
+    const params: Record<string, string | number> = {
+        page, page_size: pageSize.value, platform: platformFilter.value, order: orderParam.value,
+    };
+    if (verifiedFilter.value !== '') params.verified = verifiedFilter.value;
+    try {
+        const response = await proxy.$axios.get<AccountLinkQueuePageResponse>('/api/accountlink/admin/queue', { params });
+        const { count, items } = response.data;
+        total.value = count;
+        accountLinks.value = items;
+        const lastPage = Math.max(1, Math.ceil(count / pageSize.value));
+        if (count > 0 && page > lastPage) {
+            currentStart.value = (lastPage - 1) * pageSize.value + 1;
+            void refresh();
+            return;
+        }
+    } catch (error) {
+        httpErrorNotification(error);
+    }
     loading.value = false;
 };
+
+function handlePageChange() {
+    void refresh();
+}
+
+function handleFilterChange() {
+    currentStart.value = 1;
+    void refresh();
+}
+
+watch([platformFilter, verifiedFilter], handleFilterChange);
+
+function toggleSort() {
+    if (sortOrder.value === undefined) sortOrder.value = 1;
+    else if (sortOrder.value === 1) sortOrder.value = -1;
+    else sortOrder.value = undefined;
+    currentStart.value = 1;
+    void refresh();
+}
 
 function verify() {
     proxy.$axios.post('/api/accountlink/verify/', {
@@ -124,13 +200,34 @@ const i18nMessages = {
         platformId: '平台 ID',
         selectPlatform: '选择平台',
         unverified: '未验证',
+        empty: '暂无关联记录',
+        filterPlatform: '筛选平台',
+        filterVerified: '筛选验证状态',
     } },
     en: { local: {
         platformId: 'Platform ID',
         selectPlatform: 'Select a platform',
         unverified: 'Unverified',
+        empty: 'No account links',
+        filterPlatform: 'Filter platform',
+        filterVerified: 'Filter verification',
     } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });
 </script>
+
+<style scoped>
+.account-link-queue__filters {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    margin: 0.5em 0;
+}
+.account-link-queue__field {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25em;
+    white-space: nowrap;
+}
+</style>

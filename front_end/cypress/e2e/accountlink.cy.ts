@@ -1,4 +1,4 @@
-import type { AccountLinkQueueResponse } from '../../src/utils/accountlinks/common';
+import type { AccountLinkQueuePageResponse } from '../../src/utils/accountlinks/common';
 
 const STAFF = {
     id: 1,
@@ -114,9 +114,9 @@ function staffVerifyAccount(platform: string, identifier: string) {
     cy.contains('.el-form-item__label', '平台 ID').next().find('input').type(`${identifier}{enter}`);
     cy.contains('button', /^\s*绑定\s*$/).click();
     cy.wait('@verifyAccountLink').its('response.statusCode').should('eq', 200);
-    cy.wait<unknown, AccountLinkQueueResponse[]>('@accountLinkQueue').then(({ response }) => {
+    cy.wait<unknown, AccountLinkQueuePageResponse>('@accountLinkQueue').then(({ response }) => {
         expect(response?.statusCode).to.equal(200);
-        const link = response?.body.find((item) => item.userprofile === USER.id && item.identifier === identifier);
+        const link = response?.body.items.find((item) => item.userprofile === USER.id && item.identifier === identifier);
         expect(link?.verified, `refreshed queue for ${platform} #${identifier}`).to.equal(true);
     });
     waitForLoading();
@@ -127,7 +127,7 @@ function staffVerifyAccount(platform: string, identifier: string) {
 describe('Account Link', () => {
     beforeEach(() => {
         // Register once per test: private account verification visits this page twice.
-        cy.intercept('GET', '/api/accountlink/admin/queue').as('accountLinkQueue');
+        cy.intercept({ method: 'GET', pathname: '/api/accountlink/admin/queue' }).as('accountLinkQueue');
         cy.intercept('POST', '**/api/accountlink/verify/').as('verifyAccountLink');
     });
 
