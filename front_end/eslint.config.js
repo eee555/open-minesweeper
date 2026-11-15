@@ -313,14 +313,35 @@ export default defineConfig({
 }, {
     files: ['src/**/*.vue'],
     // Deferred components keep the existing layout, text and card restrictions.
-    ignores: [
-        'src/views/HomeView/NormalTournamentQueue.vue',
-        'src/components/accountlinks/VideoImportQueue.vue',
-    ],
+    ignores: ['src/views/HomeView/NormalTournamentQueue.vue'],
     rules: {
         'vue/no-restricted-html-elements': [
             'error', ...restrictedHtmlElements, ...restrictedActionElements,
         ],
+    },
+}, {
+    files: ['src/**/*.{ts,vue}'],
+    ignores: [
+        'src/bootstrap.ts',
+        'src/components/VideoPlayer/NativePlayer.cy.ts',
+        'src/components/VideoUpload/App.cy.ts',
+        'src/components/VideoUpload/Table.cy.ts',
+        'src/components/VideoUpload/Table.vue',
+        'src/components/accountlinks/MSGamesVideoImportQueue.vue',
+        'src/components/accountlinks/testUtils.ts',
+        'src/components/common/SelectStyles.cy.ts',
+        'src/views/DatabaseView/IdentifierView.cy.ts',
+        'src/views/DatabaseView/IdentifierView.vue',
+        'src/views/StaffView/Task.cy.ts',
+        'src/views/StaffView/Task.vue',
+    ],
+    rules: {
+        'no-restricted-imports': ['error', {
+            patterns: [{
+                group: ['primevue/*', '@primevue/*', '@primeuix/*'],
+                message: 'PrimeVue is being retired; use project base components instead.',
+            }],
+        }],
     },
 }, {
     files: [

@@ -42,7 +42,7 @@
 
 当前源码事实，后续批次以此为起点：
 
-- BaseTable 已有 39 个使用方，覆盖排行榜、个人纪录、软件版本列表、管理员与数据库页面；[`DatabaseView/VideoView.vue`](src/views/DatabaseView/VideoView.vue) 的录像列表由 [`VideoList/App.vue`](src/components/VideoList/App.vue) 用 BaseTable 渲染，已退出 PrimeVue DataTable，也不再使用 ElTable。
+- BaseTable 已有 42 个 `.vue` 使用方，覆盖排行榜、个人纪录、软件版本列表、管理员与数据库页面；[`DatabaseView/VideoView.vue`](src/views/DatabaseView/VideoView.vue) 的录像列表由 [`VideoList/App.vue`](src/components/VideoList/App.vue) 用 BaseTable 渲染，已退出 PrimeVue DataTable，也不再使用 ElTable。
 - 应用模板中 ElButton、ElCheckbox、ElRadio、ElSwitch、ElText、ElDivider 已归零；ElCard 仅 [`NormalTournamentQueue.vue`](src/views/HomeView/NormalTournamentQueue.vue) 1 处，ElLink 同文件 3 处；仍有 4 处 ElDescriptions、4 个 ElTable 使用方和 4 处 ElSelect，分别见第 2 节、第 3 节与 4.2 开头。
 - 目前的尺寸是后续评审的起点：基础文字 14px，普通原生按钮内边距 4px × 8px、行高 1.4；表格单元格内边距 4px × 8px、行高 1.4；普通卡片内边距 10px。这些现值已生效，后续按组件类别调整，不再安排“先抄参数但不接入运行时”的步骤。
 
@@ -178,7 +178,7 @@ Slider 使用方涉及公共播放器；实施前检查 Analyzer 与离线入口
 
 | 依赖 | 当前使用方 |
 | --- | --- |
-| DataTable / Column | `components/VideoUpload/Table.vue`、`components/accountlinks/VideoImportQueue.vue`、`components/accountlinks/MSGamesVideoImportQueue.vue`、`views/DatabaseView/IdentifierView.vue`、`views/StaffView/Task.vue`，共 5 个表格入口；VideoList 与 5.2.2-a 的 AccountLink 已退出 |
+| DataTable / Column | `components/VideoUpload/Table.vue`、`components/accountlinks/MSGamesVideoImportQueue.vue`、`views/DatabaseView/IdentifierView.vue`、`views/StaffView/Task.vue`，共 4 个表格入口；VideoList、AccountLink 与 VideoImportQueue 已退出 |
 | Listbox | 5.2.1.1 已把 3 个文件共 6 个实例换成纵向按钮组，无剩余使用方；VideoList 的 4 个列筛选此前已改为原生控件 |
 | Toolbar | 仅 `views/StaffView/Task.vue` 的 1 处；账号关联旧 Toolbar 已随卡片删除 |
 | InputText | 5.2.1.2 已把 2 处换成原生 `<input>`，无剩余使用方 |
@@ -253,23 +253,23 @@ VideoList 已接到上述逻辑，改用 BaseTable、BasePagination 与列头 Ti
 
 待用户执行：Cypress 组件 spec、个人主页 / 数据库查询页 / 首页 / 比赛调用链的 E2E，以及生产构建与产物检查。验证重点为筛选 / 排序 / 翻页不新增录像请求、页码与排序状态双向同步、表格 / 散点切换、预览及独立单元格操作。加载性能收益以构建与测量结果为准，不把局部迁移视为整个项目已退出 PrimeVue。
 
-#### 5.2 其他使用方与最终清理（准备中，尚未实施）
+#### 5.2 其他使用方与最终清理（a / b 已实施，运行验证待用户）
 
-5.2 把剩余 6 个 PrimeVue DataTable 使用方按「一表一批」退出，全部退出后才删除依赖。每批独立审查、合并与回退；不新增 PrimeVue 使用范围，不把 [`VideoList/videoListData.ts`](src/components/VideoList/videoListData.ts) 的 VideoAbstract 专用逻辑推广为通用表格引擎，也不预先批量改写尚未轮到的表格。PrimeIcons、5.0 的 BasePagination 与 5.1 的公共基础继续保留；BaseTable 只负责展示，交互状态由各调用方维护。
+5.2 把剩余 4 个 PrimeVue DataTable 使用方按「一表一批」退出；a / b 已实施，运行验证待用户，全部退出后才删除依赖。每批独立审查、合并与回退；不新增 PrimeVue 使用范围，不把 [`VideoList/videoListData.ts`](src/components/VideoList/videoListData.ts) 的 VideoAbstract 专用逻辑推广为通用表格引擎，也不预先批量改写尚未轮到的表格。PrimeIcons、5.0 的 BasePagination 与 5.1 的公共基础继续保留；BaseTable 只负责展示，交互状态由各调用方维护。
 
 ##### 5.2.0 准备与准入
 
 1. 复核下方的起点事实表并固定 a→f 顺序；注册点共 9 处（`bootstrap.ts`、7 个 `.cy.ts`、`accountlinks/testUtils.ts`），任何使用方的能力发生变化，先更新该表再开始对应批次。
-2. 在 `eslint.config.js` 沿用现有按文件清单的规则风格，禁止新增 `primevue/*` / `@primevue/*` 导入，6 个现有使用方按批退出后逐条删除豁免；规则不扩展到 `primeicons`。
+2. `eslint.config.js` 已按文件清单风格禁止新增 `primevue/*` / `@primevue/*` / `@primeuix/*` 导入，现有直接依赖文件按批退出后逐条删除豁免；规则不扩展到 `primeicons`。
 3. 固定替代分工：BaseTable 提供 `head` / `default` 插槽、滚动容器与空状态，表头排序按钮、筛选控件、选择 / 展开状态与分页请求均留在调用方；分页统一复用 BasePagination，不新建通用表格组件或递归列注册体系。
 4. 固定每批验收清单：保留原有排序（前端 / 后端）、筛选、分页、选择、展开、行操作与请求参数；数据处理顺序为筛选 → 排序 → 分页；筛选或页容量变化后重置起始索引；保留 `data-cy` 定位、键盘与禁用行为；深浅主题与窄容器人工检查。
 
-起点事实与迁移顺序（2026-11-14 核对的迁移起点：6 个 DataTable / Column 使用方、3 个文件共 6 个 Listbox 实例、2 处 InputText、1 处 Toolbar；其中 Listbox、InputText 已分别由 5.2.1.1、5.2.1.2 替换，AccountLink 表格已由 5.2.2-a 替换）：
+起点事实与迁移顺序（2026-11-14 核对的迁移起点：6 个 DataTable / Column 使用方、3 个文件共 6 个 Listbox 实例、2 处 InputText、1 处 Toolbar；其中 Listbox、InputText 已分别由 5.2.1.1、5.2.1.2 替换，AccountLink 表格已由 5.2.2-a 替换，VideoImportQueue 表格已由 5.2.2-b 替换，当前剩 4 个 DataTable / Column 使用方）：
 
 | 批次 | 使用方 | 现有能力 | 迁移重点 |
 | --- | --- | --- | --- |
 | a | `StaffView/AccountLink.vue` | 5.2.2-a 已改为后端分页 + 固定列交互（见下方契约） | 已退出 PrimeVue DataTable，运行验证待用户；重点验证 BaseTable + BasePagination 与后端分页请求的衔接 |
-| b | `accountlinks/VideoImportQueue.vue` | 2 个 Listbox 筛选、5 列前端排序、表内分页 rows=10、单元格预览 / 导入 | 验证筛选 → 排序 → 分页顺序与筛选后页码重置 |
+| b | `accountlinks/VideoImportQueue.vue` | 5.2.2-b 已改为 BaseTable + BasePagination 与本地筛选 / 排序 / 分页 | 已退出 PrimeVue DataTable，运行验证待用户；重点验证筛选 → 稳定排序 → 分页顺序、表头三态排序、筛选后页码重置与单元格预览 / 导入 |
 | c | `accountlinks/MSGamesVideoImportQueue.vue` | InputText + 原生 select 自定义表头筛选、1 列前端排序、表内分页 rows=10、导入 / 重试 | 保留 `watch` 的 `first=0`、自定义表头与 `paginator-template` 的等效显示，去掉 `:deep(.p-*)` 覆盖 |
 | d | `DatabaseView/IdentifierView.vue` | Listbox 多选 + 内置搜索（`IN`）、2 列前端排序、表内分页 rows=25、staff 行菜单 + ElDialog 编辑 | 保留多选「空数组 vs null」、自定义清除按钮与 `:pt` 浮层定制的等效行为；ElDialog 不属本批 |
 | e | `VideoUpload/Table.vue` | 3 个 Listbox 筛选、4 列前端排序、原生 checkbox 行选择（表头半选）、expander 展开行、表内分页 rows=25、`@filter` 裁剪已选行 | 唯一已有选择与展开，需保留 `selectedRows` 与筛选结果联动、`#expansion` 描述列表 |
@@ -292,7 +292,7 @@ VideoList 已接到上述逻辑，改用 BaseTable、BasePagination 与列头 Ti
 
 6 个 Listbox 实例已换成原生 radio / checkbox 按钮组：纵向单列、内容左对齐并占满行宽，超过 12rem 组内滚动，公共样式为 `checkbox-buttons.css` 的 `.checkbox-buttons--vertical`。
 
-1. `VideoUpload/Table.vue` 的 status / stat.level / stat.mode 与 `accountlinks/VideoImportQueue.vue` 的 level / import_status 共 5 个单选改用 `radio-buttons`，用 `useId()` 生成互不冲突的组名；仍以 `filterModel.value` 存值，`@change` 先赋值再调用 `applyFilter()` / `filterCallback()`，避免原生 input 的 v-model 与回调顺序问题；清除筛选仍由 PrimeVue filter menu 的清除按钮承接。
+1. `VideoUpload/Table.vue` 的 status / stat.level / stat.mode 与 `accountlinks/VideoImportQueue.vue` 的 level / import_status 共 5 个单选改用 `radio-buttons`，用 `useId()` 生成互不冲突的组名；当时仍以 `filterModel.value` 存值，`@change` 先赋值再调用 `applyFilter()` / `filterCallback()`，避免原生 input 的 v-model 与回调顺序问题；清除筛选仍由 PrimeVue filter menu 的清除按钮承接。b 批次已把 `VideoImportQueue.vue` 的两组筛选改为组件自有 `filters` 和顶部按钮组，保留 `data-cy` 定位与等值匹配语义。
 2. `DatabaseView/IdentifierView.vue` 的 ownerKey 多选改用 `checkbox-buttons`，保留 Listbox 内置搜索（原生 input 按 `ownerOptions.label` 过滤）与 `null` 表示无筛选的语义；自定义 `#filterclear`、`filterCallback()` 和 `:pt` 浮层定制不变，局部 `--p-listbox-*` / `--p-inputtext-*` 覆盖已删除。
 3. 契约：保留 `FilterMatchMode.EQUALS / CONTAINS / IN` 的匹配语义、`filters.*.value` 的 null / 数组 / 字符串值类型、筛选触发时机、清除筛选与 `first=0` 重置；多选的空数组与 null 不合并，不同时重写表格状态。ownerKey 选项保留 `aria-label`（沿用 `ownerOptions.label`），选中态改用原生 `checked`。按钮组用 `data-cy=filter-*` 定位，`VideoUpload/Table.cy.ts` 的 `.p-listbox-option` 与 `IdentifierView.cy.ts` 的 `[role=option]` / `aria-selected` 定位已同步为 label 点击与 `input:checked`。
 
@@ -319,7 +319,7 @@ VideoList 已接到上述逻辑，改用 BaseTable、BasePagination 与列头 Ti
 
 ##### 5.2.3 测试与验证（随每批同步，Cypress 由用户运行）
 
-1. 删除对应 `.cy.ts` 的 PrimeVue 插件注册，把 `.p-listbox-option` / `.p-paginator-next` / `.p-datatable-*` 等定位改为 `data-cy`；表格文本复用 `cy.getTable` / `cy.extractTableData`，并覆盖 `change` 事件、页码与排序状态双向同步。组件 spec 为 `StaffView/AccountLink.cy.ts`、`StaffView/Task.cy.ts`、`DatabaseView/IdentifierView.cy.ts`、`VideoUpload/Table.cy.ts`、`VideoUpload/App.cy.ts`、`accountlinks/VideoImportQueue.cy.ts`、`accountlinks/MSGamesVideoImportQueue.cy.ts`。
+1. 删除对应 `.cy.ts` 的 PrimeVue 插件注册，把 `.p-listbox-option` / `.p-paginator-next` / `.p-datatable-*` 等定位改为 `data-cy`；表格文本复用 `cy.getTable` / `cy.extractTableData`，并覆盖 `change` 事件、页码与排序状态双向同步。`VideoImportQueue.cy.ts` 已改用 `[data-cy=saolei-import-table] table` 与顶层控件 `data-cy`，覆盖默认排序、三态排序、等级 / 状态筛选、页容量 / 跳页、筛选后页码重置与单元格导入；共享 `testUtils.ts` 的 PrimeVue 注册仍按第 2 点延后清理。组件 spec 为 `StaffView/AccountLink.cy.ts`、`StaffView/Task.cy.ts`、`DatabaseView/IdentifierView.cy.ts`、`VideoUpload/Table.cy.ts`、`VideoUpload/App.cy.ts`、`accountlinks/VideoImportQueue.cy.ts`、`accountlinks/MSGamesVideoImportQueue.cy.ts`。
 2. `accountlinks/testUtils.ts` 的 `plugins: [i18n, pinia, PrimeVue]` 影响 8+ 账号关联 spec，等账号关联两张表都退出后一次性移除；`VideoPlayer/NativePlayer.cy.ts` 的残留注册随 7.2 清理；`common/SelectStyles.cy.ts` 带 Aura preset 并注册真实 DataTable，随最后一个 Paginator Select 退出后改写成 `.base-select` 样式检查。
 3. E2E 复用 `cypress/e2e/accountlink.cy.ts`、`profile.cy.ts`、`bugfix/staff-requests.cy.ts`、`tournament.cy.ts`；`VideoUpload/Table.vue` 目前无专门 E2E，随该批补一条上传表格的选择 / 筛选 / 跨页用例。a 的 `/admin/queue` 响应结构变化需同步调整 `cypress/e2e/accountlink.cy.ts` 的 intercept 与表格断言。
 4. 每批验收：空数据、加载、默认排序与切换、筛选清除、页容量与跳页、筛选后页码重置、选择 / 展开与独立单元格操作、请求参数与提交次数、深浅主题与窄容器。分页替代至少覆盖首末页、页容量、跳页、总数、过滤后页码处理和数据变化；原生 HTML / CSS 只负责展示，不能替代这些数据和状态逻辑。
@@ -329,12 +329,12 @@ VideoList 已接到上述逻辑，改用 BaseTable、BasePagination 与列头 Ti
 按代码 → 样式 → 文档 → 依赖的顺序完成：
 
 1. 删除 `bootstrap.ts` 的 `definePreset` / `Aura` / `PrimeVue` 导入与 `app.use(PrimeVue, ...)`；`main.ts` 本身不注册插件，无需改动。清理 `App.vue` 的 `.p-datatable-filter-overlay-popover` / `.p-select-overlay` z-index 补丁。
-2. 删除 `vendors/primevue-table.css`、`primevue-table-controls.css`、`primevue-select.css` 及 7 处导入（6 个使用方 + `SelectStyles.cy.ts`）。`styles/parameters/primevue.less` 属 Git 忽略的本地参考存档，只核对无构建依赖，不作为交付物。
+2. 删除 `vendors/primevue-table.css`、`primevue-table-controls.css`、`primevue-select.css` 及 5 处导入（4 个使用方 + `SelectStyles.cy.ts`）。`styles/parameters/primevue.less` 属 Git 忽略的本地参考存档，只核对无构建依赖，不作为交付物。
 3. 从 `package.json` / `package-lock.json` 删除 `primevue`、`@primevue/core`、`@primeuix/themes` 及仅由它们引入的传递依赖；保留 `primeicons` 7.0.0、全部 `primeicons/primeicons.css` 导入点、离线打包脚本与 CDN 样式检查。
 4. 同步修正仍称 `main.ts` 注册 PrimeVue / Aura 的 `docs/development.md`、`src/styles/parameters/README.md`，把第 5 节依赖表与「剩余工作」表中的批次 5 标为完成。
 5. 全库检索确认 `primevue` / `@primevue` / `@primeuix` 导入与 `.p-*` 选择器归零（`primeicons` 除外），再做生产构建与产物检查；不把局部迁移视为整个项目已退出 PrimeVue。
 
-**顺序与边界**：5.2.4 必须等 6 个使用方全部退出；若 `Task.vue` 长期随管理员维护而暂缓，其余 5 表退出后先保留最小注册与依赖，不提前删除。现有 `vendors/primevue-table*.css` 已完成必要的表格过渡适配，不再重复建立这些文件，也不建设完整的 PrimeVue 主题体系；是否提取 `bootstrap.ts` 中的 preset 按实际维护需要决定。a 含后端 API 扩展，前后端改动同批验收；若后端暂未就绪可先推进 b，再回到 a，但不能跳过 a 的列交互契约。复杂交互确需组件库时，再核对项目现有 Element Plus 组合，不引入新的表格库。
+**顺序与边界**：5.2.4 必须等 4 个剩余使用方全部退出；若 `Task.vue` 长期随管理员维护而暂缓，其余 3 表退出后先保留最小注册与依赖，不提前删除。现有 `vendors/primevue-table*.css` 已完成必要的表格过渡适配，不再重复建立这些文件，也不建设完整的 PrimeVue 主题体系；是否提取 `bootstrap.ts` 中的 preset 按实际维护需要决定。a 含后端 API 扩展，前后端改动同批验收；b 已先行实施，a 的列交互契约仍不可跳过。复杂交互确需组件库时，再核对项目现有 Element Plus 组合，不引入新的表格库。
 
 ### 6. 暂缓范围、独立页面计划与局部收尾
 
@@ -346,7 +346,8 @@ VideoList 已接到上述逻辑，改用 BaseTable、BasePagination 与列头 Ti
 当前 `eslint.config.js` 的相关规则：
 
 - 基础规则对所有 `**/*.{js,ts,vue}` 禁止新增 ElText、Element Plus 布局组件、ElCard、ElDivider 及 ElCheckbox / ElCheckboxGroup / ElCheckboxButton。
-- `src/**/*.vue` 追加禁止 ElButton / ElLink；`ignores` 仅有 `views/HomeView/NormalTournamentQueue.vue` 与 `components/accountlinks/VideoImportQueue.vue` 两个文件级例外，不扩展为目录豁免。前者仍有 ElCard 1 处、ElLink 3 处，并靠文件首行的整文件 `eslint-disable vue/no-restricted-html-elements` 放行；后者已无 ElButton / ElLink 调用点，例外失效，按收尾清理。
+- `src/**/*.vue` 追加禁止 ElButton / ElLink；`ignores` 仅保留 `views/HomeView/NormalTournamentQueue.vue` 一个文件级例外，不扩展为目录豁免。该文件仍有 ElCard 1 处、ElLink 3 处，并靠文件首行的整文件 `eslint-disable vue/no-restricted-html-elements` 放行；`VideoImportQueue.vue` 的失效例外已随 b 批次移除。
+- `no-restricted-imports` 按文件清单禁止新增 `primevue/*` / `@primevue/*` / `@primeuix/*` 导入；当前仍直接依赖 PrimeVue 的 12 个文件保留豁免，随各表退出逐条删除，不扩展到 `primeicons`。
 - 另有两组文件清单把 ElDescriptions / ElDescriptionsItem 一并加入禁止，含 `views/DatabaseView/VideoView.vue`；第 2 节的 4 个现存调用点不在清单内。
 - `vue/no-undef-components` 的图标名称豁免（除 `router-view` 外）随 7.2 清理；全局 `ignores` 中的 `**/GuideView.vue` 已无对应文件，随收尾删除。
 

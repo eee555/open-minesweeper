@@ -26,76 +26,122 @@
         <p v-if="summary">
             {{ t('local.summary', { ...summary }) }}
         </p>
-        <PrDataTable
-            v-model:filters="filters" :value="tableData" row-hover size="small"
-            sort-field="upload_time" :sort-order="-1" paginator :rows="10" :rows-per-page-options="[5, 10, 25, 50, 100]"
-            filter-display="menu"
-        >
-            <PrColumn field="remote_id" sortable header="ID" />
-            <PrColumn field="upload_time" sortable :header="t('prop.upload_time')">
-                <template #body="{ data }">
-                    {{ utc_to_local_format(data.upload_time) }}
-                </template>
-            </PrColumn>
-            <PrColumn field="level" :header="t('prop.level')" :show-filter-match-modes="false" :show-filter-operator="false">
-                <template #body="{ data }">
-                    <GameLevelIcon :level="data.level" />
-                </template>
-                <template #filter="{ filterModel, filterCallback }">
-                    <div class="checkbox-buttons--vertical radio-buttons" role="group" :aria-label="t('prop.level')" data-cy="filter-level">
-                        <label v-for="level of MS_Levels" :key="level" class="radio-button">
-                            <input class="radio-button-input" type="radio" :name="`${filterName}-level`" :value="level" :checked="filterModel.value === level" @change="filterModel.value = level; filterCallback()">
-                            <span class="radio-button-content">{{ level }}</span>
-                        </label>
-                    </div>
-                </template>
-            </PrColumn>
-            <PrColumn field="timems" :header="t('prop.time')" sortable>
-                <template #body="{ data }: { data: SaoleiVideo }">
-                    {{ (data.timems / 1000).toFixed(3) }} <span v-if="data.nf">NF</span>
-                </template>
-            </PrColumn>
-            <PrColumn field="bv" :header="t('prop.bv')" sortable />
-            <PrColumn field="software" :header="t('local.software')" sortable />
-            <PrColumn field="import_status" :header="t('prop.state')" :show-filter-match-modes="false" :show-filter-operator="false">
-                <template #body="{ data }">
-                    {{ t(`local.${ data.import_status}`) }}
-                    <span v-if="failures[data.id]" class="text-danger">{{ failures[data.id] }}</span>
-                </template>
-                <template #filter="{ filterModel, filterCallback }">
-                    <div class="checkbox-buttons--vertical radio-buttons" role="group" :aria-label="t('prop.state')" data-cy="filter-import-status">
-                        <label v-for="status of importStatuses" :key="status" class="radio-button">
-                            <input class="radio-button-input" type="radio" :name="`${filterName}-import-status`" :value="status" :checked="filterModel.value === status" @change="filterModel.value = status; filterCallback()">
-                            <span class="radio-button-content">{{ t(`local.${status}`) }}</span>
-                        </label>
-                    </div>
-                </template>
-            </PrColumn>
-            <PrColumn>
-                <template #body="{ data }: { data: SaoleiVideo }">
-                    <VideoPreviewLink v-if="data.import_video !== null" :id="data.import_video" :aria-label="t('local.preview')">
+        <div class="saolei-import__filters">
+            <div class="saolei-import__filter">
+                <span class="text-small">{{ t('prop.level') }}</span>
+                <div class="checkbox-buttons--vertical radio-buttons" role="group" :aria-label="t('prop.level')" data-cy="filter-level">
+                    <label v-for="option of levelOptions" :key="option.value ?? 'all'" class="radio-button">
+                        <input v-model="filters.level" class="radio-button-input" type="radio" :name="`${filterName}-level`" :value="option.value" :data-filter-value="option.value ?? 'all'">
+                        <span class="radio-button-content">{{ option.label }}</span>
+                    </label>
+                </div>
+            </div>
+            <div class="saolei-import__filter">
+                <span class="text-small">{{ t('prop.state') }}</span>
+                <div class="checkbox-buttons--vertical radio-buttons" role="group" :aria-label="t('prop.state')" data-cy="filter-import-status">
+                    <label v-for="option of statusOptions" :key="option.value ?? 'all'" class="radio-button">
+                        <input v-model="filters.import_status" class="radio-button-input" type="radio" :name="`${filterName}-status`" :value="option.value" :data-filter-value="option.value ?? 'all'">
+                        <span class="radio-button-content">{{ option.label }}</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+        <BaseTable :empty="pageRows.length === 0" :empty-text="t('local.empty')" :column-count="8" data-cy="saolei-import-table">
+            <template #head>
+                <tr>
+                    <th scope="col" class="table-col-number" :aria-sort="ariaSort('remote_id')">
+                        <BaseButton size="small" text aria-label="ID" data-cy="sort-remote-id" @click="toggleSort('remote_id')">
+                            ID
+                            <i class="pi" :class="sortIcon('remote_id')" aria-hidden="true" />
+                        </BaseButton>
+                    </th>
+                    <th scope="col" class="table-col-datetime" :aria-sort="ariaSort('upload_time')">
+                        <BaseButton size="small" text :aria-label="t('prop.upload_time')" data-cy="sort-upload-time" @click="toggleSort('upload_time')">
+                            {{ t('prop.upload_time') }}
+                            <i class="pi" :class="sortIcon('upload_time')" aria-hidden="true" />
+                        </BaseButton>
+                    </th>
+                    <th scope="col" class="table-col-center">
+                        {{ t('prop.level') }}
+                    </th>
+                    <th scope="col" class="table-col-number" :aria-sort="ariaSort('timems')">
+                        <BaseButton size="small" text :aria-label="t('prop.time')" data-cy="sort-timems" @click="toggleSort('timems')">
+                            {{ t('prop.time') }}
+                            <i class="pi" :class="sortIcon('timems')" aria-hidden="true" />
+                        </BaseButton>
+                    </th>
+                    <th scope="col" class="table-col-bv" :aria-sort="ariaSort('bv')">
+                        <BaseButton size="small" text :aria-label="t('prop.bv')" data-cy="sort-bv" @click="toggleSort('bv')">
+                            {{ t('prop.bv') }}
+                            <i class="pi" :class="sortIcon('bv')" aria-hidden="true" />
+                        </BaseButton>
+                    </th>
+                    <th scope="col" class="table-col-center" :aria-sort="ariaSort('software')">
+                        <BaseButton size="small" text :aria-label="t('local.software')" data-cy="sort-software" @click="toggleSort('software')">
+                            {{ t('local.software') }}
+                            <i class="pi" :class="sortIcon('software')" aria-hidden="true" />
+                        </BaseButton>
+                    </th>
+                    <th scope="col" class="table-col-center">
+                        {{ t('prop.state') }}
+                    </th>
+                    <th scope="col" class="table-col-center" />
+                </tr>
+            </template>
+            <tr v-for="row in pageRows" :key="row.id">
+                <td class="table-col-number">
+                    {{ row.remote_id }}
+                </td>
+                <td class="table-col-datetime">
+                    {{ utc_to_local_format(row.upload_time) }}
+                </td>
+                <td class="table-col-center">
+                    <GameLevelIcon :level="row.level" />
+                </td>
+                <td class="table-col-number">
+                    {{ (row.timems / 1000).toFixed(3) }} <span v-if="row.nf">NF</span>
+                </td>
+                <td class="table-col-bv">
+                    {{ row.bv }}
+                </td>
+                <td class="table-col-center">
+                    {{ row.software }}
+                </td>
+                <td>
+                    {{ t(`local.${row.import_status}`) }}
+                    <span v-if="failures[row.id]" class="text-danger">{{ failures[row.id] }}</span>
+                </td>
+                <td class="table-col-center">
+                    <VideoPreviewLink v-if="row.import_video !== null" :id="row.import_video" :aria-label="t('local.preview')">
                         <i class="pi pi-play-circle" />
                     </VideoPreviewLink>
-                    <BaseButton v-else-if="owner && canImportSaoleiVideo(data)" size="small" :disabled="busy" @click="importOne(data)">
+                    <BaseButton v-else-if="owner && canImportSaoleiVideo(row)" size="small" :disabled="busy" data-cy="saolei-import-row" @click="importOne(row)">
                         {{ t('local.import') }}
                     </BaseButton>
-                </template>
-            </PrColumn>
-        </PrDataTable>
+                </td>
+            </tr>
+        </BaseTable>
+        <BasePagination
+            v-model:current-start="currentStart" v-model:page-size="pageSize"
+            :total="total" :page-size-options="[5, 10, 25, 50, 100]" data-cy="saolei-import-pagination"
+        />
     </div>
 </template>
 
 <script setup lang="ts">
-import '@/styles/vendors/primevue-table.css';
-import { FilterMatchMode } from '@primevue/core/api';
+import 'primeicons/primeicons.css';
+
 import { promiseTimeout } from '@vueuse/core';
 import { isAxiosError } from 'axios';
-import PrColumn from 'primevue/column';
-import PrDataTable from 'primevue/datatable';
-import { computed, onBeforeUnmount, ref, useId, watch } from 'vue';
+import { computed, onBeforeUnmount, reactive, ref, useId, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
+import type { ImportQueueFilters, SaoleiTableVideo, SortField } from './videoImportQueueData';
+import { createImportQueueFilters, filterImportQueue, importStatuses, importStatusOf, sliceImportQueue, sortImportQueue } from './videoImportQueueData';
+
 import BaseButton from '@/components/common/BaseButton.vue';
+import BasePagination from '@/components/common/BasePagination.vue';
+import BaseTable from '@/components/common/BaseTable.vue';
 import { httpErrorNotification } from '@/components/Notifications';
 import VideoPreviewLink from '@/components/VideoPreviewLink.vue';
 import GameLevelIcon from '@/components/widgets/GameLevelIcon.vue';
@@ -117,15 +163,57 @@ const stopping = ref(false);
 const progress = ref<SaoleiSyncProgress>();
 const failures = ref<Record<number, string>>({});
 const filterName = useId();
-const importStatuses = ['imported', 'pending', 'rejected', 'unsupported'] as const;
-const filters = ref({
-    level: { value: null, matchMode: FilterMatchMode.EQUALS },
-    import_status: { value: null, matchMode: FilterMatchMode.EQUALS },
-});
+const filters = reactive<ImportQueueFilters>(createImportQueueFilters());
+const currentStart = ref(1);
+const pageSize = ref(10);
+const sortField = ref<SortField>('upload_time');
+const sortOrder = ref<number | undefined>(-1);
 let context = 0;
-const tableData = computed(() => videos.value.map((video) => ({
-    ...video, import_status: video.import_video !== null ? 'imported' : video.import_rejected ? 'rejected' : canImportSaoleiVideo(video) ? 'pending' : 'unsupported',
+
+const levelOptions = computed(() => [
+    { value: null, label: t('local.all') },
+    ...MS_Levels.map((level) => ({ value: level, label: level })),
+]);
+const statusOptions = computed(() => [
+    { value: null, label: t('local.all') },
+    ...importStatuses.map((status) => ({ value: status, label: t(`local.${status}`) })),
+]);
+const tableData = computed<SaoleiTableVideo[]>(() => videos.value.map((video) => ({
+    ...video, import_status: importStatusOf(video, canImportSaoleiVideo(video)),
 })));
+const processed = computed(() => sortImportQueue(filterImportQueue(tableData.value, filters), sortField.value, sortOrder.value));
+const total = computed(() => processed.value.length);
+const first = computed(() => Math.max(0, Math.min(currentStart.value, total.value) - 1));
+const pageRows = computed(() => sliceImportQueue(processed.value, first.value, pageSize.value));
+
+watch(filters, () => {
+    currentStart.value = 1;
+});
+
+function ariaSort(field: SortField): 'ascending' | 'descending' | 'none' {
+    if (sortField.value !== field || sortOrder.value === undefined || sortOrder.value === 0) return 'none';
+    return sortOrder.value < 0 ? 'descending' : 'ascending';
+}
+
+function sortIcon(field: SortField): string {
+    const state = ariaSort(field);
+    if (state === 'none') return 'pi-sort-alt';
+    return state === 'descending' ? 'pi-sort-amount-down' : 'pi-sort-amount-down-alt';
+}
+
+function toggleSort(field: SortField) {
+    if (sortField.value !== field) {
+        sortField.value = field;
+        sortOrder.value = 1;
+    } else if (sortOrder.value === 1) {
+        sortOrder.value = -1;
+    } else if (sortOrder.value === -1) {
+        sortOrder.value = 0;
+    } else {
+        sortOrder.value = 1;
+    }
+    currentStart.value = 1;
+}
 
 async function refresh(current = context) {
     if (!props.saoleiId) return;
@@ -203,6 +291,7 @@ watch(() => [props.saoleiId, props.owner] as const, () => {
     failures.value = {};
     busy.value = false;
     stopping.value = false;
+    currentStart.value = 1;
     void refresh();
 }, { immediate: true });
 onBeforeUnmount(() => {
@@ -225,6 +314,8 @@ const { t } = useI18n({ messages: {
         importProgress: '已处理 {completed} 个录像，失败 {failed} 个',
         summary: '已收藏 {total}，已导入 {imported}，待导入 {pending}，拒收 {rejected}，不支持 {skipped}',
         software: '软件',
+        all: '全部',
+        empty: '暂无录像',
         imported: '已导入',
         pending: '待导入',
         rejected: '本站拒收',
@@ -248,6 +339,8 @@ const { t } = useI18n({ messages: {
         importProgress: 'Processed {completed} replays; {failed} failed',
         summary: 'Collected {total}; imported {imported}; pending {pending}; rejected {rejected}; unsupported {skipped}',
         software: 'Software',
+        all: 'All',
+        empty: 'No replays',
         imported: 'Imported',
         pending: 'Pending',
         rejected: 'Rejected locally',
@@ -265,5 +358,21 @@ const { t } = useI18n({ messages: {
     align-items: center;
     flex-wrap: wrap;
     gap: 0.5em;
+}
+.saolei-import__filters {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 0.5em 1em;
+    margin: 0.5em 0;
+}
+.saolei-import__filter {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.25em;
+}
+.saolei-import__filter > .text-small {
+    padding-top: 0.3em;
+    white-space: nowrap;
 }
 </style>
