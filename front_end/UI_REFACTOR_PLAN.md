@@ -178,7 +178,7 @@ Slider 使用方涉及公共播放器；实施前检查 Analyzer 与离线入口
 
 | 依赖 | 当前使用方 |
 | --- | --- |
-| DataTable / Column | `components/VideoUpload/Table.vue`、`components/accountlinks/VideoImportQueue.vue`、`components/accountlinks/MSGamesVideoImportQueue.vue`、`views/DatabaseView/IdentifierView.vue`、`views/StaffView/AccountLink.vue`、`views/StaffView/Task.vue`，共 6 个表格入口；VideoList 已退出 |
+| DataTable / Column | `components/VideoUpload/Table.vue`、`components/accountlinks/VideoImportQueue.vue`、`components/accountlinks/MSGamesVideoImportQueue.vue`、`views/DatabaseView/IdentifierView.vue`、`views/StaffView/Task.vue`，共 5 个表格入口；VideoList 与 5.2.2-a 的 AccountLink 已退出 |
 | Listbox | 5.2.1.1 已把 3 个文件共 6 个实例换成纵向按钮组，无剩余使用方；VideoList 的 4 个列筛选此前已改为原生控件 |
 | Toolbar | 仅 `views/StaffView/Task.vue` 的 1 处；账号关联旧 Toolbar 已随卡片删除 |
 | InputText | 5.2.1.2 已把 2 处换成原生 `<input>`，无剩余使用方 |
@@ -249,7 +249,7 @@ VideoList 已接到上述逻辑，改用 BaseTable、BasePagination 与列头 Ti
 
 ##### 5.1.3 回归与依赖清理（代码已完成，运行验证待用户）
 
-`UserVideoView.cy.ts`、`VideoView.cy.ts`、`HomeView.cy.ts` 已改用 `[data-cy=video-list-table] table` 等稳定定位并移除不再需要的 PrimeVue 插件注册；E2E 沿用通用 `table:visible` 定位。VideoList 路径的 DataTable / Column / Listbox、筛选类型、列包装、样式导入与测试注册均已删除；仍服务其他 6 个表格的适配样式、注册和包依赖继续保留。
+`UserVideoView.cy.ts`、`VideoView.cy.ts`、`HomeView.cy.ts` 已改用 `[data-cy=video-list-table] table` 等稳定定位并移除不再需要的 PrimeVue 插件注册；E2E 沿用通用 `table:visible` 定位。VideoList 路径的 DataTable / Column / Listbox、筛选类型、列包装、样式导入与测试注册均已删除；仍服务其余表格的适配样式、注册和包依赖继续保留。
 
 待用户执行：Cypress 组件 spec、个人主页 / 数据库查询页 / 首页 / 比赛调用链的 E2E，以及生产构建与产物检查。验证重点为筛选 / 排序 / 翻页不新增录像请求、页码与排序状态双向同步、表格 / 散点切换、预览及独立单元格操作。加载性能收益以构建与测量结果为准，不把局部迁移视为整个项目已退出 PrimeVue。
 
@@ -264,18 +264,18 @@ VideoList 已接到上述逻辑，改用 BaseTable、BasePagination 与列头 Ti
 3. 固定替代分工：BaseTable 提供 `head` / `default` 插槽、滚动容器与空状态，表头排序按钮、筛选控件、选择 / 展开状态与分页请求均留在调用方；分页统一复用 BasePagination，不新建通用表格组件或递归列注册体系。
 4. 固定每批验收清单：保留原有排序（前端 / 后端）、筛选、分页、选择、展开、行操作与请求参数；数据处理顺序为筛选 → 排序 → 分页；筛选或页容量变化后重置起始索引；保留 `data-cy` 定位、键盘与禁用行为；深浅主题与窄容器人工检查。
 
-起点事实与迁移顺序（2026-11-14 核对的迁移起点：6 个 DataTable / Column 使用方、3 个文件共 6 个 Listbox 实例、2 处 InputText、1 处 Toolbar；其中 Listbox、InputText 已分别由 5.2.1.1、5.2.1.2 替换）：
+起点事实与迁移顺序（2026-11-14 核对的迁移起点：6 个 DataTable / Column 使用方、3 个文件共 6 个 Listbox 实例、2 处 InputText、1 处 Toolbar；其中 Listbox、InputText 已分别由 5.2.1.1、5.2.1.2 替换，AccountLink 表格已由 5.2.2-a 替换）：
 
 | 批次 | 使用方 | 现有能力 | 迁移重点 |
 | --- | --- | --- | --- |
-| a | `StaffView/AccountLink.vue` | 现状为一次拉全量 + 表内分页 rows=10 + 4 列前端排序；目标为后端分页与下方固定列交互 | 列交互最少但需后端 API 扩展，不再是纯前端表；验证 BaseTable + BasePagination 与后端分页请求的衔接 |
+| a | `StaffView/AccountLink.vue` | 5.2.2-a 已改为后端分页 + 固定列交互（见下方契约） | 已退出 PrimeVue DataTable，运行验证待用户；重点验证 BaseTable + BasePagination 与后端分页请求的衔接 |
 | b | `accountlinks/VideoImportQueue.vue` | 2 个 Listbox 筛选、5 列前端排序、表内分页 rows=10、单元格预览 / 导入 | 验证筛选 → 排序 → 分页顺序与筛选后页码重置 |
 | c | `accountlinks/MSGamesVideoImportQueue.vue` | InputText + 原生 select 自定义表头筛选、1 列前端排序、表内分页 rows=10、导入 / 重试 | 保留 `watch` 的 `first=0`、自定义表头与 `paginator-template` 的等效显示，去掉 `:deep(.p-*)` 覆盖 |
 | d | `DatabaseView/IdentifierView.vue` | Listbox 多选 + 内置搜索（`IN`）、2 列前端排序、表内分页 rows=25、staff 行菜单 + ElDialog 编辑 | 保留多选「空数组 vs null」、自定义清除按钮与 `:pt` 浮层定制的等效行为；ElDialog 不属本批 |
 | e | `VideoUpload/Table.vue` | 3 个 Listbox 筛选、4 列前端排序、原生 checkbox 行选择（表头半选）、expander 展开行、表内分页 rows=25、`@filter` 裁剪已选行 | 唯一已有选择与展开，需保留 `selectedRows` 与筛选结果联动、`#expansion` 描述列表 |
 | f | `StaffView/Task.vue` | 唯一 lazy 后端排序 / 筛选 / 分页、多选行批量删除、InputText 筛选、Toolbar、失败任务重启 | 排在最后并随管理员任务页维护处理；`@page/@sort/@filter` 改为显式请求函数 |
 
-**a 批次的列交互契约**：当前 `GET /api/accountlink/admin/queue` 返回 `AccountLinkQueue` 全量（`id` / `platform` / `identifier` / `userprofile` / `verified`），页面用 `PrDataTable` 做 rows=10 本地分页、4 列前端排序、无筛选。迁移后按下表实现，不沿用「前端排序 + 本地切片」：
+**a 批次的列交互契约（5.2.2-a 已实施，运行验证待用户）**：迁移前 `GET /api/accountlink/admin/queue` 返回 `AccountLinkQueue` 全量（`id` / `platform` / `identifier` / `userprofile` / `verified`），页面用 `PrDataTable` 做 rows=10 本地分页、4 列前端排序、无筛选。现在按下表实现，不沿用「前端排序 + 本地切片」：
 
 | 列 | 交互 |
 | --- | --- |
@@ -286,7 +286,7 @@ VideoList 已接到上述逻辑，改用 BaseTable、BasePagination 与列头 Ti
 
 绑定分手动与自动：页面顶部表单只用 `manualAccountLinkPlatforms` 的 6 个手动绑定平台；`AccountLinkQueue.platform` 的取值来自后端 `Platform` 枚举（9 个），因此筛选选项按 `AccountLinkPlatform` 全集维护，不复用表单列表。两者范围不同属于既有设计。
 
-后端分页：`/admin/queue` 按[根目录后端规范](../AGENTS.md)扩展为接收页容量、起始索引 / 页码、`platform` / `verified` 筛选与《用户 ID》排序参数，并返回当前页数据与总数；沿用 Ninja API、`staff_required`、`create_schema` 和 docstring 装饰器说明，权限与参数校验留在 API 层，管理员 API 不加限流。前端把后端 `total` 交给 BasePagination，由 `change` 及筛选 / 排序变化触发重新请求，不再对全量结果本地切片；筛选或排序变化后重置起始索引且不重复发请求，空结果、越界起始索引、请求中的 loading 与禁用态按 5.0 / 5.1 约定处理。两列筛选优先复用 `.base-select` / 原生按钮组，不新增重置按钮。该接口还被 `cypress/e2e/accountlink.cy.ts` 的 intercept 使用，响应结构变化需同步。
+后端分页：`/admin/queue` 按[根目录后端规范](../AGENTS.md)扩展为接收页容量、起始索引 / 页码、`platform` / `verified` 筛选与《用户 ID》排序参数，并返回当前页数据与总数；沿用 Ninja API、`staff_required`、`create_schema` 和 docstring 装饰器说明，权限与参数校验留在 API 层，管理员 API 不加限流。前端把后端 `total` 交给 BasePagination，由 `change` 及筛选 / 排序变化触发重新请求，不再对全量结果本地切片；筛选或排序变化后重置起始索引且不重复发请求，空结果、越界起始索引、请求中的 loading 与禁用态按 5.0 / 5.1 约定处理。两列筛选优先复用 `.base-select` / 原生按钮组，不新增重置按钮。该接口还被 `cypress/e2e/accountlink.cy.ts` 的 intercept 使用，响应结构与 pathname 匹配已同步。两列筛选放在表格上方的紧凑筛选行，表头保持纯文本列名以免污染 E2E 表头断言；用户 ID 列为三态排序（未排序 → 升序 → 降序 → 清除），平台 ID 列无交互；`AccountLink.cy.ts` 新增排序 / 筛选 / 翻页的请求参数断言。
 
 ##### 5.2.1.1 Listbox → 纵向按钮组（已实施，运行验证待用户）
 

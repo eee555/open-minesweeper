@@ -7,3 +7,10 @@ export interface AccountLinkQueueResponse {
     userprofile: number;
     verified: boolean;
 }
+
+export interface AccountLinkQueuePageResponse {
+    count: number;
+    page: number;
+    page_size: number;
+    items: AccountLinkQueueResponse[];
+}
