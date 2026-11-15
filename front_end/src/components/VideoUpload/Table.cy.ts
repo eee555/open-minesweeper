@@ -39,16 +39,40 @@ function filterStatus(label: string) {
 }
 
 describe('<VideoUpload Table /> icon buttons', () => {
-    it('inherits the header font and color for sort and filter icons', () => {
+    it('groups column text, its sort icon and its filter icon in one VideoList-style head', () => {
+        mountTable();
+        const head = `${TABLE} thead`;
+        cy.get(`${head} .upload-head`).should('have.length', 9).and('have.css', 'display', 'inline-flex').and('have.css', 'gap', '2px');
+        cy.get(`${head} [data-cy=sort-end-time]`).should('contain.text', 'End Time').find('i').should('have.class', 'upload-head__sort-icon');
+        cy.get(`${head} th`).eq(4).should('have.text', 'End Time');
+        cy.get(`${head} th`).eq(3).find('.upload-head > span').should('have.text', 'Status');
+        cy.get(`${head} [data-cy=filter-status-trigger]`).closest('.upload-head').should('exist');
+    });
+
+    it('scales header icons from the header font and dims inactive sort icons', () => {
         mountTable();
         cy.get(`${TABLE} thead th`).eq(3).then(($th) => {
             const headerFontSize = $th.css('font-size');
             const headerColor = $th.css('color');
-            for (const trigger of ['[data-cy=sort-end-time]', '[data-cy=filter-status-trigger]']) {
-                cy.get(`${TABLE} thead ${trigger}`).should('have.css', 'font-size', headerFontSize).and('have.css', 'color', headerColor);
-                cy.get(`${TABLE} thead ${trigger} .pi`).should('have.css', 'font-size', headerFontSize).and('have.css', 'color', headerColor);
-            }
+            const iconFontSize = parseFloat(headerFontSize) * 0.75;
+            cy.get(`${TABLE} thead [data-cy=sort-end-time]`).should('have.css', 'font-size', headerFontSize).and('have.css', 'color', headerColor);
+            cy.get(`${TABLE} thead [data-cy=sort-end-time] .upload-head__sort-icon`).should('have.class', 'upload-head__sort-icon--inactive').and('have.css', 'color', headerColor).and(($icon) => {
+                expect(parseFloat($icon.css('font-size'))).to.be.closeTo(iconFontSize, 0.1);
+            });
+            cy.get(`${TABLE} thead [data-cy=filter-status-trigger]`).should('have.css', 'color', headerColor).and(($filter) => {
+                expect(parseFloat($filter.css('font-size'))).to.be.closeTo(iconFontSize, 0.1);
+            });
+            cy.get(`${TABLE} thead [data-cy=filter-status-trigger] .pi`).should('have.css', 'color', headerColor).and(($icon) => {
+                expect(parseFloat($icon.css('font-size'))).to.be.closeTo(iconFontSize, 0.1);
+            });
         });
+    });
+
+    it('activates the sort icon of the sorted column', () => {
+        mountTable();
+        cy.get('[data-cy=sort-time] .upload-head__sort-icon').should('have.class', 'upload-head__sort-icon--inactive');
+        cy.get('[data-cy=sort-time]').click();
+        cy.get('[data-cy=sort-time] .upload-head__sort-icon').should('not.have.class', 'upload-head__sort-icon--inactive').and('have.class', 'pi-sort-amount-down-alt');
     });
 
     it('inherits the same table font and the row color for the expand icon', () => {

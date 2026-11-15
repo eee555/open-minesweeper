@@ -14,23 +14,26 @@
                     </th>
                     <th scope="col" class="table-col-center upload-col-software" />
                     <th v-for="column in columns" :key="column.key" scope="col" :class="column.cellClass" :aria-sort="column.sortField === null ? undefined : sortState(sortOrder, sortField === column.sortField)">
-                        <span>{{ column.label }}</span>
-                        <BaseButton v-if="column.sortField !== null" class="upload-icon-button" size="small" text :aria-label="column.label" :data-cy="`sort-${column.key}`" @click="toggleColumnSort(column.sortField)">
-                            <SortIcon :state="sortState(sortOrder, sortField === column.sortField)" />
-                        </BaseButton>
-                        <Tippy v-if="column.filterField !== null" interactive trigger="click" placement="bottom-start" :append-to="appendToBody">
-                            <BaseButton class="upload-icon-button" size="small" text :aria-label="column.filterLabel" :data-cy="`filter-${column.key}-trigger`">
-                                <i class="pi" :class="filterIsClear(column.filterField) ? 'pi-filter' : 'pi-filter-fill'" aria-hidden="true" />
-                            </BaseButton>
-                            <template #content="{ hide }">
-                                <div class="card card-small upload-filter-menu" @click.stop @keydown.esc="hide()">
-                                    <BaseListbox :model-value="filterValue(column.filterField)" :options="column.options" :aria-label="column.filterLabel" :data-cy="`filter-${column.key}`" @update:model-value="applyFilter(column.filterField, $event); hide()" />
-                                    <BaseButton size="small" text :data-cy="`filter-${column.key}-clear`" @click="resetFilter(column.filterField); hide()">
-                                        {{ t('local.clearFilter') }}
-                                    </BaseButton>
-                                </div>
-                            </template>
-                        </Tippy>
+                        <span class="upload-head">
+                            <button v-if="column.sortField !== null" type="button" class="upload-head__sort" :data-cy="`sort-${column.key}`" @click="toggleColumnSort(column.sortField)">
+                                <span>{{ column.label }}</span>
+                                <SortIcon :state="sortState(sortOrder, sortField === column.sortField)" class="upload-head__sort-icon" :class="{ 'upload-head__sort-icon--inactive': !isSortedColumn(column) }" />
+                            </button>
+                            <span v-else>{{ column.label }}</span>
+                            <Tippy v-if="column.filterField !== null" interactive trigger="click" placement="bottom-start" :append-to="appendToBody">
+                                <button type="button" class="upload-head__filter" :aria-label="column.filterLabel" :title="column.filterLabel" :data-cy="`filter-${column.key}-trigger`">
+                                    <i class="pi" :class="filterIsClear(column.filterField) ? 'pi-filter' : 'pi-filter-fill'" aria-hidden="true" />
+                                </button>
+                                <template #content="{ hide }">
+                                    <div class="card card-small upload-filter-menu" @click.stop @keydown.esc="hide()">
+                                        <BaseListbox :model-value="filterValue(column.filterField)" :options="column.options" :aria-label="column.filterLabel" :data-cy="`filter-${column.key}`" @update:model-value="applyFilter(column.filterField, $event); hide()" />
+                                        <BaseButton size="small" text :data-cy="`filter-${column.key}-clear`" @click="resetFilter(column.filterField); hide()">
+                                            {{ t('local.clearFilter') }}
+                                        </BaseButton>
+                                    </div>
+                                </template>
+                            </Tippy>
+                        </span>
                     </th>
                 </tr>
             </template>
@@ -242,6 +245,10 @@ function toggleColumnSort(field: UploadSortField | null) {
     if (field !== null) toggleSort(field);
 }
 
+function isSortedColumn(column: UploadColumn): boolean {
+    return sortState(sortOrder.value, column.sortField !== null && sortField.value === column.sortField) !== 'none';
+}
+
 function formatEndTime(stat: UploadEntry['stat']): string {
     const end = stat?.end_time;
     return end === undefined ? '' : toISODateTimeString(end);
@@ -377,6 +384,56 @@ const columns = computed<UploadColumn[]>(() => [
 .upload-table .upload-icon-button {
     color: inherit;
     font: inherit;
+}
+
+.upload-head {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.upload-head__sort,
+.upload-head__filter {
+    margin: 0;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.upload-head__sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.upload-head__sort .upload-head__sort-icon {
+    font-size: 0.75em;
+}
+
+.upload-head__sort .upload-head__sort-icon--inactive {
+    opacity: 0.45;
+}
+
+.upload-head__sort:focus-visible,
+.upload-head__filter:focus-visible {
+    outline: 2px solid var(--ui-color-primary);
+    outline-offset: 1px;
+}
+
+.upload-head__filter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    font-size: 0.75em;
+}
+
+.upload-head__filter:hover {
+    color: var(--ui-color-primary);
 }
 
 :is(.upload-col-action, .upload-col-software) {
