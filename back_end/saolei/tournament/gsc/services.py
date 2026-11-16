@@ -18,7 +18,7 @@ from tournament.cache import TournamentCache
 from tournament.gsc.utils import gsc_encode_best
 from tournament.models import GSCParticipant, GSCTournament, TournamentUser
 from tournament.services import refresh_tournament_ranks, with_participant_video_status
-from tournament.utils import MAX_TOURNAMENT_BEST
+from tournament.utils import MAX_TOURNAMENT_BEST, TOURNAMENT_FINISH_DELAY
 from userprofile.models import UserProfile
 from utils.exceptions import ExceptionToResponse
 from utils.parser import MSVideoParser
@@ -82,7 +82,8 @@ def restart_gsc_task(db_task: DBTaskResult, args: list, kwargs: dict):
     if current_reference is None:
         raise ExceptionToResponse('task_restart', 'stale_reference', status_code=409)
 
-    new_db_task = db_task.task.enqueue(*args, **kwargs).db_result
+    run_after = max(db_task.run_after, current_reference.end_time + TOURNAMENT_FINISH_DELAY)
+    new_db_task = db_task.task.using(run_after=run_after).enqueue(*args, **kwargs).db_result
     updated_count = (
         GSCTournament.objects
         .filter(order=gsc_order, task_id=db_task.id)

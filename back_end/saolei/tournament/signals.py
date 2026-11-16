@@ -6,7 +6,7 @@ from django.utils import timezone
 from config.text_choices import MS_TextChoices, Tournament_TextChoices
 from videomanager.models import VideoModel
 from .cache import TournamentCache
-from .models import GSCParticipant, GSCTournament, Tournament, TournamentParticipant, TournamentUser, WeeklyParticipant, WeeklyTournament
+from .models import GSCParticipant, GSCTournament, Tournament, TournamentParticipant, TournamentUser, WeeklyEffParticipant, WeeklyEffTournament, WeeklyParticipant, WeeklyTournament
 from .services import (
     add_existing_videos_to_participant_tournament,
     checkin_with_arbiter,
@@ -61,6 +61,7 @@ def update_cache_on_tournament_delete(sender, instance: Tournament, **kwargs):
 
 
 @receiver(post_save, sender=GSCTournament, dispatch_uid='tournament.update_cache_on_gsc_save')
+@receiver(post_save, sender=WeeklyEffTournament, dispatch_uid='tournament.update_cache_on_weekly_eff_save')
 @receiver(post_save, sender=WeeklyTournament, dispatch_uid='tournament.update_cache_on_weekly_save')
 @receiver(post_save, sender=Tournament, dispatch_uid='tournament.update_cache_on_tournament_save')
 def update_cache_on_tournament_save(sender, instance: Tournament, **kwargs):
@@ -68,6 +69,7 @@ def update_cache_on_tournament_save(sender, instance: Tournament, **kwargs):
 
 
 @receiver(post_save, sender=GSCParticipant, dispatch_uid='tournament.update_cache_on_gsc_participant_save')
+@receiver(post_save, sender=WeeklyEffParticipant, dispatch_uid='tournament.update_cache_on_weekly_eff_participant_save')
 @receiver(post_save, sender=WeeklyParticipant, dispatch_uid='tournament.update_cache_on_weekly_participant_save')
 @receiver(post_save, sender=TournamentParticipant, dispatch_uid='tournament.update_cache_on_participant_save')
 def update_cache_on_participant_save(sender, instance, created: bool, update_fields=None, **kwargs):
@@ -80,6 +82,7 @@ def update_cache_on_participant_save(sender, instance, created: bool, update_fie
 
 
 @receiver(post_save, sender=GSCParticipant, dispatch_uid='tournament.ensure_tournament_user_on_gsc_participant_create')
+@receiver(post_save, sender=WeeklyEffParticipant, dispatch_uid='tournament.ensure_tournament_user_on_weekly_eff_participant_create')
 @receiver(post_save, sender=WeeklyParticipant, dispatch_uid='tournament.ensure_tournament_user_on_weekly_participant_create')
 @receiver(post_save, sender=TournamentParticipant, dispatch_uid='tournament.ensure_tournament_user_on_participant_create')
 def ensure_tournament_user_on_participant_create(sender, instance: TournamentParticipant, created: bool, **kwargs):
@@ -94,7 +97,8 @@ def remove_participant_cache_on_delete(sender, instance: TournamentParticipant, 
     if user_id is None:
         return
     tournament_id = instance.tournament_id
-    transaction.on_commit(lambda: cache.remove_participant(user_id, tournament_id))
+    participant_id = instance.id
+    transaction.on_commit(lambda: cache.remove_participant(user_id, tournament_id, participant_id=participant_id))
 
 
 @receiver(post_delete, sender=TournamentParticipant, dispatch_uid='tournament.revoke_rank_score_on_participant_delete')
@@ -106,6 +110,9 @@ def revoke_rank_score_on_participant_delete(sender, instance: TournamentParticip
     if tournament.subclass == Tournament_TextChoices.Subclass.GSC:
         category = 'gsc'
         fields.append('gsc_total')
+    elif tournament.subclass == Tournament_TextChoices.Subclass.WEEKLY_EFF:
+        category = 'weekly_eff'
+        fields.append('weekly_eff_total')
     else:
         category = 'weekly_classic'
         fields.extend(['weekly_total', 'weekly_classic_total'])

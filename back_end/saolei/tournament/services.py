@@ -9,6 +9,7 @@ from customranking.services import add_videos_to_custom_pluck_ranks
 from effranking.services import add_videos_to_eff_ranks
 from speedranking.services import add_videos_to_speed_ranks
 from tournament.cache import TournamentCache
+from utils.exceptions import ExceptionToResponse
 from utils.ranking_lock import ranking_access
 from videomanager.cache import add_videos_to_state_queues_bulk
 from videomanager.events import videos_bulk_changed
@@ -18,6 +19,7 @@ from .models import (
     Tournament,
     TournamentParticipant,
     TournamentUser,
+    WeeklyEffParticipant,
     WeeklyParticipant,
     WeeklyTournament,
 )
@@ -121,13 +123,11 @@ def refresh_tournament_user_total_fields(*, batch_size=1000):
     score_total_by_user = _get_score_total_by_user(TournamentParticipant.objects)
     gsc_total_by_user = _get_score_total_by_user(GSCParticipant.objects)
     weekly_total_by_user = _get_score_total_by_user(WeeklyParticipant.objects)
-    weekly_classic_total_by_user = weekly_total_by_user
+    weekly_eff_total_by_user = _get_score_total_by_user(WeeklyEffParticipant.objects)
 
     user_ids = (
         set(TournamentUser.objects.values_list('user_id', flat=True))
         | set(score_total_by_user)
-        | set(gsc_total_by_user)
-        | set(weekly_total_by_user)
     )
     existing_user_ids = set(TournamentUser.objects.filter(user_id__in=user_ids).values_list('user_id', flat=True))
     missing_user_ids = user_ids - existing_user_ids
@@ -143,36 +143,28 @@ def refresh_tournament_user_total_fields(*, batch_size=1000):
         tournament_user.score_total = score_total_by_user.get(user_id, 0)
         tournament_user.gsc_total = gsc_total_by_user.get(user_id, 0)
         tournament_user.weekly_total = weekly_total_by_user.get(user_id, 0)
-        tournament_user.weekly_classic_total = weekly_classic_total_by_user.get(user_id, 0)
+        tournament_user.weekly_classic_total = tournament_user.weekly_total
+        tournament_user.weekly_eff_total = weekly_eff_total_by_user.get(user_id, 0)
 
     if tournament_users:
         TournamentUser.objects.bulk_update(
             tournament_users,
-            ['score_total', 'gsc_total', 'weekly_total', 'weekly_classic_total'],
+            ['score_total', 'gsc_total', 'weekly_total', 'weekly_classic_total', 'weekly_eff_total'],
             batch_size=batch_size,
         )
         cache.update_tournament_users(
             tournament_users,
-            fields=['score_total', 'gsc_total', 'weekly_total', 'weekly_classic_total'],
+            fields=['score_total', 'gsc_total', 'weekly_total', 'weekly_classic_total', 'weekly_eff_total'],
         )
 
     return len(tournament_users)
 
 
-def get_ranked_participants_for_award(tournament: Tournament):
-    filters = {
-        'tournament': tournament,
-        'user_id__isnull': False,
-        'rank__isnull': False,
-    }
-    if tournament.subclass == Tournament_TextChoices.Subclass.GSC:
-        return GSCParticipant.objects.filter(**filters)
-    return WeeklyParticipant.objects.filter(**filters)
-
-
 def get_participants_for_rank(tournament: Tournament):
     if tournament.subclass == Tournament_TextChoices.Subclass.GSC:
         return GSCParticipant.objects.filter(tournament=tournament)
+    if tournament.subclass == Tournament_TextChoices.Subclass.WEEKLY_EFF:
+        return WeeklyEffParticipant.objects.filter(tournament=tournament)
     return WeeklyParticipant.objects.filter(tournament=tournament)
 
 
@@ -196,7 +188,7 @@ def award_tournament_rank_scores(tournament: Tournament, *, batch_size=1000):
     logger.info(f'比赛#{tournament.id} 排名积分发放 开始 类型{tournament.subclass} 结算时间 {award_time}')
 
     logger.info(f'比赛#{tournament.id} 排名积分发放 获取选手列表')
-    participants = list(get_ranked_participants_for_award(tournament).select_related('user__tournamentuser'))
+    participants = list(get_participants_for_rank(tournament).filter(user_id__isnull=False, rank__isnull=False).select_related('user__tournamentuser'))
     logger.info(f'比赛#{tournament.id} 排名积分发放 人数 {len(participants)}')
     if not participants:
         logger.info(f'比赛#{tournament.id} 排名积分发放 结束')
@@ -209,6 +201,9 @@ def award_tournament_rank_scores(tournament: Tournament, *, batch_size=1000):
     if tournament.subclass == Tournament_TextChoices.Subclass.GSC:
         add_score_category = 'gsc'
         changed_tournament_user_fields.append('gsc_total')
+    elif tournament.subclass == Tournament_TextChoices.Subclass.WEEKLY_EFF:
+        add_score_category = 'weekly_eff'
+        changed_tournament_user_fields.append('weekly_eff_total')
     elif tournament.subclass == Tournament_TextChoices.Subclass.WEEKLY:
         tournament: WeeklyTournament = tournament.select_subclass()
         changed_tournament_user_fields.append('weekly_total')
@@ -233,10 +228,33 @@ def award_tournament_rank_scores(tournament: Tournament, *, batch_size=1000):
     logger.info(f'比赛#{tournament.id} 排名积分发放 更新用户总分 {len(tournament_users)}')
     TournamentUser.objects.bulk_update(tournament_users, changed_tournament_user_fields, batch_size=batch_size)
     # 写库后批量刷新排行；当前积分由缓存层统一换算时间基准，其他累计字段直接写入。
-    cache.update_tournament_users(tournament_users, fields=changed_tournament_user_fields)
+    transaction.on_commit(lambda: cache.update_tournament_users(tournament_users, fields=changed_tournament_user_fields))
 
     logger.info(f'比赛#{tournament.id} 排名积分发放 完成')
     return len(participants)
+
+
+@transaction.atomic
+def reset_participant_registration(participant: TournamentParticipant):
+    if not participant.tournament.is_ongoing() or participant.end_time is None or timezone.now() <= participant.end_time:
+        raise ExceptionToResponse('participant', 'reset_not_available', status_code=403)
+    if participant.videos.exists():
+        raise ExceptionToResponse('participant', 'has_videos', status_code=403)
+    participant.delete()
+
+
+@transaction.atomic
+def disqualify_participant(participant_id: int, *, tournament_id: int):
+    participant = TournamentParticipant.objects.select_related('tournament').filter(id=participant_id, tournament_id=tournament_id).first()
+    if participant is None:
+        return False
+    if participant.tournament.state != Tournament_TextChoices.State.AWARDED:
+        raise ValueError('Only awarded tournament participants can be disqualified.')
+    if participant.user_id is not None:
+        TournamentUser.objects.get_or_create(user_id=participant.user_id)
+    logger.info(f'比赛#{participant.tournament_id} 取消参赛资格 participant#{participant.id}，撤销积分 {participant.rank_score}')
+    participant.delete()
+    return True
 
 
 @ranking_access(operation='tournament.reveal_videos')

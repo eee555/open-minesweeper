@@ -4,7 +4,7 @@
             <Description />
         </template>
         <template #participationGuide>
-            <TokenGuide :token="participant?.token ?? ''" :participant="participant" :registration-open="state === TournamentState.Ongoing" :tournament-id="tournament.id" @registered="registered" />
+            <TokenGuide :token="participant?.token ?? ''" :participant="participant" :registration-open="state === TournamentState.Ongoing" :tournament-id="tournament.id" @registered="registered(new WeeklyParticipant($event))" />
         </template>
         <template #autoUploaderFilter>
             <select v-model="filterLevel" class="base-select base-select--small" style="width: 250px" :aria-label="t('filter')">
@@ -20,7 +20,7 @@
             </select>
         </template>
         <template #allSummary="{ data, onParticipantSelect }">
-            <AllSummary v-if="state === TournamentState.Awarded" :data="data" @row-click="onParticipantSelect" />
+            <AllSummary v-if="state === TournamentState.Awarded" :data="data" :can-disqualify="canDisqualify" @row-click="onParticipantSelect" @deleted="deleted" />
             <Registered v-else :participants="data" :loading="loading" :can-manage="canManage" @deleted="deleted" />
         </template>
         <template #personalSummary="{ videos }">
@@ -53,7 +53,8 @@ import { WeeklyParticipant, WeeklyTournamentFormat } from '@/utils/weekly';
 const props = defineProps({ tournament: { type: Tournament, required: true } });
 const { participants, index, participant, loading, state, refresh, registered, deleted } = useParticipants(() => props.tournament, (item) => new WeeklyParticipant(item), fetchWeeklyResults);
 const format = computed(() => props.tournament.weeklyData?.tournament_format ?? WeeklyTournamentFormat.Classic);
-const canManage = computed(() => store.login_status === LoginStatus.IsLogin && (store.user.is_staff || store.user.id === props.tournament.hostId));
+const canManage = computed(() => state.value === TournamentState.Ongoing && store.login_status === LoginStatus.IsLogin && (store.user.is_staff || store.user.id === props.tournament.hostId));
+const canDisqualify = computed(() => store.login_status === LoginStatus.IsLogin && store.user.id === props.tournament.hostId);
 
 const filterLevel = ref('supported');
 

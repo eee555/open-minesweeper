@@ -29,29 +29,16 @@
                 <td><PlayerName v-if="participant.user_id !== 0" :user-id="participant.user_id" /><span v-else>{{ participant.arbiter_identifier__identifier }}</span></td>
                 <td>{{ participant.manual_scores ? '手工' : '录像' }}</td><td>{{ participant.has_videos ? '有' : '无' }}</td><td>{{ participant.sum_tsum }}</td>
                 <td>
-                    <BaseButton v-if="!participant.has_videos" :disabled="deleting" type="danger" data-cy="history-delete" @click="selected = participant">
-                        <i class="pi pi-trash" />删除
-                    </BaseButton>
+                    <DisqualifyParticipant v-if="history.hostId === store.user.id" :participant="participant" @deleted="refresh" />
                 </td>
             </tr>
         </BaseTable>
     </template>
-    <ElDialog v-if="selected" model-value title="删除参赛者" width="min(460px, 90vw)" :close-on-click-modal="!deleting" :close-on-press-escape="!deleting" :show-close="!deleting" @close="selected = undefined">
-        <p>确认删除 {{ selected.user_id || selected.arbiter_identifier__identifier }}？已发积分会撤回，其他选手的排名需手动重算。</p>
-        <template #footer>
-            <BaseButton :disabled="deleting" @click="selected = undefined">
-                取消
-            </BaseButton>
-            <BaseButton :loading="deleting" type="danger" data-cy="history-delete-confirm" @click="remove">
-                确认
-            </BaseButton>
-        </template>
-    </ElDialog>
 </template>
 
 <script setup lang="ts">
 import '@/styles/vendors/element-plus-tabs.less';
-import { ElDialog, ElTabPane, ElTabs } from 'element-plus';
+import { ElTabPane, ElTabs } from 'element-plus';
 import { ref, watch } from 'vue';
 
 import HistoryScores from './HistoryScores.vue';
@@ -61,14 +48,12 @@ import BaseButton from '@/components/common/BaseButton.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
 import PlayerName from '@/components/PlayerName.vue';
 import { fetchGSCHistory } from '@/services/gscHistoryService';
-import { deleteParticipant } from '@/services/tournamentService';
-import type { GSCParticipant } from '@/utils/gsc';
+import { store } from '@/store';
+import DisqualifyParticipant from '@/views/TournamentView/common/DisqualifyParticipant.vue';
 
 const props = defineProps({ order: { type: Number, required: true } });
 const history = ref<Awaited<ReturnType<typeof fetchGSCHistory>>>();
 const loading = ref(false);
-const deleting = ref(false);
-const selected = ref<GSCParticipant>();
 const error = ref('');
 let generation = 0;
 
@@ -88,23 +73,8 @@ async function refresh() {
     }
 }
 
-async function remove() {
-    if (!selected.value || deleting.value) return;
-    deleting.value = true;
-    try {
-        await deleteParticipant(selected.value.id);
-        selected.value = undefined;
-        await refresh();
-    } catch (reason) {
-        error.value = String(reason);
-    } finally {
-        deleting.value = false;
-    }
-}
-
 watch(() => props.order, () => {
     history.value = undefined;
-    selected.value = undefined;
     loading.value = false;
     void refresh();
 }, { immediate: true });

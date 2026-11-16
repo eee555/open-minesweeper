@@ -6,6 +6,7 @@
     </ElTabs>
     <GSCApp v-else-if="tournament?.subclass === TournamentSubclass.GSC" :tournament="tournament" />
     <WeeklyApp v-else-if="tournament?.subclass === TournamentSubclass.Weekly" :tournament="tournament" />
+    <WeeklyEffApp v-else-if="tournament?.subclass === TournamentSubclass.WeeklyEff" :tournament="tournament" />
     <TournamentDetail v-else-if="tournament" :tournament="tournament" />
 </template>
 
@@ -21,6 +22,7 @@ import GSCApp from './gsc/App.vue';
 import TournamentDetail from './TournamentDetail.vue';
 import TournamentList from './TournamentList.vue';
 import WeeklyApp from './weekly/App.vue';
+import WeeklyEffApp from './weekly_eff/App.vue';
 
 import { httpErrorNotification } from '@/components/Notifications';
 import { fetchTournament, fetchTournamentList } from '@/services/tournamentService';

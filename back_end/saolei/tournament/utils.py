@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone as datetime_timezone
+from datetime import datetime, time, timedelta, timezone as datetime_timezone
 import secrets
 import string
 from typing import Any
@@ -7,6 +7,15 @@ from django.utils import timezone
 
 MAX_TOURNAMENT_BEST = 9223372036854775807
 TOURNAMENT_SCORE_HALF_LIFE = timedelta(days=365 * 2)
+TOURNAMENT_FINISH_DELAY = timedelta(hours=1)
+
+
+def get_next_week_window():
+    today = timezone.localdate()
+    next_monday = today + timedelta(days=7 - today.weekday())
+    start_time = timezone.make_aware(datetime.combine(next_monday, time.min), timezone.get_current_timezone())
+    year, week, _ = start_time.isocalendar()
+    return year, week, start_time, start_time + timedelta(days=7)
 
 
 def generate_random_token(length=5):

@@ -89,7 +89,8 @@ class Medal_TextChoices:
 class Tournament_TextChoices:
     class Subclass(TextChoices):
         GSC = 'g', ('GSC比赛')
-        WEEKLY = 'w', ('周赛')
+        WEEKLY = 'w', ('竞速打卡赛')
+        WEEKLY_EFF = 'e', ('效率打卡赛')
 
     class State(TextChoices):
         PENDING = 'p', ('审核中')

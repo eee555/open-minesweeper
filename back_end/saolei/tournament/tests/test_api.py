@@ -223,7 +223,7 @@ class TestApi(TournamentTestCaseBase):
         self.assertEqual(tournament.end_time - tournament.start_time, timedelta(days=7))
         task = DBTaskResult.objects.get(task_path='tournament.weekly.tasks.task_weekly_finish')
         self.assertEqual(task.args_kwargs['args'], [tournament.id])
-        self.assertEqual(task.run_after, tournament.end_time)
+        self.assertEqual(task.run_after, tournament.end_time + timedelta(hours=1))
         self.assertNotIn('task', response.json())
 
     def test_weekly_set_api_only_updates_state(self):

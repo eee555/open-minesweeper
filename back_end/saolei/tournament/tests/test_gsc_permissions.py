@@ -42,6 +42,8 @@ class GscPermissionsTests(TournamentTestCaseBase):
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.json()['id'], task_id)
                 self.assertEqual(response.json()['status'], 'READY')
+                queued = DBTaskResult.objects.get(pk=task_id)
+                self.assertEqual(queued.run_after, self.tournament.end_time + timedelta(hours=1))
         self.assertEqual(DBTaskResult.objects.filter(task_path='tournament.gsc.tasks.task_gsc_finish').count(), 1)
 
     def test_anonymous_and_unrelated_users_cannot_manage_gsc(self):
@@ -63,6 +65,16 @@ class GscPermissionsTests(TournamentTestCaseBase):
         self.assertFalse(DBTaskResult.objects.filter(task_path='tournament.gsc.tasks.task_gsc_finish').exists())
         self.tournament.refresh_from_db()
         self.assertEqual(self.tournament.start_time, original_start_time)
+
+    def test_restarting_finish_task_preserves_the_settlement_buffer(self):
+        self.client.force_login(self.staff)
+        response = self.client.post('/api/tournament/gsc/task/finish', {'order': self.tournament.order})
+        task_id = response.json()['data']['task_id']
+        DBTaskResult.objects.filter(pk=task_id).update(status='FAILED')
+        response = self.client.post('/api/common/tasks/restart', {'task_id': task_id})
+        self.assertEqual(response.status_code, 200, response.content)
+        task = DBTaskResult.objects.get(pk=response.json()['id'])
+        self.assertEqual(task.run_after, self.tournament.end_time + timedelta(hours=1))
 
     def test_staff_cannot_finish_gsc_before_end_time(self):
         self.client.force_login(self.staff)

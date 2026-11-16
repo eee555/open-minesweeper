@@ -1,10 +1,12 @@
 import $axios from '@/http';
+import type { DjangoTaskResultStatus } from '@/utils/common/structInterface';
 import { toDate } from '@/utils/datetime';
 import { GSCParticipant } from '@/utils/gsc';
 import { TournamentParticipant } from '@/utils/tournaments';
 import type { TournamentInfo } from '@/utils/tournaments';
 import type { VideoAbstractData } from '@/utils/videoabstract';
 import { WeeklyParticipant } from '@/utils/weekly';
+import { WeeklyEffParticipant } from '@/utils/weeklyEff';
 
 export interface GSCParticipantResponse {
     id: number;
@@ -37,6 +39,12 @@ export interface WeeklyScoreResponse {
     classic_score: number;
 }
 
+interface WeeklyEffScoreResponse extends Pick<WeeklyScoreResponse, 'id' | 'user_id' | 'start_time' | 'end_time' | 'rank' | 'rank_score'> {
+    et: [number, number][];
+    it: [number, number][];
+    score: number;
+}
+
 export interface TournamentParticipantResponse {
     id: number;
     token: string;
@@ -60,6 +68,7 @@ export const TournamentUserRankFields = [
     'score_current', 'score_total',
     'gsc_total', 'gsc_best',
     'weekly_total', 'weekly_classic_total', 'weekly_classic_best',
+    'weekly_eff_total', 'weekly_eff_best',
 ] as const;
 export type TournamentUserRankField = typeof TournamentUserRankFields[number];
 
@@ -73,6 +82,10 @@ export interface TournamentUserRankingRow {
     weekly_total: number;
     weekly_classic_total: number;
     weekly_classic_best: number;
+    weekly_eff_total: number;
+    weekly_eff_best: number | null;
+    weekly_eff_best_year: number | null;
+    weekly_eff_best_week: number | null;
 }
 
 export interface TournamentUserRankingResponse {
@@ -107,8 +120,24 @@ export async function fetchParticipantList(tournamentId: number): Promise<Tourna
     return data.map(tournamentParticipantFromResponse);
 }
 
-export async function deleteParticipant(participantId: number): Promise<void> {
-    await $axios.delete(`/api/tournament/participant/${participantId}`);
+export async function resetParticipant(participantId: number): Promise<void> {
+    await $axios.post(`/api/tournament/participant/${participantId}/reset`);
+}
+
+export interface ParticipantDisqualificationTask {
+    id: string;
+    status: DjangoTaskResultStatus;
+    traceback: string;
+}
+
+export async function disqualifyParticipant(participantId: number): Promise<ParticipantDisqualificationTask> {
+    const { data } = await $axios.post<ParticipantDisqualificationTask>(`/api/tournament/participant/${participantId}/disqualify`);
+    return data;
+}
+
+export async function fetchDisqualificationTask(taskId: string): Promise<ParticipantDisqualificationTask> {
+    const { data } = await $axios.get<ParticipantDisqualificationTask>(`/api/tournament/disqualification-task/${taskId}`);
+    return data;
 }
 
 export async function createWeeklyParticipant(tournamentId: number): Promise<WeeklyParticipant> {
@@ -116,6 +145,27 @@ export async function createWeeklyParticipant(tournamentId: number): Promise<Wee
         id: tournamentId,
     });
     return weeklyParticipantFromParticipantResponse(data);
+}
+
+export async function createWeeklyEffParticipant(tournamentId: number): Promise<WeeklyEffParticipant> {
+    const { data } = await $axios.post<TournamentParticipantResponse>('/api/tournament/weekly-eff/participant', { id: tournamentId });
+    return new WeeklyEffParticipant(tournamentParticipantFromResponse(data));
+}
+
+export async function fetchWeeklyEffResults(tournamentId: number): Promise<WeeklyEffParticipant[]> {
+    const { data } = await $axios.get<WeeklyEffScoreResponse[]>('/api/tournament/weekly-eff/results', { params: { tournament_id: tournamentId } });
+    return data.map((row) => new WeeklyEffParticipant({
+        id: row.id,
+        user_id: row.user_id,
+        tournament_id: tournamentId,
+        start_time: toDate(row.start_time),
+        end_time: toDate(row.end_time),
+        rank: row.rank ?? undefined,
+        rank_score: row.rank_score,
+        et: row.et,
+        it: row.it,
+        score: row.score,
+    }));
 }
 
 export async function fetchTournamentUserRanking(params: TournamentUserRankingParams): Promise<TournamentUserRankingResponse> {

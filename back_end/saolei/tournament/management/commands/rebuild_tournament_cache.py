@@ -11,7 +11,7 @@ from tournament.cache import (
     serialize_normal_participant,
     serialize_normal_tournament,
 )
-from tournament.models import GSCTournament, TournamentParticipant, WeeklyTournament
+from tournament.models import GSCTournament, TournamentParticipant, WeeklyEffTournament, WeeklyTournament
 
 
 class Command(BaseCommand):
@@ -21,6 +21,7 @@ class Command(BaseCommand):
         tournaments = [
             *GSCTournament.objects.filter(state=Tournament_TextChoices.State.NORMAL),
             *WeeklyTournament.objects.filter(state=Tournament_TextChoices.State.NORMAL),
+            *WeeklyEffTournament.objects.filter(state=Tournament_TextChoices.State.NORMAL),
         ]
         tournament_mapping = {
             tournament.id: serialize_normal_tournament(tournament).to_json()

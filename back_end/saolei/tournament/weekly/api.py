@@ -1,5 +1,5 @@
 
-from datetime import datetime, time, timedelta
+from datetime import timedelta
 
 from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.shortcuts import get_object_or_404
@@ -12,6 +12,7 @@ from config.text_choices import Tournament_TextChoices
 from config.tournaments import TournamentWeights
 from tournament.models import WeeklyParticipant, WeeklyTournament
 from tournament.schema import ParticipantOutBase
+from tournament.utils import get_next_week_window, TOURNAMENT_FINISH_DELAY
 from userprofile.decorators import admin_csrf_required, login_required_error, staff_required
 from userprofile.utils import has_identity_access
 from utils.response import HttpResponseConflict, identity_access_required_response
@@ -48,21 +49,10 @@ class NewWeeklyTournamentOut(Schema):
     data: WeeklyInfoOut
 
 
-def get_next_week_window():
-    today = timezone.localdate()
-    next_monday = today + timedelta(days=7 - today.weekday())
-    start_time = timezone.make_aware(
-        datetime.combine(next_monday, time.min),
-        timezone.get_current_timezone(),
-    )
-    end_time = start_time + timedelta(days=7)
-    year, week, _ = start_time.isocalendar()
-    return year, week, start_time, end_time
-
-
 @router.post('/new', response=NewWeeklyTournamentOut)
 @decorate_view(staff_required)
 def new_weekly_tournament(request: HttpRequest, data: NewWeeklyTournamentIn = Form(...)):  # noqa: B008
+    """- staff_required"""
     year, week, start_time, end_time = get_next_week_window()
     if WeeklyTournament.objects.filter(year=year, week=week).exists():
         return HttpResponseConflict()
@@ -81,7 +71,7 @@ def new_weekly_tournament(request: HttpRequest, data: NewWeeklyTournamentIn = Fo
     update_fields = tournament.validate()
     if update_fields:
         tournament.save(update_fields=update_fields)
-    task_weekly_finish.using(run_after=end_time).enqueue(tournament.id)
+    task_weekly_finish.using(run_after=end_time + TOURNAMENT_FINISH_DELAY).enqueue(tournament.id)
     return {
         'data': tournament,
     }
