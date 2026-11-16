@@ -12,6 +12,7 @@ from tournament.models import Tournament, TournamentUser, WeeklyEffParticipant, 
 from tournament.services import award_tournament_rank_scores, disqualify_participant, refresh_tournament_ranks
 from tournament.utils import TOURNAMENT_FINISH_DELAY
 from tournament.weekly_eff.services import calculate_weekly_eff_best, refresh_weekly_eff_best_scores, refresh_weekly_eff_scores
+from tournament.weekly_eff.signals import update_best_score_on_weekly_eff_participant_save
 from tournament.weekly_eff.tasks import task_weekly_eff_finish
 from .base import timedelta, TournamentTestCaseBase
 
@@ -39,6 +40,20 @@ class TestWeeklyEff(TournamentTestCaseBase):
     def award(self):
         self.eff.state = Tournament_TextChoices.State.AWARDED
         self.eff.save(update_fields=['state'])
+
+    def test_normal_participant_save_skips_best_queries(self):
+        user = self.create_user('eff_query_user')
+        tournament = Tournament.objects.get(pk=self.eff.pk)
+        with patch.object(TournamentUser.objects, 'get_or_create', wraps=TournamentUser.objects.get_or_create) as ensure_user:
+            participant = WeeklyEffParticipant.objects.create(
+                user=user, tournament=tournament, start_time=self.participant.start_time, end_time=self.participant.end_time,
+            )
+        ensure_user.assert_called_once_with(user_id=user.pk)
+        participant = WeeklyEffParticipant.objects.select_related('tournament').get(pk=participant.pk)
+        with self.assertNumQueries(0):
+            update_best_score_on_weekly_eff_participant_save(
+                sender=WeeklyEffParticipant, instance=participant, created=False, update_fields={'score'},
+            )
 
     def test_floating_score_selection_and_missing_defaults(self):
         expert = [self.video('e', timems=value, bv=7) for value in (100001, 80003, 90007)]
@@ -178,7 +193,7 @@ class TestWeeklyEff(TournamentTestCaseBase):
         self.tournament_cache.update_participant(self.participant)
         self.assertEqual([item.id for item in self.tournament_cache.get_participant_list(self.user.id)], [other.id])
 
-    def test_best_falls_back_and_maintenance_rebuilds_efficiency_fields(self):
+    def test_delete_repairs_missing_user_best_and_maintenance_rebuilds_efficiency_fields(self):
         self.participant.score = 500.125
         self.participant.save(update_fields=['score'])
         self.award()
@@ -189,9 +204,13 @@ class TestWeeklyEff(TournamentTestCaseBase):
             start_time=self.eff.start_time - timedelta(days=7), end_time=self.eff.end_time - timedelta(days=7),
         )
         WeeklyEffParticipant.objects.create(user=self.user, tournament=previous, score=600.25)
-        disqualify_participant(self.participant.id, tournament_id=self.eff.id)
+        TournamentUser.objects.filter(user=self.user).delete()
+        with self.captureOnCommitCallbacks(execute=True):
+            self.participant.delete()
         user = TournamentUser.objects.get(user=self.user)
         self.assertEqual((user.weekly_eff_best, user.weekly_eff_best_year, user.weekly_eff_best_week), (600.25, 2025, 52))
+        self.assertEqual((user.score_current, user.score_total, user.weekly_eff_total), (0, 0, 0))
+        self.assertEqual(cache.zscore(TOURNAMENT_USER_CACHE_KEYS['weekly_eff_best'], self.user.pk), 600.25)
         TournamentUser.objects.filter(pk=user.pk).update(weekly_eff_best=None, weekly_eff_best_year=None, weekly_eff_best_week=None)
         call_command('refresh_tournament_user_stats', stdout=StringIO())
         user.refresh_from_db()

@@ -679,15 +679,15 @@ digraph cache {
     update_best_score_on_weekly_participant_delete -> tournament_user_db [label="write best"];
 
     participant_db -> update_best_score_on_weekly_eff_participant_save [label="post_save"];
-    tournament_db -> update_best_score_on_weekly_eff_participant_save [label="FK/subclass year/week"];
-    tournament_user_db -> update_best_score_on_weekly_eff_participant_save [label="read/create"];
+    tournament_db -> update_best_score_on_weekly_eff_participant_save [label="FK state; AWARDED: subclass year/week"];
+    tournament_user_db -> update_best_score_on_weekly_eff_participant_save [label="AWARDED: read/create"];
     update_best_score_on_weekly_eff_participant_save -> tournament_user_db [label="write best/year/week"];
     update_best_score_on_weekly_eff_participant_save -> tournament_user_rank_cache [label="on_commit float best"];
     participant_db -> update_best_score_on_weekly_eff_participant_delete [label="post_delete"];
     participant_db -> update_best_score_on_weekly_eff_participant_delete [label="query remaining best"];
     tournament_db -> update_best_score_on_weekly_eff_participant_delete [label="FK/subclass read"];
-    tournament_user_db -> update_best_score_on_weekly_eff_participant_delete [label="read"];
-    update_best_score_on_weekly_eff_participant_delete -> tournament_user_db [label="write/clear best and edition"];
+    tournament_user_db -> update_best_score_on_weekly_eff_participant_delete [label="read/create"];
+    update_best_score_on_weekly_eff_participant_delete -> tournament_user_db [label="create if missing; write/clear best and edition"];
     update_best_score_on_weekly_eff_participant_delete -> tournament_user_rank_cache [label="on_commit float best"];
 
     participant_db -> remove_participant_cache_on_delete [label="post_delete"];
@@ -773,7 +773,7 @@ participant 删除时，`revoke_rank_score_on_participant_delete` 在删除事�
 
 每批排行缓存更新按字段汇总：每个 zset 最多执行一次多成员 `ZADD` 和一次多成员 `ZREM`，分别写入非默认分数与移除默认分数成员，不再为每个用户单独排入命令。缓存重建按 `batch_size` 分批读取。
 
-`ensure_tournament_users` 按本场 participant 的非空 `user_id` 去重并执行 `get_or_create`，不覆盖已有记录；默认积分为 0，best 为 `MAX_TOURNAMENT_BEST`，因此补建本身不写入排行 zset。此步骤兼容早期只有 participant、尚无 `TournamentUser` 且未发放积分的历史数据，不负责恢复已丢失的历史积分。新 participant 仍由创建信号保证关联完整；删除信号不容忍缺失关联，也不补建记录。每次任务会记录补建数量，无需额外管理命令。
+`ensure_tournament_users` 按本场 participant 的非空 `user_id` 去重并执行 `get_or_create`，不覆盖已有记录；默认积分为 0，GSC/竞速 best 为 `MAX_TOURNAMENT_BEST`、效率 best 为 NULL，因此补建本身不写入排行 zset。此步骤兼容早期只有 participant、尚无 `TournamentUser` 且未发放积分的历史数据，不负责恢复已丢失的历史积分。新 participant 仍由创建信号保证关联完整。效率赛 best 保存信号先检查 AWARDED，再读取汇总与定向子类，普通报名不重复查询或补建汇总；删除信号在汇总缺失时补建默认行，再重算剩余历史 best。GSC/竞速删除路径仍依赖任务入口补齐。每次任务会记录补建数量，无需额外管理命令。
 
 `GSCParticipant.t37` 是数据库持久化 generated field，并建立 `gsc_t37_idx` 索引，服务于 GSC 排名和历史最好成绩查询。保存信号使用当前 participant 实例上的临时 `t37` 值进行 best 增量比较，因此不会为了读取 generated field 再查询一次 participant。
 
