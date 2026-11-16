@@ -28,7 +28,7 @@
                 </p>
                 <template v-else-if="linked">
                     <SaoleiPanel v-if="selected === 'c'" :key="selected" :verified="verified" :info="links.c" @refresh="refresh" />
-                    <MsgamesPanel v-else-if="selected === 'a'" :key="selected" :verified="verified" :info="links.a" />
+                    <MsgamesPanel v-else-if="selected === 'a'" :key="selected" :verified="verified" :info="links.a" @refresh="refresh" />
                     <WoMPanel v-else-if="selected === 'w'" :key="selected" :verified="verified" :info="links.w" :owner="managesLinkedAccounts" @refresh="refresh" />
                     <BilibiliPanel v-else-if="selected === 'B'" :key="selected" :verified="verified" :info="links.B" :owner="managesLinkedAccounts" @refresh="refresh" />
                     <MineracerPanel v-else-if="selected === 'm'" :info="links.m" />
