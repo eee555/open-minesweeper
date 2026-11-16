@@ -43,8 +43,12 @@
     <form class="video-freeze" @submit.prevent="unfreezeVideo">
         <label for="video-unfreeze-state">{{ t('local.unfreezeTo') }}</label>
         <select id="video-unfreeze-state" v-model="unfreezeState" class="base-select" data-cy="unfreeze-state" :aria-label="t('local.unfreezeTo')">
-            <option :value="MS_State.Official">{{ globalI18n.t('state.c') }}</option>
-            <option :value="MS_State.Identifier">{{ globalI18n.t('state.d') }}</option>
+            <option :value="MS_State.Official">
+                {{ globalI18n.t('state.c') }}
+            </option>
+            <option :value="MS_State.Identifier">
+                {{ globalI18n.t('state.d') }}
+            </option>
         </select>
         <BaseButton native-type="submit" :loading="unfreezing" :disabled="freezing || unfreezing || videomodel.id !== videoid || videomodel.state !== MS_State.Frozen" data-cy="unfreeze-video">
             {{ t('local.unfreezeVideo') }}
