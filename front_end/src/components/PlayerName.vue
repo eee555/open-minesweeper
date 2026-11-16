@@ -1,10 +1,10 @@
 <template>
     <BaseTooltip ref="tooltip" class="player-name-root" :append-to="appendMedalTooltip" :before-show="allowMedalTooltip" interactive :interactive-border="12" :show-delay="200" :show-animation="0" :hide-animation="0">
-        <span class="player-name" @click="interactive && $event.stopPropagation()" @pointerenter="pointerOver = true" @pointerleave="pointerOver = false">
+        <span class="player-name" :title="badge?.nameTitle" @click="interactive && $event.stopPropagation()" @pointerenter="pointerOver = true" @pointerleave="pointerOver = false">
             <RouterLink v-if="interactive" :to="playerProfileTo" class="link link--no-underline text">
-                <PlayerBadge :user-id="userId" :user="user" :loading="loading" :show-avatar="local.playerNameShowAvatar" />
+                <PlayerBadge ref="badge" :user-id="userId" :user="user" :loading="loading" :show-avatar="local.playerNameShowAvatar" />
             </RouterLink>
-            <PlayerBadge v-else :user-id="userId" :user="user" :loading="loading" :show-avatar="local.playerNameShowAvatar" />
+            <PlayerBadge v-else ref="badge" :user-id="userId" :user="user" :loading="loading" :show-avatar="local.playerNameShowAvatar" />
             <MemorialBadge v-if="user.id === userId && user.is_memorial" />
         </span>
         <template #content>
@@ -79,6 +79,7 @@ const activeMedalKey = ref('');
 let medalLoadToken = 0;
 let medalUserId = props.userId;
 const tooltip = useTemplateRef<{ show: () => void; hide: () => void }>('tooltip');
+const badge = useTemplateRef<{ nameTitle: string }>('badge');
 const playerProfileTo = computed(() => `/player/${props.userId}`);
 const shownGrants = computed(() => medalGrants.value.flatMap((grant) => {
     const series = medalSeriesFromCode(grant.code);

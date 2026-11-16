@@ -1,9 +1,9 @@
 <template>
     <UserAvatar v-if="showAvatar" :user-id="userId" style="height: 1em; margin-right: 0.25em" />
-    <span v-if="primaryName === ''" :title="nameTitle">
+    <span v-if="primaryName === ''">
         {{ t('anonymous') }}
     </span>
-    <span v-else class="player-badge-name" :title="nameTitle">
+    <span v-else class="player-badge-name">
         <template v-if="secondaryName">
             <span class="player-badge-pair"><span class="player-badge-chunk">{{ primaryName }}</span> <span class="player-badge-chunk">({{ secondaryName }})</span></span>
         </template>
@@ -57,6 +57,7 @@ const nameTitle = computed(() => (props.user.isNameHidden
         `${props.user.username || '--'}#${props.userId}`,
         `${props.user.realname || '--'} (${internationalName.value || '--'})`,
     ].join('\n')));
+defineExpose({ nameTitle });
 </script>
 
 <style scoped lang="less">

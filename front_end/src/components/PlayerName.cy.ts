@@ -44,8 +44,8 @@ function mockUserInfo(response: StaticResponse = { body: [user] }) {
 function expectName(name: string, title?: string) {
     cy.get('.player-name').should(($name) => {
         expect($name.text().trim()).to.eq(name);
+        if (title !== undefined) expect($name.attr('title')).to.eq(title);
     });
-    if (title !== undefined) cy.get('.player-badge-name').should('have.attr', 'title', title);
 }
 
 function mountPlayerNameInText(userId: number) {
