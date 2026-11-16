@@ -154,20 +154,14 @@ function select(item: MediaItem): void {
     form.value = { title: item.title, externalAuthorId: '', reason: '' };
 }
 
-async function run(action: () => Promise<unknown>, nextView?: ReviewView): Promise<void> {
+async function run(action: () => Promise<unknown>): Promise<void> {
     if (busy.value || !selected.value) return;
     busy.value = true;
     try {
         await action();
         actionSuccessNotification();
         confirmDelete.value = false;
-        if (nextView) {
-            // 审核通过后切到「已通过」并保留选中项，站长才能直接硬删除刚通过的作品。
-            page.value = 1;
-            view.value = nextView;
-        } else {
-            selected.value = null;
-        }
+        selected.value = null;
         await load();
     } catch (error) {
         httpErrorNotification(error);
@@ -188,9 +182,7 @@ function verify(): void {
     const payload: MediaVerifyPayload = degraded
         ? { id: media.id, title: form.value.title, external_author_id: form.value.externalAuthorId }
         : { id: media.id };
-    void run(async () => {
-        selected.value = await verifyMediaAdmin(payload);
-    }, 'verified');
+    void run(() => verifyMediaAdmin(payload));
 }
 
 function reject(): void {
