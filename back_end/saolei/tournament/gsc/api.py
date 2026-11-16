@@ -51,6 +51,7 @@ GSCInfoOut = create_schema(
     fields=['id', 'order', 'start_time', 'end_time', 'state'],
     custom_fields=[
         ('token', str, ''),
+        ('host_id', int | None, None),
     ],
 )
 

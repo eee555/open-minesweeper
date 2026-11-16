@@ -92,7 +92,7 @@ Redis 分类只读取业务代码直接确定的 DB 0 key，不执行 `SCAN`、`
 | 分类 | key 来源 |
 | --- | --- |
 | PB 榜 | `PBRankingCache.counts_key`；固定 hash 的 `HKEYS` 经校验后构造小榜 key；从 `UserProfile` 主键顺序每批最多 1,000 个 ID 构造用户 hash key。PB 衍生榜另由 `PBDerivedCache().keys()` 枚举 3 个成绩 hash 与 132 个小榜 key，均计入 `pb_rankings` 分类。元数据缺失不发现 key、不触发重建。 |
-| 其他排行榜 | 扫雷网与强无猜各自的 `SpeedRankingCache(name, stats=RANK_STATS).keys`（各两个大榜，共 36 个 key）、`TopRankingCache().keys`、`ThrpRankingCache().keys`、`NFIOERankingCache().keys`、`MiniGameRankingCache().keys`、四种自定义 pluck 配置的 rank/detail key、比赛用户榜 key 和积分时间 key；当前共 162 个 key。 |
+| 其他排行榜 | 扫雷网与强无猜各自的 `SpeedRankingCache(name, stats=RANK_STATS).keys`（各两个大榜，共 36 个 key）、`TopRankingCache().keys`、`ThrpRankingCache().keys`、`NFIOERankingCache().keys`、`MiniGameRankingCache().keys`、四种自定义 pluck 配置的 rank/detail key、比赛用户榜 key 和积分时间 key；当前共 164 个 key。 |
 | 最新录像 | `newest_cache.key`（`newest_queue`）。 |
 | 其他 | `INFO memory.used_memory` 减去前三类；包含其他业务、会话、同实例 DB 1 通用缓存、孤立/历史/临时 key 和 Redis 开销，不枚举 DB 1。 |
 
@@ -199,7 +199,9 @@ digraph cache {
         set_tournament [label="/api/tournament/set"];
         cancel_tournament [label="/api/tournament/cancel"];
         get_participant_list [label="/api/tournament/participants"];
-        delete_participant [label="DELETE /api/tournament/participant/{participant_id}"];
+        reset_participant [label="POST /api/tournament/participant/{id}/reset"];
+        disqualify_participant [label="POST /api/tournament/participant/{id}/disqualify"];
+        get_disqualification_task [label="GET /api/tournament/disqualification-task/{id}"];
         get_participant_videos [label="/api/tournament/get_videos/participant"];
         reveal_video [label="POST /api/tournament/video/{video_id}/reveal"];
         get_tournament_news [label="/api/tournament/get_news"];
@@ -208,6 +210,8 @@ digraph cache {
         register_gsc_participant_identifier [label="/api/tournament/gsc/participant/identifier"];
         get_weekly_results [label="/api/tournament/weekly/results"];
         create_weekly_participant [label="/api/tournament/weekly/participant"];
+        get_weekly_eff_results [label="/api/tournament/weekly-eff/results"];
+        create_weekly_eff_participant [label="/api/tournament/weekly-eff/participant"];
         get_user_info [label="/api/userprofile/info/{user_id}"];
         get_user_info_bulk [label="/api/userprofile/infobulk"];
         get_user_info_updated [label="/api/userprofile/infoupdated"];
@@ -303,6 +307,8 @@ digraph cache {
         update_best_score_on_weekly_participant_save [label="update_best_score_on_weekly_participant_save", width=3.7, height=0.8];
         update_best_score_on_gsc_participant_delete [label="update_best_score_on_gsc_participant_delete", width=3.5, height=0.8];
         update_best_score_on_weekly_participant_delete [label="update_best_score_on_weekly_participant_delete", width=3.8, height=0.8];
+        update_best_score_on_weekly_eff_participant_save [label="update_best_score_on_weekly_eff_participant_save", width=3.9, height=0.8];
+        update_best_score_on_weekly_eff_participant_delete [label="update_best_score_on_weekly_eff_participant_delete", width=4.0, height=0.8];
         remove_participant_cache_on_delete [label="remove_participant_cache_on_delete"];
         revoke_rank_score_on_participant_delete [label="revoke_rank_score_on_participant_delete", width=3.4, height=0.8];
     }
@@ -318,6 +324,9 @@ digraph cache {
         task_award_tournament [label="task_award_tournament"];
         task_weekly_finish [label="task_weekly_finish"];
         task_weekly_refresh_best [label="task_weekly_refresh_best"];
+        task_weekly_eff_finish [label="task_weekly_eff_finish\nend_time + 1 hour"];
+        task_weekly_eff_refresh_best [label="task_weekly_eff_refresh_best"];
+        task_disqualify_participant [label="task_disqualify_participant"];
         refresh_tournament_score_reference [label="APScheduler\nrefresh_tournament_score_reference"];
         rebuild_tournament_current_score_cache [label="manage.py\nrebuild_tournament_current_score_cache"];
     }
@@ -384,10 +393,19 @@ digraph cache {
     participant_db -> get_participant_list;
     identifier_db -> get_participant_list;
     video_db -> get_participant_list [label="EXISTS has_videos"];
-    participant_db -> delete_participant [label="read"];
-    tournament_db -> delete_participant [label="host_id read (join)"];
-    video_db -> delete_participant [label="any video EXISTS"];
-    delete_participant -> participant_db [label="delete (parent/subclass)"];
+    participant_db -> reset_participant [label="read personal end_time"];
+    tournament_db -> reset_participant [label="host/state read (join)"];
+    video_db -> reset_participant [label="any video EXISTS"];
+    reset_participant -> participant_db [label="delete expired registration"];
+    participant_db -> disqualify_participant [label="read"];
+    tournament_db -> disqualify_participant [label="host/AWARDED read"];
+    disqualify_participant -> task_db [label="enqueue"];
+    disqualify_participant -> task_disqualify_participant [label="enqueue"];
+    task_db -> get_disqualification_task [label="read scoped task"];
+    tournament_db -> get_disqualification_task [label="host read"];
+    participant_db -> task_disqualify_participant [label="read/delete"];
+    tournament_db -> task_disqualify_participant [label="FK state read"];
+    task_disqualify_participant -> participant_db [label="delete; triggers best/refund signals"];
     userprofile_db -> get_participant_videos;
     tournament_db -> get_participant_videos;
     participant_db -> get_participant_videos;
@@ -419,6 +437,11 @@ digraph cache {
     tournament_db -> create_weekly_participant;
     userprofile_db -> create_weekly_participant;
     create_weekly_participant -> participant_db;
+    tournament_db -> get_weekly_eff_results;
+    participant_db -> get_weekly_eff_results;
+    tournament_db -> create_weekly_eff_participant;
+    userprofile_db -> create_weekly_eff_participant;
+    create_weekly_eff_participant -> participant_db;
 
     // userprofile API
     userprofile_db -> get_user_info;
@@ -522,6 +545,21 @@ digraph cache {
     tournament_user_db -> task_weekly_refresh_best [label="read/write best"];
     task_weekly_refresh_best -> tournament_user_db [label="ensure_tournament_users / refresh_weekly_best_scores"];
     task_weekly_refresh_best -> tournament_user_rank_cache [label="write best zset"];
+
+    tournament_db -> task_weekly_eff_finish [label="read/state write"];
+    participant_db -> task_weekly_eff_finish [label="read/delete empty"];
+    video_db -> task_weekly_eff_finish [label="OFFICIAL STD query time/IOE; reveal"];
+    tournament_user_db -> task_weekly_eff_finish [label="ensure users"];
+    task_weekly_eff_finish -> participant_db [label="float scores/ranks"];
+    task_weekly_eff_finish -> tournament_db [label="AWARDED"];
+    task_weekly_eff_finish -> newest_cache [label="reveal queues"];
+    task_weekly_eff_finish -> task_award_tournament [label="enqueue"];
+    task_weekly_eff_finish -> task_weekly_eff_refresh_best [label="enqueue"];
+    participant_db -> task_weekly_eff_refresh_best [label="read"];
+    tournament_db -> task_weekly_eff_refresh_best [label="FK year/week"];
+    tournament_user_db -> task_weekly_eff_refresh_best [label="read"];
+    task_weekly_eff_refresh_best -> tournament_user_db [label="write float best/year/week"];
+    task_weekly_eff_refresh_best -> tournament_user_rank_cache [label="on_commit raw float ZADD/ZREM"];
 
     // videomanager API
     video_db -> get_review_queue;
@@ -640,6 +678,18 @@ digraph cache {
     tournament_user_db -> update_best_score_on_weekly_participant_delete [label="read"];
     update_best_score_on_weekly_participant_delete -> tournament_user_db [label="write best"];
 
+    participant_db -> update_best_score_on_weekly_eff_participant_save [label="post_save"];
+    tournament_db -> update_best_score_on_weekly_eff_participant_save [label="FK/subclass year/week"];
+    tournament_user_db -> update_best_score_on_weekly_eff_participant_save [label="read/create"];
+    update_best_score_on_weekly_eff_participant_save -> tournament_user_db [label="write best/year/week"];
+    update_best_score_on_weekly_eff_participant_save -> tournament_user_rank_cache [label="on_commit float best"];
+    participant_db -> update_best_score_on_weekly_eff_participant_delete [label="post_delete"];
+    participant_db -> update_best_score_on_weekly_eff_participant_delete [label="query remaining best"];
+    tournament_db -> update_best_score_on_weekly_eff_participant_delete [label="FK/subclass read"];
+    tournament_user_db -> update_best_score_on_weekly_eff_participant_delete [label="read"];
+    update_best_score_on_weekly_eff_participant_delete -> tournament_user_db [label="write/clear best and edition"];
+    update_best_score_on_weekly_eff_participant_delete -> tournament_user_rank_cache [label="on_commit float best"];
+
     participant_db -> remove_participant_cache_on_delete [label="post_delete"];
     participant_cache -> remove_participant_cache_on_delete [label="read"];
     remove_participant_cache_on_delete -> participant_cache [label="write/delete"];
@@ -661,6 +711,14 @@ digraph cache {
 
 最新录像队列明确保持独立快照语义：删除 `VideoModel` 不移除 `newest_queue` 项，读取接口也不查询数据库过滤，因此可能返回已删除录像 ID。条目只按既有上限裁剪或由管理员单独移除。
 
+报名 HSET 的 field 仍按用户划分；`update_participant`、`remove_participant` 及比赛结束清理用同一 `WATCH / MULTI / EXEC` 读改写路径。清理扫描只枚举用户，修改时重读当前列表，避免覆盖另一场新报名；同时监听 NORMAL 比赛 HSET，避免比赛已移出缓存后迟到的保存回调重新加入报名。删除回调携带旧 participant ID，不删除同场后来重新创建的报名。这里没有新增 Redis 锁 key。
+
+已颁奖取消资格由仅主办方可调用的 API 排队，`task_disqualify_participant` 在同一个串行 worker 中执行删除及积分/best 信号；API 受理不等于任务成功。比赛中重置仅允许主办方或管理员操作个人窗口已结束且无任意本场录像的报名，在请求内完成，不与取消资格共用状态分支。
+
+结算、积分、best 和取消资格任务共用单 worker 串行执行；人工重算和缓存重建应避开这些写任务。取消资格只删除对应报名并撤回本人积分，不重排其他选手；后续任务重新查询现存报名，重复取消不重复扣分。未来增加 worker 或允许人工维护并行时，须重新评估跨场积分与 best 一致性。
+
+三个赛种的结束任务最早在原 `end_time + 1 小时` 执行，期间保留 NORMAL 和报名缓存；GSC 重启同样遵守该下限。这里只缓冲截止前已经进入保存流程的上传，不延长比赛/个人窗口，不改变积分衰减时间。异常保存超过一小时仍可能交错；个人窗口过后重置报名也不额外等待在途上传，本次不增加在途计数或结算锁。
+
 自定义 pluck 录像删除后，在事务提交时从剩余合格录像补位 `CustomPluckRecord` 和对应 Redis 项；纪录删除后的缓存同步也提交后重读当前数据库状态，回滚不发布这两项更新。
 
 比赛录像普通删除不立即重算，暂时保留已结算成绩、名次、积分和历史最好成绩，不刷新对应比赛积分与 best 排行。显式重算按赛种及成绩来源处理：打卡赛和 GSC 录像来源排除已删除录像，GSC 手工来源保留输入成绩，但两种来源均参与全场排名及积分更新。各新赛种须定义自己的删除、重算及 best 维护规则。站长 API 已返回受影响比赛 ID 并记录日志警告，隐藏中文页面已提供删除警告和确认；未来通知主办方的私信尚未实现，方案见仓库 `back_end/saolei/tournament/VIDEO_DELETION_PLAN.md`。
@@ -681,11 +739,11 @@ digraph cache {
 | `effranking` | `effranking:nf_ioe:{stat}` | zset | `stat = b/i/e/sum`；`member = player_id`；score 取业务分值的负数，满分单项比较用时，满分总和只比较高级用时。 |
 | `customranking` | `customranking:pluck:{level}:rank` | zset | `member = player_id`；`score = pluck`，当 `pluck == 0` 时使用 `timems - MAX_TIMEMS` 降低 0 碰撞风险。 |
 | `customranking` | `customranking:pluck:{level}:detail` | hash | `field = player_id`；JSON 包含 `video_id`、`timems`、`upload_time`。展示用的模式和 3BV 通过录像缓存补全；排序 zset 保持原编码。 |
-| `tournament` | `tournament:normal` | hash | `field = tournament_id`；`value = CachedTournament JSON`，包含 `id`、`state`、`subclass`、`host_id`、`start_time`、`end_time`、`data`。`data` 保存子类独占字段：GSC 为 `order`、`token`；周赛为 `year`、`week`、`tournament_format`。 |
+| `tournament` | `tournament:normal` | hash | `field = tournament_id`；`value = CachedTournament JSON`，包含 `id`、`state`、`subclass`、`host_id`、`start_time`、`end_time`、`data`。GSC data 为 `order`、`token`；竞速赛为 `year`、`week`、`tournament_format`；效率赛为 `year`、`week`，不含 format。 |
 | `tournament` | `tournament:normal:participants` | hash | `field = user_id`；`value = list[CachedNormalParticipant] JSON`，每项包含 `id`、`token`、`arbiter_identifier`、`tournament`、`start_time`、`end_time`。 |
 | `tournament` | `tournament:user:score_current` | zset | `member = user_id`；`score = score_current × tournament_score_decay_factor(last_updated, 缓存时间基准)`；所有成员使用同一时间基准。数据库 `score_current = 0` 时不写入。 |
 | `tournament` | `tournament:user:score_current:last_updated` | string | 带时区的 ISO datetime；当前积分 zset 的年度统一锚点，正常为当年 1 月 1 日 00:00 UTC。由年度 APScheduler 任务更新；普通积分发放不推进。调度任务延迟时继续统一使用旧锚点。 |
-| `tournament` | `tournament:user:score_total` / `gsc_total` / `gsc_best` / `weekly_total` / `weekly_classic_total` / `weekly_classic_best` | zset | `member = user_id`；`score = TournamentUser` 对应字段值。各 total 字段为 `0` 时不写入；`gsc_best`、`weekly_classic_best` 为 `MAX_TOURNAMENT_BEST` 时不写入。 |
+| `tournament` | `tournament:user:score_total` / `gsc_total` / `gsc_best` / `weekly_total` / `weekly_classic_total` / `weekly_classic_best` / `weekly_eff_total` / `weekly_eff_best` | zset | `member = user_id`；score 为对应字段值，total 默认 0 不入榜，GSC/竞速 best 默认整数哨兵、效率 best 默认 NULL 不入榜。效率 best 直接存原始浮点成绩，不编码年/周。 |
 | `article` | `articles` | list | 文章目录项字符串，来自 `assets/article` 或静态目录下的文章文件。 |
 | `news` | `news:events:v1` | hash | `field = 事件 id`；value 为事件 JSON，含 `id`、`category`、`occurred_at`（毫秒）、`player_id` 与 `payload`。hash 的 field 没有 TTL，过期和超量条目由写入方按索引显式回收。 |
 | `news` | `news:idx:all:v1` | zset | `member = 事件 id`，score 为毫秒时间戳；「全部」分类倒序读取。 |
@@ -693,7 +751,13 @@ digraph cache {
 
 新闻事件只来自排行榜当次发生的变化，不做全量重建，也不保留历史。默认回收规则：只删除既超出最新 200 条、又早于 7 天的记录，因此 7 天内的新闻全部保留（即使超过 200 条），最新的 200 条也全部保留（即使超过 7 天）：每次写入先把 `news:idx:all:v1` 中排名 200 之后、且早于 TTL 的 id 取出，在同一个 pipeline 里从 hash 与全部索引中删除，再写入新事件并刷新各 key 的 TTL。事件源来自 `speedranking` 与 `effranking` 两个 app。`speedranking` 在写入前备好待修改玩家的旧快照，写入软实力索引后、刷新锚点前再取一次新快照；`pb` 由 PB 榜刷新 rank 后筛选终点前 10 的纪录刷新，`lsf` 仅在真实 LSF 值变化且新名次进入前 36 时发布；批量刷榜按变动项逐条推送，每条变动带造成它的录像 id。删除路径不发布新闻，锚点变化触发的 `soft_refresh_requested` 与后台全局软实力重建也不产生新闻。`effranking` 的单录像与批量加入路径另发布 `eff` 分区，覆盖 Thrp 的 `b/i/e/sum/e_nf` 与 NF IOE 的 `b/i/e/sum`：按写入前后的 score 判断成绩是否变优，逐项发布 `field`（`{大榜}:{小榜}`）及旧/新 `value`、`video_id`、`rank`、`count`（高级 NF 满分局数）、`timems`（NF IOE 满分单项用时或满分总计所使用的高级用时）；`sum` 是派生值没有对应录像，`video_id` 为 `null`，`e_nf` 取满分录像 id 列表首条，前端对这两项分别沿用榜单的 `1 x N` 与 `1.000 (9.000)` 显示，避免 `value` 相同却无法显示成绩进步。旧名次在写入前读取，新名次在写入命令之后由同一 pipeline 的 ZRANK 取得。补位变差、批量移除、管理员单项修复与全量重建都不发布。
 
-`TournamentUser` 是比赛积分的持久化汇总表；Redis 中另用 7 个 sorted set 保存排行榜入口。站内用户创建 `TournamentParticipant` / `GSCParticipant` / `WeeklyParticipant` 时，保存信号会在当前数据库事务内立即创建缺失的 `TournamentUser`；删除 participant 不会跟随删除 `TournamentUser`。无站内用户的 participant 在数据库中保留 `user_id = NULL`，但 API 序列化时统一输出 `user_id = 0`，前端只按 `0` 识别非站内用户。GSC / 周赛 finish 任务先调用 `ensure_tournament_users`，为本场所有站内参赛用户补建缺失的默认 `TournamentUser`，然后才调用 `delete_participants_without_videos` 删除无录像站内 participant。排名积分发放和 best 刷新是独立的非关键后台任务，入口同样先执行 `ensure_tournament_users`，支持独立执行或重跑；随后各自从本场剩余站内 participant 出发，通过 `participant.user.tournamentuser` 取得对应的 `TournamentUser`，并使用 `select_related('user__tournamentuser')` 避免 N+1。积分发放任务读取并衰减既有 `TournamentUser.score_current`，再根据本场 participant 的 `rank_score` 增量写回 `TournamentUser` 和 `TournamentParticipant.rank_score`，随后同步刷新 `score_current`、`score_total` 和对应分类 total 的 zset。历史最好成绩在 participant 保存后只读取当前 participant 和对应比赛子表，并与 `TournamentUser.gsc_best` / `weekly_classic_best` 直接比较；只有当前成绩更好时才改变内存值。结算流程使用 `bulk_update` 写入 `rank_score`，不会触发保存信号，因此 best 刷新通过 `refresh_gsc_best_scores` / `refresh_weekly_best_scores` 作为独立后台任务执行，并在写库后刷新对应 best zset；best 与排名积分发放没有顺序依赖。为了简化结算代码，积分发放和 best 刷新都不筛选字段是否发生变化，会统一 `bulk_update` 候选 participant 和对应 `TournamentUser`。结算链路通过 `tournament` logger 写入 `logs/tournament.log`，记录后台任务、删除无录像 participant、读取 `TournamentUser`、成绩/排名刷新、积分发放、best 刷新、状态切换和录像公开等阶段的处理数量。没有有效历史成绩时，best 字段使用 `MAX_TOURNAMENT_BEST` 作为哨兵值，并且不写入 Redis。participant 删除时，GSC / 周赛各自的信号会在当前事务内按需调用 `calculate_gsc_best_score` / `calculate_weekly_classic_best` 重算该类型历史最好成绩，并同步更新对应 best zset。由于 `TournamentUser` 是数据库汇总数据，participant 信号触发的创建和 best 更新必须在当前事务内立即执行，不使用 `transaction.on_commit`。如果需要修复历史汇总数据，尤其是把旧的 `0` best 值迁移到新的最大值哨兵，可以运行 `manage.py refresh_tournament_user_stats`。该命令会先调用 `tournament.services.refresh_tournament_user_total_fields` 重建 `score_total`、`gsc_total`、`weekly_total` 和 `weekly_classic_total`，再执行命令内的 best 重建步骤写回 `gsc_best` 和 `weekly_classic_best`；`score_current` 依赖实时衰减，不由该命令刷新。如果 Redis 排行缓存丢失或需要按当前数据库状态重建，可以运行 `manage.py rebuild_tournament_user_cache`。
+`TournamentUser` 是比赛积分持久化汇总表，Redis 用 9 个 zset 排序；total 降序，三类 best 升序。站内用户创建任意已支持赛种的 participant 时，信号在当前数据库事务内补建 `TournamentUser`，删除报名不删除该用户汇总。匿名用户数据库为 NULL，API 输出 user_id=0，不进入积分排行。原 `weekly_classic_total` 和 `weekly_classic_best` 保留，前端只精简重复展示。
+
+GSC、竞速及效率 finish 任务先补齐用户汇总，再清理无录像参赛者、刷新成绩和名次、设为 AWARDED、批量公开录像，并排队独立的积分和 best 任务。结束任务不早于原 end_time 后一小时，个人时间窗口和积分衰减仍使用原结束时间。worker 单进程串行，后续两项任务没有顺序依赖；人工重算、缓存重建避免与其重叠。积分按新旧 rank_score 差额修正，批量写库，提交后批量刷新相关 zset。
+
+效率赛只统计 OFFICIAL、标准模式的中高级录像，用原始 `timems * cl / (1000 * bv)` 浮点值选取 2 高 5 中，分别以 240、60 为严格上限及缺项值。效率 best 及其独立年/周字段一起写库，无成绩时为 NULL；GSC 和竞速 best 保留原整数编码及 MAX_TOURNAMENT_BEST 哨兵。各类型保存信号只比较当前成绩；删除信号从现存已颁奖 participant 重建 best。数据库 best 更新在当前事务完成，效率赛的 Redis 发布延至提交后；批量结算不触发保存信号，使用独立 best 任务。日志沿用 tournament logger。
+
+`refresh_tournament_user_stats` 重建三类 total 与 best（包括效率 best 年/周），不修改 score_current；`rebuild_tournament_user_cache` 重建全部积分 zset。`refresh_tournament_scores` 支持三类已颁奖比赛，从现存录像按各赛种规则重算，并修正积分差额和 best；不会恢复已删除报名。
 
 GSC 历史补录不新增缓存，管理接口不画入公共 API 图。创建参赛者仍执行默认 TournamentUser 创建及 best 更新；匿名选手不写用户积分 zset。标识绑定、录像创建或提前上传时间仍通过原信号维护队列和排行，HTTP 准入锁覆盖准备、单标识绑定与上传请求的事务及提交回调。列表的 `has_videos` 使用相关 EXISTS 子查询，GSC 结果标识使用 `select_related('arbiter_identifier')`，不逐人读取用户表。完整流程见 [GSC 历史录像补录](./gsc-history-import.md)。
 
@@ -705,7 +769,7 @@ participant 删除时，`revoke_rank_score_on_participant_delete` 在删除事�
 
 `common.apscheduler.refresh_tournament_score_reference` 在每年 1 月 1 日 00:00 UTC 调用 `TournamentCache.refresh_tournament_score_reference`，使用 `ZUNIONSTORE` 权重将当前积分 zset 整体折算到新锚点，并在同一 Redis 事务中设置锚点；其他排行和数据库不变。同一年重复执行无副作用。调度器启动时也执行一次，补齐跨年停机；尚未补齐时，结算仍沿用旧锚点，不会混用年份。读取旧锚点、整体折算及设置新锚点采用 `WATCH` / `MULTI` / `EXEC`，与结算写入并发时保持一致。
 
-`rebuild_tournament_current_score_cache` 从数据库分批读取当前积分，按当年年初锚点重算并原子替换当前积分 zset 和锚点，不改其他 6 个排行或数据库；并发缓存写入会触发重试，读请求在提交前仍能读取旧排行。为避免数据库尚未提交但缓存已写入的跨系统窗口，重算期间仍应暂停积分结算和历史积分修正任务。部署年度锚点方案后应先运行此命令，再重启 APScheduler。`rebuild_tournament_user_cache` 则清理并分批重建全部 7 个 zset 和年初锚点，重建期间仍需暂停其他排行写入。清理全部排行时也删除锚点 key；非空当前积分 zset 缺少锚点时会报错，要求显式重建，不进行数据库 fallback。
+`rebuild_tournament_current_score_cache` 从数据库按当年年初锚点重算并原子替换当前积分 zset 和锚点，不改其他 8 个排行或数据库；并发缓存写入触发重试，提交前仍可读旧榜。重算期间暂停积分结算和历史修正；`rebuild_tournament_user_cache` 清理并分批重建全部 9 个 zset 和锚点，期间暂停其他排行写入。非空当前积分 zset 缺少锚点时报错，显式重建，不做数据库 fallback。
 
 每批排行缓存更新按字段汇总：每个 zset 最多执行一次多成员 `ZADD` 和一次多成员 `ZREM`，分别写入非默认分数与移除默认分数成员，不再为每个用户单独排入命令。缓存重建按 `batch_size` 分批读取。
 
@@ -765,9 +829,9 @@ Redis 连接和读写异常记录日志，计算及数据库摘要不回滚，�
 | 录像状态队列 | `videomanager.signals.refresh_state_queue_on_video_save` | `videomanager.cache.add_videos_to_state_queues_bulk` 可按状态批量恢复普通队列。 |
 | 效率 Thrp / NF IOE 排行 | `effranking.signals` 与批量 services，提交后更新 | `rebuild_eff_ranks --ranking-name thrp/nf_ioe` 指定大榜重建；管理员对应大榜的 `admin/rebuild_record` 修复单项，sum 仅从个人 hash 重算。 |
 | 自定义 pluck 排行 | 保存时 `update_custom_pluck_top_cache`；录像删除提交后 `refresh_custom_pluck_rank` 补位，纪录删除提交后 `sync_custom_pluck_top_cache` 同步当前状态 | `manage.py rebuild_custom_pluck_cache` 从 `CustomPluckRecord` 全量重建，不补建缺失的数据库纪录。 |
-| NORMAL 比赛 | `TournamentCache.update_tournament` | `manage.py rebuild_tournament_cache` 显式查询 `NORMAL` GSC 与周赛并重建。 |
+| NORMAL 比赛 | `TournamentCache.update_tournament` | `manage.py rebuild_tournament_cache` 显式查询 `NORMAL` GSC、竞速及效率打卡赛并重建。 |
 | NORMAL 参赛关系 | `TournamentCache.update_participant` / `remove_participant` | `manage.py rebuild_tournament_cache` 按 `user_id` 分组重建。 |
-| 比赛积分排行 | `TournamentCache.update_tournament_user` / `update_tournament_users`；APScheduler 年度锚点更新 | `manage.py rebuild_tournament_user_cache` 重建全部 7 个 zset；`manage.py rebuild_tournament_current_score_cache` 原子重算当前积分 zset 和年度锚点。 |
+| 比赛积分排行 | `TournamentCache.update_tournament_user` / `update_tournament_users`；APScheduler 年度锚点更新 | `manage.py rebuild_tournament_user_cache` 重建全部 9 个 zset；`manage.py rebuild_tournament_current_score_cache` 原子重算当前积分 zset 和年度锚点。 |
 | common 摘要 | 对应 API 内部 `cache.set` | TTL 到期自动失效。 |
 | 勋章图鉴 | 静态代码规则 | 无目录缓存、数据库定义表或初始化写入；规则随代码发布。 |
 | 勋章状态 | 佩戴列表、佩戴中的公开授予或扫描状态改变后，提交时读取最新摘要写 `medal:display:v4:{user_id}` | 缺键按需批量回填展示，不扫描录像；摘要删除提交后删键。`manage.py enqueue_medal_backfill` 默认给未扫描玩家入队，使用 `--all` 时也包括已扫描玩家。 |

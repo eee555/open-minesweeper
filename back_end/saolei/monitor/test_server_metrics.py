@@ -112,7 +112,7 @@ class ProcessMemoryTests(SimpleTestCase):
 
 
 class RedisMemoryTests(SimpleTestCase):
-    NON_MINIGAME_RANKING_KEYS = 98  # 93 + 5 MEDIA_CACHE_KEYS from media/cache.py
+    NON_MINIGAME_RANKING_KEYS = 100  # Includes 2 WeeklyEff zsets and 5 MEDIA_CACHE_KEYS.
 
     def redis_client(self, fields=None, sizes=None, total=1000):
         client = MagicMock()

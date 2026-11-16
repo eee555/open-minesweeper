@@ -1,4 +1,4 @@
-import TournamentRanking from './TournamentRanking.vue';
+import TournamentRanking from './TournamentRankingTable.vue';
 
 import $axios from '@/http';
 import i18n from '@/i18n';
@@ -16,6 +16,10 @@ function rankingRow(userId: number, init: Partial<TournamentUserRankingRow> = {}
         weekly_total: 40,
         weekly_classic_total: 30,
         weekly_classic_best: 34567802612,
+        weekly_eff_total: 50,
+        weekly_eff_best: 456.123456,
+        weekly_eff_best_year: 2026,
+        weekly_eff_best_week: 13,
         ...init,
     };
 }
@@ -47,7 +51,7 @@ function requestQuery(req: { url: string }) {
 describe('<TournamentRanking />', () => {
     installHashHistoryCleanup();
 
-    it('renders grouped tournament ranking columns and rows', () => {
+    it('renders overall tournament ranking columns without duplicate classic totals', () => {
         cy.mockPlayerNameFallback();
         cy.intercept('GET', '**/api/tournament/user-ranking*', {
             body: {
@@ -69,17 +73,13 @@ describe('<TournamentRanking />', () => {
         cy.get('body').should(($body) => {
             expect($body.find('.el-loading-mask:visible')).to.have.length(0);
         });
-        cy.contains('th', 'Overall').should('have.attr', 'colspan', '2');
-        cy.contains('th', 'GSC').should('have.attr', 'colspan', '2');
-        cy.contains('th', 'Weekly').should('have.attr', 'colspan', '3');
-        cy.get('.ranking-table thead button').should('have.length', 7);
+        cy.get('.ranking-table thead button').should('have.length', 5);
         cy.get('[data-sort-field="score_current"]').should('have.attr', 'aria-pressed', 'true');
         cy.get('.ranking-table thead .caret-wrapper, .ranking-table thead i, .ranking-table thead svg').should('not.exist');
         cy.contains('User#101').should('be.visible');
         cy.get('.ranking-table table').extractTableData().should('deep.equal', [
-            ['', '', 'Overall', 'GSC', 'Weekly'],
-            ['Current', 'History Total', 'Total', 'Best', 'Total', 'Classic Total', 'Classic Best'],
-            ['1', 'User#101', '12.50', '100', '60', '123.456 / GSC#7', '40', '30', '345.678 / 2026-W12'],
+            ['', 'Real Name', 'Current', 'History Total', 'GSC Total', 'Speed Weekly Total', 'Efficiency Weekly Total'],
+            ['1', 'User#101', '12.50', '100', '60', '40', '50'],
         ]);
     });
 
@@ -107,23 +107,23 @@ describe('<TournamentRanking />', () => {
         cy.get('.el-pager li.is-active').should(($page) => {
             expect($page.text().trim()).to.equal('2');
         });
-        cy.get('[data-sort-field="weekly_classic_total"]').click();
+        cy.get('[data-sort-field="weekly_eff_total"]').click();
         cy.wait('@ranking');
         cy.get('.el-pager li.is-active').should(($page) => {
             expect($page.text().trim()).to.equal('1');
         });
-        cy.get('[data-sort-field="weekly_classic_total"]').should('have.attr', 'aria-pressed', 'true');
+        cy.get('[data-sort-field="weekly_eff_total"]').should('have.attr', 'aria-pressed', 'true');
         cy.get('[data-sort-field="score_current"]').should('have.attr', 'aria-pressed', 'false');
-        cy.get('[data-sort-field="gsc_best"]').focus();
+        cy.get('[data-sort-field="gsc_total"]').focus();
         cy.realPress('Enter');
-        cy.wait('@ranking').its('request.query').should('include', { sort_by: 'gsc_best', start: '0', end: '20' });
-        cy.wrap(router).its('currentRoute.value.query').should('deep.equal', { sort: 'gsc_best', page: '1', page_size: '20' });
+        cy.wait('@ranking').its('request.query').should('include', { sort_by: 'gsc_total', start: '0', end: '20' });
+        cy.wrap(router).its('currentRoute.value.query').should('deep.equal', { sort: 'gsc_total', page: '1', page_size: '20' });
 
         cy.then(() => {
             expect(requests).to.deep.equal([
                 { sortBy: 'score_current', start: 20, end: 40 },
-                { sortBy: 'weekly_classic_total', start: 0, end: 20 },
-                { sortBy: 'gsc_best', start: 0, end: 20 },
+                { sortBy: 'weekly_eff_total', start: 0, end: 20 },
+                { sortBy: 'gsc_total', start: 0, end: 20 },
             ]);
         });
     });
@@ -132,6 +132,6 @@ describe('<TournamentRanking />', () => {
         cy.intercept('GET', '**/api/tournament/user-ranking*', { body: { total: 0, data: [] } }).as('ranking');
         mountTournamentRanking();
         cy.wait('@ranking');
-        cy.contains('.base-table-empty', 'No tournament ranking data').should('have.attr', 'colspan', '9');
+        cy.contains('.base-table-empty', 'No tournament ranking data').should('have.attr', 'colspan', '7');
     });
 });

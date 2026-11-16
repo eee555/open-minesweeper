@@ -75,6 +75,12 @@
                 </template>
             </ElTableColumn>
         </ElTableColumn>
+        <!-- @vue-generic {GSCParticipant} -->
+        <ElTableColumn v-if="canDisqualify" :label="t('prop.action')">
+            <template #default="{ row }">
+                <DisqualifyParticipant :participant="row" @deleted="emit('deleted', $event)" />
+            </template>
+        </ElTableColumn>
     </ElTable>
 </template>
 
@@ -83,18 +89,21 @@ import '@/styles/vendors/element-plus-table.css';
 import { ElTable, ElTableColumn } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 
+import DisqualifyParticipant from '../common/DisqualifyParticipant.vue';
+
 import PlayerName from '@/components/PlayerName.vue';
 import { ms_to_s } from '@/utils';
 import type { GSCParticipant } from '@/utils/gsc';
 
 defineProps({
+    canDisqualify: { type: Boolean, default: false },
     data: {
         type: Array<GSCParticipant>,
         default: () => [],
     },
 });
 
-const emit = defineEmits(['row-click']);
+const emit = defineEmits<{ 'row-click': [participant: GSCParticipant]; deleted: [id: number] }>();
 
 const { t } = useI18n();
 

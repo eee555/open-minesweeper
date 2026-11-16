@@ -277,7 +277,7 @@ python manage.py rebuild_top_soft_ranks
 
 位置：`tournament/management/commands/rebuild_tournament_cache.py`
 
-清空并重建 `tournament:normal` 和 `tournament:normal:participants`，只包含 `NORMAL` 状态的金羊杯、周赛及其参赛关系。
+清空并重建 `tournament:normal` 和 `tournament:normal:participants`，包含 `NORMAL` 状态的金羊杯、竞速打卡赛、效率打卡赛及其参赛关系。执行时暂停报名及比赛状态写入，避免全量重建覆盖增量更新。
 
 ```bash
 python manage.py rebuild_tournament_cache
@@ -422,7 +422,7 @@ python manage.py refresh_video_counts
 
 位置：`tournament/management/commands/refresh_tournament_scores.py`
 
-同步重算指定比赛的成绩、排名、积分和参赛用户的历史最佳成绩，无需后台 worker。只接受已颁奖且有结束时间的 GSC 或经典周赛。
+同步重算指定比赛的成绩、排名、积分和参赛用户的历史最佳成绩，无需后台 worker。只接受已颁奖且有结束时间的 GSC、经典竞速打卡赛或效率打卡赛。
 
 命令按有效录像重算成绩，按新旧积分差额修正累计积分，并同步 Redis；不会重复累计积分或回退最后计分时间。执行期间避免修改该届录像、参赛者，并暂停相关用户的积分结算。数据库写入在一个事务内，失败会回滚；Redis 不随数据库回滚，排除故障后需重跑以恢复一致性。
 
@@ -443,7 +443,7 @@ python manage.py refresh_tournament_scores 123
 
 位置：`tournament/management/commands/refresh_tournament_user_stats.py`
 
-补齐已颁奖比赛参赛者缺失的 `TournamentUser`，刷新比赛历史总分、金羊杯和经典周赛历史最好成绩，并同步 Redis；不修改实时 `score_current`。
+补齐已颁奖比赛参赛者缺失的 `TournamentUser`，刷新历史总分、GSC/竞速/效率分项积分与历史 best，并同步 Redis；效率 best 的年/周分字段重建，不做浮点编码。不修改实时 `score_current`。运行时避免与结算或取消资格任务重叠。
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |

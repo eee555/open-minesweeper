@@ -6,6 +6,8 @@ from tournament.gsc.services import calculate_gsc_best_score
 from tournament.models import TournamentParticipant, TournamentUser
 from tournament.services import refresh_tournament_user_total_fields
 from tournament.weekly.services import calculate_weekly_classic_best
+from tournament.weekly_eff.services import calculate_weekly_eff_best
+from tournament.weekly_eff.utils import WEEKLY_EFF_BEST_FIELDS
 
 
 def refresh_tournament_user_best_fields(*, batch_size=1000):
@@ -27,14 +29,16 @@ def refresh_tournament_user_best_fields(*, batch_size=1000):
         user_id = tournament_user.user_id
         tournament_user.gsc_best = calculate_gsc_best_score(user_id)
         tournament_user.weekly_classic_best = calculate_weekly_classic_best(user_id)
+        for field, value in zip(WEEKLY_EFF_BEST_FIELDS, calculate_weekly_eff_best(user_id)):
+            setattr(tournament_user, field, value)
 
     if tournament_users:
         TournamentUser.objects.bulk_update(
             tournament_users,
-            ['gsc_best', 'weekly_classic_best'],
+            ['gsc_best', 'weekly_classic_best', *WEEKLY_EFF_BEST_FIELDS],
             batch_size=batch_size,
         )
-        TournamentCache().update_tournament_users(tournament_users, fields=['gsc_best', 'weekly_classic_best'])
+        TournamentCache().update_tournament_users(tournament_users, fields=['gsc_best', 'weekly_classic_best', *WEEKLY_EFF_BEST_FIELDS])
 
     return len(tournament_users)
 

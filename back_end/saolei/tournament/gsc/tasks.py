@@ -1,11 +1,13 @@
 import logging
 
 from django.tasks import task, TaskResultStatus
+from django.utils import timezone
 
 from config.text_choices import Tournament_TextChoices
 from tournament.models import GSCTournament
 from tournament.services import delete_participants_without_videos, ensure_tournament_users, reveal_videos_for_tournament
 from tournament.tasks import task_award_tournament
+from tournament.utils import TOURNAMENT_FINISH_DELAY
 from .services import refresh_gsc_best_scores, refresh_gsc_scores_and_ranks
 
 logger = logging.getLogger('tournament')
@@ -27,7 +29,8 @@ def helper_gsc_finish_tournament(tournament: GSCTournament):
             )
             return existing_task
 
-    tournament.task = task_gsc_finish.enqueue(tournament.order).db_result
+    run_after = max(timezone.now(), tournament.end_time + TOURNAMENT_FINISH_DELAY)
+    tournament.task = task_gsc_finish.using(run_after=run_after).enqueue(tournament.order).db_result
     tournament.save(update_fields=['task'])
     logger.info(
         f'GSC#{tournament.order} 创建结算任务完成，任务#{tournament.task_id}，'

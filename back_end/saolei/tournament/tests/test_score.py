@@ -141,7 +141,8 @@ class TestScore(TournamentTestCaseBase):
         )
         TournamentUser.objects.filter(user=self.user).update(weekly_classic_best=MAX_TOURNAMENT_BEST)
 
-        award_count = award_tournament_rank_scores(tournament)
+        with self.captureOnCommitCallbacks(execute=True):
+            award_count = award_tournament_rank_scores(tournament)
 
         participant.refresh_from_db()
         tournament_user.refresh_from_db()

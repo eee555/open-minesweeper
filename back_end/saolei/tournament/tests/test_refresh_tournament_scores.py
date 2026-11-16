@@ -36,7 +36,8 @@ class RefreshTournamentScoresTests(TournamentTestCaseBase):
         output = StringIO()
 
         for _ in range(2):
-            call_command('refresh_tournament_scores', tournament.id, batch_size=1, stdout=output)
+            with self.captureOnCommitCallbacks(execute=True):
+                call_command('refresh_tournament_scores', tournament.id, batch_size=1, stdout=output)
             first.refresh_from_db()
             second.refresh_from_db()
             self.assertEqual((first.classic_score, first.rank, first.rank_score), (640000, 1, 50))
@@ -56,7 +57,8 @@ class RefreshTournamentScoresTests(TournamentTestCaseBase):
 
         first_video.state = MS_TextChoices.State.FROZEN
         first_video.save(update_fields=['state'])
-        call_command('refresh_tournament_scores', tournament.id, stdout=StringIO())
+        with self.captureOnCommitCallbacks(execute=True):
+            call_command('refresh_tournament_scores', tournament.id, stdout=StringIO())
         first.refresh_from_db()
         second.refresh_from_db()
         self.assertEqual((first.classic_score, first.rank, first.rank_score), (780000, 2, 25))
@@ -97,7 +99,8 @@ class RefreshTournamentScoresTests(TournamentTestCaseBase):
         output = StringIO()
 
         for _ in range(2):
-            call_command('refresh_tournament_scores', tournament.id, batch_size=1, stdout=output)
+            with self.captureOnCommitCallbacks(execute=True):
+                call_command('refresh_tournament_scores', tournament.id, batch_size=1, stdout=output)
             first.refresh_from_db()
             second.refresh_from_db()
             self.assertEqual((first.t37, first.rank, first.rank_score), (1980000, 1, 50))
@@ -117,7 +120,8 @@ class RefreshTournamentScoresTests(TournamentTestCaseBase):
                 self.assertEqual(cache.zscore(TOURNAMENT_USER_CACHE_KEYS['gsc_best'], user.id), record.gsc_best)
 
         VideoModel.objects.filter(pk=first_video.pk).update(state=MS_TextChoices.State.FROZEN)
-        call_command('refresh_tournament_scores', tournament.id, stdout=StringIO())
+        with self.captureOnCommitCallbacks(execute=True):
+            call_command('refresh_tournament_scores', tournament.id, stdout=StringIO())
         first.refresh_from_db()
         second.refresh_from_db()
         self.assertEqual((first.t37, first.rank, first.rank_score), (2120000, 2, 25))
@@ -160,7 +164,7 @@ class RefreshTournamentScoresTests(TournamentTestCaseBase):
 
     def test_rejects_unsupported_tournament_types_and_weekly_formats(self):
         tournament = Tournament.objects.create(state=Tournament_TextChoices.State.AWARDED, end_time=timezone.now())
-        with self.assertRaisesMessage(CommandError, '当前只支持 GSC 和经典周赛'):
+        with self.assertRaisesMessage(CommandError, '当前只支持 GSC、竞速及效率打卡赛'):
             call_command('refresh_tournament_scores', tournament.id, stdout=StringIO())
         weekly = self.create_weekly_tournament(state=Tournament_TextChoices.State.AWARDED, tournament_format='?')
         with self.assertRaisesMessage(CommandError, '当前只支持经典周赛'):

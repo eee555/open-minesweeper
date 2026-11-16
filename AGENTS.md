@@ -39,6 +39,12 @@
 - 前端播放器 `flop-player` 需要单独下载并解压到 `front_end/public/flop/`，否则录像播放相关页面不可用。
 - 依赖版本在 `requirements.txt` / `requirements-wheels.txt` / `package.json` 中固定，升级请单独走 PR。
 
+## 分支管理
+- 直接在本地分支上修改，由用户进行提交推送，这是默认情况。
+- 创建一个新worktree，基于`https://github.com/eee555/open-minesweeper/tree/dev`分支创建新分支，在新分支上修改并自动向dev分支提交PR，PR被合并后才视为任务结束，可以删除该worktree。不需要在本地运行检查，直接依赖GitHub CI。当用户要求不修改当前分支时使用此策略
+
+当用户明确提出更详细的方案时，以用户为准。
+
 # 后端代码规范
 
 后端位置：`back_end\saolei`。测试参考：

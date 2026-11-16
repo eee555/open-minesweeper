@@ -17,6 +17,7 @@ from tournament.gsc.services import GSC_SCORE_FIELDS, refresh_gsc_scores
 from tournament.gsc.utils import gsc_encode_best
 from tournament.models import GSCParticipant, GSCTournament, TournamentUser
 from tournament.services import delete_participants_without_videos
+from tournament.tasks import task_disqualify_participant
 from utils.parser import MSVideoParser
 from videomanager.models import VideoModel
 from .base import TournamentTestCaseBase
@@ -338,20 +339,24 @@ class TestGscHistory(TournamentTestCaseBase):
             self.assertEqual(self.bind(participant.pk, 'not bound').status_code, 409)
         self.assertFalse(VideoModel.objects.exists())
 
-    def test_manual_delete_allows_reimport_but_nonofficial_video_blocks_deletion(self):
+    def test_disqualification_allows_reimport_and_preserves_nonofficial_videos(self):
         payload = self.batch([self.row(user_id=self.user.id)])
         self.assertEqual(self.post('/scores/users', payload).status_code, 200)
         participant = GSCParticipant.objects.get()
-        self.assertEqual(self.client.delete(f'/api/tournament/participant/{participant.pk}').status_code, 204)
+        self.assertEqual(self.client.post(f'/api/tournament/participant/{participant.pk}/disqualify').status_code, 202)
+        task_disqualify_participant.call(participant.pk, self.tournament.id)
         self.assertEqual(self.post('/scores/users', payload).status_code, 200)
         participant = GSCParticipant.objects.get()
         video = self.create_video(tournament_identifier=['not matching'])
         video.state = MS_TextChoices.State.IDENTIFIER
         video.save(update_fields=['state'])
         self.tournament.videos.add(video)
-        self.assertEqual(self.client.delete(f'/api/tournament/participant/{participant.pk}').status_code, 409)
         listing = self.client.get('/api/tournament/gsc/results', {'tournament_id': self.tournament.id})
         self.assertTrue(listing.json()[0]['has_videos'])
+        self.assertEqual(self.client.post(f'/api/tournament/participant/{participant.pk}/disqualify').status_code, 202)
+        task_disqualify_participant.call(participant.pk, self.tournament.id)
+        self.assertFalse(GSCParticipant.objects.filter(pk=participant.pk).exists())
+        self.assertTrue(VideoModel.objects.filter(pk=video.id).exists())
 
     def test_imported_timestamp_also_controls_automatic_checkin(self):
         parser = MSVideoParser(self.replay())

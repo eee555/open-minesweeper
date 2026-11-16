@@ -130,7 +130,7 @@ digraph gsc_history_upload {
 | `POST /api/tournament/gsc/history/participants/{participant_id}/videos`（`upload_history_video`） | 每次处理一个文件：哈希查重，命中则复用，未命中才解析、校验标识并创建；保存上传时间、关联比赛，返回录像及审核状态。每个请求一个事务。 |
 | `POST /api/tournament/gsc/history/scores/users`（`import_history_user_scores`） | 为有站内账号但录像缺失的选手录入九项成绩，创建 `manual_scores=true` 的 participant，不从录像计算。 |
 | `POST /api/tournament/gsc/history/scores/anonymous`（`import_history_anonymous_scores`） | 以 Arbiter 标识创建匿名手工成绩选手，不虚构站内用户、不绑定账号；与站内选手一起占用实际名次，但不获得账号积分。 |
-| `DELETE /api/tournament/participant/{participant_id}`（`delete_participant`） | 删除没有任何关联录像的参赛者；有非 OFFICIAL 或不计分录像也拒绝。删除信号撤回本人已发积分并更新 best，但不重排其他人。 |
+| `POST /api/tournament/participant/{participant_id}/disqualify` | 仅已颁奖比赛的主办方可排队取消资格，有无录像均可；管理员不是主办方时无该权限。worker 删除 participant，撤回本人积分并刷新 best，不删除录像文件、不重排其他人。前端等待任务成功再刷新列表。 |
 | `GET /api/tournament/gsc/results?tournament_id=...`（`get_results`） | 已颁奖比赛的公开成绩读取入口，同时用于管理列表及补录、删除后的刷新；已有 `manual_scores`、`has_videos` 等字段。只读当前保存的结果，不触发计算。 |
 
 两种 CSV 由前端解析，按 `order` 分组，每次提交同届 1～10 条 JSON 记录，不上传 CSV 原文件。站内用 `(order, user_id)`、匿名用 `(order, arbiter_identifier)` 标识参赛者；两种身份不混合。一个请求内任意记录失败则整批回滚，之前成功的请求保留；前端顺序提交，失败后不再提交后续批次。
@@ -142,7 +142,7 @@ order,user_id,bt1st,bt20th,bt20sum,it1st,it12th,it12sum,et1st,et5th,et5sum
 order,arbiter_identifier,bt1st,bt20th,bt20sum,it1st,it12th,it12sum,et1st,et5th,et5sum
 ```
 
-站内用户必须存在，匿名标识必须非空。同一身份可跨届复用，但同届已有 participant 或文件内同届重复身份均拒绝，不覆盖、不自动切换成绩来源，也不删除文件未列出的选手。需要更正时先按无录像规则删除，再重新添加。每批最多 10 条只是请求上限，不保证生产环境的 2 秒响应时限。
+站内用户必须存在，匿名标识必须非空。同一身份可跨届复用，但同届已有 participant 或文件内同届重复身份均拒绝，不覆盖、不自动切换成绩来源，也不删除文件未列出的选手。需要更正时由主办方排队取消资格，等待删除成功后重新添加。每批最多 10 条只是请求上限，不保证生产环境的 2 秒响应时限。
 
 ## 重试与人工重算
 

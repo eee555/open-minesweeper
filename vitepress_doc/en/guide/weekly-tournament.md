@@ -5,7 +5,7 @@ description: Weekly minesweeper tournament rules held by Open Minesweeper, inclu
 
 # Weekly Tournament
 
-The Weekly Tournament is a small official tournament hosted by Open Minesweeper. It is held once a week and pauses when another tournament is taking place.
+Open Minesweeper hosts Speed Weekly and Efficiency Weekly tournaments independently. You may enter both in the same week; register separately and use each tournament's own token.
 
 Registration requires a real name or verification by a verified player. See [Minesweeper Tournaments](./tournament.md).
 
@@ -13,9 +13,21 @@ Registration requires a real name or verification by a verified player. See [Min
 
 The tournament starts at 00:00 UTC on Monday and ends at 24:00 UTC on Sunday. You may choose any two-hour window within that interval to play. During the tournament, you can register on the tournament page and receive a unique tournament identifier. After registration, you have two hours to upload tournament replays. If you register after 22:00 UTC on Sunday, your tournament end time is still 24:00 UTC on Sunday, so please pay attention to the time.
 
-Before registration, the page asks for confirmation. Once confirmed, your two-hour session starts immediately and cannot be cancelled or chosen again.
+After confirmation, your two-hour session starts immediately and cannot be cancelled or chosen again by yourself. If you registered by mistake and have no tournament replays, contact the host or an administrator after your personal window expires to reset it. The overall tournament must still be running.
 
-For the classic 2E+5I format, the score uses the best 2 expert Time games plus the best 5 intermediate Time games. Only Standard mode games count, and the software must support tournament token. If there are not enough games, missing intermediate games are filled with 60 seconds, and missing expert games are filled with 240 seconds.
+Both tournaments count only official Standard replays, including NF. The software must support tournament tokens.
+
+### Speed Weekly
+
+The classic 2E+5I format adds the fastest 2 Expert and 5 Intermediate times. Intermediate times must be below 60 seconds and Expert times below 240 seconds. Missing games count as these respective limits.
+
+### Efficiency Weekly
+
+Each game is scored by `Time / IOE`, equivalently `clicks / 3BV/s`; lower is better. Add the lowest scores from 2 Expert and 5 Intermediate games. Intermediate scores must be below 60, Expert below 240, with no additional IOE cap. Missing games count as 60 and 240 respectively.
+
+## Settlement and Disqualification
+
+Final results are calculated no earlier than one hour after the overall tournament ends. This does not extend your session or upload window. After awards, only the tournament host may disqualify a player for breaking the rules. Awarded points are revoked; replay files are kept.
 
 ## Point Rewards
 

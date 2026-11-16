@@ -516,7 +516,7 @@ class TaskDeletionTests(TestCase):
             self.assertEqual(new_task.priority, old_task.priority)
             self.assertEqual(new_task.queue_name, old_task.queue_name)
             self.assertEqual(new_task.backend_name, old_task.backend_name)
-            self.assertEqual(new_task.run_after, old_task.run_after)
+            self.assertEqual(new_task.run_after, max(old_task.run_after, tournament.end_time + timedelta(hours=1)))
 
             obj.refresh_from_db()
             self.assertEqual(getattr(obj, task_field_id), new_task.id)
