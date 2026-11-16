@@ -3,21 +3,8 @@ export class ScreenWakeLock {
     private active = false;
     private acquiring = false;
 
-    private readonly handleVisibilityChange = () => {
-        if (this.active && document.visibilityState === 'visible') {
-            void this.acquire();
-        }
-    };
-
-    private readonly handleRelease = () => {
-        this.sentinel = null;
-        if (this.active && document.visibilityState === 'visible') {
-            void this.acquire();
-        }
-    };
-
-    async acquire(): Promise<void> {
-        if (!navigator.wakeLock || !this.active || this.acquiring || this.sentinel !== null) return;
+    public async acquire(): Promise<void> {
+        if (!('wakeLock' in navigator) || !this.active || this.acquiring || this.sentinel !== null) return;
         this.acquiring = true;
         try {
             const sentinel = await navigator.wakeLock.request('screen');
@@ -34,18 +21,30 @@ export class ScreenWakeLock {
         }
     }
 
-    request(): void {
+    public request(): void {
         if (this.active) return;
         this.active = true;
         document.addEventListener('visibilitychange', this.handleVisibilityChange);
         void this.acquire();
     }
 
-    release(): void {
+    public release(): void {
         this.active = false;
         document.removeEventListener('visibilitychange', this.handleVisibilityChange);
-        const sentinel = this.sentinel;
+        const { sentinel } = this;
         this.sentinel = null;
         void sentinel?.release();
     }
+
+    private readonly handleVisibilityChange = () => {
+        if (this.active && document.visibilityState === 'visible') {
+            void this.acquire();
+        }
+    };
+    private readonly handleRelease = () => {
+        this.sentinel = null;
+        if (this.active && document.visibilityState === 'visible') {
+            void this.acquire();
+        }
+    };
 }
