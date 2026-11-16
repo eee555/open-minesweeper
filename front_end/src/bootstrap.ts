@@ -1,4 +1,4 @@
-import './setup.js';
+import './setup';
 import { ArrowLeft, ArrowRight, Key, Lock, Message, QuestionFilled, User } from '@element-plus/icons-vue';
 import { definePreset } from '@primeuix/themes';
 import Aura from '@primeuix/themes/aura';
