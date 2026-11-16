@@ -24,8 +24,10 @@
                 </div>
             </template>
         </div>
-        <MemorialBadge v-if="user.is_memorial" />
-        <span v-if="user.verified" class="verification-badge" data-cy="verification-badge">{{ t('local.verified') }}</span>
+        <div class="profile-badges">
+            <MemorialBadge v-if="user.is_memorial" />
+            <span v-if="user.verified" class="verification-badge" data-cy="verification-badge">{{ t('local.verified') }}</span>
+        </div>
         <RouterLink v-if="user.is_memorial && store.user.is_superuser" :to="{ path: '/superuser/memorial', query: { id: user.id } }" class="link">
             {{ t('local.uploadMemorial') }}
         </RouterLink>
@@ -99,6 +101,13 @@ const { t } = useI18n({ messages: i18nMessages });
     font-size: 0.8rem;
 }
 
+.profile-badges {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+}
+
 /* 横向布局：窄屏顶部栏 */
 .horizontal-profile {
     display: grid;
@@ -120,8 +129,12 @@ const { t } = useI18n({ messages: i18nMessages });
         overflow-wrap: anywhere;
     }
 
-    > :not(.profile):not(.profile-pins) {
+    > :not(.profile):not(.profile-pins):not(.profile-badges) {
         grid-column: 1 / -1;
+    }
+    .profile-badges {
+        grid-column: 2;
+        grid-row: 1;
     }
     .profile-pins {
         min-width: 0;
@@ -191,6 +204,10 @@ const { t } = useI18n({ messages: i18nMessages });
         align-items: center;
         gap: 4px;
         margin-bottom: 16px;
+    }
+
+    .profile-badges {
+        display: contents;
     }
 
     .avatar {
