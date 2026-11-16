@@ -1,14 +1,14 @@
 <template>
     <div>
         {{ t('prop.videoId') }}
-        <ElInputNumber v-model="videoid" :controls="false" :min="0" :disabled="freezing" data-cy="video-id" />
-        <BaseButton :disabled="freezing" data-cy="video-query" @click="getVideo">
+        <ElInputNumber v-model="videoid" :controls="false" :min="0" :disabled="freezing || unfreezing" data-cy="video-id" />
+        <BaseButton :disabled="freezing || unfreezing" data-cy="video-query" @click="getVideo">
             {{ t('button.query') }}
         </BaseButton>
         <BaseButton @click="previewVideo">
             {{ t('button.play') }}
         </BaseButton>
-        <BaseButton :disabled="freezing" @click="updateVideo(videoid)">
+        <BaseButton :disabled="freezing || unfreezing" @click="updateVideo(videoid)">
             {{ t('button.update') }}
         </BaseButton>
         <BaseButton @click="removeNewest(videoid)">
@@ -29,15 +29,25 @@
         {{ t('prop.value') }}<ElInput v-model="videovalue" />
     </div>
     <div>
-        <BaseButton :disabled="freezing" @click="setVideo(videoid, videofield, videovalue)">
+        <BaseButton :disabled="freezing || unfreezing" @click="setVideo(videoid, videofield, videovalue)">
             {{ t('button.save') }}
         </BaseButton>
     </div>
     <form class="video-freeze" @submit.prevent="freezeVideo">
         <label for="video-freeze-reason">{{ t('local.freezeReason') }}</label>
-        <ElInput id="video-freeze-reason" v-model="freezeReason" type="textarea" :rows="3" :disabled="freezing" data-cy="freeze-reason" />
-        <BaseButton native-type="submit" type="danger" :loading="freezing" :disabled="videomodel.id !== videoid || !freezeReason.trim()" data-cy="freeze-video">
+        <ElInput id="video-freeze-reason" v-model="freezeReason" type="textarea" :rows="3" :disabled="freezing || unfreezing" data-cy="freeze-reason" />
+        <BaseButton native-type="submit" type="danger" :loading="freezing" :disabled="freezing || unfreezing || videomodel.id !== videoid || !freezeReason.trim()" data-cy="freeze-video">
             {{ t('local.freezeVideo') }}
+        </BaseButton>
+    </form>
+    <form class="video-freeze" @submit.prevent="unfreezeVideo">
+        <label for="video-unfreeze-state">{{ t('local.unfreezeTo') }}</label>
+        <select id="video-unfreeze-state" v-model="unfreezeState" class="base-select" data-cy="unfreeze-state" :aria-label="t('local.unfreezeTo')">
+            <option :value="MS_State.Official">{{ globalI18n.t('state.c') }}</option>
+            <option :value="MS_State.Identifier">{{ globalI18n.t('state.d') }}</option>
+        </select>
+        <BaseButton native-type="submit" :loading="unfreezing" :disabled="freezing || unfreezing || videomodel.id !== videoid || videomodel.state !== MS_State.Frozen" data-cy="unfreeze-video">
+            {{ t('local.unfreezeVideo') }}
         </BaseButton>
     </form>
     <ElDescriptions :title="t('local.videoModel')" data-cy="video-detail">
@@ -57,6 +67,7 @@ import BaseButton from '@/components/common/BaseButton.vue';
 import { httpErrorNotification, successNotification } from '@/components/Notifications';
 import { preview } from '@/utils/common/PlayerDialog';
 import useCurrentInstance from '@/utils/common/useCurrentInstance';
+import { MS_State } from '@/utils/ms_const';
 
 const { proxy } = useCurrentInstance();
 const globalI18n = useI18n({ useScope: 'global' });
@@ -68,20 +79,23 @@ const videofieldlist = ['player', 'upload_time', 'state']; // 可以修改的域
 const videomodel = ref<Record<string, unknown>>({});
 const freezeReason = ref('');
 const freezing = ref(false);
+const unfreezeState = ref<MS_State>(MS_State.Official);
+const unfreezing = ref(false);
 
 const getVideo = () => {
     const id = videoid.value;
     proxy.$axios.get<Record<string, unknown>>(`/api/video/admin/detail/${id}`).then(
         function (response) {
-            if (videoid.value !== id || freezing.value) return;
+            if (videoid.value !== id || freezing.value || unfreezing.value) return;
             videomodel.value = response.data;
             freezeReason.value = typeof response.data.video__freeze_reason === 'string' ? response.data.video__freeze_reason : '';
+            unfreezeState.value = MS_State.Official;
         },
     ).catch(httpErrorNotification);
 };
 
 async function freezeVideo() {
-    if (freezing.value || videomodel.value.id !== videoid.value || !freezeReason.value.trim()) return;
+    if (freezing.value || unfreezing.value || videomodel.value.id !== videoid.value || !freezeReason.value.trim()) return;
     const id = videoid.value;
     const freeze_reason = freezeReason.value.trim();
     freezing.value = true;
@@ -97,6 +111,26 @@ async function freezeVideo() {
         httpErrorNotification(error);
     } finally {
         freezing.value = false;
+    }
+}
+
+async function unfreezeVideo() {
+    if (freezing.value || unfreezing.value || videomodel.value.id !== videoid.value || videomodel.value.state !== MS_State.Frozen) return;
+    const id = videoid.value;
+    const state = unfreezeState.value;
+    unfreezing.value = true;
+    try {
+        const access = await proxy.$axios.get<{ csrf_token: string }>('/api/video/admin/unfreeze');
+        const response = await proxy.$axios.post<{ id: number; state: string; freeze_reason: string }>('/api/video/admin/unfreeze', { id, state }, {
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': access.data.csrf_token },
+        });
+        videomodel.value = { ...videomodel.value, state: response.data.state, video__freeze_reason: response.data.freeze_reason };
+        freezeReason.value = response.data.freeze_reason;
+        successNotification(response);
+    } catch (error) {
+        httpErrorNotification(error);
+    } finally {
+        unfreezing.value = false;
     }
 }
 
@@ -135,6 +169,8 @@ const i18nMessages = {
         videoModel: '录像信息（VideoModel）',
         freezeReason: '冻结原因',
         freezeVideo: '冻结录像 / 更新冻结原因',
+        unfreezeTo: '解冻后状态',
+        unfreezeVideo: '解冻录像',
     } },
     en: { local: {
         removeNewest: 'Remove from latest videos',
@@ -143,6 +179,8 @@ const i18nMessages = {
         videoModel: 'Video information (VideoModel)',
         freezeReason: 'Freeze reason',
         freezeVideo: 'Freeze video / update reason',
+        unfreezeTo: 'Unfreeze to',
+        unfreezeVideo: 'Unfreeze video',
     } },
 };
 

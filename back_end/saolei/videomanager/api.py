@@ -1,5 +1,5 @@
 import json
-from typing import Annotated
+from typing import Annotated, Literal
 from urllib.parse import quote
 
 from django.conf import settings
@@ -25,7 +25,7 @@ from .cache import cache, newest_cache
 from .files import original_file
 from .models import ExpandVideoModel, VideoModel
 from .schema import ParsedVideoOut, PUBLIC_VIDEO_METADATA_FIELDS, PublicVideoMetadataOut, VIDEO_INFO_BATCH_LIMIT, VIDEO_METADATA_FIELDS, VideoBaseOut, VideoMetadataOut, VideoQueryOut
-from .services import delete_video_by_id, freeze_video_by_id, query_videos
+from .services import delete_video_by_id, freeze_video_by_id, query_videos, unfreeze_video_by_id, VideoUnfreezeError
 from .utils import replay_filename, unpack_compression_format, VIDEO_QUERY_ALLOWED_PARAMS, VideoQueryError
 
 router = Router()
@@ -36,6 +36,11 @@ VideoFreezeIn = create_schema(
     custom_fields=[('id', Annotated[StrictInt, Field(gt=0, le=2**63 - 1)], ...), ('freeze_reason', Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, strict=True)], ...)],
 )
 VideoFreezeOut = create_schema(VideoModel, name='VideoFreezeOut', fields=['id', 'state'], custom_fields=[('freeze_reason', str, ...)])
+VideoUnfreezeIn = create_schema(
+    VideoModel, name='VideoUnfreezeIn', fields=['id'],
+    custom_fields=[('id', Annotated[StrictInt, Field(gt=0, le=2**63 - 1)], ...), ('state', Literal['c', 'd'], ...)],
+)
+VideoUnfreezeOut = create_schema(VideoModel, name='VideoUnfreezeOut', fields=['id', 'state'], custom_fields=[('freeze_reason', str, ...)])
 
 
 class VideoAdminAccessOut(Schema):
@@ -179,6 +184,38 @@ def freeze_video_admin(request: HttpRequest, data: VideoFreezeIn):
         return freeze_video_by_id(data.id, data.freeze_reason, actor_id=request.user.pk)
     except VideoModel.DoesNotExist:
         raise HttpError(404, 'Video not found.')
+
+
+@router.get('/admin/unfreeze', auth=django_auth, response=VideoAdminAccessOut)
+@decorate_view(staff_required, ensure_csrf_cookie, cache_control(no_store=True))
+def get_video_unfreeze_access(request: HttpRequest):
+    """
+    - auth=django_auth (Django session)
+    - staff_required
+    - ensure_csrf_cookie
+    - cache_control(no_store=True)
+
+    Check staff access and initialize the CSRF cookie and request token for unfreezing a video.
+    """
+    return {'csrf_token': get_token(request)}
+
+
+@router.post('/admin/unfreeze', auth=django_auth, response=VideoUnfreezeOut)
+@decorate_view(staff_required)
+def unfreeze_video_admin(request: HttpRequest, data: VideoUnfreezeIn):
+    """
+    - auth=django_auth (Django session, CSRF required)
+    - staff_required
+
+    Unfreeze one frozen video to OFFICIAL ('c') or IDENTIFIER ('d') and clear its freeze reason.
+    State-change signals update queues and rankings; the file and upload time are preserved.
+    """
+    try:
+        return unfreeze_video_by_id(data.id, data.state, actor_id=request.user.pk)
+    except VideoModel.DoesNotExist:
+        raise HttpError(404, 'Video not found.')
+    except VideoUnfreezeError as exc:
+        raise HttpError(409, str(exc)) from exc
 
 
 @router.post('/admin/delete', auth=django_auth_superuser, response=VideoDeleteOut)
