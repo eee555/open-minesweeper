@@ -514,7 +514,7 @@ describe('medalCaption', () => {
     });
 
     it.each([
-        ['en', 'Standard (00), Speed NG (05), Hardcore NG (06), and Lucky (10)'],
+        ['en', 'Standard (00), Speed NG (05), Strict NG (06), and Lucky (10)'],
         ['zh-cn', '标准（00）、竞速无猜（05）、强无猜（06）、弱可猜（10）'],
     ])('resolves linked mode names in %s', async (locale, modes) => {
         const { medalCaption } = await import('./medalService');
