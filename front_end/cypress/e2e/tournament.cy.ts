@@ -1,4 +1,5 @@
 import type { TournamentParticipantResponse } from '@/services/tournamentService';
+import { MS_State } from '@/utils/ms_const';
 
 const HOST = {
     id: 48,
@@ -837,7 +838,7 @@ describe('Efficiency Weekly tournament', () => {
                 left: 4,
                 right: 0,
                 double: 0,
-                state: 'd',
+                state: MS_State.Official,
                 software: 'e',
                 tournament_identifier: [token],
                 identifier: `eff-${level}-${mode}`,
