@@ -42,6 +42,7 @@ import { onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import InputNumber from '@/components/common/InputNumber.vue';
+import { ScreenWakeLock } from '@/utils/wakeLock';
 
 const props = defineProps({
     durationMs: { type: Number, required: true },
@@ -78,6 +79,7 @@ let animationFrameId = 0;
 let startedAt = 0;
 let startedFrom = 0;
 let isSeeking = false;
+const wakeLock = new ScreenWakeLock();
 
 watch(() => props.durationMs, (durationMs) => {
     currentMs.value = clampTime(currentMs.value, durationMs);
@@ -104,11 +106,13 @@ function startPlayback() {
         currentMs.value = 0;
     }
     isPlaying.value = true;
+    wakeLock.request();
     animationFrameId = requestAnimationFrame(tick);
 }
 
 function stopPlayback() {
     isPlaying.value = false;
+    wakeLock.release();
     if (animationFrameId !== 0) {
         cancelAnimationFrame(animationFrameId);
         animationFrameId = 0;
