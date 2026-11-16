@@ -48,10 +48,10 @@
         <BaseTable :empty="accountLinks.length === 0" :empty-text="t('local.empty')" :column-count="4" data-cy="account-link-table">
             <template #head>
                 <tr>
-                    <th scope="col" :aria-sort="ariaSort" data-cy="header-user-id">
+                    <th scope="col" :aria-sort="sortState(sortOrder)" data-cy="header-user-id">
                         <BaseButton size="small" text :aria-label="t('prop.userId')" data-cy="sort-user-id" @click="toggleSort">
                             {{ t('prop.userId') }}
-                            <i class="pi" :class="sortIcon" aria-hidden="true" />
+                            <SortIcon :state="sortState(sortOrder)" />
                         </BaseButton>
                     </th>
                     <th scope="col">
@@ -81,8 +81,6 @@
 </template>
 
 <script setup lang="ts">
-import 'primeicons/primeicons.css';
-
 import { ElForm, ElFormItem, ElInput, vLoading } from 'element-plus';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -90,6 +88,8 @@ import { useI18n } from 'vue-i18n';
 import BaseButton from '@/components/common/BaseButton.vue';
 import BasePagination from '@/components/common/BasePagination.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
+import SortIcon from '@/components/common/SortIcon.vue';
+import { nextSortOrder, sortState } from '@/components/common/sortState';
 import { httpErrorNotification } from '@/components/Notifications';
 import { AccountLinkPlatform, manualAccountLinkPlatforms } from '@/utils/accountlinks';
 import type { AccountLinkQueuePageResponse, AccountLinkQueueResponse } from '@/utils/accountlinks/common';
@@ -111,14 +111,6 @@ const pageSize = ref(10);
 const platformFilter = ref('');
 const verifiedFilter = ref('');
 const sortOrder = ref<number | undefined>(undefined);
-const sortIcon = computed(() => {
-    if (sortOrder.value === undefined) return 'pi-sort-alt';
-    return sortOrder.value > 0 ? 'pi-sort-amount-down-alt' : 'pi-sort-amount-down';
-});
-const ariaSort = computed(() => {
-    if (sortOrder.value === undefined) return 'none';
-    return sortOrder.value > 0 ? 'ascending' : 'descending';
-});
 const orderParam = computed(() => {
     if (sortOrder.value === undefined) return '';
     return sortOrder.value > 0 ? 'asc' : 'desc';
@@ -160,9 +152,7 @@ function handleFilterChange() {
 watch([platformFilter, verifiedFilter], handleFilterChange);
 
 function toggleSort() {
-    if (sortOrder.value === undefined) sortOrder.value = 1;
-    else if (sortOrder.value === 1) sortOrder.value = -1;
-    else sortOrder.value = undefined;
+    sortOrder.value = nextSortOrder(sortOrder.value, true, undefined);
     currentStart.value = 1;
     void refresh();
 }

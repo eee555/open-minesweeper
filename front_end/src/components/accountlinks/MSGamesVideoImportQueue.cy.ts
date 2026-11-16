@@ -14,6 +14,8 @@ const source: MSGamesVideo = {
     import_video: null,
 };
 const summary = { total: 2, imported: 0, video_update_time: null };
+const TABLE = '[data-cy=msgames-import-table] table';
+const PAGINATION = '[data-cy=msgames-import-pagination]';
 
 function catalogueVideo(id: number, overrides: Partial<MSGamesVideo> = {}): MSGamesVideo {
     const filename = overrides.filename ?? `video-${id}.avf`;
@@ -64,13 +66,53 @@ describe('<MSGamesVideoImportQueue />', () => {
         cy.contains('button', 'Sync video list').should('not.exist');
         cy.contains('button', 'Import remaining videos').should('not.exist');
         cy.get('tbody tr').should('have.length', 10);
-        cy.get('.p-paginator-next').click();
+        cy.get(`${PAGINATION} [data-cy=report]`).should('have.text', '1-10 / 21');
+        cy.get(`${PAGINATION} [data-cy=next]`).click();
+        cy.get(`${PAGINATION} [data-cy=report]`).should('have.text', '11-20 / 21');
         cy.contains('video-11.avf');
-        cy.get('.p-paginator-last').click();
+        cy.get(`${PAGINATION} [data-cy=segment]`).last().click();
+        cy.get(`${PAGINATION} [data-cy=report]`).should('have.text', '21-21 / 21');
         cy.contains('tbody a', 'legacy.mvr').should('have.attr', 'href', 'https://minesweepergame.com/member/file/42/legacy.mvr');
         cy.contains('tbody', 'Unsupported board or format');
-        cy.get('.p-paginator-next').should('be.disabled');
+        cy.get(`${PAGINATION} [data-cy=next]`).should('be.disabled');
         cy.get('@videos.all').should('have.length', 1);
+    });
+
+    it('shows the empty state and resets the start index after filters or page size changes', () => {
+        cy.intercept('GET', '**/api/accountlink/msgames/videos?*', {
+            body: Array.from({ length: 21 }, (_, index) => catalogueVideo(index + 1, {
+                category: index % 2 === 0 ? 'Time / beginner' : 'Density / 8x8',
+            })),
+        }).as('videos');
+        cy.intercept('GET', '**/api/accountlink/msgames/summary?*', summary).as('summary');
+        mountAccountLink(MSGamesVideoImportQueue, { msgamesId: 42, owner: false });
+        cy.wait(['@videos', '@summary']);
+        cy.get(`${PAGINATION} [data-cy=jump]`).clear();
+        cy.get(`${PAGINATION} [data-cy=jump]`).type('21{enter}');
+        cy.get(`${PAGINATION} [data-cy=report]`).should('have.text', '21-21 / 21');
+        cy.get('[data-cy=filter-category]').type('Density');
+        cy.get(`${PAGINATION} [data-cy=report]`).should('have.text', '1-10 / 10');
+        cy.get(TABLE).extractTableData().should((rows: string[][]) => {
+            expect(rows).to.have.length(11);
+            expect(rows[1]).to.contain('Density / 8x8');
+        });
+        cy.get(`${PAGINATION} [data-cy=page-size]`).select('25');
+        cy.get(`${PAGINATION} [data-cy=report]`).should('have.text', '1-10 / 10');
+        cy.get('[data-cy=filter-category]').clear();
+        cy.get(`${PAGINATION} [data-cy=report]`).should('have.text', '1-21 / 21');
+        cy.get('@videos.all').should('have.length', 1);
+    });
+
+    it('keeps one empty row and a zero report when the catalogue is empty', () => {
+        cy.intercept('GET', '**/api/accountlink/msgames/videos?*', { body: [] }).as('videos');
+        cy.intercept('GET', '**/api/accountlink/msgames/summary?*', summary).as('summary');
+        mountAccountLink(MSGamesVideoImportQueue, { msgamesId: 42, owner: false });
+        cy.wait(['@videos', '@summary']);
+        cy.get(TABLE).extractTableData().should((rows: string[][]) => {
+            expect(rows[1]).to.deep.equal(['No synced videos']);
+        });
+        cy.get(`${PAGINATION} [data-cy=report]`).should('have.text', '0-0 / 0');
+        cy.get(`${PAGINATION} [data-cy=next]`).should('be.disabled');
     });
 
     it('sorts upload dates and combines category and import status controls in one header row', () => {
@@ -96,8 +138,13 @@ describe('<MSGamesVideoImportQueue />', () => {
         cy.get('thead input[aria-label="Search category"]').should('exist');
         cy.get('thead select[aria-label="Filter import status"]').should('exist');
         cy.get('tbody tr').first().should('contain', 'density-imported.avf');
-        cy.contains('th', 'Upload date').click();
+        cy.get('[data-cy=sort-upload-date]').closest('th').should('have.attr', 'aria-sort', 'descending');
+        cy.get('[data-cy=sort-upload-date]').click();
+        cy.get('[data-cy=sort-upload-date]').closest('th').should('have.attr', 'aria-sort', 'ascending');
         cy.get('tbody tr').first().should('contain', 'oldest.avf');
+        cy.get('[data-cy=sort-upload-date]').click();
+        cy.get('[data-cy=sort-upload-date]').closest('th').should('have.attr', 'aria-sort', 'descending');
+        cy.get('tbody tr').first().should('contain', 'density-imported.avf');
         cy.get('input[aria-label="Search category"]').type('Density');
         cy.get('tbody tr').should('have.length', 2);
         cy.get('select[aria-label="Filter import status"]').select('imported');

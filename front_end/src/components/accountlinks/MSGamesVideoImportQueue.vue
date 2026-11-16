@@ -21,80 +21,97 @@
         <p v-if="summary?.video_update_time">
             {{ t('local.updated') }}: {{ summary.video_update_time }}
         </p>
-        <PrDataTable
-            v-model:filters="filters" v-model:first="first" v-model:rows="rows"
-            :value="tableData" data-key="id" size="small" row-hover
-            sort-field="upload_date" :sort-order="-1"
-            paginator :rows-per-page-options="[10, 25, 50, 100]"
-            paginator-template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
-            current-page-report-template="{first}–{last} / {totalRecords}"
-            class="msgames-videos"
+        <BaseTable
+            :empty="pageRows.length === 0" :empty-text="t('local.empty')" :column-count="5"
+            table-class="msgames-videos" data-cy="msgames-import-table"
         >
-            <template #empty>
-                {{ t('local.empty') }}
+            <template #head>
+                <tr>
+                    <th scope="col" class="table-col-datetime" :aria-sort="sortState(sortOrder)">
+                        <BaseButton size="small" text :aria-label="t('local.date')" data-cy="sort-upload-date" @click="toggleSort">
+                            {{ t('local.date') }}
+                            <SortIcon :state="sortState(sortOrder)" />
+                        </BaseButton>
+                    </th>
+                    <th scope="col">
+                        {{ t('local.source') }}
+                    </th>
+                    <th scope="col">
+                        <div class="msgames-filter-header">
+                            <span>{{ t('local.category') }}</span>
+                            <input v-model="filters.category" class="msgames-filter-control" type="text" :aria-label="t('local.categoryQuery')" :placeholder="t('local.categoryQuery')" data-cy="filter-category">
+                        </div>
+                    </th>
+                    <th scope="col">
+                        {{ t('local.score') }}
+                    </th>
+                    <th scope="col">
+                        <div class="msgames-filter-header">
+                            <span>{{ t('button.import') }}</span>
+                            <select v-model="filters.import_status" class="msgames-filter-control" :aria-label="t('local.statusFilter')" data-cy="filter-import-status">
+                                <option :value="null">
+                                    {{ t('local.allStatuses') }}
+                                </option>
+                                <option v-for="status in msgamesImportStatuses" :key="status" :value="status">
+                                    {{ t(status === 'imported' ? 'accountlink.importStatus.successful' : `local.${status}`) }}
+                                </option>
+                            </select>
+                        </div>
+                    </th>
+                </tr>
             </template>
-            <PrColumn field="upload_date" :header="t('local.date')" sortable>
-                <template #body="{ data }: { data: MSGamesTableVideo }">
-                    {{ data.upload_date ?? '--' }}
-                </template>
-            </PrColumn>
-            <PrColumn field="filename" :header="t('local.source')">
-                <template #body="{ data }: { data: MSGamesTableVideo }">
-                    <a :href="data.url" target="_blank" rel="noopener noreferrer">{{ data.filename }}</a>
-                </template>
-            </PrColumn>
-            <PrColumn field="category" :show-filter-menu="false" body-class="msgames-text">
-                <template #header>
-                    <div class="msgames-filter-header">
-                        <span>{{ t('local.category') }}</span>
-                        <input v-model="filters.category.value" class="msgames-filter-control" type="text" :aria-label="t('local.categoryQuery')" :placeholder="t('local.categoryQuery')">
-                    </div>
-                </template>
-            </PrColumn>
-            <PrColumn field="score" :header="t('local.score')" body-class="msgames-text" />
-            <PrColumn field="import_status" :show-filter-menu="false">
-                <template #header>
-                    <div class="msgames-filter-header">
-                        <span>{{ t('button.import') }}</span>
-                        <select v-model="filters.import_status.value" :aria-label="t('local.statusFilter')" class="msgames-filter-control">
-                            <option :value="null">
-                                {{ t('local.allStatuses') }}
-                            </option>
-                            <option v-for="status in importStatuses" :key="status" :value="status">
-                                {{ t(status === 'imported' ? 'accountlink.importStatus.successful' : `local.${status}`) }}
-                            </option>
-                        </select>
-                    </div>
-                </template>
-                <template #body="{ data }: { data: MSGamesTableVideo }">
-                    <VideoPreviewLink v-if="data.import_video" :id="data.import_video">
-                        #{{ data.import_video }}
+            <tr v-for="row in pageRows" :key="row.id">
+                <td class="table-col-datetime">
+                    {{ row.upload_date ?? '--' }}
+                </td>
+                <td>
+                    <a :href="row.url" target="_blank" rel="noopener noreferrer">{{ row.filename }}</a>
+                </td>
+                <td class="msgames-text">
+                    {{ row.category }}
+                </td>
+                <td class="msgames-text">
+                    {{ row.score }}
+                </td>
+                <td>
+                    <VideoPreviewLink v-if="row.import_video !== null" :id="row.import_video">
+                        #{{ row.import_video }}
                     </VideoPreviewLink>
-                    <span v-else-if="data.import_status === 'unsupported'">{{ t('local.unsupported') }}</span>
-                    <BaseButton v-else-if="owner" size="small" :disabled="sending" @click="importOne(data)">
-                        {{ data.import_status === 'failed' ? t('button.retry') : t('button.import') }}
+                    <span v-else-if="row.import_status === 'unsupported'">{{ t('local.unsupported') }}</span>
+                    <BaseButton v-else-if="owner" size="small" :disabled="sending" data-cy="msgames-import-row" @click="importOne(row)">
+                        {{ row.import_status === 'failed' ? t('button.retry') : t('button.import') }}
                     </BaseButton>
-                    <span v-if="data.import_status === 'importing'">{{ t('local.importing') }}</span>
-                    <span v-else-if="data.import_status === 'failed'">{{ t('local.failed') }}: {{ failures[data.id] }}</span>
-                    <span v-else-if="data.import_status === 'pending' && !owner">{{ t('local.pending') }}</span>
-                </template>
-            </PrColumn>
-        </PrDataTable>
+                    <span v-if="row.import_status === 'importing'">{{ t('local.importing') }}</span>
+                    <span v-else-if="row.import_status === 'failed'">{{ t('local.failed') }}: {{ failures[row.id] }}</span>
+                    <span v-else-if="row.import_status === 'pending' && !owner">{{ t('local.pending') }}</span>
+                </td>
+            </tr>
+        </BaseTable>
+        <BasePagination
+            v-model:current-start="currentStart" v-model:page-size="pageSize"
+            :total="total" :page-size-options="[10, 25, 50, 100]" data-cy="msgames-import-pagination"
+        />
     </section>
 </template>
 
 <script setup lang="ts">
-import '@/styles/vendors/primevue-table.css';
-import { FilterMatchMode } from '@primevue/core/api';
 import { promiseTimeout } from '@vueuse/core';
 import { isAxiosError } from 'axios';
 import { vLoading } from 'element-plus';
-import PrColumn from 'primevue/column';
-import PrDataTable from 'primevue/datatable';
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
+import type { MSGamesImportQueueFilters, MSGamesTableVideo } from './msgamesImportQueueData';
+import {
+    createMSGamesImportQueueFilters, filterMSGamesImportQueue, msgamesImportStatuses,
+    msgamesImportStatusOf, sliceMSGamesImportQueue, sortMSGamesImportQueue,
+} from './msgamesImportQueueData';
+
 import BaseButton from '@/components/common/BaseButton.vue';
+import BasePagination from '@/components/common/BasePagination.vue';
+import BaseTable from '@/components/common/BaseTable.vue';
+import SortIcon from '@/components/common/SortIcon.vue';
+import { nextSortOrder, sortState } from '@/components/common/sortState';
 import { httpErrorNotification } from '@/components/Notifications';
 import VideoPreviewLink from '@/components/VideoPreviewLink.vue';
 import { fetchMSGamesImportSummary, fetchMSGamesVideos, importMSGamesVideo, syncMSGamesVideos } from '@/services/accountLinkService';
@@ -107,17 +124,10 @@ const props = defineProps({
 });
 const videos = ref<MSGamesVideo[]>([]);
 const summary = ref<MSGamesImportSummary>();
-const first = ref(0);
-const rows = ref(10);
-const importStatuses = ['pending', 'importing', 'imported', 'failed', 'unsupported'] as const;
-type ImportStatus = typeof importStatuses[number];
-type MSGamesTableVideo = MSGamesVideo & { import_status: ImportStatus };
-const initialFilters = () => ({
-    category: { value: '', matchMode: FilterMatchMode.CONTAINS },
-    import_status: { value: null as ImportStatus | null, matchMode: FilterMatchMode.EQUALS },
-});
-const filters = ref(initialFilters());
-watch([() => filters.value.category.value, () => filters.value.import_status.value], () => first.value = 0);
+const currentStart = ref(1);
+const pageSize = ref(10);
+const sortOrder = ref<number | undefined>(-1);
+const filters = reactive<MSGamesImportQueueFilters>(createMSGamesImportQueueFilters());
 const loading = ref(false);
 const sending = ref(false);
 const batching = ref(false);
@@ -128,14 +138,21 @@ const progress = ref<{ completed: number; total: number; failed: number }>();
 let generation = 0;
 let context = 0;
 
-const tableData = computed<MSGamesTableVideo[]>(() => videos.value.map((video) => ({ ...video, import_status: importStatus(video) })));
+const tableData = computed<MSGamesTableVideo[]>(() => videos.value.map((video) => ({
+    ...video, import_status: msgamesImportStatusOf(video, canImportMSGamesVideo(video), importingId.value, failures.value),
+})));
+const processed = computed(() => sortMSGamesImportQueue(filterMSGamesImportQueue(tableData.value, filters), sortOrder.value));
+const total = computed(() => processed.value.length);
+const first = computed(() => Math.max(0, Math.min(currentStart.value, total.value) - 1));
+const pageRows = computed(() => sliceMSGamesImportQueue(processed.value, first.value, pageSize.value));
 
-function importStatus(video: MSGamesVideo): ImportStatus {
-    if (video.import_video !== null) return 'imported';
-    if (!canImportMSGamesVideo(video)) return 'unsupported';
-    if (importingId.value === video.id) return 'importing';
-    if ((failures.value[video.id] ?? '') !== '') return 'failed';
-    return 'pending';
+watch(filters, () => {
+    currentStart.value = 1;
+});
+
+function toggleSort() {
+    sortOrder.value = nextSortOrder(sortOrder.value, true, -1);
+    currentStart.value = 1;
 }
 
 async function refresh(shouldContinue: () => boolean = () => true): Promise<boolean> {
@@ -149,7 +166,7 @@ async function refresh(shouldContinue: () => boolean = () => true): Promise<bool
         ]);
         if (!active()) return false;
         videos.value = result;
-        if (first.value >= result.length) first.value = 0;
+        if (currentStart.value > result.length) currentStart.value = 1;
         summary.value = stats;
         return true;
     } catch (error) {
@@ -165,8 +182,8 @@ watch(() => props.msgamesId, () => {
     generation++;
     videos.value = [];
     summary.value = undefined;
-    first.value = 0;
-    filters.value = initialFilters();
+    currentStart.value = 1;
+    Object.assign(filters, createMSGamesImportQueueFilters());
     loading.value = false;
     sending.value = false;
     batching.value = false;
@@ -325,10 +342,10 @@ const { t } = useI18n({ messages: {
     flex-wrap: wrap;
     margin: 0.5em 0;
 }
-:deep(.msgames-text) {
+.msgames-text {
     white-space: pre-line;
 }
-:deep(.msgames-videos td) {
+.msgames-videos td {
     vertical-align: top;
     overflow-wrap: anywhere;
 }

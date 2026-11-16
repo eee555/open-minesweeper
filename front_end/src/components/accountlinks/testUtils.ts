@@ -1,4 +1,3 @@
-import PrimeVue from 'primevue/config';
 import type { Component } from 'vue';
 
 import $axios from '@/http';
@@ -21,7 +20,7 @@ function mountOptions(props: Record<string, unknown>) {
     return {
         props,
         global: {
-            plugins: [i18n, pinia, PrimeVue],
+            plugins: [i18n, pinia],
             config: {
                 globalProperties: {
                     $axios,
