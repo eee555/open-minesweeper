@@ -4,7 +4,7 @@
         {{ t('anonymous') }}
     </span>
     <span v-else>
-        {{ name }}
+        <slot>{{ name }}</slot>
     </span>
 </template>
 
