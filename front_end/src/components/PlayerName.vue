@@ -1,20 +1,10 @@
 <template>
     <BaseTooltip ref="tooltip" class="player-name-root" :append-to="appendMedalTooltip" :before-show="allowMedalTooltip" interactive :interactive-border="12" :show-delay="200" :show-animation="0" :hide-animation="0">
-        <span class="player-name" :title="nameTitle" @click="interactive && $event.stopPropagation()" @pointerenter="pointerOver = true" @pointerleave="pointerOver = false">
+        <span class="player-name" @click="interactive && $event.stopPropagation()" @pointerenter="pointerOver = true" @pointerleave="pointerOver = false">
             <RouterLink v-if="interactive" :to="playerProfileTo" class="link link--no-underline text">
-                <PlayerBadge :user-id="userId" :name="nameShown" :show-avatar="local.playerNameShowAvatar">
-                    <template v-if="namePair.second">
-                        <span class="player-name-pair"><span class="player-name-chunk">{{ namePair.first }}</span> <span class="player-name-chunk">({{ namePair.second }})</span></span>
-                    </template>
-                    <template v-else>{{ namePair.first }}</template>
-                </PlayerBadge>
+                <PlayerBadge :user-id="userId" :user="user" :loading="loading" :show-avatar="local.playerNameShowAvatar" />
             </RouterLink>
-            <PlayerBadge v-else :user-id="userId" :name="nameShown" :show-avatar="local.playerNameShowAvatar">
-                <template v-if="namePair.second">
-                    <span class="player-name-pair"><span class="player-name-chunk">{{ namePair.first }}</span> <span class="player-name-chunk">({{ namePair.second }})</span></span>
-                </template>
-                <template v-else>{{ namePair.first }}</template>
-            </PlayerBadge>
+            <PlayerBadge v-else :user-id="userId" :user="user" :loading="loading" :show-avatar="local.playerNameShowAvatar" />
             <MemorialBadge v-if="user.id === userId && user.is_memorial" />
         </span>
         <template #content>
@@ -51,7 +41,6 @@ import type { MedalStateRecord } from '@/services/medalService';
 import { cachedPlayerMedalState, fetchPlayerMedalState, medalCaption, medalSeriesFromCode, medalStateVersions } from '@/services/medalService';
 import { fetchUserInfo, userInfoRevision } from '@/services/userService';
 import { local } from '@/store/local';
-import { formatName } from '@/utils/strings';
 import { UserProfile } from '@/utils/userprofile';
 import MedalArt from '@/views/UserView/MedalArt.vue';
 
@@ -90,31 +79,6 @@ const activeMedalKey = ref('');
 let medalLoadToken = 0;
 let medalUserId = props.userId;
 const tooltip = useTemplateRef<{ show: () => void; hide: () => void }>('tooltip');
-const internationalName = computed(() => {
-    const { firstname, lastname } = user.value;
-    return firstname && lastname ? formatName(firstname, lastname, local.value.nameFormat) : firstname || lastname;
-});
-function nameFor(source: typeof local.value.playerName1): string {
-    return source === 'international' ? internationalName.value : user.value[source];
-}
-const namePair = computed(() => {
-    if (props.userId === 0) return { first: '', second: '' };
-    if (user.value.isNameHidden) return { first: user.value.username || `${t('local.user')}#${props.userId}`, second: '' };
-    if (loading.value || user.value.id !== props.userId) return { first: `${t('local.user')}#${props.userId}`, second: '' };
-    const first = nameFor(local.value.playerName1) || user.value.username || `${t('local.user')}#${props.userId}`;
-    const second = local.value.playerNameFormat === 'name1 (name2)' ? nameFor(local.value.playerName2) : '';
-    return { first, second };
-});
-const nameShown = computed(() => {
-    const { first, second } = namePair.value;
-    return second ? `${first} (${second})` : first;
-});
-const nameTitle = computed(() => (user.value.isNameHidden
-    ? `${user.value.username || t('local.user')}#${props.userId}`
-    : [
-        `${user.value.username || '--'}#${props.userId}`,
-        `${user.value.realname || '--'} (${internationalName.value || '--'})`,
-    ].join('\n')));
 const playerProfileTo = computed(() => `/player/${props.userId}`);
 const shownGrants = computed(() => medalGrants.value.flatMap((grant) => {
     const series = medalSeriesFromCode(grant.code);
@@ -219,16 +183,7 @@ watch(() => medalStateVersions[props.userId], () => {
     void loadHoveredMedalState(true);
 });
 
-const i18nMessages = {
-    'zh-cn': { local: {
-        user: '用户',
-    } },
-    en: { local: {
-        user: 'User',
-    } },
-};
-
-const { t, locale } = useI18n({ messages: i18nMessages });
+const { locale } = useI18n();
 const activeCaption = computed(() => {
     const grant = shownGrants.value.find((item) => item.key === activeMedalKey.value);
     return grant ? medalCaption(grant.series, grant.code, grant.stage, locale.value) : null;
@@ -251,15 +206,6 @@ const activeCaption = computed(() => {
 
 .player-name :deep(span) {
     vertical-align: baseline;
-    white-space: nowrap;
-}
-
-.player-name :deep(.player-name-pair) {
-    white-space: normal;
-}
-
-.player-name :deep(.player-name-chunk) {
-    white-space: nowrap;
 }
 
 .player-name :deep(img) {

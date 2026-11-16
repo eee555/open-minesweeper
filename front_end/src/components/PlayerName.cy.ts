@@ -44,8 +44,8 @@ function mockUserInfo(response: StaticResponse = { body: [user] }) {
 function expectName(name: string, title?: string) {
     cy.get('.player-name').should(($name) => {
         expect($name.text().trim()).to.eq(name);
-        if (title !== undefined) expect($name.attr('title')).to.eq(title);
     });
+    if (title !== undefined) cy.get('.player-badge-name').should('have.attr', 'title', title);
 }
 
 function mountPlayerNameInText(userId: number) {
@@ -235,16 +235,16 @@ describe('PlayerName', () => {
         });
         mountPlayerName(user.id);
         expectName('Alice (Alicia Mines)');
-        cy.get('.player-name-pair').should('have.css', 'white-space', 'normal');
-        cy.get('.player-name-chunk').eq(0).should('have.text', 'Alice').and('have.css', 'white-space', 'nowrap');
-        cy.get('.player-name-chunk').eq(1).should('have.text', '(Alicia Mines)').and('have.css', 'white-space', 'nowrap');
+        cy.get('.player-badge-pair').should('have.css', 'white-space', 'normal');
+        cy.get('.player-badge-chunk').eq(0).should('have.text', 'Alice').and('have.css', 'white-space', 'nowrap');
+        cy.get('.player-badge-chunk').eq(1).should('have.text', '(Alicia Mines)').and('have.css', 'white-space', 'nowrap');
 
         cy.then(() => {
             local.value.playerNameFormat = 'name1';
         });
         expectName('Alice');
-        cy.get('.player-name-pair').should('not.exist');
-        cy.get('.player-name a span').should('have.css', 'white-space', 'nowrap');
+        cy.get('.player-badge-pair').should('not.exist');
+        cy.get('.player-badge-name').should('have.css', 'white-space', 'nowrap');
     });
 
     it('falls back to the username for a missing primary name and omits an empty secondary name', () => {
