@@ -11,7 +11,9 @@ Registration requires a real name or verification by a verified player. See [Min
 
 ## Rules
 
-The tournament starts at 00:00 UTC on Monday and ends at 24:00 UTC on Sunday. You may choose any two-hour window within that interval to play. During the tournament, you can register on the tournament page and receive a unique tournament identifier. After registration, you have two hours to upload tournament replays. If you register after 22:00 UTC on Sunday, your tournament end time is still 24:00 UTC on Sunday, so please pay attention to the time.
+**Speed Weekly and Efficiency Weekly each have an independent two-hour session. You may choose separate times within the same week, and the sessions may overlap; you do not have to enter both at the same time.**
+
+The tournament starts at 00:00 UTC on Monday and ends at 24:00 UTC on Sunday. You may choose a two-hour window separately for each tournament within that interval. During the tournament, you can register on its page and receive a unique tournament identifier. After registration, you have two hours to upload tournament replays. If you register after 22:00 UTC on Sunday, your tournament end time is still 24:00 UTC on Sunday, so please pay attention to the time.
 
 After confirmation, your two-hour session starts immediately and cannot be cancelled or chosen again by yourself. If you registered by mistake and have no tournament replays, contact the host or an administrator after your personal window expires to reset it. The overall tournament must still be running.
 

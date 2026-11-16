@@ -35,7 +35,7 @@ A tournament identifier identifies your tournament replays and must be set befor
 
 Replays must be uploaded within your participation window. Late uploads do not count, even if the tournament itself has not ended.
 
-A replay can contain multiple tournament identifiers, separated by commas.
+**To enter the same replay in multiple tournaments, put all tournament tokens in the game's tournament identifier field, separated by commas (`,`) without spaces, for example `TOKEN1,TOKEN2`.** Each tournament still applies its own participation window and scoring rules.
 
 ## Setting a Tournament Identifier
 
