@@ -129,7 +129,8 @@ describe('touch-only training', () => {
                 cy.get('[data-cy="minigame-board"]').trigger('pointerup', x, y, position);
             });
             cy.get('[data-cy="training-fullscreen"]').click();
-            cy.get('[data-cy="training-cell-size"]').should('have.attr', 'type', 'number').and('have.value', '32');
+            cy.get('[data-cy="training-cell-size"]').should('not.have.descendants', 'input');
+            cy.get('[data-cy="training-cell-size-value"]').should('have.text', '32 px');
             cy.get('.training-frame').should('not.have.class', 'outer-border').and('have.css', 'border-top-width', '0px');
             cy.get('.training-frame .inner-border').should('not.exist');
             cy.get('.training-frame-counters').should('have.css', 'border-top-width', '0px');
@@ -156,9 +157,9 @@ describe('touch-only training', () => {
             cy.get<ComponentWrapper<typeof App>>('@game').should((game) => {
                 expect(game.findComponent<typeof MiniGameBoard>('[data-cy="minigame-board"]').props('size')).to.eq(32);
             });
-            cy.get('[data-cy="training-cell-size"]').clear();
-            cy.get('[data-cy="training-cell-size"]').type('43');
-            cy.get('[data-cy="training-cell-size"]').blur();
+            for (let size = 32; size < 43; size++) cy.get('[data-cy="training-cell-size-increase"]').click();
+            cy.get('[data-cy="training-cell-size-value"]').should('have.text', '43 px');
+            cy.get('[data-cy="training-fullscreen"]').should('have.attr', 'aria-pressed', 'true');
             cy.get('[data-cy="training-game"]').should('have.attr', 'data-phase', 'playing');
             cy.get<ComponentWrapper<typeof App>>('@game').should((game) => {
                 const component = game.findComponent<typeof MiniGameBoard>('[data-cy="minigame-board"]');
@@ -169,7 +170,7 @@ describe('touch-only training', () => {
                 expect(JSON.parse(String(value))).to.have.property('cellSize', 43);
             });
             cy.viewport(400, 700);
-            cy.get('[data-cy="training-cell-size"]').should('have.value', '43');
+            cy.get('[data-cy="training-cell-size-value"]').should('have.text', '43 px');
             cy.get('[data-cy="minigame-board"]').should(($board) => {
                 expect($board[0].getBoundingClientRect().width).to.eq(30 * 43);
             });
