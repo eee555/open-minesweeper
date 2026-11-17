@@ -66,15 +66,25 @@ describe('GitHub account-link entry', () => {
         cy.get('[data-platform=B]').should('have.attr', 'aria-pressed', 'true');
     });
 
-    it('shows the GitHub callback result only inside the GitHub section', () => {
+    it('does not show a notice after a successful GitHub callback', () => {
         cy.window().then((win) => {
             win.location.hash = '#/player/1/accountlink?github=linked';
         });
-        cy.intercept('GET', '**/api/accountlink/1', { body: { ...emptyLinks, g: { id: '123456789', parent: 1 } } }).as('links');
+        cy.intercept('GET', '**/api/accountlink/1', { body: emptyLinks }).as('links');
         mountAccountLink(App, { userId: 1 });
         cy.wait('@links');
-        cy.get('[data-cy=github-panel] [data-cy=github-result]').should('contain', 'GitHub account linked.');
-        cy.get('[data-cy=github-panel]').should('contain', '123456789');
+        cy.get('[data-platform=g]').should('have.attr', 'aria-pressed', 'true');
+        cy.get('[data-cy=github-result]').should('not.exist');
+    });
+
+    it('shows a failed GitHub callback result only inside the GitHub section', () => {
+        cy.window().then((win) => {
+            win.location.hash = '#/player/1/accountlink?github=cancelled';
+        });
+        cy.intercept('GET', '**/api/accountlink/1', { body: emptyLinks }).as('links');
+        mountAccountLink(App, { userId: 1 });
+        cy.wait('@links');
+        cy.get('[data-cy=github-result]').should('contain', 'GitHub authorization cancelled.');
         cy.get('[data-platform=B]').click();
         cy.get('[data-cy=github-result]').should('not.exist');
     });
