@@ -51,6 +51,12 @@
 
 冻结录像不再自动删除。更新代码、执行数据库迁移并重启 `runapscheduler` 后，调度器会清除旧的 `delete_freezed_video` 持久化任务。
 
+## 解冻录像
+
+管理员页面“录像信息”中查询到已冻结录像后，可以选择解冻目标状态并解冻；目标只能是 `OFFICIAL`（`c`）或 `IDENTIFIER`（`d`）。解冻会清空冻结原因，`POST /api/video/admin/unfreeze` 接受 JSON `{"id": 123, "state": "c"}`。非冻结录像或非白名单状态不会被修改。
+
+该接口与冻结接口共用 Django 会话认证、`staff_required` 和 CSRF；同路径 GET 验证管理员权限并返回 CSRF token，响应禁止缓存。`unfreeze_video_by_id` 在共享排行准入和数据库事务内锁定主记录与扩展记录，再更新状态和原因。状态变更通过既有信号更新队列、竞速、效率及自定义 pluck 排行；文件、上传时间和比赛关联保持不变，比赛已保存的成绩不在此操作中重算。排行刷新期间 HTTP 准入会在修改前返回既有 503 响应。
+
 ## 删除录像
 
 实例 `delete()`、QuerySet 删除、Admin 和用户级联删除均经过删除信号，不依赖上传或管理接口显式补偿。
