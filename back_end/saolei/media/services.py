@@ -24,26 +24,17 @@ class MediaServiceError(Exception):
         self.status_code = status_code
 
 
-def _balance(likes_sent, user):
-    earned = floor((timezone.now() - user.date_joined).total_seconds() / 86400)
+def get_balance(profile, date_joined):
+    likes_sent = profile.likes_sent if profile else 0
+    earned = floor((timezone.now() - date_joined).total_seconds() / 86400)
     return max(earned - likes_sent, 0)
 
 
-def _daily_likes_used(profile):
+def get_daily_likes_used(profile):
+    """当天已成功投喂次数：daily_date 不是 UTC 今日时按 0 次计算。"""
     if profile is None or profile.daily_date != timezone.now().date():
         return 0
     return profile.daily_likes
-
-
-def get_balance(user):
-    profile = UserMedia.objects.filter(pk=user.pk).first()
-    return _balance(profile.likes_sent if profile else 0, user)
-
-
-def get_daily_likes_used(user):
-    """当天已成功投喂次数：daily_date 不是 UTC 今日时按 0 次计算。"""
-    profile = UserMedia.objects.filter(pk=user.pk).first()
-    return _daily_likes_used(profile)
 
 
 def get_me_state(user):
@@ -51,10 +42,10 @@ def get_me_state(user):
     profile = UserMedia.objects.filter(pk=user.pk).first()
     likes_sent = profile.likes_sent if profile else 0
     return {
-        'balance': _balance(likes_sent, user),
+        'balance': get_balance(profile, user.date_joined),
         'likes_sent': likes_sent,
         'banned': profile.banned if profile else False,
-        'daily_likes_used': _daily_likes_used(profile),
+        'daily_likes_used': get_daily_likes_used(profile),
     }
 
 
@@ -129,7 +120,7 @@ def like_media(user, media_id):
         daily_likes = 0 if profile.daily_date != today else profile.daily_likes
         if daily_likes >= MEDIA_DAILY_LIKE_LIMIT:
             raise MediaServiceError('Daily like limit reached', 429)
-        balance = _balance(profile.likes_sent, user)
+        balance = get_balance(profile, user.date_joined)
         if balance < 1:
             raise MediaServiceError('Insufficient rubies', 400)
         base = media.hot_value_updated_at
