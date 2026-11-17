@@ -41,7 +41,7 @@
 
 ## 分支管理
 - 直接在本地分支上修改，由用户进行提交推送，这是默认情况。
-- 创建一个新worktree，基于`https://github.com/eee555/open-minesweeper/tree/dev`分支创建新分支，在新分支上修改并自动向dev分支提交PR。不需要在本地运行检查，直接依赖GitHub CI。用户表示任务结束后可以删除该worktree。当用户要求不修改当前分支时使用此策略
+- 创建一个新worktree，基于`https://github.com/eee555/open-minesweeper/tree/dev`分支创建新分支，在新分支上修改并自动向dev分支提交PR。不需要在本地运行检查，直接依赖GitHub CI。用户表示任务结束后删除该worktree。当用户要求不修改当前分支时使用此策略
 
 当用户明确提出更详细的方案时，以用户为准。
 

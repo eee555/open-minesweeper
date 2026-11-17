@@ -201,6 +201,8 @@ class GitHubAccountLinkTests(TestCase):
         self.assertNotIn('test-secret', str(logs.output))
         self.assertNotIn('test-code', str(logs.output))
         self.assertNotIn('test-access-token', str(logs.output))
+        self.assertIn('stage=token', str(logs.output))
+        self.assertIn('exception_type=ReadTimeout', str(logs.output))
         self.assertFalse(AccountGitHub.objects.exists())
         self.assertFalse(AccountLinkQueue.objects.filter(platform='g').exists())
 
@@ -276,20 +278,55 @@ class GitHubAccountLinkTests(TestCase):
     def test_authlib_errors_are_controlled_failures_without_credential_logs(self):
         for payload in [
             {'error': 'bad_verification_code', 'error_description': 'test-secret test-code'},
+            {'error': 'incorrect_client_credentials', 'error_description': 'test-secret test-code'},
+            {'error': 'redirect_uri_mismatch', 'error_description': 'test-secret test-code'},
+            {'error': 'test-secret test-code', 'error_description': 'test-access-token'},
             {'token_type': 'bearer'}, {'access_token': 'test-access-token', 'token_type': 'unsupported'},
         ]:
             with self.subTest(payload=payload):
                 self.token_response = payload
-                with self.assertRaises(ExceptionToResponse) as error:
-                    authorized_user_id('test-code', 'v' * 64)
+                with self.assertLogs('accountlink', level='WARNING') as diagnostic:
+                    with self.assertRaises(ExceptionToResponse) as error:
+                        authorized_user_id('test-code', 'v' * 64)
                 self.assertEqual(error.exception.body, {'type': 'error', 'object': 'github', 'category': 'remote_failed'})
                 self.assertEqual(error.exception.status_code, 502)
+                # Authlib 在准备用户请求时才校验令牌类型；此时还没有用户接口响应。
+                expected_stage, expected_status = ('token', 200) if 'error' in payload else ('user', None)
+                self.assertIn(f'stage={expected_stage}', str(diagnostic.output))
+                self.assertIn(f'http_status={expected_status}', str(diagnostic.output))
+                if payload.get('error') in {'bad_verification_code', 'incorrect_client_credentials', 'redirect_uri_mismatch'}:
+                    self.assertIn(f'oauth_error={payload["error"]}', str(diagnostic.output))
+                elif payload.get('error') == 'test-secret test-code':
+                    self.assertIn('oauth_error=unknown', str(diagnostic.output))
+                for sensitive in ('test-secret', 'test-code', 'test-access-token'):
+                    self.assertNotIn(sensitive, str(diagnostic.output))
                 state, _ = self.start()
                 with self.assertLogs('accountlink', level='WARNING') as logs:
                     self.assertEqual(self.result(self.callback(state)), 'remote_failed')
                 self.assertTrue(all(record.levelname == 'WARNING' for record in logs.records))
                 self.assertNotIn('test-secret', str(logs.output))
                 self.assertNotIn('test-code', str(logs.output))
+        self.assertFalse(AccountGitHub.objects.exists())
+
+    def test_user_request_failures_log_stage_and_status_without_response_content(self):
+        original = self.remote_response
+
+        def failing_user_response(request, **kwargs):
+            response = original(request, **kwargs)
+            if request.url == 'https://api.github.com/user':
+                response.status_code = 403
+                response._content = b'{"message": "test-secret test-code test-access-token"}'
+            return response
+
+        self.network.side_effect = failing_user_response
+        state, _ = self.start()
+        with self.assertLogs('accountlink', level='WARNING') as logs:
+            self.assertEqual(self.result(self.callback(state)), 'remote_failed')
+        self.assertIn('stage=user', str(logs.output))
+        self.assertIn('http_status=403', str(logs.output))
+        self.assertIn('exception_type=HTTPError', str(logs.output))
+        for sensitive in ('test-secret', 'test-code', 'test-access-token', 'https://api.github.com/user'):
+            self.assertNotIn(sensitive, str(logs.output))
         self.assertFalse(AccountGitHub.objects.exists())
 
     def test_rolled_back_deletion_preserves_binding_but_revokes_pending_authorization(self):

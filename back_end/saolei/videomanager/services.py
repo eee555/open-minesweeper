@@ -5,7 +5,6 @@ import json
 import logging
 import math
 from pathlib import PurePosixPath
-from typing import Literal
 from uuid import uuid4
 
 from django.core.files.base import ContentFile
@@ -25,7 +24,6 @@ from .models import ExpandVideoModel, STNB_COEFFICIENTS, VideoModel
 from .utils import calculate_original_hash, pack_compression_format, replay_filename, VIDEO_QUERY_DATETIME_FIELDS, VIDEO_QUERY_ENUM_FIELDS, VIDEO_QUERY_FILTER_FIELDS, VIDEO_QUERY_FLOAT_FIELDS, VIDEO_QUERY_INT_FIELDS, VIDEO_QUERY_LIMIT, VIDEO_QUERY_LOOKUPS, VIDEO_QUERY_LOWER_OPS, VIDEO_QUERY_MAX_IN_VALUES, VIDEO_QUERY_MAX_VALUE_LENGTH, VIDEO_QUERY_OPS, VIDEO_QUERY_SORT_FIELDS, VIDEO_QUERY_STNB_LEVELS, VIDEO_QUERY_UPPER_OPS, VideoQueryError
 
 logger = logging.getLogger('videomanager')
-UNFREEZE_TARGET_STATES = {MS_TextChoices.State.IDENTIFIER, MS_TextChoices.State.OFFICIAL}
 
 
 class VideoUnfreezeError(ValueError):
@@ -50,16 +48,22 @@ def freeze_video_by_id(video_id: int, freeze_reason: str, *, actor_id: int):
     return {'id': video.pk, 'state': video.state, 'freeze_reason': expansion.freeze_reason}
 
 
+def _derive_unfreeze_state(video: VideoModel, expansion: ExpandVideoModel):
+    userms = video.player.userms
+    if userms is None or not expansion.identifier or expansion.identifier not in userms.identifiers:
+        return MS_TextChoices.State.IDENTIFIER
+    return MS_TextChoices.State.OFFICIAL
+
+
 @ranking_access(operation='videomanager.unfreeze_video')
 @transaction.atomic
-def unfreeze_video_by_id(video_id: int, state: Literal['c', 'd'], *, actor_id: int):
-    if state not in UNFREEZE_TARGET_STATES:
-        raise VideoUnfreezeError('Unfreeze state must be IDENTIFIER or OFFICIAL.')
+def unfreeze_video_by_id(video_id: int, *, actor_id: int):
     video = VideoModel.objects.select_for_update().get(pk=video_id)
     expansion = ExpandVideoModel.objects.select_for_update().get(pk=video.video_id)
     if video.state != MS_TextChoices.State.FROZEN:
         raise VideoUnfreezeError('Only frozen videos can be unfrozen.')
     previous_state = video.state
+    state = _derive_unfreeze_state(video, expansion)
     expansion.freeze_reason = ''
     expansion.save(update_fields=['freeze_reason'])
     video.state = state

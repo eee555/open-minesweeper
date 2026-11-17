@@ -4,11 +4,14 @@ from news.services import emit
 from .cache import pipeline
 from .nf_ioe.utils import record_scores as ioe_record_scores
 from .thrp.utils import NF_STAT, record_scores as thrp_record_scores
+from .tpe.utils import record_scores as tpe_record_scores
 
 CATEGORY = 'eff'
 
 
 def _scores(ranking, record):
+    if ranking.ranking_name == 'tpe':
+        return tpe_record_scores(record)
     return thrp_record_scores(record) if ranking.ranking_name == 'thrp' else ioe_record_scores(record)
 
 
@@ -22,6 +25,8 @@ def _news_value(ranking, record, stat):
         level_fields = (field for field in ranking.record_fields if field != NF_STAT)
         parts = [record[field] for field in level_fields if record.get(field) is not None]
         if not parts:
+            return None
+        if ranking.ranking_name == 'tpe' and len(parts) != len(ranking.record_fields):
             return None
         return {'value': sum(part['value'] for part in parts), 'video_id': None, 'count': None, 'timems': (record.get('e') or {}).get('timems')}
     if stat == NF_STAT:

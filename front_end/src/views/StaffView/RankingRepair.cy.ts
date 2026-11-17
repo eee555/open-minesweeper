@@ -46,6 +46,17 @@ describe('<RankingRepair /> efficiency rankings', () => {
             expect(Object.fromEntries(new URLSearchParams(body))).to.deep.equal({ player_id: '42', stat: 'b' });
         });
         cy.get('output').should('contain.text', 'Beginner 1.000 (0.500)').and('contain.text', 'video ID 9001');
+        cy.closeElNotifications();
+        cy.intercept('POST', '/api/effranking/tpe/admin/rebuild_record', {
+            player_id: 42, i: { value: 0, video_id: 9002 }, e: null,
+        }).as('tpeRepair');
+        cy.get('select[aria-label="Ranking"]').select('tpe');
+        cy.get('select[aria-label="Statistic"] option').should('have.length', 3);
+        cy.get('.ranking-repair button[type=submit]').click();
+        cy.wait('@tpeRepair').its('request.body').should((body: string) => {
+            expect(Object.fromEntries(new URLSearchParams(body))).to.deep.equal({ player_id: '42', stat: 'i' });
+        });
+        cy.get('output').should('contain.text', 'Intermediate 0.000').and('contain.text', 'video ID 9002');
     });
 
     it('repairs a strict NG ranking through its own endpoint', () => {

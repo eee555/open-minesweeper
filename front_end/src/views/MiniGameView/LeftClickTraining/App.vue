@@ -18,9 +18,16 @@
                     <span class="checkbox-button-content">{{ t(`local.${direction}`) }}</span>
                 </label>
             </div>
-            <label v-if="isFullscreen">{{ t('prop.cellSize') }}
-                <InputNumber v-model="minigameSettings.cellSize" :min="1" :max="Number.MAX_SAFE_INTEGER" integer step="1" inputmode="numeric" data-cy="training-cell-size" />
-            </label>
+            <div v-if="isFullscreen" class="training-cell-size" role="group" :aria-label="t('prop.cellSize')" data-cy="training-cell-size">
+                <span class="text text-small">{{ t('prop.cellSize') }}</span>
+                <BaseButton class="square-button" :disabled="cellSize <= 1" :title="t('local.decreaseCellSize')" :aria-label="t('local.decreaseCellSize')" data-cy="training-cell-size-decrease" @click="stepCellSize(-1)">
+                    <i class="pi pi-minus" aria-hidden="true" />
+                </BaseButton>
+                <span class="text text-small" data-cy="training-cell-size-value">{{ cellSize }} px</span>
+                <BaseButton class="square-button" :disabled="cellSize >= Number.MAX_SAFE_INTEGER" :title="t('local.increaseCellSize')" :aria-label="t('local.increaseCellSize')" data-cy="training-cell-size-increase" @click="stepCellSize(1)">
+                    <i class="pi pi-plus" aria-hidden="true" />
+                </BaseButton>
+            </div>
             <BaseButton v-if="isFullscreen" class="square-button" :title="t('button.newGame')" :aria-label="t('button.newGame')" data-cy="training-restart" @click="restart">
                 <i class="pi pi-refresh" aria-hidden="true" />
             </BaseButton>
@@ -78,7 +85,6 @@ import type { PropType, VNode } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import BaseButton from '@/components/common/BaseButton.vue';
-import InputNumber from '@/components/common/InputNumber.vue';
 import MiniGameBoard from '@/components/MiniGame/Board.vue';
 import MiniGameFrame from '@/components/MiniGame/Frame.vue';
 import ReplayAnalysis from '@/components/MiniGame/ReplayAnalysis.vue';
@@ -120,6 +126,9 @@ const playArea = useTemplateRef('playArea');
 const { isFullscreen, isSupported, toggle } = useFullscreen(playArea, { autoExit: true });
 const cellSize = computed(() => minigameSettings.value.cellSize);
 const fullscreenFailed = ref(false);
+function stepCellSize(delta: number) {
+    minigameSettings.value.cellSize = Math.min(Number.MAX_SAFE_INTEGER, Math.max(1, minigameSettings.value.cellSize + delta));
+}
 async function toggleFullscreen() {
     fullscreenFailed.value = false;
     try {
@@ -217,6 +226,8 @@ const i18nMessages = {
         vertical: '纵向',
         exitFullscreen: '退出全屏',
         fullscreenFailed: '无法进入全屏，请使用浏览器允许全屏的方式打开页面。',
+        decreaseCellSize: '减小格子大小',
+        increaseCellSize: '增大格子大小',
         density: '雷密度',
         remaining: '剩余点击数',
         boardLabel: '左键训练棋盘，点击没有雷的凸起格子',
@@ -230,6 +241,8 @@ const i18nMessages = {
         vertical: 'Vertical',
         exitFullscreen: 'Exit fullscreen',
         fullscreenFailed: 'Cannot enter fullscreen. Open this page in a browser that permits fullscreen.',
+        decreaseCellSize: 'Decrease cell size',
+        increaseCellSize: 'Increase cell size',
         density: 'Mine density',
         remaining: 'Clicks left',
         boardLabel: 'Left-click training board. Click raised cells without mines.',
@@ -257,5 +270,11 @@ const { t } = useI18n({ messages: i18nMessages });
     min-height: 0;
     height: 100%;
     overscroll-behavior: contain;
+}
+
+.training-cell-size {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
 }
 </style>

@@ -13,6 +13,9 @@ from .thrp.cache import ThrpRankingCache
 from .thrp.nf_services import refresh_expert_nf_records
 from .thrp.services import prepare_add_videos, prepare_remove_videos, prepare_video_update, VIDEO_FIELDS, write_records
 from .thrp.utils import is_expert_nf
+from .tpe import services as tpe
+from .tpe.cache import TPERankingCache
+from .tpe.utils import is_eligible as is_tpe_eligible
 from .utils import log_update_errors
 
 
@@ -33,6 +36,8 @@ def _write_with_news(entries, publish=True):
         for ranking, previous, records in entries:
             if ranking.ranking_name == 'thrp':
                 write_records(ranking, previous, records, pipe=pipe)
+            elif ranking.ranking_name == 'tpe':
+                tpe.write_records(ranking, previous, records, pipe=pipe)
             else:
                 nf_ioe.write_records(ranking, previous, records, pipe=pipe)
         queue_news_ranks(pipe, candidates)
@@ -43,7 +48,7 @@ def _write_with_news(entries, publish=True):
 
 def _sync_video(video_id: int, previous_video: dict, ranking_names: set[str]):
     with log_update_errors('sync_video', video_id=video_id, previous_player_id=previous_video['player_id']):
-        video = VideoModel.objects.filter(pk=video_id).values(*set(VIDEO_FIELDS + nf_ioe.VIDEO_FIELDS)).first()
+        video = VideoModel.objects.filter(pk=video_id).values(*set(VIDEO_FIELDS + nf_ioe.VIDEO_FIELDS + tpe.VIDEO_FIELDS)).first()
         players = {previous_video['player_id']}
         if video:
             players.add(video['player_id'])
@@ -52,6 +57,8 @@ def _sync_video(video_id: int, previous_video: dict, ranking_names: set[str]):
             rankings.append(ThrpRankingCache())
         if 'nf_ioe' in ranking_names and (is_eligible(previous_video) or is_eligible(video)):
             rankings.append(NFIOERankingCache())
+        if 'tpe' in ranking_names and (is_tpe_eligible(previous_video) or is_tpe_eligible(video)):
+            rankings.append(TPERankingCache())
         if not rankings:
             return
         previous = _read_records(rankings, players)
@@ -64,6 +71,9 @@ def _sync_video(video_id: int, previous_video: dict, ranking_names: set[str]):
         if 'nf_ioe' in previous:
             ioe_records = nf_ioe.prepare_video_update(video, video_id, previous['nf_ioe'])
             entries.append((NFIOERankingCache(), previous['nf_ioe'], ioe_records))
+        if 'tpe' in previous:
+            tpe_records = tpe.prepare_video_update(video, video_id, previous['tpe'])
+            entries.append((TPERankingCache(), previous['tpe'], tpe_records))
         _write_with_news(entries)
 
 
@@ -76,13 +86,15 @@ def _update_videos(videos, remove: bool):
     with log_update_errors('remove_videos' if remove else 'add_videos'):
         ranking = ThrpRankingCache()
         ioe_ranking = NFIOERankingCache()
+        tpe_ranking = TPERankingCache()
         for players in player_batches(videos, 100):
             subset = videos.filter(player_id__in=players)
-            previous = _read_records([ranking, ioe_ranking], players)
+            previous = _read_records([ranking, ioe_ranking, tpe_ranking], players)
             records = prepare_remove_videos(subset, previous['thrp']) if remove else prepare_add_videos(subset, previous['thrp'])
             refresh_expert_nf_records(records, players)
             ioe_records = nf_ioe.prepare_remove_videos(subset, previous['nf_ioe']) if remove else nf_ioe.prepare_add_videos(subset, previous['nf_ioe'])
-            _write_with_news([(ranking, previous['thrp'], records), (ioe_ranking, previous['nf_ioe'], ioe_records)], publish=not remove)
+            tpe_records = tpe.prepare_remove_videos(subset, previous['tpe']) if remove else tpe.prepare_add_videos(subset, previous['tpe'])
+            _write_with_news([(ranking, previous['thrp'], records), (ioe_ranking, previous['nf_ioe'], ioe_records), (tpe_ranking, previous['tpe'], tpe_records)], publish=not remove)
 
 
 def add_videos_to_eff_ranks(videos):

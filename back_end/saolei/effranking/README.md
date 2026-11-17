@@ -1,6 +1,6 @@
 # 效率排行榜
 
-独立的 Django app `effranking` 承载 Thrp、NF IOE 两个大榜，提供个人纪录查询、增量刷新、管理员修复和全量重建。
+独立的 Django app `effranking` 承载 Thrp、NF IOE、TPE 三个大榜，提供个人纪录查询、增量刷新、管理员修复和全量重建。
 
 ## Thrp 规则
 
@@ -124,7 +124,7 @@ player_id, level, mode, state, ongoing_tournament,
 bv, left_ce, right_ce, double_ce, upload_time
 ```
 
-`right_ce` 既是 Thrp 分母的组成项，也是高级 NF 的筛选条件。`timems`、`left/right/double` 本身不影响 Thrp，不因这些字段单独改变而刷新 Thrp；NF IOE 独立监控实际点击及用时。
+`right_ce` 既是 Thrp 分母的组成项，也是高级 NF 的筛选条件。`timems`、`left/right/double` 本身不影响 Thrp，不因这些字段单独改变而刷新 Thrp；NF IOE 和 TPE 独立监控实际点击及用时，TPE 不因 NF 资格变化而刷新。
 
 `videomanager.signals.CAPTURE_FIELDS` 捕获相关字段旧值。`thrp` 和 `ioe` 均为 GeneratedField，不把模型实例上可能过期的派生值作为更新依据；数据库提交后读取持久化的当前录像。
 
@@ -133,7 +133,7 @@ bv, left_ce, right_ce, double_ce, upload_time
 1. 新增或改善的合格录像直接与缓存中的对应单项比较，必要时替换并重算 sum。
 2. 已持有纪录的录像变差、失去资格或被删除时，只为受影响的用户和级别查询最佳剩余录像。
 3. `player/level` 改变时，旧分类按需补位，新分类尝试加入；`mode/state/ongoing_tournament` 改变时重新判断资格。
-4. Thrp 补位按 `thrp DESC, upload_time ASC, id ASC`，NF IOE 按自己的分段 score 选优；不逐条加载用户的全部录像到 Python 中筛选。
+4. Thrp 补位按 `thrp DESC, upload_time ASC, id ASC`，NF IOE 按自己的分段 score 选优，TPE 按 `timems / ioe / 1000 ASC, id ASC`；不逐条加载用户的全部录像到 Python 中筛选。
 5. 所有缓存副作用在 `transaction.on_commit` 后执行，事务回滚时不发布变更。
 6. 旧/新分类涉及高级 NF 时，独立重查受影响用户的满分列表或最佳一局。任意满分录像变动都能影响排名，不能仅判断其是否保持普通高级纪录。
 
@@ -169,7 +169,7 @@ app 内使用 Ninja router，在项目 API 中挂载 `/api/effranking/`。接口
 - 排行的每个用户均返回所选大榜的完整 hash 纪录及 `player_id`，不按当前排序列裁剪；sum 由前端计算。
 - 分页排名由前端使用 `start + index + 1` 显示，不为每行重复查询排名。
 - 个人接口用 pipeline 一次读取 hash 和各小榜 ZRANK；无纪录时返回完整空项，排名为 `null`。
-- 管理员重建 `b/i/e` 时查询数据库，重算关联 sum；重建 `sum` 时只根据缓存中的三个单项计算，不回源数据库。
+- 管理员重建单级别时查询数据库，重算关联 sum；重建 `sum` 时只根据缓存中的单项计算，不回源数据库。TPE 仅有 `i/e` 两个单项，缺项时移除 sum。
 - 管理员重建 Thrp 的 `e_nf` 时独立查询最佳及满分局数，只修复该项，不改动普通高级纪录或 sum。
 - 手动修复即使数值未变，也要修复目标排序索引。无录像可补位时清除对应单项。
 
@@ -178,20 +178,22 @@ app 内使用 Ninja router，在项目 API 中挂载 `/api/effranking/`。接口
 ```bash
 python manage.py rebuild_eff_ranks
 python manage.py rebuild_eff_ranks --ranking-name nf_ioe
+python manage.py rebuild_eff_ranks --ranking-name tpe
 ```
 
-首次部署和缓存丢失后显式执行。Thrp 使用 `thrp_idx` 索引；NF IOE 按用户、状态和级别缩小候选范围，并在数据库分桶选优，不新增数据库模型或索引迁移。执行时暂停相关写入。临时榜构建成功后原子替换对应大榜的正式 key（Thrp 六个、NF IOE 五个），失败保留旧榜；不扫描 Redis keyspace。本地快照初始化重建两个大榜。
+首次部署和缓存丢失后显式执行。Thrp 使用 `thrp_idx` 索引；NF IOE 和 TPE 按用户、状态和级别缩小候选范围，并在数据库分桶选优，不新增数据库模型或索引迁移。执行时暂停相关写入。临时榜构建成功后原子替换对应大榜的正式 key（Thrp 六个、NF IOE 五个、TPE 四个），失败保留旧榜；不扫描 Redis keyspace。本地快照初始化重建三个大榜。
 
 参数及暂停写入范围统一见[管理命令文档](../../../vitepress_doc/zh/guide/development/management-commands.md#rebuild-eff-ranks)。不提供自动回源、在线双写或定时重建。
 
 ## 首页新闻
 
-`effranking` 在单录像与批量加入路径发布 `eff` 分区新闻，覆盖 Thrp 的 `b/i/e/sum/e_nf` 与 NF IOE 的 `b/i/e/sum` 全部小榜。格式与 PB 新闻一致：`field` 为 `{大榜}:{小榜}`，`old`/`new` 各含 `value`、`video_id`、`rank`、`count`、`timems`，首次取得纪录时 `old` 为 `null`。事件经 `news.services.emit` 与信号写入 `news` app 的分类 zset，键与回收规则见[缓存文档](../../../vitepress_doc/zh/guide/development/cache.md)。
+`effranking` 在单录像与批量加入路径发布 `eff` 分区新闻，覆盖 Thrp 的 `b/i/e/sum/e_nf`、NF IOE 的 `b/i/e/sum` 与 TPE 的 `i/e/sum`。格式与 PB 新闻一致：`field` 为 `{大榜}:{小榜}`，`old`/`new` 各含 `value`、`video_id`、`rank`、`count`、`timems`，首次取得纪录时 `old` 为 `null`。事件经 `news.services.emit` 与信号写入 `news` app 的分类 zset，键与回收规则见[缓存文档](../../../vitepress_doc/zh/guide/development/cache.md)。
 
 - 只发布成绩变优的单项（比较写入前后的 score）；补位变差与批量移除不发布。单项变化引起 sum 同步变优时，sum 也单独发布一条事件。
 - `count` 是高级 NF 的满分局数：满分局数增加时 `value` 仍为 1、主录像也可能不变，前端沿用榜单的 `1 x N` 显示，避免新闻出现 `1.000 → 1.000`。
 - `timems` 是 NF IOE 满分单项的用时；`sum` 满分时取该项所用的高级用时。前端沿用榜单的 `1.000 (9.000)` 显示，使满分后的用时改善可见。
 - `sum` 是派生值没有对应录像，`video_id` 为 `null`，前端只显示数值文字而不加录像链接；`e_nf` 取满分录像 id 列表首条作为主链接。
+- TPE 以数值下降为进步；两个级别齐备前没有 sum 纪录，首次完整合计的旧值为 `null`，不使用部分合计。
 - 旧名次在写入前用 ZRANK 读取，新名次在写入命令之后排入同一 pipeline，保证事件中的名次对应写入后的榜。事件写入失败只记录日志，不影响排行榜更新。
 - 管理员单项修复与全量重建不发布新闻；新闻是派生数据，不随快照初始化或重建补发。
 
@@ -199,15 +201,31 @@ python manage.py rebuild_eff_ranks --ranking-name nf_ioe
 
 - 根目录 `signals.py` 和 `services.py` 协调录像事件与批量操作，`cache.py` 提供连接及 hash/zset 基础读写，`utils.py` 记录更新异常，`api.py` 聚合大榜路由，`news.py` 负责效率新闻的候选判定、名次读取与发布。
 - `thrp/` 包含本榜的计算、基础缓存、选优与补位、修复、重建、API 和测试；`nf_services.py` 独立负责高级 NF 最佳及局数查询。
-- `nf_ioe/` 独立处理 NF IOE 选优和 score。两榜按各自字段变化决定是否处理，合并 Redis 读取和写入 pipeline，不合并业务判断；IOE 监控 `left/right/double/timems`，Thrp 监控有效点击及上传时间。
+- `nf_ioe/`、`tpe/` 独立处理各自选优和 score。三榜按各自字段变化决定是否处理，合并 Redis 读取和写入 pipeline，不合并业务判断；IOE 和 TPE 监控 `left/right/double/timems`，Thrp 监控有效点击及上传时间。
 - 按玩家分段的公共工具为 `utils.querysets.player_batches`，不依赖其他大榜的业务模块。
 
 ## 前端接入
 
-`EfficiencyRanking.vue` 提供两榜共用工具栏。`ThrpRanking.vue` 与个人纪录共用 `ThrpRecordValue.vue`，`NFIOERanking.vue` 展示四项 NF IOE。管理员修复支持两榜全部小榜。
+`EfficiencyRanking.vue` 提供三榜共用工具栏。`ThrpRanking.vue` 与个人纪录共用 `ThrpRecordValue.vue`，`NFIOERanking.vue` 展示四项 NF IOE，`TPERanking.vue` 展示三项 TPE。管理员修复支持三榜全部小榜。
 
 URL 约定见[排行榜 README](../../../front_end/src/views/RankingView/README.md)，Thrp 个人页职责见[个人主页 README](../../../front_end/src/views/UserView/README.md#thrp-纪录)。NF IOE 暂不增加个人页表格。
 
 ## NF IOE
 
 规则、分段 score 和 `{value, video_id, timems}` 缓存结构统一见 [NF IOE README](./nf_ioe/README.md)。查询位于 `/api/effranking/nf_ioe`，首次部署执行指定大榜的重建命令，纳入历史录像。
+
+## TPE
+
+`TPE = timems / ioe / 1000`，单位为秒，使用实际点击对应的 IOE，越小越好。中级与高级分别取个人最低值；STD、OFFICIAL、非隐藏比赛录像可入榜，包含 NF，不设 BV 门槛。IOE 必须为有限正数；零用时为有效的 0。合计必须两个级别齐备，不补零。个人同分保留已有录像，重建追加 id 稳定选优；用户同分按 member 顺序。
+
+一个 `effranking:tpe:records` hash 保存用户完整 `{i, e}`，每项为 `null` 或 `{value, video_id}`。三个 `effranking:tpe:{i/e/sum}` zset 直接使用未舍入的 TPE 为 score、用户 id 为 member，升序排列；不拼接上传时间，sum 不重复保存在 hash。
+
+接口为 `/api/effranking/tpe/rank`、`/player/{id}` 和管理员 `POST /admin/rebuild_record`。个人页 `TPECard.vue` 显示成绩与排名，复用个人页缓存失效机制。前端统一显示三位小数，title 保留原始值；单项按对应 Time 色阶上色，sum 不上色。
+
+### 索引决策
+
+当前不新增数据库字段或索引。2026-11-17 在本地 MySQL 8.4.11 上，用生产公开快照的 403,046 条录像实测，其中 180,385 条符合 TPE 准入，涉及 157 个用户。现有索引下，六组单用户补位样本的中位耗时为 1.7–25.8 毫秒；全部用户按每批 100 人窗口选优约 4.5 秒。正常新增/改善只比较缓存，读榜不查询录像库。
+
+临时表对照显示，单列 TPE 索引可能诱导全局有序扫描，部分补位反而超过 2 秒。联合覆盖索引可将补位降到约 0.4–0.7 毫秒、全部用户选优降到约 0.72 秒，但尚未验证生成字段的迁移和写入成本，暂不采用。后续若批量更新确有延迟瓶颈，再重新评估。
+
+以上是热缓存下的本地查询耗时，不是生产 API 延迟保证；快照省略 Pluck，亦非生产数据库的物理克隆。完整 SQL、执行计划和结果保留在本地 `.tmp/checks/tpe-index-20261117/`，不提交原始快照。

@@ -1,5 +1,10 @@
 # 更新记录 / Changelog
 
+## 0.7.3 — 2026-11-17
+
+- 修复多指训练全屏状态下调整格子大小会退出全屏的问题：全屏顶栏改用加减按钮调整格子大小，避免聚焦输入框唤起软键盘导致浏览器退出全屏；精确数值仍可在小游戏设置中输入，两处共用并保存，调整时保留当前局。
+- Fixed multi-touch training exiting fullscreen when adjusting cell size: the fullscreen toolbar now uses plus/minus buttons instead of a text field, so focusing it cannot raise the on-screen keyboard and end fullscreen. Exact values can still be entered in minigame settings; both are shared and saved, and resizing keeps the current game.
+
 ## 0.7.2 — 2026-11-03
 
 - 多指训练新增滚动阈值设置（小游戏设置中调整，默认 0px），单指移动超过阈值后才开始滚动棋盘，避免点击时手指轻微移动带动画面；阈值上限 200px。
