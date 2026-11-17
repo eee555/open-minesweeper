@@ -1,3 +1,5 @@
+import logging
+from time import monotonic
 from urllib.parse import urlsplit
 
 from authlib.common.errors import AuthlibBaseError
@@ -12,6 +14,12 @@ TOKEN_URL = 'https://github.com/login/oauth/access_token'
 USER_URL = 'https://api.github.com/user'
 CALLBACK_PATH = '/api/accountlink/github/callback'
 REQUEST_TIMEOUT = (1, 1.5)
+OAUTH_ERROR_CODES = frozenset({
+    'incorrect_client_credentials', 'redirect_uri_mismatch', 'bad_verification_code', 'unverified_user_email',
+    'invalid_request', 'invalid_client', 'invalid_grant', 'unauthorized_client', 'unsupported_grant_type',
+    'invalid_scope', 'access_denied', 'server_error', 'temporarily_unavailable', 'missing_token', 'unsupported_token_type',
+})
+logger = logging.getLogger('accountlink')
 
 
 def oauth_client():
@@ -35,16 +43,38 @@ def authorization_url(client, state, verifier):
 
 def authorized_user_id(code, verifier):
     """访问令牌仅在本次请求内使用；公开资料不持久化。"""
+    stage = 'token'
+    http_status = None
+    started = monotonic()
+
+    def record_token_response(response):
+        nonlocal http_status
+        http_status = response.status_code
+        return response
+
     try:
         with oauth_client() as client:
+            client.register_compliance_hook('access_token_response', record_token_response)
             client.fetch_token(TOKEN_URL, code=code, code_verifier=verifier, timeout=REQUEST_TIMEOUT, allow_redirects=False)
+            stage = 'user'
+            http_status = None
+            started = monotonic()
             response = client.get(USER_URL, timeout=REQUEST_TIMEOUT, allow_redirects=False, headers={'Accept': 'application/vnd.github+json'})
+            http_status = response.status_code
             response.raise_for_status()
             data = response.json()
-    except (requests.RequestException, AuthlibBaseError, ValueError):
-        # OAuth 异常的 description 及 HTTP 异常可能含凭据或 URL，不写入日志。
+    except (requests.RequestException, AuthlibBaseError, ValueError) as exc:
+        oauth_error = 'none'
+        if isinstance(exc, AuthlibBaseError):
+            oauth_error = exc.error if isinstance(exc.error, str) and exc.error in OAUTH_ERROR_CODES else 'unknown'
+        # 不记录异常消息、description、响应体、请求头或 URL；错误码只接受白名单。
+        logger.warning(
+            'GitHub upstream failed stage=%s exception_type=%s http_status=%s oauth_error=%s elapsed_ms=%s',
+            stage, type(exc).__name__, http_status, oauth_error, round((monotonic() - started) * 1000),
+        )
         raise ExceptionToResponse('github', 'remote_failed', 502) from None
     value = data.get('id') if isinstance(data, dict) else None
     if type(value) is not int or not 1 <= value <= 9223372036854775807:
+        logger.warning('GitHub upstream failed stage=user http_status=%s reason=invalid_identity', http_status)
         raise ExceptionToResponse('github', 'remote_failed', 502)
     return value
