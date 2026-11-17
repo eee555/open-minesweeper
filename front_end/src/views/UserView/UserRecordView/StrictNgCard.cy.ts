@@ -56,7 +56,7 @@ describe('<StrictNgCard />', () => {
         cy.wait('@strictNgRecords').its('request.query').should('deep.equal', {});
 
         cy.get('.strict-ng-record-table').extractTableData().should('deep.equal', [
-            ['Strict No Guessing Rule', 'Beginner', 'Intermediate', 'Expert', 'Sum'],
+            ['Strict NG Rule', 'Beginner', 'Intermediate', 'Expert', 'Sum'],
             ['Time', '1.234(2)', '--(--)', '--(--)', '2001.232(4)'],
             ['Bvs', '4.567(3)', '--(--)', '--(--)', '4.567(5)'],
             ['Time (NF)', '2.345(6)', '--(--)', '--(--)', '2002.343(7)'],

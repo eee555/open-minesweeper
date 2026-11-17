@@ -1,126 +1,114 @@
-from .base import (
-    GSCParticipant,
-    timedelta,
-    timezone,
-    Tournament,
-    Tournament_TextChoices,
-    TournamentParticipant,
-    TournamentTestCaseBase,
-    TournamentUser,
-    VideoModel,
-    WeeklyParticipant,
-)
+from tournament.models import TournamentParticipant, TournamentUser, WeeklyParticipant
+from tournament.services import award_tournament_rank_scores
+from tournament.tasks import task_disqualify_participant
+from .base import MS_TextChoices, timedelta, timezone, Tournament_TextChoices, TournamentTestCaseBase, VideoModel
 
 
-class TestDeleteParticipant(TournamentTestCaseBase):
+class TestParticipantActions(TournamentTestCaseBase):
     def setUp(self):
         super().setUp()
         self.host = self.create_user('participant_host')
-        Tournament.objects.filter(pk=self.tournament.id).update(host=self.host)
-        self.participant = self.create_cached_gsc_participant()
-        self.url = f'/api/tournament/participant/{self.participant.pk}'
-
-    def test_host_cannot_delete_cancelled_gsc_participant_with_any_video(self):
-        video = self.create_video()
-        self.assertTrue(self.tournament.videos.filter(pk=video.pk).exists())
-        self.tournament.state = Tournament_TextChoices.State.CANCELLED
+        self.weekly = self.create_weekly_tournament(host=self.host, start_time=timezone.now() - timedelta(hours=4))
         with self.captureOnCommitCallbacks(execute=True):
-            self.tournament.save(update_fields=['state'])
+            self.participant = WeeklyParticipant.objects.create(
+                user=self.user, tournament=self.weekly,
+                start_time=timezone.now() - timedelta(hours=3), end_time=timezone.now() - timedelta(hours=1),
+            )
+        self.reset_url = f'/api/tournament/participant/{self.participant.id}/reset'
+        self.disqualify_url = f'/api/tournament/participant/{self.participant.id}/disqualify'
+
+    def award(self):
+        self.weekly.state = Tournament_TextChoices.State.AWARDED
+        with self.captureOnCommitCallbacks(execute=True):
+            self.weekly.save(update_fields=['state'])
+
+    def test_host_resets_expired_session_and_preserves_other_registration(self):
+        other = self.create_cached_gsc_participant()
         self.client.force_login(self.host)
-
         with self.captureOnCommitCallbacks(execute=True):
-            response = self.client.delete(self.url)
-
-        self.assertEqual(response.status_code, 409)
-        self.assertTrue(GSCParticipant.objects.filter(pk=self.participant.pk).exists())
-        self.assertEqual(self.tournament_cache.get_participant_list(self.user.id), [])
-        self.assertTrue(TournamentUser.objects.filter(user=self.user).exists())
-        self.assertTrue(VideoModel.objects.filter(pk=video.pk).exists())
-        self.assertTrue(self.tournament.videos.filter(pk=video.pk).exists())
-
-    def test_host_deletes_weekly_participant_without_removing_other_registration(self):
-        tournament = self.create_weekly_tournament(host=self.host)
-        participant = WeeklyParticipant.objects.create(
-            tournament=tournament, user=self.user, end_time=tournament.end_time,
-        )
-        self.tournament_cache.update_participant(participant)
-        self.client.force_login(self.host)
-
-        with self.captureOnCommitCallbacks(execute=True):
-            response = self.client.delete(f'/api/tournament/participant/{participant.pk}')
-
+            response = self.client.post(self.reset_url)
         self.assertEqual(response.status_code, 204)
-        self.assertFalse(TournamentParticipant.objects.filter(pk=participant.pk).exists())
-        self.assertFalse(WeeklyParticipant.objects.filter(pk=participant.pk).exists())
-        self.assertTrue(GSCParticipant.objects.filter(pk=self.participant.pk).exists())
-        self.assertEqual(
-            [item.tournament for item in self.tournament_cache.get_participant_list(self.user.id)],
-            [self.tournament.id],
-        )
-
-    def test_anonymous_and_non_hosts_cannot_delete_participant(self):
-        other_host = self.create_user('other_host')
-        self.create_weekly_tournament(host=other_host)
-        for user in (None, self.user, other_host):
-            with self.subTest(user=user):
-                self.client.logout()
-                if user is not None:
-                    self.client.force_login(user)
-
-                response = self.client.delete(self.url)
-
-                self.assertEqual(response.status_code, 403)
-                self.assertTrue(GSCParticipant.objects.filter(pk=self.participant.pk).exists())
-                self.assertEqual(len(self.tournament_cache.get_participant_list(self.user.id)), 1)
-
-    def test_staff_can_delete_participant(self):
-        tournament = self.create_weekly_tournament()
-        participant = WeeklyParticipant.objects.create(tournament=tournament, user=self.user, end_time=tournament.end_time)
-        self.user.is_staff = True
-        self.user.save(update_fields=['is_staff'])
+        self.assertFalse(TournamentParticipant.objects.filter(pk=self.participant.id).exists())
+        self.assertEqual([item.id for item in self.tournament_cache.get_participant_list(self.user.id)], [other.id])
+        self.user.realname = 'Registered Player'
+        self.user.save(update_fields=['_realname', 'date_updated'])
         self.client.force_login(self.user)
+        response = self.client.post('/api/tournament/weekly/participant', {'id': self.weekly.id})
+        self.assertEqual(response.status_code, 200)
+        self.assertNotEqual(response.json()['id'], self.participant.id)
+        self.assertNotEqual(response.json()['token'], self.participant.token)
 
-        with self.captureOnCommitCallbacks(execute=True):
-            response = self.client.delete(f'/api/tournament/participant/{participant.pk}')
+    def test_staff_can_reset_but_cannot_disqualify_when_not_host(self):
+        staff = self.create_user('participant_staff')
+        staff.is_staff = True
+        staff.save(update_fields=['is_staff'])
+        self.client.force_login(staff)
+        self.award()
+        self.assertEqual(self.client.post(self.disqualify_url).status_code, 403)
+        self.weekly.state = Tournament_TextChoices.State.NORMAL
+        self.weekly.save(update_fields=['state'])
+        self.assertEqual(self.client.post(self.reset_url).status_code, 204)
 
-        self.assertEqual(response.status_code, 204)
-        self.assertFalse(TournamentParticipant.objects.filter(pk=participant.pk).exists())
-
-    def test_host_can_delete_non_site_participant(self):
-        # Non-site participants are not present in the per-user Redis cache.
-        tournament = self.create_weekly_tournament(host=self.host)
-        with self.captureOnCommitCallbacks():
-            participant = WeeklyParticipant.objects.create(tournament=tournament)
+    def test_reset_rejects_active_session_and_any_video(self):
         self.client.force_login(self.host)
+        self.participant.end_time = timezone.now() + timedelta(minutes=10)
+        self.participant.save(update_fields=['end_time'])
+        self.assertEqual(self.client.post(self.reset_url).status_code, 403)
+        self.participant.end_time = timezone.now() - timedelta(minutes=10)
+        self.participant.save(update_fields=['end_time'])
+        video = self.create_video(tournament_identifier=[])
+        self.weekly.videos.add(video)
+        for state in (MS_TextChoices.State.OFFICIAL, MS_TextChoices.State.IDENTIFIER, MS_TextChoices.State.FROZEN):
+            VideoModel.objects.filter(pk=video.id).update(state=state, ongoing_tournament=True)
+            self.assertEqual(self.client.post(self.reset_url).status_code, 403)
+        self.assertTrue(TournamentParticipant.objects.filter(pk=self.participant.id).exists())
 
-        with self.captureOnCommitCallbacks(execute=True):
-            response = self.client.delete(f'/api/tournament/participant/{participant.pk}')
-
-        self.assertEqual(response.status_code, 204)
-        self.assertFalse(TournamentParticipant.objects.filter(pk=participant.pk).exists())
-        self.assertEqual(len(self.tournament_cache.get_participant_list(self.user.id)), 1)
-
-    def test_normal_gsc_cannot_be_deleted_by_host_or_staff_even_after_end(self):
-        self.user.is_staff = True
-        self.user.save(update_fields=['is_staff'])
-        now = timezone.now()
-        for start_time, end_time in [
-            (now + timedelta(hours=1), now + timedelta(hours=2)),
-            (now - timedelta(hours=1), now + timedelta(hours=1)),
-            (now - timedelta(hours=2), now - timedelta(hours=1)),
-        ]:
-            Tournament.objects.filter(pk=self.tournament.id).update(start_time=start_time, end_time=end_time)
-            for user in (self.host, self.user):
-                with self.subTest(start_time=start_time, user=user):
-                    self.client.force_login(user)
-                    response = self.client.delete(self.url)
-                    self.assertEqual(response.status_code, 403)
-                    self.assertTrue(GSCParticipant.objects.filter(pk=self.participant.pk).exists())
-                    self.assertEqual(len(self.tournament_cache.get_participant_list(self.user.id)), 1)
-
-    def test_missing_participant_returns_not_found(self):
+    def test_reset_and_disqualification_are_unavailable_after_time_end_before_awards(self):
+        self.weekly.end_time = timezone.now() - timedelta(minutes=1)
+        self.weekly.save(update_fields=['end_time'])
         self.client.force_login(self.host)
+        self.assertEqual(self.client.post(self.reset_url).status_code, 403)
+        self.assertEqual(self.client.post(self.disqualify_url).status_code, 403)
 
-        response = self.client.delete('/api/tournament/participant/0')
+    def test_host_disqualifies_with_video_via_idempotent_task(self):
+        video = self.create_video(tournament_identifier=[])
+        self.weekly.videos.add(video)
+        self.award()
+        self.participant.rank = 1
+        self.participant.save(update_fields=['rank'])
+        award_tournament_rank_scores(self.weekly)
+        self.assertGreater(TournamentUser.objects.get(user=self.user).score_total, 0)
+        self.client.force_login(self.host)
+        response = self.client.post(self.disqualify_url)
+        self.assertEqual(response.status_code, 202, response.content)
+        self.assertTrue(TournamentParticipant.objects.filter(pk=self.participant.id).exists())
+        task_id = response.json()['id']
+        self.assertEqual(self.client.get(f'/api/tournament/disqualification-task/{task_id}').status_code, 200)
+        participant_id = self.participant.id
+        with self.captureOnCommitCallbacks(execute=True):
+            self.assertTrue(task_disqualify_participant.call(participant_id, self.weekly.id))
+            self.assertFalse(task_disqualify_participant.call(participant_id, self.weekly.id))
+        self.assertFalse(TournamentParticipant.objects.filter(pk=participant_id).exists())
+        self.assertTrue(self.weekly.videos.filter(pk=video.id).exists())
+        user = TournamentUser.objects.get(user=self.user)
+        self.assertEqual((user.score_total, user.weekly_total, user.weekly_classic_total), (0, 0, 0))
 
-        self.assertEqual(response.status_code, 404)
+    def test_staff_host_may_disqualify_but_other_users_cannot_inspect_task(self):
+        self.award()
+        self.host.is_staff = True
+        self.host.save(update_fields=['is_staff'])
+        self.client.force_login(self.host)
+        response = self.client.post(self.disqualify_url)
+        self.assertEqual(response.status_code, 202)
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.get(f"/api/tournament/disqualification-task/{response.json()['id']}").status_code, 403)
+
+    def test_login_and_resource_permissions_are_required(self):
+        for actor in (None, self.user):
+            self.client.logout()
+            if actor:
+                self.client.force_login(actor)
+            self.assertEqual(self.client.post(self.reset_url).status_code, 403)
+            self.assertEqual(self.client.post(self.disqualify_url).status_code, 403)
+        self.client.force_login(self.host)
+        self.assertEqual(self.client.post('/api/tournament/participant/0/reset').status_code, 404)

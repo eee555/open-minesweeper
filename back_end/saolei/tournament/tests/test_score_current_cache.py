@@ -93,15 +93,17 @@ class ScoreCurrentCacheTests(TournamentTestCaseBase):
         self.tournament_cache.update_tournament_user(older)
         tournament = self.create_weekly_tournament(end_time=self.now)
         WeeklyParticipant.objects.create(user=other, tournament=tournament, rank=1)
-        award_tournament_rank_scores(tournament)
+        with self.captureOnCommitCallbacks(execute=True):
+            award_tournament_rank_scores(tournament)
         self.assertEqual(self.reference_time(), self.anchor)
         self.assertAlmostEqual(cache.zscore(self.key, self.user.id), 60 * self.scale)
         self.assertAlmostEqual(cache.zscore(self.key, other.id), 50 * self.scale)
 
         next_tournament = self.create_weekly_tournament(week=2, end_time=self.now + timedelta(days=730))
         WeeklyParticipant.objects.create(user=other, tournament=next_tournament, rank=1)
-        award_tournament_rank_scores(next_tournament)
-        award_tournament_rank_scores(tournament)
+        with self.captureOnCommitCallbacks(execute=True):
+            award_tournament_rank_scores(next_tournament)
+            award_tournament_rank_scores(tournament)
         self.assertEqual(self.reference_time(), self.anchor)
         self.assertAlmostEqual(cache.zscore(self.key, self.user.id), 60 * self.scale)
         self.assertAlmostEqual(cache.zscore(self.key, other.id), 150 * self.scale)

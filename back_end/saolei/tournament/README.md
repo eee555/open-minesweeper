@@ -1,10 +1,16 @@
 # tournament TODO
 
+## 效率打卡赛与排行榜拆分
+
+TODO：部署前备份并审计竞速打卡赛 `(year, week)` 重复，沿用服务器自动生成迁移的方式执行 `makemigrations tournament` 与 `migrate`。
+
+TODO：暂停相关写入和 worker，执行 `rebuild_tournament_cache`、`rebuild_tournament_user_cache`，核对总积分、三个分项、九个 zset 及效率 best 年/周。检查已排队的旧结算任务不早于原 `end_time + 1 小时`，再恢复 worker。
+
+TODO：由用户运行相应 Cypress 组件/E2E 测试，验收效率计分、双报名、四榜切换、过期报名重置及异步取消资格。业务规则见[打卡赛指南](../../../vitepress_doc/zh/guide/weekly-tournament.md)，缓存与任务边界见[缓存开发文档](../../../vitepress_doc/zh/guide/development/cache.md)。
+
 ## 比赛录像删除与成绩一致性
 
-普通删除已颁奖比赛录像时不立即重算，暂时保留结算成绩、名次、积分及历史最好成绩。显式重算按比赛类型及成绩来源处理：打卡赛和 GSC 录像来源不再计入已删除录像，GSC 手工来源保留录入成绩，但仍参与全场排名和积分更新。每个新赛种或赛制都须提供自己的删除及重算规则。删除前需要比赛相关警告；将来增加私信功能后，普通删除会私信通知受影响比赛的主办方。
-
-现有计分服务已区分 GSC 手工来源与录像来源；站长单个删除 API 已返回受影响比赛 ID 并记录日志警告，隐藏中文页面已提供比赛警告、确认和逐条请求。其他入口的警告、私信以及重算事务和并发控制的完善仍待实现。业务边界、赛种接入要求及后续方案见 [比赛录像删除与成绩一致性](./VIDEO_DELETION_PLAN.md)。
+TODO：补齐其他录像删除入口的比赛警告、主办方私信，以及 GSC/竞速 best 的提交后缓存发布。失效预览、赛种接入要求等后续方案见 [比赛录像删除与成绩一致性](./VIDEO_DELETION_PLAN.md)。
 
 ## GSC 实时榜缓存
 
@@ -12,8 +18,6 @@ TODO: 如果未来需要比赛期间展示实时榜，可以再单独设计每�
 
 - `tournament:normal:gsc:{tournament_id}:scores`
 - `tournament:normal:gsc:{tournament_id}:rank`
-
-当前阶段不实现这部分。
 
 ## 比赛积分系统
 
@@ -23,18 +27,16 @@ TODO: 奖金积分暂不实现，但需要预留设计：
 - 奖金金额与积分的换算规则、币种和管理员录入入口仍是争议核心，暂无结论。
 - 在用户文档中继续标记“暂不支持”，直到后端和前端都完成。
 
-TODO: 补充积分展示 API 与前端：
+TODO: 在用户资料页补充比赛积分展示，等资料摘要结构设计后再实现：
 
-先不急着做，等结构继续设计。
-
-- 用户资料页需要展示当前比赛积分、历史总积分、GSC/周赛拆分积分和最好成绩。
+- 用户资料页需要展示当前比赛积分、历史总积分、GSC/竞速/效率拆分积分和最好成绩。
 - `TournamentUser` 更新后如果影响用户资料摘要，需要同步考虑 `userprofile` 缓存/批量接口的失效策略。
 
 ## GSC 历史成绩补录
 
 TODO：部署 [GSC 历史成绩补录](../../../vitepress_doc/zh/guide/development/gsc-history-import.md) 前人工审计旧的手工成绩及匿名记录，并设置 `manual_scores`，不按无录像自动推断来源；在实际服务器测量每批最多 10 条的完整请求耗时（含提交回调），本地性能不保证生产 2 秒时限。
 
-TODO：由用户运行新增 GSC 历史补录 Cypress 组件/E2E 测试，核验标识多选、录像重试、CSV 分批、手工汇总及无录像删除。
+TODO：由用户运行新增 GSC 历史补录 Cypress 组件/E2E 测试，核验标识多选、录像重试、CSV 分批、手工汇总，以及主办方异步取消资格后重新补录。
 
 ## 历史比赛列表同步计划
 
@@ -43,7 +45,7 @@ TODO: 这类列表展示问题优先参考 `userprofile` app 的缓存同步方�
 推荐接口形态：
 
 - TODO: `GET /api/tournament/list`
-  - 返回用于当前列表页的轻量索引，长期应支持分页、状态过滤、系列过滤和排序。
+  - 返回用于当前列表页的轻量索引，长期应支持分页、状态过滤、赛种过滤和排序。
   - 响应只包含 `id`、必要排序字段和可选的 `date_updated`，不负责返回完整 `TournamentInfo`。
 - TODO: `GET /api/tournament/infobulk?ids=1,2,3`
   - 按 id 批量返回完整 `TournamentInfo`。
@@ -74,8 +76,3 @@ TODO: 迁移后，`get_tournament_list` 可以逐步退化为轻量索引接口�
 ## 待处理问题
 
 - TODO: 明确比赛取消、状态回滚时应在哪些入口调用 `reveal_videos_for_tournament`。
-- TODO: 补充测试：
-  - 比赛颁奖后，上万条录像不逐条触发 `VideoModel.save()`。
-  - 录像从比赛恢复普通后，队列缓存恢复。
-  - 录像从比赛恢复普通后，pluck 纪录刷新。
-- 比赛批量公开调用 `speedranking.services.add_videos_to_speed_ranks`；用户主动公开走保存信号，两者均在提交后更新竞速纪录，且不移除比赛关联。

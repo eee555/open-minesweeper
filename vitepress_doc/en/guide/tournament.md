@@ -5,7 +5,7 @@ description: Points, identifiers, replay visibility rules and automatic uploadin
 
 # Minesweeper Tournaments
 
-The website supports Golden Sheep Cups and Weekly Tournaments. Contact the developers to host other tournament formats.
+The website supports Golden Sheep Cups, Speed Weekly and Efficiency Weekly tournaments. Contact the developers to host other tournament formats.
 
 To register or upload tournament replays you need either a real name on your profile or verification by a verified player. A verified player can verify you by entering your site ID: there is no request or approval, and you cannot remove the relation yourself. Staff and superuser roles alone do not grant access. Verification is maintained by administrators; if it is removed, a real-name user can still take part.
 
@@ -13,7 +13,7 @@ To register or upload tournament replays you need either a real name on your pro
 
 Ranking points are awarded after tournament results are finalized. Converting prize money into points is not yet supported.
 
-Personal bests are tracked separately for Golden Sheep Cups and Weekly Tournaments, counting only awarded tournaments.
+Personal bests are tracked separately for Golden Sheep Cups, Speed Weekly and Efficiency Weekly, counting only awarded tournaments. The tournament ranking selector provides an overall table and a separate table for each type.
 
 ### Ranking Points
 
@@ -22,7 +22,8 @@ Ranking points = tournament coefficient / rank. For example, 5th place in a Week
 | Tournament | Coefficient |
 | --- | --- |
 | Golden Sheep Cup | 1000 |
-| Weekly Tournament | 50 |
+| Speed Weekly | 50 |
+| Efficiency Weekly | 50 |
 
 ### Point Decay
 
@@ -34,7 +35,7 @@ A tournament identifier identifies your tournament replays and must be set befor
 
 Replays must be uploaded within your participation window. Late uploads do not count, even if the tournament itself has not ended.
 
-A replay can contain multiple tournament identifiers, separated by commas.
+**To enter the same replay in multiple tournaments, put all tournament tokens in the game's tournament identifier field, separated by commas (`,`) without spaces, for example `TOKEN1,TOKEN2`.** Each tournament still applies its own participation window and scoring rules.
 
 ## Setting a Tournament Identifier
 
@@ -73,8 +74,8 @@ When first selecting a folder, choose whether to upload only new replays or also
 ### Weekly Tournaments
 
 1. All tournament videos: includes your tournament identifier. AVF is not supported.
-2. Supported tournament videos: classic tournaments accept Intermediate and Expert replays in Standard mode.
-3. Score-improving videos: the replay improves your total time for the best 5 Intermediate or 2 Expert games.
+2. Supported tournament videos: Intermediate or Expert replays in Standard mode. Efficiency Weekly additionally requires `Time / IOE` below 60 for Intermediate or 240 for Expert.
+3. Score-improving videos: the replay improves your best 5 Intermediate or 2 Expert results. Speed Weekly compares time; Efficiency Weekly compares `Time / IOE`.
 
 ### Golden Sheep Cup
 

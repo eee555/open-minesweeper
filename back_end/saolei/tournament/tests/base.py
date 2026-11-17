@@ -160,7 +160,7 @@ class TournamentTestCaseBase(TestCase):
         now = timezone.now()
         defaults = {
             'year': 2026,
-            'week': 1,
+            'week': WeeklyTournament.objects.count() + 1,
             'subclass': Tournament_TextChoices.Subclass.WEEKLY,
             'start_time': now - timedelta(hours=1),
             'end_time': now + timedelta(hours=1),
@@ -170,7 +170,9 @@ class TournamentTestCaseBase(TestCase):
             'tournament_format': Tournament_TextChoices.WeeklyFormat.CLASSIC,
         }
         defaults.update(kwargs)
-        return WeeklyTournament.objects.create(**defaults)
+        tournament = WeeklyTournament.objects.create(**defaults)
+        self.tournament_cache.update_tournament(tournament)
+        return tournament
 
 
 __all__ = (

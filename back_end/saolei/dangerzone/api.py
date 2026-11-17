@@ -15,8 +15,9 @@ from config.text_choices import Tournament_TextChoices
 from config.tournaments import TournamentWeights
 from identifier.models import Identifier
 from identifier.services import bind_identifier, set_safe, unbind_identifier
-from tournament.models import GSCTournament, WeeklyTournament
+from tournament.models import GSCTournament, WeeklyEffTournament, WeeklyTournament
 from tournament.weekly.tasks import _task_weekly_finish_impl
+from tournament.weekly_eff.tasks import task_weekly_eff_finish
 from userprofile.models import UserProfile
 from utils.schema import IdIn
 from videomanager.models import ExpandVideoModel, VideoModel
@@ -105,6 +106,15 @@ class CreateWeeklyTournamentSchema(Schema):
 
 class WeeklyTournamentIdSchema(Schema):
     id: int
+
+
+class CreateWeeklyEffTournamentSchema(Schema):
+    state: str = Tournament_TextChoices.State.NORMAL
+    start_time: datetime
+    end_time: datetime
+    host_id: int | None = None
+    year: int | None = None
+    week: int | None = None
 
 
 @api.post('/refresh_tournament_scores')
@@ -286,6 +296,32 @@ def finish_weekly_tournament(request, data: WeeklyTournamentIdSchema):
         'state': tournament.state,
         'result': result,
     }
+
+
+@api.post('/create_weekly_eff_tournament')
+@local_only
+def create_weekly_eff_tournament(request, data: CreateWeeklyEffTournamentSchema):
+    """- local_only"""
+    year, week, _ = data.start_time.isocalendar()
+    tournament = WeeklyEffTournament.objects.create(
+        year=data.year if data.year is not None else year,
+        week=data.week if data.week is not None else week,
+        start_time=data.start_time, end_time=data.end_time, state=data.state,
+        host_id=data.host_id, weight=TournamentWeights.WEEKLY_EFF,
+        subclass=Tournament_TextChoices.Subclass.WEEKLY_EFF,
+    )
+    return {
+        'id': tournament.id, 'subclass': tournament.subclass, 'state': tournament.state,
+        'start_time': tournament.start_time, 'end_time': tournament.end_time,
+        'host_id': tournament.host_id, 'data': tournament.data,
+    }
+
+
+@api.post('/finish_weekly_eff_tournament')
+@local_only
+def finish_weekly_eff_tournament(request, data: IdIn):
+    """- local_only"""
+    return task_weekly_eff_finish.call(data.id)
 
 
 @api.post('/create_identifier')

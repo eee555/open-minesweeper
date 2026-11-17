@@ -1,5 +1,4 @@
 import { QuestionFilled } from '@element-plus/icons-vue';
-import PrimeVue from 'primevue/config';
 import { defineComponent, h, reactive } from 'vue';
 import { createMemoryHistory, createRouter } from 'vue-router';
 
@@ -13,6 +12,8 @@ import { MS_Mode } from '@/utils/ms_const';
 import { UserProfile } from '@/utils/userprofile';
 import type { VideoAbstract } from '@/utils/videoabstract';
 import { mockVideoInfo } from '@cy/support/videoInfo';
+
+const VIDEO_TABLE = '[data-cy=video-list-table] table';
 
 const ScatterStub = defineComponent({
     props: { videos: { type: Array<VideoAbstract>, default: () => [] } },
@@ -45,14 +46,14 @@ function mountUserVideos(userId = 99, hiddenStates = [true, false], overrides: R
     cy.wrap(router.isReady()).then(() => {
         cy.mount(UserVideoView, {
             props: { user },
-            global: { plugins: [pinia, i18n, PrimeVue, router], components: { QuestionFilled }, stubs: { VideoScatter: ScatterStub }, config: { globalProperties: { $axios } } },
+            global: { plugins: [pinia, i18n, router], components: { QuestionFilled }, stubs: { VideoScatter: ScatterStub }, config: { globalProperties: { $axios } } },
         });
     });
     cy.wait('@videos');
     // VideoList loads its data columns asynchronously, after rows may already exist.
-    cy.get('.p-datatable-table').contains('Time');
-    if (userId === 99) cy.get('.p-datatable-table').contains('Action');
-    cy.get('.p-datatable-table').extractTableData().should('deep.equal', [
+    cy.get(VIDEO_TABLE).contains('Time');
+    if (userId === 99) cy.get(VIDEO_TABLE).contains('Action');
+    cy.get(VIDEO_TABLE).extractTableData().should('deep.equal', [
         userId === 99 ? ['Time', 'Action'] : ['Time'],
         ...hiddenStates.slice(0, 25).map(() => (userId === 99 ? ['40.000', ''] : ['40.000'])),
     ]);
@@ -84,16 +85,19 @@ describe('<UserVideoView />', () => {
         cy.get('[data-cy=local-video-state]').should('have.length', 2);
         cy.get('[data-cy=toggle-arbiter-csv]').click();
         cy.get('[data-cy=arbiter-csv-result]').should('contain.text', '2 local videos not uploaded');
-        cy.get('.p-datatable-table').getTable().should('have.length', 4);
-        cy.get('.p-datatable-table').contains('td', '35.090').click();
-        cy.get('.p-datatable-table').contains('tr', '35.090').within(() => {
+        cy.get(VIDEO_TABLE).getTable().should('have.length', 4);
+        cy.get(VIDEO_TABLE).contains('td', '35.090').click();
+        cy.get(VIDEO_TABLE).contains('tr', '35.090').within(() => {
             cy.get('a, [data-cy=video-row-actions]').should('not.exist');
             cy.get('td').filter(':contains("—")').should('have.length', 2);
         });
         cy.get('@preview.all').should('have.length', 0);
-        cy.get('[data-cy=video-shared-filters] input[value=l]').should('be.checked').uncheck();
+        cy.get('[data-cy=video-shared-filters]').should('not.exist');
+        cy.get('[data-cy=video-filter-state]').click();
+        cy.get('[data-tippy-root] [data-cy=video-filter-menu]:visible input[value=l]').should('be.checked').uncheck();
         cy.get('[data-cy=local-video-state]').should('not.exist');
-        cy.get('[data-cy=video-shared-filters] input[value=l]').check();
+        cy.get('[data-tippy-root] [data-cy=video-filter-menu]:visible input[value=l]').check();
+        cy.get('[data-cy=video-filter-state]').click();
         cy.get('[data-cy=arbiter-csv-upload] input[type=file]').selectFile({ contents: Cypress.Buffer.from('bad'), fileName: 'bad.csv' }, { force: true });
         cy.get('[data-cy=local-video-state]').should('not.exist');
         cy.get('[role=alert]').should('contain.text', 'Missing date or Time headers');
@@ -109,6 +113,9 @@ describe('<UserVideoView />', () => {
 
     it('keeps BV display filters independent while sharing selection and filters with the scatter plot', () => {
         mountUserVideos(100, [false, false, false, false], [{ software: 'a' }, { software: 'r' }, { level: 'i' }, { bv: 101 }]);
+        cy.then(() => {
+            VideoListConfig.value.profile = ['state', 'software', 'time'];
+        });
         cy.get('[data-cy=video-overview]').select('bv');
         cy.then(() => {
             BBBvSummaryConfig.value.softwareFilter = ['a'];
@@ -117,11 +124,15 @@ describe('<UserVideoView />', () => {
         cy.get('button[aria-label="Expert BV 100"]').should('have.attr', 'aria-pressed', 'true');
         cy.get('button[aria-label="Intermediate BV 100"]').should('have.attr', 'aria-pressed', 'false');
         cy.get('[data-cy=video-range]').should('contain.text', '2 videos in range, 2 after filtering');
-        cy.get('.p-datatable-table').getTable().should('have.length', 2);
-        cy.get('[data-cy=video-shared-filters] [role=group][aria-label="Software"] input[value=a]').should('have.length', 1).uncheck();
-        cy.get('[data-cy=video-shared-filters] [role=group][aria-label="State"] input[value=a]').should('be.checked');
+        cy.get(VIDEO_TABLE).getTable().should('have.length', 2);
+        cy.get('[data-cy=video-shared-filters]').should('not.exist');
+        cy.get('[data-cy=video-filter-software]').click();
+        cy.get('[data-tippy-root] [data-cy=video-filter-menu]:visible [role=group][aria-label="Software"] input[value=a]').should('have.length', 1).uncheck();
+        cy.get('[data-cy=video-filter-state]').click();
+        cy.get('[data-tippy-root] [data-cy=video-filter-menu]:visible [role=group][aria-label="State"] input[value=a]').should('be.checked');
         cy.get('[data-cy=video-range]').should('contain.text', '2 videos in range, 1 after filtering');
         cy.get('[data-cy=video-presentation]').select('scatter');
+        cy.get('[data-cy=video-shared-filters]').should('exist');
         cy.get('[data-cy=scatter-videos]').should('have.text', '102');
         cy.then(() => {
             BBBvSummaryConfig.value.softwareFilter = [];
@@ -129,7 +140,7 @@ describe('<UserVideoView />', () => {
         cy.get('button[aria-label="Expert BV 100"]').should('have.attr', 'aria-pressed', 'true');
         cy.get('[data-cy=scatter-videos]').should('have.text', '102');
         cy.get('[data-cy=video-presentation]').select('table');
-        cy.get('.p-datatable-table').getTable().should('have.length', 1);
+        cy.get(VIDEO_TABLE).getTable().should('have.length', 1);
         cy.get('button[aria-label="Expert BV 100"]').focus();
         cy.realPress('Enter');
         cy.get('[data-cy=video-range]').should('contain.text', '4 videos in range, 3 after filtering');
@@ -161,13 +172,13 @@ describe('<UserVideoView />', () => {
 
     it('passes all filtered records to scatter regardless of the table page', () => {
         mountUserVideos(100, Array<boolean>(30).fill(false));
-        cy.get('.p-datatable-table').getTable().should('have.length', 25);
+        cy.get(VIDEO_TABLE).getTable().should('have.length', 25);
         cy.get('[data-cy=video-presentation]').select('scatter');
         cy.get('[data-cy=scatter-videos]').should(($element) => {
             expect($element.text().split(',')).to.have.length(30);
         });
         cy.get('[data-cy=video-presentation]').select('table');
-        cy.get('.p-datatable-table').getTable().should('have.length', 25);
+        cy.get(VIDEO_TABLE).getTable().should('have.length', 25);
         cy.get('@videos.all').should('have.length', 1);
     });
 
@@ -177,11 +188,11 @@ describe('<UserVideoView />', () => {
         cy.get('.checkbox-group input[value=bv]').should('not.be.checked');
         cy.get('.checkbox-group').contains('label', /^Bv$/).click();
         cy.get('.checkbox-group input[value=bv]').should('be.checked');
-        cy.get('.p-datatable-table').contains('th', /^Bv$/).scrollIntoView();
-        cy.get('.p-datatable-table').contains('th', /^Bv$/).should('be.visible');
+        cy.get(VIDEO_TABLE).contains('th', 'Bv').scrollIntoView();
+        cy.get(VIDEO_TABLE).contains('th', 'Bv').should('be.visible');
         cy.contains('.el-tag', /^Time$/).find('.el-tag__close').click();
         cy.get('.checkbox-group input[value=time]').should('not.be.checked');
-        cy.get('.p-datatable-table th').contains(/^Time$/).should('not.exist');
+        cy.get(VIDEO_TABLE).contains('th', 'Time').should('not.exist');
         cy.wrap(VideoListConfig).its('value.profile').should('deep.equal', ['bv']);
         cy.get('@videos.all').should('have.length', 1);
     });

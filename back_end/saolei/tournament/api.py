@@ -1,10 +1,12 @@
 from datetime import datetime, timezone
 from typing import Any, Literal
+from uuid import UUID
 
 from django.db import transaction
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404
 from django_ratelimit.decorators import ratelimit
+from django_tasks_db.models import DBTaskResult
 from ninja import Field, Form, Router, Schema
 from ninja.decorators import decorate_view
 from ninja.errors import HttpError
@@ -14,11 +16,12 @@ from config.text_choices import Tournament_TextChoices
 from tournament.cache import TOURNAMENT_USER_CACHE_KEYS, TournamentCache
 from tournament.models import GSCTournament, Tournament, TournamentParticipant, TournamentUser
 from tournament.schema import ParticipantOutBase
-from tournament.services import with_participant_video_status
+from tournament.services import reset_participant_registration, with_participant_video_status
+from tournament.tasks import task_disqualify_participant
 from userprofile.decorators import admin_csrf_required, login_required_error, staff_required
 from userprofile.models import UserProfile
 from utils.response import HttpResponseConflict
-from utils.schema import IdIn
+from utils.schema import DBTaskOut, IdIn
 from videomanager.models import VideoModel
 from videomanager.schema import VideoBaseOut
 
@@ -76,6 +79,7 @@ TournamentUserOut = create_schema(
         'score_current', 'last_updated', 'score_total',
         'gsc_total', 'gsc_best',
         'weekly_total', 'weekly_classic_total', 'weekly_classic_best',
+        'weekly_eff_total', 'weekly_eff_best', 'weekly_eff_best_year', 'weekly_eff_best_week',
     ],
     custom_fields=[('user_id', int, 0)],
 )
@@ -233,27 +237,54 @@ def get_participant_list(request: HttpRequest, tournament_id: int):
     return with_participant_video_status(TournamentParticipant.objects.filter(tournament_id=tournament_id).select_related('arbiter_identifier'))
 
 
-@router.delete('/participant/{participant_id}', response={204: None})
+@router.post('/participant/{participant_id}/reset', response={204: None})
 @decorate_view(login_required_error, admin_csrf_required, ratelimit(key='user', rate='30/m', block=True))
-def delete_participant(request: HttpRequest, participant_id: int):
+def reset_participant(request: HttpRequest, participant_id: int):
     """
     - `login_required_error`
     - `admin_csrf_required`
     - `ratelimit(key='user', rate='30/m', block=True)`
 
-    Only the tournament host or staff may delete a participant.
-    GSC participants cannot be deleted while the tournament state is NORMAL.
-    Participants with any associated video cannot be deleted.
+    主办方或管理员重置个人窗口已结束且没有录像的报名，整场比赛必须仍在进行。
     """
     participant = get_object_or_404(TournamentParticipant.objects.select_related('tournament'), id=participant_id)
     if not request.user.is_staff and participant.tournament.host_id != request.user.id:
         raise HttpError(403, 'Only the tournament host or staff may delete a participant.')
-    if participant.tournament.subclass == Tournament_TextChoices.Subclass.GSC and participant.tournament.state == Tournament_TextChoices.State.NORMAL:
-        raise HttpError(403, 'Participants of a NORMAL GSC tournament cannot be deleted.')
-    if participant.videos.exists():
-        raise HttpError(409, 'Participants with tournament videos cannot be deleted.')
-    participant.delete()
+    reset_participant_registration(participant)
     return 204, None
+
+
+@router.post('/participant/{participant_id}/disqualify', response={202: DBTaskOut})
+@decorate_view(login_required_error, admin_csrf_required, ratelimit(key='user', rate='30/m', block=True))
+def disqualify_tournament_participant(request: HttpRequest, participant_id: int):
+    """
+    - login_required_error
+    - admin_csrf_required
+    - ratelimit(key='user', rate='30/m', block=True)
+
+    已颁奖比赛仅主办方可取消资格；实际删除与积分撤回由同一个 worker 执行。
+    """
+    participant = get_object_or_404(TournamentParticipant.objects.select_related('tournament'), id=participant_id)
+    if participant.tournament.host_id != request.user.id:
+        raise HttpError(403, 'Only the tournament host may disqualify a participant.')
+    if participant.tournament.state != Tournament_TextChoices.State.AWARDED:
+        raise HttpError(403, 'Only awarded tournament participants can be disqualified.')
+    task = task_disqualify_participant.enqueue(participant.id, participant.tournament_id)
+    return 202, task.db_result
+
+
+@router.get('/disqualification-task/{task_id}', response=DBTaskOut)
+@decorate_view(login_required_error, ratelimit(key='user', rate='60/m', block=True))
+def get_disqualification_task(request: HttpRequest, task_id: UUID):
+    """
+    - login_required_error
+    - ratelimit(key='user', rate='60/m', block=True)
+    """
+    task = get_object_or_404(DBTaskResult, id=task_id, task_path='tournament.tasks.task_disqualify_participant')
+    tournament = get_object_or_404(Tournament, id=task.task_result.args[1])
+    if tournament.host_id != request.user.id:
+        raise HttpError(403, 'Only the tournament host may inspect this task.')
+    return task
 
 
 @router.get('/user-ranking', response=TournamentUserRankingOut)

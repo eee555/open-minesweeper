@@ -1,6 +1,16 @@
 <template>
     <ElForm label-width="120px">
-        <ElFormItem :label="t('local.format')">
+        <ElFormItem :label="t('local.kind')">
+            <select v-model="kind" class="base-select" :aria-label="t('local.kind')" data-cy="weekly-kind">
+                <option value="weekly">
+                    {{ t('local.speed') }}
+                </option>
+                <option value="weekly-eff">
+                    {{ t('local.efficiency') }}
+                </option>
+            </select>
+        </ElFormItem>
+        <ElFormItem v-if="kind === 'weekly'" :label="t('local.format')">
             <select v-model="tournamentFormat" class="base-select" style="width: 220px" :aria-label="t('local.format')">
                 <option v-for="option in tournamentFormatOptions" :key="option.value" :value="option.value">
                     {{ t(option.label) }}
@@ -46,6 +56,7 @@ const tournamentFormatOptions = [
 ] as const;
 
 const tournamentFormat = ref(tournamentFormatOptions[0].value);
+const kind = ref<'weekly' | 'weekly-eff'>('weekly');
 const creating = ref(false);
 const createdWeekly = ref<WeeklyCreateResponse | null>(null);
 
@@ -57,14 +68,14 @@ interface WeeklyCreateResponse {
         start_time: string;
         end_time: string;
         state: string;
-        tournament_format: string;
+        tournament_format?: string;
     };
 }
 
 async function createWeeklyTournament() {
     creating.value = true;
-    await proxy.$axios.post('/api/tournament/weekly/new', {
-        tournament_format: tournamentFormat.value,
+    await proxy.$axios.post<WeeklyCreateResponse>(`/api/tournament/${kind.value}/new`, {
+        ...kind.value === 'weekly' ? { tournament_format: tournamentFormat.value } : {},
     }).then((response) => {
         createdWeekly.value = response.data;
         successNotification(response);
@@ -79,6 +90,9 @@ function formatDateTime(value: string | Date | null | undefined) {
 
 const i18nMessages = {
     'zh-cn': { local: {
+        kind: '比赛类别',
+        speed: '竞速打卡赛',
+        efficiency: '效率打卡赛',
         format: '比赛类型',
         classicFormat: '2高5中',
         create: '创建下周打卡赛',
@@ -86,6 +100,9 @@ const i18nMessages = {
         weekly: '打卡赛',
     } },
     en: { local: {
+        kind: 'Tournament type',
+        speed: 'Speed Weekly',
+        efficiency: 'Efficiency Weekly',
         format: 'Tournament format',
         classicFormat: '2 Expert + 5 Intermediate',
         create: 'Create next week’s tournament',

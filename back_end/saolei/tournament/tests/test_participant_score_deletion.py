@@ -124,19 +124,6 @@ class ParticipantScoreDeletionTests(TournamentTestCaseBase):
         self.assertEqual(cache.zscore(TOURNAMENT_USER_CACHE_KEYS['score_total'], self.user.id), 500)
         self.assertEqual(cache.zscore(TOURNAMENT_USER_CACHE_KEYS['score_current'], self.user.id), current_score)
 
-    def test_delete_api_revokes_scores(self):
-        participant = GSCParticipant.objects.create(user=self.user, tournament=self.tournament, rank=1, rank_score=100)
-        record = self.seed_scores()
-        self.client.force_login(self.user)
-
-        with self.captureOnCommitCallbacks(execute=True):
-            response = self.client.delete(f'/api/tournament/participant/{participant.pk}')
-
-        self.assertEqual(response.status_code, 204)
-        record.refresh_from_db()
-        self.assertEqual((record.score_current, record.score_total, record.gsc_total), (125, 400, 150))
-        self.assert_cached_current_score(record)
-
     def test_tournament_cascade_revokes_participant_scores(self):
         for model, tournament in ((GSCParticipant, self.tournament), (WeeklyParticipant, self.weekly)):
             with self.subTest(model=model.__name__):

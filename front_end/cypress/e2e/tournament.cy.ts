@@ -1,3 +1,6 @@
+import type { TournamentParticipantResponse } from '@/services/tournamentService';
+import { MS_State } from '@/utils/ms_const';
+
 const HOST = {
     id: 48,
     username: 'gscHost',
@@ -662,7 +665,7 @@ describe('Weekly tournament', () => {
         });
         readDescriptionValue('结束时间').then((value) => {
             endText = value;
-            weeklyFinishTaskRunAfter = value;
+            weeklyFinishTaskRunAfter = displayDateTime(new Date(parseDisplayDateTime(value).getTime() + 3600000));
         });
         cy.then(() => {
             const start = parseDisplayDateTime(startText);
@@ -772,7 +775,7 @@ describe('GSC historical supplementation', () => {
             expect(rows).to.have.length(1);
             expect(rows[0]).to.include({ 成绩来源: '录像', 录像: '有' });
         });
-        cy.get('[data-cy=history-delete]').should('not.exist');
+        cy.get('[data-cy=disqualify-participant]').should('have.length', 1);
         visitGSCAdmin(18);
         cy.wait('@history');
         cy.get('[data-cy=history-user-id]').type('101');
@@ -791,6 +794,68 @@ describe('GSC historical supplementation', () => {
         cy.get('[data-cy=all-participants-tabs] .el-table__body').extractTableData().should((rows) => {
             expect(rows).to.have.length(1);
             expect(rows[0].slice(7, 10)).to.deep.equal(['41.021', '240.000', '1001.021']);
+        });
+    });
+});
+
+describe('Efficiency Weekly tournament', () => {
+    it('registers a separate session and displays metric-based live and awarded results', () => {
+        let tournamentId = 0;
+        let token = '';
+        const now = new Date();
+        cy.mockPlayerNameFallback();
+        cy.dangerzonePost<{ id: number }>('create_weekly_eff_tournament', {
+            year: 2099,
+            week: 11,
+            host_id: STAFF.id,
+            start_time: new Date(now.getTime() - 3600000).toISOString(),
+            end_time: new Date(now.getTime() + 86400000).toISOString(),
+        }).then(({ body }) => {
+            tournamentId = body.id;
+        });
+        cy.login(USER.username, USER.password);
+        cy.intercept('GET', '**/api/tournament/participants*').as('effParticipants');
+        cy.intercept('POST', '**/api/tournament/weekly-eff/participant').as('effRegister');
+        cy.then(() => cy.visit(`/#/tournament/${tournamentId}`));
+        cy.wait('@effParticipants');
+        cy.contains('效率打卡赛');
+        cy.contains('button', '开始打卡').click();
+        cy.contains('.el-dialog button', '确认').click();
+        cy.wait<unknown, TournamentParticipantResponse>('@effRegister').then(({ response }) => {
+            expect(response?.statusCode).to.equal(200);
+            token = response?.body.token ?? '';
+        });
+        getParticipantWindow().then((window) => {
+            expect(window.end.getTime() - window.start.getTime()).to.equal(7200000);
+        });
+        for (const [level, timems, mode] of [['i', 90000, '00'], ['e', 180000, '00'], ['i', 1000, '05']] as const) {
+            cy.then(() => cy.dangerzonePost('create_video', {
+                user_id: USER.id,
+                level,
+                timems,
+                mode,
+                bv: 8,
+                left: 4,
+                right: 0,
+                double: 0,
+                state: MS_State.Official,
+                software: 'e',
+                tournament_identifier: [token],
+                identifier: `eff-${level}-${mode}`,
+            }));
+        }
+        cy.intercept('GET', '**/api/tournament/get_videos/participant*').as('effVideos');
+        cy.contains('[data-cy=tournament-data-tabs] .el-tabs__item', '即时成绩').click();
+        cy.get('[data-cy=personal-score-refresh]').click();
+        cy.wait('@effVideos');
+        cy.get('[data-cy=weekly-eff-personal-total]').should('contain.text', '615.000');
+        cy.then(() => cy.dangerzonePost('finish_weekly_eff_tournament', { id: tournamentId }));
+        cy.intercept('GET', '**/api/tournament/weekly-eff/results*').as('effResults');
+        cy.reload();
+        cy.wait('@effResults');
+        cy.get('[data-cy=weekly-eff-results] tbody').extractTableData().should((rows) => {
+            expect(rows).to.have.length(1);
+            expect(rows[0][rows[0].length - 1]).to.equal('615.000');
         });
     });
 });
@@ -826,4 +891,3 @@ describe('Tournament background tasks', () => {
     });
 });
 
-export {};

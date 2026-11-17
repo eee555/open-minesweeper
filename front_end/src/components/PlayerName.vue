@@ -1,10 +1,10 @@
 <template>
     <BaseTooltip ref="tooltip" class="player-name-root" :append-to="appendMedalTooltip" :before-show="allowMedalTooltip" interactive :interactive-border="12" :show-delay="200" :show-animation="0" :hide-animation="0">
-        <span class="player-name" :title="nameTitle" @click="interactive && $event.stopPropagation()" @pointerenter="pointerOver = true" @pointerleave="pointerOver = false">
+        <span class="player-name" :title="badge?.nameTitle" @click="interactive && $event.stopPropagation()" @pointerenter="pointerOver = true" @pointerleave="pointerOver = false">
             <RouterLink v-if="interactive" :to="playerProfileTo" class="link link--no-underline text">
-                <PlayerBadge :user-id="userId" :name="nameShown" :show-avatar="local.playerNameShowAvatar" />
+                <PlayerBadge ref="badge" :user-id="userId" :user="user" :loading="loading" :show-avatar="local.playerNameShowAvatar" />
             </RouterLink>
-            <PlayerBadge v-else :user-id="userId" :name="nameShown" :show-avatar="local.playerNameShowAvatar" />
+            <PlayerBadge v-else ref="badge" :user-id="userId" :user="user" :loading="loading" :show-avatar="local.playerNameShowAvatar" />
             <MemorialBadge v-if="user.id === userId && user.is_memorial" />
         </span>
         <template #content>
@@ -41,7 +41,6 @@ import type { MedalStateRecord } from '@/services/medalService';
 import { cachedPlayerMedalState, fetchPlayerMedalState, medalCaption, medalSeriesFromCode, medalStateVersions } from '@/services/medalService';
 import { fetchUserInfo, userInfoRevision } from '@/services/userService';
 import { local } from '@/store/local';
-import { formatName } from '@/utils/strings';
 import { UserProfile } from '@/utils/userprofile';
 import MedalArt from '@/views/UserView/MedalArt.vue';
 
@@ -80,27 +79,7 @@ const activeMedalKey = ref('');
 let medalLoadToken = 0;
 let medalUserId = props.userId;
 const tooltip = useTemplateRef<{ show: () => void; hide: () => void }>('tooltip');
-const internationalName = computed(() => {
-    const { firstname, lastname } = user.value;
-    return firstname && lastname ? formatName(firstname, lastname, local.value.nameFormat) : firstname || lastname;
-});
-function nameFor(source: typeof local.value.playerName1): string {
-    return source === 'international' ? internationalName.value : user.value[source];
-}
-const nameShown = computed(() => {
-    if (props.userId === 0) return '';
-    if (user.value.isNameHidden) return user.value.username || `${t('local.user')}#${props.userId}`;
-    if (loading.value || user.value.id !== props.userId) return `${t('local.user')}#${props.userId}`;
-    const name1 = nameFor(local.value.playerName1) || user.value.username || `${t('local.user')}#${props.userId}`;
-    const name2 = nameFor(local.value.playerName2);
-    return local.value.playerNameFormat === 'name1 (name2)' && name2 ? `${name1} (${name2})` : name1;
-});
-const nameTitle = computed(() => (user.value.isNameHidden
-    ? `${user.value.username || t('local.user')}#${props.userId}`
-    : [
-        `${user.value.username || '--'}#${props.userId}`,
-        `${user.value.realname || '--'} (${internationalName.value || '--'})`,
-    ].join('\n')));
+const badge = useTemplateRef<{ nameTitle: string }>('badge');
 const playerProfileTo = computed(() => `/player/${props.userId}`);
 const shownGrants = computed(() => medalGrants.value.flatMap((grant) => {
     const series = medalSeriesFromCode(grant.code);
@@ -205,16 +184,7 @@ watch(() => medalStateVersions[props.userId], () => {
     void loadHoveredMedalState(true);
 });
 
-const i18nMessages = {
-    'zh-cn': { local: {
-        user: '用户',
-    } },
-    en: { local: {
-        user: 'User',
-    } },
-};
-
-const { t, locale } = useI18n({ messages: i18nMessages });
+const { locale } = useI18n();
 const activeCaption = computed(() => {
     const grant = shownGrants.value.find((item) => item.key === activeMedalKey.value);
     return grant ? medalCaption(grant.series, grant.code, grant.stage, locale.value) : null;
@@ -236,7 +206,6 @@ const activeCaption = computed(() => {
 }
 
 .player-name :deep(span) {
-    overflow-wrap: anywhere;
     vertical-align: baseline;
 }
 

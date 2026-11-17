@@ -50,6 +50,7 @@ export type TournamentState = typeof TournamentState[keyof typeof TournamentStat
 export enum TournamentSubclass {
     GSC = 'g',
     Weekly = 'w',
+    WeeklyEff = 'e',
     Unknown = 'u',
 }
 

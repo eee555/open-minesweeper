@@ -15,3 +15,4 @@ class GSC_Defaults:
 class TournamentWeights:
     GSC = 1000
     WEEKLY = 50
+    WEEKLY_EFF = 50

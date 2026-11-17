@@ -12,6 +12,7 @@
 .table-col-mode {
     width: 5em;
     text-align: center;
+    white-space: nowrap;
 }
 
 .table-col-prop {

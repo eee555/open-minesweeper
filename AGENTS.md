@@ -39,6 +39,12 @@
 - 前端播放器 `flop-player` 需要单独下载并解压到 `front_end/public/flop/`，否则录像播放相关页面不可用。
 - 依赖版本在 `requirements.txt` / `requirements-wheels.txt` / `package.json` 中固定，升级请单独走 PR。
 
+## 分支管理
+- 直接在本地分支上修改，由用户进行提交推送，这是默认情况。
+- 创建一个新worktree，基于`https://github.com/eee555/open-minesweeper/tree/dev`分支创建新分支，在新分支上修改并自动向dev分支提交PR。不需要在本地运行检查，直接依赖GitHub CI。用户表示任务结束后可以删除该worktree。当用户要求不修改当前分支时使用此策略
+
+当用户明确提出更详细的方案时，以用户为准。
+
 # 后端代码规范
 
 后端位置：`back_end\saolei`。测试参考：
@@ -110,7 +116,7 @@ APP内引用链条：`utils -> models -> services -> api`
 # 前端代码规范
 
 前端位置：`front_end`。测试参考
-- linter：`.github\workflows\eslint.yml`。由于eslint的插件使用了类型解析，运行用时较长，按下述跨轮工作流处理。
+- linter：`.github\workflows\eslint.yml`。由于eslint的插件使用了类型解析，运行用时较长，请耐心等待。本地执行eslint时使用`npm run lintfix`命令。
 - ts模块：`.github\workflows\vitest.yml`
 - vue组件：`.github\workflows\cypress.yml`
 - e2e：`.github\workflows\CypressE2E.yml`
@@ -305,3 +311,5 @@ E2E测试速度较慢，请尽量减少初始化与UI操作次数。测试专注
 可以运行静态检查，包括flake8、vue-tsc、eslint。未经用户明确要求，不要执行其他测试，而是由用户提交PR以后，转发GitHub Action的运行结果。收到GitHub Action的报错结果后，如果必须进行本地测试以深度调查，需要征求用户同意。
 
 面对审核意见时，需先评估该意见是否正确合理。可以拒绝修改并提供理由。
+
+遇到用户的指令模糊或自相矛盾时，需要先询问用户以澄清意图。

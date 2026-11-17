@@ -1,5 +1,3 @@
-import PrimeVue from 'primevue/config';
-
 import VideoView from './VideoView.vue';
 
 import $axios from '@/http';
@@ -15,7 +13,7 @@ function mountView(): void {
     cy.intercept({ method: 'GET', pathname: '/api/video/query' }, { videos: [] }).as('videos');
     cy.mount(VideoView, {
         global: {
-            plugins: [pinia, i18n, PrimeVue],
+            plugins: [pinia, i18n],
             config: { globalProperties: { $axios } },
         },
     });
@@ -30,7 +28,7 @@ describe('<VideoView />', () => {
         cy.get('[data-cy=filter-tag]').should('have.length', 2);
         cy.get('[data-cy=sort-tag]').should('have.length', 2);
         cy.get('[data-cy=column-selector]').should('exist');
-        cy.get('.p-datatable-table').should('exist');
+        cy.get('[data-cy=video-list-table]').should('exist');
         cy.wait('@videos').its('request.query').should((query: Record<string, string>) => {
             expect(JSON.parse(query.filters)).to.deep.equal([
                 { field: 'state', in: ['c', 'a'] },
@@ -110,7 +108,7 @@ describe('<VideoView />', () => {
         cy.get('[data-cy=column-selector] input[type=checkbox]:checked').should('have.length', 7);
         cy.get('[data-cy=column-selector] input[type=checkbox]').eq(2).check({ force: true });
         cy.get('[data-cy=column-selector] input[type=checkbox]:checked').should('have.length', 8);
-        cy.get('.p-datatable-table').should('exist');
+        cy.get('[data-cy=video-list-table]').should('exist');
     });
 
     it('pages with a full range button group', () => {

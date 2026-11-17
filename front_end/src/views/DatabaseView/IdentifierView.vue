@@ -65,78 +65,96 @@
         <p v-if="queryTooBroad" role="alert" class="text-danger">
             {{ t('local.tooManyMatches') }}
         </p>
-        <PrDataTable
-            v-if="queried" v-model:filters="filters" v-model:first="first" :value="tableData" data-key="identifier"
-            size="small" paginator :rows="25" :rows-per-page-options="[10, 25, 50, 100]"
-            paginator-template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
-            sort-field="identifier" :sort-order="1" filter-display="menu" aria-live="polite"
-            :filter-button-props="{ filter: { severity: 'secondary', text: true, rounded: false, size: 'small', style: { padding: '0', width: '1rem', height: '1rem' }, 'aria-label': t('local.filterOwner') } }"
-        >
-            <template #empty>
-                {{ t('local.empty') }}
-            </template>
-            <PrColumn field="identifier" :header="t('local.identifier')" sortable body-class="identifier-value">
-                <template #body="{ data }: { data: IdentifierResult }">
-                    <IdentifierText :text="data.identifier" />
-                    <IconCopy :text="data.identifier" />
-                </template>
-            </PrColumn>
-            <PrColumn
-                field="ownerKey" :header="t('local.owner')" :show-filter-match-modes="false" :show-filter-operator="false" :show-add-button="false" :show-apply-button="false"
-                :pt="{ filterOverlay: { style: { padding: '6px', gap: '4px' } }, filterButtonbar: { style: { padding: '0', gap: '4px' } } }"
+        <template v-if="queried">
+            <BaseTable
+                :empty="pageRows.length === 0" :empty-text="t('local.empty')" :column-count="isStaff ? 4 : 2"
+                aria-live="polite" data-cy="identifier-table"
             >
-                <template #body="{ data }: { data: IdentifierResult }">
-                    <PlayerName v-if="data.user_id !== null" :user-id="data.user_id" />
-                    <span v-else>{{ t('local.unbound') }}</span>
-                </template>
-                <template #filter="{ filterModel, filterCallback }">
-                    <PrListbox
-                        v-model="filterModel.value" class="owner-filter" :options="ownerOptions" option-label="label" option-value="id" multiple checkmark filter scroll-height="12rem"
-                        :filter-placeholder="t('local.filterOwner')" :aria-label="t('local.filterOwner')" @change="filterCallback()"
-                    >
-                        <template #option="{ option }: { option: OwnerOption }">
-                            <PlayerName v-if="option.id > 0" :user-id="option.id" :interactive="false" />
-                            <span v-else>{{ t('local.unbound') }}</span>
-                        </template>
-                    </PrListbox>
-                </template>
-                <template #filterclear="{ filterCallback }">
-                    <BaseButton size="small" text @click="filterCallback()">
-                        {{ t('local.clearFilter') }}
-                    </BaseButton>
-                </template>
-            </PrColumn>
-            <PrColumn v-if="isStaff" field="safe" header="safe" sortable>
-                <template #body="{ data }: { data: IdentifierResult }">
-                    {{ data.safe }}
-                </template>
-            </PrColumn>
-            <PrColumn v-if="isStaff" :header="t('prop.action')">
-                <template #body="{ data }: { data: IdentifierResult }">
-                    <Tippy interactive trigger="click" placement="bottom-end" :append-to="appendToBody">
-                        <BaseButton size="small" text :disabled="loading || updating" :aria-label="t('prop.action')" data-cy="identifier-actions" :data-identifier="data.identifier">
-                            <i class="pi pi-ellipsis-h" aria-hidden="true" />
-                        </BaseButton>
-                        <template #content="{ hide }">
-                            <div class="card card-small identifier-actions">
-                                <BaseButton size="small" :disabled="updating || (data.safe === true && data.user_id !== null)" @click="hide(); toggleSafe(data)">
-                                    {{ t('local.setSafe', { value: String(!data.safe) }) }}
-                                </BaseButton>
-                                <BaseButton size="small" :disabled="updating || (data.safe !== true && data.user_id === null)" @click="hide(); openBinding(data)">
-                                    {{ t('local.bindUser') }}
-                                </BaseButton>
-                                <p v-if="data.user_id !== null" class="text-small">
-                                    {{ t('local.unbindFirst') }}
-                                </p>
-                                <p v-else-if="data.safe === false" class="text-small">
-                                    {{ t('local.approveFirst') }}
-                                </p>
+                <template #head>
+                    <tr>
+                        <th scope="col" :aria-sort="sortState(sortOrder, sortField === 'identifier')">
+                            <BaseButton size="small" text :aria-label="t('local.identifier')" data-cy="sort-identifier" @click="toggleSort('identifier')">
+                                {{ t('local.identifier') }}
+                                <SortIcon :state="sortState(sortOrder, sortField === 'identifier')" />
+                            </BaseButton>
+                        </th>
+                        <th scope="col">
+                            <div class="identifier-header">
+                                <span>{{ t('local.owner') }}</span>
+                                <Tippy ref="ownerFilterTippy" interactive trigger="click" placement="bottom-start" :append-to="appendToBody">
+                                    <BaseButton size="small" text :aria-label="t('local.filterOwner')" data-cy="filter-owner-trigger">
+                                        <i class="pi" :class="ownerFilter === null ? 'pi-filter' : 'pi-filter-fill'" aria-hidden="true" />
+                                    </BaseButton>
+                                    <template #content="{ hide }">
+                                        <div class="card card-small owner-filter" role="group" :aria-label="t('local.filterOwner')" data-cy="owner-filter-panel" @click.stop @keydown.esc="hide()">
+                                            <input v-model="ownerSearch" class="base-select owner-filter__search" type="text" :placeholder="t('local.filterOwner')" :aria-label="t('local.filterOwner')" data-cy="filter-owner-search">
+                                            <BaseListbox :model-value="ownerFilter ?? []" :options="ownerListboxOptions" multiple :aria-label="t('local.filterOwner')" data-cy="filter-owner" @update:model-value="setOwnerFilter">
+                                                <template #option="{ option }">
+                                                    <PlayerName v-if="option.value > 0" :user-id="option.value" :interactive="false" />
+                                                    <span v-else>{{ t('local.unbound') }}</span>
+                                                </template>
+                                            </BaseListbox>
+                                            <BaseButton size="small" text data-cy="filter-owner-clear" @click="clearOwnerFilter(); hide()">
+                                                {{ t('local.clearFilter') }}
+                                            </BaseButton>
+                                        </div>
+                                    </template>
+                                </Tippy>
                             </div>
-                        </template>
-                    </Tippy>
+                        </th>
+                        <th v-if="isStaff" scope="col" :aria-sort="sortState(sortOrder, sortField === 'safe')">
+                            <BaseButton size="small" text aria-label="safe" data-cy="sort-safe" @click="toggleSort('safe')">
+                                safe
+                                <SortIcon :state="sortState(sortOrder, sortField === 'safe')" />
+                            </BaseButton>
+                        </th>
+                        <th v-if="isStaff" scope="col">
+                            {{ t('prop.action') }}
+                        </th>
+                    </tr>
                 </template>
-            </PrColumn>
-        </PrDataTable>
+                <tr v-for="row in pageRows" :key="row.identifier">
+                    <td class="identifier-value">
+                        <IdentifierText :text="row.identifier" />
+                        <IconCopy :text="row.identifier" />
+                    </td>
+                    <td>
+                        <PlayerName v-if="row.user_id !== null" :user-id="row.user_id" />
+                        <span v-else>{{ t('local.unbound') }}</span>
+                    </td>
+                    <td v-if="isStaff">
+                        {{ row.safe }}
+                    </td>
+                    <td v-if="isStaff">
+                        <Tippy interactive trigger="click" placement="bottom-end" :append-to="appendToBody">
+                            <BaseButton size="small" text :disabled="loading || updating" :aria-label="t('prop.action')" data-cy="identifier-actions" :data-identifier="row.identifier">
+                                <i class="pi pi-ellipsis-h" aria-hidden="true" />
+                            </BaseButton>
+                            <template #content="{ hide }">
+                                <div class="card card-small identifier-actions">
+                                    <BaseButton size="small" :disabled="updating || (row.safe === true && row.user_id !== null)" @click="hide(); toggleSafe(row)">
+                                        {{ t('local.setSafe', { value: String(!row.safe) }) }}
+                                    </BaseButton>
+                                    <BaseButton size="small" :disabled="updating || (row.safe !== true && row.user_id === null)" @click="hide(); openBinding(row)">
+                                        {{ t('local.bindUser') }}
+                                    </BaseButton>
+                                    <p v-if="row.user_id !== null" class="text-small">
+                                        {{ t('local.unbindFirst') }}
+                                    </p>
+                                    <p v-else-if="row.safe === false" class="text-small">
+                                        {{ t('local.approveFirst') }}
+                                    </p>
+                                </div>
+                            </template>
+                        </Tippy>
+                    </td>
+                </tr>
+            </BaseTable>
+            <BasePagination
+                v-model:current-start="currentStart" v-model:page-size="pageSize"
+                :total="total" :page-size-options="[10, 25, 50, 100]" data-cy="identifier-pagination"
+            />
+        </template>
         <ElDialog v-if="bindingTarget" v-model="bindingOpen" :title="t('local.bindUser')" width="min(28rem, 95vw)" :close-on-click-modal="!updating" :close-on-press-escape="!updating" :show-close="!updating" @closed="bindingTarget = null">
             <form class="binding-form" @submit.prevent="saveBinding">
                 <IdentifierText :text="bindingTarget.identifier" />
@@ -154,21 +172,23 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/vendors/primevue-table.css';
 import '@/styles/cards.css';
-import { FilterMatchMode } from '@primevue/core/api';
 import { isAxiosError } from 'axios';
 import { ElDialog, ElInput } from 'element-plus';
-import PrColumn from 'primevue/column';
-import PrDataTable from 'primevue/datatable';
-import PrListbox from 'primevue/listbox';
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Tippy } from 'vue-tippy';
 
+import type { IdentifierResult, IdentifierSortField, IdentifierTableRow } from './identifierViewData';
+import { filterIdentifiersByOwner, sliceIdentifiers, sortIdentifiers, toIdentifierTableRow } from './identifierViewData';
+
 import BaseButton from '@/components/common/BaseButton.vue';
+import BaseListbox from '@/components/common/BaseListbox.vue';
 import BaseOverlay from '@/components/common/BaseOverlay.vue';
+import BasePagination from '@/components/common/BasePagination.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
+import SortIcon from '@/components/common/SortIcon.vue';
+import { nextSortOrder, sortState } from '@/components/common/sortState';
 import { baseErrorNotification, httpErrorNotification } from '@/components/Notifications';
 import PlayerName from '@/components/PlayerName.vue';
 import IconCopy from '@/components/widgets/IconCopy.vue';
@@ -177,12 +197,6 @@ import IdentifierText from '@/components/widgets/IdentifierText.vue';
 import $axios from '@/http';
 import { fetchUserIdentifiers } from '@/services/userService';
 import { store } from '@/store';
-
-interface IdentifierResult {
-    identifier: string;
-    user_id: number | null;
-    safe?: boolean;
-}
 
 interface OwnerOption {
     id: number;
@@ -210,13 +224,59 @@ const appendToBody = () => document.body;
 const queried = ref(false);
 const queryTooBroad = ref(false);
 const results = ref<IdentifierResult[]>([]);
-const first = ref(0);
-const filters = ref({ ownerKey: { value: null as number[] | null, matchMode: FilterMatchMode.IN } });
-const tableData = computed(() => results.value.map((result) => ({ ...result, ownerKey: result.user_id ?? 0 })));
+const currentStart = ref(1);
+const pageSize = ref(25);
+const sortField = ref<IdentifierSortField>('identifier');
+const sortOrder = ref<number | undefined>(1);
+const ownerFilter = ref<number[] | null>(null);
+const tableData = computed<IdentifierTableRow[]>(() => results.value.map(toIdentifierTableRow));
+const processed = computed(() => sortIdentifiers(filterIdentifiersByOwner(tableData.value, ownerFilter.value), sortField.value, sortOrder.value));
+const total = computed(() => processed.value.length);
+const first = computed(() => Math.max(0, Math.min(currentStart.value, total.value) - 1));
+const pageRows = computed(() => sliceIdentifiers(processed.value, first.value, pageSize.value));
 const ownerOptions = computed<OwnerOption[]>(() => [...new Set(tableData.value.map((row) => row.ownerKey))].sort((a, b) => a - b).map((id) => ({
     id,
     label: id === 0 ? t('local.unbound') : t('local.ownerId', { id }),
 })));
+const ownerSearch = ref('');
+const visibleOwnerOptions = computed<OwnerOption[]>(() => {
+    const keyword = ownerSearch.value.trim().toLowerCase();
+    return keyword === '' ? ownerOptions.value : ownerOptions.value.filter((option) => option.label.toLowerCase().includes(keyword));
+});
+const ownerListboxOptions = computed(() => visibleOwnerOptions.value.map((option) => ({ value: option.id, label: option.label })));
+const ownerFilterTippy = useTemplateRef<{ hide: () => void }>('ownerFilterTippy');
+
+watch(ownerFilter, () => {
+    currentStart.value = 1;
+});
+
+function toggleSort(field: IdentifierSortField) {
+    const active = sortField.value === field;
+    sortField.value = field;
+    sortOrder.value = nextSortOrder(sortOrder.value, active, -1);
+    currentStart.value = 1;
+}
+
+function setOwnerFilter(next: number[]) {
+    ownerFilter.value = next.length > 0 ? next : null;
+}
+
+function clearOwnerFilter() {
+    ownerFilter.value = null;
+    ownerSearch.value = '';
+}
+
+function handleEscape(event: KeyboardEvent) {
+    if (event.key === 'Escape') ownerFilterTippy.value?.hide();
+}
+
+onMounted(() => {
+    document.addEventListener('keydown', handleEscape);
+});
+onBeforeUnmount(() => {
+    document.removeEventListener('keydown', handleEscape);
+});
+
 const validPlayerId = computed(() => (/^\d+$/).test(playerId.value) && Number.isSafeInteger(Number(playerId.value)) && Number(playerId.value) > 0);
 
 async function query(getResults: () => Promise<IdentifierResult[]>) {
@@ -225,8 +285,8 @@ async function query(getResults: () => Promise<IdentifierResult[]>) {
     queryTooBroad.value = false;
     queried.value = false;
     results.value = [];
-    first.value = 0;
-    filters.value.ownerKey.value = null;
+    currentStart.value = 1;
+    ownerFilter.value = null;
     try {
         results.value = await getResults();
         queried.value = true;
@@ -454,22 +514,29 @@ p {
     text-align: left;
 }
 
-:deep(.identifier-value) {
+.identifier-header {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    white-space: nowrap;
+}
+
+.identifier-value {
     font-family: monospace;
     overflow-wrap: anywhere;
 }
 
 .owner-filter {
-    --p-listbox-border-radius: 0;
-    --p-listbox-list-padding: 2px;
-    --p-listbox-list-gap: 0;
-    --p-listbox-list-header-padding: 4px;
-    --p-listbox-option-padding: 2px 6px;
-    --p-listbox-option-border-radius: 0;
-    --p-inputtext-border-radius: 0;
-    --p-inputtext-padding-y: 2px;
-    --p-inputtext-padding-x: 6px;
-    width: 16rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: fit-content;
     max-width: calc(100vw - 2rem);
+    padding: 6px;
+}
+
+.owner-filter__search {
+    width: 100%;
+    min-width: 10rem;
 }
 </style>
