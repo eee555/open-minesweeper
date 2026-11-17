@@ -41,15 +41,6 @@
         </BaseButton>
     </form>
     <form class="video-freeze" @submit.prevent="unfreezeVideo">
-        <label for="video-unfreeze-state">{{ t('local.unfreezeTo') }}</label>
-        <select id="video-unfreeze-state" v-model="unfreezeState" class="base-select" data-cy="unfreeze-state" :aria-label="t('local.unfreezeTo')">
-            <option :value="MS_State.Official">
-                {{ globalI18n.t('state.c') }}
-            </option>
-            <option :value="MS_State.Identifier">
-                {{ globalI18n.t('state.d') }}
-            </option>
-        </select>
         <BaseButton native-type="submit" :loading="unfreezing" :disabled="freezing || unfreezing || videomodel.id !== videoid || videomodel.state !== MS_State.Frozen" data-cy="unfreeze-video">
             {{ t('local.unfreezeVideo') }}
         </BaseButton>
@@ -83,7 +74,6 @@ const videofieldlist = ['player', 'upload_time', 'state']; // 可以修改的域
 const videomodel = ref<Record<string, unknown>>({});
 const freezeReason = ref('');
 const freezing = ref(false);
-const unfreezeState = ref<MS_State>(MS_State.Official);
 const unfreezing = ref(false);
 
 const getVideo = () => {
@@ -93,7 +83,6 @@ const getVideo = () => {
             if (videoid.value !== id || freezing.value || unfreezing.value) return;
             videomodel.value = response.data;
             freezeReason.value = typeof response.data.video__freeze_reason === 'string' ? response.data.video__freeze_reason : '';
-            unfreezeState.value = MS_State.Official;
         },
     ).catch(httpErrorNotification);
 };
@@ -121,11 +110,10 @@ async function freezeVideo() {
 async function unfreezeVideo() {
     if (freezing.value || unfreezing.value || videomodel.value.id !== videoid.value || videomodel.value.state !== MS_State.Frozen) return;
     const id = videoid.value;
-    const state = unfreezeState.value;
     unfreezing.value = true;
     try {
         const access = await proxy.$axios.get<{ csrf_token: string }>('/api/video/admin/unfreeze');
-        const response = await proxy.$axios.post<{ id: number; state: string; freeze_reason: string }>('/api/video/admin/unfreeze', { id, state }, {
+        const response = await proxy.$axios.post<{ id: number; state: string; freeze_reason: string }>('/api/video/admin/unfreeze', { id }, {
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': access.data.csrf_token },
         });
         videomodel.value = { ...videomodel.value, state: response.data.state, video__freeze_reason: response.data.freeze_reason };
@@ -173,7 +161,6 @@ const i18nMessages = {
         videoModel: '录像信息（VideoModel）',
         freezeReason: '冻结原因',
         freezeVideo: '冻结录像 / 更新冻结原因',
-        unfreezeTo: '解冻后状态',
         unfreezeVideo: '解冻录像',
     } },
     en: { local: {
@@ -183,7 +170,6 @@ const i18nMessages = {
         videoModel: 'Video information (VideoModel)',
         freezeReason: 'Freeze reason',
         freezeVideo: 'Freeze video / update reason',
-        unfreezeTo: 'Unfreeze to',
         unfreezeVideo: 'Unfreeze video',
     } },
 };

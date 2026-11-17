@@ -1,5 +1,5 @@
 import json
-from typing import Annotated, Literal
+from typing import Annotated
 from urllib.parse import quote
 
 from django.conf import settings
@@ -36,10 +36,7 @@ VideoFreezeIn = create_schema(
     custom_fields=[('id', Annotated[StrictInt, Field(gt=0, le=2**63 - 1)], ...), ('freeze_reason', Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, strict=True)], ...)],
 )
 VideoFreezeOut = create_schema(VideoModel, name='VideoFreezeOut', fields=['id', 'state'], custom_fields=[('freeze_reason', str, ...)])
-VideoUnfreezeIn = create_schema(
-    VideoModel, name='VideoUnfreezeIn', fields=['id'],
-    custom_fields=[('id', Annotated[StrictInt, Field(gt=0, le=2**63 - 1)], ...), ('state', Literal['c', 'd'], ...)],
-)
+VideoUnfreezeIn = create_schema(VideoModel, name='VideoUnfreezeIn', fields=['id'], custom_fields=[('id', Annotated[StrictInt, Field(gt=0, le=2**63 - 1)], ...)])
 VideoUnfreezeOut = create_schema(VideoModel, name='VideoUnfreezeOut', fields=['id', 'state'], custom_fields=[('freeze_reason', str, ...)])
 
 
@@ -207,11 +204,12 @@ def unfreeze_video_admin(request: HttpRequest, data: VideoUnfreezeIn):
     - auth=django_auth (Django session, CSRF required)
     - staff_required
 
-    Unfreeze one frozen video to OFFICIAL ('c') or IDENTIFIER ('d') and clear its freeze reason.
+    Unfreeze one frozen video and clear its freeze reason. The service derives OFFICIAL ('c')
+    or IDENTIFIER ('d') from whether the replay identifier belongs to the player.
     State-change signals update queues and rankings; the file and upload time are preserved.
     """
     try:
-        return unfreeze_video_by_id(data.id, data.state, actor_id=request.user.pk)
+        return unfreeze_video_by_id(data.id, actor_id=request.user.pk)
     except VideoModel.DoesNotExist:
         raise HttpError(404, 'Video not found.')
     except VideoUnfreezeError as exc:
