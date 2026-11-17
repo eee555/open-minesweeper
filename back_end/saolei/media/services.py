@@ -1,5 +1,6 @@
 """作品投稿、投喂、审核、驳回、恢复与硬删除；缓存约定见 README.md。"""
 
+from functools import partial
 import logging
 from math import floor
 
@@ -82,9 +83,10 @@ def create_media(user, *, media_format, suffix, language, title='', created_at=N
                 status=MediaStatus.PENDING, likes=0, hot_value=0,
                 hot_value_updated_at=cache.read_db_hot_reference(),
             )
+            # API 可持有外层用户行锁；缓存同步必须等最外层事务提交，回滚时丢弃。
+            transaction.on_commit(partial(sync_media_scores, media.pk, user.pk))
     except IntegrityError:
         raise MediaServiceError('该作品已投稿过，不可重复投稿', 409) from None
-    sync_media_scores(media.pk, user.pk)
     return media
 
 

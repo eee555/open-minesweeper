@@ -143,8 +143,8 @@ def _github_repository_response(locator):
                 if response.status_code != 200:
                     raise MediaFetchError('upstream_error', 502)
                 body = bytearray()
-                # 与 Classic 绑定的逐字节截止检查一致，避免滴流响应绕过读取预算。
-                for chunk in response.iter_content(1):
+                # 按块检查预算；requests 的读取超时限制块内的空闲等待。
+                for chunk in response.iter_content(8192):
                     if monotonic() > deadline:
                         raise requests.ReadTimeout()
                     body.extend(chunk)
@@ -158,7 +158,8 @@ def _fetch_github_repository(locator):
     try:
         data = _github_repository_response(locator)
         repository_id, owner = data['id'], data['owner']
-        if type(repository_id) is not int or not 1 <= repository_id <= 2**63 - 1 or type(owner['id']) is not int or not 1 <= owner['id'] <= 2**63 - 1:
+        # 浏览器使用 JSON number 读取仓库 ID，与 Number.isSafeInteger 的范围一致。
+        if type(repository_id) is not int or not 1 <= repository_id <= 2**53 - 1 or type(owner['id']) is not int or not 1 <= owner['id'] <= 2**63 - 1:
             raise MediaFetchError('invalid_metadata', 502)
         if type(data['private']) is not bool or type(data['fork']) is not bool or not isinstance(owner['type'], str):
             raise MediaFetchError('invalid_metadata', 502)

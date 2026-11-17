@@ -95,6 +95,7 @@ class DeletedOut(Schema):
 
 class SubmitIn(Schema):
     format: str
+    # 输入支持完整 URL，可能超过模型 suffix 的 128 字符；GitHub 落库前转换为数字 ID。
     suffix: str = Field(max_length=255)
     language: str = ''
 

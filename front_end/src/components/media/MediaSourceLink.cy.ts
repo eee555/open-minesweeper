@@ -1,3 +1,5 @@
+import { defineComponent, h } from 'vue';
+
 import MediaSourceLink from './MediaSourceLink.vue';
 
 import i18n from '@/i18n';
@@ -6,10 +8,9 @@ const repositoryUrl = 'https://github.com/renamed-owner/renamed-project';
 
 describe('<MediaSourceLink />', () => {
     function mountLink(format = 'g_r', suffix = '42') {
-        cy.mount(MediaSourceLink, {
-            props: { format, suffix },
-            slots: { default: () => 'Repository' },
-            attrs: { 'data-cy': 'source-link' },
+        cy.mount(defineComponent({
+            render: () => h(MediaSourceLink, { format, suffix, 'data-cy': 'source-link' }, { default: () => 'Repository' }),
+        }), {
             global: { plugins: [i18n] },
         });
     }

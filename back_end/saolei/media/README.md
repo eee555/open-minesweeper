@@ -15,7 +15,7 @@
 
 展示链接统一由前端处理：`utils/media.ts` 生成 B 站/扫雷网链接及 B 站视频嵌入地址；`MediaSourceLink.vue` 在用户点击 GitHub 作品时匿名请求 `https://api.github.com/repositories/{id}`，校验返回 ID 和 HTTPS GitHub 主页后打开。请求使用原生 fetch，不携带本站 Cookie 或认证头。解析失败可重试，弹窗被拦截时保留可再次点击的真实外链。地址只在组件存续期复用，不保存 `source_url`，不新增持久化缓存、同步任务或 Webhook。
 
-后端保留投稿链接的 host/path 白名单和来源 ID 归一化，不接受短链或用户自定义请求目标。`language` 是用户填写的自然语言，不使用 GitHub 的编程语言字段。
+后端保留投稿链接的 host/path 白名单和来源 ID 归一化，不接受短链或用户自定义请求目标。投稿输入上限为 255 字符，以容纳完整 URL；它不同于落库后 `suffix` 的 128 字符限制，GitHub 仓库路径会先转换成数字 ID。`language` 是用户填写的自然语言，不使用 GitHub 的编程语言字段。
 
 ## 投稿与归属核验
 
@@ -29,12 +29,12 @@ B 站/扫雷网作品依赖非公开 API，因此超时或上游不可用可创�
 
 - 只接受当前已关联个人账号名下的公开、非 fork 仓库。组织仓库、协作参与的他人仓库及 fork 拒绝；归档仓库可投稿。
 - 服务端匿名调用 `GET https://api.github.com/repos/{owner}/{repo}`，验证 `private=false`、`fork=false`、`owner.type='User'` 及两个数字 ID；必要字段缺失不能当作已验证。
-- `MediaMetadata.source_id` 将仓库数字 ID 传给投稿逻辑。标题使用 `full_name`，发表时间使用仓库 `created_at`，不保存主页地址、Stars、代码或令牌。
+- `MediaMetadata.source_id` 将仓库数字 ID 传给投稿逻辑。仓库 ID 限制在 `1..2^53-1`，与浏览器 JSON number 的安全整数范围一致。标题使用 `full_name`，发表时间使用仓库 `created_at`，不保存主页地址、Stars、代码或令牌。
 - GitHub 拉取失败不创建作品。降级规则集中在 `fetch_media_metadata_optional()`，API 使用同一错误转换入口；不为 GitHub 重复实现降级开关。
-- 网络请求在事务外执行。完成后 API 锁定本站用户行，重新核验 `AccountGitHub` 与已验证队列，再按数字仓库 ID 创建作品，防止等待期间解绑后仍成功投稿。
+- 网络请求在事务外执行。完成后 API 锁定本站用户行，在同一事务内重新核验 `AccountGitHub` 与已验证队列并按数字仓库 ID 创建作品，防止等待期间解绑后仍成功投稿。创建后的缓存同步注册为 `transaction.on_commit` 回调，等待最外层事务提交，回滚时不执行。
 - 仓库改名仍是同一来源 ID，不能重复投稿；同一路径删除重建后若数字 ID 不同，则是另一仓库。后续改名、转移、私有化或解绑不自动改变本站作品归属、审核状态及排行。
 
-GitHub 使用现有 requests，无新增 scope、PAT 或 SDK。单次连接上限 2 秒、读取空闲上限 3 秒，流式读取检查整轮 8 秒预算和 300 KiB 响应体上限；最多跟随两次固定 HTTPS `api.github.com` 重定向，不自动重试。requests 超时不是硬性墙钟截止，阻塞阶段可能使检查略晚。404、限流、网络失败、元数据错误分别转换为受控错误，不记录原始响应或凭据。匿名配额按来源 IP 共享，浏览器地址解析与服务器投稿核验各使用自己的出口配额。
+GitHub 使用现有 requests，无新增 scope、PAT 或 SDK。单次连接上限 2 秒、读取空闲上限 3 秒，按 8 KiB 块流式读取并检查整轮 8 秒预算和 300 KiB 响应体上限；最多跟随两次固定 HTTPS `api.github.com` 重定向，不自动重试。requests 超时不是硬性墙钟截止，块内阻塞阶段可能延后预算检查。404、限流、网络失败、元数据错误分别转换为受控错误，不记录原始响应或凭据。匿名配额按来源 IP 共享，浏览器地址解析与服务器投稿核验各使用自己的出口配额。
 
 ## 状态与管理操作
 

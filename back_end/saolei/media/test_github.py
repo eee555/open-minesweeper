@@ -48,6 +48,14 @@ class GitHubRepositoryTests(SimpleTestCase):
         self.assertEqual(self.calls[0].url, 'https://api.github.com/repos/owner/project')
         self.assertNotIn('Authorization', self.calls[0].headers)
 
+    def test_repository_ids_match_browser_integer_precision(self):
+        self.data['id'] = 2**53 - 1
+        self.assertEqual(self.fetch().source_id, str(2**53 - 1))
+        self.data['id'] = 2**53
+        with self.assertRaises(MediaFetchError) as caught:
+            self.fetch()
+        self.assertEqual(caught.exception.category, 'invalid_metadata')
+
     def test_forks_private_repositories_and_organizations_are_rejected(self):
         for field, value in (('fork', True), ('private', True), ('owner', {'id': 42, 'type': 'Organization'})):
             original = self.data.copy()

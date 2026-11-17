@@ -185,10 +185,11 @@ class MediaApiTests(TestCase):
         self._bind(platform='g')
         AccountGitHub.objects.create(id=42, parent=self.user)
         metadata = self._metadata()._replace(source_id='1296269')
+        locator = f'https://github.com/{"o" * 39}/{"r" * 100}'
         with patch('media.clients.fetch_media_metadata', return_value=metadata._replace(author_id='99')):
             self.assertEqual(self._submit('owner/project', MediaFormat.G_R).status_code, 403)
         with patch('media.clients.fetch_media_metadata', return_value=metadata):
-            response = self._submit('owner/project', MediaFormat.G_R)
+            response = self._submit(locator, MediaFormat.G_R)
             duplicate = self._submit('renamed/project', MediaFormat.G_R)
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(response.json()['suffix'], '1296269')
