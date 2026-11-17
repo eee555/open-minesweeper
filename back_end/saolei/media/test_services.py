@@ -16,7 +16,7 @@ from userprofile.models import UserProfile
 from . import cache
 from .models import Media, MediaLikes, UserMedia
 from .services import (
-    create_media, get_balance, get_daily_likes_used, hard_delete_media, like_media, MediaServiceError,
+    create_media, get_balance, get_daily_likes_used, get_me_state, hard_delete_media, like_media, MediaServiceError,
     reject_media, reopen_media, set_media_banned, sync_media_scores, verify_media,
 )
 from .utils import decay, MediaFormat, MediaStatus
@@ -50,6 +50,14 @@ class MediaServiceTests(TestCase):
     def _like(self, media, times=1):
         for _ in range(times):
             like_media(self.user, media.pk)
+
+    def test_me_state_reads_user_media_once(self):
+        with self.assertNumQueries(1):
+            state = get_me_state(self.user)
+        self.assertGreaterEqual(state['balance'], 9)
+        self.assertEqual(state['likes_sent'], 0)
+        self.assertEqual(state['daily_likes_used'], 0)
+        self.assertFalse(state['banned'])
 
     def test_balance_and_duplicate_submission(self):
         self.assertGreaterEqual(get_balance(self.user), 9)
