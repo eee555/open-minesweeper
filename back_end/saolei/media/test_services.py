@@ -16,10 +16,10 @@ from userprofile.models import UserProfile
 from . import cache
 from .models import Media, MediaLikes, UserMedia
 from .services import (
-    create_media, get_balance, hard_delete_media, like_media, MediaServiceError,
+    create_media, get_balance, get_daily_likes_remaining, hard_delete_media, like_media, MediaServiceError,
     reject_media, reopen_media, set_media_banned, sync_media_scores, verify_media,
 )
-from .utils import decay, MediaFormat, MediaStatus
+from .utils import decay, MEDIA_DAILY_LIKE_LIMIT, MediaFormat, MediaStatus
 
 REFERENCE = datetime(2026, 1, 1, tzinfo=datetime_timezone.utc)
 TARGET = datetime(2026, 2, 1, tzinfo=datetime_timezone.utc)
@@ -325,6 +325,7 @@ class MediaServiceTests(TestCase):
         media.refresh_from_db()
         self.assertEqual(media.likes, 10)
         self.assertEqual(UserMedia.objects.get(pk=self.user.pk).daily_likes, 10)
+        self.assertEqual(get_daily_likes_remaining(self.user), 0)
 
     def test_daily_counter_resets_on_utc_date_change(self):
         media = self._create_media()
@@ -332,9 +333,18 @@ class MediaServiceTests(TestCase):
         UserMedia.objects.create(user=self.user, daily_likes=10, daily_date=yesterday)
         result = like_media(self.user, media.pk)
         self.assertEqual(result['likes'], 1)
+        self.assertEqual(result['daily_likes_remaining'], MEDIA_DAILY_LIKE_LIMIT - 1)
         profile = UserMedia.objects.get(pk=self.user.pk)
         self.assertNotEqual(profile.daily_date, yesterday)
         self.assertEqual(profile.daily_likes, 1)
+
+    def test_daily_likes_remaining_follows_utc_date(self):
+        self.assertEqual(get_daily_likes_remaining(self.user), MEDIA_DAILY_LIKE_LIMIT)
+        yesterday = timezone.now().date() - timedelta(days=1)
+        UserMedia.objects.create(user=self.user, daily_likes=10, daily_date=yesterday)
+        self.assertEqual(get_daily_likes_remaining(self.user), MEDIA_DAILY_LIKE_LIMIT)
+        UserMedia.objects.filter(pk=self.user.pk).update(daily_likes=4, daily_date=timezone.now().date())
+        self.assertEqual(get_daily_likes_remaining(self.user), MEDIA_DAILY_LIKE_LIMIT - 4)
 
     def test_failed_like_does_not_consume_daily_quota(self):
         media = self._create_media()

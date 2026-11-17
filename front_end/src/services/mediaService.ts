@@ -61,6 +61,7 @@ export interface MediaMe {
     balance: number;
     likes_sent: number;
     banned: boolean;
+    daily_likes_remaining: number;
 }
 
 export interface MediaLikeResult {
@@ -68,6 +69,7 @@ export interface MediaLikeResult {
     hot_now: number;
     balance: number;
     status: MediaStatusValue;
+    daily_likes_remaining: number;
 }
 
 export interface MediaQueryResult {

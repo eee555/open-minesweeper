@@ -90,6 +90,7 @@ class MeOut(Schema):
     balance: int
     likes_sent: int
     banned: bool
+    daily_likes_remaining: int
 
 
 class LikeOut(Schema):
@@ -97,6 +98,7 @@ class LikeOut(Schema):
     hot_now: float
     balance: int
     status: str
+    daily_likes_remaining: int
 
 
 class DeletedOut(Schema):

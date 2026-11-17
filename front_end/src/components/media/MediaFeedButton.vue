@@ -1,7 +1,6 @@
 <template>
-    <button type="button" class="media-text-button" :title="balanceTitle" :disabled="disabled || sending" :aria-busy="sending || undefined" @click="onClick">
-        <i class="pi pi-heart" aria-hidden="true" />
-        <span>{{ t('media.feed') }}</span>
+    <button type="button" class="media-text-button" data-cy="media-feed" :title="balanceTitle" :aria-label="t('media.feed')" :disabled="disabled || sending" :aria-busy="sending || undefined" @click="onClick">
+        <i class="pi pi-plus" aria-hidden="true" />
         <span v-if="pendingLabel" class="text-secondary text-small">{{ t('media.pendingStatus') }}</span>
     </button>
 </template>

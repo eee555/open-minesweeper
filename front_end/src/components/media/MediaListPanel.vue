@@ -113,7 +113,7 @@ import '@/components/media/media.css';
 type WorksSort = 'latest' | 'hot' | 'likes';
 interface PreviewTarget { title: string; url: string; embedUrl: string }
 
-const emit = defineEmits<{ loading: [value: boolean] }>();
+const emit = defineEmits<{ loading: [value: boolean]; me: [value: MediaMe | null] }>();
 
 // Media 的 format 首字符与 AccountLinkPlatform 一致；图标地址复用账号关联页的唯一来源。
 const FORMAT_PLATFORM: Record<string, AccountLinkPlatform> = {
@@ -170,9 +170,11 @@ async function loadMe(): Promise<void> {
         const value = await fetchMediaMe();
         if (request !== meRequestId) return;
         me.value = value;
+        emit('me', me.value);
     } catch {
         if (request !== meRequestId) return;
         me.value = null;
+        emit('me', null);
     }
 }
 
@@ -205,7 +207,11 @@ async function load(): Promise<void> {
 function onFeed(result: MediaLikeResult, item: MediaItem): void {
     item.likes = result.likes;
     item.hot_now = result.hot_now;
-    if (me.value) me.value.balance = result.balance;
+    if (me.value) {
+        me.value.balance = result.balance;
+        me.value.daily_likes_remaining = result.daily_likes_remaining;
+        emit('me', me.value);
+    }
 }
 
 // 页面内登录 / 切账号会改变 sessionRevision，重新拉取 /me；meRequestId 防止旧会话响应覆盖。

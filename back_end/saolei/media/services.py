@@ -36,6 +36,15 @@ def get_balance(user):
     return max(earned - likes_sent, 0)
 
 
+def get_daily_likes_remaining(user):
+    """当天剩余可成功投喂次数：daily_date 不是 UTC 今日时按 0 次已用计算。"""
+    profile = UserMedia.objects.filter(pk=user.pk).first()
+    used = 0
+    if profile is not None and profile.daily_date == timezone.now().date():
+        used = profile.daily_likes
+    return max(MEDIA_DAILY_LIKE_LIMIT - used, 0)
+
+
 def sync_media_scores(media_id, author_id):
     """请求路径：DB 事务提交后按 DB 绝对值覆盖四个 zset；失败只记日志。
 
@@ -123,7 +132,10 @@ def like_media(user, media_id):
         )
         status, author_id = media.status, media.user_id
         hot_now = media.hot_value * factor
-        result = {'likes': media.likes, 'hot_now': hot_now, 'balance': balance - 1, 'status': status}
+        result = {
+            'likes': media.likes, 'hot_now': hot_now, 'balance': balance - 1, 'status': status,
+            'daily_likes_remaining': MEDIA_DAILY_LIKE_LIMIT - daily_likes - 1,
+        }
     if status == MediaStatus.VERIFIED:
         sync_media_scores(media_id, author_id)
     return result

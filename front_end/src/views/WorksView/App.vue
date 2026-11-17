@@ -1,6 +1,10 @@
 <template>
     <section class="works-page">
         <div class="media-toolbar works-actions">
+            <div v-if="me" class="works-user-info">
+                <span class="text-secondary text-small" data-cy="works-balance">{{ t('media.balance') }}: {{ me.balance }}</span>
+                <span class="text-secondary text-small" data-cy="works-daily-remaining">{{ t('local.dailyFeedRemaining') }}: {{ me.daily_likes_remaining }}</span>
+            </div>
             <span v-if="loading" class="text-secondary text-small">{{ t('local.loading') }}</span>
             <BaseButton size="small" type="primary" data-cy="open-submit" @click="dialogOpen = true">
                 {{ t('local.submit') }}
@@ -14,7 +18,7 @@
                 </template>
             </BaseButton>
         </div>
-        <MediaListPanel ref="worksTable" @loading="loading = $event" />
+        <MediaListPanel ref="worksTable" @loading="loading = $event" @me="onMe" />
         <SubmitMediaDialog v-if="dialogOpen" @close="dialogOpen = false" @submitted="onSubmitted" />
     </section>
 </template>
@@ -28,13 +32,18 @@ import BaseButton from '@/components/common/BaseButton.vue';
 import { BaseIconRefresh } from '@/components/common/icon';
 import MediaListPanel from '@/components/media/MediaListPanel.vue';
 import SubmitMediaDialog from '@/components/media/SubmitMediaDialog.vue';
-import type { MediaItem } from '@/services/mediaService';
+import type { MediaItem, MediaMe } from '@/services/mediaService';
 
 import '@/components/media/media.css';
 
 const worksTable = useTemplateRef<{ refresh?: () => void }>('worksTable');
 const dialogOpen = ref(false);
 const loading = ref(false);
+const me = ref<MediaMe | null>(null);
+
+function onMe(value: MediaMe | null): void {
+    me.value = value;
+}
 
 function refreshWorks(): void {
     worksTable.value?.refresh?.();
@@ -58,6 +67,7 @@ const i18nMessages = {
         submitDone: '投稿成功',
         normalHint: '作品已进入审核队列，可在个人主页查看',
         degradedHint: '投稿已保留，标题由管理员审核时补全并核验外站账号',
+        dailyFeedRemaining: '当天剩余投喂次数',
     } },
     en: { local: {
         submit: 'Submit',
@@ -66,6 +76,7 @@ const i18nMessages = {
         submitDone: 'Submitted',
         normalHint: 'Your work is in the review queue; find it on your profile',
         degradedHint: 'Submission kept; a moderator will fill in the title and verify the external account',
+        dailyFeedRemaining: 'Feeds left today',
     } },
 };
 const { t } = useI18n({ messages: i18nMessages });
@@ -74,5 +85,12 @@ const { t } = useI18n({ messages: i18nMessages });
 <style scoped lang="css">
 .works-actions {
     justify-content: flex-end;
+}
+
+.works-user-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-right: auto;
 }
 </style>

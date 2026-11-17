@@ -5,7 +5,7 @@ import i18n from '@/i18n';
 import { hashRouter, installHashHistoryCleanup } from '@cy/support/hashHistory';
 
 const rankingBody = { items: [], total: 0, start: 0, anchor: new Date().toISOString() };
-const meBody = { balance: 5, likes_sent: 0, banned: false };
+const meBody = { balance: 5, likes_sent: 0, banned: false, daily_likes_remaining: 7 };
 
 describe('<WorksView />', () => {
     installHashHistoryCleanup();
@@ -21,6 +21,9 @@ describe('<WorksView />', () => {
             });
         });
         cy.wait('@ranking');
+        cy.wait('@me');
+        cy.get('[data-cy=works-balance]').should('contain.text', '5');
+        cy.get('[data-cy=works-daily-remaining]').should('contain.text', '7');
         cy.get('.base-table').should('exist');
         cy.get('.el-tabs').should('not.exist');
         cy.get('[data-sort=pending]').should('not.exist');
