@@ -207,7 +207,7 @@ def get_me(request):
         'balance': services.get_balance(request.user),
         'likes_sent': profile.likes_sent if profile else 0,
         'banned': profile.banned if profile else False,
-        'daily_likes_remaining': services.get_daily_likes_remaining(request.user),
+        'daily_likes_used': services.get_daily_likes_used(request.user),
     }
 
 

@@ -5,7 +5,7 @@ import i18n from '@/i18n';
 import { hashRouter, installHashHistoryCleanup } from '@cy/support/hashHistory';
 
 const rankingBody = { items: [], total: 0, start: 0, anchor: new Date().toISOString() };
-const meBody = { balance: 5, likes_sent: 0, banned: false, daily_likes_remaining: 7 };
+const meBody = { balance: 5, likes_sent: 0, banned: false, daily_likes_used: 3 };
 
 describe('<WorksView />', () => {
     installHashHistoryCleanup();

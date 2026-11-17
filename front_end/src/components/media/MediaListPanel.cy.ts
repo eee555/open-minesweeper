@@ -42,7 +42,7 @@ describe('<MediaListPanel />', () => {
         cy.intercept({ method: 'GET', pathname: '/api/media/ranking' }, { body: pageBody }).as('ranking');
         cy.intercept({ method: 'GET', pathname: '/api/media/latest' }, { body: pageBody }).as('latest');
         cy.intercept({ method: 'GET', pathname: '/api/media/me' }, {
-            body: { balance: 5, likes_sent: 0, banned: true, daily_likes_remaining: 7 },
+            body: { balance: 5, likes_sent: 0, banned: true, daily_likes_used: 3 },
         }).as('me');
     });
 
@@ -114,7 +114,7 @@ describe('<MediaListPanel />', () => {
         let calls = 0;
         cy.intercept({ method: 'GET', pathname: '/api/media/me' }, (request) => {
             calls += 1;
-            request.reply({ body: { balance: calls === 1 ? 5 : 42, likes_sent: 0, banned: false, daily_likes_remaining: 7 } });
+            request.reply({ body: { balance: calls === 1 ? 5 : 42, likes_sent: 0, banned: false, daily_likes_used: 3 } });
         }).as('meSequence');
         mountPanel();
         cy.wait('@meSequence');

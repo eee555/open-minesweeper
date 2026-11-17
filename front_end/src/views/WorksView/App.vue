@@ -3,7 +3,7 @@
         <div class="media-toolbar works-actions">
             <div v-if="me" class="works-user-info">
                 <span class="text-secondary text-small" data-cy="works-balance">{{ t('media.balance') }}: {{ me.balance }}</span>
-                <span class="text-secondary text-small" data-cy="works-daily-remaining">{{ t('local.dailyFeedRemaining') }}: {{ me.daily_likes_remaining }}</span>
+                <span class="text-secondary text-small" data-cy="works-daily-remaining">{{ t('local.dailyFeedRemaining') }}: {{ dailyLikesRemaining }}</span>
             </div>
             <span v-if="loading" class="text-secondary text-small">{{ t('local.loading') }}</span>
             <BaseButton size="small" type="primary" data-cy="open-submit" @click="dialogOpen = true">
@@ -25,7 +25,7 @@
 
 <script setup lang="ts">
 import { ElNotification } from 'element-plus';
-import { ref, useTemplateRef } from 'vue';
+import { computed, ref, useTemplateRef } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import BaseButton from '@/components/common/BaseButton.vue';
@@ -33,6 +33,7 @@ import { BaseIconRefresh } from '@/components/common/icon';
 import MediaListPanel from '@/components/media/MediaListPanel.vue';
 import SubmitMediaDialog from '@/components/media/SubmitMediaDialog.vue';
 import type { MediaItem, MediaMe } from '@/services/mediaService';
+import { MEDIA_DAILY_LIKE_LIMIT } from '@/services/mediaService';
 
 import '@/components/media/media.css';
 
@@ -44,6 +45,8 @@ const me = ref<MediaMe | null>(null);
 function onMe(value: MediaMe | null): void {
     me.value = value;
 }
+
+const dailyLikesRemaining = computed(() => Math.max(0, MEDIA_DAILY_LIKE_LIMIT - (me.value?.daily_likes_used ?? 0)));
 
 function refreshWorks(): void {
     worksTable.value?.refresh?.();

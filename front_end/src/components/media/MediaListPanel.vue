@@ -209,7 +209,7 @@ function onFeed(result: MediaLikeResult, item: MediaItem): void {
     item.hot_now = result.hot_now;
     if (me.value) {
         me.value.balance = result.balance;
-        me.value.daily_likes_remaining = result.daily_likes_remaining;
+        me.value.daily_likes_used = result.daily_likes_used;
         emit('me', me.value);
     }
 }
