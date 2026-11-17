@@ -1,4 +1,4 @@
-"""外站元数据适配单测：字段映射与错误分类，全部离线；author_id 仅作一次性归属核验输入、不落库；见 MEDIA_PLAN.md 第 7.1、12 节。"""
+"""外站元数据适配回归：字段映射与错误分类，全部离线。"""
 
 from datetime import datetime, timedelta, timezone as datetime_timezone
 from types import SimpleNamespace

@@ -1,4 +1,4 @@
-"""作品页专用装饰器：media_banned_blocked；见 MEDIA_PLAN.md 第 7、9 节。"""
+"""作品页投稿封禁装饰器；投喂权限独立于投稿封禁。"""
 
 from functools import wraps
 

@@ -1,4 +1,4 @@
-"""作品页 API 单测：读接口、投稿降级、管理员审核与 CSRF 回归；见 MEDIA_PLAN.md 第 8、12 节。"""
+"""作品页 API 回归：查询、归属核验、降级边界、管理员审核与 CSRF。"""
 
 from datetime import datetime, timedelta, timezone as datetime_timezone
 from unittest.mock import patch
@@ -6,7 +6,7 @@ from unittest.mock import patch
 from django.test import Client, override_settings, TestCase
 from django.utils import timezone
 
-from accountlink.models import AccountLinkQueue
+from accountlink.models import AccountGitHub, AccountLinkQueue
 from userprofile.models import UserProfile
 from . import cache, services
 from .clients import MediaFetchError, MediaMetadata
@@ -15,7 +15,6 @@ from .utils import MediaFormat, MediaStatus
 
 REFERENCE = datetime(2026, 1, 1, tzinfo=datetime_timezone.utc)
 TARGET = datetime(2026, 2, 1, tzinfo=datetime_timezone.utc)
-VIDEO_URL = 'https://www.bilibili.com/video/BV1xx411c7mD/'
 
 
 @override_settings(RATELIMIT_ENABLE=False)
@@ -51,9 +50,9 @@ class MediaApiTests(TestCase):
             created_at=timezone.now() - timedelta(days=1), language='', **kwargs,
         )
 
-    def _bind(self, identifier='42', user=None, verified=True):
+    def _bind(self, identifier='42', user=None, verified=True, platform='B'):
         return AccountLinkQueue.objects.create(
-            platform='B', identifier=identifier, userprofile=user or self.user, verified=verified,
+            platform=platform, identifier=identifier, userprofile=user or self.user, verified=verified,
         )
 
     def _metadata(self, author_id='42'):
@@ -76,7 +75,9 @@ class MediaApiTests(TestCase):
         body = response.json()
         self.assertEqual(body['total'], 1)
         self.assertEqual(body['items'][0]['id'], media.pk)
-        self.assertEqual(body['items'][0]['url'], VIDEO_URL)
+        self.assertEqual(body['items'][0]['suffix'], media.suffix)
+        self.assertNotIn('url', body['items'][0])
+        self.assertNotIn('embed_url', body['items'][0])
         self.assertIn('hot_now', body['items'][0])
         self.assertIn('anchor', body)
         self.assertNotIn('external_author_id', body['items'][0])
@@ -179,6 +180,47 @@ class MediaApiTests(TestCase):
             rejected = self._submit('BV1xx411c7mE')
         self.assertEqual(rejected.status_code, 502, rejected.content)
         self.assertFalse(Media.objects.filter(suffix='BV1xx411c7mE').exists())
+
+    def test_github_submission_uses_repository_id_and_checks_owner(self):
+        self._bind(platform='g')
+        AccountGitHub.objects.create(id=42, parent=self.user)
+        metadata = self._metadata()._replace(source_id='1296269')
+        with patch('media.clients.fetch_media_metadata', return_value=metadata._replace(author_id='99')):
+            self.assertEqual(self._submit('owner/project', MediaFormat.G_R).status_code, 403)
+        with patch('media.clients.fetch_media_metadata', return_value=metadata):
+            response = self._submit('owner/project', MediaFormat.G_R)
+            duplicate = self._submit('renamed/project', MediaFormat.G_R)
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()['suffix'], '1296269')
+        self.assertEqual(response.json()['status'], MediaStatus.PENDING)
+        self.assertFalse(response.json()['metadata_pending'])
+        self.assertNotIn('url', response.json())
+        self.assertNotIn('embed_url', response.json())
+        self.assertEqual(duplicate.status_code, 409)
+        self.assertEqual(Media.objects.count(), 1)
+
+    def test_github_fetch_failure_never_creates_degraded_media(self):
+        self._bind(platform='g')
+        AccountGitHub.objects.create(id=42, parent=self.user)
+        for category, status_code in (('timeout', 504), ('upstream_error', 502)):
+            with self.subTest(category=category):
+                with patch('media.clients.fetch_media_metadata', side_effect=MediaFetchError(category, status_code)):
+                    response = self._submit('owner/project', MediaFormat.G_R)
+                self.assertEqual(response.status_code, status_code)
+                self.assertFalse(Media.objects.exists())
+
+    def test_github_binding_is_rechecked_after_fetch(self):
+        self._bind(platform='g')
+        AccountGitHub.objects.create(id=42, parent=self.user)
+
+        def unlinked_during_fetch(*args):
+            AccountGitHub.objects.filter(parent=self.user).delete()
+            return self._metadata()._replace(source_id='1296269')
+
+        with patch('media.clients.fetch_media_metadata', side_effect=unlinked_during_fetch):
+            response = self._submit('owner/project', MediaFormat.G_R)
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(Media.objects.exists())
 
     def test_submit_duplicate_returns_409(self):
         self._bind('42')
@@ -332,7 +374,7 @@ class MediaApiTests(TestCase):
         self.assertEqual(degraded.created_at, REFERENCE)
         for forbidden in ('url', 'format', 'suffix'):
             with self.subTest(field=forbidden):
-                response = self.staff_client.post(url, {'id': degraded.pk, forbidden: VIDEO_URL}, content_type='application/json')
+                response = self.staff_client.post(url, {'id': degraded.pk, forbidden: 'https://example.test/changed'}, content_type='application/json')
                 self.assertIn(response.status_code, (400, 422), response.content)
         degraded.refresh_from_db()
         self.assertEqual(degraded.format, MediaFormat.B_V)

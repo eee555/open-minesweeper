@@ -1,4 +1,4 @@
-"""作品服务层单测：投稿、投喂、审核、驳回、恢复、硬删除与低频命令；见 MEDIA_PLAN.md 第 12 节、附录 A。"""
+"""作品服务层回归：投稿、投喂、状态转换、退款与低频管理命令。"""
 
 from datetime import datetime, timedelta, timezone as datetime_timezone
 from io import StringIO

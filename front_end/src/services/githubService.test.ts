@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { fetchGitHubProfile, startGitHubLink } from './githubService';
+import { fetchGitHubProfile, fetchGitHubRepositoryUrl, startGitHubLink } from './githubService';
 
 const { post } = vi.hoisted(() => ({ post: vi.fn() }));
 vi.mock('@/http', () => ({ default: { post } }));
@@ -45,6 +45,40 @@ describe('GitHub authorization URL', () => {
         for (const url of ['https://attacker.test/login/oauth/authorize', 'https://github.com.evil.test/login/oauth/authorize', 'https://github.com/login']) {
             post.mockResolvedValueOnce({ data: { authorization_url: url } });
             await expect(startGitHubLink()).rejects.toThrow('Invalid authorization URL');
+        }
+    });
+});
+
+describe('GitHub repository links', () => {
+    it('resolves a repository by ID without cookies and follows the current name from metadata', async () => {
+        const remote = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: 42, html_url: 'https://github.com/new-owner/new-name' })));
+        vi.stubGlobal('fetch', remote);
+        const { signal } = new AbortController();
+        expect(await fetchGitHubRepositoryUrl('42', signal)).toBe('https://github.com/new-owner/new-name');
+        expect(remote).toHaveBeenCalledWith('https://api.github.com/repositories/42', { credentials: 'omit', signal });
+        expect(post).not.toHaveBeenCalled();
+    });
+
+    it('rejects invalid IDs, identity mismatches, unsafe URLs and imprecise IDs', async () => {
+        const remote = vi.fn();
+        vi.stubGlobal('fetch', remote);
+        await expect(fetchGitHubRepositoryUrl('../repos')).rejects.toThrow('Invalid GitHub repository ID');
+        expect(remote).not.toHaveBeenCalled();
+        for (const [id, html_url] of [
+            [43, 'https://github.com/a/b'], [9007199254740992, 'https://github.com/a/b'],
+            [42, 'https://github.com.evil.test/a/b'], [42, 'https://user@github.com/a/b'],
+            [42, 'https://github.com:443/a/b'], [42, 'javascript:alert(1)'],
+            [42, 'https://github.com/a/b/tree/main'], [42, 'https://github.com/a/../b'],
+        ]) {
+            remote.mockResolvedValueOnce(new Response(JSON.stringify({ id, html_url })));
+            await expect(fetchGitHubRepositoryUrl('42')).rejects.toThrow('Invalid GitHub repository');
+        }
+    });
+
+    it('keeps rate limits and missing repositories as retryable lookup failures', async () => {
+        for (const status of [403, 404, 429]) {
+            vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status })));
+            await expect(fetchGitHubRepositoryUrl('42')).rejects.toThrow(`HTTP ${status}`);
         }
     });
 });

@@ -1,4 +1,4 @@
-"""作品排行缓存单测：双基准折算、绝对分数写入与无锁重建；见 MEDIA_PLAN.md 第 12 节、附录 A。"""
+"""作品排行缓存回归：双基准折算、绝对分数写入与无锁重建。"""
 
 from datetime import datetime, timezone as datetime_timezone
 from unittest.mock import patch

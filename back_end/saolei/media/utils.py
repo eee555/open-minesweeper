@@ -1,4 +1,4 @@
-"""作品页专有常量与纯函数：枚举、URL 前缀、衰减公式与 URL 解析；见 MEDIA_PLAN.md 第 3、5 节。"""
+"""作品页专有常量与纯函数：枚举、衰减公式与投稿 URL 解析。"""
 
 import re
 from urllib.parse import urlsplit
@@ -16,6 +16,7 @@ class MediaFormat(models.TextChoices):
     B_V = 'B_v', 'Bilibili video'
     B_A = 'B_a', 'Bilibili article'
     C_P = 'c_p', 'Saolei post'
+    G_R = 'g_r', 'GitHub repository'
 
 
 class MediaStatus(models.TextChoices):
@@ -24,15 +25,11 @@ class MediaStatus(models.TextChoices):
     REJECTED = 'rejected', 'Rejected'
 
 
-FORMAT_PREFIX = {
-    MediaFormat.B_V: 'https://www.bilibili.com/video/',
-    MediaFormat.B_A: 'https://www.bilibili.com/read/cv',
-    MediaFormat.C_P: 'https://saolei.wang/bbs/',
-}
 FORMAT_PLATFORM = {
     MediaFormat.B_V: 'B',
     MediaFormat.B_A: 'B',
     MediaFormat.C_P: 'c',
+    MediaFormat.G_R: 'g',
 }
 BILIBILI_HOSTS = frozenset({'www.bilibili.com', 'bilibili.com', 'm.bilibili.com'})
 SAOLEI_HOSTS = frozenset({'saolei.wang'})
@@ -43,8 +40,7 @@ SUFFIX_PATTERNS = {
 }
 # 数字 id 的前导零不代表不同作品，必须归一化后才能用 (format, suffix) 唯一约束防重复投稿。
 NUMERIC_MEDIA_FORMATS = frozenset({MediaFormat.B_A, MediaFormat.C_P})
-EMBED_PREFIX = 'https://player.bilibili.com/player.html?bvid='
-EMBED_SUFFIX = '&page=1&autoplay=0&danmaku=0'
+GITHUB_LOCATOR_PATTERN = re.compile(r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?/[A-Za-z0-9_.-]{1,100}')
 
 
 def decay(start_time, end_time):
@@ -59,7 +55,7 @@ def real_hot(media, at_time):
 
 
 def normalize_language(value):
-    """语言只做 strip 与长度校验，不限制内容（Q4）。"""
+    """语言只做 strip 与长度校验，不限制内容。"""
     normalized = (value or '').strip()
     if len(normalized) > MEDIA_LANGUAGE_MAX_LENGTH:
         raise ValueError('Language is too long')
@@ -81,20 +77,6 @@ def format_to_platform(media_format):
     if platform is None:
         raise ValueError('Unknown media format')
     return platform
-
-
-def build_external_url(media_format, suffix):
-    prefix = FORMAT_PREFIX.get(media_format)
-    if prefix is None:
-        raise ValueError('Unknown media format')
-    trailing_slash = '/' if media_format == MediaFormat.B_V else ''
-    return prefix + suffix + trailing_slash
-
-
-def build_embed_url(media_format, suffix):
-    if media_format == MediaFormat.B_V:
-        return EMBED_PREFIX + suffix + EMBED_SUFFIX
-    return None
 
 
 def parse_media_url(value, media_format=None):
@@ -121,6 +103,10 @@ def _parse_full_url(text):
         if parts.scheme != 'https' or len(segments) != 2 or segments[0] != 'bbs':
             raise ValueError('Unsupported Saolei URL')
         media_format, suffix = MediaFormat.C_P, segments[1]
+    elif host == 'github.com':
+        if parts.scheme != 'https' or parts.query or parts.netloc.lower() != 'github.com':
+            raise ValueError('Unsupported GitHub URL')
+        return MediaFormat.G_R, normalize_github_locator(parts.path.removeprefix('/').removesuffix('/'))
     else:
         raise ValueError('Unexpected media host')
     return _validate_suffix(media_format, suffix)
@@ -137,11 +123,21 @@ def _bilibili_path(segments):
 
 
 def _parse_suffix(text, media_format):
+    if media_format == MediaFormat.G_R:
+        return media_format, normalize_github_locator(text)
     if media_format is None:
         if not SUFFIX_PATTERNS[MediaFormat.B_V].fullmatch(text):
             raise ValueError('Ambiguous media suffix')
         media_format = MediaFormat.B_V
     return _validate_suffix(media_format, text)
+
+
+def normalize_github_locator(value):
+    """投稿只接受 owner/repo；落库使用详情 API 返回的数字仓库 ID。"""
+    locator = value.removesuffix('.git')
+    if not GITHUB_LOCATOR_PATTERN.fullmatch(locator) or locator.split('/')[1] in {'.', '..'}:
+        raise ValueError('Invalid GitHub repository')
+    return locator.lower()
 
 
 def _validate_suffix(media_format, suffix):

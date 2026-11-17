@@ -23,8 +23,7 @@ const verifiedWork = {
     metadata_pending: false,
     user_id: 42,
     rejected_by: null,
-    url: 'https://www.bilibili.com/video/BV1xx411c7mD/',
-    embed_url: null,
+    suffix: 'BV1xx411c7mD',
     hot_now: 3,
 };
 

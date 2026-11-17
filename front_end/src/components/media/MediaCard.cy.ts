@@ -22,8 +22,7 @@ const baseMedia: MediaItem = {
     metadata_pending: false,
     user_id: 42,
     rejected_by: null,
-    url: 'https://example.com/work/7',
-    embed_url: null,
+    suffix: 'BV1xx411c7mD',
     hot_now: 9.87,
 };
 
@@ -44,7 +43,7 @@ describe('<MediaCard />', () => {
     it('renders title, author link, language, status and stats', () => {
         mountCard({}, { showStatus: true });
         cy.get('[data-cy=media-card-7] .media-card-title').should('have.text', 'Test work').
-            and('have.attr', 'href', 'https://example.com/work/7');
+            and('have.attr', 'href', 'https://www.bilibili.com/video/BV1xx411c7mD/');
         cy.get('[data-cy=media-card-7]').should('contain.text', '简体中文').
             and('contain.text', '12').and('contain.text', '9.87');
         cy.get('[data-cy=media-card-7] .media-card-status--verified').should('have.text', 'Verified');

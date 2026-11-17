@@ -1,4 +1,4 @@
-"""作品页业务逻辑：投稿、投喂、审核、驳回、恢复与硬删除；见 MEDIA_PLAN.md 附录 A。"""
+"""作品投稿、投喂、审核、驳回、恢复与硬删除；缓存约定见 README.md。"""
 
 import logging
 from math import floor
@@ -93,7 +93,7 @@ def like_media(user, media_id):
 
     热度增量按全局 T_db 折算 delta_hot = 1 / decay(T_db, now)，不固定加 1；缓存由请求
     路径在事务提交后按 DB 绝对值覆盖。daily_date / daily_likes 与 likes_sent 在同一事务
-    内更新，事务回滚即不计数。驳回与硬删除只退还 likes_sent，不回退当日已用次数（16.1 第 17 条）。
+    内更新，事务回滚即不计数。驳回与硬删除只退还 likes_sent，不回退当日已用次数。
     """
     with transaction.atomic():
         now = timezone.now()
@@ -172,7 +172,7 @@ def _refund_like_records(media):
 
 
 def reject_media(media_id, actor_id, reason=''):
-    """管理员驳回：pending → rejected，退还红宝石并同事务清零 likes/hot 与投喂记录（P1 / Q12）。"""
+    """管理员驳回：pending → rejected，退还红宝石并同事务清零 likes/hot 与投喂记录。"""
     with transaction.atomic():
         media = Media.objects.select_for_update().filter(pk=media_id).first()
         if media is None:

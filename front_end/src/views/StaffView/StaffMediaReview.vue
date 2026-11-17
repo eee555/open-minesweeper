@@ -41,7 +41,9 @@
             <tr v-for="item in items" :key="item.id">
                 <td>{{ item.id }}</td>
                 <td>
-                    <a class="link" :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title || t('media.titleMissing') }}</a>
+                    <MediaSourceLink :format="item.format" :suffix="item.suffix">
+                        {{ item.title || t('media.titleMissing') }}
+                    </MediaSourceLink>
                     <span v-if="item.metadata_pending" class="text-small text-warning"> ({{ t('local.degraded') }})</span>
                 </td>
                 <td><PlayerName :user-id="item.user_id" /></td>
@@ -103,6 +105,7 @@ import { useI18n } from 'vue-i18n';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
+import MediaSourceLink from '@/components/media/MediaSourceLink.vue';
 import { actionSuccessNotification, httpErrorNotification } from '@/components/Notifications';
 import PlayerName from '@/components/PlayerName.vue';
 import type { MediaItem, MediaPage, MediaVerifyPayload } from '@/services/mediaService';

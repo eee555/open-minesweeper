@@ -1,4 +1,4 @@
-"""作品页 Redis 排行：四个 zset 与双基准（DB T_db / Redis T_r）；见 MEDIA_PLAN.md 附录 A。"""
+"""作品页 Redis 排行：四个 zset 与双基准（DB T_db / Redis T_r）；见 README.md。"""
 
 from datetime import datetime, timezone as datetime_timezone
 import logging
