@@ -5,7 +5,7 @@
             <h2 :id="`${panelId}-title`">
                 {{ t(`platform.${selected}`) }}<span v-if="identifier && !privateHidden"> #{{ identifier }}</span>
             </h2>
-            <p v-if="githubResult" role="status" data-cy="github-result">
+            <p v-if="githubResult && selected === 'g'" role="status" data-cy="github-result">
                 {{ t(`local.github.${githubResult}`) }}
             </p>
             <p v-if="loading && !loaded" role="status">

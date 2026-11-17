@@ -8,6 +8,12 @@ describe('GitHub account-link entry', () => {
         resetAccountLinkStore(1, 1);
     });
 
+    afterEach(() => {
+        cy.window().then((win) => {
+            win.location.hash = '';
+        });
+    });
+
     it('uses OAuth instead of accepting a manually entered ID and permits retry after start failure', () => {
         cy.intercept('GET', '**/api/accountlink/1', { body: emptyLinks }).as('links');
         cy.intercept('POST', '**/api/accountlink/github/start', { statusCode: 503, body: { object: 'github', category: 'not_configured' } }).as('start');
@@ -58,5 +64,17 @@ describe('GitHub account-link entry', () => {
         cy.wait('@start');
         cy.wait('@cancel').its('request.body').should('deep.equal', { state });
         cy.get('[data-platform=B]').should('have.attr', 'aria-pressed', 'true');
+    });
+
+    it('shows the GitHub callback result only inside the GitHub section', () => {
+        cy.window().then((win) => {
+            win.location.hash = '#/player/1/accountlink?github=linked';
+        });
+        cy.intercept('GET', '**/api/accountlink/1', { body: emptyLinks }).as('links');
+        mountAccountLink(App, { userId: 1 });
+        cy.wait('@links');
+        cy.get('[data-cy=github-result]').should('contain', 'GitHub account linked.');
+        cy.get('[data-platform=B]').click();
+        cy.get('[data-cy=github-result]').should('not.exist');
     });
 });
