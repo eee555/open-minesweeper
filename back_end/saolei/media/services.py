@@ -25,16 +25,29 @@ class MediaServiceError(Exception):
         self.status_code = status_code
 
 
-def _balance(profile, user):
-    earned = floor((timezone.now() - user.date_joined).total_seconds() / 86400)
-    return max(earned - profile.likes_sent, 0)
+def get_balance(profile, date_joined):
+    likes_sent = profile.likes_sent if profile else 0
+    earned = floor((timezone.now() - date_joined).total_seconds() / 86400)
+    return max(earned - likes_sent, 0)
 
 
-def get_balance(user):
+def get_daily_likes_used(profile):
+    """当天已成功投喂次数：daily_date 不是 UTC 今日时按 0 次计算。"""
+    if profile is None or profile.daily_date != timezone.now().date():
+        return 0
+    return profile.daily_likes
+
+
+def get_me_state(user):
+    """一次性读取 UserMedia 得到 /me 全部字段；未建行时返回零值，不写库。"""
     profile = UserMedia.objects.filter(pk=user.pk).first()
     likes_sent = profile.likes_sent if profile else 0
-    earned = floor((timezone.now() - user.date_joined).total_seconds() / 86400)
-    return max(earned - likes_sent, 0)
+    return {
+        'balance': get_balance(profile, user.date_joined),
+        'likes_sent': likes_sent,
+        'banned': profile.banned if profile else False,
+        'daily_likes_used': get_daily_likes_used(profile),
+    }
 
 
 def sync_media_scores(media_id, author_id):
@@ -109,7 +122,7 @@ def like_media(user, media_id):
         daily_likes = 0 if profile.daily_date != today else profile.daily_likes
         if daily_likes >= MEDIA_DAILY_LIKE_LIMIT:
             raise MediaServiceError('Daily like limit reached', 429)
-        balance = _balance(profile, user)
+        balance = get_balance(profile, user.date_joined)
         if balance < 1:
             raise MediaServiceError('Insufficient rubies', 400)
         base = media.hot_value_updated_at
@@ -125,7 +138,10 @@ def like_media(user, media_id):
         )
         status, author_id = media.status, media.user_id
         hot_now = media.hot_value * factor
-        result = {'likes': media.likes, 'hot_now': hot_now, 'balance': balance - 1, 'status': status}
+        result = {
+            'likes': media.likes, 'hot_now': hot_now, 'balance': balance - 1, 'status': status,
+            'daily_likes_used': daily_likes + 1,
+        }
     if status == MediaStatus.VERIFIED:
         sync_media_scores(media_id, author_id)
     return result

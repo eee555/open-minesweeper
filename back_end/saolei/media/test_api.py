@@ -147,6 +147,7 @@ class MediaApiTests(TestCase):
         self.assertEqual(response.status_code, 200, response.content)
         self.assertGreaterEqual(response.json()['balance'], 9)
         self.assertEqual(response.json()['likes_sent'], 0)
+        self.assertEqual(response.json()['daily_likes_used'], 0)
         self.assertFalse(UserMedia.objects.filter(pk=self.user.pk).exists())
 
     def test_submit_requires_verified_link(self):
@@ -263,6 +264,7 @@ class MediaApiTests(TestCase):
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(response.json()['likes'], 1)
         self.assertEqual(response.json()['status'], MediaStatus.PENDING)
+        self.assertEqual(response.json()['daily_likes_used'], 1)
         counted = self.client.post('/api/media/like', {'media_id': media.pk, 'count': 5}, content_type='application/json')
         self.assertEqual(counted.status_code, 200, counted.content)
         self.assertEqual(counted.json()['likes'], 2)
@@ -272,7 +274,9 @@ class MediaApiTests(TestCase):
         self.user.refresh_from_db()
         media = self._create_media()
         for _ in range(10):
-            self.assertEqual(self.client.post('/api/media/like', {'media_id': media.pk}, content_type='application/json').status_code, 200)
+            liked = self.client.post('/api/media/like', {'media_id': media.pk}, content_type='application/json')
+            self.assertEqual(liked.status_code, 200, liked.content)
+        self.assertEqual(liked.json()['daily_likes_used'], 10)
         limited = self.client.post('/api/media/like', {'media_id': media.pk}, content_type='application/json')
         self.assertEqual(limited.status_code, 429, limited.content)
         self.assertEqual(UserMedia.objects.get(pk=self.user.pk).daily_likes, 10)

@@ -13,7 +13,7 @@ from userprofile.decorators import banned_blocked, login_required_error, staff_r
 from userprofile.models import UserProfile
 from . import cache, clients, services
 from .decorators import media_banned_blocked
-from .models import Media, UserMedia
+from .models import Media
 from .schema import (
     BanIn, DeletedOut, EditIn, IdIn, LikeIn, LikeOut, MEDIA_QUERY_LIMIT, MediaOut, MediaPageOut,
     MediaQueryError, MediaQueryOut, MeOut, RejectIn, SubmitIn, UserRankingPageOut, VerifyIn,
@@ -200,15 +200,8 @@ def get_me(request):
     """
     - login_required_error
     - ratelimit(key='user', rate='30/m', group='media-me', block=True)
-
-    未创建 UserMedia 行时返回零值，不写库。
     """
-    profile = UserMedia.objects.filter(pk=request.user.pk).first()
-    return {
-        'balance': services.get_balance(request.user),
-        'likes_sent': profile.likes_sent if profile else 0,
-        'banned': profile.banned if profile else False,
-    }
+    return services.get_me_state(request.user)
 
 
 @router.post('/submit', response=MediaOut)
