@@ -92,7 +92,7 @@ Redis 分类只读取业务代码直接确定的 DB 0 key，不执行 `SCAN`、`
 | 分类 | key 来源 |
 | --- | --- |
 | PB 榜 | `PBRankingCache.counts_key`；固定 hash 的 `HKEYS` 经校验后构造小榜 key；从 `UserProfile` 主键顺序每批最多 1,000 个 ID 构造用户 hash key。PB 衍生榜另由 `PBDerivedCache().keys()` 枚举 3 个成绩 hash 与 132 个小榜 key，均计入 `pb_rankings` 分类。元数据缺失不发现 key、不触发重建。 |
-| 其他排行榜 | 扫雷网与强无猜各自的 `SpeedRankingCache(name, stats=RANK_STATS).keys`（各两个大榜，共 36 个 key）、`TopRankingCache().keys`、`ThrpRankingCache().keys`、`NFIOERankingCache().keys`、`MiniGameRankingCache().keys`、四种自定义 pluck 配置的 rank/detail key、比赛用户榜 key 和积分时间 key；当前共 164 个 key。 |
+| 其他排行榜 | 扫雷网与强无猜各自的 `SpeedRankingCache(name, stats=RANK_STATS).keys`（各两个大榜，共 36 个 key）、`TopRankingCache().keys`、`ThrpRankingCache().keys`、`NFIOERankingCache().keys`、`TPERankingCache().keys`、`MiniGameRankingCache().keys`、四种自定义 pluck 配置的 rank/detail key、比赛用户榜 key 和积分时间 key；当前共 168 个 key。 |
 | 最新录像 | `newest_cache.key`（`newest_queue`）。 |
 | 其他 | `INFO memory.used_memory` 减去前三类；包含其他业务、会话、同实例 DB 1 通用缓存、孤立/历史/临时 key 和 Redis 开销，不枚举 DB 1。 |
 
@@ -146,7 +146,9 @@ PB 衍生榜由 `speedranking.pb_derived.cache.PBDerivedCache` 管理：三个 `
 
 ### 效率榜 `effranking`
 
-Thrp 使用一个个人纪录 hash 和五个排序 zset，NF IOE 独立使用一个 hash 和四个 zset，见下方数据结构表。编码、选优和事务边界统一见 `back_end/saolei/effranking/README.md`；首次部署及缓存丢失后执行指定大榜的 [rebuild_eff_ranks](./management-commands.md#rebuild-eff-ranks)，查询不自动回源。
+Thrp 使用一个个人纪录 hash 和五个排序 zset，NF IOE 独立使用一个 hash 和四个 zset，TPE 独立使用一个 hash 和三个 zset，见下方数据结构表。编码、选优和事务边界统一见 `back_end/saolei/effranking/README.md`；首次部署及缓存丢失后执行指定大榜的 [rebuild_eff_ranks](./management-commands.md#rebuild-eff-ranks)，查询不自动回源。
+
+本地公开快照初始化显式重建这三个效率大榜。
 
 ```dot
 digraph cache {
@@ -737,6 +739,8 @@ digraph cache {
 | `effranking` | `effranking:thrp:{stat}` | zset | `stat = b/i/e/sum/e_nf`；`member = player_id`。原有四项编码六位小数成绩和分钟级达成时间；高级 NF 使用负 Thrp，满分后使用负达成局数。统一升序读取，不用于恢复成绩。 |
 | `effranking` | `effranking:nf_ioe:records` | hash | `field = player_id`；完整 `b/i/e` 纪录，每项为 `null` 或 `{value, video_id, timems}`；sum 从原始成绩计算，不重复存储。 |
 | `effranking` | `effranking:nf_ioe:{stat}` | zset | `stat = b/i/e/sum`；`member = player_id`；score 取业务分值的负数，满分单项比较用时，满分总和只比较高级用时。 |
+| `effranking` | `effranking:tpe:records` | hash | `field = player_id`；完整 `i/e` 纪录，每项为 `null` 或 `{value, video_id}`；value 为未舍入的 TPE 秒数，sum 不重复存储。 |
+| `effranking` | `effranking:tpe:{stat}` | zset | `stat = i/e/sum`；`member = player_id`；score 直接用 TPE，升序且不编码 tie-breaker。sum 要求两个级别均有纪录，零值有效。 |
 | `customranking` | `customranking:pluck:{level}:rank` | zset | `member = player_id`；`score = pluck`，当 `pluck == 0` 时使用 `timems - MAX_TIMEMS` 降低 0 碰撞风险。 |
 | `customranking` | `customranking:pluck:{level}:detail` | hash | `field = player_id`；JSON 包含 `video_id`、`timems`、`upload_time`。展示用的模式和 3BV 通过录像缓存补全；排序 zset 保持原编码。 |
 | `tournament` | `tournament:normal` | hash | `field = tournament_id`；`value = CachedTournament JSON`，包含 `id`、`state`、`subclass`、`host_id`、`start_time`、`end_time`、`data`。GSC data 为 `order`、`token`；竞速赛为 `year`、`week`、`tournament_format`；效率赛为 `year`、`week`，不含 format。 |
@@ -749,7 +753,9 @@ digraph cache {
 | `news` | `news:idx:all:v1` | zset | `member = 事件 id`，score 为毫秒时间戳；「全部」分类倒序读取。 |
 | `news` | `news:idx:cat:{category}:v1` | zset | 按类别的索引，与全部索引同步写入和回收；类别为 `pb`、`lsf`、`eff`。 |
 
-新闻事件只来自排行榜当次发生的变化，不做全量重建，也不保留历史。默认回收规则：只删除既超出最新 200 条、又早于 7 天的记录，因此 7 天内的新闻全部保留（即使超过 200 条），最新的 200 条也全部保留（即使超过 7 天）：每次写入先把 `news:idx:all:v1` 中排名 200 之后、且早于 TTL 的 id 取出，在同一个 pipeline 里从 hash 与全部索引中删除，再写入新事件并刷新各 key 的 TTL。事件源来自 `speedranking` 与 `effranking` 两个 app。`speedranking` 在写入前备好待修改玩家的旧快照，写入软实力索引后、刷新锚点前再取一次新快照；`pb` 由 PB 榜刷新 rank 后筛选终点前 10 的纪录刷新，`lsf` 仅在真实 LSF 值变化且新名次进入前 36 时发布；批量刷榜按变动项逐条推送，每条变动带造成它的录像 id。删除路径不发布新闻，锚点变化触发的 `soft_refresh_requested` 与后台全局软实力重建也不产生新闻。`effranking` 的单录像与批量加入路径另发布 `eff` 分区，覆盖 Thrp 的 `b/i/e/sum/e_nf` 与 NF IOE 的 `b/i/e/sum`：按写入前后的 score 判断成绩是否变优，逐项发布 `field`（`{大榜}:{小榜}`）及旧/新 `value`、`video_id`、`rank`、`count`（高级 NF 满分局数）、`timems`（NF IOE 满分单项用时或满分总计所使用的高级用时）；`sum` 是派生值没有对应录像，`video_id` 为 `null`，`e_nf` 取满分录像 id 列表首条，前端对这两项分别沿用榜单的 `1 x N` 与 `1.000 (9.000)` 显示，避免 `value` 相同却无法显示成绩进步。旧名次在写入前读取，新名次在写入命令之后由同一 pipeline 的 ZRANK 取得。补位变差、批量移除、管理员单项修复与全量重建都不发布。
+新闻事件只来自排行榜当次发生的变化，不做全量重建，也不保留历史。默认回收规则：只删除既超出最新 200 条、又早于 7 天的记录，因此 7 天内的新闻全部保留（即使超过 200 条），最新的 200 条也全部保留（即使超过 7 天）：每次写入先把 `news:idx:all:v1` 中排名 200 之后、且早于 TTL 的 id 取出，在同一个 pipeline 里从 hash 与全部索引中删除，再写入新事件并刷新各 key 的 TTL。事件源来自 `speedranking` 与 `effranking` 两个 app。`speedranking` 在写入前备好待修改玩家的旧快照，写入软实力索引后、刷新锚点前再取一次新快照；`pb` 由 PB 榜刷新 rank 后筛选终点前 10 的纪录刷新，`lsf` 仅在真实 LSF 值变化且新名次进入前 36 时发布；批量刷榜按变动项逐条推送，每条变动带造成它的录像 id。删除路径不发布新闻，锚点变化触发的 `soft_refresh_requested` 与后台全局软实力重建也不产生新闻。
+
+`effranking` 的单录像与批量加入路径发布 `eff` 分区，覆盖 Thrp、NF IOE 和 TPE 全部小榜。按写入前后的 score 判断是否进步，旧名次在写入前读取，新名次由写入 pipeline 中的 ZRANK 取得。补位变差、批量移除、管理员修复与全量重建不发布。各榜 payload、合计资格及展示规则统一见 `back_end/saolei/effranking/README.md` 的「首页新闻」，不在缓存文档重复维护。
 
 `TournamentUser` 是比赛积分持久化汇总表，Redis 用 9 个 zset 排序；total 降序，三类 best 升序。站内用户创建任意已支持赛种的 participant 时，信号在当前数据库事务内补建 `TournamentUser`，删除报名不删除该用户汇总。匿名用户数据库为 NULL，API 输出 user_id=0，不进入积分排行。原 `weekly_classic_total` 和 `weekly_classic_best` 保留，前端只精简重复展示。
 
@@ -831,7 +837,7 @@ Redis 连接和读写异常记录日志，计算及数据库摘要不回滚，�
 | 缓存 | 主要写入入口 | 重建 / 清理入口 |
 | --- | --- | --- |
 | 录像状态队列 | `videomanager.signals.refresh_state_queue_on_video_save` | `videomanager.cache.add_videos_to_state_queues_bulk` 可按状态批量恢复普通队列。 |
-| 效率 Thrp / NF IOE 排行 | `effranking.signals` 与批量 services，提交后更新 | `rebuild_eff_ranks --ranking-name thrp/nf_ioe` 指定大榜重建；管理员对应大榜的 `admin/rebuild_record` 修复单项，sum 仅从个人 hash 重算。 |
+| 效率 Thrp / NF IOE / TPE 排行 | `effranking.signals` 与批量 services，提交后更新 | `rebuild_eff_ranks --ranking-name thrp/nf_ioe/tpe` 指定大榜重建；管理员对应大榜的 `admin/rebuild_record` 修复单项，sum 仅从个人 hash 重算。 |
 | 自定义 pluck 排行 | 保存时 `update_custom_pluck_top_cache`；录像删除提交后 `refresh_custom_pluck_rank` 补位，纪录删除提交后 `sync_custom_pluck_top_cache` 同步当前状态 | `manage.py rebuild_custom_pluck_cache` 从 `CustomPluckRecord` 全量重建，不补建缺失的数据库纪录。 |
 | NORMAL 比赛 | `TournamentCache.update_tournament` | `manage.py rebuild_tournament_cache` 显式查询 `NORMAL` GSC、竞速及效率打卡赛并重建。 |
 | NORMAL 参赛关系 | `TournamentCache.update_participant` / `remove_participant` | `manage.py rebuild_tournament_cache` 按 `user_id` 分组重建。 |

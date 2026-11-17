@@ -8,7 +8,7 @@ import $axios from '@/http';
 import i18n from '@/i18n';
 import { pinia } from '@/store/create';
 
-describe('NF IOE efficiency ranking', () => {
+describe('Efficiency rankings', () => {
     function mountRanking(url: string) {
         const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/ranking', component: RankingApp, children: rankingRoutes }] });
         void router.push(url);
@@ -47,5 +47,20 @@ describe('NF IOE efficiency ranking', () => {
         });
         cy.wait('@ioe').its('request.query.stat').should('equal', 'e');
         cy.get('.efficiency-selector').should('have.value', 'nf_ioe');
+        cy.intercept('GET', '**/api/effranking/tpe/rank*', {
+            count: 1, players: [{ player_id: 42, i: { value: 0, video_id: 8001 }, e: { value: 123.456789, video_id: 8002 } }],
+        }).as('tpe');
+        cy.get('.efficiency-selector').select('tpe');
+        cy.wait('@tpe').its('request.query').should('include', { stat: 'sum', start: '0', end: '20' });
+        cy.wrap(router).its('currentRoute.value.path').should('equal', '/ranking/efficiency/tpe');
+        cy.get('.tpe-ranking-table tbody').extractTableData().should((rows) => {
+            expect(rows[0]?.slice(2)).to.deep.equal(['0.000', '123.457', '123.457']);
+        });
+        cy.get('.tpe-ranking-table tbody [data-field=e]').should('have.attr', 'title', '123.456789');
+        cy.get('.tpe-ranking-table [data-field=i] .video-preview-link').should('have.attr', 'href', '#/video/8001');
+        cy.get('.tpe-ranking-table [data-field=sum] a').should('not.exist');
+        cy.get('.tpe-ranking-table thead [data-field=e]').click();
+        cy.wait('@tpe').its('request.query.stat').should('equal', 'e');
+        cy.get('.tpe-ranking-table th[aria-sort=ascending]').should('contain.text', 'Expert');
     });
 });

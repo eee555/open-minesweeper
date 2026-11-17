@@ -67,6 +67,37 @@ class PublicIdentifierDownloadTests(SimpleTestCase):
                 download(root, client)
                 request.assert_not_called()
 
+    def test_metadata_index_skips_parsed_requests_without_changing_default_downloads(self):
+        metadata = [{'id': 100, 'state': 'c', 'upload_time': '2026-11-17T00:00:00Z'}]
+        parsed = [{'id': 100, 'level': 'i', 'mode': '00', 'software': 'e', 'timems': 10000, 'bv': 50, 'pluck': 1.25}]
+
+        def public_get(path, params):
+            if path == '/api/userprofile/videolist':
+                return metadata if params['user_id'] == 2 else []
+            if path == '/api/video/detailbulk':
+                return [{key: value for key, value in row.items() if key != 'pluck'} for row in parsed]
+            if path == '/api/video/staticdetailbatch':
+                return parsed
+            return self.public_get(path, params)
+
+        for skip_details, metadata_index in ((False, False), (False, True), (True, False)):
+            with self.subTest(skip_details=skip_details, metadata_index=metadata_index), TemporaryDirectory() as directory, redirect_stdout(StringIO()):
+                root = Path(directory)
+                if skip_details:
+                    write_json(root / 'indexes' / '2.json', metadata)
+                client = PublicClient('https://example.invalid')
+                with patch.object(client, 'get', side_effect=public_get) as request:
+                    download(root, client, skip_details=skip_details, metadata_index=metadata_index)
+                paths = [call.args[0] for call in request.call_args_list]
+                self.assertEqual(paths.count('/api/video/staticdetailbatch'), int(not metadata_index))
+                self.assertEqual(paths.count('/api/video/detailbulk'), int(not skip_details))
+                manifest, _ = validate_snapshot(root)
+                self.assertEqual(manifest['video_count'], 1)
+                row = read_json(root / manifest['videos'][0]['path'])[0]
+                self.assertEqual(row.get('pluck'), None if metadata_index else 1.25)
+        with self.assertRaises(ValueError):
+            download(Path('.'), PublicClient('https://example.invalid'), skip_details=True, metadata_index=True)
+
     def test_interrupted_download_resumes_without_refetching_completed_users(self):
         def interrupted_get(path, params):
             if path.endswith('/identifier') and params['user_id'] == 48:
@@ -223,5 +254,5 @@ class PublicSnapshotInitializationTests(SimpleTestCase):
                 initialize_local_data(root, 'admin-password', 'user-password', stdout=stdout, create_weekly=False)
                 self.assertEqual([item.args[0] for item in command.call_args_list], [
                     'flush', 'refresh_video_counts', 'rebuild_speed_ranks', 'rebuild_strict_ng_ranks',
-                    'rebuild_pb_ranks', 'rebuild_top_ranks', 'rebuild_eff_ranks', 'rebuild_eff_ranks',
+                    'rebuild_pb_ranks', 'rebuild_top_ranks', 'rebuild_eff_ranks', 'rebuild_eff_ranks', 'rebuild_eff_ranks',
                 ])

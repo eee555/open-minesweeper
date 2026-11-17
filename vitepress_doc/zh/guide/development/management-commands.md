@@ -181,8 +181,9 @@ python -m dangerzone.init_local_test --no-weekly
 - 其他用户禁用密码登录；仅 ID `2` 获得本地管理员权限，邮箱统一为 `user-{id}@example.invalid`。
 - 快照不包含原密码、邮箱、录像文件、头像文件和比赛关联。录像可用于列表和排行测试，不能在本地播放或重新解析；录像计数无法排除缺失关联的已公开比赛录像。
 - `--skip-details` 优先使用已有详情，其余录像使用列表数据。缺失指标保持 NULL，录像内标识可能为空；保留列表提供的 `right_ce` 用于 NF 判断，不凭旧模式推测。
+- `--metadata-index` 跳过录像列表的重复解析，仅供不依赖 Pluck 的测试使用，不可与 `--skip-details` 同用。
 
-快照格式与兼容规则见仓库中的 `back_end/saolei/dangerzone/readme.md`。
+下载选项、快照格式与兼容限制统一见仓库中的 `back_end/saolei/dangerzone/readme.md`。
 
 ## 缓存重建
 
@@ -190,11 +191,12 @@ python -m dangerzone.init_local_test --no-weekly
 
 位置：`effranking/management/commands/rebuild_eff_ranks.py`
 
-从录像数据库重建效率榜。`--ranking-name` 支持 `thrp`（默认，包含高级 NF 满分列表）和 `nf_ioe`；`--batch-size` 默认 1000，必须为正数。新增大榜后需显式执行，将历史录像纳入缓存，不需要个人纪录数据迁移。
+从录像数据库重建效率榜。`--ranking-name` 支持 `thrp`（默认，包含高级 NF 满分列表）、`nf_ioe` 和 `tpe`；`--batch-size` 默认 1000，必须为正数。新增大榜后需显式执行，将历史录像纳入缓存，不需要个人纪录数据迁移。
 
 ```bash
 python manage.py rebuild_eff_ranks
 python manage.py rebuild_eff_ranks --ranking-name nf_ioe
+python manage.py rebuild_eff_ranks --ranking-name tpe
 ```
 
 首次建榜或缓存丢失后执行，API 不回源数据库。执行前暂停录像上传、审核、修改、删除、标识绑定/解绑和比赛公开等写入。命令先构建临时榜，成功后原子替换，失败保留旧榜。规则见 `back_end/saolei/effranking/README.md`。
