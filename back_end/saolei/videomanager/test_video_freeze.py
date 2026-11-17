@@ -11,7 +11,7 @@ from msuser.models import UserMS
 from userprofile.models import UserProfile
 from utils.ranking_lock import RankingRefreshBusy
 from .models import ExpandVideoModel, VideoModel
-from .services import freeze_video_by_id, unfreeze_video_by_id, VideoUnfreezeError
+from .services import freeze_video_by_id
 
 
 class VideoFreezeTests(TestCase):
@@ -167,7 +167,8 @@ class VideoUnfreezeTests(TestCase):
             replacement = patch(target)
             self.mocks[target] = replacement.start()
             self.addCleanup(replacement.stop)
-        self.owner = UserProfile.objects.create_user(username='unfreeze-owner', email='unfreeze-owner@example.com', userms=UserMS.objects.create())
+        self.userms = UserMS.objects.create(identifiers=['unfreeze'])
+        self.owner = UserProfile.objects.create_user(username='unfreeze-owner', email='unfreeze-owner@example.com', userms=self.userms)
         self.staff = UserProfile.objects.create_user(username='unfreeze-staff', email='unfreeze-staff@example.com', is_staff=True)
         self.video = VideoModel.objects.create(
             player=self.owner, video=ExpandVideoModel.objects.create(identifier='unfreeze', freeze_reason=self.reason),
@@ -180,15 +181,18 @@ class VideoUnfreezeTests(TestCase):
         for mocked in self.mocks.values():
             mocked.reset_mock()
 
-    def reset_frozen(self):
-        VideoModel.objects.filter(pk=self.video.pk).update(state=MS_TextChoices.State.FROZEN)
-        ExpandVideoModel.objects.filter(pk=self.video.video_id).update(freeze_reason=self.reason)
-        self.video.refresh_from_db()
-        self.video.video.refresh_from_db()
-        self.reset_mocks()
+    def set_owned_identifiers(self, identifiers):
+        self.userms.identifiers = identifiers
+        self.userms.save(update_fields=['identifiers'])
+        self.owner.userms = self.userms
+        self.video.player = self.owner
 
-    def unfreeze(self, state=MS_TextChoices.State.OFFICIAL):
-        return self.client.post(self.url, {'id': self.video.pk, 'state': state}, content_type='application/json')
+    def set_video_identifier(self, identifier):
+        ExpandVideoModel.objects.filter(pk=self.video.video_id).update(identifier=identifier)
+        self.video.video.refresh_from_db()
+
+    def unfreeze(self):
+        return self.client.post(self.url, {'id': self.video.pk}, content_type='application/json')
 
     def assert_unchanged(self):
         self.video.refresh_from_db()
@@ -210,35 +214,54 @@ class VideoUnfreezeTests(TestCase):
         self.assertIn('csrf_token', access.json())
         self.assert_unchanged()
 
-    def test_unfreezes_to_every_allowed_state_and_clears_reason(self):
-        self.client.force_login(self.staff)
-        for target in (MS_TextChoices.State.OFFICIAL, MS_TextChoices.State.IDENTIFIER):
-            with self.subTest(target=target):
-                self.reset_frozen()
-                with self.captureOnCommitCallbacks(execute=True):
-                    response = self.unfreeze(target)
-                self.assertEqual(response.status_code, 200, response.content)
-                self.assertEqual(response.json(), {'id': self.video.pk, 'state': target, 'freeze_reason': ''})
-                self.video.refresh_from_db()
-                self.video.video.refresh_from_db()
-                self.assertEqual(self.video.state, target)
-                self.assertEqual(self.video.video.freeze_reason, '')
-                self.assertTrue(any(call.args[0] == 'newest_queue' for call in self.mocks['videomanager.cache.cache'].hset.call_args_list))
-                self.mocks['speedranking.services._sync_video'].assert_called_once_with(self.video.pk, self.owner.pk)
-                self.mocks['effranking.services._sync_video'].assert_called_once()
-                details = self.client.get(f'/api/video/admin/detail/{self.video.pk}')
-                self.assertEqual(details.status_code, 200, details.content)
-                self.assertEqual(details.json()['video__freeze_reason'], '')
+    def assert_unfrozen(self, response, target):
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json(), {'id': self.video.pk, 'state': target, 'freeze_reason': ''})
+        self.video.refresh_from_db()
+        self.video.video.refresh_from_db()
+        self.assertEqual(self.video.state, target)
+        self.assertEqual(self.video.video.freeze_reason, '')
+        self.assertTrue(any(call.args[0] == 'newest_queue' for call in self.mocks['videomanager.cache.cache'].hset.call_args_list))
+        self.mocks['speedranking.services._sync_video'].assert_called_once_with(self.video.pk, self.owner.pk)
+        self.mocks['effranking.services._sync_video'].assert_called_once()
+        details = self.client.get(f'/api/video/admin/detail/{self.video.pk}')
+        self.assertEqual(details.status_code, 200, details.content)
+        self.assertEqual(details.json()['video__freeze_reason'], '')
 
-    def test_rejects_invalid_ids_and_target_states(self):
+    def test_unfreezes_to_official_when_identifier_belongs_to_player(self):
+        self.client.force_login(self.staff)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.unfreeze()
+        self.assert_unfrozen(response, MS_TextChoices.State.OFFICIAL)
+
+    def test_unfreezes_to_identifier_when_identifier_does_not_belong_to_player(self):
+        self.client.force_login(self.staff)
+        self.set_owned_identifiers(['other'])
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.unfreeze()
+        self.assert_unfrozen(response, MS_TextChoices.State.IDENTIFIER)
+
+    def test_unfreezes_to_identifier_for_empty_identifier(self):
+        self.client.force_login(self.staff)
+        self.set_video_identifier('')
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.unfreeze()
+        self.assert_unfrozen(response, MS_TextChoices.State.IDENTIFIER)
+
+    def test_unfreezes_to_identifier_when_player_has_no_userms(self):
+        self.client.force_login(self.staff)
+        UserProfile.objects.filter(pk=self.owner.pk).update(userms=None)
+        self.owner.refresh_from_db()
+        self.video.player = self.owner
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.unfreeze()
+        self.assert_unfrozen(response, MS_TextChoices.State.IDENTIFIER)
+
+    def test_rejects_invalid_ids(self):
         self.client.force_login(self.staff)
         payloads = [
-            {}, {'id': self.video.pk}, {'state': 'c'},
-            {'id': self.video.pk, 'state': ''}, {'id': self.video.pk, 'state': 'a'},
-            {'id': self.video.pk, 'state': 'b'}, {'id': self.video.pk, 'state': 'C'},
-            {'id': self.video.pk, 'state': 1}, {'id': self.video.pk, 'state': None},
-            {'id': True, 'state': 'c'},
-            *({'id': value, 'state': 'c'} for value in (0, -1, 1.5, str(self.video.pk), 2**63)),
+            {}, {'id': None},
+            *({'id': value} for value in (0, -1, True, 1.5, str(self.video.pk), 2**63)),
         ]
         for payload in payloads:
             with self.subTest(payload=payload):
@@ -259,7 +282,7 @@ class VideoUnfreezeTests(TestCase):
 
     def test_missing_video_returns_404(self):
         self.client.force_login(self.staff)
-        response = self.client.post(self.url, {'id': self.video.pk + 1000, 'state': 'c'}, content_type='application/json')
+        response = self.client.post(self.url, {'id': self.video.pk + 1000}, content_type='application/json')
         self.assertEqual(response.status_code, 404, response.content)
         self.assert_unchanged()
 
@@ -282,7 +305,7 @@ class VideoUnfreezeTests(TestCase):
     def test_requires_csrf_and_access_initializes_cookie(self):
         client = Client(enforce_csrf_checks=True)
         client.force_login(self.staff)
-        payload = {'id': self.video.pk, 'state': 'd'}
+        payload = {'id': self.video.pk}
         response = client.post(self.url, payload, content_type='application/json')
         self.assertEqual(response.status_code, 403, response.content)
         self.assert_unchanged()
@@ -292,8 +315,3 @@ class VideoUnfreezeTests(TestCase):
         self.assertIn('no-store', access['Cache-Control'])
         response = client.post(self.url, payload, content_type='application/json', HTTP_X_CSRFTOKEN=access.json()['csrf_token'])
         self.assertEqual(response.status_code, 200, response.content)
-
-    def test_service_rejects_target_outside_allowlist(self):
-        with self.assertRaisesMessage(VideoUnfreezeError, 'Unfreeze state must be IDENTIFIER or OFFICIAL.'):
-            unfreeze_video_by_id(self.video.pk, MS_TextChoices.State.PLAIN, actor_id=self.staff.pk)
-        self.assert_unchanged()

@@ -99,17 +99,16 @@ describe('staff video freezing', () => {
         cy.get('[data-cy=unfreeze-video]').should('be.disabled');
     });
 
-    it('unfreezes to the selected state with CSRF and clears the reason', () => {
+    it('unfreezes with CSRF and clears the reason', () => {
         cy.intercept('GET', '/api/video/admin/unfreeze', { csrf_token: 'unfreeze-token' }).as('unfreezeAccess');
         cy.intercept('POST', '/api/video/admin/unfreeze', (request) => {
             expect(request.headers['x-csrftoken']).to.equal('unfreeze-token');
             expect(request.headers['content-type']).to.contain('application/json');
-            expect(request.body).to.deep.equal({ id: 12, state: 'd' });
+            expect(request.body).to.deep.equal({ id: 12 });
             request.reply({ id: 12, state: 'd', freeze_reason: '' });
         }).as('unfreeze');
         loadVideo('Original reason');
         cy.get('[data-cy=unfreeze-video]').should('not.be.disabled');
-        cy.get('[data-cy=unfreeze-state]').select('d');
         cy.get('[data-cy=unfreeze-video]').click();
         cy.wait('@unfreezeAccess');
         cy.wait('@unfreeze');
