@@ -49,6 +49,10 @@ top 和 PB 的业务规则、缓存与接口统一见 [竞速排行榜 README](.
 
 请求复用 `profileDataService` 的个人页缓存与失效通知，用户切换或失活后不接受旧响应。全局上色启用时使用 IOE 共用色阶，sum 固定按总值除以 3 上色。组件测试位于 `UserRecordView/ThrpCard.cy.ts`。
 
+## TPE 纪录
+
+纪录 tab 的 `TPECard.vue` 接收用户 id，读取 `/api/effranking/tpe/player/{id}`，共用 `profileDataService` 的缓存、失效与过期响应隔离。始终展示中级、高级、合计三列，格式为 `成绩(排名)`；缺项为 `--`，零值保留。合计要求两个级别齐备，无单一录像链接。成绩显示三位小数秒，title 保留原值；单项沿用对应 Time 色阶，合计不上色。组件测试为 `UserRecordView/TPECard.cy.ts`。
+
 ## 强无猜纪录
 
 纪录 tab 的 `StrictNgCard.vue` 与 `SaoleiCard.vue` 形式相同，但请求 `/api/speedranking/strict_ng/player/{id}`，在 `profileDataService` 中使用独立缓存和失效通道，不共用扫雷网纪录。表格按初、中、高级、总和四列及 Time、Bvs、Time (NF)、Bvs (NF) 四行展示 `成绩(排名)`；普通/NF 两榜分别为 `strict_ng` 与 `strict_ng_nf`。仅强无猜模式、已审核、非隐藏比赛且 3BV 非空的录像入榜；初级要求 3BV ≥ 2，中级、高级没有下限。组件测试位于 `UserRecordView/StrictNgCard.cy.ts`。

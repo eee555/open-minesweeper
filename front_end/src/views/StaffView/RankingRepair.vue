@@ -9,6 +9,7 @@
                 <option value="strict_ng_nf">{{ t('local.strictNgNF') }}</option>
                 <option value="thrp">{{ t('prop.thrp') }}</option>
                 <option value="nf_ioe">NF IOE</option>
+                <option value="tpe">TPE</option>
                 <option value="pb_derived">{{ t('local.pbDerived') }}</option>
             </select>
         </label>
@@ -19,6 +20,9 @@
             </select>
             <select v-else-if="rankingName === 'nf_ioe'" v-model="ioeStat" class="base-select" :aria-label="t('local.stat')" :disabled="working">
                 <option v-for="field in nfIOEStats" :key="field" :value="field">{{ t(`level.${field}`) }}</option>
+            </select>
+            <select v-else-if="rankingName === 'tpe'" v-model="tpeStat" class="base-select" :aria-label="t('local.stat')" :disabled="working">
+                <option v-for="field in tpeStats" :key="field" :value="field">{{ t(`level.${field}`) }}</option>
             </select>
             <span v-else-if="rankingName === 'pb_derived'" class="text-secondary">{{ t('local.allDerivedFields') }}</span>
             <select v-else v-model="stat" class="base-select" :aria-label="t('local.stat')" :disabled="working">
@@ -58,11 +62,14 @@ import type { StrictNgRankingName } from '@/services/strictNgRankingService';
 import { formatStrictNgValue, rebuildStrictNgRecord, strictNgFields, strictNgVideoId } from '@/services/strictNgRankingService';
 import { formatThrpValue, rebuildThrpRecord, thrpStats, thrpVideoId } from '@/services/thrpRankingService';
 import type { ThrpStat } from '@/services/thrpRankingService';
+import { formatTPEValue, rebuildTPERecord, tpeStats, tpeVideoId } from '@/services/tpeRankingService';
+import type { TPEStat } from '@/services/tpeRankingService';
 
-const rankingName = ref<SaoleiRankingName | StrictNgRankingName | 'thrp' | 'nf_ioe' | 'pb_derived'>('saolei');
+const rankingName = ref<SaoleiRankingName | StrictNgRankingName | 'thrp' | 'nf_ioe' | 'tpe' | 'pb_derived'>('saolei');
 const stat = ref<SaoleiField>('bt');
 const thrpStat = ref<ThrpStat>('b');
 const ioeStat = ref<NFIOEStat>('b');
+const tpeStat = ref<TPEStat>('i');
 const userId = ref<number>();
 const working = ref(false);
 const result = ref<{ value: string; videoId?: number }>();
@@ -72,11 +79,12 @@ const fields = computed(() => (isStrictNg.value ? strictNgFields : saoleiFields)
 const selectedLabel = computed(() => {
     if (rankingName.value === 'pb_derived') return t('local.pbDerived');
     if (rankingName.value === 'nf_ioe') return t(`level.${ioeStat.value}`);
+    if (rankingName.value === 'tpe') return t(`level.${tpeStat.value}`);
     if (rankingName.value === 'thrp') return thrpStat.value === 'e_nf' ? `${t('level.e')} NF` : t(`level.${thrpStat.value}`);
     return t(`local.${stat.value}`);
 });
 
-watch([rankingName, stat, thrpStat, ioeStat, userId], () => {
+watch([rankingName, stat, thrpStat, ioeStat, tpeStat, userId], () => {
     result.value = undefined;
 });
 
@@ -94,6 +102,9 @@ async function rebuild() {
         } else if (rankingName.value === 'nf_ioe') {
             const record = await rebuildNFIOERecord(userId.value, ioeStat.value);
             result.value = { value: formatNFIOEValue(record, ioeStat.value), videoId: nfIOEVideoId(record, ioeStat.value) };
+        } else if (rankingName.value === 'tpe') {
+            const record = await rebuildTPERecord(userId.value, tpeStat.value);
+            result.value = { value: formatTPEValue(record, tpeStat.value), videoId: tpeVideoId(record, tpeStat.value) };
         } else if (rankingName.value === 'strict_ng' || rankingName.value === 'strict_ng_nf') {
             const record = await rebuildStrictNgRecord(userId.value, rankingName.value, stat.value);
             result.value = { value: formatStrictNgValue(record, stat.value), videoId: strictNgVideoId(record, stat.value) };

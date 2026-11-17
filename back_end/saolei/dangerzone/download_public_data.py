@@ -43,13 +43,12 @@ class PublicClient:
             time.sleep(delay)
         raise RuntimeError('Unreachable retry state')
 
-    def cached(self, target: Path, path: str, params: dict):
-        if target.exists():
-            return read_json(target)
-        data = self.get(path, params)
+    def cached(self, target: Path, path: str, params: dict, *, hydrate_video_list: bool = True):
+        cached = target.exists()
+        data = read_json(target) if cached else self.get(path, params)
         if not isinstance(data, list):
             raise ValueError(f'{path} did not return a JSON array')
-        if path == '/api/userprofile/videolist' and any('timems' not in row for row in data):
+        if hydrate_video_list and path == '/api/userprofile/videolist' and any('timems' not in row for row in data):
             # Reconstruct the snapshot's self-contained index after the website API split.
             metadata = data
             by_id = {}
@@ -58,7 +57,9 @@ class PublicClient:
                 parsed = self.get('/api/video/staticdetailbatch', {'ids': ids})
                 by_id.update((row['id'], row) for row in parsed)
             data = [{**by_id[row['id']], **row} for row in metadata if row['id'] in by_id]
-        write_json(target, data)
+            cached = False
+        if not cached:
+            write_json(target, data)
         return data
 
 
@@ -79,7 +80,9 @@ def download_identifiers(root: Path, client: PublicClient, users: dict):
     return entries, len(seen)
 
 
-def download(root: Path, client: PublicClient, *, skip_details: bool = False):
+def download(root: Path, client: PublicClient, *, skip_details: bool = False, metadata_index: bool = False):
+    if skip_details and metadata_index:
+        raise ValueError('metadata_index requires full detail downloads')
     checkpoint = root / 'source.json'
     if checkpoint.exists():
         if read_json(checkpoint)['base_url'] != client.base_url:
@@ -112,7 +115,7 @@ def download(root: Path, client: PublicClient, *, skip_details: bool = False):
 
     video_index = {}
     for index, user_id in enumerate(users, 1):
-        rows = client.cached(root / 'indexes' / f'{user_id}.json', '/api/userprofile/videolist', {'user_id': user_id})
+        rows = client.cached(root / 'indexes' / f'{user_id}.json', '/api/userprofile/videolist', {'user_id': user_id}, hydrate_video_list=not metadata_index)
         for row in rows:
             if not row.get('ongoing_tournament'):
                 video_index[row['id']] = {**row, 'player': user_id}
@@ -165,11 +168,12 @@ def main():
     parser.add_argument('--output-dir', type=Path, default=DEFAULT_SNAPSHOT_DIR)
     parser.add_argument('--interval', type=float, default=1.25)
     parser.add_argument('--skip-details', action='store_true', help='Use cached details when available, otherwise use public video lists (including right_ce for NF); do not request detailbulk')
+    parser.add_argument('--metadata-index', action='store_true', help='Skip parsed-field hydration of video lists; detailbulk still supplies TPE inputs, but omitted fields such as pluck remain NULL')
     args = parser.parse_args()
     if not args.base_url.startswith('https://'):
         parser.error('Public downloads require HTTPS')
     try:
-        download(args.output_dir, PublicClient(args.base_url, args.interval), skip_details=args.skip_details)
+        download(args.output_dir, PublicClient(args.base_url, args.interval), skip_details=args.skip_details, metadata_index=args.metadata_index)
     except (requests.RequestException, OSError, ValueError) as error:
         print(f'Download stopped; rerun to resume: {error}', file=sys.stderr)
         return 1

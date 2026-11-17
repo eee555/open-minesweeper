@@ -234,6 +234,17 @@ describe('<NewsQueue />', () => {
                     new: { value: 1.5, video_id: null, rank: 2, count: null, timems: null },
                 },
             },
+            {
+                id: 'eff-tpe',
+                occurred_at: 1_000_000,
+                player_id: 9,
+                category: 'eff',
+                payload: {
+                    field: 'tpe:e',
+                    old: { value: 50, video_id: 601, rank: 5, count: null, timems: null },
+                    new: { value: 40, video_id: 602, rank: 2, count: null, timems: null },
+                },
+            },
         ];
         mountNews(events);
         cy.get('[data-cy=news-eff]').eq(0).should('contain.text', '打破了ThrP高级纪录：0.800(7) → 0.900(6)');
@@ -246,6 +257,7 @@ describe('<NewsQueue />', () => {
             and('have.attr', 'href', '#/video/302');
         cy.get('[data-cy=news-eff]').eq(1).should('contain.text', '首次取得NF IOE总计纪录：1.500(2)');
         cy.get('[data-cy=news-eff]').eq(1).find('.video-preview-link').should('not.exist');
+        cy.get('[data-cy=news-eff]').eq(2).should('contain.text', '打破了TPE高级纪录：50.000(5) → 40.000(2)');
     });
 
     it('keeps perfect game counts and comparison times in efficiency news', () => {
