@@ -235,7 +235,10 @@ describe('<NewsQueue />', () => {
                 },
             },
             {
-                id: 'eff-tpe', occurred_at: 1_000_000, player_id: 9, category: 'eff',
+                id: 'eff-tpe',
+                occurred_at: 1_000_000,
+                player_id: 9,
+                category: 'eff',
                 payload: {
                     field: 'tpe:e',
                     old: { value: 50, video_id: 601, rank: 5, count: null, timems: null },
