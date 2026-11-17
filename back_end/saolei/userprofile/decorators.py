@@ -30,6 +30,24 @@ def staff_required(view_func):
     return _wrapped_view
 
 
+def staff_or_superuser_required(view_func):
+    """Require staff or superuser permission and Django CSRF protection on unsafe requests.
+
+    与 ``staff_required`` 分开，避免把仅 ``is_superuser=True`` 的站长挡在门外，
+    也不改变已有管理接口只认 ``is_staff`` 的权限范围。
+    """
+    protected_view = csrf_protect(view_func)
+
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return HttpResponseForbidden()
+        if not (request.user.is_staff or request.user.is_superuser):
+            return HttpResponseForbidden()
+        return protected_view(request, *args, **kwargs)
+    return _wrapped_view
+
+
 def banned_blocked(view_func):
     @wraps(view_func)
     def _wrapped_view(request, *args, **kwargs):

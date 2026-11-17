@@ -148,7 +148,7 @@ describe('PlayerName', () => {
         expectName('Alice');
         cy.then(() => invalidateUserInfo(user.id));
         cy.wait('@fetchUser');
-        expectName(`User #${user.id}`, `User #${user.id}`);
+        expectName(user.username, `${user.username}#${user.id}`);
     });
 
     it('uses the fallback fixture even when the player name was previously cached', () => {
@@ -192,14 +192,14 @@ describe('PlayerName', () => {
     it('hides the whole name and title regardless of name preferences', () => {
         mockUserInfo({ body: [{ ...user, realname: 'hidden', firstname: 'hidden', lastname: 'hidden' }] });
         mountPlayerName(user.id);
-        expectName('User #42', 'User #42');
+        expectName(user.username, `${user.username}#${user.id}`);
         cy.then(() => {
             local.value.playerNameFormat = 'name1 (name2)';
             local.value.playerName1 = 'international';
             local.value.playerName2 = 'username';
             local.value.nameFormat = 'last-first';
         });
-        expectName('User #42', 'User #42');
+        expectName(user.username, `${user.username}#${user.id}`);
         cy.get('.player-name a').should('have.attr', 'href', '#/player/42');
     });
 
@@ -224,6 +224,27 @@ describe('PlayerName', () => {
         });
         expectName('Mines, Alicia');
         cy.get('@fetchUser.all').should('have.length', 1);
+    });
+
+    it('breaks only between the two names in the combined format', () => {
+        mockUserInfo();
+        cy.then(() => {
+            local.value.playerNameFormat = 'name1 (name2)';
+            local.value.playerName1 = 'realname';
+            local.value.playerName2 = 'international';
+        });
+        mountPlayerName(user.id);
+        expectName('Alice (Alicia Mines)');
+        cy.get('.player-badge-pair').should('have.css', 'white-space', 'normal');
+        cy.get('.player-badge-chunk').eq(0).should('have.text', 'Alice').and('have.css', 'white-space', 'nowrap');
+        cy.get('.player-badge-chunk').eq(1).should('have.text', '(Alicia Mines)').and('have.css', 'white-space', 'nowrap');
+
+        cy.then(() => {
+            local.value.playerNameFormat = 'name1';
+        });
+        expectName('Alice');
+        cy.get('.player-badge-pair').should('not.exist');
+        cy.get('.player-badge-name').should('have.css', 'white-space', 'nowrap');
     });
 
     it('falls back to the username for a missing primary name and omits an empty secondary name', () => {

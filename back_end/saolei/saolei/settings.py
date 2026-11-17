@@ -308,7 +308,7 @@ SESSION_CACHE_ALIAS = 'saolei_website'
 # GitHub OAuth App: public identity linking only, no stored access token.
 GITHUB_OAUTH_CLIENT_ID = _read_project_secret('github_oauth_client_id')
 GITHUB_OAUTH_CLIENT_SECRET = _read_project_secret('github_oauth_client_secret')
-GITHUB_OAUTH_REDIRECT_URI = _read_project_secret('github_oauth_redirect_uri')
+GITHUB_OAUTH_REDIRECT_URI = 'https://openms.top/api/accountlink/github/callback'
 GITHUB_OAUTH_FRONTEND_URL = os.environ.get('GITHUB_OAUTH_FRONTEND_URL', 'http://localhost:8080' if DEBUG else 'https://openms.top')
 
 

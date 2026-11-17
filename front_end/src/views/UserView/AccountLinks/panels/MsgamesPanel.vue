@@ -48,6 +48,15 @@
                     </div>
                 </dl>
             </div>
+            <div v-if="ownsAccount" class="profile-refresh">
+                <BaseButton size="small" @click="updateLink()">
+                    {{ t('local.refreshProfile') }}
+                </BaseButton>
+                <IconTaskStatus :status="taskStatus" />
+                <span class="text-danger text-small">
+                    {{ errorMsg }}
+                </span>
+            </div>
             <BaseButton v-if="ownsAccount" size="small" @click="queueVisible = true">
                 {{ t('local.videos') }}
             </BaseButton>
@@ -66,11 +75,17 @@ import { ElDialog } from 'element-plus';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
+import { useActivePanel } from '../useActivePanel';
+
 import MSGamesVideoImportQueue from '@/components/accountlinks/MSGamesVideoImportQueue.vue';
 import UnverifiedNotice from '@/components/accountlinks/UnverifiedNotice.vue';
 import BaseButton from '@/components/common/BaseButton.vue';
+import IconTaskStatus from '@/components/common/IconTaskStatus.vue';
+import { httpErrorNotification } from '@/components/Notifications';
+import { getAccountLinkUpdateErrorMessageKey, updateAccountLink } from '@/services/accountLinkService';
 import { store } from '@/store';
-import { AccountMSGames } from '@/utils/accountlinks';
+import { AccountLinkPlatform, AccountMSGames } from '@/utils/accountlinks';
+import type { TaskStatus } from '@/utils/common/structInterface';
 import { toISODateTimeString } from '@/utils/datetime';
 
 const props = defineProps({
@@ -78,14 +93,39 @@ const props = defineProps({
     info: { type: AccountMSGames, default: () => new AccountMSGames() },
 });
 
+const emit = defineEmits(['refresh']);
+const isActive = useActivePanel();
 const queueVisible = ref(false);
+const taskStatus = ref<TaskStatus>('');
+const errorMsg = ref('');
+const targetUserId = computed(() => (store.isMemorialProfileAdmin ? store.player.id : undefined));
 // 纪念账号无法登录，管理员在其主页上视同本人；关联账号必须属于当前主页的用户。
 const ownsAccount = computed(() => store.user.id > 0 && (
     store.user.id === props.info.parent
     || (store.isMemorialProfileAdmin && store.player.id === props.info.parent)
 ));
+
+async function updateLink() {
+    if (taskStatus.value === 'loading') return;
+    taskStatus.value = 'loading';
+    await updateAccountLink(AccountLinkPlatform.MSGames, targetUserId.value).then(function (data) {
+        if (!isActive()) return;
+        errorMsg.value = '';
+        taskStatus.value = data.type;
+        if (data.type === 'success') emit('refresh');
+        if (data.type === 'error') {
+            errorMsg.value = t('accountlink.updateError.title') + t('punct.colon') + t(getAccountLinkUpdateErrorMessageKey(data.category));
+        }
+    }).catch(function (error: unknown) {
+        if (!isActive()) return;
+        errorMsg.value = '';
+        taskStatus.value = 'error';
+        httpErrorNotification(error);
+    });
+}
+
 const { t } = useI18n({ messages: {
-    'zh-cn': { local: { country: '国家', region: '地区', hand: '惯用手', mouse: '鼠标', videos: '录像列表与导入', profilePending: '账号已绑定，资料暂缺，可稍后刷新。' } },
-    en: { local: { country: 'Country', region: 'Region', hand: 'Hand', mouse: 'Mouse', videos: 'Videos and import', profilePending: 'Account linked. Profile details are unavailable; try refreshing later.' } },
+    'zh-cn': { local: { country: '国家', region: '地区', hand: '惯用手', mouse: '鼠标', videos: '录像列表与导入', profilePending: '账号已绑定，资料暂缺，可稍后刷新。', refreshProfile: '刷新资料' } },
+    en: { local: { country: 'Country', region: 'Region', hand: 'Hand', mouse: 'Mouse', videos: 'Videos and import', profilePending: 'Account linked. Profile details are unavailable; try refreshing later.', refreshProfile: 'Refresh profile' } },
 } });
 </script>

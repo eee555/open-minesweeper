@@ -1,6 +1,9 @@
 <template>
     <div v-if="canEdit" class="layout-stack user-settings">
         <section class="card">
+            <PlayerVerification :user-id="user.id" />
+        </section>
+        <section class="card">
             <EditProfile :key="user.id" v-model:user="user" :exp-time-ms="store.expTimeMs" :qualification-status="store.qualificationStatus">
                 <template #heading>
                     <h2 class="text-large">
@@ -33,6 +36,7 @@ import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 
 import EditProfile from './EditProfile.vue';
+import PlayerVerification from './PlayerVerification.vue';
 import ProfileQualification from './ProfileQualification.vue';
 
 import BaseOverlay from '@/components/common/BaseOverlay.vue';

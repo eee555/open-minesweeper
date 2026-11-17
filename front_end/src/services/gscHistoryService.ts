@@ -10,11 +10,11 @@ export interface IdentifierBinding {
     bound: boolean;
 }
 
-export async function fetchGSCHistory(order: number): Promise<{ tournamentId: number; endTime: Date; participants: GSCParticipant[] }> {
-    const { data } = await $axios.get<{ id: number; end_time: string | null }>('/api/tournament/gsc/admin-info', { params: { order } });
+export async function fetchGSCHistory(order: number): Promise<{ tournamentId: number; hostId: number | null; endTime: Date; participants: GSCParticipant[] }> {
+    const { data } = await $axios.get<{ id: number; host_id: number | null; end_time: string | null }>('/api/tournament/gsc/admin-info', { params: { order } });
     if (data.end_time === null) throw new Error('Tournament end time is not set.');
     const participants = await fetchGSCResults(data.id);
-    return { tournamentId: data.id, endTime: new Date(data.end_time), participants };
+    return { tournamentId: data.id, hostId: data.host_id, endTime: new Date(data.end_time), participants };
 }
 
 export async function prepareGSCHistory(order: number, userId: number): Promise<GSCParticipantResponse> {

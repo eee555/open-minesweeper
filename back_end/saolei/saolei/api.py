@@ -21,6 +21,7 @@ from speedranking.api import router as speedranking_router
 from tournament.api import router as tournament_router
 from tournament.gsc.api import router as tournament_gsc_router
 from tournament.weekly.api import router as tournament_weekly_router
+from tournament.weekly_eff.api import router as tournament_weekly_eff_router
 from userprofile.api import router as userprofile_router
 from utils.exceptions import ExceptionToResponse
 from videomanager.api import router as videomanager_router
@@ -48,6 +49,7 @@ api.add_router('/minigame/', minigame_router)
 api.add_router('/tournament/', tournament_router)
 api.add_router('/tournament/gsc/', tournament_gsc_router)
 api.add_router('/tournament/weekly/', tournament_weekly_router)
+api.add_router('/tournament/weekly-eff/', tournament_weekly_eff_router)
 
 
 @api.exception_handler(ExceptionToResponse)

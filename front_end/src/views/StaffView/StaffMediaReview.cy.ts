@@ -61,7 +61,7 @@ describe('<StaffMediaReview />', () => {
         cy.contains('button', 'Hard delete').should('exist');
     });
 
-    it('keeps the verified work selected after approving a pending one', () => {
+    it('stays on the pending list after approving a pending work', () => {
         const pendingWork = { ...verifiedWork, id: 8, status: 'pending', title: 'Pending work' };
         cy.intercept({ method: 'GET', pathname: '/api/media/pending' }, {
             body: { items: [pendingWork], total: 1, start: 0, anchor },
@@ -81,9 +81,10 @@ describe('<StaffMediaReview />', () => {
         cy.get('[data-cy=review-identity-confirmed]').should('exist');
         cy.contains('button', /^\s*Verify\s*$/).click();
         cy.wait('@verify').its('request.body').should('deep.equal', { id: 8 });
-        cy.wait('@latest');
-        cy.contains('.media-review-form', '#7').should('exist');
-        cy.contains('button', 'Hard delete').should('exist');
+        cy.wait('@pending');
+        cy.get('@latest.all').should('have.length', 0);
+        cy.contains('button', 'Pending').should('have.attr', 'aria-pressed', 'true');
+        cy.contains('.media-review-form').should('not.exist');
     });
 
     it('still requires the external author id for a degraded submission', () => {

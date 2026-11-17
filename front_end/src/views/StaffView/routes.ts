@@ -12,6 +12,11 @@ export const staffRoutes: RouteRecordRaw[] = [
         component: () => import('./UserProfile.vue'),
     },
     {
+        path: 'verification-graph',
+        name: 'staff-verification-graph',
+        component: () => import('./VerificationGraph.vue'),
+    },
+    {
         path: 'videomodel',
         name: 'staff-videomodel',
         component: () => import('./VideoModel.vue'),

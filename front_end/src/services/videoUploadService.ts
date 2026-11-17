@@ -19,7 +19,6 @@ export interface VideoUploadSuccessResponse {
 export interface VideoUploadErrorResponse {
     type: 'error';
     object?: string;
-    obj?: string;
     category?: string;
 }
 
@@ -31,7 +30,7 @@ export interface VideoUploadSuccessResult {
     state: MS_ServerState;
 }
 
-export type VideoUploadErrorStatus = 'collision' | 'censorship' | 'incomplete' | 'quota' | 'upload';
+export type VideoUploadErrorStatus = 'collision' | 'censorship' | 'incomplete' | 'identity' | 'quota' | 'upload';
 
 export interface VideoUploadErrorResult {
     type: 'error';
@@ -55,12 +54,15 @@ export function normalizeVideoUploadResponse(response: VideoUploadResponse): Vid
     if (response.object === 'identifier') {
         return { type: 'error', status: 'censorship' };
     }
+    if (response.object === 'userprofile' && response.category === 'identity_access_required') {
+        return { type: 'error', status: 'identity' };
+    }
     return { type: 'error', status: 'upload' };
 }
 
 export async function uploadVideoFile(file: File): Promise<VideoUploadResult> {
     try {
-        const { data } = await $axios.post<VideoUploadResponse>('/common/uploadvideo/', Dict2FormData({ file }));
+        const { data } = await $axios.post<VideoUploadResponse>('/api/common/uploadvideo', Dict2FormData({ file }));
         const result = normalizeVideoUploadResponse(data);
         if (result.type === 'success') syncMedalsAfterUpload();
         return result;

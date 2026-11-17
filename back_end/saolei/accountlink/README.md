@@ -42,9 +42,26 @@ GitHub 使用 OAuth App 网页授权，只关联已有 OpenMS 账号，不提供
 
 ### 配置与部署
 
-部署需安装 `Authlib==1.9.1`，由部署脚本自动生成并执行结构迁移，配置服务器 `secrets.json` 的 `github_oauth_client_id`、`github_oauth_client_secret`、`github_oauth_redirect_uri`。这些凭证由 Django settings 启动时读取，修改后需重启 Web 进程。回调路径必须精确为 `/api/accountlink/github/callback`，生产使用 HTTPS；与 GitHub OAuth App 登记值一致，不启用回调通配。开发环境应使用独立应用，保持登录后端与回调主机名一致；前端返回地址由环境变量 `GITHUB_OAUTH_FRONTEND_URL` 配置，默认开发 `http://localhost:8080`、生产 `https://openms.top`，不接受来自授权请求的任意返回地址。不扩展公共 CORS。
+部署需安装 `Authlib==1.9.1`，由部署脚本自动生成并执行结构迁移，配置服务器 `secrets.json` 的 `github_oauth_client_id`、`github_oauth_client_secret`。这两项由 Django settings 启动时读取，修改后需重启 Web 进程。回调地址由代码常量 `GITHUB_OAUTH_REDIRECT_URI` 固定为 `https://openms.top/api/accountlink/github/callback`，不从 secrets 读取；GitHub OAuth App 登记值须与此完全一致，不启用回调通配。开发环境应使用独立应用，并将该常量改为对应的开发回调地址，保持登录后端与回调主机名一致；前端返回地址由环境变量 `GITHUB_OAUTH_FRONTEND_URL` 配置，默认开发 `http://localhost:8080`、生产 `https://openms.top`，不接受来自授权请求的任意返回地址。不扩展公共 CORS。
 
-`default.conf` 对回调设置 5 秒读取等待；harakiri 沿用原配置。两次外部请求均不重试，使用 1 秒连接、1.5 秒读取空闲超时，不能将它们视为完整调用的硬性总时限。Nginx 关闭该回调的 access log，uWSGI 使用 `donotlog` 路由避免授权 code 进入访问日志；Authlib 禁止 DEBUG 级别日志，应用只记录 ID、受控结果类别或意外异常类型。部署时运行 `nginx -t` 后 reload Nginx，并重启 uWSGI；排查 Nginx 错误日志时仍应遮盖可能出现的回调查询参数。
+`default.conf` 对回调设置 5 秒读取等待；harakiri 沿用原配置。两次外部请求均不重试，使用 1 秒连接、1.5 秒读取空闲超时，不能将它们视为完整调用的硬性总时限。Nginx 关闭该回调的 access log，uWSGI 使用 `donotlog` 路由避免授权 code 进入访问日志；Authlib 禁止 DEBUG 级别日志，应用只记录受控诊断字段。部署时运行 `nginx -t` 后 reload Nginx，并重启 uWSGI；排查 Nginx 错误日志时仍应遮盖可能出现的回调查询参数。
+
+### 授权失败排查
+
+前端 `remote_failed` 只表示授权未完成，不能直接判断凭据或网络出了问题。查看 `logs/accountlink.log` 中 `GitHub upstream failed` 的诊断行，再结合相邻回调行的用户 ID 定位；并发时不要仅凭日志相邻关系断定属于同一次请求。`stage=token` 表示令牌交换，`stage=user` 表示授权者查询；`http_status=None` 表示尚未取得 HTTP 响应。`elapsed_ms` 是失败阶段的耗时，不是完整回调耗时。
+
+| 诊断字段 | 排查方向 |
+| --- | --- |
+| `exception_type=ConnectTimeout` / `ReadTimeout` / `ConnectionError` / `SSLError` | 服务器到对应 GitHub 接口的连接、读取超时或 TLS 问题 |
+| `oauth_error=incorrect_client_credentials` | Client ID 与 Client Secret 是否属于同一个 OAuth App，更新后是否重启了 Web 进程 |
+| `oauth_error=redirect_uri_mismatch` | 代码常量与 OAuth App 登记的回调地址是否一致 |
+| `oauth_error=bad_verification_code` | code 错误、过期或失效，重新点击关联发起完整授权，不刷新旧回调地址 |
+| `oauth_error=unverified_user_email` | GitHub 账号主邮箱是否已验证 |
+| `stage=user http_status=401` / `403` / `429` | 用户信息请求的认证、访问限制或限流问题 |
+| `reason=invalid_identity` | 用户信息响应缺少有效的数字 ID |
+| `reason=invalid_code` | 本站收到的回调缺少 code 或长度无效 |
+
+OAuth 错误码仅记录白名单值，其他值显示 `unknown`。不记录异常消息、`error_description`、响应体、请求头、code、verifier 或 token。补充日志后需重启 Web 进程并重新发起授权，再根据新诊断定位；不要通过打开 Authlib DEBUG 或打印原始响应排查凭据问题。GitHub 错误码说明见[官方故障排查文档](https://docs.github.com/en/apps/oauth-apps/maintaining-oauth-apps/troubleshooting-oauth-app-access-token-request-errors)。
 
 ### 回归与联调
 

@@ -39,6 +39,12 @@
 - 前端播放器 `flop-player` 需要单独下载并解压到 `front_end/public/flop/`，否则录像播放相关页面不可用。
 - 依赖版本在 `requirements.txt` / `requirements-wheels.txt` / `package.json` 中固定，升级请单独走 PR。
 
+## 分支管理
+- 直接在本地分支上修改，由用户进行提交推送，这是默认情况。
+- 创建一个新worktree，基于`https://github.com/eee555/open-minesweeper/tree/dev`分支创建新分支，在新分支上修改并自动向dev分支提交PR。不需要在本地运行检查，直接依赖GitHub CI。用户表示任务结束后删除该worktree。当用户要求不修改当前分支时使用此策略
+
+当用户明确提出更详细的方案时，以用户为准。
+
 # 后端代码规范
 
 后端位置：`back_end\saolei`。测试参考：
@@ -110,7 +116,7 @@ APP内引用链条：`utils -> models -> services -> api`
 # 前端代码规范
 
 前端位置：`front_end`。测试参考
-- linter：`.github\workflows\eslint.yml`。由于eslint的插件使用了类型解析，运行用时较长，按下述跨轮工作流处理。
+- linter：`.github\workflows\eslint.yml`。由于eslint的插件使用了类型解析，运行用时较长，请耐心等待。本地执行eslint时使用`npm run lintfix`命令。
 - ts模块：`.github\workflows\vitest.yml`
 - vue组件：`.github\workflows\cypress.yml`
 - e2e：`.github\workflows\CypressE2E.yml`
@@ -302,11 +308,8 @@ E2E测试速度较慢，请尽量减少初始化与UI操作次数。测试专注
 
 当 AI 运行在 CodeBuddy 环境下时，均按照本节约定执行。CodeBuddy 不是 Codex，通用代码规范仍遵守本文件；「Codex 专用工作流」不适用于本环境，包括 Codex 的分支与远端操作分工、Cypress 沙箱限制和 lintfix/typecheck 跨轮检查安排。E2E 测试（`--e2e` 与 `cypress/e2e` 下的 spec）以及预览/开发服务器仍需用户明确要求，不由助手主动运行。
 
-- Cypress **组件测试可由助手直接运行**，不必等用户代为执行，也不使用 `exec_command` 的沙箱升级机制。习惯用法：
+可以运行静态检查，包括flake8、vue-tsc、eslint。未经用户明确要求，不要执行其他测试，而是由用户提交PR以后，转发GitHub Action的运行结果。收到GitHub Action的报错结果后，如果必须进行本地测试以深度调查，需要征求用户同意。
 
-  ```powershell
-  npx cypress run --component --browser chrome --headless --spec "src/views/HomeView/HomeView.cy.ts"
-  ```
+面对审核意见时，需先评估该意见是否正确合理。可以拒绝修改并提供理由。
 
-- Vite 冷启动若要清空 `node_modules/.vite/deps`，IDE 的 safe-delete 守卫会因文件数超过阈值而拦截。把该目录**改名保留**（`Rename-Item`，不删除）即可让 Vite 重建缓存；不要绕过守卫，也不要为组件测试申请沙箱外运行审批。
-- 依赖重建会出现 `optimized dependencies changed. reloading`，首次运行可能让 `cy.then(() => import(...))` 在 4s 内超时；缓存稳定后重跑一次即可，不要为此改测试代码或放宽超时。
+遇到用户的指令模糊或自相矛盾时，需要先询问用户以澄清意图。

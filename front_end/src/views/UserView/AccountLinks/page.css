@@ -26,6 +26,13 @@
     margin-top: 6px;
 }
 
+.profile-refresh {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
 .account-link-form {
     display: flex;
     flex-direction: column;

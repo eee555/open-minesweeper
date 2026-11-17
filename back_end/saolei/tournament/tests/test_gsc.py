@@ -96,7 +96,7 @@ class TestGsc(TournamentTestCaseBase):
         self.assertEqual(participants_data[0]['id'], participant.id)
         self.assertEqual(participants_data[0]['arbiter_identifier__identifier'], identifier_text)
 
-    def test_gsc_participant_registration_requires_realname(self):
+    def test_gsc_participant_registration_requires_identity_access(self):
         self.client.force_login(self.user)
 
         response = self.client.post('/api/tournament/gsc/participant', {
@@ -106,8 +106,8 @@ class TestGsc(TournamentTestCaseBase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {
             'type': 'error',
-            'obj': 'userprofile',
-            'category': 'realname_required',
+            'object': 'userprofile',
+            'category': 'identity_access_required',
         })
         self.assertFalse(GSCParticipant.objects.filter(tournament=self.tournament, user=self.user).exists())
 

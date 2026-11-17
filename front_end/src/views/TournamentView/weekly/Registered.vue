@@ -29,7 +29,7 @@
             </td>
             <td v-if="canManage" class="registered-actions">
                 <BaseButton
-                    v-if="!row.has_videos" type="danger" plain :aria-label="t('local.deleteParticipant')"
+                    v-if="!row.has_videos && row.end_time && globalNow > row.end_time" type="danger" plain :aria-label="t('local.deleteParticipant')"
                     :disabled="deleting" data-cy="delete-participant" @click="requestDeletion(row)"
                 >
                     <BaseIconDelete />
@@ -69,8 +69,8 @@ import BaseTable from '@/components/common/BaseTable.vue';
 import { BaseIconDelete } from '@/components/common/icon';
 import { actionSuccessNotification, httpErrorNotification } from '@/components/Notifications';
 import PlayerName from '@/components/PlayerName.vue';
-import { deleteParticipant } from '@/services/tournamentService';
-import { toISODateTimeString } from '@/utils/datetime';
+import { resetParticipant } from '@/services/tournamentService';
+import { globalNow, toISODateTimeString } from '@/utils/datetime';
 import type { TournamentParticipant } from '@/utils/tournaments';
 
 const props = defineProps({
@@ -95,7 +95,7 @@ async function confirmDeletion() {
     const participantId = selectedParticipant.value.id;
     deleting.value = true;
     try {
-        await deleteParticipant(participantId);
+        await resetParticipant(participantId);
         emit('deleted', participantId);
         dialogVisible.value = false;
         actionSuccessNotification();
@@ -110,14 +110,14 @@ const i18nMessages = {
     'zh-cn': { local: {
         interval: '参赛时间区间',
         token: '比赛标识',
-        deleteParticipant: '删除参赛者',
-        confirmDeletion: '确定删除该参赛者吗？',
+        deleteParticipant: '重置报名',
+        confirmDeletion: '确定重置该报名吗？该选手随后可重新开始参赛。',
     } },
     en: { local: {
         interval: 'Session interval',
         token: 'Tournament token',
-        deleteParticipant: 'Delete participant',
-        confirmDeletion: 'Delete this participant?',
+        deleteParticipant: 'Reset registration',
+        confirmDeletion: 'Reset this registration so the player can start a new session?',
     } },
 };
 

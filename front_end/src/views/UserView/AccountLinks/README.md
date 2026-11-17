@@ -32,10 +32,10 @@ GitHub 使用 `linking/GitHubLink.vue` 发起 OAuth，回到本人的关联页�
 | Mineracer | [官网 SVG favicon](https://mineracer.com/favicon.svg) |
 | 95 经典扫雷 | 已有本地 `Classic95Icon` |
 | QQ | [QQ 互联标识](https://wiki.connect.qq.com/wp-content/uploads/2013/10/03_qq_symbol-1-250x300.png) |
-| Discord | [Font Awesome Free Brands 6.7.2，经 npmmirror 加载](https://registry.npmmirror.com/@fortawesome/fontawesome-free/6.7.2/files/svgs/brands/discord.svg) |
-| GitHub | [Font Awesome Free Brands 6.7.2，经 npmmirror 加载](https://registry.npmmirror.com/@fortawesome/fontawesome-free/6.7.2/files/svgs/brands/github.svg) |
+| Discord | [Font Awesome Free Brands 6.7.2，经 jsDelivr 加载](https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/svgs/brands/discord.svg) |
+| GitHub | [Font Awesome Free Brands 6.7.2，经 jsDelivr 加载](https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/svgs/brands/github.svg) |
 
-外链图标不下载到项目素材目录。Discord 使用 CSS mask 随主题着色，其 Font Awesome 图标按 [CC BY 4.0](https://fontawesome.com/license/free) 授权，品牌商标归各自所有者。中国大陆真实网络下的加载及显示效果仍需人工确认。
+外链图标不下载到项目素材目录。GitHub / Discord 使用 CSS mask 随主题着色，必须由 CDN 返回 `Access-Control-Allow-Origin`，否则浏览器会拦截跨域遮罩；npmmirror 未设置该响应头，因此改用 jsDelivr。图标按 [CC BY 4.0](https://fontawesome.com/license/free) 授权，品牌商标归各自所有者。中国大陆真实网络下的加载及显示效果仍需人工确认。
 
 ## 组件测试
 

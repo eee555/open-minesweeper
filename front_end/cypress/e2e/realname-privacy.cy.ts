@@ -16,7 +16,6 @@ interface Profile {
     realname: string;
     firstname: string;
     lastname: string;
-    can_hide_realname: boolean;
     hide_realname: boolean;
 }
 
@@ -53,9 +52,9 @@ function editEligibility(id: number, eligible: boolean) {
     cy.contains('button', '查询').click();
     cy.wait('@staffDetail').its('response.statusCode').should('eq', 200);
     cy.get('textarea[data-cy=staff-profile-json]').clear();
-    cy.get('textarea[data-cy=staff-profile-json]').type(JSON.stringify({ can_hide_realname: eligible }), { parseSpecialCharSequences: false });
+    cy.get('textarea[data-cy=staff-profile-json]').type(JSON.stringify({ verified: eligible }), { parseSpecialCharSequences: false });
     cy.get('[data-cy=staff-save-profile]').click();
-    cy.wait('@staffSave').its('response.body.can_hide_realname').should('eq', eligible);
+    cy.wait('@staffSave').its('response.body.verified').should('eq', eligible);
     cy.closeElNotifications();
 }
 
@@ -114,15 +113,15 @@ describe('Real name privacy against the backend', () => {
         cy.get('[data-cy=hide-realname-toggle]').should('not.exist');
         cy.get('input[data-cy=name-realname]').type('拒绝测试姓名');
         cy.get('[data-cy=hide-realname-toggle]').should('not.exist');
-        cy.request({ method: 'POST', url: `${BACKEND}/api/userprofile/update_profile`, form: true, body: { realname: '拒绝测试姓名', hide_realname: true, can_hide_realname: true } }).its('body.realname.type').should('eq', 'error');
-        self().its('body').should('include', { realname: '匿名', can_hide_realname: false, hide_realname: false });
+        cy.request({ method: 'POST', url: `${BACKEND}/api/userprofile/update_profile`, form: true, body: { realname: '拒绝测试姓名', hide_realname: true } }).its('body.realname.type').should('eq', 'error');
+        self().its('body').should('include', { realname: '匿名', verified: false, hide_realname: false });
     });
 
     it('grants through the staff page and saves a new name with hiding in one request', () => {
         const user = USERS.initial;
         editEligibility(user.id, true);
         cy.login(user.username, user.password);
-        self().its('body').should('include', { can_hide_realname: true, hide_realname: false });
+        self().its('body').should('include', { verified: true, hide_realname: false });
         cy.visitUser(user.id, 'settings');
         cy.get('[data-cy=hide-realname-toggle]').should('not.exist');
         cy.get('input[data-cy=name-realname]').type('隐藏测试姓名');
@@ -135,7 +134,7 @@ describe('Real name privacy against the backend', () => {
         });
         cy.get('[data-cy=real-name-section] [data-cy=hide-realname-toggle]').should('be.checked');
         self().its('body').should('include', { realname: '隐藏测试姓名', hide_realname: true });
-        cy.get('.profile:visible').should('contain.text', `用户 #${user.id}`).and('not.contain.text', '隐藏测试姓名').and('not.contain.text', user.username);
+        cy.get('.profile:visible').should('contain.text', user.username).and('not.contain.text', '隐藏测试姓名');
         publicNames(user.id, 'hidden');
         cy.visitUser(user.id, 'upload');
         cy.contains('请修改为实名').should('not.exist');
@@ -143,7 +142,7 @@ describe('Real name privacy against the backend', () => {
 
         cy.clearCookies();
         cy.visitUser(user.id);
-        cy.get('.profile:visible').should('contain.text', `用户 #${user.id}`).and('not.contain.text', '隐藏测试姓名');
+        cy.get('.profile:visible').should('contain.text', user.username).and('not.contain.text', '隐藏测试姓名');
         publicNames(user.id, 'hidden');
         cy.intercept('GET', '**/api/video/query*').as('videoQuery');
         cy.visit('/#/database/videos');
@@ -155,13 +154,13 @@ describe('Real name privacy against the backend', () => {
             expect(body?.videos.find((row) => row.player_id === user.id)?.player__realname).to.eq('hidden');
         });
         showPlayerColumn();
-        cy.get(`.player-name a[href="#/player/${user.id}"]`).should('have.text', `用户 #${user.id}`).closest('.player-name').should('have.attr', 'title', `用户 #${user.id}`);
+        cy.get(`.player-name a[href="#/player/${user.id}"]`).should('have.text', user.username).closest('.player-name').should('have.attr', 'title', `${user.username}#${user.id}`);
     });
 
     it('persists later toggles and lets an administrator revoke eligibility', () => {
         const user = USERS.toggle;
         cy.login(STAFF.username, STAFF.password);
-        staffPatch(user.id, { can_hide_realname: true });
+        staffPatch(user.id, { verified: true });
         cy.login(user.username, user.password);
         privacy(true);
         cy.visitUser(user.id, 'settings');
@@ -176,7 +175,7 @@ describe('Real name privacy against the backend', () => {
         cy.reload();
         cy.get('[data-cy=hide-realname-toggle]').should('be.checked');
         editEligibility(user.id, false);
-        cy.request<Profile>(`${BACKEND}/api/userprofile/admin/detail/${user.id}`).its('body').should('include', { realname: user.realname, can_hide_realname: false, hide_realname: false });
+        cy.request<Profile>(`${BACKEND}/api/userprofile/admin/detail/${user.id}`).its('body').should('include', { realname: user.realname, verified: false, hide_realname: false });
         cy.visitUser(user.id);
         publicNames(user.id, user.realname);
         cy.login(user.username, user.password);
@@ -189,7 +188,7 @@ describe('Real name privacy against the backend', () => {
         const user = USERS.cached;
         let videos: VideoQueryRow[] = [];
         cy.login(STAFF.username, STAFF.password);
-        staffPatch(user.id, { can_hide_realname: true });
+        staffPatch(user.id, { verified: true });
         cy.login(user.username, user.password);
         cy.intercept({ method: 'GET', pathname: '/api/video/query' }).as('cachedUserVideos');
         cy.visit('/#/database/videos', {
@@ -218,53 +217,21 @@ describe('Real name privacy against the backend', () => {
         cy.get('[data-cy=privacy-save-status]').should('contain.text', '隐藏设置已保存');
         navigate('#/database/videos');
         cy.wait('@publicBatch').its('response.statusCode').should('eq', 200);
-        cy.get(`.player-name a[href="#/player/${user.id}"]`).should('have.text', `用户 #${user.id}`);
+        cy.get(`.player-name a[href="#/player/${user.id}"]`).should('have.text', user.username);
         cachedName(user.id).should('eq', 'hidden');
         cy.reload();
-        cy.get(`.player-name a[href="#/player/${user.id}"]`).should('have.text', `用户 #${user.id}`);
+        cy.get(`.player-name a[href="#/player/${user.id}"]`).should('have.text', user.username);
         cachedName(user.id).should('eq', 'hidden');
-    });
-
-    it('grants only on a new MSGames verification, preserves eligibility on unlink, and does not regrant on retry', () => {
-        const user = USERS.linked;
-        const binding = { id: user.id, platform: 'a', identifier: '2147483000' };
-        cy.login(user.username, user.password);
-        cy.request({ method: 'POST', url: `${BACKEND}/api/accountlink/create/`, form: true, body: binding });
-        self().its('body.can_hide_realname').should('eq', false);
-        cy.login(STAFF.username, STAFF.password);
-        cy.intercept('POST', '**/api/accountlink/verify/').as('verify');
-        cy.visit('/#/staff/accountlink');
-        cy.contains('.el-form-item__label', '用户 ID').next().find('input').clear();
-        cy.contains('.el-form-item__label', '用户 ID').next().find('input').type(String(user.id));
-        cy.contains('.el-form-item__label', /^平台$/).next().find('select').select(binding.platform);
-        cy.contains('.el-form-item__label', '平台 ID').next().find('input').type(binding.identifier);
-        cy.contains('button', /^\s*绑定\s*$/).click();
-        cy.wait('@verify').its('response').should('include', { statusCode: 200, body: '' });
-        cy.login(user.username, user.password);
-        self().its('body').should('include', { can_hide_realname: true, hide_realname: false });
-        privacy(true);
-        cy.request(`${BACKEND}/api/accountlink/${user.id}`).its('body.a').should('include', { name: 'MSGames Fixture', local_name: '关联姓名' });
-        cy.login(STAFF.username, STAFF.password);
-        staffPatch(user.id, { can_hide_realname: false });
-        cy.adminRequest({ method: 'POST', url: `${BACKEND}/api/accountlink/verify/`, form: true, body: binding });
-        cy.login(user.username, user.password);
-        self().its('body').should('include', { can_hide_realname: false, hide_realname: false });
-        cy.login(STAFF.username, STAFF.password);
-        staffPatch(user.id, { can_hide_realname: true });
-        cy.login(user.username, user.password);
-        privacy(true);
-        cy.request({ method: 'POST', url: `${BACKEND}/api/accountlink/delete/`, form: true, body: { platform: 'a' } });
-        self().its('body').should('include', { can_hide_realname: true, hide_realname: true });
     });
 
     it('leaves existing MSGames users ungranted until an administrator manually grants eligibility', () => {
         const user = USERS.existing;
         cy.login(user.username, user.password);
-        self().its('body').should('include', { can_hide_realname: false, hide_realname: false });
+        self().its('body').should('include', { verified: false, hide_realname: false });
         cy.request({ method: 'POST', url: `${BACKEND}/api/accountlink/update/`, form: true, body: { platform: 'a' } });
-        self().its('body.can_hide_realname').should('eq', false);
+        self().its('body.verified').should('eq', false);
         editEligibility(user.id, true);
         cy.login(user.username, user.password);
-        self().its('body').should('include', { can_hide_realname: true, hide_realname: false });
+        self().its('body').should('include', { verified: true, hide_realname: false });
     });
 });

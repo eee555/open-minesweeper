@@ -24,6 +24,8 @@ class UserProfile(AbstractUser):
 
     date_updated = models.DateTimeField(auto_now=True)
     is_memorial = models.BooleanField(default=False)
+    # 当前有效的玩家认证结果。不表示已实名，也不表示管理身份。
+    verified = models.BooleanField(default=False)
 
     username = models.CharField(
         _('username'),
@@ -56,7 +58,6 @@ class UserProfile(AbstractUser):
     # 考虑了中英文、俄罗斯用户名字，长度需要达到100（虽然还不够）
     _realname = models.CharField(
         db_column='realname', max_length=MaxSizes.REALNAME, unique=False, blank=True, default='匿名', null=False)
-    can_hide_realname = models.BooleanField(default=False)
     hide_realname = models.BooleanField(default=False)
     # 头像
     avatar = RestrictedImageField(upload_to='avatar/%Y%m%d/', max_length=100,
@@ -119,7 +120,7 @@ class UserProfile(AbstractUser):
 
     @property
     def is_name_hidden(self) -> bool:
-        return self.has_realname() and self.can_hide_realname and self.hide_realname
+        return self.has_realname() and self.verified and self.hide_realname
 
     @property
     def realname(self):
@@ -163,3 +164,21 @@ class EmailVerifyRecord(models.Model):
 
     def __unicode__(self):
         return '{0}({1})'.format(self.code, self.email)
+
+
+class UserVerifyEdge(models.Model):
+    """当前存在的玩家认证有向边，方向为「认证人 → 被认证人」。不保存申请、状态或历史。
+
+    用户可以有多条入边和多条出边，反向边与环都是独立且合法的关系；
+    用户当前的有效认证结果只保存在 ``UserProfile.verified``。
+    """
+
+    from_user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='verify_out_edges')
+    to_user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='verify_in_edges')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['from_user', 'to_user'], name='verify_edge_unique'),
+            models.CheckConstraint(condition=~models.Q(from_user=models.F('to_user')), name='verify_edge_no_self'),
+        ]

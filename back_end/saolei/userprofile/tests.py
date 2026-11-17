@@ -213,9 +213,9 @@ class RealnamePrivacyTests(TestCase):
 
     def setUp(self):
         UserProfileAdminApiTests.setUp(self)
-        self.user.can_hide_realname = True
+        self.user.verified = True
         self.user.hide_realname = True
-        self.user.save(update_fields=['can_hide_realname', 'hide_realname'])
+        self.user.save(update_fields=['verified', 'hide_realname'])
 
     def privacy(self, hide):
         return self.client.post('/api/userprofile/name-privacy', {'hide_realname': hide})
@@ -240,12 +240,12 @@ class RealnamePrivacyTests(TestCase):
         self.client.force_login(self.user)
         response = self.client.get('/api/userprofile/info/0')
         self.assertEqual(response.json()['realname'], '旧名')
-        self.assertTrue(response.json()['can_hide_realname'])
+        self.assertTrue(response.json()['verified'])
         self.assertTrue(response.json()['hide_realname'])
         with patch('common.api.TopRankingCache.get_anchors', return_value={}):
             response = self.client.get('/api/common/loginauto')
         self.assertEqual(response.json()['user']['realname'], '旧名')
-        self.assertTrue(response.json()['user']['can_hide_realname'])
+        self.assertTrue(response.json()['user']['verified'])
         self.assertTrue(response.json()['user']['hide_realname'])
         self.client.force_login(self.staff)
         response = self.client.get(f'/api/userprofile/admin/detail/{self.user.pk}')
@@ -271,7 +271,7 @@ class RealnamePrivacyTests(TestCase):
         self.user.refresh_from_db()
         self.assertTrue(self.user.hide_realname)
         self.client.force_login(self.staff)
-        response = self.patch_update(self.user.pk, {'can_hide_realname': False})
+        response = self.patch_update(self.user.pk, {'verified': False})
         self.assertFalse(response.json()['hide_realname'])
         self.client.force_login(self.user)
         response = self.privacy(True)
@@ -279,12 +279,12 @@ class RealnamePrivacyTests(TestCase):
         self.assertEqual(response.json(), {'type': 'error', 'object': 'privacy', 'category': 'not_authorized'})
         self.assertEqual(self.privacy(False).json(), {'hide_realname': False})
         self.client.force_login(self.staff)
-        self.patch_update(self.user.pk, {'can_hide_realname': True})
+        self.patch_update(self.user.pk, {'verified': True})
         self.client.force_login(self.user)
         self.privacy(True)
         self.client.force_login(self.staff)
         response = self.patch_update(self.user.pk, {'realname': ''})
-        self.assertTrue(response.json()['can_hide_realname'])
+        self.assertTrue(response.json()['verified'])
         self.assertFalse(response.json()['hide_realname'])
         self.client.force_login(self.user)
         response = self.privacy(True)
@@ -313,16 +313,16 @@ class RealnamePrivacyTests(TestCase):
 
     def test_failed_privacy_or_name_validation_rolls_back_names(self):
         self.user._realname = '匿名'
-        self.user.can_hide_realname = False
+        self.user.verified = False
         self.user.hide_realname = False
-        self.user.save(update_fields=['_realname', 'can_hide_realname', 'hide_realname'])
+        self.user.save(update_fields=['_realname', 'verified', 'hide_realname'])
         self.client.force_login(self.user)
         with patch('userprofile.services.verify_text', return_value=True):
-            response = self.client.post('/api/userprofile/update_profile', {'realname': '首次实名', 'hide_realname': True, 'can_hide_realname': True})
+            response = self.client.post('/api/userprofile/update_profile', {'realname': '首次实名', 'hide_realname': True})
         self.assertEqual(response.json()['realname']['type'], 'error')
         self.user.refresh_from_db()
         self.assertEqual(self.user._realname, '匿名')
-        self.assertFalse(self.user.can_hide_realname)
+        self.assertFalse(self.user.verified)
         for field in ('realname', 'firstname', 'lastname'):
             with self.subTest(field=field):
                 response = self.client.post('/api/userprofile/update_profile', {field: ' hidden ', 'realname': 'hidden' if field == 'realname' else '首次实名'})

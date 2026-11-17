@@ -36,6 +36,17 @@ class AdminCsrfTests(TestCase):
         self.get_token(self.staff)
         self.get_token(self.superuser)
 
+    def test_verification_set_verified_accepts_superuser_without_is_staff(self):
+        token = self.get_token(self.superuser)
+        response = self.client.post(
+            '/api/userprofile/admin/verification/set-verified',
+            {'user_id': self.superuser.pk, 'verified': True},
+            content_type='application/json',
+            HTTP_X_CSRFTOKEN=token,
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(response.json()['verified'])
+
     def test_all_admin_write_families_reject_missing_tokens_before_processing(self):
         self.client.force_login(self.staff)
         paths = [
@@ -44,8 +55,13 @@ class AdminCsrfTests(TestCase):
             ('post', '/api/identifier/bind'), ('post', '/api/identifier/safe'),
             ('patch', '/api/userprofile/admin/update/1'), ('patch', '/api/msuser/admin/update/1'),
             ('post', '/api/video/newest_queue/remove'), ('post', '/api/video/admin/freeze'),
-            ('post', '/api/video/admin/delete'), ('post', '/api/userprofile/admin/staff'),
+            ('post', '/api/video/admin/unfreeze'), ('post', '/api/video/admin/delete'),
+            ('post', '/api/userprofile/admin/staff'),
             ('post', '/api/userprofile/admin/clear-info'), ('post', '/api/article/admin/refresh'),
+            ('post', '/api/userprofile/admin/verification/set-verified'),
+            ('post', '/api/userprofile/admin/verification/maintenance'), ('delete', '/api/userprofile/admin/verification/maintenance'),
+            ('post', '/api/userprofile/admin/verification/graph-update'),
+
             ('post', '/api/common/admin/memorial/users/1/videos'),
             ('post', '/api/medal/staff/grants'), ('post', '/api/medal/staff/grants/1/revoke'),
             ('post', '/api/medal/staff/rebuild'), ('post', '/api/medal/staff/overrides'),
@@ -54,7 +70,9 @@ class AdminCsrfTests(TestCase):
             ('post', '/api/effranking/thrp/admin/rebuild_record'), ('post', '/api/effranking/nf_ioe/admin/rebuild_record'),
             ('post', '/api/tournament/validate'), ('post', '/api/tournament/allow'), ('post', '/api/tournament/set_staff'),
             ('post', '/api/tournament/weekly/new'), ('post', '/api/tournament/weekly/set'),
-            ('post', '/api/tournament/set'), ('post', '/api/tournament/cancel'), ('delete', '/api/tournament/participant/1'),
+            ('post', '/api/tournament/weekly-eff/new'),
+            ('post', '/api/tournament/set'), ('post', '/api/tournament/cancel'),
+            ('post', '/api/tournament/participant/1/reset'), ('post', '/api/tournament/participant/1/disqualify'),
             ('post', '/api/tournament/gsc/new'), ('post', '/api/tournament/gsc/task/finish'),
             ('post', '/api/tournament/gsc/history/prepare'), ('post', '/api/tournament/gsc/history/participants/1/identifier'),
             ('post', '/api/tournament/gsc/history/participants/1/videos'), ('post', '/api/tournament/gsc/history/scores/users'),

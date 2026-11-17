@@ -2,6 +2,9 @@ from datetime import timedelta
 
 
 TASK_CLEANUP_CONFIGS = [
+    {'task_path': 'tournament.weekly_eff.tasks.task_weekly_eff_finish', 'expires': timedelta(days=30)},
+    {'task_path': 'tournament.weekly_eff.tasks.task_weekly_eff_refresh_best', 'expires': timedelta(days=30)},
+    {'task_path': 'tournament.tasks.task_disqualify_participant', 'expires': timedelta(days=30)},
     {
         'task_path': 'accountlink.saolei.tasks.task_import_saolei_hourly',
         'expires': timedelta(days=7),

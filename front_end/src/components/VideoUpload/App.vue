@@ -1,13 +1,13 @@
 <template>
     <div style="text-align: center;">
-        <BaseFileInput accept=".avf,.evf,.rmv,.mvf" :disabled="isUserAnonymous || isParsing || isUploading" :style="{ height: uploadQueue.length > 0 ? 'auto' : '300px' }" @add="handleFileChange">
-            <FileInputContent :is-user-anonymous="isUserAnonymous" />
-            <template v-if="!isUserAnonymous" #options>
+        <BaseFileInput accept=".avf,.evf,.rmv,.mvf" :disabled="!canSubmitReplays || isParsing || isUploading" :style="{ height: uploadQueue.length > 0 ? 'auto' : '300px' }" @add="handleFileChange">
+            <FileInputContent :can-submit-replays="canSubmitReplays" />
+            <template v-if="canSubmitReplays" #options>
                 <FileInputOptions />
             </template>
         </BaseFileInput>
     </div>
-    <ToolBar v-if="uploadQueue.length > 0" v-model:stopping="pleaseStopUploading" :selected="selectedQueue.length" :total="uploadQueue.length" :processing="isWaiting" @upload="uploadSelected" @remove="removeSelected" />
+    <ToolBar v-if="uploadQueue.length > 0 && canSubmitReplays" v-model:stopping="pleaseStopUploading" :selected="selectedQueue.length" :total="uploadQueue.length" :processing="isWaiting" @upload="uploadSelected" @remove="removeSelected" />
     <Progress :parser-progress="parserProgress" :upload-progress="uploadProgress" />
     <Table v-if="uploadQueue.length > 0" v-model:selected-rows="selectedQueue" v-loading="isWaiting" :data="uploadQueue" />
 </template>
@@ -29,8 +29,8 @@ import { local } from '@/store';
 import { ArrayUtils } from '@/utils/arrays';
 import type { VideoAbstract } from '@/utils/videoabstract';
 
-defineProps({
-    isUserAnonymous: { type: Boolean, default: true },
+const props = defineProps({
+    canSubmitReplays: { type: Boolean, default: false },
 });
 
 const emit = defineEmits<{
@@ -58,7 +58,7 @@ const isWaiting = computed(() => isParsing.value || isUploading.value);
 const pleaseStopUploading = ref(false);
 
 async function handleFileChange(files: File[]) {
-    if (ArrayUtils.isEmpty(files)) return;
+    if (!props.canSubmitReplays || ArrayUtils.isEmpty(files)) return;
 
     parserProgress.value.total = files.length;
     parserProgress.value.parsed = 0;
@@ -83,6 +83,7 @@ async function handleFileChange(files: File[]) {
 }
 
 const forceUpload = async (entry: UploadEntry) => {
+    if (!props.canSubmitReplays) return entry;
     try {
         await uploadEntry(entry, 200);
         if (entry.status === 'success' && entry.stat !== undefined) {
@@ -99,6 +100,7 @@ async function upload_prepare(file: File): Promise<UploadEntry> {
 }
 
 async function uploadSelected() {
+    if (!props.canSubmitReplays) return;
     uploadProgress.value.total = selectedQueue.value.length;
     uploadProgress.value.uploaded = 0;
     uploadProgress.value.failed = 0;

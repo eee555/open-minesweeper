@@ -42,6 +42,7 @@ export interface GetUserInfoResponse {
     is_staff: boolean;
     is_superuser?: boolean;
     is_memorial?: boolean;
+    verified?: boolean;
     country: string;
     signature: string;
     last_change_avatar: string;

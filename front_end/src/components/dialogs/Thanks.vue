@@ -14,6 +14,7 @@
         <PlayerName :user-id="44" />
         <PlayerName :user-id="82" />
         <PlayerName :user-id="114" />
+        <PlayerName :user-id="144" />
     </div>
     <div class="section-label">
         <strong>{{ t('local.software') }}</strong>
@@ -89,6 +90,8 @@ const acknowledgements = [
     { text: 'Vostok' },
     { text: 'Oskain' },
     { text: 'wyw雨' },
+    { text: '·77ャ' },
+    { text: 'When' },
 ];
 
 /* 本地化 Localization */

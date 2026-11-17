@@ -129,7 +129,7 @@ describe('<GSC App />', () => {
         cy.intercept('POST', '**/api/tournament/gsc/participant', { statusCode: 200, body: {} }).as('createGSCParticipant');
 
         cy.contains('button', 'Register').should('be.disabled');
-        cy.contains('Real name required').should('be.visible');
+        cy.contains('Real name or player verification required').should('be.visible');
         cy.contains('Real-Time Score').should('not.exist');
         cy.get('@createGSCParticipant.all').should('have.length', 0);
     });

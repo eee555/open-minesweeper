@@ -7,11 +7,11 @@
             {{ t('gsc.identifierGuide.preparing') }}
         </div>
         <div v-else-if="token === ''">
-            <BaseButton :disabled="store.isUserAnonymous" :loading="registeringParticipant" @click="registerDialogVisible = true">
+            <BaseButton :disabled="!store.canSubmitReplays" :loading="registeringParticipant" @click="registerDialogVisible = true">
                 {{ t('local.register') }}
             </BaseButton>
-            <span v-if="store.isUserAnonymous" class="text-danger">
-                {{ t('msg.realNameRequired') }}
+            <span v-if="!store.canSubmitReplays" class="text-danger">
+                {{ t('msg.identityAccessRequired') }}
             </span>
             <ElDialog v-model="registerDialogVisible">
                 <template #header>
@@ -44,6 +44,7 @@
 import '@/styles/link.css';
 import { ElDialog } from 'element-plus';
 import { ref } from 'vue';
+import type { PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import BaseButton from '@/components/common/BaseButton.vue';
@@ -54,18 +55,19 @@ import { createWeeklyParticipant } from '@/services/tournamentService';
 import { store } from '@/store';
 import { toDate, toISODateTimeString } from '@/utils/datetime';
 import { getDocsUrl } from '@/utils/docs';
-import type { WeeklyParticipant } from '@/utils/weekly';
+import type { TournamentParticipant } from '@/utils/tournaments';
 
 const props = defineProps({
     tournamentId: { type: Number, required: true },
     registrationOpen: { type: Boolean },
+    register: { type: Function as PropType<(id: number) => Promise<TournamentParticipant>>, default: createWeeklyParticipant },
     participant: {
-        type: Object as () => WeeklyParticipant | null,
+        type: Object as () => TournamentParticipant | null,
         default: null,
     },
 });
 const emit = defineEmits<{
-    registered: [participant: WeeklyParticipant];
+    registered: [participant: TournamentParticipant];
 }>();
 
 const token = defineModel('token', { type: String, default: '' });
@@ -77,7 +79,7 @@ const weeklyGuideUrl = getDocsUrl('guide/weekly-tournament');
 
 async function registerParticipant() {
     registeringParticipant.value = true;
-    await createWeeklyParticipant(props.tournamentId).then((participant) => {
+    await props.register(props.tournamentId).then((participant) => {
         actionSuccessNotification();
         token.value = participant.token;
         emit('registered', participant);

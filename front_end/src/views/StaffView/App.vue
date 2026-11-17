@@ -24,6 +24,7 @@ const router = useRouter();
 
 const tabItems = [
     { name: 'userprofile' },
+    { name: 'verification-graph' },
     { name: 'videomodel' },
     { name: 'accountlink' },
     { name: 'identifier' },
@@ -39,7 +40,7 @@ const tabItems = [
     { name: 'medals' },
 ] as const;
 const validTabs = tabItems.map((item) => item.name);
-const visibleTabs = computed(() => tabItems.filter((item) => item.name !== 'medals' || store.user.is_staff));
+const visibleTabs = computed(() => tabItems.filter((item) => (item.name !== 'medals' || store.user.is_staff) && (item.name !== 'verification-graph' || store.user.is_superuser)));
 
 // 根据当前路由路径计算激活的选项卡 name
 const activeTab = computed(() => {
@@ -57,6 +58,7 @@ const i18nMessages = {
     'zh-cn': { local: {
         medals: '勋章管理',
         userprofile: '用户信息',
+        'verification-graph': '认证图维护',
         videomodel: '录像信息',
         accountlink: '账号绑定',
         identifier: '标识管理',
@@ -73,6 +75,7 @@ const i18nMessages = {
     en: { local: {
         medals: 'Medal management',
         userprofile: 'User profiles',
+        'verification-graph': 'Verification graph',
         videomodel: 'Video information',
         accountlink: 'Account links',
         identifier: 'Identifier management',

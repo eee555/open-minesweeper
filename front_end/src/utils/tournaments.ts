@@ -48,7 +48,12 @@ interface WeeklyTournamentData {
     tournament_format: 'c';
 }
 
-type TournamentData = GSCTournamentData | WeeklyTournamentData | Record<string, never>;
+interface WeeklyEffTournamentData {
+    year: number;
+    week: number;
+}
+
+type TournamentData = GSCTournamentData | WeeklyTournamentData | WeeklyEffTournamentData | Record<string, never>;
 
 export interface TournamentInfo {
     [key: string]: unknown;
@@ -126,6 +131,11 @@ export class Tournament {
         return this.data as WeeklyTournamentData;
     }
 
+    public get weeklyEffData(): WeeklyEffTournamentData | undefined {
+        if (this.subclass !== TournamentSubclass.WeeklyEff) return undefined;
+        return this.data as WeeklyEffTournamentData;
+    }
+
     public static localFallback(local: string | undefined): 'zh' | 'en' | undefined {
         if (local === undefined) return undefined;
         if (local === 'zh') return undefined;
@@ -185,8 +195,13 @@ export class Tournament {
                 };
             case TournamentSubclass.Weekly:
                 return {
-                    zh: `${this.weeklyData?.year ?? ''}年第${this.weeklyData?.week ?? ''}周打卡赛`,
-                    en: `Weekly ${this.weeklyData?.year ?? ''}#${this.weeklyData?.week ?? ''}`,
+                    zh: `${this.weeklyData?.year ?? ''}年第${this.weeklyData?.week ?? ''}周竞速打卡赛`,
+                    en: `Speed Weekly ${this.weeklyData?.year ?? ''}#${this.weeklyData?.week ?? ''}`,
+                };
+            case TournamentSubclass.WeeklyEff:
+                return {
+                    zh: `${this.weeklyEffData?.year ?? ''}年第${this.weeklyEffData?.week ?? ''}周效率打卡赛`,
+                    en: `Efficiency Weekly ${this.weeklyEffData?.year ?? ''}#${this.weeklyEffData?.week ?? ''}`,
                 };
             default:
                 return '';

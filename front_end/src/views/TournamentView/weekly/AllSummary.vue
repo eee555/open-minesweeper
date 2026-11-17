@@ -47,6 +47,12 @@
                 {{ ms_to_s(row.classic_score) }}
             </template>
         </ElTableColumn>
+        <!-- @vue-generic {WeeklyParticipant} -->
+        <ElTableColumn v-if="canDisqualify" :label="t('prop.action')">
+            <template #default="{ row }">
+                <DisqualifyParticipant :participant="row" @deleted="emit('deleted', $event)" />
+            </template>
+        </ElTableColumn>
     </ElTable>
 </template>
 
@@ -55,6 +61,8 @@ import '@/styles/vendors/element-plus-table.css';
 import { ElTable, ElTableColumn } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 
+import DisqualifyParticipant from '../common/DisqualifyParticipant.vue';
+
 import PlayerName from '@/components/PlayerName.vue';
 import VideoPreviewLink from '@/components/VideoPreviewLink.vue';
 import { ms_to_s } from '@/utils';
@@ -62,10 +70,12 @@ import type { WeeklyParticipant } from '@/utils/weekly';
 
 defineProps({
     data: { type: Array<WeeklyParticipant>, default: () => [] },
+    canDisqualify: { type: Boolean, default: false },
 });
 
 const emit = defineEmits<{
     'row-click': [row: WeeklyParticipant];
+    deleted: [id: number];
 }>();
 
 const { t } = useI18n();

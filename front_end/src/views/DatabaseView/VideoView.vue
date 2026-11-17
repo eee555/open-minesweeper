@@ -131,7 +131,7 @@
         <div class="video-query__table-bar" data-cy="column-selector">
             <MultiSelector v-model="selectedColumns" :options="ColumnChoices" :labels="columnLabels" />
         </div>
-        <VideoList v-loading="loading" class="video-query__table" :videos="pageRows" :columns="videoColumns" external-filtering />
+        <VideoList v-loading="loading" class="video-query__table" :videos="pageRows" :columns="videoColumns" display-only />
     </div>
 </template>
 

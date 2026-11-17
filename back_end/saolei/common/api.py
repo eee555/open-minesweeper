@@ -7,14 +7,14 @@ from uuid import UUID
 
 from django.core.exceptions import SuspiciousOperation
 from django.db import transaction
-from django.http import FileResponse
+from django.http import FileResponse, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404
 from django.tasks import TaskResultStatus
 from django.utils import timezone as django_timezone
 from django.views.decorators.cache import cache_control
 from django_ratelimit.decorators import ratelimit
 from django_tasks_db.models import DBTaskResult
-from ninja import Form, Query, Router, Schema
+from ninja import File, Form, Query, Router, Schema, UploadedFile
 from ninja.decorators import decorate_view
 from ninja.errors import HttpError
 from ninja.orm import create_schema
@@ -25,12 +25,15 @@ from monitor.schema import TaskCountsOut
 from monitor.services import get_task_summary
 from speedranking.top.cache import TopRankingCache
 from tournament.gsc.services import restart_gsc_task
-from userprofile.decorators import staff_required
+from userprofile.decorators import banned_blocked, login_required_error, staff_required
+from userprofile.utils import has_identity_access
+from utils.response import identity_access_required_response
 from videomanager.models import VideoModel
 from videomanager.utils import replay_filename
+from .forms import UploadVideoForm
 from .memorial.api import router as memorial_router
 from .schema import AnalyzerWebsiteInfoOut, AutoLoginOut, TaskQuery
-from .services import cleanup_expired_tasks, get_video_rankings, query_tasks_page
+from .services import cleanup_expired_tasks, get_video_rankings, new_video_by_file, query_tasks_page
 
 router = Router()
 router.add_router('/admin/memorial', memorial_router)
@@ -59,6 +62,29 @@ def login_auto(request):
     首次访问时一次返回登录用户及完整实时 top 锚点，访客的 user 为 None。
     """
     return {'user': request.user if request.user.is_authenticated else None, 'top_anchors': TopRankingCache().get_anchors()}
+
+
+@router.post('/uploadvideo')
+@decorate_view(login_required_error, banned_blocked, ratelimit(key='ip', rate='5/s'))
+def upload_video(request, file: UploadedFile = File(...)):  # noqa: B008
+    """
+    - login_required_error
+    - banned_blocked
+    - ratelimit(key='ip', rate='5/s')
+
+    普通录像上传。满足实名或玩家认证准入后才解析文件；配额 402、封禁、文件校验、
+    标识安全、录像状态与排名维护锁沿用原有规则，响应仍返回录像 ID 与 state。
+    """
+    user = request.user
+    if user.userms.video_num_total >= user.userms.video_num_limit:
+        return HttpResponse(status=402)
+    if not has_identity_access(user):
+        return identity_access_required_response()
+    video_form = UploadVideoForm(data={}, files={'file': file})
+    if not video_form.is_valid():
+        return HttpResponseBadRequest(video_form.errors)
+    video = new_video_by_file(user, video_form.cleaned_data['file'])
+    return {'type': 'success', 'object': 'videomodel', 'category': 'upload', 'data': {'id': video.id, 'state': video.state}}
 
 
 @router.get('/video/{video_id}/analyzer-info', response=AnalyzerWebsiteInfoOut)

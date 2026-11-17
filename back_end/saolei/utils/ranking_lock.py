@@ -14,10 +14,10 @@ from .exceptions import ExceptionToResponse
 logger = logging.getLogger('speedranking')
 _access = ContextVar('top_ranking_access', default=None)
 _write_paths = re.compile(
-    r'^/(?:common/uploadvideo/|video/(?:set/|update/|update/batch/)|'
+    r'^/(?:api/common/uploadvideo/?|video/(?:set/|update/|update/batch/)|'
     r'identifier/(?:add/|del/|add/staff/|del/staff/)|'
     r'api/accountlink/msgames/videos/\d+/import/?|api/tournament/video/\d+/reveal/?|'
-    r'api/video/admin/(?:delete|freeze)/?|'
+    r'api/video/admin/(?:delete|freeze|unfreeze)/?|'
     r'api/common/admin/memorial/users/\d+/videos/?|'
     r'api/tournament/gsc/history/prepare/?|api/tournament/gsc/history/participants/\d+/(?:identifier|videos)/?|'
     r'api/speedranking/top/admin/rebuild_record/?|'

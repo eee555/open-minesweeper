@@ -9,7 +9,7 @@ from django_redis import get_redis_connection
 from config.text_choices import Tournament_TextChoices
 from utils.cache import maybe_bytes_to_str
 from videomanager.models import VideoModel
-from .models import GSCTournament, Tournament, TournamentParticipant, TournamentUser
+from .models import GSCTournament, Tournament, TournamentParticipant, TournamentUser, WeeklyEffTournament
 from .utils import MAX_TOURNAMENT_BEST, tournament_score_decay_factor, tournament_score_reference_time
 
 cache = get_redis_connection('saolei_website')
@@ -26,13 +26,16 @@ TOURNAMENT_USER_CACHE_KEYS = {
     'weekly_total': 'tournament:user:weekly_total',
     'weekly_classic_total': 'tournament:user:weekly_classic_total',
     'weekly_classic_best': 'tournament:user:weekly_classic_best',
+    'weekly_eff_total': 'tournament:user:weekly_eff_total',
+    'weekly_eff_best': 'tournament:user:weekly_eff_best',
 }
 TOURNAMENT_USER_RANK_FIELDS = (
     'score_current', 'score_total',
     'gsc_total', 'gsc_best',
     'weekly_total', 'weekly_classic_total', 'weekly_classic_best',
+    'weekly_eff_total', 'weekly_eff_best',
 )
-TOURNAMENT_USER_ASC_FIELDS = ('gsc_best', 'weekly_classic_best')
+TOURNAMENT_USER_ASC_FIELDS = ('gsc_best', 'weekly_classic_best', 'weekly_eff_best')
 TOURNAMENT_USER_DEFAULT_VALUES = {
     'score_current': 0,
     'score_total': 0,
@@ -41,6 +44,8 @@ TOURNAMENT_USER_DEFAULT_VALUES = {
     'weekly_total': 0,
     'weekly_classic_total': 0,
     'weekly_classic_best': MAX_TOURNAMENT_BEST,
+    'weekly_eff_total': 0,
+    'weekly_eff_best': None,
 }
 
 
@@ -72,6 +77,13 @@ class CachedWeeklyTournamentData:
 
 @dataclass_json
 @dataclass
+class CachedWeeklyEffTournamentData:
+    year: int
+    week: int
+
+
+@dataclass_json
+@dataclass
 class CachedGSCTournament(CachedTournament):
     subclass: Literal[Tournament_TextChoices.Subclass.GSC]
     data: CachedGSCTournamentData
@@ -82,6 +94,13 @@ class CachedGSCTournament(CachedTournament):
 class CachedWeeklyTournament(CachedTournament):
     subclass: Literal[Tournament_TextChoices.Subclass.WEEKLY]
     data: CachedWeeklyTournamentData
+
+
+@dataclass_json
+@dataclass
+class CachedWeeklyEffTournament(CachedTournament):
+    subclass: Literal[Tournament_TextChoices.Subclass.WEEKLY_EFF]
+    data: CachedWeeklyEffTournamentData
 
 
 @dataclass_json
@@ -112,22 +131,8 @@ class TournamentCache:
         self.remove_tournament_participants(tournament_id)
 
     def remove_tournament_participants(self, tournament_id: int):
-        pipe = cache.pipeline()
-        for user_id, value in cache.hscan_iter(NORMAL_PARTICIPANT_CACHE_KEY):
-            participants = [
-                participant
-                for participant in CachedNormalParticipant.schema().loads(value, many=True)
-                if participant.tournament != tournament_id
-            ]
-            if participants:
-                pipe.hset(
-                    NORMAL_PARTICIPANT_CACHE_KEY,
-                    user_id,
-                    CachedNormalParticipant.schema().dumps(participants, many=True),
-                )
-            else:
-                pipe.hdel(NORMAL_PARTICIPANT_CACHE_KEY, user_id)
-        pipe.execute()
+        for user_id, _ in cache.hscan_iter(NORMAL_PARTICIPANT_CACHE_KEY):
+            self.remove_participant(user_id, tournament_id)
 
     def get_tournament(self, tournament_id: int):
         data = cache.hget(NORMAL_TOURNAMENT_CACHE_KEY, tournament_id)
@@ -161,23 +166,36 @@ class TournamentCache:
         else:
             cache.hdel(NORMAL_PARTICIPANT_CACHE_KEY, user_id)
 
-    def remove_participant(self, user_id: int, tournament_id: int):
-        participants = [
-            cached_participant
-            for cached_participant in self.get_participant_list(user_id)
-            if cached_participant.tournament != tournament_id
-        ]
-        self.set_participant_list(user_id, participants)
+    def _modify_participant_list(self, user_id, modify):
+        def update(pipe):
+            value = pipe.hget(NORMAL_PARTICIPANT_CACHE_KEY, user_id)
+            participants = CachedNormalParticipant.schema().loads(value, many=True) if value else []
+            participants = modify(participants, pipe)
+            pipe.multi()
+            if participants:
+                pipe.hset(NORMAL_PARTICIPANT_CACHE_KEY, user_id, CachedNormalParticipant.schema().dumps(participants, many=True))
+            else:
+                pipe.hdel(NORMAL_PARTICIPANT_CACHE_KEY, user_id)
+
+        # 必须监视读改写全过程；普通 pipeline 无法防止另一场报名被旧列表覆盖。
+        cache.transaction(update, NORMAL_PARTICIPANT_CACHE_KEY, NORMAL_TOURNAMENT_CACHE_KEY)
+
+    def remove_participant(self, user_id: int, tournament_id: int, participant_id=None):
+        self._modify_participant_list(user_id, lambda participants, pipe: [
+            participant for participant in participants
+            if participant.tournament != tournament_id or (participant_id is not None and participant.id != participant_id)
+        ])
 
     def update_participant(self, participant: TournamentParticipant):
-        participants = [
-            cached_participant
-            for cached_participant in self.get_participant_list(participant.user_id)
-            if cached_participant.tournament != participant.tournament_id
-        ]
-        if participant.tournament.state == Tournament_TextChoices.State.NORMAL:
-            participants.append(serialize_normal_participant(participant))
-        self.set_participant_list(participant.user_id, participants)
+        cached = serialize_normal_participant(participant)
+
+        def modify(participants, pipe):
+            participants = [item for item in participants if item.tournament != participant.tournament_id]
+            if participant.tournament.state == Tournament_TextChoices.State.NORMAL and pipe.hexists(NORMAL_TOURNAMENT_CACHE_KEY, participant.tournament_id):
+                participants.append(cached)
+            return participants
+
+        self._modify_participant_list(participant.user_id, modify)
 
     def checkin_arbiter(self, video: VideoModel, arbiter_identifier: str) -> list[CachedNormalParticipant]:
         return [
@@ -356,6 +374,13 @@ def serialize_normal_tournament(tournament: Tournament):
                 token=tournament.token,
             ),
         )
+    if isinstance(tournament, WeeklyEffTournament):
+        return CachedWeeklyEffTournament(
+            id=tournament.id, state=tournament.state,
+            subclass=Tournament_TextChoices.Subclass.WEEKLY_EFF,
+            host_id=tournament.host_id, start_time=tournament.start_time, end_time=tournament.end_time,
+            data=CachedWeeklyEffTournamentData(year=tournament.year, week=tournament.week),
+        )
     return CachedWeeklyTournament(
         id=tournament.id,
         state=tournament.state,
@@ -376,6 +401,8 @@ def deserialize_cached_tournament(value):
     raw_value = json.loads(json_value)
     if raw_value['subclass'] == Tournament_TextChoices.Subclass.GSC:
         return CachedGSCTournament.from_json(json_value)
+    if raw_value['subclass'] == Tournament_TextChoices.Subclass.WEEKLY_EFF:
+        return CachedWeeklyEffTournament.from_json(json_value)
     return CachedWeeklyTournament.from_json(json_value)
 
 

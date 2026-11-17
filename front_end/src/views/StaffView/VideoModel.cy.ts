@@ -93,4 +93,41 @@ describe('staff video freezing', () => {
         cy.get('[data-cy=video-detail]').should('not.contain.text', 'Draft reason');
         cy.get('[data-cy=freeze-video]').should('not.be.disabled');
     });
+
+    it('requires a frozen video before unfreezing', () => {
+        loadVideo();
+        cy.get('[data-cy=unfreeze-video]').should('be.disabled');
+    });
+
+    it('unfreezes with CSRF and clears the reason', () => {
+        cy.intercept('GET', '/api/video/admin/unfreeze', { csrf_token: 'unfreeze-token' }).as('unfreezeAccess');
+        cy.intercept('POST', '/api/video/admin/unfreeze', (request) => {
+            expect(request.headers['x-csrftoken']).to.equal('unfreeze-token');
+            expect(request.headers['content-type']).to.contain('application/json');
+            expect(request.body).to.deep.equal({ id: 12 });
+            request.reply({ id: 12, state: 'd', freeze_reason: '' });
+        }).as('unfreeze');
+        loadVideo('Original reason');
+        cy.get('[data-cy=unfreeze-video]').should('not.be.disabled');
+        cy.get('[data-cy=unfreeze-video]').click();
+        cy.wait('@unfreezeAccess');
+        cy.wait('@unfreeze');
+        cy.closeElNotifications();
+        cy.get('[data-cy=video-detail]').should('contain.text', 'd');
+        cy.get('[data-cy=video-detail]').should('not.contain.text', 'Original reason');
+        cy.get('[data-cy=freeze-reason]').should('have.value', '');
+        cy.get('[data-cy=unfreeze-video]').should('be.disabled');
+    });
+
+    it('keeps frozen details when unfreezing fails', () => {
+        cy.intercept('GET', '/api/video/admin/unfreeze', { csrf_token: 'unfreeze-token' });
+        cy.intercept('POST', '/api/video/admin/unfreeze', { statusCode: 409, body: { detail: 'Conflict' } }).as('unfreeze');
+        loadVideo('Original reason');
+        cy.get('[data-cy=unfreeze-video]').click();
+        cy.wait('@unfreeze');
+        cy.closeElNotifications();
+        cy.get('[data-cy=video-detail]').should('contain.text', 'Original reason');
+        cy.get('[data-cy=freeze-reason]').should('have.value', 'Original reason');
+        cy.get('[data-cy=unfreeze-video]').should('not.be.disabled');
+    });
 });

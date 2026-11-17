@@ -8,7 +8,7 @@ import { MS_State } from '@/utils/ms_const';
 import { getFileExtension } from '@/utils/strings';
 import type { VideoAbstract } from '@/utils/videoabstract';
 
-export const UploadStatus = ['parse', 'pass', 'filename', 'filesize', 'fileext', 'custom', 'invalid', 'identifier', 'needApprove', 'censorship', 'collision', 'quota', 'upload', 'process', 'success', 'incomplete'] as const;
+export const UploadStatus = ['parse', 'pass', 'filename', 'filesize', 'fileext', 'custom', 'invalid', 'identifier', 'needApprove', 'censorship', 'collision', 'identity', 'quota', 'upload', 'process', 'success', 'incomplete'] as const;
 export type UploadStatus = typeof UploadStatus[number];
 
 export interface UploadEntry {
@@ -69,6 +69,14 @@ export async function prepareUploadEntry(file: File): Promise<UploadEntry> {
     else if (video.level === 6 && !(stat.level as CustomLevel).isSupported) status = 'custom';
     else if (video.is_valid() == 1) status = 'invalid';
     else if (video.is_valid() == 3) status = 'needApprove';
+
+    try {
+        video.analyse_for_features(['pluck']);
+        video.current_time = 1e8;
+        stat.pluck = video.pluck;
+    } catch {
+        // pLuck stays unavailable when a replay cannot be analysed for features.
+    }
 
     return { hash, file, status, stat, video };
 }

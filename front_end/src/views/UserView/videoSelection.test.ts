@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { createProfileVideoFilters, filterProfileVideos, selectProfileVideos } from './videoSelection';
+import { selectProfileVideos } from './videoSelection';
 
+import { createVideoListFilters, filterVideos } from '@/components/VideoList/videoListData';
 import { toISODateString } from '@/utils/datetime';
 import { VideoAbstract } from '@/utils/videoabstract';
 
@@ -32,20 +33,20 @@ describe('profile video selection', () => {
 
     it('applies shared filters after the selection without modifying the complete distribution', () => {
         const bucket = selectProfileVideos(videos, { kind: 'bv', level: 'e', bv: 100 });
-        const filters = createProfileVideoFilters();
-        expect(ids(filterProfileVideos(videos, filters))).toEqual([1, 2, 3, 4]);
+        const filters = createVideoListFilters();
+        expect(ids(filterVideos(videos, filters))).toEqual([1, 2, 3, 4]);
         filters.software = ['r'];
         filters.mode = ['05'];
         filters.state = ['d'];
-        expect(ids(filterProfileVideos(bucket, filters))).toEqual([2]);
+        expect(ids(filterVideos(bucket, filters))).toEqual([2]);
         expect(ids(bucket)).toEqual([1, 2]);
         expect(videos).toHaveLength(4);
         filters.state = [];
-        expect(filterProfileVideos(bucket, filters)).toEqual([]);
+        expect(filterVideos(bucket, filters)).toEqual([]);
         filters.state = ['b'];
         filters.software = ['e'];
-        filters.mode = [];
+        filters.mode = ['11'];
         filters.level = 'custom';
-        expect(ids(filterProfileVideos(videos, filters))).toEqual([4]);
+        expect(ids(filterVideos(videos, filters))).toEqual([4]);
     });
 });

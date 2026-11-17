@@ -104,19 +104,50 @@ describe('UserProfile', () => {
         });
 
         it('hides an owner profile while preserving original names and editability', () => {
-            const profile = new UserProfile({ realname: 'Original', can_hide_realname: true, hide_realname: true });
+            const profile = new UserProfile({ realname: 'Original', verified: true, hide_realname: true });
             expect(profile.isNameHidden).toBe(true);
             expect(profile.realname).toBe('Original');
             expect(profile.canSetName).toBe(true);
-            profile.can_hide_realname = false;
+            profile.verified = false;
             expect(profile.isNameHidden).toBe(false);
-            profile.can_hide_realname = true;
+            profile.verified = true;
             profile.realname = '';
             expect(profile.isNameHidden).toBe(false);
         });
         it('false', () => {
             const profile = new UserProfile({ realname: 'Alice' });
             expect(profile.isAnonymous).toBe(false);
+        });
+    });
+
+    describe('getter: canSubmitReplays', () => {
+        it.each(['', '   ', '匿名'])('requires verification when the real name is %j', (realname) => {
+            const profile = new UserProfile({ id: 42, realname });
+            expect(profile.canSubmitReplays).toBe(false);
+            profile.verified = true;
+            expect(profile.canSubmitReplays).toBe(true);
+        });
+
+        it.each(['Alice', 'hidden'])('accepts the existing real name representation %j', (realname) => {
+            expect(new UserProfile({ id: 42, realname }).canSubmitReplays).toBe(true);
+        });
+
+        it('does not grant access to guests or through a management role', () => {
+            expect(new UserProfile({ realname: 'Alice', verified: true }).canSubmitReplays).toBe(false);
+            expect(new UserProfile({ id: 42, is_staff: true, is_superuser: true }).canSubmitReplays).toBe(false);
+        });
+
+        it('updates access immediately when the real name or verification changes', () => {
+            const profile = new UserProfile({ id: 42 });
+            expect(profile.canSubmitReplays).toBe(false);
+            profile.realname = 'Alice';
+            expect(profile.canSubmitReplays).toBe(true);
+            profile.realname = '';
+            expect(profile.canSubmitReplays).toBe(false);
+            profile.verified = true;
+            expect(profile.canSubmitReplays).toBe(true);
+            profile.verified = false;
+            expect(profile.canSubmitReplays).toBe(false);
         });
     });
 

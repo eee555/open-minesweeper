@@ -91,11 +91,29 @@ describe('normalizeVideoUploadResponse', () => {
         });
     });
 
+    it('maps the identity access error to the identity status', () => {
+        expect(normalizeVideoUploadResponse({
+            type: 'error',
+            object: 'userprofile',
+            category: 'identity_access_required',
+        })).toEqual({
+            type: 'error',
+            status: 'identity',
+        });
+    });
+
     it('falls back to generic upload failure for other error responses', () => {
         expect(normalizeVideoUploadResponse({
             type: 'error',
-            obj: 'userprofile',
-            category: 'realname_required',
+            object: 'file',
+            category: 'unknown',
+        })).toEqual({
+            type: 'error',
+            status: 'collision',
+        });
+        expect(normalizeVideoUploadResponse({
+            type: 'error',
+            object: 'other',
         })).toEqual({
             type: 'error',
             status: 'upload',

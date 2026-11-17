@@ -1,5 +1,5 @@
 <template>
-    <PublicTournament :tournament="tournament" :participants="participants" :index="index" :loading="loading" :refresh-participants="refresh" :auto-uploader-enabled="!store.isUserAnonymous" :auto-uploader-filter="matchesFilter">
+    <PublicTournament :tournament="tournament" :participants="participants" :index="index" :loading="loading" :refresh-participants="refresh" :auto-uploader-enabled="store.canSubmitReplays" :auto-uploader-filter="matchesFilter">
         <template #description>
             <Description />
         </template>
@@ -20,7 +20,7 @@
             </select>
         </template>
         <template #allSummary="{ data, onParticipantSelect }">
-            <AllSummary v-if="state === TournamentState.Awarded" :data="data" @row-click="onParticipantSelect" />
+            <AllSummary v-if="state === TournamentState.Awarded" :data="data" :can-disqualify="canDisqualify" @row-click="onParticipantSelect" @deleted="deleted" />
             <Registered v-else :loading="loading" :participants="participants" />
         </template>
         <template #personalSummary="{ videos, participant: summaryParticipant }">
@@ -31,7 +31,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import PublicTournament from '../common/PublicTournament.vue';
@@ -47,12 +47,14 @@ import { httpErrorNotification } from '@/components/Notifications';
 import GSCPersonalSummary from '@/components/visualization/GSCPersonalSummary/App.vue';
 import { fetchGSCResults, fetchTournament } from '@/services/tournamentService';
 import { store } from '@/store';
+import { LoginStatus } from '@/utils/common/structInterface';
 import { GSCParticipant, isGSCSupportedVideo, meetsGSCBV } from '@/utils/gsc';
 import { TournamentState } from '@/utils/ms_const';
 import { Tournament } from '@/utils/tournaments';
 
 const props = defineProps({ tournament: { type: Tournament, required: true } });
-const { participants, index, participant, loading, state, refresh } = useParticipants(() => props.tournament, (item) => new GSCParticipant(item), fetchGSCResults);
+const { participants, index, participant, loading, state, refresh, deleted } = useParticipants(() => props.tournament, (item) => new GSCParticipant(item), fetchGSCResults);
+const canDisqualify = computed(() => store.login_status === LoginStatus.IsLogin && store.user.id === props.tournament.hostId);
 const token = ref(props.tournament.gscData?.token ?? '');
 watch(() => props.tournament, (value) => {
     token.value = value.gscData?.token ?? '';

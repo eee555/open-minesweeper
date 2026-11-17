@@ -4,11 +4,11 @@
             {{ t('gsc.identifierGuide.guideLink') }}
         </a>
         <div v-if="!participant">
-            <BaseButton :disabled="store.isUserAnonymous" :loading="registeringParticipant" @click="registerParticipant">
+            <BaseButton :disabled="!store.canSubmitReplays" :loading="registeringParticipant" @click="registerParticipant">
                 {{ t('button.register') }}
             </BaseButton>
-            <span v-if="store.isUserAnonymous" class="text-danger">
-                {{ t('msg.realNameRequired') }}
+            <span v-if="!store.canSubmitReplays" class="text-danger">
+                {{ t('msg.identityAccessRequired') }}
             </span>
         </div>
         <div v-else-if="token === ''">

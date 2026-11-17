@@ -9,5 +9,6 @@ class HttpResponseConflict(HttpResponse):
     status_code = 409
 
 
-def realname_required_response():
-    return JsonResponse({'type': 'error', 'obj': 'userprofile', 'category': 'realname_required'})
+def identity_access_required_response():
+    """实名或玩家认证均不满足时的统一准入错误。"""
+    return JsonResponse({'type': 'error', 'object': 'userprofile', 'category': 'identity_access_required'})

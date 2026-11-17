@@ -49,6 +49,13 @@ export const rankingRoutes: RouteRecordRaw[] = [
         path: 'tournament',
         name: 'ranking_tournament',
         component: () => import('./TournamentRanking.vue'),
+        redirect: (to) => ({ name: 'ranking_tournament_overall', query: to.query }),
+        children: [
+            { path: 'overall', name: 'ranking_tournament_overall', component: () => import('./TournamentRankingTable.vue'), props: { kind: 'overall' } },
+            { path: 'gsc', name: 'ranking_tournament_gsc', component: () => import('./TournamentRankingTable.vue'), props: { kind: 'gsc' } },
+            { path: 'weekly', name: 'ranking_tournament_weekly', component: () => import('./TournamentRankingTable.vue'), props: { kind: 'weekly' } },
+            { path: 'weekly-eff', name: 'ranking_tournament_weekly_eff', component: () => import('./TournamentRankingTable.vue'), props: { kind: 'weekly_eff' } },
+        ],
     },
     {
         path: 'media',

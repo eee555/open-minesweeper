@@ -44,6 +44,8 @@ Cypress.Commands.add('mount', (...args) => {
     });
 });
 
+Cypress.on('uncaught:exception', (err) => !err.message.includes('ResizeObserver loop'));
+
 Cypress.on('test:before:run', () => {
     Cypress.automation('remote:debugger:protocol', {
         command: 'Emulation.setTimezoneOverride',

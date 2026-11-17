@@ -26,6 +26,10 @@ from .utils import calculate_original_hash, pack_compression_format, replay_file
 logger = logging.getLogger('videomanager')
 
 
+class VideoUnfreezeError(ValueError):
+    pass
+
+
 @ranking_access(operation='videomanager.freeze_video')
 @transaction.atomic
 def freeze_video_by_id(video_id: int, freeze_reason: str, *, actor_id: int):
@@ -41,6 +45,30 @@ def freeze_video_by_id(video_id: int, freeze_reason: str, *, actor_id: int):
         video.state = MS_TextChoices.State.FROZEN
         video.save(update_fields=['state'])
     logger.info('Staff #%s froze video #%s (previous_state=%s)', actor_id, video_id, previous_state)
+    return {'id': video.pk, 'state': video.state, 'freeze_reason': expansion.freeze_reason}
+
+
+def _derive_unfreeze_state(video: VideoModel, expansion: ExpandVideoModel):
+    userms = video.player.userms
+    if userms is None or not expansion.identifier or expansion.identifier not in userms.identifiers:
+        return MS_TextChoices.State.IDENTIFIER
+    return MS_TextChoices.State.OFFICIAL
+
+
+@ranking_access(operation='videomanager.unfreeze_video')
+@transaction.atomic
+def unfreeze_video_by_id(video_id: int, *, actor_id: int):
+    video = VideoModel.objects.select_for_update().get(pk=video_id)
+    expansion = ExpandVideoModel.objects.select_for_update().get(pk=video.video_id)
+    if video.state != MS_TextChoices.State.FROZEN:
+        raise VideoUnfreezeError('Only frozen videos can be unfrozen.')
+    previous_state = video.state
+    state = _derive_unfreeze_state(video, expansion)
+    expansion.freeze_reason = ''
+    expansion.save(update_fields=['freeze_reason'])
+    video.state = state
+    video.save(update_fields=['state'])
+    logger.info('Staff #%s unfroze video #%s (previous_state=%s state=%s)', actor_id, video_id, previous_state, state)
     return {'id': video.pk, 'state': video.state, 'freeze_reason': expansion.freeze_reason}
 
 

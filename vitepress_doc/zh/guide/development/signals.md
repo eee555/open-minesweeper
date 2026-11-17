@@ -43,9 +43,12 @@ flowchart LR
     tournament_post_delete[Tournament post_delete]
     gsc_post_save[GSCTournament post_save]
     weekly_post_save[WeeklyTournament post_save]
+    weekly_eff_post_save[WeeklyEffTournament post_save]
     participant_post_save[TournamentParticipant post_save]
     gsc_participant_post_save[GSCParticipant post_save]
     weekly_participant_post_save[WeeklyParticipant post_save]
+    weekly_eff_participant_post_save[WeeklyEffParticipant post_save]
+    weekly_eff_participant_post_delete[WeeklyEffParticipant post_delete]
     participant_post_delete[TournamentParticipant post_delete]
     gsc_participant_post_delete[GSCParticipant post_delete]
     weekly_participant_post_delete[WeeklyParticipant post_delete]
@@ -84,11 +87,15 @@ flowchart LR
     tournament_post_save --> update_cache_on_tournament_save[更新比赛缓存]
     gsc_post_save --> update_cache_on_tournament_save
     weekly_post_save --> update_cache_on_tournament_save
+    weekly_eff_post_save --> update_cache_on_tournament_save
     tournament_post_delete --> update_cache_on_tournament_delete[删除比赛缓存]
 
     participant_post_save --> update_cache_on_participant_save[更新参赛缓存]
     gsc_participant_post_save --> update_cache_on_participant_save
     weekly_participant_post_save --> update_cache_on_participant_save
+    weekly_eff_participant_post_save --> update_cache_on_participant_save
+    weekly_eff_participant_post_save --> update_best_score_on_weekly_eff_participant_save[刷新效率赛历史最好]
+    weekly_eff_participant_post_delete --> update_best_score_on_weekly_eff_participant_delete[重算效率赛历史最好]
     gsc_participant_post_save --> update_best_score_on_gsc_participant_save[刷新GSC历史最好]
     weekly_participant_post_save --> update_best_score_on_weekly_participant_save[刷新周赛历史最好]
     gsc_participant_post_delete --> update_best_score_on_gsc_participant_delete[重算GSC历史最好]
@@ -152,6 +159,10 @@ flowchart LR
 
 GSC 历史补录沿用默认 TournamentUser 创建和 best 保存信号，允许默认或手工成绩改善 best；匿名参赛者不调度参赛缓存更新。已颁奖 GSC 创建 participant 时不自动回填录像，由代传 service 显式关联，普通报名和周赛不变。补录接口的调用顺序和手工成绩规则见 [GSC 历史录像补录](./gsc-history-import.md)。
 
+效率打卡赛的 Tournament/Participant 保存信号同样绑定公共缓存更新与 TournamentUser 补齐接收器；只保留父类的缓存删除和积分撤回接收器，避免重复撤分。`weekly_eff.signals` 单独维护原始浮点 best 与对应年/周：数据库在当前事务内保存，Redis 在提交后发布；无历史成绩时三个字段一起清空，移除 best zset 成员。已颁奖取消资格由同一 worker 执行 participant 删除，仍触发这些信号，不删除录像文件；重试已删除记录不重复扣分。
+
+效率 best 保存信号仅在成绩字段相关且比赛已颁奖时查询用户汇总、定向比赛子类；普通报名只由公共创建信号补齐 `TournamentUser`，不重复做 best 查询。删除效率赛 participant 时，若用户汇总缺失则先补建默认行，再从剩余已颁奖成绩重建 best；补建不恢复已丢失的历史积分。
+
 导入录像在 `create_from_parser` 中提前设置来源 `upload_time` 供 `pre_save` check-in 使用，创建后再次显式保存以覆盖 `auto_now_add`；既有文件仅当本次时间更早时保存。两种保存仍走状态队列和排行信号，不用 `QuerySet.update` 绕过副作用。
 
 仅修改 `upload_time` 也会沿用录像保存信号入队勋章刷新。工人在发布摘要前核验受影响的当前及历史证据，即使成绩和档位未变，也会校正授予日期、证据和阶段日志；上传时间改早或改晚均适用。新手集合与三阶勋章保留完整的分项录像 id，任一分项改时都可重新计算首次完成时间。人工锁定的授予不被覆盖。
@@ -181,6 +192,8 @@ GSC 历史补录沿用默认 TournamentUser 创建和 best 保存信号，允许
 | 刷新周赛历史最好 | `update_best_score_on_weekly_participant_save` |
 | 重算GSC历史最好 | `update_best_score_on_gsc_participant_delete` |
 | 重算周赛历史最好 | `update_best_score_on_weekly_participant_delete` |
+| 刷新效率赛历史最好 | `weekly_eff.signals.update_best_score_on_weekly_eff_participant_save` |
+| 重算效率赛历史最好 | `weekly_eff.signals.update_best_score_on_weekly_eff_participant_delete` |
 | 删除参赛缓存 | `remove_participant_cache_on_delete` |
 | 撤回已发比赛积分 | `revoke_rank_score_on_participant_delete` |
 | 补录比赛录像 | `add_existing_videos_to_participant_tournament` |

@@ -1,6 +1,6 @@
 <template>
-    <span v-if="isUserAnonymous" class="text-large text-regular">
-        {{ t('msg.realNameRequired') }}
+    <span v-if="!canSubmitReplays" class="text-large text-regular">
+        {{ t('msg.identityAccessRequired') }}
     </span>
     <template v-else>
         <span class="text-large" style="padding: 0.1em; color: inherit;">
@@ -16,7 +16,7 @@
 import { useI18n } from 'vue-i18n';
 
 defineProps({
-    isUserAnonymous: { type: Boolean, default: true },
+    canSubmitReplays: { type: Boolean, default: false },
 });
 
 /* 本地化 Localization */

@@ -4,18 +4,18 @@
             <div class="avatar">
                 <Avatar v-model:user="store.player" :is-self="user.id === store.user.id" :exp-time-ms="store.expTimeMs" :qualification-status="store.qualificationStatus" />
             </div>
+            <div>
+                <span class="username">
+                    {{ user.username }}
+                </span>
+                <span class="id">
+                    #{{ user.id }}
+                </span>
+            </div>
             <div v-if="user.isNameHidden" class="realname" data-cy="hidden-profile-name">
-                {{ t('local.hiddenName', { id: user.id }) }}
+                {{ t('local.hiddenName') }}
             </div>
             <template v-else>
-                <div>
-                    <span class="username">
-                        {{ user.username }}
-                    </span>
-                    <span class="id">
-                        #{{ user.id }}
-                    </span>
-                </div>
                 <div class="realname">
                     {{ user.isAnonymous ? t('anonymous') : user.realname }}
                 </div>
@@ -24,7 +24,10 @@
                 </div>
             </template>
         </div>
-        <MemorialBadge v-if="user.is_memorial" />
+        <div class="profile-badges">
+            <MemorialBadge v-if="user.is_memorial" />
+            <span v-if="user.verified" class="verification-badge" data-cy="verification-badge">{{ t('local.verified') }}</span>
+        </div>
         <RouterLink v-if="user.is_memorial && store.user.is_superuser" :to="{ path: '/superuser/memorial', query: { id: user.id } }" class="link">
             {{ t('local.uploadMemorial') }}
         </RouterLink>
@@ -70,13 +73,15 @@ const router = useRouter();
 const i18nMessages = {
     'zh-cn': { local: {
         editButton: '编辑信息',
-        hiddenName: '用户 #{id}',
+        hiddenName: '已隐藏',
         uploadMemorial: '补传纪念录像',
+        verified: '已认证玩家',
     } },
     en: { local: {
         editButton: 'Edit Profile',
-        hiddenName: 'User #{id}',
+        hiddenName: 'Hidden',
         uploadMemorial: 'Upload memorial replays',
+        verified: 'Verified player',
     } },
 };
 
@@ -86,6 +91,21 @@ const { t } = useI18n({ messages: i18nMessages });
 <style scoped lang="less">
 .profile-pins {
     width: 100%;
+}
+
+.verification-badge {
+    display: inline-block;
+    padding: 0 0.4rem;
+    border: 1px solid var(--el-color-primary);
+    color: var(--el-color-primary);
+    font-size: 0.8rem;
+}
+
+.profile-badges {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
 }
 
 /* 横向布局：窄屏顶部栏 */
@@ -109,8 +129,12 @@ const { t } = useI18n({ messages: i18nMessages });
         overflow-wrap: anywhere;
     }
 
-    > :not(.profile):not(.profile-pins) {
+    > :not(.profile):not(.profile-pins):not(.profile-badges) {
         grid-column: 1 / -1;
+    }
+    .profile-badges {
+        grid-column: 2;
+        grid-row: 1;
     }
     .profile-pins {
         min-width: 0;
@@ -180,6 +204,10 @@ const { t } = useI18n({ messages: i18nMessages });
         align-items: center;
         gap: 4px;
         margin-bottom: 16px;
+    }
+
+    .profile-badges {
+        display: contents;
     }
 
     .avatar {

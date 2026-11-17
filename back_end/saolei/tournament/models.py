@@ -19,6 +19,7 @@ from tournament.utils import (
     MAX_TOURNAMENT_BEST,
     tournament_score_decay_factor,
 )
+from tournament.weekly_eff.utils import default_weekly_eff_et, default_weekly_eff_it, WEEKLY_EFF_DEFAULT_SCORE
 from userprofile.models import UserProfile
 from videomanager.models import VideoModel
 
@@ -89,6 +90,8 @@ class Tournament(models.Model):
             return self
         if self.subclass == Tournament_TextChoices.Subclass.WEEKLY:
             return WeeklyTournament.objects.filter(tournament_ptr_id=self.id).first() or self
+        if self.subclass == Tournament_TextChoices.Subclass.WEEKLY_EFF:
+            return WeeklyEffTournament.objects.filter(tournament_ptr_id=self.id).first() or self
         return GSCTournament.objects.filter(tournament_ptr_id=self.id).first() or self
 
 
@@ -167,11 +170,14 @@ class WeeklyTournament(Tournament):
     week = models.PositiveSmallIntegerField()  # 期数
     tournament_format = models.CharField(max_length=1, choices=Tournament_TextChoices.WeeklyFormat.choices, default=Tournament_TextChoices.WeeklyFormat.CLASSIC)
 
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['year', 'week'], name='weekly_year_week_unique')]
+
     @property
     def name(self):
         return {
-            'zh': f'{self.year}年第{self.week}周打卡赛',
-            'en': f'Weekly {self.year}#{self.week}',
+            'zh': f'{self.year}年第{self.week}周竞速打卡赛',
+            'en': f'Speed Weekly {self.year}#{self.week}',
         }
 
     @property
@@ -190,6 +196,30 @@ class WeeklyTournament(Tournament):
     def order_by(self):
         if self.tournament_format == Tournament_TextChoices.WeeklyFormat.CLASSIC:
             return 'classic_score'
+
+
+class WeeklyEffTournament(Tournament):
+    year = models.PositiveSmallIntegerField()
+    week = models.PositiveSmallIntegerField()
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['year', 'week'], name='weekly_eff_year_week_unique')]
+
+    @property
+    def name(self):
+        return {'zh': f'{self.year}年第{self.week}周效率打卡赛', 'en': f'Efficiency Weekly {self.year}#{self.week}'}
+
+    @property
+    def description(self):
+        return ''
+
+    @property
+    def data(self):
+        return {'year': self.year, 'week': self.week}
+
+    @property
+    def order_by(self):
+        return 'score'
 
 
 class GeneralTournament(Tournament):
@@ -293,6 +323,15 @@ class WeeklyParticipant(TournamentParticipant):
         return diff
 
 
+class WeeklyEffParticipant(TournamentParticipant):
+    et = models.JSONField(default=default_weekly_eff_et)
+    it = models.JSONField(default=default_weekly_eff_it)
+    score = models.FloatField(default=WEEKLY_EFF_DEFAULT_SCORE)
+
+    class Meta:
+        indexes = [models.Index(fields=['score'], name='weekly_eff_score_idx')]
+
+
 class TournamentUser(models.Model):
     user = models.OneToOneField(UserProfile, on_delete=models.CASCADE, primary_key=True)
     score_current = models.FloatField(default=0)  # 当前积分
@@ -303,8 +342,12 @@ class TournamentUser(models.Model):
     weekly_total = models.PositiveIntegerField(default=0)  # 历史周赛总积分
     weekly_classic_total = models.PositiveIntegerField(default=0)  # 历史周赛经典模式总积分
     weekly_classic_best = models.PositiveBigIntegerField(default=MAX_TOURNAMENT_BEST)  # 历史周赛经典模式最好成绩及届数（后五位）
+    weekly_eff_total = models.PositiveIntegerField(default=0)
+    weekly_eff_best = models.FloatField(null=True, default=None)
+    weekly_eff_best_year = models.PositiveSmallIntegerField(null=True, default=None)
+    weekly_eff_best_week = models.PositiveSmallIntegerField(null=True, default=None)
 
-    def add_score(self, score: float | int, updated=None, *, category: Literal['gsc', 'weekly_classic']):
+    def add_score(self, score: float | int, updated=None, *, category: Literal['gsc', 'weekly_classic', 'weekly_eff']):
         # score 是本场新旧积分的差额，历史成绩变差时也可能为负数。
         updated = updated or timezone.now()
         if self.score_current == 0 and self.score_total == 0:
@@ -325,3 +368,5 @@ class TournamentUser(models.Model):
         elif category == 'weekly_classic':
             self.weekly_classic_total += score
             self.weekly_total += score
+        elif category == 'weekly_eff':
+            self.weekly_eff_total += score

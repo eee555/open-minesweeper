@@ -17,12 +17,12 @@ export interface UserProfileData {
     realname?: string;
     firstname?: string;
     lastname?: string;
-    can_hide_realname?: boolean;
     hide_realname?: boolean;
     is_banned?: boolean;
     is_staff?: boolean;
     is_superuser?: boolean;
     is_memorial?: boolean;
+    verified?: boolean;
     country?: string;
     signature?: string;
     last_change_avatar?: string | Date | null;
@@ -39,12 +39,12 @@ export class UserProfile {
     public realname = '';
     public firstname = '';
     public lastname = '';
-    public can_hide_realname = false;
     public hide_realname = false;
     public is_banned = false;
     public is_staff = false;
     public is_superuser = false;
     public is_memorial = false;
+    public verified = false;
     public country = '';
     public signature = '';
     public last_change_avatar: Date = new Date();
@@ -67,12 +67,12 @@ export class UserProfile {
 
         this.firstname = data.firstname ?? '';
         this.lastname = data.lastname ?? '';
-        this.can_hide_realname = data.can_hide_realname ?? false;
         this.hide_realname = data.hide_realname ?? false;
         this.is_banned = data.is_banned ?? false;
         this.is_staff = data.is_staff ?? false;
         this.is_superuser = data.is_superuser ?? false;
         this.is_memorial = data.is_memorial ?? false;
+        this.verified = data.verified ?? false;
         this.country = data.country ?? '';
         this.signature = data.signature ?? '';
 
@@ -90,8 +90,13 @@ export class UserProfile {
         return !hasHiddenName(this) && !hasRealname(this.realname);
     }
 
+    // 复用实名判断（含隐藏姓名），避免存储需要随实名和认证同步的派生状态。
+    public get canSubmitReplays(): boolean {
+        return this.id > 0 && (this.verified || !this.isAnonymous);
+    }
+
     public get isNameHidden(): boolean {
-        return hasHiddenName(this) || (!this.isAnonymous && this.can_hide_realname && this.hide_realname);
+        return hasHiddenName(this) || (!this.isAnonymous && this.verified && this.hide_realname);
     }
 
     public get hasInternationalName(): boolean {

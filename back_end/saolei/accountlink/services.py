@@ -9,7 +9,6 @@ from config.text_choices import MS_TextChoices
 from identifier.models import Identifier
 from msuser.models import UserMS
 from userprofile.models import UserProfile
-from userprofile.services import grant_name_privacy
 from utils.exceptions import ExceptionToResponse
 from utils.parser import MSVideoParser
 from utils.ranking_lock import ranking_access
@@ -80,8 +79,6 @@ def verify_account_link(user_id: int, platform: str, identifier: str, actor_id: 
     link_account(platform, identifier, user)
     link.verified = True
     link.save(update_fields=['verified'])
-    if platform == Platform.MSGAMES:
-        grant_name_privacy(user, f'Staff #{actor_id}, MSGames #{identifier}')
     return user, True
 
 
@@ -200,3 +197,25 @@ def restart_accountlink_task(db_task: DBTaskResult, args: list, kwargs: dict):
     }:
         raise ExceptionToResponse('saolei', 'crawling_disabled', status_code=410)
     return None
+
+
+def query_account_link_queue_page(
+    *, page: int, page_size: int, platform: str = '', verified: bool | None = None, order: str = '',
+):
+    queue = AccountLinkQueue.objects.all()
+    if platform:
+        queue = queue.filter(platform=platform)
+    if verified is not None:
+        queue = queue.filter(verified=verified)
+    if order == 'asc':
+        queue = queue.order_by('userprofile_id', 'id')
+    elif order == 'desc':
+        queue = queue.order_by('-userprofile_id', '-id')
+    else:
+        queue = queue.order_by('id')
+    count = queue.count()
+    start = (page - 1) * page_size
+    return {
+        'count': count, 'page': page, 'page_size': page_size,
+        'items': list(queue[start:start + page_size]),
+    }

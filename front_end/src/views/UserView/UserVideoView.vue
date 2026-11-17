@@ -28,6 +28,12 @@
                     <option value="bv">{{ t('local.bv') }}</option>
                 </select>
             </label>
+            <label>{{ t('local.presentation') }}
+                <select v-model="presentation" data-cy="video-presentation">
+                    <option value="table">{{ t('local.table') }}</option>
+                    <option value="scatter">{{ t('local.scatter') }}</option>
+                </select>
+            </label>
         </div>
         <ActivityCalendarAbstract v-if="overview === 'calendar'" :video-list="displayVideos" :options="activityCalendarConfig" selectable :selected-date-key="selection.kind === 'date' ? selection.dateKey : undefined" @select-date="selectDate" />
         <BaseCardNormal v-else-if="overview === 'bv'" data-cy="video-bv-overview">
@@ -42,31 +48,25 @@
                 {{ t('local.clear') }}
             </BaseButton>
         </div>
-        <div class="video-controls" data-cy="video-shared-filters">
-            <label>{{ t('local.presentation') }}
-                <select v-model="presentation" data-cy="video-presentation">
-                    <option value="table">{{ t('local.table') }}</option>
-                    <option value="scatter">{{ t('local.scatter') }}</option>
-                </select>
-            </label>
+        <div v-if="presentation === 'scatter'" class="video-controls" data-cy="video-shared-filters">
             <SoftwareFilter v-model="filters.software" />
             <VideoStateFilter v-model="filters.state" :include-local="localVideos.length > 0" class="checkbox-buttons--compact" />
             <label>{{ t('prop.level') }}
                 <select v-model="filters.level" data-cy="video-level-filter">
-                    <option value="">{{ t('all') }}</option>
+                    <option :value="null">{{ t('all') }}</option>
                     <option v-for="level in MS_Levels" :key="level" :value="level">{{ t(`level.${level}`) }}</option>
                     <option value="custom">{{ t('local.custom') }}</option>
                 </select>
             </label>
-            <ElSelect v-model="filters.mode" multiple collapse-tags clearable size="small" style="width: 10em" :placeholder="t('local.allModes')" :aria-label="t('prop.mode')">
+            <ElSelect :model-value="filters.mode" multiple collapse-tags clearable size="small" style="width: 10em" :placeholder="t('local.allModes')" :aria-label="t('prop.mode')" @update:model-value="setModeFilter">
                 <ElOption v-for="mode in Object.values(MS_Mode)" :key="mode" :value="mode" :label="t(`mode.code${mode}`)" />
             </ElSelect>
         </div>
         <MultiSelector v-if="presentation === 'table' && showSetting" v-model="VideoListConfig.profile" :options="thisColumnChoices" :labels="thisColumnChoices.map((s) => t(`prop.${s}`))" />
         <VideoList
             v-if="presentation === 'table'"
-            v-model:first="first" v-model:rows="rows" v-model:sort-field="sortField" v-model:sort-order="sortOrder"
-            :videos="filteredVideos" :columns="VideoListConfig.profile" sortable paginator external-filtering
+            v-model:filters="filters" v-model:first="first" v-model:rows="rows" v-model:sort-field="sortField" v-model:sort-order="sortOrder"
+            :videos="filteredVideos" :columns="VideoListConfig.profile" :include-local="localVideos.length > 0" sortable paginator external-filtering
         >
             <template v-if="isOwnProfile" #rowActions="{ video, close }">
                 <BaseButton text :disabled="!video.ongoing_tournament || revealing" data-cy="reveal-video" @click="requestReveal(video.id); close()">
@@ -103,7 +103,7 @@ import { useI18n } from 'vue-i18n';
 import ArbiterCsvImport from './ArbiterCsvImport.vue';
 import { useArbiterCsvDiff } from './useArbiterCsvDiff';
 import { useProfileVideos } from './useProfileVideos';
-import { createProfileVideoFilters, filterProfileVideos, selectProfileVideos } from './videoSelection';
+import { selectProfileVideos } from './videoSelection';
 import type { VideoSelection } from './videoSelection';
 
 import BaseButton from '@/components/common/BaseButton.vue';
@@ -114,6 +114,8 @@ import SoftwareFilter from '@/components/Filters/SoftwareFilter.vue';
 import VideoStateFilter from '@/components/Filters/VideoStateFilter.vue';
 import { actionSuccessNotification, httpErrorNotification } from '@/components/Notifications';
 import VideoList from '@/components/VideoList/App.vue';
+import type { VideoListFilters } from '@/components/VideoList/videoListData';
+import { createVideoListFilters, filterVideos } from '@/components/VideoList/videoListData';
 import MultiSelector from '@/components/widgets/MultiSelector.vue';
 import UserArbiterCSV from '@/components/widgets/UserArbiterCSV.vue';
 import { revealUserVideo } from '@/services/userService';
@@ -140,13 +142,17 @@ const displayVideos = computed(() => [...videos.value, ...localVideos.value]);
 const overview = ref<'none' | 'calendar' | 'bv'>('none');
 const presentation = ref<'table' | 'scatter'>('table');
 const selection = ref<VideoSelection>({ kind: 'all' });
-const filters = ref(createProfileVideoFilters());
+const filters = ref<VideoListFilters>(createVideoListFilters());
 const first = ref(0);
 const rows = ref(25);
 const sortField = ref('upload_time');
 const sortOrder = ref<number | undefined>(-1);
 const selectedVideos = computed(() => selectProfileVideos(displayVideos.value, selection.value, activityCalendarConfig.value.useEndTime));
-const filteredVideos = computed(() => filterProfileVideos(selectedVideos.value, filters.value));
+const filteredVideos = computed(() => filterVideos(selectedVideos.value, filters.value));
+function setModeFilter(value: string[] | null | undefined) {
+    const selected = value ?? [];
+    filters.value.mode = selected.length > 0 ? [...selected] : [...Object.values(MS_Mode)];
+}
 const rangeLabel = computed(() => {
     const current = selection.value;
     if (current.kind === 'date') return current.dateKey;
@@ -177,7 +183,7 @@ watch(displayVideos, () => {
 watch([() => user.value.id, viewerKey], () => {
     showCsvImport.value = false;
     selection.value = { kind: 'all' };
-    filters.value = createProfileVideoFilters();
+    filters.value = createVideoListFilters();
     overview.value = 'none';
     presentation.value = 'table';
     first.value = 0;

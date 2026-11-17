@@ -113,7 +113,7 @@ const i18nMessages = {
             collection: 'Establish PBs in more BV buckets to raise the BV count; frequent BVs contribute more to BV probability; faster PBs raise ASB. Missing buckets count as zero, so you do not need every BV.',
             skill_tt: 'Skill weights the Bvs of your PBs by fixed BV frequencies, with missing BVs counted as zero. Any new PB with positive weight and positive Bvs raises skill, and improving an existing PB raises skill while lowering segment typical time.',
             saolei: 'Upload a lower Time or higher Bvs than your personal best. Minimum 3BV: Beginner Time 2, Beginner Bvs 4, Intermediate 30, Expert 100. Improving a level record automatically updates its Time or Bvs sum; no separate total-score replay is needed.',
-            strict_ng: 'Upload Strict No Guessing replays with a non-null 3BV and a lower Time or higher Bvs than your personal best; Beginner requires 3BV ≥ 2 while Intermediate and Expert have no lower bound. Improving a level record automatically updates its Time or Bvs sum; no separate total-score replay is needed.',
+            strict_ng: 'Upload Strict NG replays with a non-null 3BV and a lower Time or higher Bvs than your personal best; Beginner requires 3BV ≥ 2 while Intermediate and Expert have no lower bound. Improving a level record automatically updates its Time or Bvs sum; no separate total-score replay is needed.',
         },
         label: {
             lsf: 'LSF',
@@ -131,7 +131,7 @@ const i18nMessages = {
             collection: 'BV count, BV probability and ASB summed over the PBs you own at each level. The ordinary category includes NF replays; NF additionally requires zero effective right clicks.',
             skill_tt: 'Skill and Typical Time computed from your PBs and fixed BV frequencies. Higher skill is better; lower typical time is better. Zero-skill segments use 999.999 seconds.',
             saolei: '@:mode.std mode only. @:level.b @:prop.time requires @:prop.bv ≥ 2. @:level.b @:prop.bvs requires @:prop.bv ≥ 4. @:level.i requires @:prop.bv ≥ 30. @:level.e requires @:prop.bv ≥ 100.',
-            strict_ng: 'Strict No Guessing mode only. 3BV must be present and at least 2 for Beginner; Intermediate and Expert have no lower bound. The ordinary ranking includes NF replays.',
+            strict_ng: 'Strict NG mode only. 3BV must be present and at least 2 for Beginner; Intermediate and Expert have no lower bound. The ordinary ranking includes NF replays.',
         },
     } },
 };

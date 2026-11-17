@@ -130,8 +130,8 @@ describe('Tournament', () => {
                 },
             });
 
-            expect(tournament.getLocalName('zh-CN')).toBe('2026年第12周打卡赛');
-            expect(tournament.getLocalName('en')).toBe('Weekly 2026#12');
+            expect(tournament.getLocalName('zh-CN')).toBe('2026年第12周竞速打卡赛');
+            expect(tournament.getLocalName('en')).toBe('Speed Weekly 2026#12');
             expect(tournament.description).toBe('');
         });
     });

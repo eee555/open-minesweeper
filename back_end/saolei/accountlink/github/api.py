@@ -106,6 +106,7 @@ def callback(request):
             return result_redirect(user.pk, 'cancelled')
         code = request.GET.get('code', '')
         if not code or len(code) > 512:
+            logger.warning('GitHub linking rejected user_id=%s reason=invalid_code', user.pk)
             raise ExceptionToResponse('github', 'remote_failed', 400)
         github_id = authorized_user_id(code, verifier)
         with transaction.atomic():

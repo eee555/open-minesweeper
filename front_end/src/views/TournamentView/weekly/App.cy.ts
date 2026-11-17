@@ -118,22 +118,9 @@ describe('<Weekly App />', () => {
         cy.get(`${participantTable} .base-table-empty`).should('contain.text', 'No records').and('have.attr', 'colspan', '3');
     });
 
-    it('hides real-time score for logged-in users before registration', () => {
-        mountWeekly({ loginStatus: LoginStatus.IsLogin, registered: false });
-
-        cy.contains('Ongoing').should('be.visible');
-        cy.contains('Real-Time Score').should('not.exist');
-    });
-
-    it('shows real-time score for registered users', () => {
-        mountWeekly({ loginStatus: LoginStatus.IsLogin, registered: true });
-
-        cy.contains('Real-Time Score').should('be.visible');
-        cy.wait('@participantVideos').its('response.statusCode').should('eq', 200);
-    });
-
     it('applies the inline weekly token, supported and score-improving filters', () => {
         mountWeekly({ loginStatus: LoginStatus.IsLogin, registered: true });
+        cy.contains('Real-Time Score').should('be.visible');
         cy.wait('@participantVideos');
         cy.get('.auto-uploader select[aria-label="Filter"]').should('have.value', 'supported');
         cy.get<ComponentWrapper<typeof App>>('@vue').then((wrapper) => {
@@ -175,6 +162,7 @@ describe('<Weekly App />', () => {
             }),
         }).as('createWeeklyParticipant');
 
+        cy.contains('Real-Time Score').should('not.exist');
         cy.contains('button', 'Start my session').click();
         cy.contains('.el-dialog', 'Are you ready?').should('be.visible');
         cy.contains('.el-dialog', 'This action is irreversible').should('be.visible');
@@ -196,7 +184,7 @@ describe('<Weekly App />', () => {
 
         cy.contains('button', 'Start my session').should('be.disabled');
         cy.contains('.el-dialog', 'Are you ready?').should('not.exist');
-        cy.contains('Real name required').should('be.visible');
+        cy.contains('Real name or player verification required').should('be.visible');
         cy.contains('WEEKLY-TOKEN').should('not.exist');
         cy.contains('Real-Time Score').should('not.exist');
         cy.get('@createWeeklyParticipant.all').should('have.length', 0);
@@ -224,7 +212,7 @@ describe('<Weekly App />', () => {
     }
 
     for (const role of ['host', 'staff'] as const) {
-        it(`lets the ${role} confirm deletion and removes only that participant locally`, () => {
+        it(`lets the ${role} reset an expired registration and removes only that participant locally`, () => {
             const tournament = weeklyTournament();
             tournament.hostId = role === 'host' ? 99 : 100;
             const requestCounts = mountWeekly({
@@ -234,10 +222,10 @@ describe('<Weekly App />', () => {
                 isStaff: role === 'staff',
                 participants: [weeklyParticipant({ user_id: 101 }), weeklyParticipant({ id: 802, user_id: 102, token: 'OTHER-TOKEN' })],
             });
-            cy.intercept('DELETE', '**/api/tournament/participant/801', { statusCode: 204 }).as('deleteParticipant');
+            cy.intercept('POST', '**/api/tournament/participant/801/reset', { statusCode: 204 }).as('deleteParticipant');
 
             cy.get('[data-cy=delete-participant]').first().click();
-            cy.contains('.el-dialog', 'Delete this participant?').should('be.visible');
+            cy.contains('.el-dialog', 'Reset this registration').should('be.visible');
             cy.get('@deleteParticipant.all').should('have.length', 0);
             cy.contains('.el-dialog button', 'Cancel').click();
             cy.get('@deleteParticipant.all').should('have.length', 0);
@@ -249,20 +237,26 @@ describe('<Weekly App />', () => {
             cy.get(`${participantTable} tbody`).extractTableData().should('deep.equal', [
                 ['User#102', '2026-01-01 08:00:00 ~ 2026-01-01 10:00:00', 'OTHER-TOKEN', ''],
             ]);
-            cy.contains('.el-dialog', 'Delete this participant?').should('not.be.visible');
+            cy.contains('.el-dialog', 'Reset this registration').should('not.be.visible');
             cy.then(() => expect(requestCounts.participantList).to.equal(1));
         });
     }
 
-    it('hides deletion for participants who already have tournament videos', () => {
-        mountWeekly({ loginStatus: LoginStatus.IsLogin, registered: false, isStaff: true, participants: [weeklyParticipant({ user_id: 101, has_videos: true })] });
+    it('hides reset for active sessions and participants with tournament videos', () => {
+        mountWeekly({ loginStatus: LoginStatus.IsLogin,
+            registered: false,
+            isStaff: true,
+            participants: [
+                weeklyParticipant({ user_id: 101, has_videos: true }),
+                weeklyParticipant({ id: 802, user_id: 102, end_time: '2099-01-01T10:00:00+08:00' }),
+            ] });
         cy.get(participantTable).should('be.visible');
         cy.get('[data-cy=delete-participant]').should('not.exist');
     });
 
-    it('keeps the participant and displays an error when deletion fails', () => {
+    it('keeps the participant and displays an error when reset fails', () => {
         mountWeekly({ loginStatus: LoginStatus.IsLogin, registered: true, isStaff: true });
-        cy.intercept('DELETE', '**/api/tournament/participant/801', { statusCode: 403 }).as('deleteParticipant');
+        cy.intercept('POST', '**/api/tournament/participant/801/reset', { statusCode: 403 }).as('deleteParticipant');
 
         cy.get('[data-cy=delete-participant]').click();
         cy.contains('.el-dialog button', 'Confirm').click();
@@ -274,10 +268,10 @@ describe('<Weekly App />', () => {
         cy.contains('.el-dialog button', 'Confirm').should('not.be.disabled');
     });
 
-    it('clears the current session when staff deletes their own participant', () => {
+    it('clears the current session when staff resets their own registration', () => {
         mountWeekly({ loginStatus: LoginStatus.IsLogin, registered: true, isStaff: true });
         cy.wait('@participantVideos');
-        cy.intercept('DELETE', '**/api/tournament/participant/801', { statusCode: 204 }).as('deleteParticipant');
+        cy.intercept('POST', '**/api/tournament/participant/801/reset', { statusCode: 204 }).as('deleteParticipant');
 
         cy.get('[data-cy=delete-participant]').click();
         cy.contains('.el-dialog button', 'Confirm').click();

@@ -140,7 +140,7 @@ describe('<SpeedRanking /> child routes', () => {
         cy.get('.ranking-selector').should('have.value', 'strict_ng');
         cy.get('.strict-ng-ranking-table').should('exist');
         cy.get('[data-cy=ranking-improve]').focus();
-        cy.get('[data-cy=ranking-improve-content]').should('be.visible').and('contain.text', 'Strict No Guessing replays');
+        cy.get('[data-cy=ranking-improve-content]').should('be.visible').and('contain.text', 'Strict NG replays');
         cy.get('[data-cy=ranking-improve]').blur();
         cy.shouldBeAbsentOrHidden('[data-cy=ranking-improve-content]');
         cy.get('.ranking-selector').select('saolei');
