@@ -8,6 +8,12 @@ describe('GitHub account-link entry', () => {
         resetAccountLinkStore(1, 1);
     });
 
+    afterEach(() => {
+        cy.window().then((win) => {
+            win.location.hash = '';
+        });
+    });
+
     it('uses OAuth instead of accepting a manually entered ID and permits retry after start failure', () => {
         cy.intercept('GET', '**/api/accountlink/1', { body: emptyLinks }).as('links');
         cy.intercept('POST', '**/api/accountlink/github/start', { statusCode: 503, body: { object: 'github', category: 'not_configured' } }).as('start');
@@ -58,5 +64,28 @@ describe('GitHub account-link entry', () => {
         cy.wait('@start');
         cy.wait('@cancel').its('request.body').should('deep.equal', { state });
         cy.get('[data-platform=B]').should('have.attr', 'aria-pressed', 'true');
+    });
+
+    it('does not show a notice after a successful GitHub callback', () => {
+        cy.window().then((win) => {
+            win.location.hash = '#/player/1/accountlink?github=linked';
+        });
+        cy.intercept('GET', '**/api/accountlink/1', { body: emptyLinks }).as('links');
+        mountAccountLink(App, { userId: 1 });
+        cy.wait('@links');
+        cy.get('[data-platform=g]').should('have.attr', 'aria-pressed', 'true');
+        cy.get('[data-cy=github-result]').should('not.exist');
+    });
+
+    it('shows a failed GitHub callback result only inside the GitHub section', () => {
+        cy.window().then((win) => {
+            win.location.hash = '#/player/1/accountlink?github=cancelled';
+        });
+        cy.intercept('GET', '**/api/accountlink/1', { body: emptyLinks }).as('links');
+        mountAccountLink(App, { userId: 1 });
+        cy.wait('@links');
+        cy.get('[data-cy=github-result]').should('contain', 'GitHub authorization cancelled.');
+        cy.get('[data-platform=B]').click();
+        cy.get('[data-cy=github-result]').should('not.exist');
     });
 });
