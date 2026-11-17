@@ -9,6 +9,41 @@
 
 `VideoModel` 是多个 app 的事实事件源。任何保存 `VideoModel` 的代码都应尽量使用 `save(update_fields=[...])`，让信号接收器能判断本次修改的影响范围。
 
+## 玩家外键索引部署
+
+仓库继续保留由部署环境维护编号迁移的现有方式。本次交付包中的三个迁移均由 Django 自动生成，须作为一条完整迁移链接入服务器，不能只更新模型后运行 `makemigrations`：后者只能发现新增独立索引，不能发现必须执行的组合索引重建。
+
+三步顺序为：
+
+1. `0008_add_player_fk_index.py`：添加 `video_player_fk_idx(player_id)`。
+2. `0009_detach_player_composite_fk.py`：移除 `video_player_state_level_idx`，使原生 InnoDB 外键检查切换到独立玩家索引。
+3. `0010_restore_player_state_level_index.py`：恢复 `video_player_state_level_idx(player_id, state, level)`，保留原查询索引。
+
+在生产服务使用的 Python 环境中进入 `back_end/saolei/`，先检查迁移历史：
+
+```bash
+python3 manage.py showmigrations videomanager
+python3 manage.py migrate --plan
+```
+
+交付包的起点是 `videomanager.0007_restore_bvs_precision`。只有服务器已有相同的前置迁移、且 `0008` 至 `0010` 没有编号冲突时，才能直接复制三个文件到 `videomanager/migrations/`。不要覆盖服务器已有迁移。若迁移名或依赖不同，需要先根据服务器迁移图重新编号、衔接依赖，保留上述操作及顺序；不要另起一条分支，也不要只复制其中一个文件。服务器已自动生成但尚未应用的同名索引迁移，也应先核对并合入此迁移链，避免重复创建索引。
+
+复制或衔接完成后再次运行 `migrate --plan`，确认计划包含独立索引创建、组合索引移除和恢复三步，且没有无关操作。在维护窗口应用迁移，索引重建耗时随录像量变化：
+
+```bash
+python3 manage.py migrate videomanager 0010_restore_player_state_level_index
+python3 manage.py showmigrations videomanager
+```
+
+上述目标名只适用于直接使用交付包的情况；若已根据服务器迁移图重新编号，使用服务器上的最终迁移名。应用后确认三步均标为已执行，并通过 `python3 manage.py dbshell` 检查两个索引：
+
+```sql
+SHOW INDEX FROM videomanager_videomodel
+WHERE Key_name IN ('video_player_fk_idx', 'video_player_state_level_idx');
+```
+
+独立索引应只包含 `player_id`，组合索引应依次包含 `player_id`、`state`、`level`。已有独立索引并不代表外键已经切换，仍须核对三步迁移的执行记录。完成后再继续正常部署流程；不要使用 `--fake` 跳过这些结构操作。本次本地验证已覆盖原生 InnoDB 外键模式下的新建表、旧表三步迁移及绑定、解绑并发场景。
+
 ## 创建录像
 
 主要入口：

@@ -48,8 +48,8 @@ jobs:
         pip install cryptography
         pip install coverage pytest-cov
 
-    - name: Create Logs Directory
-      run: mkdir -p logs
+    - name: Create Runtime Directories
+      run: mkdir -p logs assets dist
 
     - name: Run Tests
       run: |

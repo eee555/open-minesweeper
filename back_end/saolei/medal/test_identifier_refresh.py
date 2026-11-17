@@ -7,7 +7,7 @@ from threading import Event
 from unittest import skipUnless
 from unittest.mock import patch
 
-from django.db import close_old_connections, connection
+from django.db import close_old_connections, connection, transaction
 from django.tasks import TaskResultStatus
 from django.test import override_settings, TransactionTestCase
 from django.utils import timezone
@@ -239,4 +239,43 @@ class IdentifierMedalConcurrencyTests(IdentifierMedalFixture, TransactionTestCas
         grant = self.active(user, 'ability.time.b')
         self.assertEqual((grant.stage, grant.video_id), (5000, faster.id))
         self.assertEqual(self.active(user, NOVICE_LEVELS).video_id, completing.id)
+        self.assert_matches_full_evaluation(user)
+
+    @skipUnless(connection.vendor == 'mysql', 'Row lock contention requires MySQL.')
+    def test_unbind_queues_refresh_while_player_is_locked(self):
+        user, userms = self.make_player('identifier_unbind_locked')
+        identifier = Identifier.objects.create(identifier='medal-unbind-locked', safe=True, userms=userms)
+        userms.identifiers = [identifier.identifier]
+        userms.save(update_fields=['identifiers'])
+        video = self.make_video(user, identifier.identifier, state=OFFICIAL)
+        evaluate_player(user.id)
+        self.assertIsNotNone(self.active(user, 'ability.time.b'))
+        DBTaskResult.objects.all().delete()
+        locked, release = Event(), Event()
+
+        def hold_player_lock():
+            with transaction.atomic():
+                UserProfile.objects.select_for_update().get(pk=user.id)
+                locked.set()
+                self.assertTrue(release.wait(timeout=60))
+
+        with ExitStack() as stack:
+            for dependency in RANK_DEPENDENCIES:
+                stack.enter_context(patch(f'identifier.services.{dependency}'))
+            pool = stack.enter_context(ThreadPoolExecutor(max_workers=2))
+            holding = pool.submit(self.in_connection, hold_player_lock)
+            try:
+                self.assertTrue(locked.wait(timeout=20))
+                unbound = pool.submit(self.in_connection, lambda: unbind_identifier(identifier, userms))
+                self.assertEqual(unbound.result(timeout=20), 1)
+                queued = DBTaskResult.objects.get(task_path=task_refresh_player_medals.module_path, status=TaskResultStatus.READY)
+                self.assertEqual(queued.args_kwargs['kwargs']['video_ids'], [video.id])
+            finally:
+                release.set()
+            holding.result(timeout=20)
+
+        video.refresh_from_db()
+        self.assertEqual(video.state, IDENTIFIER)
+        task_refresh_player_medals.call(*queued.args_kwargs['args'], **queued.args_kwargs['kwargs'])
+        self.assertIsNone(self.active(user, 'ability.time.b'))
         self.assert_matches_full_evaluation(user)

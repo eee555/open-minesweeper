@@ -188,6 +188,8 @@ class VideoModel(models.Model):
             models.Index(fields=['thrp'], name='thrp_idx'),
             models.Index(fields=['timems'], name='timems_idx'),
             models.Index(fields=['state'], name='state_idx'),
+            # 保留独立外键索引，避免 InnoDB 用下方组合索引校验外键，导致改 state/level 也等待玩家行锁。
+            models.Index(fields=['player'], name='video_player_fk_idx'),
             models.Index(fields=['level', 'mode', 'player', 'pluck'], name='video_lmp_pluck_idx'),
             models.Index(fields=['player', 'state', 'level'], name='video_player_state_level_idx'),
             models.Index(fields=['compression_format'], name='video_compression_format_idx'),
