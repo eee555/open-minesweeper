@@ -8,6 +8,12 @@ describe('GitHub public ID and profile', () => {
         resetAccountLinkStore();
     });
 
+    it('shows a callback result without link details when the link was not created', () => {
+        mountAccountLink(GitHubPanel, { result: 'conflict' });
+        cy.get('[data-cy=github-result]').should('contain', 'already linked');
+        cy.contains('.description-item', 'GitHub ID').should('not.exist');
+    });
+
     it('shows the ID without fetching profile data and loads a username only on request', () => {
         cy.intercept('GET', 'https://api.github.com/user/42', { body: { id: 42, login: 'renamed-user' } }).as('profile');
         mountAccountLink(GitHubPanel, { info: new AccountGitHub({ id: '42', parent: 1 }) });

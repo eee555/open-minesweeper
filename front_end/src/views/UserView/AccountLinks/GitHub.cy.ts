@@ -70,10 +70,11 @@ describe('GitHub account-link entry', () => {
         cy.window().then((win) => {
             win.location.hash = '#/player/1/accountlink?github=linked';
         });
-        cy.intercept('GET', '**/api/accountlink/1', { body: emptyLinks }).as('links');
+        cy.intercept('GET', '**/api/accountlink/1', { body: { ...emptyLinks, g: { id: '123456789', parent: 1 } } }).as('links');
         mountAccountLink(App, { userId: 1 });
         cy.wait('@links');
-        cy.get('[data-cy=github-result]').should('contain', 'GitHub account linked.');
+        cy.get('[data-cy=github-panel] [data-cy=github-result]').should('contain', 'GitHub account linked.');
+        cy.get('[data-cy=github-panel]').should('contain', '123456789');
         cy.get('[data-platform=B]').click();
         cy.get('[data-cy=github-result]').should('not.exist');
     });
