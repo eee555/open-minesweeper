@@ -9,6 +9,7 @@ const repositoryUrl = 'https://github.com/renamed-owner/renamed-project';
 describe('<MediaSourceLink />', () => {
     function mountLink(format = 'g_r', suffix = '42') {
         cy.mount(defineComponent({
+            expose: [],
             render: () => h(MediaSourceLink, { format, suffix, 'data-cy': 'source-link' }, { default: () => 'Repository' }),
         }), {
             global: { plugins: [i18n] },
@@ -47,7 +48,7 @@ describe('<MediaSourceLink />', () => {
         cy.get('[data-cy=source-link]').click();
         cy.get('@open').should('have.been.calledOnceWith', 'about:blank', '_blank');
         cy.wait('@repository');
-        cy.get('@popup').its('opener').should('equal', null);
+        cy.get('@popup').should('have.property', 'opener', null);
         cy.get('@navigate').should('have.been.calledOnceWith', repositoryUrl);
         cy.get('@closePopup').should('not.have.been.called');
     });
