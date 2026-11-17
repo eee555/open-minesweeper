@@ -3,12 +3,14 @@ import { reactive } from 'vue';
 import { fetchSaoleiRecords } from './saoleiRankingService';
 import { fetchStrictNgRecords } from './strictNgRankingService';
 import { fetchThrpRecord } from './thrpRankingService';
+import { fetchTPERecord } from './tpeRankingService';
 
 // Revisions invalidate page data without starting background video downloads.
 const revisions = reactive(new Map<number, number>());
 const saoleiRecords = new Map<number, ReturnType<typeof fetchSaoleiRecords>>();
 const strictNgRecords = new Map<number, ReturnType<typeof fetchStrictNgRecords>>();
 const thrpRecords = new Map<number, ReturnType<typeof fetchThrpRecord>>();
+const tpeRecords = new Map<number, ReturnType<typeof fetchTPERecord>>();
 
 export function profileDataRevision(playerId: number): number {
     return revisions.get(playerId) ?? 0;
@@ -18,6 +20,7 @@ export function invalidateProfileData(playerId: number): void {
     saoleiRecords.delete(playerId);
     strictNgRecords.delete(playerId);
     thrpRecords.delete(playerId);
+    tpeRecords.delete(playerId);
     revisions.set(playerId, profileDataRevision(playerId) + 1);
 }
 
@@ -51,5 +54,16 @@ export function fetchProfileThrpRecord(playerId: number): ReturnType<typeof fetc
         throw error;
     });
     thrpRecords.set(playerId, request);
+    return request;
+}
+
+export function fetchProfileTPERecord(playerId: number): ReturnType<typeof fetchTPERecord> {
+    const existing = tpeRecords.get(playerId);
+    if (existing) return existing;
+    const request = fetchTPERecord(playerId).catch((error: unknown) => {
+        if (tpeRecords.get(playerId) === request) tpeRecords.delete(playerId);
+        throw error;
+    });
+    tpeRecords.set(playerId, request);
     return request;
 }

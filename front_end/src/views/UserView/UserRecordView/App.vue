@@ -3,6 +3,7 @@
         <SaoleiCard :user-id="store.player.id" />
         <StrictNgCard :user-id="store.player.id" />
         <ThrpCard :user-id="store.player.id" />
+        <TPECard :user-id="store.player.id" />
         <ElSkeleton v-show="loading" animated style="margin-top: 0px;" :rows="8" />
         <PLuckCard :records="pluckRecords" />
     </div>
@@ -16,6 +17,7 @@ import PLuckCard from './PLuckCard.vue';
 import SaoleiCard from './SaoleiCard.vue';
 import StrictNgCard from './StrictNgCard.vue';
 import ThrpCard from './ThrpCard.vue';
+import TPECard from './TPECard.vue';
 
 import type { CustomPluckRecord } from '@/services/msuserService';
 import { fetchCustomPluckPlayerRecords } from '@/services/msuserService';

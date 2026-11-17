@@ -27,6 +27,8 @@ python -m dangerzone.init_local_test --no-weekly
 
 下载串行执行，每次响应完成后至少等待 1.25 秒再发送下一请求，保证 `/api/userprofile/videolist` 不超过每秒一次，并留出余量。`--interval` 可增加等待时间，不能降到 1.25 秒以下；遇到 429 仍按原有机制等待重试。
 
+默认下载仍补全新版录像列表的解析字段，再合并 `detailbulk`，保留后者未提供的 Pluck 等数据。仅作 TPE 等不依赖 Pluck 的性能测试时，可使用 `--metadata-index` 跳过前一次解析字段下载，避免重复请求：time、BV 和实际点击数仍由 `detailbulk` 提供，Pluck 保持 NULL，因此该快照不能用于验证 Pluck 榜。该选项不能与 `--skip-details` 同用；续传时应继续使用相同选项。`--skip-details` 会补全纯元数据列表，即使该列表已被缓存。
+
 快照 v2 通过 `/api/userprofile/identifier?user_id=...` 获取每位用户的标识，保存在 `identifiers/<用户 ID>.json`。清单记录文件校验和、用户归属和标识总数，零标识用户也保留空列表。导入前检查所有用户均有标识文件、标识长度及全局唯一性；异常会在清空本地数据前中止。
 
 同一用户列表中的重复标识会在下载时去重并写回缓存文件；不同用户重复拥有同一标识仍视为归属冲突并中止。

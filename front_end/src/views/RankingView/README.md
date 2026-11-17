@@ -13,6 +13,7 @@
 | `/ranking/speed/skill_tt` | `view`：`overview/skill_b/skill_i/skill_e/tt_b/tt_i/tt_e`；`sort`：`{skill/typical_time}:{b/i/e/sum}:{total/s1…s11}`；`nf` | `overview`、`skill:sum:total`，普通榜 |
 | `/ranking/efficiency/thrp` | `sort`：`b/i/e/sum/e_nf` | `sum` |
 | `/ranking/efficiency/nf-ioe` | `sort`：`b/i/e/sum` | `sum` |
+| `/ranking/efficiency/tpe` | `sort`：`i/e/sum`，升序 | `sum` |
 | `/ranking/minigame/left-click` | `sort`：本游戏 9 个榜单 key 之一 | `left-click-b-50-v1` |
 | `/ranking/minigame/multi-touch` | `sort`：本游戏 9 个榜单 key 之一 | `multi-touch-b-50-v1` |
 | `/ranking/minigame/flag-chord` | `sort`：本游戏 2 个榜单 key 之一 | `flag-chord-b-v1` |
