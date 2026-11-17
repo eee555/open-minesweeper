@@ -1,6 +1,7 @@
 import $axios from '@/http';
 
 const ROOT = '/api/media';
+
 /** 与后端 media.utils.MEDIA_DAILY_LIKE_LIMIT 一致：每 UTC 自然日最多 10 次成功投喂。 */
 export const MEDIA_DAILY_LIKE_LIMIT = 10;
 const JSON_CONFIG = { headers: { 'Content-Type': 'application/json' } };
