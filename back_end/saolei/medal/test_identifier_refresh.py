@@ -1,11 +1,15 @@
-from contextlib import ExitStack
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import ExitStack, nullcontext
 from datetime import timedelta
 import json
 import random
+from threading import Event
+from unittest import skipUnless
 from unittest.mock import patch
 
+from django.db import close_old_connections, connection
 from django.tasks import TaskResultStatus
-from django.test import override_settings
+from django.test import override_settings, TransactionTestCase
 from django.utils import timezone
 from django_tasks_db.models import DBTaskResult
 
@@ -15,6 +19,7 @@ from identifier.services import bind_identifier, unbind_identifier
 from msuser.models import UserMS
 from userprofile.models import UserProfile
 from videomanager.models import ExpandVideoModel, VideoModel
+from . import services
 from .models import MedalGrant, PlayerProgress
 from .services import evaluate_player, refresh_player_medals
 from .tasks import task_refresh_player_medals
@@ -30,8 +35,7 @@ RANDOM_LEVELS = {'b': (20000, 2500, 10, 40), 'i': (120000, 18000, 50, 120), 'e':
 RANDOM_MODES = [MS_TextChoices.Mode.STD] * 17 + [MS_TextChoices.Mode.JSW, MS_TextChoices.Mode.QWC, MS_TextChoices.Mode.RKC]
 
 
-@override_settings(CACHES={'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}})
-class IdentifierMedalRefreshTests(MedalTestCase):
+class IdentifierMedalFixture:
     def setUp(self):
         self.base = timezone.now() - timedelta(days=100)
         self.ids = iter(range(6_000_000, 7_000_000))
@@ -56,15 +60,18 @@ class IdentifierMedalRefreshTests(MedalTestCase):
         VideoModel.objects.filter(pk=video.pk).update(upload_time=self.base + timedelta(days=days))
         return VideoModel.objects.get(pk=video.pk)
 
+    def commit_scope(self):
+        return self.captureOnCommitCallbacks(execute=True)
+
     def run_identifier(self, operation, identifier, userms):
         with ExitStack() as stack:
             for dependency in RANK_DEPENDENCIES:
                 stack.enter_context(patch(f'identifier.services.{dependency}'))
-            with self.captureOnCommitCallbacks(execute=True):
+            with self.commit_scope():
                 operation(identifier, userms)
         row = DBTaskResult.objects.get(task_path=task_refresh_player_medals.module_path, status=TaskResultStatus.READY)
         self.assertIn('video_ids', row.args_kwargs['kwargs'])
-        with self.captureOnCommitCallbacks(execute=True):
+        with self.commit_scope():
             task_refresh_player_medals.call(*row.args_kwargs['args'], **row.args_kwargs['kwargs'])
         row.delete()
         return row.args_kwargs['kwargs']
@@ -80,13 +87,16 @@ class IdentifierMedalRefreshTests(MedalTestCase):
 
     def assert_matches_full_evaluation(self, user, label=''):
         incremental = self.snapshot(user)
-        with self.captureOnCommitCallbacks(execute=True):
+        with self.commit_scope():
             evaluate_player(user.id)
         self.assertEqual(incremental, self.snapshot(user), label)
 
     def active(self, user, code):
         return MedalGrant.objects.filter(user=user, definition_code=code, revoked_at__isnull=True).first()
 
+
+@override_settings(CACHES={'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}})
+class IdentifierMedalRefreshTests(IdentifierMedalFixture, MedalTestCase):
     def test_bind_and_unbind_update_medals_through_queued_incremental_refresh(self):
         user, userms = self.make_player('identifier_medal')
         identifier = Identifier.objects.create(identifier='medal-new', safe=True)
@@ -157,11 +167,76 @@ class IdentifierMedalRefreshTests(MedalTestCase):
             ('latest videos', lambda index, level, mode: index >= 270),
         ]
         for seed, (label, pick) in enumerate(scenarios, start=1):
-            with self.subTest(label):
+            # 失败时先看上面的确定性用例；这里的 seed 用于复现具体的随机批次。
+            with self.subTest(label, seed=seed):
                 user, userms, identifier = self.build_random_player(seed, pick)
                 before = self.snapshot(user)
                 self.run_identifier(bind_identifier, identifier, userms)
-                self.assertNotEqual(before, self.snapshot(user), label)
-                self.assert_matches_full_evaluation(user, f'{label} bind')
+                self.assertNotEqual(before, self.snapshot(user), f'{label} (seed {seed})')
+                self.assert_matches_full_evaluation(user, f'{label} (seed {seed}) bind')
                 self.run_identifier(unbind_identifier, identifier, userms)
-                self.assert_matches_full_evaluation(user, f'{label} unbind')
+                self.assert_matches_full_evaluation(user, f'{label} (seed {seed}) unbind')
+
+
+@override_settings(CACHES={'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache', 'LOCATION': 'identifier-medal-concurrency'}})
+class IdentifierMedalConcurrencyTests(IdentifierMedalFixture, TransactionTestCase):
+    def commit_scope(self):
+        # 没有外层事务，提交回调在提交时立即执行，无需捕获。
+        return nullcontext()
+
+    def in_connection(self, operation):
+        close_old_connections()
+        try:
+            return operation()
+        finally:
+            connection.close()
+
+    @skipUnless(connection.vendor == 'mysql', 'Row lock contention requires MySQL.')
+    def test_second_bind_is_queued_while_first_refresh_is_running(self):
+        user, userms = self.make_player('identifier_running')
+        first = Identifier.objects.create(identifier='medal-first', safe=True)
+        second = Identifier.objects.create(identifier='medal-second', safe=True)
+        old = self.make_video(user, 'medal-old', timems=9000, days=50, state=OFFICIAL)
+        self.make_video(user, 'medal-first', timems=8000, days=10)
+        self.make_video(user, 'medal-first', level='i', timems=60000, days=20)
+        completing = self.make_video(user, 'medal-second', level='e', timems=200000, days=30)
+        faster = self.make_video(user, 'medal-second', timems=4500, days=60)
+        evaluate_player(user.id)
+        self.assertEqual(self.active(user, 'ability.time.b').video_id, old.id)
+        # 创建玩家时的资料信号已入队全量刷新；清掉后，两次绑定的入队才是本用例观察的对象。
+        DBTaskResult.objects.all().delete()
+
+        locked, release = Event(), Event()
+        publish = services._publish_summary
+
+        def hold_player_lock(*args, **kwargs):
+            if not locked.is_set():
+                locked.set()
+                release.wait(timeout=60)
+            return publish(*args, **kwargs)
+
+        with ExitStack() as stack:
+            for dependency in RANK_DEPENDENCIES:
+                stack.enter_context(patch(f'identifier.services.{dependency}'))
+            self.assertEqual(bind_identifier(first, userms), 2)
+            running = DBTaskResult.objects.get(task_path=task_refresh_player_medals.module_path, status=TaskResultStatus.READY)
+            DBTaskResult.objects.filter(pk=running.pk).update(status=TaskResultStatus.RUNNING)
+            stack.enter_context(patch('medal.services._publish_summary', side_effect=hold_player_lock))
+            pool = stack.enter_context(ThreadPoolExecutor(max_workers=2))
+            evaluation = pool.submit(self.in_connection, lambda: task_refresh_player_medals.call(*running.args_kwargs['args'], **running.args_kwargs['kwargs']))
+            try:
+                self.assertTrue(locked.wait(timeout=20))
+                bound = pool.submit(self.in_connection, lambda: bind_identifier(second, userms))
+                self.assertEqual(bound.result(timeout=20), 2)
+            finally:
+                release.set()
+            evaluation.result(timeout=60)
+
+        queued = DBTaskResult.objects.get(task_path=task_refresh_player_medals.module_path, status=TaskResultStatus.READY)
+        self.assertEqual(queued.args_kwargs['kwargs']['video_ids'], sorted(VideoModel.objects.filter(video__identifier='medal-second').values_list('id', flat=True)))
+        self.assertIsNone(self.active(user, NOVICE_LEVELS))
+        task_refresh_player_medals.call(*queued.args_kwargs['args'], **queued.args_kwargs['kwargs'])
+        grant = self.active(user, 'ability.time.b')
+        self.assertEqual((grant.stage, grant.video_id), (5000, faster.id))
+        self.assertEqual(self.active(user, NOVICE_LEVELS).video_id, completing.id)
+        self.assert_matches_full_evaluation(user)

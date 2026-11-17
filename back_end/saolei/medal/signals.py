@@ -117,7 +117,7 @@ def enqueue_medal_refresh_on_bulk_videos(sender, player_ids, video_ids=None, los
     declared = lost_qualification is False or (lost_qualification is True and bool(lost_levels))
     if video_ids and declared and len(players) == 1 and len(video_ids) <= REFRESH_VIDEO_ID_LIMIT:
         # 失去资格与单条录像退审一致：重算受影响难度，新手集合过期。
-        refresh = {'video_ids': list(video_ids), 'degrade_levels': list(lost_levels), 'invalidate_once': bool(lost_qualification)}
+        refresh = {'video_ids': list(video_ids), 'degrade_levels': list(lost_levels) if lost_qualification else [], 'invalidate_once': lost_qualification}
     for player_id in players:
         transaction.on_commit(lambda player_id=player_id: enqueue_player_refresh(player_id, **refresh), robust=True)
 
