@@ -1,4 +1,4 @@
-"""作品页输入/输出 Schema；见 MEDIA_PLAN.md 第 7、8 节。"""
+"""作品页输入/输出 Schema；展示地址由前端按 format / suffix 解析。"""
 
 from datetime import datetime
 
@@ -8,7 +8,7 @@ from ninja.orm import create_schema
 from pydantic import ConfigDict, Field
 
 from .models import Media
-from .utils import build_embed_url, build_external_url, real_hot
+from .utils import real_hot
 
 MEDIA_QUERY_LIMIT = 1000
 
@@ -23,14 +23,6 @@ class MediaResolvers(Schema):
         return media.rejected_by_id
 
     @staticmethod
-    def resolve_url(media):
-        return build_external_url(media.format, media.suffix)
-
-    @staticmethod
-    def resolve_embed_url(media):
-        return build_embed_url(media.format, media.suffix)
-
-    @staticmethod
     def resolve_hot_now(media):
         return real_hot(media, getattr(media, '_hot_now_at', None) or timezone.now())
 
@@ -38,7 +30,7 @@ class MediaResolvers(Schema):
 MEDIA_OUT_FIELDS = [
     'id', 'title', 'language', 'created_at', 'submitted_at', 'format', 'status',
     'rejected_at', 'reject_reason', 'refunded_likes', 'likes', 'hot_value',
-    'hot_value_updated_at', 'metadata_pending',
+    'hot_value_updated_at', 'metadata_pending', 'suffix',
 ]
 
 MediaOut = create_schema(
@@ -48,8 +40,6 @@ MediaOut = create_schema(
     custom_fields=[
         ('user_id', int, ...),
         ('rejected_by', int | None, None),
-        ('url', str, ...),
-        ('embed_url', str | None, None),
         ('hot_now', float, ...),
     ],
     base_class=MediaResolvers,
@@ -105,7 +95,8 @@ class DeletedOut(Schema):
 
 class SubmitIn(Schema):
     format: str
-    suffix: str
+    # 输入支持完整 URL，可能超过模型 suffix 的 128 字符；GitHub 落库前转换为数字 ID。
+    suffix: str = Field(max_length=255)
     language: str = ''
 
 

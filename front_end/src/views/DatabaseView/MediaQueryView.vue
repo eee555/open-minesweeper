@@ -52,7 +52,11 @@
                 </tr>
             </template>
             <tr v-for="item in pagedItems" :key="item.id">
-                <td><a class="link" :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title || t('media.titleMissing') }}</a></td>
+                <td>
+                    <MediaSourceLink :format="item.format" :suffix="item.suffix">
+                        {{ item.title || t('media.titleMissing') }}
+                    </MediaSourceLink>
+                </td>
                 <td><PlayerName :user-id="item.user_id" /></td>
                 <td>{{ statusLabel(item.status) }}</td>
                 <td>{{ item.language || t('media.unknownLanguage') }}</td>
@@ -74,6 +78,7 @@ import { useI18n } from 'vue-i18n';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
+import MediaSourceLink from '@/components/media/MediaSourceLink.vue';
 import { httpErrorNotification } from '@/components/Notifications';
 import PlayerName from '@/components/PlayerName.vue';
 import type { MediaItem, MediaQueryErrorBody, MediaQueryField, MediaQueryMode, MediaStatusValue } from '@/services/mediaService';

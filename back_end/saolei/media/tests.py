@@ -1,4 +1,4 @@
-"""作品页数据层测试：纯函数与模型定义；测试清单见 MEDIA_PLAN.md 第 12 节。"""
+"""作品页数据层测试：来源解析、归一化、模型约束与持久化。"""
 
 from datetime import datetime, timedelta, timezone as datetime_timezone
 from types import SimpleNamespace
@@ -11,7 +11,7 @@ from django.utils import timezone
 from userprofile.models import UserProfile
 from .models import Media, MediaLikes, UserMedia
 from .utils import (
-    build_embed_url, build_external_url, decay, format_to_platform, MEDIA_HOT_DAILY_RETENTION,
+    decay, format_to_platform, MEDIA_HOT_DAILY_RETENTION,
     MediaFormat, MediaStatus, normalize_external_author_id, normalize_language, parse_media_url, real_hot,
 )
 
@@ -79,17 +79,17 @@ class MediaUtilsTests(SimpleTestCase):
         for url, media_format, expected_format, expected_suffix in cases:
             with self.subTest(url=url):
                 self.assertEqual(parse_media_url(url, media_format), (expected_format, expected_suffix))
-        self.assertEqual(build_external_url(MediaFormat.C_P, '9786'), 'https://saolei.wang/bbs/9786')
 
-    def test_build_urls(self):
-        self.assertEqual(build_external_url(MediaFormat.B_V, 'BV1xx411c7mD'), 'https://www.bilibili.com/video/BV1xx411c7mD/')
-        self.assertEqual(build_external_url(MediaFormat.B_A, '1646742'), 'https://www.bilibili.com/read/cv1646742')
-        self.assertEqual(build_external_url(MediaFormat.C_P, '9786'), 'https://saolei.wang/bbs/9786')
-        self.assertIn('bvid=BV1xx411c7mD', build_embed_url(MediaFormat.B_V, 'BV1xx411c7mD'))
-        self.assertIsNone(build_embed_url(MediaFormat.B_A, '1646742'))
-        self.assertIsNone(build_embed_url(MediaFormat.C_P, '9786'))
-        with self.assertRaises(ValueError):
-            build_external_url('B_o', '1')
+    def test_github_locator_is_normalized_without_accepting_arbitrary_urls(self):
+        for value in ('Owner/Project', 'Owner/Project.git', 'https://github.com/Owner/Project/', 'https://github.com/Owner/Project.git'):
+            self.assertEqual(parse_media_url(value, MediaFormat.G_R), (MediaFormat.G_R, 'owner/project'))
+        for value in (
+            'https://github.com.evil.test/a/b', 'https://github.com:443/a/b', 'https://github.com/a/b?x=1',
+            'https://github.com/a/b#readme', 'https://github.com/a/b/tree/main', 'https://github.com/a//b',
+            'http://github.com/a/b', 'git@github.com:a/b.git', '../b', 'a/..', 'a/%2e%2e',
+        ):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                parse_media_url(value, MediaFormat.G_R)
 
     def test_normalize_external_author_id(self):
         self.assertEqual(normalize_external_author_id(42), '42')
@@ -107,6 +107,7 @@ class MediaUtilsTests(SimpleTestCase):
         self.assertEqual(format_to_platform(MediaFormat.B_V), 'B')
         self.assertEqual(format_to_platform(MediaFormat.B_A), 'B')
         self.assertEqual(format_to_platform(MediaFormat.C_P), 'c')
+        self.assertEqual(format_to_platform(MediaFormat.G_R), 'g')
         with self.assertRaises(ValueError):
             format_to_platform('B_o')
 
@@ -121,7 +122,7 @@ class MediaModelDefinitionTests(SimpleTestCase):
 
     def test_format_and_status_choices(self):
         formats = [value for value, _ in Media._meta.get_field('format').choices]
-        self.assertEqual(formats, [MediaFormat.B_V, MediaFormat.B_A, MediaFormat.C_P])
+        self.assertEqual(formats, [MediaFormat.B_V, MediaFormat.B_A, MediaFormat.C_P, MediaFormat.G_R])
         statuses = [value for value, _ in Media._meta.get_field('status').choices]
         self.assertEqual(statuses, [MediaStatus.PENDING, MediaStatus.VERIFIED, MediaStatus.REJECTED])
 

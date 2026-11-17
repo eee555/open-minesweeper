@@ -1,13 +1,13 @@
 ---
 title: Works - Open Minesweeper
-description: Submission, review, rubies and heat rules for promoting Bilibili videos, articles and Saolei.wang posts on Open Minesweeper.
+description: Submission, review, rubies and heat rules for promoting Bilibili videos, articles, Saolei.wang posts and GitHub repositories on Open Minesweeper.
 ---
 
 # Works
 
 [Open the Works page](https://openms.top/#/works)
 
-Works lists the minesweeper content collected on this site: Bilibili videos, Bilibili articles and Saolei.wang posts. **Only approved works appear here.** The table is sorted by **Current heat** by default; click a column heading to switch between **Published at**, **Current heat** and **Total likes**. Changing the sort returns to page one, with 20 works per page. Clicking a Bilibili video title opens an in-site preview; other titles open the original link. The icon before each title shows the source platform.
+Works lists the minesweeper content collected on this site: Bilibili videos, Bilibili articles, Saolei.wang posts and GitHub repositories. **Only approved works appear here.** The table is sorted by **Current heat** by default; click a column heading to switch between **Published at**, **Current heat** and **Total likes**. Changing the sort returns to page one, with 20 works per page. Clicking a Bilibili video title opens an in-site preview; other titles open the original link. The icon before each title shows the source platform.
 
 If you create content and want to promote it here, these are the rules most likely to catch you out:
 
@@ -21,8 +21,14 @@ If you create content and want to promote it here, these are the rules most like
 Click **Submit** at the top right of the Works page, choose the platform and type, enter the **Work ID**, and optionally fill in the language. You can paste a full link or just the ID: a BV id for Bilibili videos, a numeric id for Bilibili articles and Saolei.wang posts (leading zeros do not matter, so `cv01646742` and `cv1646742` are the same article). The title and publish time are fetched from the source site; you do not fill them in.
 
 ::: tip When the source site is temporarily unavailable
-The submission is kept and shown as **Title to be filled**. A moderator fills in the title and verifies the external account during review. An invalid link, a wrong type or a malformed ID is rejected outright and leaves no record.
+Bilibili and Saolei.wang submissions are kept and shown as **Title to be filled**. A moderator fills in the title and verifies the external account during review. A GitHub fetch failure creates no submission; retry later. An invalid link, a wrong type or a malformed ID is rejected outright and leaves no record.
 :::
+
+### GitHub repositories
+
+Link your GitHub account, choose **GitHub repository**, and enter `OWNER/REPO` or the full repository URL. Only public, non-fork repositories owned by that personal account are accepted. Organization repositories and repositories you only collaborate on are excluded. The publish time is the repository creation time; language still refers to the work's natural language.
+
+Renaming a repository does not make it a new work or allow resubmission. Clicking its title loads the current repository link; click again to retry after a failure. If your browser blocks the new window, click the title again after the link loads. GitHub stars do not count toward feeding or heat on this site.
 
 ### Link your account first
 

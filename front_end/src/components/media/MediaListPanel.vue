@@ -46,12 +46,12 @@
                             :src="platformIconSrc(item.format)" :alt="platformName(item.format)" :title="platformName(item.format)"
                         >
                         <button
-                            v-if="item.embed_url" type="button" class="link media-preview-link media-title-control"
+                            v-if="mediaEmbedUrl(item.format, item.suffix)" type="button" class="link media-preview-link media-title-control"
                             data-cy="media-preview-link" :title="t('media.preview')" @click="openPreview(item)"
                         >
                             {{ item.title || t('media.titleMissing') }}
                         </button>
-                        <a v-else class="link media-title-control" data-cy="media-title-link" :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title || t('media.titleMissing') }}</a>
+                        <MediaSourceLink v-else class="media-title-control" data-cy="media-title-link" :format="item.format" :suffix="item.suffix">{{ item.title || t('media.titleMissing') }}</MediaSourceLink>
                     </span>
                     <span v-if="item.metadata_pending" class="media-row-note text-secondary text-small">{{ t('media.titleMissing') }}</span>
                 </td>
@@ -97,6 +97,7 @@ import { computed, onScopeDispose, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import MediaFeedButton from './MediaFeedButton.vue';
+import MediaSourceLink from './MediaSourceLink.vue';
 
 import BaseTable from '@/components/common/BaseTable.vue';
 import BaseTextButton from '@/components/common/BaseTextButton.vue';
@@ -106,6 +107,7 @@ import type { MediaItem, MediaLikeResult, MediaMe, MediaPage } from '@/services/
 import { fetchLatestMedia, fetchMediaMe, fetchMediaRanking } from '@/services/mediaService';
 import { store } from '@/store';
 import { AccountLinkPlatform } from '@/utils/accountlinks';
+import { mediaEmbedUrl, mediaExternalUrl } from '@/utils/media';
 import { platforms } from '@/views/UserView/AccountLinks/platforms';
 
 import '@/components/media/media.css';
@@ -120,6 +122,7 @@ const FORMAT_PLATFORM: Record<string, AccountLinkPlatform> = {
     B_v: AccountLinkPlatform.Bilibili,
     B_a: AccountLinkPlatform.Bilibili,
     c_p: AccountLinkPlatform.Saolei,
+    g_r: AccountLinkPlatform.GitHub,
 };
 
 function platformIconSrc(format: string): string {
@@ -145,8 +148,10 @@ let meRequestId = 0;
 const feedDisabled = computed(() => me.value === null);
 
 function openPreview(item: MediaItem): void {
-    if (item.embed_url === null || item.embed_url === '') return;
-    preview.value = { title: item.title, url: item.url, embedUrl: item.embed_url };
+    const embedUrl = mediaEmbedUrl(item.format, item.suffix);
+    const url = mediaExternalUrl(item.format, item.suffix);
+    if (embedUrl === undefined || url === undefined) return;
+    preview.value = { title: item.title, url, embedUrl };
 }
 
 function selectSort(value: WorksSort): void {

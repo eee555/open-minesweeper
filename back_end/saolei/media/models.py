@@ -1,4 +1,4 @@
-"""作品页数据模型：Media / MediaLikes / UserMedia；见 MEDIA_PLAN.md 第 4、16 节。"""
+"""作品、投喂记录及用户投喂额度模型；业务规则见 README.md。"""
 
 from django.db import models
 from django.utils import timezone

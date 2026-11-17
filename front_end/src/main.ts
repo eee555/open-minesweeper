@@ -15,17 +15,20 @@ function errorText(error: unknown) {
 
 function isSupportedBrowser() {
     return typeof Array.prototype.toReversed === 'function'
-        && typeof Promise.withResolvers === 'function';
+        && typeof Promise.withResolvers === 'function'
+        && typeof AbortSignal !== 'undefined'
+        && typeof AbortSignal.any === 'function'
+        && typeof AbortSignal.timeout === 'function';
 }
 
 function isUnsupportedBrowserError(error: unknown) {
     const text = errorText(error);
     if (!text.includes('is not a function')) return false;
-    return text.includes('toReversed') || text.includes('withResolvers');
+    return text.includes('toReversed') || text.includes('withResolvers')
+        || text.includes('AbortSignal.any') || text.includes('AbortSignal.timeout');
 }
 
-// 站点依赖 Array.prototype.toReversed 与 Promise.withResolvers。
-// 旧浏览器在启动时会抛出 `… is not a function`，页面会停在「1/3 正在加载资源」。
+// 与 index.html 的提前检查保持一致；缺少依赖 API 时不加载应用，保留升级提示。
 if (isSupportedBrowser()) {
     void import('./bootstrap').catch((error: unknown) => {
         if (isUnsupportedBrowserError(error)) markOutdatedBrowser();

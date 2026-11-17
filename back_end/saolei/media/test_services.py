@@ -1,4 +1,4 @@
-"""作品服务层单测：投稿、投喂、审核、驳回、恢复、硬删除与低频命令；见 MEDIA_PLAN.md 第 12 节、附录 A。"""
+"""作品服务层回归：投稿、投喂、状态转换、退款与低频管理命令。"""
 
 from datetime import datetime, timedelta, timezone as datetime_timezone
 from io import StringIO
@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.db import transaction
 from django.test import TestCase
 from django.utils import timezone
 from django_tasks_db.models import DBTaskResult
@@ -57,6 +58,25 @@ class MediaServiceTests(TestCase):
         with self.assertRaises(MediaServiceError) as caught:
             self._create_media()
         self.assertEqual(caught.exception.status_code, 409)
+
+    def test_create_waits_for_outer_commit_before_syncing_cache(self):
+        with patch('media.services.sync_media_scores') as sync:
+            with self.captureOnCommitCallbacks(execute=True) as callbacks:
+                with transaction.atomic():
+                    media = self._create_media()
+                    sync.assert_not_called()
+            self.assertEqual(len(callbacks), 1)
+            sync.assert_called_once_with(media.pk, self.user.pk)
+
+    def test_create_rollback_discards_cache_sync(self):
+        with patch('media.services.sync_media_scores') as sync:
+            with self.captureOnCommitCallbacks(execute=True) as callbacks:
+                with transaction.atomic():
+                    self._create_media()
+                    transaction.set_rollback(True)
+            self.assertEqual(callbacks, [])
+            sync.assert_not_called()
+        self.assertFalse(Media.objects.exists())
 
     def test_like_pending_only_writes_db(self):
         media = self._create_media()

@@ -4,7 +4,7 @@ const ROOT = '/api/media';
 const JSON_CONFIG = { headers: { 'Content-Type': 'application/json' } };
 const SUBMIT_CONFIG = { ...JSON_CONFIG, timeout: 25000 };
 
-export type MediaFormatValue = 'B_v' | 'B_a' | 'c_p';
+export type MediaFormatValue = 'B_v' | 'B_a' | 'c_p' | 'g_r';
 export type MediaStatusValue = 'pending' | 'verified' | 'rejected';
 export type MediaSortKey = 'hot' | 'likes' | 'created_at';
 export type MediaRankSort = 'hot' | 'likes';
@@ -18,6 +18,7 @@ export interface MediaItem {
     created_at: string;
     submitted_at: string;
     format: string;
+    suffix: string;
     status: MediaStatusValue;
     rejected_at: string | null;
     reject_reason: string;
@@ -28,8 +29,6 @@ export interface MediaItem {
     metadata_pending: boolean;
     user_id: number;
     rejected_by: number | null;
-    url: string;
-    embed_url: string | null;
     hot_now: number;
 }
 

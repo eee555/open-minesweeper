@@ -12,8 +12,8 @@
   <title>开源扫雷网 | Open Minesweeper</title>
   <script>
     // Runs before the app module. The site needs Array.prototype.toReversed and
-    // Promise.withResolvers; missing APIs throw during startup and otherwise leave
-    // the indeterminate "1/3 Loading resources" screen.
+    // Promise.withResolvers plus AbortSignal.any/timeout for cancellable requests.
+    // Detect missing APIs before startup or later user interactions fail.
     (function () {
       function textOf(value) {
         if (!value) return '';
@@ -25,13 +25,17 @@
 
       function isSupportedBrowser() {
         return typeof Array.prototype.toReversed === 'function'
-          && typeof Promise.withResolvers === 'function';
+          && typeof Promise.withResolvers === 'function'
+          && typeof AbortSignal !== 'undefined'
+          && typeof AbortSignal.any === 'function'
+          && typeof AbortSignal.timeout === 'function';
       }
 
       function isUnsupportedBrowserError(value) {
         var text = textOf(value);
         if (text.indexOf('is not a function') === -1) return false;
-        return text.indexOf('toReversed') !== -1 || text.indexOf('withResolvers') !== -1;
+        return text.indexOf('toReversed') !== -1 || text.indexOf('withResolvers') !== -1
+          || text.indexOf('AbortSignal.any') !== -1 || text.indexOf('AbortSignal.timeout') !== -1;
       }
 
       function markOutdatedBrowser() {
@@ -112,8 +116,8 @@
           <span lang="en">1/3 Loading resources…</span>
         </span>
         <span class="startup-outdated">
-          <span lang="zh-CN">您的浏览器版本过低，无法正常使用本网站。最低要求：Chrome 119+、Firefox 121+、Safari 17.4+、Edge 119+。请升级后刷新页面。</span><br>
-          <span lang="en">Your browser is too old to use this site. Minimum requirements: Chrome 119+, Firefox 121+, Safari 17.4+, Edge 119+. Please upgrade and reload.</span>
+          <span lang="zh-CN">您的浏览器版本过低，无法正常使用本网站。最低要求：Chrome 119+、Firefox 124+、Safari 17.4+、Edge 119+。请升级后刷新页面。</span><br>
+          <span lang="en">Your browser is too old to use this site. Minimum requirements: Chrome 119+, Firefox 124+, Safari 17.4+, Edge 119+. Please upgrade and reload.</span>
         </span>
       </p>
       <p id="startup-loading-resource-status" hidden style="margin: 0 0 16px; line-height: 1.6;">
