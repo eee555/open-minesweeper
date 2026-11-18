@@ -1,9 +1,10 @@
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
-from threading import Barrier
+from threading import Barrier, Event
+from unittest import skipUnless
 from unittest.mock import patch
 
-from django.db import close_old_connections, connection
+from django.db import close_old_connections, connection, DatabaseError, transaction
 from django.tasks import TaskResultStatus
 from django.test import override_settings, skipUnlessDBFeature, TestCase, TransactionTestCase
 from django.test.utils import CaptureQueriesContext
@@ -17,8 +18,10 @@ from tournament.models import Tournament
 from tournament.services import reveal_videos_for_tournament
 from userprofile.models import UserProfile
 from userprofile.services import update_user_names
+from videomanager.events import videos_bulk_changed
 from videomanager.models import ExpandVideoModel, VideoModel
-from .tasks import enqueue_player_backfill, enqueue_player_refresh, task_backfill_player_medals, task_refresh_player_medals
+from .services import refresh_player_medals
+from .tasks import _release_queue_lock, enqueue_player_backfill, enqueue_player_refresh, task_backfill_player_medals, task_refresh_player_medals
 
 
 @override_settings(CACHES={'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}})
@@ -67,16 +70,113 @@ class MedalQueueTriggerTests(TestCase):
             for dependency in dependencies:
                 stack.enter_context(patch(f'identifier.services.{dependency}'))
             enqueue = stack.enter_context(patch('medal.signals.enqueue_player_refresh'))
-            for operation, expected_state in [
-                (bind_identifier, MS_TextChoices.State.OFFICIAL),
-                (unbind_identifier, MS_TextChoices.State.IDENTIFIER),
+            for operation, expected_state, lost_levels, invalidate_once in [
+                (bind_identifier, MS_TextChoices.State.OFFICIAL, [], False),
+                (unbind_identifier, MS_TextChoices.State.IDENTIFIER, ['b'], True),
             ]:
                 with self.captureOnCommitCallbacks(execute=True):
                     self.assertEqual(operation(identifier, self.userms), len(videos))
                     enqueue.assert_not_called()
-                enqueue.assert_called_once_with(self.user.id)
+                enqueue.assert_called_once()
+                call = enqueue.call_args
+                self.assertEqual(call.args, (self.user.id,))
+                self.assertEqual(sorted(call.kwargs['video_ids']), sorted(video.id for video in videos))
+                self.assertEqual(call.kwargs['degrade_levels'], lost_levels)
+                self.assertEqual(call.kwargs['invalidate_once'], invalidate_once)
                 enqueue.reset_mock()
                 self.assertEqual(set(VideoModel.objects.values_list('state', flat=True)), {expected_state})
+
+    def test_large_batch_falls_back_to_full_refresh(self):
+        self.make_videos()
+        identifier = Identifier.objects.create(identifier='medal-bulk', safe=True)
+        with ExitStack() as stack:
+            for dependency in ['newest_cache.update_bulk', 'update_video_count_limit_from_videos', 'add_videos_to_speed_ranks', 'add_videos_to_custom_pluck_ranks', 'add_videos_to_eff_ranks']:
+                stack.enter_context(patch(f'identifier.services.{dependency}'))
+            stack.enter_context(patch('medal.signals.REFRESH_VIDEO_ID_LIMIT', 1))
+            enqueue = stack.enter_context(patch('medal.signals.enqueue_player_refresh'))
+            with self.captureOnCommitCallbacks(execute=True):
+                bind_identifier(identifier, self.userms)
+        enqueue.assert_called_once_with(self.user.id)
+
+    def test_undeclared_or_incomplete_loss_falls_back_to_full_refresh(self):
+        for declaration in [{'lost_levels': ['b']}, {'lost_qualification': True}, {'lost_qualification': True, 'lost_levels': []}]:
+            with self.subTest(declaration=declaration):
+                with patch('medal.signals.enqueue_player_refresh') as enqueue, self.captureOnCommitCallbacks(execute=True):
+                    videos_bulk_changed.send(sender=VideoModel, player_ids=[self.user.id], video_ids=[1], **declaration)
+                enqueue.assert_called_once_with(self.user.id)
+
+    def test_multi_player_bulk_change_with_videos_falls_back_to_full_refresh(self):
+        other = UserProfile.objects.create_user(username='medal_queue_other', email='medal-other@example.com')
+        with patch('medal.signals.enqueue_player_refresh') as enqueue, self.captureOnCommitCallbacks(execute=True):
+            videos_bulk_changed.send(sender=VideoModel, player_ids=[self.user.id, other.id], video_ids=[1, 2], lost_qualification=False)
+        self.assertEqual(sorted(call.args for call in enqueue.call_args_list), sorted([(self.user.id,), (other.id,)]))
+        self.assertTrue(all(not call.kwargs for call in enqueue.call_args_list))
+
+    def test_lost_levels_are_ignored_unless_qualification_is_lost(self):
+        with patch('medal.signals.enqueue_player_refresh') as enqueue, self.captureOnCommitCallbacks(execute=True):
+            videos_bulk_changed.send(sender=VideoModel, player_ids=[self.user.id], video_ids=[1], lost_qualification=False, lost_levels=['b'])
+        enqueue.assert_called_once_with(self.user.id, video_ids=[1], degrade_levels=[], invalidate_once=False)
+
+    def test_enqueue_inside_outer_transaction_is_rejected(self):
+        with self.assertRaises(RuntimeError), transaction.atomic():
+            enqueue_player_refresh(self.user.id)
+        self.assertFalse(DBTaskResult.objects.exists())
+
+    def test_bind_inside_outer_transaction_still_enqueues_after_commit(self):
+        videos = self.make_videos()
+        identifier = Identifier.objects.create(identifier='medal-bulk', safe=True)
+        with ExitStack() as stack:
+            for dependency in ['newest_cache.update_bulk', 'update_video_count_limit_from_videos', 'add_videos_to_speed_ranks', 'add_videos_to_custom_pluck_ranks', 'add_videos_to_eff_ranks']:
+                stack.enter_context(patch(f'identifier.services.{dependency}'))
+            with self.captureOnCommitCallbacks(execute=True):
+                with transaction.atomic():
+                    bind_identifier(identifier, self.userms)
+                    self.assertFalse(DBTaskResult.objects.exists())
+        row = DBTaskResult.objects.get(task_path=task_refresh_player_medals.module_path, status=TaskResultStatus.READY)
+        self.assertEqual(row.args_kwargs['kwargs'], {'video_ids': sorted(video.id for video in videos)})
+
+    def test_enqueue_falls_back_to_player_row_lock_without_named_lock(self):
+        with patch('medal.tasks._uses_named_lock', return_value=False), CaptureQueriesContext(connection) as queries:
+            self.assertIsNotNone(enqueue_player_refresh(self.user.id))
+        statements = [query['sql'] for query in queries]
+        self.assertFalse(any('GET_LOCK' in sql.upper() for sql in statements))
+        # SQLite 会执行 select_for_update()，但 has_select_for_update 为假时 SQL 不含 FOR UPDATE。
+        if connection.features.has_select_for_update:
+            self.assertTrue(any(UserProfile._meta.db_table in sql and 'FOR UPDATE' in sql.upper() for sql in statements))
+
+    @skipUnless(connection.vendor == 'mysql', 'Named locks require MySQL.')
+    def test_named_lock_is_scoped_to_the_database(self):
+        with CaptureQueriesContext(connection) as queries:
+            self.assertIsNotNone(enqueue_player_refresh(self.user.id))
+        locks = [query['sql'] for query in queries if 'GET_LOCK' in query['sql'].upper()]
+        self.assertEqual(len(locks), 1)
+        self.assertIn(f'medal-queue:{self.user.id}:{connection.settings_dict["NAME"]}', locks[0])
+        self.assertFalse(any(UserProfile._meta.db_table in query['sql'] and 'FOR UPDATE' in query['sql'].upper() for query in queries))
+
+    @skipUnless(connection.vendor == 'mysql', 'Named locks require MySQL.')
+    def test_failed_lock_release_warns_and_closes_connection(self):
+        # 释放没有持有的锁返回 NULL；数据库报错时同样视为释放失败。
+        with patch.object(connection, 'close') as close, self.assertLogs('medal.tasks', 'WARNING') as logs:
+            _release_queue_lock('medal-queue:not-held')
+        close.assert_called_once_with()
+        self.assertIn('medal-queue:not-held', logs.output[0])
+
+        with patch.object(connection, 'close') as close, patch.object(connection, 'cursor', side_effect=DatabaseError('lost')):
+            with self.assertLogs('medal.tasks', 'WARNING') as logs:
+                _release_queue_lock('medal-queue:broken')
+        close.assert_called_once_with()
+        self.assertIn('medal-queue:broken', logs.output[0])
+
+    def test_bind_queues_incremental_refresh_with_videos(self):
+        videos = self.make_videos()
+        identifier = Identifier.objects.create(identifier='medal-bulk', safe=True)
+        with ExitStack() as stack:
+            for dependency in ['newest_cache.update_bulk', 'update_video_count_limit_from_videos', 'add_videos_to_speed_ranks', 'add_videos_to_custom_pluck_ranks', 'add_videos_to_eff_ranks']:
+                stack.enter_context(patch(f'identifier.services.{dependency}'))
+            with self.captureOnCommitCallbacks(execute=True):
+                bind_identifier(identifier, self.userms)
+        row = DBTaskResult.objects.get(task_path=task_refresh_player_medals.module_path, status=TaskResultStatus.READY)
+        self.assertEqual(row.args_kwargs['kwargs'], {'video_ids': sorted(video.id for video in videos)})
 
     def test_rolled_back_batch_does_not_refresh(self):
         self.make_videos()
@@ -158,3 +258,35 @@ class MedalQueueConcurrencyTests(TransactionTestCase):
                 results = [future.result(timeout=30) for future in futures]
             self.assertEqual(sum(results), 1)
             self.assertEqual(DBTaskResult.objects.filter(task_path=player_task.module_path, status=TaskResultStatus.READY, args_kwargs__args=[user.id]).count(), 1)
+
+    @skipUnless(connection.vendor == 'mysql', 'Only the MySQL named lock avoids waiting for the player row lock.')
+    def test_producer_does_not_wait_for_running_evaluation(self):
+        user = UserProfile.objects.create_user(username='medal_running', email='medal-running@example.com')
+        locked, release = Event(), Event()
+
+        def hold_lock(*args, **kwargs):
+            locked.set()
+            release.wait(timeout=60)
+
+        def evaluate():
+            close_old_connections()
+            try:
+                refresh_player_medals(user.id, full=True)
+            finally:
+                close_old_connections()
+
+        def produce():
+            close_old_connections()
+            try:
+                return enqueue_player_refresh(user.id, video_ids=[1])
+            finally:
+                close_old_connections()
+
+        with patch('medal.services._evaluate_locked', side_effect=hold_lock), ThreadPoolExecutor(max_workers=2) as pool:
+            running = pool.submit(evaluate)
+            try:
+                self.assertTrue(locked.wait(timeout=10))
+                self.assertIsNotNone(pool.submit(produce).result(timeout=20))
+            finally:
+                release.set()
+            running.result(timeout=60)

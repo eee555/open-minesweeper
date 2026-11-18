@@ -1,11 +1,16 @@
-from django.db import transaction
+from contextlib import contextmanager
+import logging
+
+from django.db import connection, DatabaseError, transaction
 from django.tasks import task, TaskResultStatus
 from django.utils import timezone
 from django_tasks_db.models import DBTaskResult
 
 from userprofile.models import UserProfile
 from .services import evaluate_player, refresh_player_medals
-from .utils import REFRESH_COALESCE_DELAY
+from .utils import QUEUE_LOCK_TIMEOUT, REFRESH_COALESCE_DELAY
+
+logger = logging.getLogger(__name__)
 
 
 @task(priority=1)
@@ -18,7 +23,10 @@ def task_refresh_player_medals(user_id: int, video_ids=None, degrade_levels=None
 
 
 def enqueue_player_refresh(user_id, video_ids=None, degrade_levels=None, invalidate_once=False, full=False):
-    """同一玩家合并 READY 刷新；新任务延迟 3 秒，合并不推迟原时间，异常过晚的时间提前到当前延迟上限。"""
+    """
+    同一玩家合并 READY 刷新；新任务延迟 3 秒，合并不推迟原时间，异常过晚的时间提前到当前延迟上限。
+    不能在事务内直接调用（入队事务为 durable，会抛 RuntimeError）；业务事务内须经 transaction.on_commit 调用。
+    """
     ids = sorted({int(video_id) for video_id in (video_ids or []) if video_id is not None})
     levels = sorted({level for level in (degrade_levels or []) if level})
     if full or not (ids or levels or invalidate_once):
@@ -39,7 +47,10 @@ def task_backfill_player_medals(user_id: int):
 
 
 def enqueue_player_backfill(user_id: int):
-    """同一玩家已有一条 READY 的补发任务时不再插入。"""
+    """
+    同一玩家已有一条 READY 的补发任务时不再插入。
+    不能在事务内直接调用（入队事务为 durable，会抛 RuntimeError）；业务事务内须经 transaction.on_commit 调用。
+    """
     return _enqueue_player_task(task_backfill_player_medals, user_id)
 
 
@@ -69,11 +80,59 @@ def _merge_refresh_kwargs(row, incoming):
     return ['args_kwargs']
 
 
+def _uses_named_lock():
+    return connection.vendor == 'mysql'
+
+
+def _queue_lock_name(user_id):
+    # 命名锁是 MySQL 实例级的，加库名避免同一实例上的多个库互相等待；MySQL 锁名上限 64 字符，截断只会落在库名上。
+    return f'medal-queue:{user_id}:{connection.settings_dict["NAME"]}'[:64]
+
+
+def _release_queue_lock(name):
+    """释放失败时关闭连接：持久连接上遗留的会话锁会让后续入队白等超时。"""
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT RELEASE_LOCK(%s)', [name])
+            released = cursor.fetchone()[0] == 1
+    except DatabaseError:
+        released = False
+    if not released:
+        logger.warning('Medal queue lock %s was not released; closing the connection.', name)
+        connection.close()
+
+
+@contextmanager
+def _queue_lock(user_id):
+    """
+    同一玩家的入队串行化。不锁玩家行，评估任务整轮持有该行锁。命名锁按会话持有，须在入队事务提交后释放。
+    只有 MySQL 使用命名锁；其他数据库由入队事务锁玩家行串行化。
+    """
+    if not _uses_named_lock():
+        yield
+        return
+    name = _queue_lock_name(user_id)
+    with connection.cursor() as cursor:
+        cursor.execute('SELECT GET_LOCK(%s, %s)', [name, QUEUE_LOCK_TIMEOUT])
+        acquired = cursor.fetchone()[0] == 1
+    if not acquired:
+        logger.warning('Medal queue lock %s was not acquired within %s seconds; enqueueing anyway.', name, QUEUE_LOCK_TIMEOUT)
+    try:
+        # 拿不到锁也照常入队：重复任务只会多算一次，丢任务则勋章不更新。
+        yield
+    finally:
+        if acquired:
+            _release_queue_lock(name)
+
+
 def _enqueue_player_task(player_task, user_id, defer=False, **kwargs):
-    # Serialize producers for this player, including the empty-queue case.
     run_after = timezone.now() + REFRESH_COALESCE_DELAY if defer else timezone.now()
-    with transaction.atomic():
-        if not UserProfile.objects.select_for_update().filter(pk=user_id).exists():
+    players = UserProfile.objects.filter(pk=user_id)
+    if not _uses_named_lock():
+        players = players.select_for_update()
+    # durable：嵌在外层事务里时命名锁会早于提交释放，直接报错，调用方应改用 on_commit。
+    with _queue_lock(user_id), transaction.atomic(durable=True):
+        if not players.exists():
             return None
         ready = DBTaskResult.objects.filter(
             task_path=player_task.module_path, status=TaskResultStatus.READY, args_kwargs__args=[user_id],
