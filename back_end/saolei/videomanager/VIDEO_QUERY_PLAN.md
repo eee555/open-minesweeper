@@ -92,7 +92,7 @@ filterTags / sortRules
 | 筛选（UI 分组清单全开） | 枚举 `state / software / level / mode`；整数与浮点列（不含 `iqg`）；时间 `upload_time / end_time`；派生 `stnb`；标识 `id`（`player_id` 已移除） |
 | 排序（仅已索引列） | `id, level, mode, state, timems, bv, bvs, thrp` + `stnb`（映射为 `iqg`） |
 
-后端常量集中在 `videomanager/utils.py` 的 `VIDEO_QUERY_*`；前端对应 `fieldGroups` / `sortFieldGroups` / `sortableKeys`。不新增索引、不做大表 DDL；`VideoModel.Meta.indexes` 中可作为排序依据的只有 8 个单列索引（`level/mode/bv/bvs/iqg/thrp/timems/state`）加主键，其余 4 个是复合索引或无关列，不作为本接口的单列排序依据。`iqg` 不直接开放筛选 / 排序，只作为 `stnb` 的换算目标；`iqg_idx` 仍由 `stnb` 排序使用。
+后端常量集中在 `videomanager/utils.py` 的 `VIDEO_QUERY_*`；前端对应 `fieldGroups` / `sortFieldGroups` / `sortableKeys`。仅新增 `software_idx` 单列索引用于筛选，不做大表 DDL；该索引不开放为排序依据。`VideoModel.Meta.indexes` 中可作为排序依据的仍只有 8 个单列索引（`level/mode/bv/bvs/iqg/thrp/timems/state`）加主键，其余索引不作为本接口的单列排序依据。`iqg` 不直接开放筛选 / 排序，只作为 `stnb` 的换算目标；`iqg_idx` 仍由 `stnb` 排序使用。
 
 **`stnb`**：不是数据库列，而是 `STNB_COEFFICIENTS[level] × iqg`（`b=36 / i=162 / e=435`，见 `videomanager/models.py`），自定义难度返回 `None`。仅当唯一的 `level` 筛选条件恰好选中一个 `b/i/e` 值时才允许筛选或排序：阈值除以系数换成 `iqg` 区间、排序键换成 `iqg`（方向不变），走 `iqg_idx`，代价约为原生已索引列的 1 倍；跨级别会退化为 `CASE level ...` 表达式并 filesort，因此明确禁止。换算为 double 运算，边界最多差一个 ULP，以换算后的 `iqg` 区间为准，不做 Python 二次复核。未满足前置条件时，前端保留选项但禁用输入并提示、跳过该条件 / 排序键，后端直接 400。
 
@@ -141,15 +141,15 @@ filterTags / sortRules
 - [ ] 查一次生产 nginx access log，确认无站外客户端直连旧 `/api/video/query`（仓库内 CORS 白名单与公开爬取指南均不含该端点，Redoc 自动文档可见不构成直连证据）。
 - [ ] 由用户运行 E2E。
 
-已知限制：排序只开放已索引列；不新增索引；1000 条硬上限、无总数、无续查；`stnb` 换算的浮点 ULP 边界；NULL 排序依赖 MySQL 默认；旧参数不兼容，前后端必须同批部署。
+已知限制：排序只开放已索引列；`software_idx` 仅用于筛选，不开放排序；1000 条硬上限、无总数、无续查；`stnb` 换算的浮点 ULP 边界；NULL 排序依赖 MySQL 默认；旧参数不兼容，前后端必须同批部署。
 
 ## 9. 关键设计决策
 
 | 决策 | 原因 |
 | --- | --- |
 | 直接替换同路径，不设并行端点 | 前后端同批部署，仓库内无站外直连证据，避免长期双写 |
-| 筛选全开、排序限已索引列 | UI 约 45 个字段但只有 8 个单列索引，网关超时 2 秒；全开排序会 filesort |
-| 不新增索引、不做大表 DDL | 避免 DDL 窗口与写入开销，代价是排序字段范围收窄 |
+| 筛选全开、排序限已索引列 | UI 约 45 个字段但排序可用的单列索引仍只有 8 个，网关超时 2 秒；全开排序会 filesort |
+| 仅为 `software` 新增单列筛选索引 | 多状态 + 单软件查询缺少 `software` 前导索引；不开放排序、不新增复合索引或大表 DDL |
 | `1/5s` + 5 秒防抖 | 强制最小间隔，避免 `12/m` 的分钟内突发；前端节奏与限流一致 |
 | JSON 单参数 `filters` / `sorts` | 保证一个字段一个条件、区间上下限不拆分 |
 | 不做续查 / 游标 / Redis 缓存 | 批内 1000 条由前端分页，天然是同一批数据 |
@@ -163,3 +163,4 @@ filterTags / sortRules
 | --- | --- |
 | 2026-11-10 | 重做计划定案（Q1–Q42），替换旧签名游标分页方案；后端 `/api/video/query` 新契约、前端 `VideoView` 接入、测试与契约文档同步；本文整理为维护文档 |
 | 2026-11-11 | 页面移入 `DatabaseView/`；条件变化时结果表格显示 `v-loading`；复用全局 `button.*` / `prop.*` 文案；`iqg` 不再直接开放筛选 / 排序，`stnb` 保留；E2E 适配新契约与 URL 状态；查询响应字段由 `player__id` 改为 `player_id`，修复玩家链接回归并补 Vitest 用例 |
+| 2026-11-18 | `VideoModel` 新增 `software_idx` 单列索引，用于优化多状态 + 单软件查询；不加入排序白名单，同步更新索引策略说明 |
