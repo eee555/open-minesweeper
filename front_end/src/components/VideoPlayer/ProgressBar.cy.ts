@@ -21,9 +21,7 @@ function mountProgressBar(current = 0, duration = 1000) {
 }
 
 function modelUpdate(index: number) {
-    return cy.get('@vue').then((wrapper: ComponentWrapper<typeof ProgressBar>) => {
-        return wrapper.emitted('update:modelValue')?.[index]?.[0];
-    });
+    return cy.get<ComponentWrapper<typeof ProgressBar>>('@vue').invoke('emitted', 'update:modelValue').invoke('at', index).its('0');
 }
 
 function lastModelUpdate() {
