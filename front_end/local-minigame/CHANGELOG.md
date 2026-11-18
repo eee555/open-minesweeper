@@ -2,7 +2,7 @@
 
 ## 未发布 / Unreleased
 
-## 0.7.4 — 2026-11-18
+## 0.8.0 — 2026-11-18
 
 - 新增反应训练，支持鼠标及触屏松开操作、25%／50% 概率；固定横向，初／中／高级分别为 5／10／20 格、10／20／40 次反应。
 - Added reaction training with mouse/touch release input and 25%/50% mine probabilities. Boards are horizontal, with 5/10/20 cells and 10/20/40 reactions for Beginner/Intermediate/Expert.
