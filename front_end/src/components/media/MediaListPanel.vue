@@ -41,8 +41,13 @@
             <tr v-for="item in items" :key="item.id" :data-cy="`media-row-${item.id}`">
                 <td>
                     <span class="media-title-cell">
+                        <span
+                            v-if="platformIsMasked(item.format)" class="media-platform-icon media-platform-mask" data-cy="media-platform-icon"
+                            role="img" :aria-label="platformName(item.format)" :title="platformName(item.format)"
+                            :style="{ '--media-platform-mask': `url('${platformIconSrc(item.format)}')` }"
+                        />
                         <img
-                            v-if="platformIconSrc(item.format)" class="media-platform-icon" data-cy="media-platform-icon"
+                            v-else-if="platformIconSrc(item.format)" class="media-platform-icon" data-cy="media-platform-icon"
                             :src="platformIconSrc(item.format)" :alt="platformName(item.format)" :title="platformName(item.format)"
                         >
                         <button
@@ -125,8 +130,16 @@ const FORMAT_PLATFORM: Record<string, AccountLinkPlatform> = {
     g_r: AccountLinkPlatform.GitHub,
 };
 
+function platformEntry(format: string) {
+    return platforms.find((entry) => entry.id === FORMAT_PLATFORM[format]);
+}
+
 function platformIconSrc(format: string): string {
-    return platforms.find((entry) => entry.id === FORMAT_PLATFORM[format])?.src ?? '';
+    return platformEntry(format)?.src ?? '';
+}
+
+function platformIsMasked(format: string): boolean {
+    return platformEntry(format)?.mask ?? false;
 }
 
 function platformName(format: string): string {
