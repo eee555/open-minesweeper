@@ -548,7 +548,7 @@ class BasicMedalTests(MedalTestCase):
         self.assertTrue(definition.active)
         self.assertFalse(definition.hidden)
         self.assertIsNone(definition.bv_min)
-        self.assertTrue(any(index.name == 'video_player_state_level_idx' for index in VideoModel._meta.indexes))
+        self.assertIn(['state', 'player', 'level'], [index.fields for index in VideoModel._meta.indexes])
 
     def test_time_upgrades_keeps_evidence_then_drops(self):
         missed = self.make_video(timems=20000, upload_time=self.earlier)
