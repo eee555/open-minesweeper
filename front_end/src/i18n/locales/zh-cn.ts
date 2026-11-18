@@ -18,6 +18,7 @@ export default {
         'multi-touch': '多指训练',
         'flag-chord': '标双训练',
         'missing-cell': '漏雷训练',
+        reaction: '反应训练',
     },
     media: {
         title: '作品',

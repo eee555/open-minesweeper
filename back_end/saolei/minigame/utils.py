@@ -26,6 +26,8 @@ GAME_RANKINGS = {
                          for level in ('b', 'i', 'e') for density in ('50', '75', '87.5')),
     'flag-chord': tuple(Ranking(f'flag-chord-{level}-v1', 'flag-chord', level) for level in ('b', 'i')),
     'missing-cell': tuple(Ranking(f'missing-cell-{level}-v1', 'missing-cell', level) for level in ('b', 'i', 'e')),
+    'reaction': tuple(Ranking(f'reaction-{level}-{density}-v1', 'reaction', level, density)
+                      for level in ('b', 'i', 'e') for density in ('25', '50')),
 }
 RANKINGS = {ranking.key: ranking for rankings in GAME_RANKINGS.values() for ranking in rankings}
 

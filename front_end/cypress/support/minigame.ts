@@ -17,6 +17,16 @@ export function savedMinigameResults(): Cypress.Chainable<MinigameHistoryEntry[]
     });
 }
 
+export function hoverReactionBar(chart: string, index = 0): void {
+    const selector = `[data-cy=${chart}]`;
+    cy.get(`${selector} .plot-bar`).first().find('rect').eq(index).then(($bar) => {
+        const rect = $bar[0].getBoundingClientRect();
+        cy.get(`${selector} .reaction-chart`).trigger('pointermove', {
+            eventConstructor: 'PointerEvent', clientX: rect.left + rect.width / 2, clientY: rect.top + Math.min(1, rect.height / 2), scrollBehavior: false,
+        });
+    });
+}
+
 /** 使用当前棋盘的坐标触发真实按钮事件，不依赖之前的 mousemove。默认格子大小为 32px。 */
 export function mouseAt(row: number, column: number, type: 'mousedown' | 'mouseup' | 'mousemove', button = 0, buttons = type === 'mousedown' ? 1 : 0, size = 32): void {
     cy.get('[data-cy="minigame-board"]').scrollIntoView({ duration: 0 });

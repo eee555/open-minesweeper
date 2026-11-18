@@ -4,7 +4,9 @@ import { effectScope } from 'vue';
 import type { EffectScope } from 'vue';
 
 import { leftClickModes } from './leftClickTraining';
-import { useTrainingReplay } from './useTrainingReplay';
+import { reactionFrame, rebuildReactionReplay } from './reactionRecording';
+import { reactionModes } from './reactionTraining';
+import { useReplayController, useTrainingReplay } from './useTrainingReplay';
 
 // Same Node frame source as the existing playback clock tests; run the real scheduler.
 vi.mock('@vueuse/core', async (importOriginal) => {
@@ -43,6 +45,40 @@ describe('shared minigame playback and chart previews', () => {
         scope.stop();
         vi.restoreAllMocks();
         vi.unstubAllGlobals();
+    });
+
+    it('uses the shared clock for reaction previews and clears a preview when replacing the replay', () => {
+        const source = rebuildReactionReplay(reactionModes[0], {
+            version: 1,
+            draws: Array.from({ length: 11 }, () => 0),
+            sides: [0, 0, 0, 0],
+            clicks: Array.from({ length: 14 }, (_item, index) => [index === 0 ? 0 : 80, 20]),
+        }, 1300);
+        const replay = scope.run(() => useReplayController<typeof source, ReturnType<typeof reactionFrame>>((data, position) => reactionFrame(data, position.timeMs)));
+        if (replay === undefined) throw new Error('Missing reaction replay controller');
+        replay.finish(source);
+        replay.playback.seek(100);
+        replay.playback.play();
+        advance(100);
+        replay.hover({ timeMs: 700 });
+        advance(300);
+        expect(replay.frame.value?.timeMs).toBe(700);
+        expect(replay.playback.currentMs.value).toBe(200);
+        replay.hover(null);
+        advance(100);
+        expect(replay.frame.value?.timeMs).toBe(300);
+        expect(replay.playback.isPlaying.value).toBe(true);
+        replay.hover({ timeMs: 100 });
+        replay.finish(source);
+        expect(replay.preview.value).toBeNull();
+        expect(replay.frame.value?.timeMs).toBe(1300);
+        expect(replay.playback.isPlaying.value).toBe(false);
+        replay.playback.play();
+        advance(100);
+        expect(replay.frame.value?.timeMs).toBe(100);
+        replay.reset();
+        expect(replay.frame.value).toBeNull();
+        expect(frames.size).toBe(0);
     });
 
     it('locks chart previews while preserving time and play state, and cleans up on a new game', () => {

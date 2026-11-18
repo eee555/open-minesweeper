@@ -50,6 +50,14 @@ Every safe cell except one is already open. The target and the mines are covered
 
 Click the target to reveal the next board immediately. Complete **10 consecutive boards** to stop the timer; hitting a mine loses the whole run. Right clicks, chords and clicks on open cells have no effect.
 
+## Reaction Training
+
+Reaction training starts at either end of each line. Follow the numbers in that direction, skipping only a known mine. Clicking opened cells or the flag row has no effect; clicking a skipped mine or another wrong position loses. Each advancing click determines the next cell with a 25% or 50% mine probability. A safe penultimate cell always forces a final mine.
+
+Boards are horizontal. Beginner, Intermediate and Expert use 5, 10 and 20 cells per line and require 10, 20 and 40 reactions, respectively; the first click of each line does not count. Timing starts on the first release and continues across lines. Mouse left clicks and touch both trigger on release; right clicks and chords do nothing. Successful games save local history, accessible through the top-right bookmark for replay. On the website, manually upload scores to six rankings covering three levels and two probabilities. Mouse and touch share these rankings.
+
+After success, the first chart shows each reaction as two stacked intervals: previous release to press, then press to release. Hover for all three timestamps, both interval lengths and their total; the progress bar and board preview that release time. Moving away restores the previous position and play state. Below, the left and right histograms show release-to-release intervals for adjacent and skip-one clicks, both using 0.01-second bins. Each line's first click is excluded. Hover a bin to highlight its reactions in the chart above. Ineffective clicks are omitted from recordings. After timing starts, their elapsed time still counts toward the total.
+
 ## Restarting and Settings
 
 The top-left counter shows clicks or questions remaining; the top-right counter defaults to seconds with three decimal places. Outside fullscreen, **click anywhere in the counter bar to restart**, or focus it with Tab and press Enter or Space.
@@ -77,7 +85,7 @@ The two bookmarks at the top right open rankings and local history. You can also
 
 After a successful game, click **Upload score and replay** below the board to submit it while logged in and not banned. **No real name, Minesweeper profile or linked account is required.** Each mode keeps your personal best time and its replay. Choose **Full rankings** at the bottom of the drawer to open this game's ranking page. Click a score column to sort, or hover a score to see when it was achieved. **Click a score to watch its replay**, without logging in. Online replays use the same interface and local display settings as your own completed games, initially paused at the end. Restart or change game parameters to start a new game.
 
-Successful left-click, multi-touch and flag-and-chord games retain replays in this browser; missing cell training retains each board, target and time. Local history shows successful results for the current game and configuration, updating when you change level or density. Results are newest first. Further filter by date range, click the time heading to toggle ascending or descending order, and click a row to play its replay. No login is required, and watching neither saves another result nor uploads a score. Failed and unfinished games are not saved. Replay downloads are not available yet. Restarting clears the current preview while keeping saved successful games; clearing browser site data deletes local records.
+All five games save successful results in this browser for playback from local history. Local history shows successful results for the current game and configuration, updating when you change configuration. Results are newest first. Further filter by date range, click the time heading to toggle ascending or descending order, and click a row to play its replay. No login is required, and watching neither saves another result nor uploads a score. Failed and unfinished games are not saved. Replay downloads are not available yet. Restarting clears the current preview while keeping saved successful games; clearing browser site data deletes local records.
 
 ## Offline Play
 

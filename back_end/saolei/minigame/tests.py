@@ -19,6 +19,17 @@ from .services import get_player_scores, get_ranking, get_ranking_summary, submi
 from .utils import GAME_RANKINGS, RANKINGS
 
 
+def reaction_recording(level):
+    length, target = {'b': (5, 10), 'i': (10, 20), 'e': (20, 40)}[level]
+    lines = (target + length - 3) // (length - 2)
+    clicks = target + lines
+    replay = {
+        'version': 1, 'draws': [0] * (clicks - target // (length - 2)), 'sides': [0] * lines,
+        'clicks': [[0, 20]] + [[80, 20] for _ in range(clicks - 1)],
+    }
+    return (clicks - 1) * 100, replay
+
+
 @override_settings(RATELIMIT_ENABLE=False)
 class MiniGameRankingTests(TestCase):
     def setUp(self):
@@ -123,6 +134,7 @@ class MiniGameRankingTests(TestCase):
             'multi-touch': {'version': 1, 'cellSize': 32, 'initialBoard': 'AAAAAP////8', 'events': [[0, 16, 16, 0, 0], [10, 32, 0, 1, 0]]},
             'flag-chord': {'version': 1, 'cellSize': 32, 'initialBoard': [[1, 1, 0], [1, 5, 2], [5, 1, 5], [5, 5, 7]], 'events': [], 'specialEvents': []},
             'missing-cell': {'version': 1, 'rounds': [{'board': 'gAAAAAAAAAA', 'target': [7, 7], 'timeMs': 100} for _ in range(10)]},
+            'reaction': reaction_recording('b')[1],
         }
         for game, replay in recordings.items():
             ranking_key = GAME_RANKINGS[game][0].key
@@ -191,6 +203,30 @@ class MiniGameRankingTests(TestCase):
         self.player.save(update_fields=['is_banned'])
         self.assertEqual(self.client.post(f'/api/minigame/{first_key}/score', self.post_data(500)).status_code, 403)
 
+    def test_reaction_metadata_compact_replays_and_single_column_summary(self):
+        first_key = GAME_RANKINGS['reaction'][0].key
+        self.assertFalse(self.player.has_realname())
+        self.client.force_login(self.player)
+        group = next(group for group in self.client.get('/api/minigame/rankings').json() if group['game'] == 'reaction')
+        self.assertEqual([ranking['key'] for ranking in group['rankings']], [f'reaction-{level}-{density}-v1' for level in ('b', 'i', 'e') for density in ('25', '50')])
+        self.assertEqual([ranking['density'] for ranking in group['rankings']], ['25', '50'] * 3)
+        self.assertTrue(all('probability' not in ranking for ranking in group['rankings']))
+        for ranking in GAME_RANKINGS['reaction']:
+            score, replay = reaction_recording(ranking.level)
+            with self.captureOnCommitCallbacks(execute=True):
+                response = self.client.post(f'/api/minigame/{ranking.key}/score', self.post_data(score, replay))
+            self.assertEqual(response.status_code, 200, response.content)
+            record = MiniGameBestScore.objects.get(player=self.player, ranking_key=ranking.key)
+            self.assertEqual(unpack_replay(record.replay_archive), replay)
+            self.assertEqual(self.cache.client.zscore(self.cache.rank_key(ranking.key), self.player.id), score)
+            self.assertEqual(set(json.loads(self.cache.client.hget(self.cache.detail_key(ranking.key), str(self.player.id)))), {'score', 'achieved_at'})
+        self.assertEqual(len(get_player_scores('reaction', self.player.id)['records']), 6)
+        get_ranking_summary(first_key, self.player.id)
+        with self.assertNumQueries(0):
+            summary = get_ranking_summary(first_key, self.player.id)
+        self.assertEqual(list(summary['players'][0]['records']), [first_key])
+        self.assertEqual(summary['player']['records'][first_key]['rank'], 1)
+
     def test_groups_sort_columns_nulls_pagination_and_personal(self):
         other = self.make_player('minigame-other')
         empty_player = self.make_player('minigame-empty')
@@ -217,7 +253,7 @@ class MiniGameRankingTests(TestCase):
                 empty = self.client.get(f'/api/minigame/{game}/rank', {'start': start, 'end': end}).json()
                 self.assertEqual(empty['players'], [])
         definitions = self.client.get('/api/minigame/rankings').json()
-        self.assertEqual([len(group['rankings']) for group in definitions], [9, 9, 2, 3])
+        self.assertEqual([len(group['rankings']) for group in definitions], [9, 9, 2, 3, 6])
 
     def test_empty_and_large_rankings_initialize_once(self):
         for size in (0, 1, 105):
