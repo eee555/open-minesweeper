@@ -11,7 +11,8 @@
             {{ t(`local.${replayError}`) }}
         </p>
         <div class="offline-game" :inert="loadingReplay">
-            <LeftClickTraining v-if="game === 'left-click' || game === 'multi-touch'" :key="game" :game-type="game" :replay-data="replay?.game === 'left-click' || replay?.game === 'multi-touch' ? replay : null" offline @reset="resetReplay" @ranking-change="selectedRankingKey = $event" />
+            <ReactionTraining v-if="game === 'reaction'" :replay-data="replay?.game === 'reaction' ? replay : null" @reset="resetReplay" @ranking-change="selectedRankingKey = $event" />
+            <LeftClickTraining v-else-if="game === 'left-click' || game === 'multi-touch'" :key="game" :game-type="game" :replay-data="replay?.game === 'left-click' || replay?.game === 'multi-touch' ? replay : null" offline @reset="resetReplay" @ranking-change="selectedRankingKey = $event" />
             <FlagChordTraining v-else-if="game === 'flag-chord'" :replay-data="replay?.game === 'flag-chord' ? replay : null" offline @reset="resetReplay" @ranking-change="selectedRankingKey = $event" />
             <MissingCellTraining v-else :replay-data="replay?.game === 'missing-cell' ? replay : null" offline @reset="resetReplay" @ranking-change="selectedRankingKey = $event" />
         </div>
@@ -70,6 +71,7 @@ import type { MinigameReplay } from '@/utils/minigame/review';
 import FlagChordTraining from '@/views/MiniGameView/FlagChordTraining/App.vue';
 import LeftClickTraining from '@/views/MiniGameView/LeftClickTraining/App.vue';
 import MissingCellTraining from '@/views/MiniGameView/MissingCellTraining/App.vue';
+import ReactionTraining from '@/views/MiniGameView/ReactionTraining/App.vue';
 
 const colorMode = useColorMode({ storageKey: 'offline-minigame-color-mode', emitAuto: true });
 const game = ref<TrainingGame>('left-click');

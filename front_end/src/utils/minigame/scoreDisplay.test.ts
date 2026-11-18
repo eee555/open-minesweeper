@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { minigameDensityLabel } from './games';
 import { clickCes, formatMinigameScore } from './scoreDisplay';
 
 describe('click training score display', () => {
@@ -24,6 +25,10 @@ describe('click training score display', () => {
         expect(formatMinigameScore(1234, 'left-click-b-50-v1', 'time')).toBe('1.234');
         expect(formatMinigameScore(1234, 'multi-touch-b-50-v1', 'time')).toBe('1.234');
         expect(formatMinigameScore(1234, 'flag-chord-b-v1', 'ces')).toBe('1.234');
+        expect(formatMinigameScore(1234, 'reaction-b-50-v1', 'ces')).toBe('1.234');
+        expect(minigameDensityLabel('reaction', '25')).toBe('25%');
+        expect(minigameDensityLabel('reaction', '50')).toBe('50%');
+        expect(minigameDensityLabel('left-click', '50')).toBe('1/2');
         expect(formatMinigameScore(1234, 'missing-cell-b-v1', 'ces')).toBe('1.234');
     });
 });

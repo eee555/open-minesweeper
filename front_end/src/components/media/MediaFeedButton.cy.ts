@@ -7,7 +7,7 @@ describe('<MediaFeedButton />', () => {
     it('sends one like per click and throttles rapid clicks', () => {
         cy.clock(Date.now());
         cy.intercept('POST', '/api/media/like', (request) => {
-            request.reply({ likes: 1, hot_now: 1, balance: 9, status: 'verified' });
+            request.reply({ likes: 1, hot_now: 1, balance: 9, status: 'verified', daily_likes_used: 2 });
         }).as('like');
         cy.mount(MediaFeedButton, {
             props: { mediaId: 7 },
@@ -28,10 +28,12 @@ describe('<MediaFeedButton />', () => {
             global: { plugins: [i18n], config: { globalProperties: { $axios } } },
         });
         cy.get('button').should('have.attr', 'title').and('contain', '9');
+        cy.get('[data-cy=media-feed]').should('have.attr', 'aria-label', 'Feed');
+        cy.get('[data-cy=media-feed] .pi-plus').should('exist');
     });
 
     it('does not send while disabled', () => {
-        cy.intercept('POST', '/api/media/like', { body: { likes: 0, hot_now: 0, balance: 0, status: 'verified' } }).as('like');
+        cy.intercept('POST', '/api/media/like', { body: { likes: 0, hot_now: 0, balance: 0, status: 'verified', daily_likes_used: 0 } }).as('like');
         cy.mount(MediaFeedButton, {
             props: { mediaId: 7, disabled: true },
             global: { plugins: [i18n], config: { globalProperties: { $axios } } },

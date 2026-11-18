@@ -5,19 +5,24 @@ import App from './App.vue';
 import FlagChordTraining from './FlagChordTraining/App.vue';
 import LeftClickTraining from './LeftClickTraining/App.vue';
 import MissingCellTraining from './MissingCellTraining/App.vue';
+import ReactionTraining from './ReactionTraining/App.vue';
 
 import $axios from '@/http';
 import i18n from '@/i18n';
+import { store } from '@/store';
 import { pinia } from '@/store/create';
 import { loadReplayArchiveCodec } from '@/utils/minigame/archive';
 import { encodeMines } from '@/utils/minigame/boardEncoding';
 import { trainingGames } from '@/utils/minigame/games';
 import type { TrainingGame } from '@/utils/minigame/games';
-import { getMinigameDatabase, MINIGAME_RESULTS_STORE } from '@/utils/minigame/history';
+import { getMinigameDatabase, MINIGAME_RESULTS_STORE, saveMinigameResult } from '@/utils/minigame/history';
 import { leftClickModes, LeftClickTraining as LeftClickGame } from '@/utils/minigame/leftClickTraining';
-import { isolateMinigameHistory, savedMinigameResults } from '@cy/support/minigame';
+import { reactionModes } from '@/utils/minigame/reactionTraining';
+import { defaultMinigameSettings, minigameSettings } from '@/utils/minigame/settings';
+import { isolateMinigameHistory, mouseAt, savedMinigameResults } from '@cy/support/minigame';
 
 const mouse = { version: 1, cellSize: 32, initialBoard: 'AAAAAP////8', events: [[0, 16, 16, 2], [10, 32, 0, 1], [10, 0, 0, 2]], specialEvents: [] };
+const reaction = { version: 1, draws: Array.from({ length: 11 }, () => 0), sides: [0, 0, 0, 0], clicks: Array.from({ length: 14 }, (_item, index) => [index === 0 ? 0 : index === 13 ? 74 : 75, 20]) };
 
 function replyReplay(game: TrainingGame, key: string, source: unknown) {
     cy.then(loadReplayArchiveCodec).then((codec) => {
@@ -39,6 +44,7 @@ function mountReplay(path: string) {
                     { path: 'multi-touch', name: 'minigame-multi-touch', component: LeftClickTraining, props: { gameType: 'multi-touch' } },
                     { path: 'flag-chord', name: 'minigame-flag-chord', component: FlagChordTraining },
                     { path: 'missing-cell', name: 'minigame-missing-cell', component: MissingCellTraining },
+                    { path: 'reaction', name: 'minigame-reaction', component: ReactionTraining },
                 ] },
             ...trainingGames.map((key) => ({ path: `/ranking/minigame/${key}`, name: `ranking_minigame_${key}`, component: { expose: [], render: () => null } })),
         ] });
@@ -51,18 +57,101 @@ function mountReplay(path: string) {
 
 describe('minigame replays', () => {
     isolateMinigameHistory();
+    beforeEach(() => {
+        store.logout();
+        minigameSettings.value = defaultMinigameSettings();
+    });
+    afterEach(() => {
+        store.logout();
+        minigameSettings.value = defaultMinigameSettings();
+    });
+
+    it('uploads a successful reaction only on request and refreshes the current probability ranking', () => {
+        cy.viewport(1440, 1000);
+        cy.mockPlayerNameFallback();
+        store.login({ id: 42, username: 'player', realname: '匿名' });
+        let uploaded = false;
+        let now = 0;
+        const key = 'reaction-b-25-v1';
+        const record = { score: 1300, achieved_at: '2026-11-18T00:00:00Z' };
+        cy.intercept('GET', `/api/minigame/${key}/summary`, (request) => {
+            request.reply(uploaded
+                ? { count: 1, players: [{ player_id: 42, rank: 1, records: { [key]: record } }], player: { player_id: 42, records: { [key]: { ...record, rank: 1 } } } }
+                : { count: 0, players: [], player: { player_id: 42, records: { [key]: null } } });
+        }).as('summary');
+        cy.intercept('POST', `/api/minigame/${key}/score`, (request) => {
+            uploaded = true;
+            request.reply({ improved: true, record: { ...record, id: 1, player_id: 42, ranking_key: key } });
+        }).as('submit');
+        cy.window().then((win) => {
+            cy.stub(win.Math, 'random').returns(0.99);
+            cy.stub(win.performance, 'now').callsFake(() => now);
+        });
+        mountReplay('/minigame/reaction');
+        cy.get('[data-cy=minigame-ranking-toggle]').click();
+        cy.wait('@summary');
+        cy.get('[data-cy=minigame-ranking-panel]').should('have.attr', 'aria-label', 'Beginner · 25%');
+        for (let index = 0; index < 14; index++) {
+            cy.then(() => {
+                now = index * 100;
+            });
+            mouseAt(0, index % 4, 'mousedown');
+            cy.then(() => {
+                now = index * 100 + 20;
+            });
+            mouseAt(0, index % 4, 'mouseup');
+        }
+        cy.get('@submit.all').should('have.length', 0);
+        cy.get('[data-cy=minigame-upload]').should('be.enabled').click();
+        cy.wait('@submit').its('request.body').should((body: string) => {
+            const form = new URLSearchParams(body);
+            expect(form.get('score')).to.eq('1300');
+            expect(Object.keys(JSON.parse(form.get('replay') ?? '{}') as object).sort()).to.deep.eq(['clicks', 'draws', 'sides', 'version']);
+        });
+        cy.wait('@summary');
+        cy.get('[data-cy=minigame-ranking-score]').should('have.text', '1.300');
+        cy.get('[data-cy=minigame-upload]').should('be.disabled');
+        cy.get('[data-cy=minigame-ranking-link]').should('have.attr', 'href', '/ranking/minigame/reaction');
+        savedMinigameResults().should('have.length', 1);
+    });
+    it('opens reaction history with analysis and restarts without uploading or duplicating history', () => {
+        cy.viewport(1440, 1000);
+        cy.then(() => saveMinigameResult({ game: 'reaction',
+            mode: reactionModes[0],
+            scoreMs: 1300,
+            replay: {
+                version: 1,
+                draws: Array.from({ length: 11 }, () => 0 as const),
+                sides: [0, 0, 0, 0],
+                clicks: Array.from({ length: 14 }, (_item, index): [number, number] => [index === 0 ? 0 : 80, 20]),
+            } })).then((id) => {
+            const router = mountReplay(`/minigame/reaction?history=${String(id)}`);
+            cy.get('[data-cy=reaction-training][data-replay=true]').should('be.visible');
+            cy.get('[data-cy=reaction-analysis]').should('be.visible');
+            cy.get('[data-cy=minigame-upload]').should('not.exist');
+            cy.get('[data-cy=minigame-ranking-toggle]').should('be.visible');
+            cy.get('[data-cy=minigame-history-toggle]').click();
+            cy.get('.history-row').should('have.length', 1);
+            cy.get('.el-drawer__close-btn').click();
+            cy.get('.training-frame-counters').click();
+            cy.get('[data-cy=reaction-training]').should('have.attr', 'data-phase', 'ready');
+            cy.wrap(router).its('currentRoute.value.query.history').should('be.undefined');
+            savedMinigameResults().should('have.length', 1);
+        });
+    });
 
     for (const [game, key, source, remaining] of [
         ['left-click', 'b-50-v1', mouse, '030'],
         ['multi-touch', 'b-50-v1', { version: 1, cellSize: 32, initialBoard: mouse.initialBoard, events: [[0, 16, 16, 0, 0], [10, 32, 0, 1, 0]] }, '030'],
         ['flag-chord', 'b-v1', { ...mouse, initialBoard: [[1, 1, 0], [1, 5, 2], [5, 1, 5], [5, 5, 7]], events: [[0, 16, 16, 3], [20, 32, 32, 1], [20, 0, 0, 2]] }, '003'],
+        ['reaction', 'b-25-v1', reaction, '000'],
     ] as const) {
         it(`opens a ${game} 7z replay from its URL without saving or uploading a result`, () => {
             replyReplay(game, key, source);
             const router = mountReplay(`/minigame/${game}?player=42&key=${key}`);
             cy.wait('@replay');
             cy.get('.training-page[data-replay=true]').should('be.visible').and('have.attr', 'data-phase', 'won');
-            const prefix = game === 'flag-chord' ? 'flag-chord' : 'training';
+            const prefix = game === 'flag-chord' ? 'flag-chord' : game === 'reaction' ? 'reaction' : 'training';
             cy.get(`[data-cy=${prefix}-remaining]`).should('have.attr', 'aria-label', remaining);
             cy.get(`[data-cy=${prefix}-time]`).should('have.attr', 'aria-label', '001.234');
             cy.get('.training-controls input[value=b]').should('be.checked');
@@ -71,7 +160,7 @@ describe('minigame replays', () => {
             cy.get('[data-cy=minigame-replay-position]').trigger('change');
             cy.get(`[data-cy=${prefix}-time]`).should('have.attr', 'aria-label', '000.000');
             cy.get('[data-cy=minigame-replay-play]').should('have.attr', 'aria-pressed', 'false');
-            cy.get(game === 'multi-touch' ? '.minigame-touch-trace' : '.minigame-replay-trace').should('exist');
+            if (game !== 'reaction') cy.get(game === 'multi-touch' ? '.minigame-touch-trace' : '.minigame-replay-trace').should('exist');
             cy.get('[data-cy=minigame-upload]').should('not.exist');
             savedMinigameResults().should('have.length', 0);
             cy.get('.training-frame-counters').click();

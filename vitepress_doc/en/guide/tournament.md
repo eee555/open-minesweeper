@@ -29,26 +29,6 @@ Ranking points = tournament coefficient / rank. For example, 5th place in a Week
 
 Current points decay over time, halving every 2 years. Historical totals are unaffected.
 
-## Tournament Identifiers
-
-A tournament identifier identifies your tournament replays and must be set before playing. It is revealed only when your participation window starts, even if you register early.
-
-Replays must be uploaded within your participation window. Late uploads do not count, even if the tournament itself has not ended.
-
-**To enter the same replay in multiple tournaments, put all tournament tokens in the game's tournament identifier field, separated by commas (`,`) without spaces, for example `TOKEN1,TOKEN2`.** Each tournament still applies its own participation window and scoring rules.
-
-## Setting a Tournament Identifier
-
-<details>
-    <summary>MetaSweeper</summary>
-    <span>Open Settings - Game Settings from the menu bar, or press S to open the settings window.</span>
-    <img src="/tournament/metasweeper-token-zh.png" />
-</details>
-<details>
-    <summary>Minesweeper Arbiter</summary>
-    <span>Minesweeper Arbiter itself does not support tournament identifiers. Please follow the identifier rules set by the tournament organizer.</span>
-</details>
-
 ## Tournament Replays
 
 Tournament replays are hidden by default: they are excluded from public replay lists and leaderboards, but you can still view your own. They become public after awards, unless they also belong to another unawarded tournament. Cancelled tournaments do not prevent disclosure.
@@ -73,13 +53,13 @@ When first selecting a folder, choose whether to upload only new replays or also
 
 ### Weekly Tournaments
 
-1. All tournament videos: includes your tournament identifier. AVF is not supported.
+1. All tournament videos: includes your [tournament identifier](./identifier.md#tournament-token). AVF is not supported.
 2. Supported tournament videos: Intermediate or Expert replays in Standard mode. Efficiency Weekly additionally requires `Time / IOE` below 60 for Intermediate or 240 for Expert.
 3. Score-improving videos: the replay improves your best 5 Intermediate or 2 Expert results. Speed Weekly compares time; Efficiency Weekly compares `Time / IOE`.
 
 ### Golden Sheep Cup
 
-1. All tournament videos: AVF replays must have a nonempty player identifier that exactly matches your registered Arbiter identifier. Other software must include this tournament's identifier.
+1. All tournament videos: AVF replays must have a nonempty player identifier that exactly matches your registered Arbiter identifier. Other software must include this [tournament's identifier](./identifier.md#tournament-token).
 2. Supported levels and modes: Beginner, Intermediate, or Expert in Standard mode.
 3. 3BV minimum met: at least 10 for Beginner, 30 for Intermediate, and 100 for Expert.
 
@@ -90,6 +70,6 @@ Personal replays cannot be refreshed while automatic uploading is running, and m
 ### Why is my uploaded replay missing from my live results?
 
 - Only replays marked "Valid" count toward your score. Pending, frozen and identifier-mismatched replays do not count.
-- Tournament identifiers must match exactly, including capitalization, spaces and invisible characters.
-- In MetaSweeper, use the separate tournament identifier field. Do not append it to your regular identifier.
+- [Tournament identifiers](./identifier.md#tournament-token) must match exactly, including capitalization, spaces and invisible characters.
+- In MetaSweeper, use the separate [tournament identifier](./identifier.md#tournament-token) field. Do not append it to your regular identifier.
 - Some tournaments start your participation window as soon as you register. Upload before your own window ends.

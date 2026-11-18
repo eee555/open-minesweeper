@@ -8,10 +8,11 @@ import en from '@/i18n/locales/en';
 import zhCn from '@/i18n/locales/zh-cn';
 import { loadReplayArchiveCodec } from '@/utils/minigame/archive';
 import { flagChordModes } from '@/utils/minigame/flagChordTraining';
-import { getMinigameDatabase, MINIGAME_RESULTS_STORE } from '@/utils/minigame/history';
+import { getMinigameDatabase, MINIGAME_RESULTS_STORE, saveMinigameResult } from '@/utils/minigame/history';
 import type { MinigameStoredEntry } from '@/utils/minigame/history';
 import { leftClickModes, multiTouchModes } from '@/utils/minigame/leftClickTraining';
 import { missingCellModes } from '@/utils/minigame/missingCellTraining';
+import { reactionModes } from '@/utils/minigame/reactionTraining';
 import { defaultMinigameSettings, minigameSettings } from '@/utils/minigame/settings';
 import { isolateMinigameHistory, mouseAt, rightAt, savedMinigameResults } from '@cy/support/minigame';
 
@@ -28,6 +29,28 @@ describe('offline minigames', () => {
     });
     afterEach(() => {
         minigameSettings.value = defaultMinigameSettings();
+    });
+
+    it('opens reaction history and analysis offline without saving another result', () => {
+        cy.then(() => saveMinigameResult({ game: 'reaction',
+            mode: reactionModes[0],
+            scoreMs: 1300,
+            replay: {
+                version: 1,
+                draws: Array.from({ length: 11 }, () => 0 as const),
+                sides: [0, 0, 0, 0],
+                clicks: Array.from({ length: 14 }, (_item, index): [number, number] => [index === 0 ? 0 : 80, 20]),
+            } }));
+        mountOfflineApp();
+        cy.get('[data-cy=game-reaction]').click();
+        cy.get('[data-cy=minigame-history-toggle]').click();
+        cy.get('.history-row').should('have.length', 1).click();
+        cy.get('[data-cy=reaction-training]').should('have.attr', 'data-replay', 'true');
+        cy.get('[data-cy=reaction-bars] .plot-bar').first().find('rect').should('have.length', 10);
+        cy.get('.el-drawer__close-btn').click();
+        cy.get('[data-cy=minigame-replay-position]').invoke('val', '100').trigger('input');
+        cy.get('[data-cy=reaction-remaining]').should('have.attr', 'aria-label', '009');
+        savedMinigameResults().should('have.length', 1);
     });
 
     it('shares cell size across offline games and mine display settings between left-click and multi-touch training', () => {

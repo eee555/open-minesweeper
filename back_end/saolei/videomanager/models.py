@@ -188,6 +188,7 @@ class VideoModel(models.Model):
             models.Index(fields=['thrp'], name='thrp_idx'),
             models.Index(fields=['timems'], name='timems_idx'),
             models.Index(fields=['state'], name='state_idx'),
+            models.Index(fields=['software'], name='software_idx'),
             models.Index(fields=['level', 'mode', 'player', 'pluck'], name='video_lmp_pluck_idx'),
             # state 放在首列，避免 InnoDB 用此索引校验 player 外键，更新录像状态时等待玩家行锁。
             models.Index(fields=['state', 'player', 'level'], name='video_state_player_level_idx'),

@@ -65,6 +65,7 @@ import type { MinigameRankingSummary, MinigameScore } from '@/services/minigameR
 import { store } from '@/store';
 import { LoginStatus } from '@/utils/common/structInterface';
 import { toISODateTimeString } from '@/utils/datetime';
+import { minigameDensityLabel } from '@/utils/minigame/games';
 import type { TrainingGame } from '@/utils/minigame/games';
 import { formatMinigameScore } from '@/utils/minigame/scoreDisplay';
 import type { ClickScoreDisplay } from '@/utils/minigame/scoreDisplay';
@@ -80,10 +81,9 @@ const failed = ref(false);
 const refresh = ref(0);
 const viewerId = computed(() => (store.login_status === LoginStatus.IsLogin ? store.user.id : null));
 const scoreDisplays = computed<ClickScoreDisplay[]>(() => (props.game === 'left-click' || props.game === 'multi-touch' ? ['time', 'ces'] : ['time']));
-const densityLabels: Record<string, string> = { 50: '1/2', 75: '3/4', 87.5: '7/8' };
 const modeLabel = computed(() => {
     const [level, density] = props.rankingKey.slice(props.game.length + 1).split('-');
-    return [t(`level.${level}`), densityLabels[density]].filter(Boolean).join(' · ');
+    return [t(`level.${level}`), minigameDensityLabel(props.game, density)].filter(Boolean).join(' · ');
 });
 const rows = computed(() => {
     const result: { player_id: number; rank: number | null; record: MinigameScore | null; separated: boolean }[] = (data.value?.players ?? []).map((row) => ({

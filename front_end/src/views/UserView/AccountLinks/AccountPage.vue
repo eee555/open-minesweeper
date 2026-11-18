@@ -5,7 +5,7 @@
             <h2 :id="`${panelId}-title`">
                 {{ t(`platform.${selected}`) }}<span v-if="identifier && !privateHidden"> #{{ identifier }}</span>
             </h2>
-            <p v-if="githubResult" role="status" data-cy="github-result">
+            <p v-if="githubResult && selected === 'g'" role="status" data-cy="github-result">
                 {{ t(`local.github.${githubResult}`) }}
             </p>
             <p v-if="loading && !loaded" role="status">
@@ -182,7 +182,7 @@ onMounted(() => {
         && ['linked', 'cancelled', 'conflict', 'expired', 'remote_failed', 'not_configured'].includes(result)) {
         selected.value = 'g';
         manuallySelected = true;
-        githubResult.value = result;
+        if (result !== 'linked') githubResult.value = result;
         params.delete('github');
         const remainder = params.toString();
         window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}${path}${remainder ? `?${remainder}` : ''}`);
@@ -197,7 +197,6 @@ const i18nMessages = {
         noPublicLink: '暂无可展示的关联。',
         privateNotice: '私密关联，仅本人和本站管理员可见。',
         github: {
-            linked: 'GitHub 账号关联成功。',
             cancelled: '已取消 GitHub 授权。',
             conflict: '该 GitHub 账号或本站账号已有其他关联，请先解除原关联。',
             expired: '授权已过期或登录状态已变化，请重新开始。',
@@ -212,7 +211,6 @@ const i18nMessages = {
         noPublicLink: 'No account link is available to display.',
         privateNotice: 'Private links are visible only to the account owner and site moderators.',
         github: {
-            linked: 'GitHub account linked.',
             cancelled: 'GitHub authorization cancelled.',
             conflict: 'The GitHub or OpenMS account is already linked. Unlink the existing account first.',
             expired: 'Authorization expired or your login session changed. Please start again.',

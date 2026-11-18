@@ -10,9 +10,11 @@ import type { MinigameRankingGroup } from '@/services/minigameRankingService';
 import { pinia } from '@/store/create';
 import { trainingGames } from '@/utils/minigame/games';
 import { leftClickModes, multiTouchModes } from '@/utils/minigame/leftClickTraining';
+import { reactionModes } from '@/utils/minigame/reactionTraining';
 import { defaultMinigameSettings, minigameSettings } from '@/utils/minigame/settings';
 
 const groups: MinigameRankingGroup[] = [
+    { game: 'reaction', rankings: reactionModes.map((mode) => ({ key: mode.rankingKey, game: 'reaction', level: mode.key, density: String(mode.probability) as '25' | '50', order: 'asc', unit: 'ms', min_score: 1, max_score: Number.MAX_SAFE_INTEGER, accept_submissions: true })) },
     { game: 'left-click', rankings: leftClickModes.map((mode) => ({ key: mode.rankingKey, game: 'left-click', level: mode.key, density: String(mode.density) as '50' | '75' | '87.5', order: 'asc', unit: 'ms', min_score: 1, max_score: Number.MAX_SAFE_INTEGER, accept_submissions: true })) },
     { game: 'multi-touch', rankings: multiTouchModes.map((mode) => ({ key: mode.rankingKey, game: 'multi-touch', level: mode.key, density: String(mode.density) as '50' | '75' | '87.5', order: 'asc', unit: 'ms', min_score: 1, max_score: Number.MAX_SAFE_INTEGER, accept_submissions: true })) },
     ...(['flag-chord', 'missing-cell'] as const).map((game) => ({ game, rankings: (game === 'flag-chord' ? ['b', 'i'] as const : ['b', 'i', 'e'] as const).map((level) => ({ key: `${game}-${level}-v1`, game, level, density: null, order: 'asc' as const, unit: 'ms' as const, min_score: 1, max_score: Number.MAX_SAFE_INTEGER, accept_submissions: true })) })),
@@ -70,6 +72,25 @@ describe('minigame rankings', () => {
         cy.wait('@rank');
         cy.get('[data-cy=minigame-replay-link]').first().should('have.text', '1.234');
         cy.get('[data-cy=minigame-ranking-score-display]').should('not.exist');
+    });
+
+    it('groups six reaction columns by level, uses percentages and keeps time display under the CES setting', () => {
+        minigameSettings.value.leftClickScoreDisplay = 'ces';
+        const router = mountRanking('/ranking/minigame/reaction?sort=reaction-e-50-v1');
+        cy.wait('@rank').its('request.query.sort').should('equal', 'reaction-e-50-v1');
+        cy.get('.minigame-ranking-table th[scope=colgroup]').should('have.length', 3).each(($heading) => {
+            expect($heading.attr('colspan')).to.eq('2');
+        });
+        cy.get('.minigame-ranking-table thead tr').eq(1).find('button').should('have.length', 6);
+        cy.get('[data-cy=minigame-ranking-score-display]').should('not.exist');
+        cy.get('.minigame-ranking-table table').extractTableData().should((rows) => {
+            expect(rows[1]).to.deep.eq(['25%', '50%', '25%', '50%', '25%', '50%']);
+            expect(rows.at(-1)?.slice(2)).to.deep.eq(['1.234', '--', '1.234', '1.234', '1.234', '1.234']);
+        });
+        cy.contains('.minigame-ranking-table thead button', '25%').click();
+        cy.wait('@rank').its('request.query.sort').should('equal', 'reaction-b-25-v1');
+        cy.get('[data-cy=minigame-replay-link]').first().should('have.attr', 'href', '/minigame/reaction?player=42&key=b-25-v1').click();
+        cy.wrap(router).its('currentRoute.value.name').should('equal', 'minigame-reaction');
     });
 
     it('opens a deep link with nine columns, sorts, paginates, refreshes and switches groups', () => {

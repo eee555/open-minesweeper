@@ -10,6 +10,7 @@ import type { FlagChordMode } from './flagChordTraining';
 import type { LeftClickMode } from './leftClickTraining';
 import { missingCellRounds } from './missingCellTraining';
 import type { MissingCellRoundResult } from './missingCellTraining';
+import type { ReactionRecording } from './reactionRecording';
 import type { TouchContact, TouchRecording } from './touchRecording';
 
 export const defaultReplayCellSize = 32;
@@ -52,7 +53,7 @@ export interface MissingCellRecording {
     rounds: { board: string; target: [number, number]; timeMs: number }[];
 }
 
-export type MinigameReplayData = TrainingRecording | TouchRecording | MissingCellRecording;
+export type MinigameReplayData = TrainingRecording | TouchRecording | MissingCellRecording | ReactionRecording;
 
 export function recordingVersion(value: unknown): 0 | 1 {
     const data = replayObject(value);

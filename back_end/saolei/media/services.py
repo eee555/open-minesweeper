@@ -1,5 +1,6 @@
-"""作品页业务逻辑：投稿、投喂、审核、驳回、恢复与硬删除；见 MEDIA_PLAN.md 附录 A。"""
+"""作品投稿、投喂、审核、驳回、恢复与硬删除；缓存约定见 README.md。"""
 
+from functools import partial
 import logging
 from math import floor
 
@@ -24,16 +25,29 @@ class MediaServiceError(Exception):
         self.status_code = status_code
 
 
-def _balance(profile, user):
-    earned = floor((timezone.now() - user.date_joined).total_seconds() / 86400)
-    return max(earned - profile.likes_sent, 0)
+def get_balance(profile, date_joined):
+    likes_sent = profile.likes_sent if profile else 0
+    earned = floor((timezone.now() - date_joined).total_seconds() / 86400)
+    return max(earned - likes_sent, 0)
 
 
-def get_balance(user):
+def get_daily_likes_used(profile):
+    """当天已成功投喂次数：daily_date 不是 UTC 今日时按 0 次计算。"""
+    if profile is None or profile.daily_date != timezone.now().date():
+        return 0
+    return profile.daily_likes
+
+
+def get_me_state(user):
+    """一次性读取 UserMedia 得到 /me 全部字段；未建行时返回零值，不写库。"""
     profile = UserMedia.objects.filter(pk=user.pk).first()
     likes_sent = profile.likes_sent if profile else 0
-    earned = floor((timezone.now() - user.date_joined).total_seconds() / 86400)
-    return max(earned - likes_sent, 0)
+    return {
+        'balance': get_balance(profile, user.date_joined),
+        'likes_sent': likes_sent,
+        'banned': profile.banned if profile else False,
+        'daily_likes_used': get_daily_likes_used(profile),
+    }
 
 
 def sync_media_scores(media_id, author_id):
@@ -82,9 +96,10 @@ def create_media(user, *, media_format, suffix, language, title='', created_at=N
                 status=MediaStatus.PENDING, likes=0, hot_value=0,
                 hot_value_updated_at=cache.read_db_hot_reference(),
             )
+            # API 可持有外层用户行锁；缓存同步必须等最外层事务提交，回滚时丢弃。
+            transaction.on_commit(partial(sync_media_scores, media.pk, user.pk))
     except IntegrityError:
         raise MediaServiceError('该作品已投稿过，不可重复投稿', 409) from None
-    sync_media_scores(media.pk, user.pk)
     return media
 
 
@@ -93,7 +108,7 @@ def like_media(user, media_id):
 
     热度增量按全局 T_db 折算 delta_hot = 1 / decay(T_db, now)，不固定加 1；缓存由请求
     路径在事务提交后按 DB 绝对值覆盖。daily_date / daily_likes 与 likes_sent 在同一事务
-    内更新，事务回滚即不计数。驳回与硬删除只退还 likes_sent，不回退当日已用次数（16.1 第 17 条）。
+    内更新，事务回滚即不计数。驳回与硬删除只退还 likes_sent，不回退当日已用次数。
     """
     with transaction.atomic():
         now = timezone.now()
@@ -107,7 +122,7 @@ def like_media(user, media_id):
         daily_likes = 0 if profile.daily_date != today else profile.daily_likes
         if daily_likes >= MEDIA_DAILY_LIKE_LIMIT:
             raise MediaServiceError('Daily like limit reached', 429)
-        balance = _balance(profile, user)
+        balance = get_balance(profile, user.date_joined)
         if balance < 1:
             raise MediaServiceError('Insufficient rubies', 400)
         base = media.hot_value_updated_at
@@ -123,7 +138,10 @@ def like_media(user, media_id):
         )
         status, author_id = media.status, media.user_id
         hot_now = media.hot_value * factor
-        result = {'likes': media.likes, 'hot_now': hot_now, 'balance': balance - 1, 'status': status}
+        result = {
+            'likes': media.likes, 'hot_now': hot_now, 'balance': balance - 1, 'status': status,
+            'daily_likes_used': daily_likes + 1,
+        }
     if status == MediaStatus.VERIFIED:
         sync_media_scores(media_id, author_id)
     return result
@@ -172,7 +190,7 @@ def _refund_like_records(media):
 
 
 def reject_media(media_id, actor_id, reason=''):
-    """管理员驳回：pending → rejected，退还红宝石并同事务清零 likes/hot 与投喂记录（P1 / Q12）。"""
+    """管理员驳回：pending → rejected，退还红宝石并同事务清零 likes/hot 与投喂记录。"""
     with transaction.atomic():
         media = Media.objects.select_for_update().filter(pk=media_id).first()
         if media is None:
