@@ -339,7 +339,7 @@ export default {
             guideLink: 'View participation guide',
             preparing: 'Registration opens after the tournament starts.',
             token: 'Tournament token: ',
-            tokenGuideLink: 'Learn about tournament tokens',
+            tokenGuideLink: 'What is this?',
             identifier: 'Arbiter tournament identifier: ',
         },
         realTimeScore: 'Real-Time Score',

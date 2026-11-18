@@ -32,7 +32,23 @@ The identifier management area is at the bottom of the **Overview** tab on your 
 
 ## Tournament identifiers {#tournament-token}
 
-Tournament identifiers prove that a replay was created after a tournament started. When a tournament starts, the system generates a random identifier. During the tournament, only replays containing that tournament identifier are automatically recognized as tournament replays.
+Tournament identifiers prove that a replay was created after a tournament started. When a tournament starts, the system generates a random identifier. During the tournament, only replays containing that tournament identifier are automatically recognized as tournament replays. The identifier must be set before you play and is revealed only when your participation window starts, even if you register early.
+
+Replays must be uploaded within your participation window. Late uploads do not count, even if the tournament itself has not ended.
+
+**To enter the same replay in multiple tournaments, put all tournament tokens in the game's tournament identifier field, separated by commas (`,`) without spaces, for example `TOKEN1,TOKEN2`.** Each tournament still applies its own participation window and scoring rules.
+
+### Setting a tournament identifier
+
+<details>
+    <summary>MetaSweeper</summary>
+    <span>Open Settings - Game Settings from the menu bar, or press S to open the settings window.</span>
+    <img src="/tournament/metasweeper-token-zh.png" />
+</details>
+<details>
+    <summary>Minesweeper Arbiter</summary>
+    <span>Minesweeper Arbiter itself does not support tournament identifiers. Please follow the identifier rules set by the tournament organizer.</span>
+</details>
 
 ## FAQ
 
