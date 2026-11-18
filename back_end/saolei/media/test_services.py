@@ -1,4 +1,4 @@
-"""作品服务层单测：投稿、投喂、审核、驳回、恢复、硬删除与低频命令；见 MEDIA_PLAN.md 第 12 节、附录 A。"""
+"""作品服务层回归：投稿、投喂、状态转换、退款与低频管理命令。"""
 
 from datetime import datetime, timedelta, timezone as datetime_timezone
 from io import StringIO
@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.db import transaction
 from django.test import TestCase
 from django.utils import timezone
 from django_tasks_db.models import DBTaskResult
@@ -16,7 +17,7 @@ from userprofile.models import UserProfile
 from . import cache
 from .models import Media, MediaLikes, UserMedia
 from .services import (
-    create_media, get_balance, hard_delete_media, like_media, MediaServiceError,
+    create_media, get_balance, get_daily_likes_used, get_me_state, hard_delete_media, like_media, MediaServiceError,
     reject_media, reopen_media, set_media_banned, sync_media_scores, verify_media,
 )
 from .utils import decay, MediaFormat, MediaStatus
@@ -51,12 +52,40 @@ class MediaServiceTests(TestCase):
         for _ in range(times):
             like_media(self.user, media.pk)
 
+    def test_me_state_reads_user_media_once(self):
+        with self.assertNumQueries(1):
+            state = get_me_state(self.user)
+        self.assertGreaterEqual(state['balance'], 9)
+        self.assertEqual(state['likes_sent'], 0)
+        self.assertEqual(state['daily_likes_used'], 0)
+        self.assertFalse(state['banned'])
+
     def test_balance_and_duplicate_submission(self):
-        self.assertGreaterEqual(get_balance(self.user), 9)
+        profile = UserMedia.objects.filter(pk=self.user.pk).first()
+        self.assertGreaterEqual(get_balance(profile, self.user.date_joined), 9)
         self._create_media()
         with self.assertRaises(MediaServiceError) as caught:
             self._create_media()
         self.assertEqual(caught.exception.status_code, 409)
+
+    def test_create_waits_for_outer_commit_before_syncing_cache(self):
+        with patch('media.services.sync_media_scores') as sync:
+            with self.captureOnCommitCallbacks(execute=True) as callbacks:
+                with transaction.atomic():
+                    media = self._create_media()
+                    sync.assert_not_called()
+            self.assertEqual(len(callbacks), 1)
+            sync.assert_called_once_with(media.pk, self.user.pk)
+
+    def test_create_rollback_discards_cache_sync(self):
+        with patch('media.services.sync_media_scores') as sync:
+            with self.captureOnCommitCallbacks(execute=True) as callbacks:
+                with transaction.atomic():
+                    self._create_media()
+                    transaction.set_rollback(True)
+            self.assertEqual(callbacks, [])
+            sync.assert_not_called()
+        self.assertFalse(Media.objects.exists())
 
     def test_like_pending_only_writes_db(self):
         media = self._create_media()
@@ -324,7 +353,9 @@ class MediaServiceTests(TestCase):
         self.assertEqual(caught.exception.status_code, 429)
         media.refresh_from_db()
         self.assertEqual(media.likes, 10)
-        self.assertEqual(UserMedia.objects.get(pk=self.user.pk).daily_likes, 10)
+        profile = UserMedia.objects.get(pk=self.user.pk)
+        self.assertEqual(profile.daily_likes, 10)
+        self.assertEqual(get_daily_likes_used(profile), 10)
 
     def test_daily_counter_resets_on_utc_date_change(self):
         media = self._create_media()
@@ -332,9 +363,19 @@ class MediaServiceTests(TestCase):
         UserMedia.objects.create(user=self.user, daily_likes=10, daily_date=yesterday)
         result = like_media(self.user, media.pk)
         self.assertEqual(result['likes'], 1)
+        self.assertEqual(result['daily_likes_used'], 1)
         profile = UserMedia.objects.get(pk=self.user.pk)
         self.assertNotEqual(profile.daily_date, yesterday)
         self.assertEqual(profile.daily_likes, 1)
+        self.assertEqual(get_daily_likes_used(profile), 1)
+
+    def test_daily_likes_used_follows_utc_date(self):
+        self.assertEqual(get_daily_likes_used(None), 0)
+        yesterday = timezone.now().date() - timedelta(days=1)
+        UserMedia.objects.create(user=self.user, daily_likes=10, daily_date=yesterday)
+        self.assertEqual(get_daily_likes_used(UserMedia.objects.get(pk=self.user.pk)), 0)
+        UserMedia.objects.filter(pk=self.user.pk).update(daily_likes=4, daily_date=timezone.now().date())
+        self.assertEqual(get_daily_likes_used(UserMedia.objects.get(pk=self.user.pk)), 4)
 
     def test_failed_like_does_not_consume_daily_quota(self):
         media = self._create_media()

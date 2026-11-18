@@ -1,6 +1,6 @@
-"""作品页 Ninja API；接口清单见 MEDIA_PLAN.md 第 8 节。"""
+"""作品页 Ninja API：权限校验、元数据获取及业务服务编排。"""
 
-from django.db import DatabaseError
+from django.db import DatabaseError, transaction
 from django.http import HttpRequest
 from django_ratelimit.decorators import ratelimit
 from ninja import Router
@@ -8,11 +8,12 @@ from ninja.decorators import decorate_view
 from ninja.errors import HttpError
 from ninja.security import django_auth_superuser
 
-from accountlink.models import AccountLinkQueue
+from accountlink.models import AccountGitHub, AccountLinkQueue
 from userprofile.decorators import banned_blocked, login_required_error, staff_required
+from userprofile.models import UserProfile
 from . import cache, clients, services
 from .decorators import media_banned_blocked
-from .models import Media, UserMedia
+from .models import Media
 from .schema import (
     BanIn, DeletedOut, EditIn, IdIn, LikeIn, LikeOut, MEDIA_QUERY_LIMIT, MediaOut, MediaPageOut,
     MediaQueryError, MediaQueryOut, MeOut, RejectIn, SubmitIn, UserRankingPageOut, VerifyIn,
@@ -60,7 +61,7 @@ def _parse_media_ids(value):
     return list(dict.fromkeys(map(int, parts)))
 
 
-def _fetch_optional(media_format, suffix):
+def _fetch_metadata(media_format, suffix):
     try:
         return clients.fetch_media_metadata_optional(media_format, suffix)
     except clients.MediaFetchError as exc:
@@ -199,15 +200,8 @@ def get_me(request):
     """
     - login_required_error
     - ratelimit(key='user', rate='30/m', group='media-me', block=True)
-
-    未创建 UserMedia 行时返回零值，不写库。
     """
-    profile = UserMedia.objects.filter(pk=request.user.pk).first()
-    return {
-        'balance': services.get_balance(request.user),
-        'likes_sent': profile.likes_sent if profile else 0,
-        'banned': profile.banned if profile else False,
-    }
+    return services.get_me_state(request.user)
 
 
 @router.post('/submit', response=MediaOut)
@@ -220,7 +214,7 @@ def submit_media(request, data: SubmitIn):
     - media_banned_blocked
     - ratelimit(key='user', rate='10/h', group='media-submit', block=True)
 
-    外站超时 / 上游不可用降级为待补全投稿；外站作者 id 只在此请求内用于归属核验，不写入 Media。
+    B 站/扫雷网超时可降级；GitHub 必须完成拉取。外站作者 id 仅用于归属核验，不写入 Media。
     """
     try:
         media_format = MediaFormat(data.format)
@@ -237,10 +231,23 @@ def submit_media(request, data: SubmitIn):
     }
     if not identifiers:
         raise HttpError(403, 'A verified account link is required.')
-    metadata = _fetch_optional(media_format, suffix)
+    metadata = _fetch_metadata(media_format, suffix)
     if metadata is None:
         return _service(services.create_media, request.user, media_format=media_format, suffix=suffix,
                         language=language, metadata_pending=True)
+    if media_format == MediaFormat.G_R:
+        with transaction.atomic():
+            UserProfile.objects.select_for_update().get(pk=request.user.pk)
+            linked = AccountGitHub.objects.filter(parent=request.user, pk=metadata.author_id).exists()
+            verified = AccountLinkQueue.objects.filter(
+                platform='g', userprofile=request.user, identifier=metadata.author_id, verified=True,
+            ).exists()
+            if not linked or not verified:
+                raise HttpError(403, 'author_mismatch')
+            if metadata.source_id is None:
+                raise HttpError(502, 'invalid_metadata')
+            return _service(services.create_media, request.user, media_format=media_format, suffix=metadata.source_id,
+                            language=language, title=metadata.title, created_at=metadata.created_at)
     if metadata.author_id not in identifiers:
         raise HttpError(403, 'author_mismatch')
     return _service(services.create_media, request.user, media_format=media_format, suffix=suffix,

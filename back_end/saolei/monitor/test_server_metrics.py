@@ -151,6 +151,8 @@ class RedisMemoryTests(SimpleTestCase):
             'minigame:ready:v1:left-click-b-50-v1': 1,
             'minigame:rank:v1:multi-touch-e-87.5-v1': 13, 'minigame:detail:v1:multi-touch-e-87.5-v1': 14,
             'minigame:ready:v1:multi-touch-e-87.5-v1': 1,
+            'minigame:rank:v1:reaction-b-25-v1': 5, 'minigame:detail:v1:reaction-b-25-v1': 6,
+            'minigame:ready:v1:reaction-b-25-v1': 1,
         }
         client, pipe = self.redis_client(sizes=sizes)
         result = self.collect(client, players=(7, 8, 7))
@@ -159,7 +161,7 @@ class RedisMemoryTests(SimpleTestCase):
         self.assertEqual(len([key for key in measured if not key.startswith(('speedranking:pb:', 'speedranking:pb_derived:')) and key != 'newest_queue']), self.NON_MINIGAME_RANKING_KEYS + 3 * len(RANKINGS))
         self.assertEqual(len([key for key in measured if key.startswith('speedranking:pb_derived:')]), len(list(PBDerivedCache().keys())))
         self.assertEqual(result['groups']['pb_rankings'], 100)
-        self.assertEqual(result['groups']['other_rankings'], 742)
+        self.assertEqual(result['groups']['other_rankings'], 754)
         self.assertEqual(len([key for key in measured if key.startswith('speedranking:strict_ng')]), 18)
         self.assertEqual(len([key for key in measured if key.startswith('minigame:')]), 3 * len(RANKINGS))
         self.assertEqual(result['groups']['latest_videos'], 80)

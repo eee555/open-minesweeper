@@ -117,6 +117,35 @@ interface MissingCellRecordingV1 {
 
 `rounds` follows the order of play and contains exactly 10 entries for a successful run. `board` encodes only mines. `target` separately identifies the only unopened safe cell and must not point to a mine; visible numbers are recalculated from the mines. `timeMs` is the round duration in non-negative integer milliseconds, and the sum of all round durations equals the enclosing total score. There is no cell-size-dependent trace, so missing cell recordings do not store `cellSize`. Compress the entire `{version, rounds}` object into the IndexedDB entry's `replay` field.
 
+### Reaction Training
+
+Selected by the enclosing `game: 'reaction'`, with mode keys `reaction-{b|i|e}-{25|50}-v1`. Beginner/Intermediate/Expert use horizontal lines of 5/10/20 cells and targets of 10/20/40 reactions. Successful games save local history; the website supports manual uploads and public replay playback. The existing backend API compresses the same JSON into BinaryField storage. Ranking metadata uses `density` for probability; local modes retain `probability`.
+
+```ts
+interface ReactionRecordingV1 {
+    version: 1;
+    draws: (0 | 1)[];
+    sides: (0 | 1)[];
+    clicks: [downDelta: number, upDelta: number][];
+}
+```
+
+- `draws` stores actual random outcomes in order: `1` for a mine, `0` for a safe cell. The safe cell after a skipped mine and the final mine after a safe penultimate cell are forced and consume no entry. Retain the last draw if the controller samples before checking the reaction target.
+- `sides` has one entry per started line: `0` for the left end, `1` for the right. Rules and random outcomes determine subsequent positions. The initially empty line and the fixed mine row need no board payload.
+- `clicks` stores only advancing press/release pairs, including each line's first click. The first pair is `[0, first hold duration]`; later pairs are `[previous saved release to current press, current press to release]`, in nonnegative integer milliseconds. With `Q(t) = round(t - first valid release)`, the first hold is `-Q(first press)` and later values are differences between the corresponding `Q` times. Do not round intervals independently.
+
+There are no coordinates, mouse events, input sources, contacts, `cellSize` or paths. Clicks on opened cells or the flag row, cancellations and other ineffective input are omitted; their elapsed time remains in the next advancing click's delta. Timing also continues between lines. The score is `max(1, last release - first release)`; subtract the first hold from the accumulated recording timeline to obtain game time.
+
+Reconstruct boards and snapshots by injecting `draws` and following `sides` and advancing clicks, without sampling again. Playback must reach the exact target and consume all draws and starting sides. Press positions are inferred from the rules for pressed-cell previews and do not represent actual mouse paths. Analysis samples use successive advancing clicks within each line; each line's first click is excluded. Use the same 7z container without changing the IndexedDB schema or version. Reaction training has no v0 format.
+
+For example, advancing press/release times of `100/130`, `200/220` and `500/530ms`, with an omitted ineffective click at `300/320ms`, encode as:
+
+```json
+[[0, 30], [70, 20], [280, 30]]
+```
+
+Accumulated release times are `30, 120, 430ms`, giving a score of `430 - 30 = 400ms`. A canceled press cannot pair with a later operation's release. Omitting ineffective operations never changes the delta reference from the previous saved release.
+
 ## 2. Board Encoding
 
 ### 2.1 Base64 Mines for Left-click and Missing Cell

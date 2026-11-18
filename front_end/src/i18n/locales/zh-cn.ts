@@ -18,6 +18,7 @@ export default {
         'multi-touch': '多指训练',
         'flag-chord': '标双训练',
         'missing-cell': '漏雷训练',
+        reaction: '反应训练',
     },
     media: {
         title: '作品',
@@ -338,6 +339,7 @@ export default {
             guideLink: '查看参赛说明',
             preparing: '比赛开始后可以报名参赛。',
             token: '比赛标识：',
+            tokenGuideLink: '这是什么？',
             identifier: 'Arbiter参赛标识：',
         },
         realTimeScore: '即时成绩',

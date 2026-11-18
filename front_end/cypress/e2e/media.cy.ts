@@ -91,7 +91,9 @@ describe('Media submission', () => {
             expect(media, 'created media').to.not.equal(undefined);
             if (!media) return;
             expect(media.format).to.eq('B_v');
-            expect(media.url).to.eq(WORK_URL);
+            expect(media.suffix).to.eq('BV1eB4y1F7Ao');
+            expect(media).not.to.have.property('url');
+            expect(media).not.to.have.property('embed_url');
             expect(media.status).to.eq('pending');
             expect(media.user_id).to.eq(USER.id);
             expect(media.language).to.eq('zh-cn');

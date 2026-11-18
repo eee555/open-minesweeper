@@ -7,12 +7,13 @@
                     <option value="B_v">{{ t('local.formatBv') }}</option>
                     <option value="B_a">{{ t('local.formatBa') }}</option>
                     <option value="c_p">{{ t('local.formatCp') }}</option>
+                    <option value="g_r">{{ t('local.formatGr') }}</option>
                 </select>
             </label>
             <label class="media-form-row">
                 <span>{{ t('local.suffix') }}</span>
                 <input
-                    v-model="suffix" class="media-input" type="text" required maxlength="128"
+                    v-model="suffix" class="media-input" type="text" required maxlength="255"
                     :placeholder="suffixPlaceholder" data-cy="submit-suffix"
                 >
             </label>
@@ -21,7 +22,7 @@
                 <input v-model="language" class="media-input" type="text" maxlength="32" data-cy="submit-language">
             </label>
             <p class="text-secondary text-small">
-                {{ t('local.hint') }}
+                {{ t(format === 'g_r' ? 'local.githubHint' : 'local.hint') }}
             </p>
             <BaseButton native-type="submit" type="primary" :loading="submitting" :disabled="submitting">
                 {{ t('local.submitAction') }}
@@ -46,6 +47,7 @@ const FORMAT_PLACEHOLDERS: Record<MediaFormatValue, string> = {
     B_v: 'BV1xx411c7mD',
     B_a: '1646742',
     c_p: '9786',
+    g_r: 'OWNER/REPO',
 };
 
 const format = ref<MediaFormatValue>('B_v');
@@ -74,6 +76,8 @@ const i18nMessages = {
         formatBv: 'B 站视频',
         formatBa: 'B 站专栏',
         formatCp: '扫雷网帖子',
+        formatGr: 'GitHub 仓库',
+        githubHint: '须先关联本人 GitHub 账号；只接受个人公开非 fork 仓库。获取失败时请稍后重试。',
         suffix: '作品标识',
         language: '语言（自由填写）',
         hint: '标题与发表时间由来源网站自动获取，无法获取时由管理员在审核时补全。',
@@ -85,6 +89,8 @@ const i18nMessages = {
         formatBv: 'Bilibili video',
         formatBa: 'Bilibili article',
         formatCp: 'Saolei post',
+        formatGr: 'GitHub repository',
+        githubHint: 'Link your GitHub account first. Only your public, non-fork personal repositories are accepted. Retry later if fetching fails.',
         suffix: 'Work ID',
         language: 'Language (free text)',
         hint: 'Title and publish time are fetched from the source site; a moderator fills them in if unavailable.',

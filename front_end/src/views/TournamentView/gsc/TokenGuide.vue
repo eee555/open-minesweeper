@@ -18,6 +18,9 @@
             {{ t('gsc.identifierGuide.token') }}
             <span class="ttfamily">{{ token }}</span>
             <IconCopy :text="token" />
+            <a class="link text" :href="tokenGuideUrl" target="_blank" rel="noopener noreferrer">
+                {{ t('gsc.identifierGuide.tokenGuideLink') }}
+            </a>
             <div v-if="identifier === ''">
                 <ElInput v-model="newIdentifier" :placeholder="t('prop.identifier')" style="width: 260px" />
                 <BaseButton :loading="registeringIdentifier" @click="registerIdentifier">
@@ -69,6 +72,7 @@ const registeringParticipant = ref(false);
 const registeringIdentifier = ref(false);
 
 const gscGuideUrl = getDocsUrl('guide/gsc');
+const tokenGuideUrl = getDocsUrl('guide/identifier#tournament-token');
 
 async function registerParticipant() {
     registeringParticipant.value = true;

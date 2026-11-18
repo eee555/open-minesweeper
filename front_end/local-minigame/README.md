@@ -1,6 +1,6 @@
 # 小游戏开发与离线构建
 
-本文说明网站与离线版共用的四种训练的开发结构、回放存储及构建方式。面向玩家的玩法与成绩说明见 [VitePress 中文页](../../vitepress_doc/zh/guide/minigames.md)及[英文页](../../vitepress_doc/en/guide/minigames.md)，后端提交与排行见[后端实现](../../back_end/saolei/minigame/README.md)。离线帮助 [README.txt](./README.txt) 和版权声明 [COPYRIGHT.txt](./COPYRIGHT.txt) 同时用于离线页面和 ZIP。
+本文说明网站与离线版共用小游戏的开发结构、回放存储及构建方式。面向玩家的玩法与成绩说明见 [VitePress 中文页](../../vitepress_doc/zh/guide/minigames.md)及[英文页](../../vitepress_doc/en/guide/minigames.md)，后端提交与排行见[后端实现](../../back_end/saolei/minigame/README.md)。离线帮助 [README.txt](./README.txt) 和版权声明 [COPYRIGHT.txt](./COPYRIGHT.txt) 同时用于离线页面和 ZIP。
 
 | 游戏 | 网站入口 | 规则与生成器 |
 | --- | --- | --- |
@@ -8,8 +8,11 @@
 | 多指训练 | `/#/minigame/multi-touch` | 同左键训练，触屏按下触发，使用独立榜单标识 |
 | 标双训练 | `/#/minigame/flag-chord` | [flagChordTraining.ts](../src/utils/minigame/flagChordTraining.ts) |
 | 漏雷训练 | `/#/minigame/missing-cell` | [missingCellTraining.ts](../src/utils/minigame/missingCellTraining.ts) |
+| 反应训练 | `/#/minigame/reaction` | [reactionTraining.ts](../src/utils/minigame/reactionTraining.ts) |
 
-四种训练的成功局均自动保存本地历史。网站登录且未封禁的玩家可手动上传成绩与回放，无需实名；多指训练九个榜单独立于左键训练。
+五种训练的成功局均自动保存本地历史。网站登录且未封禁的玩家可手动上传成绩与回放，无需实名；多指训练九个榜单独立于左键训练。
+
+反应训练固定横向，各级行长为 5／10／20 格，目标为 10／20／40 次反应；成功局保存本地历史，支持回放与三张分析图，并接入六个概率榜单。[反应训练录像格式](../../vitepress_doc/zh/guide/development/minigame-replay-format.md#反应训练)保存随机抽样结果、各行起点和有效点击的按下／松开时间差，不保存鼠标事件或逐步棋盘快照；重复点击开格和旗子不计入录像，耗时仍保留。
 
 ## 公共显示与输入
 
@@ -69,7 +72,8 @@
 - [boardEncoding.ts](../src/utils/minigame/boardEncoding.ts) 编解码 Base64 雷位及标双题目；[recording.ts](../src/utils/minigame/recording.ts) 负责格式读取、v0 转换、差分事件解码，并通过原有自动机推导按键状态和操作意图。
 - [archive.ts](../src/utils/minigame/archive.ts) 复用 [7z-wasm](https://github.com/use-strict/7z-wasm) 将 v1 JSON 压缩为只含 `replay.json` 的独立 7z，使用 LZMA2、级别 1 和 1 MiB 字典。压缩器按需初始化，离线包内联 Wasm；虚拟文件在每次操作后清理。
 - [replay.ts](../src/utils/minigame/replay.ts) 集中管理记录与外观：全长轨迹保留至当前位置，遮罩不透明度 0，marker 为 0.25 格。保存时使用整数像素及开局固定的 `cellSize`，渲染时换算为格子单位，不受显示尺寸变化影响；旧数据迁移为 `cellSize: null`，按固定参考值 32 解码。
-- [useTrainingReplay.ts](../src/utils/minigame/useTrainingReplay.ts) 复用现有 `usePlayback` 时钟。拖动恢复原播放状态，末端停止；图表悬停临时定位，移开恢复。按事件索引区分同一毫秒内的操作。
+- [useTrainingReplay.ts](../src/utils/minigame/useTrainingReplay.ts) 为鼠标、多指和反应训练共用 `usePlayback` 时钟、临时预览和结束／重开流程，各游戏提供帧解码函数。拖动恢复原播放状态，末端停止；图表悬停临时定位，移开恢复。鼠标与多指录像按事件索引区分同一毫秒内的操作。
+- [reactionRecording.ts](../src/utils/minigame/reactionRecording.ts) 只录制实际推进的点击时间对，并注入已保存的随机结果重建棋盘、按下帧和反应统计；三张分析图与历史／在线回放使用同一份运行时数据。
 - [replayAnalysis.ts](../src/utils/minigame/replayAnalysis.ts) 使用最近 1 秒窗口计算移速／点击速度，开局前补零，每 50ms 及标双触发点采样。左键时长排除首次点击、取消及双键，用 `d3-array` 按固定 10ms 分桶，边界值计入右桶。
 - 成功标双统计该题最后插旗、成功双键前最近左键按下、成功双键触发三个时间点。纠正错旗后使用该题最后一次插旗时间；失败及无效果的双键不计入。底段为插旗至左键按下，顶段为左键按下至双键触发。
 - 共享分析组件复用 `vue3-plots` 和 Tippy；漏雷结果复用原有 StackBar，并关闭其 tooltip。图表不改变游戏记录。
@@ -155,4 +159,4 @@ npx.cmd cypress run --component --browser chrome --headless --spec "src/componen
 
 在线回放测试拦截 7z 响应时使用 `ArrayBuffer`，不能用会被 Cypress 序列化为 JSON 的 `Cypress.Buffer`。
 
-构建与 ZIP 校验不能替代真实断网 `file://` 验收；关闭网络后检查四种游戏、纹理、计时、回放／图表、重开、设置、主题及语言，并确认没有网络请求。多指输入另需在真实触屏设备验收，包括同时按下、取消、单指滚动、全屏及回放方向切换。
+构建与 ZIP 校验不能替代真实断网 `file://` 验收；关闭网络后检查五种游戏、纹理、计时、回放／图表、重开、设置、主题及语言，并确认没有网络请求。多指输入另需在真实触屏设备验收，包括同时按下、取消、单指滚动、全屏及回放方向切换。

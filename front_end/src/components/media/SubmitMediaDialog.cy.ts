@@ -20,12 +20,21 @@ const submitted = {
     metadata_pending: true,
     user_id: 42,
     rejected_by: null,
-    url: 'https://www.bilibili.com/video/BV1xx411c7mD/',
-    embed_url: null,
+    suffix: 'BV1xx411c7mD',
     hot_now: 0,
 };
 
 describe('<SubmitMediaDialog />', () => {
+    it('offers GitHub repositories with a locator and no degraded-submission promise', () => {
+        cy.intercept('POST', '/api/media/submit', { body: { ...submitted, format: 'g_r', suffix: '1296269', metadata_pending: false } }).as('githubSubmit');
+        cy.mount(SubmitMediaDialog, { global: { plugins: [i18n], config: { globalProperties: { $axios } } } });
+        cy.get('[data-cy=submit-format]').select('g_r');
+        cy.get('[data-cy=submit-suffix]').should('have.attr', 'placeholder', 'OWNER/REPO').type('owner/project');
+        cy.contains('Only your public, non-fork personal repositories are accepted').should('exist');
+        cy.get('form button[type=submit]').click();
+        cy.wait('@githubSubmit').its('request.body').should('deep.equal', { format: 'g_r', suffix: 'owner/project', language: '' });
+    });
+
     it('posts the selected format, suffix and free-text language', () => {
         cy.intercept('POST', '/api/media/submit', (request) => {
             request.reply(submitted);

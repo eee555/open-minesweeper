@@ -1,9 +1,11 @@
-"""外站作品元数据适配：详情接口只返回临时元数据，作者 id 不落库；见 MEDIA_PLAN.md 第 7.1、7.2 节。"""
+"""外站作品元数据适配：作者 id 仅用于请求内归属核验，不落库。"""
 
 from contextlib import contextmanager
 from datetime import datetime, timezone as datetime_timezone
-from time import sleep
+import json
+from time import monotonic, sleep
 from typing import NamedTuple
+from urllib.parse import urljoin, urlsplit
 
 from bilibili_api import sync
 from bilibili_api.article import Article
@@ -14,17 +16,20 @@ from curl_cffi import CurlError
 from curl_cffi.requests.exceptions import Timeout as CurlTimeout
 from django.utils import timezone
 from httpx import TimeoutException
+import requests
 from saolei_api import AuthenticationError, Client, RateLimitError, ResponseError, TransportError
 
 from accountlink.saolei.client import ThrottledTransport
 from utils.secrets_json import read_secret
-from .utils import MediaFormat, normalize_external_author_id
+from .utils import MediaFormat, normalize_external_author_id, normalize_github_locator
 
 MEDIA_TITLE_MAX_LENGTH = 200
 BILIBILI_TIMEOUT = 8.0
 SAOLEI_TIMEOUT = 8.0
 MAX_RETRY_WAIT = 1.0
 BILIBILI_RATE_LIMIT_CODE = -509
+GITHUB_TIMEOUT = 8.0
+GITHUB_RESPONSE_LIMIT = 300 * 1024
 DEGRADED_FETCH_CATEGORIES = frozenset({'timeout', 'upstream_error'})
 # bilibili_api 默认 CurlCFFIClient 直接透传 curl_cffi 原生异常，不会包成 NetworkException。
 BILIBILI_TIMEOUT_ERRORS = (TimeoutError, TimeoutException, CurlTimeout)
@@ -36,6 +41,7 @@ class MediaMetadata(NamedTuple):
     title: str
     created_at: datetime
     author_id: str
+    source_id: str | None = None
 
 
 class MediaFetchError(Exception):
@@ -112,6 +118,67 @@ def _fetch_saolei_post(post_id):
     return post.title, post.post_time, post.user_id
 
 
+def _github_repository_response(locator):
+    """固定 API 主机、最多两次重定向；流式读取检查整轮预算与体积。"""
+    url = f'https://api.github.com/repos/{normalize_github_locator(locator)}'
+    deadline = monotonic() + GITHUB_TIMEOUT
+    with requests.Session() as client:
+        client.headers.update({'Accept': 'application/vnd.github+json', 'User-Agent': 'OpenMS-media'})
+        for _ in range(3):
+            remaining = deadline - monotonic()
+            if remaining <= 0:
+                raise requests.ReadTimeout()
+            with client.get(url, timeout=(min(2, remaining), min(3, remaining)), allow_redirects=False, stream=True) as response:
+                if response.status_code in {301, 302, 307, 308}:
+                    target = urljoin(url, response.headers.get('Location', ''))
+                    parsed = urlsplit(target)
+                    if parsed.scheme != 'https' or parsed.netloc.lower() != 'api.github.com' or parsed.fragment:
+                        raise MediaFetchError('upstream_error', 502)
+                    url = target
+                    continue
+                if response.status_code == 404:
+                    raise MediaFetchError('not_found', 404)
+                if response.status_code in {403, 429}:
+                    raise MediaFetchError('rate_limited' if response.status_code == 429 or response.headers.get('X-RateLimit-Remaining') == '0' or 'Retry-After' in response.headers else 'upstream_error', 503)
+                if response.status_code != 200:
+                    raise MediaFetchError('upstream_error', 502)
+                body = bytearray()
+                # 按块检查预算；requests 的读取超时限制块内的空闲等待。
+                for chunk in response.iter_content(8192):
+                    if monotonic() > deadline:
+                        raise requests.ReadTimeout()
+                    body.extend(chunk)
+                    if len(body) > GITHUB_RESPONSE_LIMIT:
+                        raise MediaFetchError('invalid_metadata', 502)
+                return json.loads(body)
+    raise MediaFetchError('upstream_error', 502)
+
+
+def _fetch_github_repository(locator):
+    try:
+        data = _github_repository_response(locator)
+        repository_id, owner = data['id'], data['owner']
+        # 浏览器使用 JSON number 读取仓库 ID，与 Number.isSafeInteger 的范围一致。
+        if type(repository_id) is not int or not 1 <= repository_id <= 2**53 - 1 or type(owner['id']) is not int or not 1 <= owner['id'] <= 2**63 - 1:
+            raise MediaFetchError('invalid_metadata', 502)
+        if type(data['private']) is not bool or type(data['fork']) is not bool or not isinstance(owner['type'], str):
+            raise MediaFetchError('invalid_metadata', 502)
+        if data['private'] or data['fork'] or owner['type'] != 'User':
+            raise MediaFetchError('unsupported_repository', 400)
+        normalize_github_locator(data['full_name'])
+        created_at = datetime.fromisoformat(data['created_at'])
+        if timezone.is_naive(created_at):
+            raise MediaFetchError('invalid_metadata', 502)
+        metadata = _validate_metadata(data['full_name'], created_at.timestamp(), owner['id'])
+    except requests.Timeout:
+        raise MediaFetchError('timeout', 504) from None
+    except requests.RequestException:
+        raise MediaFetchError('upstream_error', 502) from None
+    except (KeyError, TypeError, AttributeError, ValueError, OverflowError):
+        raise MediaFetchError('parse_error', 502) from None
+    return metadata._replace(source_id=str(repository_id))
+
+
 def _validate_metadata(title, timestamp, author_id):
     """作者 id 归一化为字符串，兼容非数字平台 id；仅用于一次性归属比对，不落库。"""
     if not isinstance(title, str) or not title.strip() or len(title) > MEDIA_TITLE_MAX_LENGTH:
@@ -134,7 +201,9 @@ def _validate_metadata(title, timestamp, author_id):
 def fetch_media_metadata(media_format, suffix):
     """返回 MediaMetadata；失败抛 MediaFetchError。新增平台只需在此加分派分支。"""
     try:
-        if media_format == MediaFormat.B_V:
+        if media_format == MediaFormat.G_R:
+            return _fetch_github_repository(suffix)
+        elif media_format == MediaFormat.B_V:
             raw = _fetch_bilibili_video(suffix)
         elif media_format == MediaFormat.B_A:
             raw = _fetch_bilibili_article(suffix)
@@ -152,6 +221,6 @@ def fetch_media_metadata_optional(media_format, suffix):
     try:
         return fetch_media_metadata(media_format, suffix)
     except MediaFetchError as exc:
-        if exc.category in DEGRADED_FETCH_CATEGORIES:
+        if media_format != MediaFormat.G_R and exc.category in DEGRADED_FETCH_CATEGORIES:
             return None
         raise

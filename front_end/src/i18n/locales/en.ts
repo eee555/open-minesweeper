@@ -19,6 +19,7 @@ export default {
         'multi-touch': 'Multi-touch training',
         'flag-chord': 'Flag-and-chord training',
         'missing-cell': 'Missing cell training',
+        reaction: 'Reaction training',
     },
     media: {
         title: 'Works',
@@ -339,6 +340,7 @@ export default {
             guideLink: 'View participation guide',
             preparing: 'Registration opens after the tournament starts.',
             token: 'Tournament token: ',
+            tokenGuideLink: 'What is this?',
             identifier: 'Arbiter tournament identifier: ',
         },
         realTimeScore: 'Real-Time Score',

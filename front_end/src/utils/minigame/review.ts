@@ -6,6 +6,9 @@ import type { MinigameStoredEntry } from './history';
 import { leftClickModes, multiTouchModes } from './leftClickTraining';
 import { missingCellModes } from './missingCellTraining';
 import type { MissingCellMode, MissingCellRoundResult } from './missingCellTraining';
+import { rebuildReactionReplay } from './reactionRecording';
+import type { ReactionReplay } from './reactionRecording';
+import { reactionModes } from './reactionTraining';
 import { decodeMissingCellRounds } from './recording';
 import { rebuildTrainingReplay } from './replay';
 import type { AnyTrainingReplay } from './replay';
@@ -18,7 +21,7 @@ export interface MissingCellReplay {
     durationMs: number;
 }
 
-export type MinigameReplay = AnyTrainingReplay | MissingCellReplay;
+export type MinigameReplay = AnyTrainingReplay | MissingCellReplay | ReactionReplay;
 
 /** Website and offline history use the same stored 7z and replay reconstruction. */
 export async function readMinigameHistoryReplay(entry: MinigameStoredEntry): Promise<MinigameReplay> {
@@ -28,6 +31,11 @@ export async function readMinigameHistoryReplay(entry: MinigameStoredEntry): Pro
 
 /** Reuse the local replay decoders; mode and score come from the selected ranking. */
 export function rebuildMinigameReplay(game: TrainingGame, rankingKey: string, source: unknown, scoreMs: number): MinigameReplay {
+    if (game === 'reaction') {
+        const mode = reactionModes.find((item) => item.rankingKey === rankingKey);
+        if (mode !== undefined) return rebuildReactionReplay(mode, source, scoreMs);
+        throw new Error('Unknown reaction mode');
+    }
     if (game === 'left-click' || game === 'multi-touch') {
         const mode = (game === 'left-click' ? leftClickModes : multiTouchModes).find((item) => item.rankingKey === rankingKey);
         if (mode !== undefined) return game === 'multi-touch' ? rebuildTouchReplay(mode, source, scoreMs) : rebuildTrainingReplay({ game, mode }, source, scoreMs);

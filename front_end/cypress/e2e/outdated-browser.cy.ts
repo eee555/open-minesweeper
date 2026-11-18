@@ -12,7 +12,7 @@ describe('outdated browser', () => {
     it('shows an upgrade message instead of the resource loader when toReversed is missing', () => {
         visitWithStartupScript('Reflect.deleteProperty(Array.prototype, "toReversed");');
 
-        cy.contains('最低要求：Chrome 119+、Firefox 121+、Safari 17.4+、Edge 119+').should('be.visible');
+        cy.contains('最低要求：Chrome 119+、Firefox 124+、Safari 17.4+、Edge 119+').should('be.visible');
         cy.contains('正在加载资源').should('not.be.visible');
     });
 
@@ -25,13 +25,22 @@ describe('outdated browser', () => {
             '});',
         ].join(''));
 
-        cy.contains('最低要求：Chrome 119+、Firefox 121+、Safari 17.4+、Edge 119+').should('be.visible');
+        cy.contains('最低要求：Chrome 119+、Firefox 124+、Safari 17.4+、Edge 119+').should('be.visible');
         cy.contains('正在加载资源').should('not.be.visible');
     });
 
-    it('loads the app when the browser provides toReversed', () => {
+    for (const method of ['any', 'timeout']) {
+        it(`shows an upgrade message when AbortSignal.${method} is missing`, () => {
+            visitWithStartupScript(`Reflect.deleteProperty(AbortSignal, "${method}");`);
+
+            cy.contains('最低要求：Chrome 119+、Firefox 124+、Safari 17.4+、Edge 119+').should('be.visible');
+            cy.contains('正在加载资源').should('not.be.visible');
+        });
+    }
+
+    it('loads the app when the browser provides the required APIs', () => {
         cy.visit('/');
         cy.get('#app[data-v-app]', { timeout: Cypress.config('pageLoadTimeout') }).should('be.visible');
-        cy.contains('最低要求：Chrome 119+、Firefox 121+、Safari 17.4+、Edge 119+').should('not.exist');
+        cy.contains('最低要求：Chrome 119+、Firefox 124+、Safari 17.4+、Edge 119+').should('not.exist');
     });
 });

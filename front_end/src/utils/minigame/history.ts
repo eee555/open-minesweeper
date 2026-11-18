@@ -7,6 +7,9 @@ import type { ReplayArchiveCodec } from './archive';
 import type { FlagChordMode } from './flagChordTraining';
 import type { LeftClickMode } from './leftClickTraining';
 import type { MissingCellMode } from './missingCellTraining';
+import { readReactionRecording } from './reactionRecording';
+import type { ReactionRecording } from './reactionRecording';
+import type { ReactionMode } from './reactionTraining';
 import { readMissingCellRecording, readTrainingRecording } from './recording';
 import type { MissingCellRecording, TrainingRecording } from './recording';
 import { readTouchRecording } from './touchRecording';
@@ -31,6 +34,7 @@ export type MinigameResult = { scoreMs: number } & (
     | { game: 'left-click'; mode: LeftClickMode; replay: TrainingRecording }
     | { game: 'multi-touch'; mode: LeftClickMode; replay: TouchRecording }
     | { game: 'flag-chord'; mode: FlagChordMode; replay: TrainingRecording }
+    | { game: 'reaction'; mode: ReactionMode; replay: ReactionRecording }
     | ({ game: 'missing-cell'; mode: MissingCellMode } & MissingCellRecording)
 );
 
@@ -51,6 +55,7 @@ export type MinigameStoredEntry = {
     | { game: 'multi-touch'; mode: LeftClickMode }
     | { game: 'flag-chord'; mode: FlagChordMode }
     | { game: 'missing-cell'; mode: MissingCellMode }
+    | { game: 'reaction'; mode: ReactionMode }
 );
 
 export type MinigameHistoryMetadata = Pick<MinigameStoredEntry, 'playedAt' | 'scoreMs'> & { id: number };
@@ -178,7 +183,7 @@ function encodeHistoryEntry(entry: MinigameHistoryEntry, archive: ReplayArchiveC
     const { id, playedAt, scoreMs, game, mode } = entry;
     let source: unknown;
     try {
-        source = entry.game === 'missing-cell' ? readMissingCellRecording(entry.mode, entry) : entry.game === 'multi-touch' ? readTouchRecording(entry.mode, entry.replay) : readTrainingRecording(entry, entry.replay);
+        source = entry.game === 'missing-cell' ? readMissingCellRecording(entry.mode, entry) : entry.game === 'multi-touch' ? readTouchRecording(entry.mode, entry.replay) : entry.game === 'reaction' ? readReactionRecording(entry.replay) : readTrainingRecording(entry, entry.replay);
     } catch (error) {
         if (!preserveOriginal) throw error;
         source = entry.game === 'missing-cell' ? { version: entry.version, rounds: entry.rounds } : entry.replay;
@@ -197,6 +202,7 @@ export async function readMinigameHistoryEntry(entry: MinigameStoredEntry): Prom
         return { id, playedAt, scoreMs, game, mode, ...readMissingCellRecording(mode, source) };
     }
     if (entry.game === 'multi-touch') return { ...entry, replay: readTouchRecording(entry.mode, source) };
+    if (entry.game === 'reaction') return { ...entry, replay: readReactionRecording(source) };
     return { ...entry, replay: readTrainingRecording(entry, source) };
 }
 
@@ -207,7 +213,7 @@ export async function saveMinigameResult(result: MinigameResult): Promise<number
             ? { game: result.game, mode: result.mode, scoreMs: result.scoreMs, ...readMissingCellRecording(result.mode, result) }
             : result.game === 'multi-touch'
                 ? { ...result, replay: readTouchRecording(result.mode, result.replay) }
-                : { ...result, replay: readTrainingRecording(result, result.replay) };
+                : result.game === 'reaction' ? { ...result, replay: readReactionRecording(result.replay) } : { ...result, replay: readTrainingRecording(result, result.replay) };
         const entry = structuredClone({ ...data, playedAt: Date.now() });
         const archive = await loadReplayArchiveCodec();
         const stored = encodeHistoryEntry(entry, archive);

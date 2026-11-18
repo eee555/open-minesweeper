@@ -11,7 +11,7 @@ const mediaItem = {
     language: 'en',
     created_at: '2026-01-01T00:00:00Z',
     submitted_at: '2026-01-01T00:00:00Z',
-    format: 'B_v',
+    format: 'B_a',
     status: 'verified',
     rejected_at: null,
     reject_reason: '',
@@ -22,8 +22,7 @@ const mediaItem = {
     metadata_pending: false,
     user_id: 42,
     rejected_by: null,
-    url: 'https://www.bilibili.com/video/BV1xx411c7mD/',
-    embed_url: null,
+    suffix: '1646742',
     hot_now: 3,
 };
 
@@ -42,7 +41,7 @@ describe('<MediaListPanel />', () => {
         cy.intercept({ method: 'GET', pathname: '/api/media/ranking' }, { body: pageBody }).as('ranking');
         cy.intercept({ method: 'GET', pathname: '/api/media/latest' }, { body: pageBody }).as('latest');
         cy.intercept({ method: 'GET', pathname: '/api/media/me' }, {
-            body: { balance: 5, likes_sent: 0, banned: true },
+            body: { balance: 5, likes_sent: 0, banned: true, daily_likes_used: 3 },
         }).as('me');
     });
 
@@ -61,7 +60,7 @@ describe('<MediaListPanel />', () => {
         cy.wait('@ranking');
         cy.get('.base-table thead th').should('have.length', 5);
         cy.get('[data-sort=hot]').should('have.attr', 'aria-pressed', 'true');
-        cy.get('[data-cy=media-row-7] [data-cy=media-title-link]').should('have.attr', 'href', mediaItem.url);
+        cy.get('[data-cy=media-row-7] [data-cy=media-title-link]').should('have.attr', 'href', 'https://www.bilibili.com/read/cv1646742');
         cy.get('[data-cy=media-row-7] [data-cy=media-platform-icon]').should('have.attr', 'src', 'https://www.bilibili.com/favicon.ico').
             and('have.attr', 'alt', 'Bilibili');
         cy.get('[data-cy=media-row-7]').should('contain.text', '3.00').and('contain.text', '3');
@@ -70,7 +69,7 @@ describe('<MediaListPanel />', () => {
     });
 
     it('shows the platform icon matching the media format', () => {
-        const saoleiWork = { ...mediaItem, id: 9, format: 'c_p', title: 'Saolei post', url: 'https://saolei.wang/bbs/9786' };
+        const saoleiWork = { ...mediaItem, id: 9, format: 'c_p', title: 'Saolei post', suffix: '9786' };
         cy.intercept({ method: 'GET', pathname: '/api/media/ranking' }, {
             body: { ...pageBody, items: [mediaItem, saoleiWork], total: 2 },
         });
@@ -97,24 +96,25 @@ describe('<MediaListPanel />', () => {
             ...mediaItem,
             id: 8,
             title: 'Embeddable work',
-            embed_url: 'https://player.bilibili.com/player.html?bvid=BV1xx411c7mD',
+            format: 'B_v',
+            suffix: 'BV1xx411c7mD',
         };
         cy.intercept({ method: 'GET', pathname: '/api/media/ranking' }, {
             body: { ...pageBody, items: [mediaItem, embeddable], total: 2 },
         });
         mountPanel();
-        cy.get('[data-cy=media-row-7] [data-cy=media-title-link]').should('have.attr', 'href', mediaItem.url);
+        cy.get('[data-cy=media-row-7] [data-cy=media-title-link]').should('have.attr', 'href', 'https://www.bilibili.com/read/cv1646742');
         cy.get('[data-cy=media-row-8] [data-cy=media-title-link]').should('not.exist');
         cy.get('[data-cy=media-row-8] [data-cy=media-preview-link]').should('contain.text', 'Embeddable work').click();
-        cy.get('.el-dialog:visible iframe.media-preview-frame').should('have.attr', 'src', embeddable.embed_url);
-        cy.get('.el-dialog:visible a.media-preview-external').should('have.attr', 'href', mediaItem.url);
+        cy.get('.el-dialog:visible iframe.media-preview-frame').should('have.attr', 'src', 'https://player.bilibili.com/player.html?bvid=BV1xx411c7mD&page=1&autoplay=0&danmaku=0');
+        cy.get('.el-dialog:visible a.media-preview-external').should('have.attr', 'href', 'https://www.bilibili.com/video/BV1xx411c7mD/');
     });
 
     it('reloads /me after an in-page login', () => {
         let calls = 0;
         cy.intercept({ method: 'GET', pathname: '/api/media/me' }, (request) => {
             calls += 1;
-            request.reply({ body: { balance: calls === 1 ? 5 : 42, likes_sent: 0, banned: false } });
+            request.reply({ body: { balance: calls === 1 ? 5 : 42, likes_sent: 0, banned: false, daily_likes_used: 3 } });
         }).as('meSequence');
         mountPanel();
         cy.wait('@meSequence');

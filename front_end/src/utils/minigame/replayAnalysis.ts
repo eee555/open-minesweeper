@@ -54,7 +54,10 @@ export function leftClickDurations(replay: TrainingReplay): number[] {
 }
 
 export function clickDurationBins(replay: TrainingReplay): Bin<number, number>[] {
-    const durations = leftClickDurations(replay);
+    return durationBins(leftClickDurations(replay));
+}
+
+export function durationBins(durations: number[]): Bin<number, number>[] {
     const maximum = durations.reduce((largest, duration) => Math.max(largest, duration), 0);
     const step = 10; // Milliseconds: every bin is exactly 0.01 seconds wide.
     const upper = (Math.floor(maximum / step) + 1) * step;

@@ -33,9 +33,24 @@ describe('opening minigame replays', () => {
         expect(missing.rounds[0].board[0][0]).toBe(16);
     });
 
+    it('resolves reaction ranking keys and rebuilds compact online replay data', () => {
+        const replay = rebuildMinigameReplay('reaction', 'reaction-b-25-v1', {
+            version: 1,
+            draws: Array.from({ length: 11 }, () => 0),
+            sides: [0, 0, 0, 0],
+            clicks: Array.from({ length: 14 }, (_item, index) => [index === 0 ? 0 : index === 13 ? 74 : 75, 20]),
+        }, 1234);
+        if (replay.game !== 'reaction') throw new Error('Expected a reaction replay');
+        expect(replay.durationMs).toBe(1234);
+        expect(replay.samples).toHaveLength(10);
+        expect(replay.samples.at(-1)?.upMs).toBe(1234);
+        expect(replay.frames.at(-1)?.remaining).toBe(0);
+    });
+
     it('rejects mismatched rankings and damaged recordings instead of creating a new game', () => {
         expect(() => rebuildMinigameReplay('left-click', 'multi-touch-b-50-v1', mouse, 1000)).toThrow('Unknown minigame replay ranking');
         expect(() => rebuildMinigameReplay('flag-chord', 'flag-chord-e-v1', mouse, 1000)).toThrow('Unknown minigame replay ranking');
+        expect(() => rebuildMinigameReplay('reaction', 'reaction-b-75-v1', mouse, 1000)).toThrow('Unknown reaction mode');
         expect(() => rebuildMinigameReplay('left-click', leftClickModes[0].rankingKey, { ...mouse, initialBoard: 'bad' }, 1000)).toThrow();
     });
 });

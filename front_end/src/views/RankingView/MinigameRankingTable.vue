@@ -4,7 +4,7 @@
         <template #head>
             <tr>
                 <th :rowspan="hasDensities ? 2 : 1" scope="col" class="table-col-rank">
-                    <button v-if="hasDensities" type="button" class="stat-header" :title="t('local.switchDisplay', { metric: t(displayCes ? 'prop.time' : 'prop.ces') })" :aria-label="t('local.switchDisplay', { metric: t(displayCes ? 'prop.time' : 'prop.ces') })" data-cy="minigame-ranking-score-display" @click="minigameSettings.leftClickScoreDisplay = displayCes ? 'time' : 'ces'">
+                    <button v-if="supportsCes" type="button" class="stat-header" :title="t('local.switchDisplay', { metric: t(displayCes ? 'prop.time' : 'prop.ces') })" :aria-label="t('local.switchDisplay', { metric: t(displayCes ? 'prop.time' : 'prop.ces') })" data-cy="minigame-ranking-score-display" @click="minigameSettings.leftClickScoreDisplay = displayCes ? 'time' : 'ces'">
                         {{ t(displayCes ? 'prop.ces' : 'prop.time') }}
                     </button>
                 </th>
@@ -12,8 +12,8 @@
                     {{ t('prop.player') }}
                 </th>
                 <template v-if="hasDensities">
-                    <th v-for="level in ['b', 'i', 'e']" :key="level" scope="colgroup" colspan="3" class="table-col-center">
-                        {{ t(`level.${level}`) }}
+                    <th v-for="group in levelGroups" :key="group.level" scope="colgroup" :colspan="group.columns" class="table-col-center">
+                        {{ t(`level.${group.level}`) }}
                     </th>
                 </template>
                 <template v-else>
@@ -26,8 +26,8 @@
             </tr>
             <tr v-if="hasDensities">
                 <th v-for="ranking in rankings" :key="ranking.key" scope="col" class="table-col-number" :aria-sort="sort === ranking.key ? sortDirection(ranking) : 'none'">
-                    <button type="button" class="stat-header" :aria-label="`${t(`level.${ranking.level}`)} ${densityLabels[ranking.density ?? '50']}`" :aria-pressed="sort === ranking.key" @click="sort = ranking.key">
-                        {{ densityLabels[ranking.density ?? '50'] }}
+                    <button type="button" class="stat-header" :aria-label="`${t(`level.${ranking.level}`)} ${minigameDensityLabel(game, ranking.density)}`" :aria-pressed="sort === ranking.key" @click="sort = ranking.key">
+                        {{ minigameDensityLabel(game, ranking.density) }}
                     </button>
                 </th>
             </tr>
@@ -71,6 +71,7 @@ import PlayerName from '@/components/PlayerName.vue';
 import { fetchMinigameRanking, fetchMinigameRankings } from '@/services/minigameRankingService';
 import type { MinigameColorScheme, MinigameRanking, MinigameRankingRow } from '@/services/minigameRankingService';
 import { toISODateTimeString } from '@/utils/datetime';
+import { minigameDensityLabel } from '@/utils/minigame/games';
 import type { TrainingGame } from '@/utils/minigame/games';
 import { formatMinigameScore } from '@/utils/minigame/scoreDisplay';
 import { minigameSettings } from '@/utils/minigame/settings';
@@ -80,9 +81,10 @@ const props = defineProps({
     colorScheme: { type: Function as PropType<MinigameColorScheme>, default: undefined },
 });
 const rankings = ref<MinigameRanking[]>([]);
-const hasDensities = computed(() => props.game === 'left-click' || props.game === 'multi-touch');
-const displayCes = computed(() => hasDensities.value && minigameSettings.value.leftClickScoreDisplay === 'ces');
-const densityLabels = { 50: '1/2', 75: '3/4', 87.5: '7/8' };
+const hasDensities = computed(() => rankings.value.some((ranking) => ranking.density !== null));
+const supportsCes = computed(() => props.game === 'left-click' || props.game === 'multi-touch');
+const displayCes = computed(() => supportsCes.value && minigameSettings.value.leftClickScoreDisplay === 'ces');
+const levelGroups = computed(() => ['b', 'i', 'e'].map((level) => ({ level, columns: rankings.value.filter((ranking) => ranking.level === level).length })).filter((group) => group.columns > 0));
 const { fields: { sort, page, page_size: pageSize }, update } = useRankingQuery(
     { sort: '', page: 1, page_size: 20 },
     (query, defaults) => ({ sort: queryChoice(query.sort, rankings.value.map((ranking) => ranking.key), rankings.value[0]?.key ?? defaults.sort), page: queryInteger(query.page, defaults.page), page_size: queryChoice(query.page_size, [20, 50, 100], defaults.page_size) }),

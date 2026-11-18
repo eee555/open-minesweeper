@@ -1,9 +1,9 @@
 <template>
     <article class="card media-card" :data-cy="`media-card-${media.id}`">
         <div class="media-card-head">
-            <a class="link media-card-title" :href="media.url" target="_blank" rel="noopener noreferrer">
+            <MediaSourceLink class="media-card-title" :format="media.format" :suffix="media.suffix">
                 {{ media.title || t('media.titleMissing') }}
-            </a>
+            </MediaSourceLink>
             <span v-if="showStatus" class="media-card-status" :class="`media-card-status--${media.status}`">{{ statusLabel }}</span>
             <span v-if="media.metadata_pending" class="media-card-status media-card-status--pending">{{ t('media.titleMissing') }}</span>
         </div>
@@ -19,7 +19,7 @@
                 v-if="showFeed" :media-id="media.id" :disabled="feedDisabled" :balance="feedBalance"
                 :pending-label="media.status === 'pending'" @feed="onFeed"
             />
-            <MediaEmbed v-if="media.embed_url" :src="media.embed_url" />
+            <MediaEmbed v-if="embedUrl" :src="embedUrl" />
         </div>
         <div v-if="showRejectInfo && media.status === 'rejected'" class="media-card-reject">
             <span>{{ t('media.rejectReason') }}: {{ media.reject_reason }}</span>
@@ -35,9 +35,11 @@ import { useI18n } from 'vue-i18n';
 
 import MediaEmbed from './MediaEmbed.vue';
 import MediaFeedButton from './MediaFeedButton.vue';
+import MediaSourceLink from './MediaSourceLink.vue';
 
 import PlayerName from '@/components/PlayerName.vue';
 import type { MediaItem, MediaLikeResult } from '@/services/mediaService';
+import { mediaEmbedUrl } from '@/utils/media';
 
 import '@/components/media/media.css';
 
@@ -55,6 +57,7 @@ const { t } = useI18n();
 
 const currentLikes = ref(props.media.likes);
 const currentHot = ref(props.media.hot_now);
+const embedUrl = computed(() => mediaEmbedUrl(props.media.format, props.media.suffix));
 watch(() => props.media, (media) => {
     currentLikes.value = media.likes;
     currentHot.value = media.hot_now;
