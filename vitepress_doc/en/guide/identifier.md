@@ -30,7 +30,7 @@ Before uploading replays manually you need either a real name on your profile or
 
 The identifier management area is at the bottom of the **Overview** tab on your profile page. You can add or delete your identifiers there. After you add or delete an identifier, all replays with the corresponding identifier are refreshed, mainly including leaderboard eligibility checks.
 
-## Tournament identifiers
+## Tournament identifiers {#tournament-token}
 
 Tournament identifiers prove that a replay was created after a tournament started. When a tournament starts, the system generates a random identifier. During the tournament, only replays containing that tournament identifier are automatically recognized as tournament replays.
 

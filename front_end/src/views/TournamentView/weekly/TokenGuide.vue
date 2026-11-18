@@ -30,6 +30,9 @@
             {{ t('gsc.identifierGuide.token') }}
             <span class="ttfamily">{{ token }}</span>
             <IconCopy :text="token" />
+            <a class="link text" :href="tokenGuideUrl" target="_blank" rel="noopener noreferrer">
+                {{ t('gsc.identifierGuide.tokenGuideLink') }}
+            </a>
             <div data-cy="weekly-participant-window">
                 {{ t('local.deadline') }}{{ t('punct.colon') }}
                 {{ displayTime(participant?.start_time) }}
@@ -76,6 +79,7 @@ const registeringParticipant = ref(false);
 const registerDialogVisible = ref(false);
 
 const weeklyGuideUrl = getDocsUrl('guide/weekly-tournament');
+const tokenGuideUrl = getDocsUrl('guide/identifier#tournament-token');
 
 async function registerParticipant() {
     registeringParticipant.value = true;

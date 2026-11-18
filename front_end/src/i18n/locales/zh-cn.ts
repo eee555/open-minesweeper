@@ -338,6 +338,7 @@ export default {
             guideLink: '查看参赛说明',
             preparing: '比赛开始后可以报名参赛。',
             token: '比赛标识：',
+            tokenGuideLink: '了解比赛标识',
             identifier: 'Arbiter参赛标识：',
         },
         realTimeScore: '即时成绩',

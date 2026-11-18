@@ -5,7 +5,7 @@ description: Weekly minesweeper tournament rules held by Open Minesweeper, inclu
 
 # Weekly Tournament
 
-Open Minesweeper hosts Speed Weekly and Efficiency Weekly tournaments independently. You may enter both in the same week; register separately and use each tournament's own token.
+Open Minesweeper hosts Speed Weekly and Efficiency Weekly tournaments independently. You may enter both in the same week; register separately and use each tournament's own [token](./identifier.md#tournament-token).
 
 Registration requires a real name or verification by a verified player. See [Minesweeper Tournaments](./tournament.md).
 
