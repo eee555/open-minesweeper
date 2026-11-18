@@ -10,6 +10,8 @@ import type { MinigameResult } from './history';
 import { leftClickModes, LeftClickTraining, multiTouchModes } from './leftClickTraining';
 import { missingCellModes, MissingCellTraining, reviewMissingCellRound } from './missingCellTraining';
 import { missingCellCandidates } from './missingCellTraining.testHelpers';
+import { ReactionRecorder, rebuildReactionReplay } from './reactionRecording';
+import { reactionModes } from './reactionTraining';
 import { decodeMissingCellRounds, encodeMissingCellRecording } from './recording';
 import { rebuildTrainingReplay, replayFrame, TrainingReplayRecorder } from './replay';
 import type { TrainingMouseInput, TrainingReplay } from './replay';
@@ -78,6 +80,18 @@ function touchResult(): Extract<MinigameResult, { game: 'multi-touch' }> {
     return { game: 'multi-touch', mode, scoreMs: 70, replay: { version: 1, cellSize: 32, initialBoard: 'AP////////8', events: Array.from({ length: 8 }, (_item, index): TouchRecordingEvent => [index === 0 ? 0 : 10, index === 0 ? 16 : 32, index === 0 ? 16 : 0, index, 0]) } };
 }
 
+function reactionResult(): Extract<MinigameResult, { game: 'reaction' }> {
+    const [mode] = reactionModes;
+    const recorder = new ReactionRecorder(mode, () => 0.99);
+    let now = 100;
+    for (let index = 0; index < 30 && recorder.game.phase !== 'won'; index++) {
+        recorder.capture({ action: 'lc', now });
+        recorder.trigger(0, recorder.game.nextColumn ?? 0, now + 20);
+        now += 100;
+    }
+    return { game: 'reaction', mode, scoreMs: recorder.game.elapsedMs(now), replay: recorder.finish() };
+}
+
 describe('local minigame history', () => {
     beforeEach(async () => {
         vi.resetModules();
@@ -90,10 +104,10 @@ describe('local minigame history', () => {
         await deleteDB(databaseName);
     });
 
-    it('persists all four successful games without overwriting equal times or scores and reopens their review data', async () => {
+    it('persists all five successful games without overwriting equal times or scores and reopens their review data', async () => {
         vi.spyOn(Date, 'now').mockReturnValue(123456789);
         const history = await import('./history');
-        const results = [leftClickResult(), touchResult(), flagChordResult(), missingCellResult(), leftClickResult()];
+        const results = [leftClickResult(), touchResult(), flagChordResult(), missingCellResult(), reactionResult(), leftClickResult()];
         const ids = await Promise.all(results.map((result) => history.saveMinigameResult(result)));
         expect(history.minigameHistoryMigration.value).toBeNull();
         expect(new Set(ids).size).toBe(results.length);
@@ -121,6 +135,10 @@ describe('local minigame history', () => {
                     const preview = reviewMissingCellRound(round);
                     expect(preview.target).toEqual(missingCellCandidates(preview.board)[0]);
                 }
+            } else if (entry.game === 'reaction') {
+                expect(Object.keys(entry.replay).sort()).toEqual(['clicks', 'draws', 'sides', 'version']);
+                const replay = rebuildReactionReplay(entry.mode, entry.replay, entry.scoreMs);
+                expect(replay.samples).toHaveLength(entry.mode.target);
             } else {
                 expect(Object.keys(entry.replay).sort()).toEqual(['cellSize', 'events', 'initialBoard', 'specialEvents', 'version']);
                 const replay = rebuildTrainingReplay(entry, entry.replay, entry.scoreMs);
@@ -278,7 +296,7 @@ describe('local minigame history', () => {
         const entries = await Promise.all((await db.getAll('results')).map(history.readMinigameHistoryEntry));
         expect(entries.map(({ id, playedAt, scoreMs, mode }) => ({ id, playedAt, scoreMs, mode }))).toEqual(legacy.map(({ id, playedAt, scoreMs, mode }) => ({ id, playedAt, scoreMs, mode })));
         for (const [index, entry] of entries.entries()) {
-            if (entry.game === 'multi-touch') throw new Error('Multi-touch has no legacy recordings');
+            if (entry.game === 'multi-touch' || entry.game === 'reaction') throw new Error('This game has no legacy recordings');
             if (entry.game === 'missing-cell') {
                 expect(entry.version).toBe(1);
                 const previous = legacy[index];

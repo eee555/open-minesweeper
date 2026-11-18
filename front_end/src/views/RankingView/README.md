@@ -18,6 +18,7 @@
 | `/ranking/minigame/multi-touch` | `sort`：本游戏 9 个榜单 key 之一 | `multi-touch-b-50-v1` |
 | `/ranking/minigame/flag-chord` | `sort`：本游戏 2 个榜单 key 之一 | `flag-chord-b-v1` |
 | `/ranking/minigame/missing-cell` | `sort`：本游戏 3 个榜单 key 之一 | `missing-cell-b-v1` |
+| `/ranking/minigame/reaction` | `sort`：本游戏 6 个榜单 key 之一 | `reaction-b-25-v1` |
 | `/ranking/density` | `level`：四种密度配置的 code | `c8_8_40` |
 | `/ranking/tournament/overall` | `sort`：`score_current/score_total/gsc_total/weekly_total/weekly_eff_total` | `score_current` |
 | `/ranking/tournament/gsc` | `sort`：`gsc_total/gsc_best` | `gsc_total` |
@@ -46,4 +47,4 @@
 
 效率分类使用 select 切换 Thrp/NF IOE，默认 Thrp；两榜共用刷新、配色与随选择切换的帮助提示。NF IOE 显示三位小数，满分时括号显示比较用时（秒），sum 满分只显示高级用时；配色复用 IOE 色阶，sum 按值除以 3 上色。单项可预览录像，sum 不生成链接，不设置 NF 开关。
 
-小游戏从 `/api/minigame/rankings` 获取固定列顺序；每页一次请求返回整组全部列。无成绩显示 `--`，点击表头选择排序列。成绩链接前往 `/minigame/{game}?player={player_id}&key={mode_key}`，`key` 去掉游戏前缀，如 `b-50-v1`，播放对应玩家该榜当前最佳录像；日期 title 沿用项目格式。小游戏尚无配色，独立预留 `MinigameColorScheme(ranking, score)` 样式函数和禁用的配色按钮，不套用竞速榜色阶。
+小游戏从 `/api/minigame/rankings` 获取固定列顺序；每页一次请求返回整组全部列。反应训练每级两列，`density` 为 `'25'`／`'50'` 并显示百分比；左键和多指每级三列并显示密度分数，Time／CES 切换仅适用于这两个游戏。无成绩显示 `--`，点击表头选择排序列。成绩链接前往 `/minigame/{game}?player={player_id}&key={mode_key}`，`key` 去掉游戏前缀，如 `b-50-v1`，播放对应玩家该榜当前最佳录像；日期 title 沿用项目格式。小游戏尚无配色，独立预留 `MinigameColorScheme(ranking, score)` 样式函数和禁用的配色按钮，不套用竞速榜色阶。

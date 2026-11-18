@@ -1,5 +1,16 @@
 # 更新记录 / Changelog
 
+## 未发布 / Unreleased
+
+## 0.7.4 — 2026-11-18
+
+- 新增反应训练，支持鼠标及触屏松开操作、25%／50% 概率；固定横向，初／中／高级分别为 5／10／20 格、10／20／40 次反应。
+- Added reaction training with mouse/touch release input and 25%/50% mine probabilities. Boards are horizontal, with 5/10/20 cells and 10/20/40 reactions for Beginner/Intermediate/Expert.
+- 反应训练成功局自动保存本地录像，支持从历史回放；新增反应分段条形图，以及连续点击、跳一格点击的松开间隔直方图，两个直方图的桶宽均固定为 0.01 秒。
+- Successful reaction games now save local replays accessible from history, with stacked reaction timings and release-interval histograms for adjacent and skip-one clicks, both using fixed 0.01-second bins.
+- 悬停反应条可查看分段及总时长并预览该次松开，移开恢复原进度和播放状态；直方图提示显示区间和数量，并高亮上方对应的反应条。
+- Hover reaction bars for timing breakdowns, totals and a preview of that release; moving away restores the previous position and play state. Histogram tooltips show ranges and counts and highlight matching reactions above.
+
 ## 0.7.3 — 2026-11-17
 
 - 修复多指训练全屏状态下调整格子大小会退出全屏的问题：全屏顶栏改用加减按钮调整格子大小，避免聚焦输入框唤起软键盘导致浏览器退出全屏；精确数值仍可在小游戏设置中输入，两处共用并保存，调整时保留当前局。

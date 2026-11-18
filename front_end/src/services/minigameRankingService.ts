@@ -8,7 +8,7 @@ export interface MinigameRanking {
     key: string;
     game: TrainingGame;
     level: 'b' | 'i' | 'e';
-    density: '50' | '75' | '87.5' | null;
+    density: '25' | '50' | '75' | '87.5' | null;
     order: 'asc' | 'desc';
     unit: 'ms';
     min_score: number;

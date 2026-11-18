@@ -94,7 +94,7 @@ Redis 分类只读取业务代码直接确定的 DB 0 key，不执行 `SCAN`、`
 | 分类 | key 来源 |
 | --- | --- |
 | PB 榜 | `PBRankingCache.counts_key`；固定 hash 的 `HKEYS` 经校验后构造小榜 key；从 `UserProfile` 主键顺序每批最多 1,000 个 ID 构造用户 hash key。PB 衍生榜另由 `PBDerivedCache().keys()` 枚举 3 个成绩 hash 与 132 个小榜 key，均计入 `pb_rankings` 分类。元数据缺失不发现 key、不触发重建。 |
-| 其他排行榜 | 扫雷网与强无猜各自的 `SpeedRankingCache(name, stats=RANK_STATS).keys`（各两个大榜，共 36 个 key）、`TopRankingCache().keys`、`ThrpRankingCache().keys`、`NFIOERankingCache().keys`、`TPERankingCache().keys`、`MiniGameRankingCache().keys`、四种自定义 pluck 配置的 rank/detail key、比赛用户榜 key 和积分时间 key；当前共 168 个 key。 |
+| 其他排行榜 | 扫雷网与强无猜各自的 `SpeedRankingCache(name, stats=RANK_STATS).keys`（各两个大榜，共 36 个 key）、`TopRankingCache().keys`、`ThrpRankingCache().keys`、`NFIOERankingCache().keys`、`TPERankingCache().keys`、`MiniGameRankingCache().keys`、`MEDIA_CACHE_KEYS`（5 个媒体统计键）、四种自定义 pluck 配置的 rank/detail key、比赛用户榜 key 和积分时间 key；当前共 191 个 key。 |
 | 最新录像 | `newest_cache.key`（`newest_queue`）。 |
 | 其他 | `INFO memory.used_memory` 减去前三类；包含其他业务、会话、同实例 DB 1 通用缓存、孤立/历史/临时 key 和 Redis 开销，不枚举 DB 1。 |
 
@@ -106,7 +106,7 @@ Redis 分类只读取业务代码直接确定的 DB 0 key，不执行 `SCAN`、`
 
 ### 小游戏 `minigame`
 
-每个白名单榜单使用 `minigame:rank:v1:{ranking_key}` ZSET（玩家 ID → 原始整数毫秒）、`minigame:detail:v1:{ranking_key}` Hash（玩家 ID → `{score, achieved_at}` JSON）及 `minigame:ready:v1:{ranking_key}` String（`1` 表示整榜初始化完成）。23 榜共 69 个固定键，均无 TTL，计入服务器内存统计的其他排行榜。
+每个白名单榜单使用 `minigame:rank:v1:{ranking_key}` ZSET（玩家 ID → 原始整数毫秒）、`minigame:detail:v1:{ranking_key}` Hash（玩家 ID → `{score, achieved_at}` JSON）及 `minigame:ready:v1:{ranking_key}` String（`1` 表示整榜初始化完成）。29 榜共 87 个固定键，均无 TTL，计入服务器内存统计的其他排行榜。反应训练新增六榜，复用相同键结构、初始化与重建逻辑。
 
 分类请求一次返回左键或多指 9 列、标双 2 列或漏雷 3 列，以组内任一列排序。已初始化时用两轮 pipeline 读取标记、人数、页内玩家和全部列明细，不查询成绩表。空榜也保存初始化标记；单条上传不设置标记。未初始化时从数据库加载完整榜单；Redis 故障时整次请求批量回源数据库。
 
