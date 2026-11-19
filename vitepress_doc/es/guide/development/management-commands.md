@@ -193,6 +193,8 @@ Ubicación: `effranking/management/commands/rebuild_eff_ranks.py`
 
 Reconstruye la clasificación de eficiencia a partir de la base de datos de repeticiones. `--ranking-name` soporta `thrp` (predeterminado, incluye la lista de puntuaciones máximas en niveles avanzados), `nf_ioe` y `tpe`; `--batch-size` tiene un valor predeterminado de 1000 y debe ser un número positivo. Después de añadir una nueva clasificación grande, se debe ejecutar explícitamente para incluir las repeticiones históricas en el caché, sin necesidad de migrar datos de registros personales.
 
+`--ranking-name tpe` reconstruye los seis récords personales y los nueve conjuntos ordenados de TPE, TPE2 y TPE3. Ejecuta el comando una vez al desplegar las nuevas fórmulas para incorporar las repeticiones históricas. No requiere una migración de la base de datos.
+
 ```bash
 python manage.py rebuild_eff_ranks
 python manage.py rebuild_eff_ranks --ranking-name nf_ioe
