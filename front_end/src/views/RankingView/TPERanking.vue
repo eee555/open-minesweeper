@@ -3,18 +3,23 @@
         <p v-if="failed" role="alert" class="text-danger">
             {{ t('ranking.loadFailed') }}
         </p>
-        <BaseTable v-loading="loading" class="tpe-ranking-table" :empty="players.length === 0" :column-count="5" :empty-text="t('ranking.empty')" :table-style="{ width: 'auto', marginInline: 'auto' }">
+        <BaseTable v-loading="loading" class="tpe-ranking-table" :empty="players.length === 0" :column-count="11" :empty-text="t('ranking.empty')" :table-style="{ width: 'auto', marginInline: 'auto' }">
             <template #head>
                 <tr>
-                    <th scope="col" class="table-col-rank">
+                    <th scope="col" rowspan="2" class="table-col-rank">
                         #
                     </th>
-                    <th scope="col" class="table-col-player">
+                    <th scope="col" rowspan="2" class="table-col-player">
                         {{ t('prop.player') }}
                     </th>
-                    <th v-for="field in tpeStats" :key="field" scope="col" class="table-col-number" :aria-sort="sort === field ? 'ascending' : 'none'">
-                        <BaseTextButton :type="sort === field ? 'primary' : 'default'" :data-field="field" :aria-pressed="sort === field" @click="sort = field">
-                            {{ t(`level.${field}`) }}
+                    <th v-for="group in tpeGroups" :key="group" scope="colgroup" colspan="3" class="table-col-center tpe-group">
+                        {{ t(`level.${group}`) }}
+                    </th>
+                </tr>
+                <tr>
+                    <th v-for="column in tpeColumns" :key="column.stat" scope="col" class="table-col-number" :class="{ 'tpe-group': column.metric === 'TPE' }" :aria-sort="sort === column.stat ? 'ascending' : 'none'">
+                        <BaseTextButton :type="sort === column.stat ? 'primary' : 'default'" :data-field="column.stat" :aria-label="`${t(`level.${column.level}`)} ${column.metric}`" :aria-pressed="sort === column.stat" @click="sort = column.stat">
+                            {{ column.metric }}
                         </BaseTextButton>
                     </th>
                 </tr>
@@ -26,12 +31,12 @@
                 <td class="table-col-player">
                     <PlayerName :user-id="player.player_id" />
                 </td>
-                <td v-for="field in tpeStats" :key="field" class="table-col-number" :data-field="field" :title="String(tpeValue(player, field) ?? '--')" :style="cellStyle(player, field)">
-                    <VideoPreviewLink v-if="tpeVideoId(player, field)" :id="tpeVideoId(player, field)">
-                        {{ formatTPEValue(player, field) }}
+                <td v-for="column in tpeColumns" :key="column.stat" class="table-col-number" :class="{ 'tpe-group': column.metric === 'TPE' }" :data-field="column.stat" :title="String(tpeValue(player, column.stat) ?? '--')" :style="cellStyle(player, column)">
+                    <VideoPreviewLink v-if="tpeVideoId(player, column.stat)" :id="tpeVideoId(player, column.stat)">
+                        {{ formatTPEValue(player, column.stat) }}
                     </VideoPreviewLink>
                     <template v-else>
-                        {{ formatTPEValue(player, field) }}
+                        {{ formatTPEValue(player, column.stat) }}
                     </template>
                 </td>
             </tr>
@@ -54,7 +59,7 @@ import BaseTable from '@/components/common/BaseTable.vue';
 import BaseTextButton from '@/components/common/BaseTextButton.vue';
 import PlayerName from '@/components/PlayerName.vue';
 import VideoPreviewLink from '@/components/VideoPreviewLink.vue';
-import { fetchTPERanking, formatTPEValue, tpeStats, tpeValue, tpeVideoId } from '@/services/tpeRankingService';
+import { fetchTPERanking, formatTPEValue, tpeColumns, tpeGroups, tpeStats, tpeValue, tpeVideoId } from '@/services/tpeRankingService';
 import type { TPERecord, TPEStat } from '@/services/tpeRankingService';
 import { colorThemes } from '@/store/color';
 
@@ -72,10 +77,10 @@ const failed = ref(false);
 let requestId = 0;
 let controller: AbortController | undefined;
 
-function cellStyle(player: TPERecord, field: TPEStat) {
-    const value = tpeValue(player, field);
-    if (!props.colored || field === 'sum' || value === null) return undefined;
-    return colorThemes[`${field}time`].value.getStyle(value);
+function cellStyle(player: TPERecord, column: typeof tpeColumns[number]) {
+    const value = tpeValue(player, column.stat);
+    if (!props.colored || column.level === 'sum' || value === null) return undefined;
+    return colorThemes[`${column.level}time`].value.getStyle(value);
 }
 
 async function load() {
@@ -115,6 +120,10 @@ const { t } = useI18n();
 <style scoped>
 .tpe-ranking {
     min-width: 0;
+}
+
+:deep(.tpe-group) {
+    border-left: 2px solid var(--ui-border-color);
 }
 
 .tpe-pagination {

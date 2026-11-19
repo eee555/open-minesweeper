@@ -22,7 +22,7 @@
                 <option v-for="field in nfIOEStats" :key="field" :value="field">{{ t(`level.${field}`) }}</option>
             </select>
             <select v-else-if="rankingName === 'tpe'" v-model="tpeStat" class="base-select" :aria-label="t('local.stat')" :disabled="working">
-                <option v-for="field in tpeStats" :key="field" :value="field">{{ t(`level.${field}`) }}</option>
+                <option v-for="column in tpeColumns" :key="column.stat" :value="column.stat">{{ t(`level.${column.level}`) }} {{ column.metric }}</option>
             </select>
             <span v-else-if="rankingName === 'pb_derived'" class="text-secondary">{{ t('local.allDerivedFields') }}</span>
             <select v-else v-model="stat" class="base-select" :aria-label="t('local.stat')" :disabled="working">
@@ -62,7 +62,7 @@ import type { StrictNgRankingName } from '@/services/strictNgRankingService';
 import { formatStrictNgValue, rebuildStrictNgRecord, strictNgFields, strictNgVideoId } from '@/services/strictNgRankingService';
 import { formatThrpValue, rebuildThrpRecord, thrpStats, thrpVideoId } from '@/services/thrpRankingService';
 import type { ThrpStat } from '@/services/thrpRankingService';
-import { formatTPEValue, rebuildTPERecord, tpeStats, tpeVideoId } from '@/services/tpeRankingService';
+import { formatTPEValue, rebuildTPERecord, tpeColumns, tpeVideoId } from '@/services/tpeRankingService';
 import type { TPEStat } from '@/services/tpeRankingService';
 
 const rankingName = ref<SaoleiRankingName | StrictNgRankingName | 'thrp' | 'nf_ioe' | 'tpe' | 'pb_derived'>('saolei');
@@ -79,7 +79,10 @@ const fields = computed(() => (isStrictNg.value ? strictNgFields : saoleiFields)
 const selectedLabel = computed(() => {
     if (rankingName.value === 'pb_derived') return t('local.pbDerived');
     if (rankingName.value === 'nf_ioe') return t(`level.${ioeStat.value}`);
-    if (rankingName.value === 'tpe') return t(`level.${tpeStat.value}`);
+    if (rankingName.value === 'tpe') {
+        const column = tpeColumns.find((item) => item.stat === tpeStat.value)!;
+        return `${t(`level.${column.level}`)} ${column.metric}`;
+    }
     if (rankingName.value === 'thrp') return thrpStat.value === 'e_nf' ? `${t('level.e')} NF` : t(`level.${thrpStat.value}`);
     return t(`local.${stat.value}`);
 });

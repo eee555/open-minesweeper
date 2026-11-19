@@ -21,7 +21,7 @@ describe('profile record cache', () => {
         vi.mocked(fetchSaoleiRecords).mockResolvedValue(data);
         const thrp = { player_id: 42, b: null, i: null, e: null, e_nf: null, ranks: { b: null, i: null, e: null, sum: null, e_nf: null } };
         vi.mocked(fetchThrpRecord).mockResolvedValue(thrp);
-        const tpe = { player_id: 42, i: null, e: null, ranks: { i: null, e: null, sum: null } };
+        const tpe = { player_id: 42, i: null, i2: null, i3: null, e: null, e2: null, e3: null, ranks: { i: null, i2: null, i3: null, e: null, e2: null, e3: null, sum: null, sum2: null, sum3: null } };
         vi.mocked(fetchTPERecord).mockResolvedValue(tpe);
         const first = fetchProfileSaoleiRecords(42);
         const firstThrp = fetchProfileThrpRecord(42);

@@ -1,23 +1,31 @@
 import $axios from '@/http';
 
 export const tpeLevels = ['i', 'e'] as const;
-export const tpeStats = [...tpeLevels, 'sum'] as const;
+export const tpeGroups = [...tpeLevels, 'sum'] as const;
+const tpeSuffixes = ['', '2', '3'] as const;
+export const tpeColumns = tpeGroups.flatMap((level) => tpeSuffixes.map((suffix) => ({ stat: `${level}${suffix}` as const, level, metric: `TPE${suffix}` })));
+export const tpeStats = tpeColumns.map((column) => column.stat);
 export type TPEStat = typeof tpeStats[number];
 export interface TPEVideoRecord {
     value: number;
     video_id: number;
 }
-export type TPERecord = { player_id: number } & Record<typeof tpeLevels[number], TPEVideoRecord | null>;
+export type TPERecord = { player_id: number } & Record<`${typeof tpeLevels[number]}${typeof tpeSuffixes[number]}`, TPEVideoRecord | null>;
 export type TPEPlayerRecord = TPERecord & { ranks: Record<TPEStat, number | null> };
 
 export function tpeValue(record: TPERecord | undefined, stat: TPEStat): number | null {
     if (!record) return null;
-    if (stat === 'sum') return record.i !== null && record.e !== null ? record.i.value + record.e.value : null;
+    if (stat === 'sum' || stat === 'sum2' || stat === 'sum3') {
+        const suffix = stat.slice(3) as typeof tpeSuffixes[number];
+        const intermediate = record[`i${suffix}`];
+        const expert = record[`e${suffix}`];
+        return intermediate != null && expert != null ? intermediate.value + expert.value : null;
+    }
     return record[stat]?.value ?? null;
 }
 
 export function tpeVideoId(record: TPERecord | undefined, stat: TPEStat): number | undefined {
-    return stat === 'sum' ? undefined : record?.[stat]?.video_id;
+    return stat === 'sum' || stat === 'sum2' || stat === 'sum3' ? undefined : record?.[stat]?.video_id;
 }
 
 export function formatTPEValue(record: TPERecord | undefined, stat: TPEStat): string {

@@ -51,7 +51,7 @@ top 和 PB 的业务规则、缓存与接口统一见 [竞速排行榜 README](.
 
 ## TPE 纪录
 
-纪录 tab 的 `TPECard.vue` 接收用户 id，读取 `/api/effranking/tpe/player/{id}`，共用 `profileDataService` 的缓存、失效与过期响应隔离。始终展示中级、高级、合计三列，格式为 `成绩(排名)`；缺项为 `--`，零值保留。合计要求两个级别齐备，无单一录像链接。成绩显示三位小数秒，title 保留原值；单项沿用对应 Time 色阶，合计不上色。组件测试为 `UserRecordView/TPECard.cy.ts`。
+纪录 tab 的 `TPECard.vue` 接收用户 id，读取 `/api/effranking/tpe/player/{id}`，共用 `profileDataService` 的缓存、失效与过期响应隔离。按中级、高级、合计分三组，每组依次展示 TPE、TPE2、TPE3，格式为 `成绩(排名)`；缺项为 `--`，零值保留。每个公式独立选优，合计要求对应公式的两个级别齐备，无单一录像链接。成绩显示三位小数秒，title 保留原值；单项沿用对应 Time 色阶，合计不上色。组件测试为 `UserRecordView/TPECard.cy.ts`。
 
 ## 强无猜纪录
 

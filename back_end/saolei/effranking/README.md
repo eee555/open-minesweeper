@@ -169,7 +169,7 @@ app 内使用 Ninja router，在项目 API 中挂载 `/api/effranking/`。接口
 - 排行的每个用户均返回所选大榜的完整 hash 纪录及 `player_id`，不按当前排序列裁剪；sum 由前端计算。
 - 分页排名由前端使用 `start + index + 1` 显示，不为每行重复查询排名。
 - 个人接口用 pipeline 一次读取 hash 和各小榜 ZRANK；无纪录时返回完整空项，排名为 `null`。
-- 管理员重建单级别时查询数据库，重算关联 sum；重建 `sum` 时只根据缓存中的单项计算，不回源数据库。TPE 仅有 `i/e` 两个单项，缺项时移除 sum。
+- 管理员重建单级别时查询数据库，重算关联 sum；重建合计时只根据缓存中的单项计算，不回源数据库。TPE 系列每个公式独立使用中高级两个单项，缺项时移除对应合计，例如修复 `i2` 只连带更新 `sum2`。
 - 管理员重建 Thrp 的 `e_nf` 时独立查询最佳及满分局数，只修复该项，不改动普通高级纪录或 sum。
 - 手动修复即使数值未变，也要修复目标排序索引。无录像可补位时清除对应单项。
 
@@ -181,19 +181,18 @@ python manage.py rebuild_eff_ranks --ranking-name nf_ioe
 python manage.py rebuild_eff_ranks --ranking-name tpe
 ```
 
-首次部署和缓存丢失后显式执行。Thrp 使用 `thrp_idx` 索引；NF IOE 和 TPE 按用户、状态和级别缩小候选范围，并在数据库分桶选优，不新增数据库模型或索引迁移。执行时暂停相关写入。临时榜构建成功后原子替换对应大榜的正式 key（Thrp 六个、NF IOE 五个、TPE 四个），失败保留旧榜；不扫描 Redis keyspace。本地快照初始化重建三个大榜。
+首次部署和缓存丢失后显式执行。Thrp 使用 `thrp_idx` 索引；NF IOE 和 TPE 按用户、状态和级别缩小候选范围，并在数据库分桶选优，不新增数据库模型或索引迁移。执行时暂停相关写入。临时榜构建成功后原子替换对应大榜的正式 key（Thrp 六个、NF IOE 五个、TPE 十个），失败保留旧榜；不扫描 Redis keyspace。本地快照初始化重建三个大榜。
 
 参数及暂停写入范围统一见[管理命令文档](../../../vitepress_doc/zh/guide/development/management-commands.md#rebuild-eff-ranks)。不提供自动回源、在线双写或定时重建。
 
 ## 首页新闻
 
-`effranking` 在单录像与批量加入路径发布 `eff` 分区新闻，覆盖 Thrp 的 `b/i/e/sum/e_nf`、NF IOE 的 `b/i/e/sum` 与 TPE 的 `i/e/sum`。格式与 PB 新闻一致：`field` 为 `{大榜}:{小榜}`，`old`/`new` 各含 `value`、`video_id`、`rank`、`count`、`timems`，首次取得纪录时 `old` 为 `null`。事件经 `news.services.emit` 与信号写入 `news` app 的分类 zset，键与回收规则见[缓存文档](../../../vitepress_doc/zh/guide/development/cache.md)。
+`effranking` 在单录像与批量加入路径发布 `eff` 分区新闻，仅覆盖 Thrp 的 `b/i/e/sum/e_nf` 和 NF IOE 的 `b/i/e/sum`；TPE 系列不发布新闻，前端忽略缓存中尚未过期的旧 TPE 新闻。格式与 PB 新闻一致：`field` 为 `{大榜}:{小榜}`，`old`/`new` 各含 `value`、`video_id`、`rank`、`count`、`timems`，首次取得纪录时 `old` 为 `null`。事件经 `news.services.emit` 与信号写入 `news` app 的分类 zset，键与回收规则见[缓存文档](../../../vitepress_doc/zh/guide/development/cache.md)。
 
 - 只发布成绩变优的单项（比较写入前后的 score）；补位变差与批量移除不发布。单项变化引起 sum 同步变优时，sum 也单独发布一条事件。
 - `count` 是高级 NF 的满分局数：满分局数增加时 `value` 仍为 1、主录像也可能不变，前端沿用榜单的 `1 x N` 显示，避免新闻出现 `1.000 → 1.000`。
 - `timems` 是 NF IOE 满分单项的用时；`sum` 满分时取该项所用的高级用时。前端沿用榜单的 `1.000 (9.000)` 显示，使满分后的用时改善可见。
 - `sum` 是派生值没有对应录像，`video_id` 为 `null`，前端只显示数值文字而不加录像链接；`e_nf` 取满分录像 id 列表首条作为主链接。
-- TPE 以数值下降为进步；两个级别齐备前没有 sum 纪录，首次完整合计的旧值为 `null`，不使用部分合计。
 - 旧名次在写入前用 ZRANK 读取，新名次在写入命令之后排入同一 pipeline，保证事件中的名次对应写入后的榜。事件写入失败只记录日志，不影响排行榜更新。
 - 管理员单项修复与全量重建不发布新闻；新闻是派生数据，不随快照初始化或重建补发。
 
@@ -206,7 +205,7 @@ python manage.py rebuild_eff_ranks --ranking-name tpe
 
 ## 前端接入
 
-`EfficiencyRanking.vue` 提供三榜共用工具栏。`ThrpRanking.vue` 与个人纪录共用 `ThrpRecordValue.vue`，`NFIOERanking.vue` 展示四项 NF IOE，`TPERanking.vue` 展示三项 TPE。管理员修复支持三榜全部小榜。
+`EfficiencyRanking.vue` 提供三榜共用工具栏。`ThrpRanking.vue` 与个人纪录共用 `ThrpRecordValue.vue`，`NFIOERanking.vue` 展示四项 NF IOE，`TPERanking.vue` 按中级、高级、总计三组展示九项 TPE 系列成绩。管理员修复支持三榜全部小榜。
 
 URL 约定见[排行榜 README](../../../front_end/src/views/RankingView/README.md)，Thrp 个人页职责见[个人主页 README](../../../front_end/src/views/UserView/README.md#thrp-纪录)。NF IOE 暂不增加个人页表格。
 
@@ -216,11 +215,13 @@ URL 约定见[排行榜 README](../../../front_end/src/views/RankingView/README.
 
 ## TPE
 
-`TPE = timems / ioe / 1000`，单位为秒，使用实际点击对应的 IOE，越小越好。中级与高级分别取个人最低值；STD、OFFICIAL、非隐藏比赛录像可入榜，包含 NF，不设 BV 门槛。IOE 必须为有限正数；零用时为有效的 0。合计必须两个级别齐备，不补零。个人同分保留已有录像，重建追加 id 稳定选优；用户同分按 member 顺序。
+`TPE = time / ioe`、`TPE2 = time / ioe²`、`TPE3 = time / ioe³`，其中 `time = timems / 1000`，单位为秒，使用实际点击对应的 IOE，越小越好。每个公式独立选择中级与高级的个人最佳录像；STD、OFFICIAL、非隐藏比赛录像可入榜，包含 NF，不设 BV 门槛。IOE 必须为有限正数；零用时为有效的 0。每个合计必须对应公式的两个级别齐备，不补零。个人同分保留已有录像，重建追加 id 稳定选优；用户同分按 member 顺序。
 
-一个 `effranking:tpe:records` hash 保存用户完整 `{i, e}`，每项为 `null` 或 `{value, video_id}`。三个 `effranking:tpe:{i/e/sum}` zset 直接使用未舍入的 TPE 为 score、用户 id 为 member，升序排列；不拼接上传时间，sum 不重复保存在 hash。
+一个 `effranking:tpe:records` hash 保存用户完整 `{i, i2, i3, e, e2, e3}`，每项为 `null` 或 `{value, video_id}`。九个 `effranking:tpe:{stat}` zset 对应 `i/i2/i3/e/e2/e3/sum/sum2/sum3`，直接使用未舍入的对应公式值为 score、用户 id 为 member，升序排列；不拼接上传时间，三个合计不重复保存在 hash。原始 `i/e/sum` 名称保留。
 
-接口为 `/api/effranking/tpe/rank`、`/player/{id}` 和管理员 `POST /admin/rebuild_record`。个人页 `TPECard.vue` 显示成绩与排名，复用个人页缓存失效机制。前端统一显示三位小数，title 保留原始值；单项按对应 Time 色阶上色，sum 不上色。
+单录像同时比较三个公式，只重建该录像实际持有的失效纪录；批量加入用一次数据库查询中的三个独立窗口函数按 `(player_id, level)` 选优，避免重复读取相同候选。新增公式上线时暂停相关写入并执行 `rebuild_eff_ranks --ranking-name tpe`，重建完整 hash 和九个 zset；无需数据库迁移。
+
+接口为 `/api/effranking/tpe/rank`、`/player/{id}` 和管理员 `POST /admin/rebuild_record`，均支持九个小榜，个人及排行查询始终返回六项完整纪录。个人页 `TPECard.vue` 同样按中级、高级、总计三组展示九列成绩与排名，复用个人页缓存失效机制。前端统一显示三位小数，title 保留原始值；单项按对应 Time 色阶上色，三个合计不上色。
 
 ### 索引决策
 
@@ -228,4 +229,4 @@ URL 约定见[排行榜 README](../../../front_end/src/views/RankingView/README.
 
 临时表对照显示，单列 TPE 索引可能诱导全局有序扫描，部分补位反而超过 2 秒。联合覆盖索引可将补位降到约 0.4–0.7 毫秒、全部用户选优降到约 0.72 秒，但尚未验证生成字段的迁移和写入成本，暂不采用。后续若批量更新确有延迟瓶颈，再重新评估。
 
-以上是热缓存下的本地查询耗时，不是生产 API 延迟保证；快照省略 Pluck，亦非生产数据库的物理克隆。完整 SQL、执行计划和结果保留在本地 `.tmp/checks/tpe-index-20261117/`，不提交原始快照。
+以上是原始 TPE 的热缓存本地查询耗时，不能直接代表加入 TPE2/TPE3 后的批量耗时，也不是生产 API 延迟保证；快照省略 Pluck，亦非生产数据库的物理克隆。完整 SQL、执行计划和结果保留在本地 `.tmp/checks/tpe-index-20261117/`，不提交原始快照。
