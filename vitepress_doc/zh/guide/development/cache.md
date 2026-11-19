@@ -31,6 +31,8 @@ GitHub 使用默认 Django cache（当前 Redis DB 1），所有键 TTL 为 600 
 
 `SaoleiApiVideo.import_rejected` 在数据库中持久化本站文件校验直接拒收的结果，不使用缓存。导入事务回滚后单独写入；后续同步在请求详情和下载文件前跳过，目录刷新及 `--full` 不清除此标记。需人工重试时由站长在 Django shell 清除；网络、上游及其他非文件校验故障不设置标记，仍按本地未完成来源补导。
 
+MSGames 手动列表同步使用 `accountlink.msgames.tasks.task_sync_msgames`，复用 Django Tasks 的 `DBTaskResult` 保存状态和业务结果，不增加 Redis 进度缓存。列表 API 仅入队／查询，前端每两秒轮询；单条录像保持同步导入和五秒超时，批量逐条等待响应。列表重复提交复用同一关联的 `READY/RUNNING` 任务。任务参数包含当时的账号归属，执行与查询均防止解绑重绑后误用旧任务。成功完成的任务保留七天，由既有任务清理流程分批删除；返回业务错误的任务同样适用，框架标记 `FAILED` 的任务保留用于人工排查。
+
 录像解析字段现在由前端 IndexedDB 按 ID 缓存。普通查询返回 ID 和网站动态字段，再批量补全；字段定义变化时随前端更新递增 `CACHE_STORE_DEFINITIONS['video-info'].version`，加载新前端后清空整张录像表，接口无需携带版本。接口和 Redis 改动前后字段表见仓库 `front_end/src/services/videoService.md`。部署后运行 [compact_video_cache](./management-commands.md#compact-video-cache) 压缩存量载荷。
 
 旧竞速排行榜及新闻的读写逻辑已移除，可运行`python manage.py delete_legacy_speedranking_cache`清理旧个人纪录hash、排行zset及`news_queue`。支持`--dry-run`预览，具体范围见[管理命令文档](./management-commands.md#delete-legacy-speedranking-cache)。
