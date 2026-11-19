@@ -107,10 +107,14 @@ function parseDisplayDateTime(value: string) {
     return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second));
 }
 
+function selectGSCEdition(order: number) {
+    cy.get('#gsc-edition').clear();
+    cy.get('#gsc-edition').type(`${order}{enter}`);
+}
+
 function visitGSCAdmin(gscID: number) {
     cy.visit('/#/gsc/admin/');
-    cy.contains('第').next().find('input').invoke('val', '');
-    cy.contains('第').next().find('input').type(`${gscID}{enter}`);
+    selectGSCEdition(gscID);
 }
 
 function setDateTime(dateStr: string, timeStr: string) {
@@ -284,7 +288,7 @@ describe('GSC tournament', () => {
         cy.visit('/#/gsc/admin/');
 
         cy.contains('请输入非零届数');
-        cy.contains('第').next().find('input').type('2{enter}');
+        selectGSCEdition(2);
         cy.contains('未找到该届信息');
         cy.contains('创建比赛').click();
         cy.contains('操作成功');

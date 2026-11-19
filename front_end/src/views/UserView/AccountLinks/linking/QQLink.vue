@@ -39,13 +39,13 @@ function submit() {
 
 const i18nMessages = {
     'zh-cn': { local: {
-        QQ: 'QQ号信息网站管理员可见。请注意隐私安全。',
+        QQ: 'QQ号信息网站管理员可见，仅用于展示，不能用于登录本站。QQ 登录需要单独授权绑定。',
     } },
     en: { local: {
-        QQ: 'The QQ number is accessible from site moderators. Please be aware of your privacy safety.',
+        QQ: 'Moderators can see this number. It is for display only and cannot be used to sign in. Authorize QQ login separately.',
     } },
     es: { local: {
-        QQ: 'El número de QQ es accesible para los moderadores del sitio. Por favor, ten en cuenta tu seguridad de privacidad.',
+        QQ: 'Los moderadores pueden ver este número. Solo sirve para mostrarlo, no para iniciar sesión. Autoriza el acceso con QQ por separado.',
     } },
 };
 

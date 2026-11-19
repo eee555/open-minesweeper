@@ -24,6 +24,7 @@ const PageState = defineComponent({
 });
 
 function mountMenu(width: number, options: { layout?: 'top' | 'sidebar'; settings?: boolean; loggedOut?: boolean } = {}) {
+    cy.intercept('POST', '/api/userprofile/qq/start', { statusCode: 503, body: { category: 'not_configured' } }).as('qqStart');
     cy.viewport(width, 720);
     cy.clearCookie('csrftoken');
     cy.intercept({ method: 'GET', pathname: '/api/userprofile/admin/csrf' }, { csrf_token: csrfToken }).as('adminCsrf');
@@ -91,7 +92,7 @@ describe('<Menu /> navigation layouts', () => {
         });
         cy.get('.site-menu--top [data-navigation-id=qq-login] .qq-login-label').should('have.text', 'QQ登录').parents('[data-navigation-id=qq-login]').next().should('have.attr', 'data-navigation-id', 'login');
         cy.get('.site-menu--top [data-navigation-id=qq-login] .qq-login-entry').click();
-        cy.contains('.el-message', 'QQ sign-in is not available yet').should('be.visible');
+        cy.contains('.el-message', 'QQ application credentials are not configured').should('be.visible');
     });
 
     it('activates the QQ login entry with Enter and Space', () => {
@@ -99,13 +100,13 @@ describe('<Menu /> navigation layouts', () => {
         const entry = () => cy.get('.site-menu--top [data-navigation-id=qq-login] .qq-login-entry');
         entry().focus();
         entry().type('{enter}');
-        cy.contains('.el-message', 'QQ sign-in is not available yet').should('be.visible');
+        cy.contains('.el-message', 'QQ application credentials are not configured').should('be.visible');
         cy.then(() => {
             ElMessage.closeAll();
         });
         entry().focus();
         entry().type(' ');
-        cy.contains('.el-message', 'QQ sign-in is not available yet').should('be.visible');
+        cy.contains('.el-message', 'QQ application credentials are not configured').should('be.visible');
     });
 
     it('tracks the parent section of nested routes and returns home through the logo', () => {

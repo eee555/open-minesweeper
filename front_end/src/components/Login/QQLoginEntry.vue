@@ -1,6 +1,6 @@
 <template>
     <!-- 腾讯官方 16×16 标准标识原样使用；文字按合规要求固定中文，不随界面语言切换。 -->
-    <button type="button" class="qq-login-entry" :class="{ 'qq-login-entry--compact': compact }" :aria-label="label" @keydown.stop @click.stop="notifyPending">
+    <button type="button" class="qq-login-entry" :class="{ 'qq-login-entry--compact': compact }" :aria-label="label" :disabled="sending" :aria-busy="sending" :title="t('qqLogin.distinction')" @keydown.stop @click.stop="authorize">
         <img :src="badge" alt="" width="16" height="16">
         <span class="qq-login-label">{{ label }}</span>
     </button>
@@ -8,28 +8,34 @@
 
 <script setup lang="ts">
 import { ElMessage } from 'element-plus';
+import { onBeforeUnmount, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
+import { qqLoginErrorKey, startQQLogin } from '@/services/qqLoginService';
+
 defineProps({ compact: { type: Boolean, default: false } });
-const i18nMessages = {
-    'zh-cn': { local: {
-        pendingLogin: 'QQ 登录尚未开放，请先使用站内账号登录或注册。',
-    } },
-    en: { local: {
-        pendingLogin: 'QQ sign-in is not available yet. Sign in or register with a site account.',
-    } },
-    es: { local: {
-        pendingLogin: 'El acceso con QQ aún no está disponible. Inicia sesión o regístrate con una cuenta del sitio.',
-    } },
-};
-const { t } = useI18n({ messages: i18nMessages });
 
 const badge = `${import.meta.env.BASE_URL}img/qq_login_16x16.png`;
 // 审核 UI 规范要求文字含「QQ登录 / QQ / 登录」字样，故固定中文、不做本地化。
 const label = 'QQ登录';
+const { t } = useI18n();
+const sending = ref(false);
+let active = true;
+onBeforeUnmount(() => {
+    active = false;
+});
 
-function notifyPending() {
-    ElMessage.info(t('local.pendingLogin'));
+async function authorize() {
+    if (sending.value) return;
+    sending.value = true;
+    try {
+        const url = await startQQLogin();
+        if (active) window.location.assign(url);
+    } catch (error) {
+        if (active) ElMessage.error(t(qqLoginErrorKey(error)));
+    } finally {
+        if (active) sending.value = false;
+    }
 }
 </script>
 

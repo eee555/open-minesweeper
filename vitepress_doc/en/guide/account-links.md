@@ -29,6 +29,18 @@ Click the plus button on your Account Links page, select the platform and enter 
 
 For Discord, enable Developer Mode under **User Settings → Advanced**, then right-click your avatar and choose **Copy User ID**. Enter the numeric User ID, rather than a username or display name. Linking Discord does not provide site login.
 
+### QQ login
+
+Entering a QQ number is for private display only. It does not enable QQ login, which requires separate authorization; existing numbers are never matched automatically.
+
+If you already have an OpenMS account, sign in first, select QQ in your own Account Links page and click **Bind QQ login**. You can then use the **QQ登录** button in the menu, login or registration dialog to access that account. Only you can see the QQ nickname and avatar on the welcome page and in QQ login management; they do not replace your OpenMS name or avatar.
+
+Authorization for an unbound QQ identity shows an explanation first and creates no account. **I already have an account** discards this authorization and opens ordinary login. **Create an account with QQ anyway** creates a new user ID and empty account, without merging old accounts or requiring an email or password.
+
+New QQ accounts may optionally set their OpenMS username once and add a recovery email in management. You cannot remove QQ while it is your only login method; add a recovery email or set a password first. Unbinding on OpenMS does not revoke Tencent app authorization.
+
+Until Tencent application credentials are configured, the entry explains that QQ login is unavailable. Ordinary login and registration remain available.
+
 ### Mineracer
 
 1. In the **Account Links** tab on your own profile, find the Mineracer section and click **Generate link**. You do not need to enter a Mineracer user ID.

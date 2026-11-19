@@ -3,9 +3,12 @@
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 import type { MessageContext } from 'vue-i18n';
 
+import { qqLoginZh } from '../qqLogin';
+
 import { MedalSeries } from '@/utils/medal_const';
 
 export default {
+    qqLogin: qqLoginZh,
     local: 'zh-cn',
     name: '简体中文',
     all: '全部',

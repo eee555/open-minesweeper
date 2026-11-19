@@ -59,6 +59,7 @@ for (const base of ['/', '/saolei_website/']) {
 test('provides a Spanish counterpart for every guide, including development pages', () => {
     const actual = getLocalizedPages();
     assert.deepEqual(actual.es, [...new Set([...actual.zh, ...actual.en])].sort());
+    assert.ok(actual.es.includes('guide/account-links'));
     assert.ok(actual.zh.includes(''));
     assert.ok(actual.en.includes(''));
     assert.ok(actual.zh.includes('guide/minesweeper/stat'));

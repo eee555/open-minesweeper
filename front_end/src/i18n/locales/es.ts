@@ -3,9 +3,12 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import type { MessageContext } from 'vue-i18n';
 
+import { qqLoginEs } from '../qqLogin';
+
 import { MedalSeries } from '@/utils/medal_const';
 
 export default {
+    qqLogin: qqLoginEs,
     local: 'es',
     name: 'Español',
     all: 'Todos',

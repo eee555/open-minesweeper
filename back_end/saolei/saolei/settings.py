@@ -311,6 +311,12 @@ GITHUB_OAUTH_CLIENT_SECRET = _read_project_secret('github_oauth_client_secret')
 GITHUB_OAUTH_REDIRECT_URI = 'https://openms.top/api/accountlink/github/callback'
 GITHUB_OAUTH_FRONTEND_URL = os.environ.get('GITHUB_OAUTH_FRONTEND_URL', 'http://localhost:8080' if DEBUG else 'https://openms.top')
 
+QQ_OAUTH_CLIENT_ID = _read_project_secret('qq_oauth_client_id')
+QQ_OAUTH_CLIENT_SECRET = _read_project_secret('qq_oauth_client_secret')
+QQ_OAUTH_REDIRECT_URI = os.environ.get('QQ_OAUTH_REDIRECT_URI', 'https://openms.top/api/userprofile/qq/callback')
+QQ_OAUTH_FRONTEND_URL = os.environ.get('QQ_OAUTH_FRONTEND_URL', 'http://localhost:8080' if DEBUG else 'https://openms.top')
+QQ_OAUTH_LOGIN_ENABLED = os.environ.get('QQ_OAUTH_LOGIN_ENABLED', 'true').lower() in {'1', 'true', 'yes'}
+
 
 APSCHEDULER_DATETIME_FORMAT = 'N j, Y, f:s a'  # 定时任务格式
 APSCHEDULER_RUN_NOW_TIMEOUT = 25  # 定时任务最大执行时间，秒
@@ -443,6 +449,12 @@ LOGGING = {
     'loggers': {
         # Authlib DEBUG logs can contain token exchange bodies and credentials.
         'authlib': {
+            'level': 'WARNING',
+            'handlers': ['root'],
+            'propagate': False,
+        },
+        # QQ 的 GET 令牌接口把 appkey/token 放在查询串，禁止连接池 DEBUG 记录 URL。
+        'urllib3': {
             'level': 'WARNING',
             'handlers': ['root'],
             'propagate': False,

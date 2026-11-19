@@ -1,6 +1,6 @@
 <template>
-    <span>{{ t('local.edition') }}</span>
-    <ElInputNumber v-model="gscID" size="small" :min="0" />
+    <label for="gsc-edition">{{ t('local.edition') }}</label>
+    <ElInputNumber id="gsc-edition" :model-value="gscID" size="small" :min="0" @update:model-value="gscID = $event ?? 0" />
     <br>
     <GSCGeneralInfo :id="gscID" />
     <HistoryImport :order="gscID" />
