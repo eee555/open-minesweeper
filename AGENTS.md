@@ -134,6 +134,8 @@ APP内引用链条：`utils -> models -> services -> api`
 ## 本地化
 本地化有两种模式：全局本地化位于`front_end\src\i18n`，用于可复用的messages。不可复用的messages放在vue SFC内部，示例`front_end\src\components\ExperimentalFeature.vue`。注意：SFC内部的本地化尽量往`script`块的末尾放。
 
+默认支持的语言为简体中文、英语和西班牙语；此前只有简体中文和英语，涉及默认语言列表的旧约定按此更新。
+
 SFC本地化的messages代码风格示例：
 ```ts
 const i18nMessages = {
@@ -141,6 +143,9 @@ const i18nMessages = {
         // 每条message占一行
     } },
     en: { local: {
+        // 每条message占一行
+    } },
+    es: { local: {
         // 每条message占一行
     } },
 };
