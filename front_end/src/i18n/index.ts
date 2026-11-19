@@ -4,6 +4,7 @@ import type { DefineLocaleMessage } from 'vue-i18n';
 import de from './locales/de';
 import dev from './locales/dev';
 import en from './locales/en';
+import es from './locales/es';
 import pl from './locales/pl';
 import zhCn from './locales/zh-cn';
 
@@ -16,6 +17,7 @@ function getMessages(): Record<string, DefineLocaleMessage> {
     messages[zhCn.local] = zhCn;
     messages[de.local] = de;
     messages[en.local] = en;
+    messages[es.local] = es;
     messages[pl.local] = pl;
     return messages;
 }
@@ -35,6 +37,7 @@ export default createI18n({
     fallbackLocale: {
         'zh-cn': ['dev'],
         en: ['dev'],
+        es: ['en'],
         de: ['en'],
         pl: ['en'],
         'zh-tw': ['zh-cn'],

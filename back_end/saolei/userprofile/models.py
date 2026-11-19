@@ -166,6 +166,21 @@ class EmailVerifyRecord(models.Model):
         return '{0}({1})'.format(self.code, self.email)
 
 
+class QQConnectIdentity(models.Model):
+    """QQ 互联登录身份；与手填 QQ 号关联独立，资料只向本人提供。"""
+
+    parent = models.OneToOneField(UserProfile, on_delete=models.CASCADE, related_name='qq_login')
+    appid = models.CharField(max_length=32)
+    openid = models.CharField(max_length=36)
+    unionid = models.CharField(max_length=64, blank=True, null=True)
+    nickname = models.CharField(max_length=128, blank=True)
+    avatar_url = models.URLField(max_length=1024, blank=True)
+    date_updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['appid', 'openid'], name='qq_login_identity_unique')]
+
+
 class UserVerifyEdge(models.Model):
     """当前存在的玩家认证有向边，方向为「认证人 → 被认证人」。不保存申请、状态或历史。
 

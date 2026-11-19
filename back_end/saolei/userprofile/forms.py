@@ -10,7 +10,7 @@ User = get_user_model()
 
 def account_email(email):
     if email.lower().endswith('@accounts.invalid'):
-        raise forms.ValidationError('Memorial accounts cannot use email authentication.')
+        raise forms.ValidationError('System placeholder addresses cannot use email authentication.')
     return email
 
 

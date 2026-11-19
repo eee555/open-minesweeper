@@ -61,7 +61,7 @@ export default defineConfig({
         if (locale) pageData.title = locale === 'zh' ? '此页面暂无中文版本' : 'This page is not available in English';
     },
     transformHead({ pageData, siteConfig }) {
-        if (pageData.frontmatter.localeRedirect || !/^(zh|en)\//.test(pageData.relativePath)) return;
+        if (pageData.frontmatter.localeRedirect || !/^(zh|en|es)\//.test(pageData.relativePath)) return;
         const path = pageData.relativePath.replace(/(^|\/)index\.md$/, '$1').replace(/\.md$/, '');
         const url = `https://openms.top${siteConfig.site.base}${path}`;
         return [['link', { rel: 'canonical', href: url }], ['meta', { property: 'og:url', content: url }]];
@@ -70,6 +70,18 @@ export default defineConfig({
         config: configureDiagramFences,
     },
     locales: {
+        es: {
+            label: 'Español',
+            lang: 'es',
+            title: 'Guía de Open Minesweeper',
+            description: 'Guía de usuario de Open Minesweeper',
+            link: '/es/guide/account-links',
+            themeConfig: {
+                nav: [{ text: 'Cuentas vinculadas', link: '/es/guide/account-links' }],
+                sidebar: [{ text: 'Guía', items: [{ text: 'Cuentas vinculadas', link: '/es/guide/account-links' }] }],
+                outline: { label: 'En esta página' },
+            },
+        },
         zh: {
             label: '简体中文',
             lang: 'zh-CN',

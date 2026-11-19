@@ -23,6 +23,7 @@ from tournament.gsc.api import router as tournament_gsc_router
 from tournament.weekly.api import router as tournament_weekly_router
 from tournament.weekly_eff.api import router as tournament_weekly_eff_router
 from userprofile.api import router as userprofile_router
+from userprofile.qqconnect.api import router as qq_login_router
 from utils.exceptions import ExceptionToResponse
 from videomanager.api import router as videomanager_router
 
@@ -32,6 +33,7 @@ api.add_router('/common/', common_router)
 api.add_router('/monitor/', monitor_router)
 api.add_router('/news/', news_router)
 api.add_router('/userprofile/', userprofile_router)
+api.add_router('/userprofile/qq/', qq_login_router)
 api.add_router('/accountlink/', accountlink_router)
 api.add_router('/accountlink/github/', accountlink_github_router)
 api.add_router('/accountlink/msgames/', accountlink_msgames_router)

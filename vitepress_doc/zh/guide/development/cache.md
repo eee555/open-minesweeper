@@ -5,6 +5,12 @@ description: 开源扫雷网Redis/Django缓存结构详解，包括录像队列�
 
 # 缓存结构
 
+## QQ 登录临时状态
+
+`userprofile/qqconnect/cache.py` 使用 Django 默认 cache，键前缀 `userprofile:qq:`，TTL 统一为 600 秒：`flow:{state}` 保存模式、appid、会话 HMAC 与绑定用户 ID；`active:{session_hmac}` 和 `user:{user_id}` 标识当前有效授权；`used:{state}` 一次性占用或标记撤销。原始 Session key 不进入这些缓存值。
+
+`pending:{session_hmac}` 临时保存已确认的 appid/OpenID、可选 unionid 和昵称／头像，供匿名用户明确确认注册；不包含 token、code 或 secret。`registered:{state}` 防止重复确认。取消或重新开始会移除 pending，过期自动失效；未确认前不创建数据库账号。绑定与解绑按用户行锁串行化，删除身份立即撤销用户的在途授权。此处是短期授权状态，不是可恢复的任务队列或公开资料缓存。
+
 本文记录项目当前使用的 Redis / Django cache 结构，以及缓存与数据库、API 之间的读写流向。数据库字段结构以各 app 的 `models.py` 为准，这里只记录缓存中实际保存的数据结构。
 
 ## GitHub 授权临时状态

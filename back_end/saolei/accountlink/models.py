@@ -245,12 +245,12 @@ class ClassicBindRequest(models.Model):
     handled_at = models.DateTimeField(null=True)
 
 
-# 使用QQ互联提供的登录接口需要开发者注册，步骤繁琐，不利于去中心化
 class AccountGitHub(models.Model):
     id = models.PositiveBigIntegerField(primary_key=True)
     parent = models.OneToOneField(UserProfile, on_delete=models.CASCADE, related_name='account_github')
 
 
+# 手填 QQ 号关联保持独立；QQ 互联登录另由 userprofile.qqconnect 提供。
 class AccountQQ(models.Model):
     id = models.PositiveBigIntegerField(primary_key=True)
     parent = models.OneToOneField(UserProfile, on_delete=models.CASCADE, related_name='account_qq')
