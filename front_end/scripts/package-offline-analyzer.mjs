@@ -27,10 +27,10 @@ const dependencyLicenses = JSON.parse(await readFile(join(output, 'THIRD_PARTY_L
 if (dependencyLicenses.length === 0) throw new Error('Bundled dependency license list is empty');
 const msToollib = dependencyLicenses.find((entry) => entry.name === 'ms-toollib');
 if (msToollib && !msToollib.text) {
-    if (msToollib.version !== '1.6.0') throw new Error('Recheck the ms-toollib license fallback for the new version');
+    if (msToollib.version !== '1.6.2') throw new Error('Recheck the ms-toollib license fallback for the new version');
     msToollib.identifier = 'MIT';
     msToollib.text = (await readFile(join(frontend, 'licenses', 'ms-toollib', 'LICENSE'), 'utf8')).trim();
-    msToollib.source = 'https://github.com/eee555/ms-toollib/blob/fe5d57322f23ad91aacec78a9b0ca2e8da5651f0/LICENSE';
+    msToollib.source = 'https://github.com/eee555/ms-toollib/blob/8e8fadaa53a5a0bb6fa7a50a52f5b944374bb26b/LICENSE';
 }
 await writeBundledLicenses(output, dependencyLicenses);
 await mkdir(join(output, 'licenses'), { recursive: true });

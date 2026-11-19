@@ -1,5 +1,12 @@
 # Analyzer 更新记录 / Analyzer changelog
 
+## 未发布 / Unreleased
+
+- 升级录像解析依赖 ms-toollib 至 1.6.2。
+- Upgrade the replay parsing dependency ms-toollib to 1.6.2.
+- 计数器及自定义事件表达式支持有效点击路径、左击/双击解决的 3BV、Luck 和期望解决量/用时指标。
+- Support effective-click paths, left-click/chord solved 3BV, Luck, and expected progress/time metrics in counter and custom-event expressions.
+
 ## 0.2.2 — 2026-11-06
 
 - 随包表达式参考补充原生播放器的 `toFixed` 固定小数位函数；分析器计数器仍使用独立 format。

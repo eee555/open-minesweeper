@@ -6,6 +6,20 @@
 python manage.py <command> --help
 ```
 
+## 数据库迁移
+
+### `migrate`
+
+位置：`common/management/commands/migrate.py`。复用 Django 原生迁移命令，仅将本次迁移所选 MySQL 数据库连接的 `read_timeout` 和 `write_timeout` 设置为 300 秒（5 分钟），连接建立超时沿用原配置。普通网站请求和其他管理命令仍使用原有读写超时。
+
+```bash
+python manage.py migrate
+python manage.py migrate videomanager
+python manage.py migrate --database default
+```
+
+原生参数照常使用，部署脚本无需改动。迁移前关闭已有连接，以新超时重新连接；命令成功或异常退出时都恢复原配置并关闭迁移连接。非 MySQL 数据库沿用原行为。此处设置的是客户端读写等待时间，不是整个迁移任务的总时限，也不调整数据库服务器的锁等待超时。
+
 ## 纪念账号建档
 
 ### `create_memorial_account`

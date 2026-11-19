@@ -60,6 +60,36 @@ describe('<CustomCounter />', () => {
         counterCell('bad').should('have.class', 'custom-counter__value--error').and('contain', 'Unknown variable: unknown_key');
     });
 
+    it('accepts the new replay metrics and analyses probability fields only once', () => {
+        const analyse = cy.stub().as('analyseFeatures');
+        const values = {
+            bbbv_solved_left: 40,
+            bbbv_solved_chord: 12,
+            c_path: 160,
+            e_path: 128,
+            luck: 0.5,
+            expected_bbbv_solved_per_attempt: 26,
+            expected_bbbv_solved_per_win: 52,
+            expected_time_per_attempt: 5,
+            expected_time_per_win: 10,
+            analyse_for_features: analyse,
+        };
+        mountCustomCounter(createVideo(values), [
+            ['solved', 'bbbv_solved_left + bbbv_solved_chord'],
+            ['paths', 'c_path / 16 || "/" || e_path / 16'],
+            ['luck', 'luck'],
+            ['bv', 'expected_bbbv_solved_per_attempt || "/" || expected_bbbv_solved_per_win'],
+            ['time', 'expected_time_per_attempt || "/" || expected_time_per_win'],
+        ]);
+        cy.get('.custom-counter').extractTableData().should('deep.equal', [['solved', '52'], ['paths', '10/8'], ['luck', '0.5'], ['bv', '26/52'], ['time', '5/10']]);
+        cy.get('@vue').then((wrapper: ComponentWrapper<typeof CustomCounter>) => {
+            values.expected_time_per_win = 12;
+            return wrapper.setProps({ currentMs: 100 });
+        });
+        counterCell('time').should('have.text', '5/12');
+        cy.get('@analyseFeatures').should('have.been.calledOnceWithExactly', ['pluck']);
+    });
+
     it('pads fixed decimals, keeps roundTo numeric, and updates fixed-width text with playback', () => {
         const values = { bbbv_s: 3.4 };
         mountCustomCounter(createVideo(values), [
