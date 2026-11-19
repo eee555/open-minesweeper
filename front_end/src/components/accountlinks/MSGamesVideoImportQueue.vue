@@ -234,7 +234,8 @@ async function importVideo(video: MSGamesVideo, current: number): Promise<boolea
     } catch (error) {
         if (current === context) failures.value[video.id] = errorDescription(error);
         // A transport failure leaves the request outcome unknown; stop the batch instead of sending more.
-        return isAxiosError<{ category?: string }>(error) && error.response?.data?.category ? false : undefined;
+        const category = isAxiosError<{ category?: string }>(error) ? (error.response?.data?.category ?? '') : '';
+        return category !== '' ? false : undefined;
     } finally {
         if (current === context) importingId.value = undefined;
     }
@@ -272,7 +273,7 @@ async function importAll() {
             const success = await importVideo(video, current);
             if (current !== context) return;
             progress.value.completed++;
-            if (!success) progress.value.failed++;
+            if (success !== true) progress.value.failed++;
             if (success === undefined) break;
             if (progress.value.completed < pending.length && !cancelled()) await promiseTimeout(1100);
         }
