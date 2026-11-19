@@ -7,6 +7,7 @@ import { staffRoutes } from '@/views/StaffView/routes';
 import { userRoutes } from '@/views/UserView/routes';
 
 const routes: RouteRecordRaw[] = [
+    { path: '/qq-login', name: 'qq-login', component: () => import('../views/QQLoginView/App.vue') },
     {
         path: '/',
         name: 'home',

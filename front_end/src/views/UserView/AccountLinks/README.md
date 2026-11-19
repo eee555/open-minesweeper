@@ -1,5 +1,7 @@
 # 账号关联页面
 
+QQ 区域在本人页面额外提供 `QQLoginManager`，管理独立的 `userprofile/qqconnect` 登录身份：绑定、刷新、受保护解绑及新账号自愿补全。手填 QQ 号与 QQ 登录不能互相推导；访客和管理员查看其他人主页时不显示此管理区，也不取得昵称、头像或 OpenID。OAuth 后端配置与部署见 [userprofile README](../../../../../back_end/saolei/userprofile/README.md#qq-登录)。
+
 `UserAccountLinkView.vue` 为路由入口，本目录维护页面、平台表单、资料面板及专用样式。
 
 ## 文件职责

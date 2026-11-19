@@ -4,9 +4,12 @@
 import ordinal from 'ordinal';
 import type { MessageContext } from 'vue-i18n';
 
+import { qqLoginEn } from '../qqLogin';
+
 import { MedalSeries } from '@/utils/medal_const';
 
 export default {
+    qqLogin: qqLoginEn,
     local: 'en',
     name: 'English',
     all: 'All',

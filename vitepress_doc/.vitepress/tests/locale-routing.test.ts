@@ -48,7 +48,7 @@ for (const base of ['/', '/saolei_website/']) {
     });
 }
 
-test('discovers actual pages in both languages, including Chinese-only development pages', () => {
+test('discovers localized pages including Spanish QQ login and Chinese-only development pages', () => {
     const actual = getLocalizedPages();
     assert.ok(actual.zh.includes(''));
     assert.ok(actual.en.includes(''));
@@ -56,4 +56,5 @@ test('discovers actual pages in both languages, including Chinese-only developme
     assert.ok(actual.en.includes('guide/minesweeper/stat'));
     assert.ok(actual.zh.includes('guide/development/management-commands'));
     assert.ok(!actual.en.includes('guide/development/management-commands'));
+    assert.ok(actual.es.includes('guide/account-links'));
 });

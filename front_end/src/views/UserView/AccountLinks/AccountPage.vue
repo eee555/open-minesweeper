@@ -51,13 +51,14 @@
                     {{ t('local.noPublicLink') }}
                 </p>
             </template>
+            <QQLoginManager v-if="ownPage && selected === 'q'" />
         </section>
     </div>
 </template>
 
 <script setup lang="ts">
 import './page.css';
-import { computed, onMounted, reactive, ref, useId } from 'vue';
+import { computed, defineAsyncComponent, onMounted, reactive, ref, useId } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import BilibiliLink from './linking/BilibiliLink.vue';
@@ -91,6 +92,7 @@ import { AccountLinks } from '@/utils/accountlinks';
 import type { AccountLinkPlatform } from '@/utils/accountlinks';
 
 const props = defineProps({ userId: { type: Number, required: true } });
+const QQLoginManager = defineAsyncComponent(() => import('@/components/Login/QQLoginManager.vue'));
 const panelId = `account-details-${useId()}`;
 const isActive = useActivePanel();
 const links = ref(new AccountLinks());
@@ -177,6 +179,10 @@ async function submitLink(platform: AccountLinkPlatform) {
 onMounted(() => {
     const [path, query = ''] = window.location.hash.split('?');
     const params = new URLSearchParams(query);
+    if (ownPage.value && params.get('qq_login') === 'manage') {
+        selected.value = 'q';
+        manuallySelected = true;
+    }
     const result = params.get('github');
     if (ownPage.value && path === `#/player/${props.userId}/accountlink` && result !== null
         && ['linked', 'cancelled', 'conflict', 'expired', 'remote_failed', 'not_configured'].includes(result)) {
