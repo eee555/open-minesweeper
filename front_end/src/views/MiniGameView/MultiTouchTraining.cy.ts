@@ -283,7 +283,7 @@ describe('touch-only training', () => {
             expect(saved.mode.rankingKey).to.eq('multi-touch-b-87.5-v1');
         });
         cy.get<ComponentWrapper<typeof App>>('@game').should((wrapper) => {
-            const events = wrapper.emitted('completed') as unknown[][] | undefined;
+            const events = wrapper.emitted('completed');
             expect(events).to.have.length(1);
             expect(events?.[0][0]).to.eq('multi-touch-b-87.5-v1');
         });
