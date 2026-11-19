@@ -151,6 +151,11 @@
     object-fit: contain;
 }
 
+.media-platform-mask {
+    background: currentColor;
+    mask: var(--media-platform-mask) center / contain no-repeat;
+}
+
 .media-preview-link {
     padding: 0;
     border: 0;

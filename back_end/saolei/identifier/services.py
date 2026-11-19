@@ -40,7 +40,7 @@ def bind_identifier(identifier: Identifier, userms: UserMS):
         if not video_ids:
             return 0
         videoquery.update(state=MS_TextChoices.State.OFFICIAL)
-        videos_bulk_changed.send(sender=VideoModel, player_ids=[userms.parent.pk])
+        videos_bulk_changed.send(sender=VideoModel, player_ids=[userms.parent.pk], video_ids=video_ids, lost_qualification=False)
 
         refreshed_videos = VideoModel.objects.filter(id__in=video_ids)
         newest_cache.update_bulk(refreshed_videos)
@@ -83,7 +83,7 @@ def unbind_identifier(identifier: Identifier, userms: UserMS | None = None):
             for video in videos:
                 video.state = MS_TextChoices.State.IDENTIFIER
             videoquery.update(state=MS_TextChoices.State.IDENTIFIER)
-            videos_bulk_changed.send(sender=VideoModel, player_ids=[userms.parent.pk])
+            videos_bulk_changed.send(sender=VideoModel, player_ids=[userms.parent.pk], video_ids=sorted(video_ids), lost_qualification=True, lost_levels=sorted({video.level for video in videos}))
             newest_cache.update_bulk(videos)
             remove_videos_from_custom_pluck_ranks(video_ids)
 

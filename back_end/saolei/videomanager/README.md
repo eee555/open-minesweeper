@@ -9,6 +9,19 @@
 
 `VideoModel` 是多个 app 的事实事件源。任何保存 `VideoModel` 的代码都应尽量使用 `save(update_fields=[...])`，让信号接收器能判断本次修改的影响范围。
 
+## 玩家外键索引部署
+
+录像查询使用 `video_state_player_level_idx(state, player_id, level)`。将 `state` 放在首列后，组合索引仍能支持按状态和玩家筛选，InnoDB 会用独立的 `player_id` 索引维护外键。这样绑定和解绑更新录像状态时，不会因这个外键索引而等待勋章评估持有的玩家行锁。
+
+部署沿用项目现有流程，在 `back_end/saolei/` 生成并应用迁移：
+
+```bash
+python3 manage.py makemigrations
+python3 manage.py migrate
+```
+
+对已有旧组合索引的数据库，Django 会生成移除旧索引、创建新索引的迁移。MySQL 后端在删除旧组合索引前按需补建独立的 `player_id` 索引，外键约束继续有效。可用 `SHOW INDEX FROM videomanager_videomodel` 确认两个索引的列顺序。
+
 ## 创建录像
 
 主要入口：

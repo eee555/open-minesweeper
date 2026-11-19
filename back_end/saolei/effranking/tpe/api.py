@@ -20,7 +20,11 @@ class VideoRecordOut(Schema):
 class RecordOut(Schema):
     player_id: int
     i: VideoRecordOut | None
+    i2: VideoRecordOut | None
+    i3: VideoRecordOut | None
     e: VideoRecordOut | None
+    e2: VideoRecordOut | None
+    e3: VideoRecordOut | None
 
 
 class PlayerRecordOut(RecordOut):

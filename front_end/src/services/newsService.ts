@@ -64,5 +64,5 @@ export function formatEffValue(record: EffNewsRecord, field: string): string {
 
 export async function fetchNews(category: NewsCategory = 'all', limit = 50): Promise<NewsEvent[]> {
     const { data } = await $axios.get<NewsEvent[]>('/api/news/events', { params: { category, limit } });
-    return data;
+    return data.filter((event) => event.category !== 'eff' || !event.payload.field.startsWith('tpe:'));
 }

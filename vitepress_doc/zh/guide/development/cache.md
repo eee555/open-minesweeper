@@ -94,7 +94,7 @@ Redis 分类只读取业务代码直接确定的 DB 0 key，不执行 `SCAN`、`
 | 分类 | key 来源 |
 | --- | --- |
 | PB 榜 | `PBRankingCache.counts_key`；固定 hash 的 `HKEYS` 经校验后构造小榜 key；从 `UserProfile` 主键顺序每批最多 1,000 个 ID 构造用户 hash key。PB 衍生榜另由 `PBDerivedCache().keys()` 枚举 3 个成绩 hash 与 132 个小榜 key，均计入 `pb_rankings` 分类。元数据缺失不发现 key、不触发重建。 |
-| 其他排行榜 | 扫雷网与强无猜各自的 `SpeedRankingCache(name, stats=RANK_STATS).keys`（各两个大榜，共 36 个 key）、`TopRankingCache().keys`、`ThrpRankingCache().keys`、`NFIOERankingCache().keys`、`TPERankingCache().keys`、`MiniGameRankingCache().keys`、`MEDIA_CACHE_KEYS`（5 个媒体统计键）、四种自定义 pluck 配置的 rank/detail key、比赛用户榜 key 和积分时间 key；当前共 191 个 key。 |
+| 其他排行榜 | 扫雷网与强无猜各自的 `SpeedRankingCache(name, stats=RANK_STATS).keys`（各两个大榜，共 36 个 key）、`TopRankingCache().keys`、`ThrpRankingCache().keys`、`NFIOERankingCache().keys`、`TPERankingCache().keys`、`MiniGameRankingCache().keys`、`MEDIA_CACHE_KEYS`（5 个媒体统计键）、四种自定义 pluck 配置的 rank/detail key、比赛用户榜 key 和积分时间 key；当前共 197 个 key。 |
 | 最新录像 | `newest_cache.key`（`newest_queue`）。 |
 | 其他 | `INFO memory.used_memory` 减去前三类；包含其他业务、会话、同实例 DB 1 通用缓存、孤立/历史/临时 key 和 Redis 开销，不枚举 DB 1。 |
 
@@ -148,7 +148,7 @@ PB 衍生榜由 `speedranking.pb_derived.cache.PBDerivedCache` 管理：三个 `
 
 ### 效率榜 `effranking`
 
-Thrp 使用一个个人纪录 hash 和五个排序 zset，NF IOE 独立使用一个 hash 和四个 zset，TPE 独立使用一个 hash 和三个 zset，见下方数据结构表。编码、选优和事务边界统一见 `back_end/saolei/effranking/README.md`；首次部署及缓存丢失后执行指定大榜的 [rebuild_eff_ranks](./management-commands.md#rebuild-eff-ranks)，查询不自动回源。
+Thrp 使用一个个人纪录 hash 和五个排序 zset，NF IOE 独立使用一个 hash 和四个 zset，TPE/TPE2/TPE3 共用一个 hash 和九个 zset，见下方数据结构表。编码、选优和事务边界统一见 `back_end/saolei/effranking/README.md`；首次部署及缓存丢失后执行指定大榜的 [rebuild_eff_ranks](./management-commands.md#rebuild-eff-ranks)，查询不自动回源。
 
 本地公开快照初始化显式重建这三个效率大榜。
 
@@ -741,8 +741,8 @@ digraph cache {
 | `effranking` | `effranking:thrp:{stat}` | zset | `stat = b/i/e/sum/e_nf`；`member = player_id`。原有四项编码六位小数成绩和分钟级达成时间；高级 NF 使用负 Thrp，满分后使用负达成局数。统一升序读取，不用于恢复成绩。 |
 | `effranking` | `effranking:nf_ioe:records` | hash | `field = player_id`；完整 `b/i/e` 纪录，每项为 `null` 或 `{value, video_id, timems}`；sum 从原始成绩计算，不重复存储。 |
 | `effranking` | `effranking:nf_ioe:{stat}` | zset | `stat = b/i/e/sum`；`member = player_id`；score 取业务分值的负数，满分单项比较用时，满分总和只比较高级用时。 |
-| `effranking` | `effranking:tpe:records` | hash | `field = player_id`；完整 `i/e` 纪录，每项为 `null` 或 `{value, video_id}`；value 为未舍入的 TPE 秒数，sum 不重复存储。 |
-| `effranking` | `effranking:tpe:{stat}` | zset | `stat = i/e/sum`；`member = player_id`；score 直接用 TPE，升序且不编码 tie-breaker。sum 要求两个级别均有纪录，零值有效。 |
+| `effranking` | `effranking:tpe:records` | hash | `field = player_id`；完整 `i/i2/i3/e/e2/e3` 纪录，各自为 `null` 或 `{value, video_id}`；value 为对应公式未舍入的秒数，三个合计不重复存储。 |
+| `effranking` | `effranking:tpe:{stat}` | zset | `stat = i/i2/i3/e/e2/e3/sum/sum2/sum3`；`member = player_id`；score 直接用对应公式值，升序且不编码 tie-breaker。每个合计要求对应中高级均有纪录，零值有效。 |
 | `customranking` | `customranking:pluck:{level}:rank` | zset | `member = player_id`；`score = pluck`，当 `pluck == 0` 时使用 `timems - MAX_TIMEMS` 降低 0 碰撞风险。 |
 | `customranking` | `customranking:pluck:{level}:detail` | hash | `field = player_id`；JSON 包含 `video_id`、`timems`、`upload_time`。展示用的模式和 3BV 通过录像缓存补全；排序 zset 保持原编码。 |
 | `tournament` | `tournament:normal` | hash | `field = tournament_id`；`value = CachedTournament JSON`，包含 `id`、`state`、`subclass`、`host_id`、`start_time`、`end_time`、`data`。GSC data 为 `order`、`token`；竞速赛为 `year`、`week`、`tournament_format`；效率赛为 `year`、`week`，不含 format。 |
@@ -757,7 +757,7 @@ digraph cache {
 
 新闻事件只来自排行榜当次发生的变化，不做全量重建，也不保留历史。默认回收规则：只删除既超出最新 200 条、又早于 7 天的记录，因此 7 天内的新闻全部保留（即使超过 200 条），最新的 200 条也全部保留（即使超过 7 天）：每次写入先把 `news:idx:all:v1` 中排名 200 之后、且早于 TTL 的 id 取出，在同一个 pipeline 里从 hash 与全部索引中删除，再写入新事件并刷新各 key 的 TTL。事件源来自 `speedranking` 与 `effranking` 两个 app。`speedranking` 在写入前备好待修改玩家的旧快照，写入软实力索引后、刷新锚点前再取一次新快照；`pb` 由 PB 榜刷新 rank 后筛选终点前 10 的纪录刷新，`lsf` 仅在真实 LSF 值变化且新名次进入前 36 时发布；批量刷榜按变动项逐条推送，每条变动带造成它的录像 id。删除路径不发布新闻，锚点变化触发的 `soft_refresh_requested` 与后台全局软实力重建也不产生新闻。
 
-`effranking` 的单录像与批量加入路径发布 `eff` 分区，覆盖 Thrp、NF IOE 和 TPE 全部小榜。按写入前后的 score 判断是否进步，旧名次在写入前读取，新名次由写入 pipeline 中的 ZRANK 取得。补位变差、批量移除、管理员修复与全量重建不发布。各榜 payload、合计资格及展示规则统一见 `back_end/saolei/effranking/README.md` 的「首页新闻」，不在缓存文档重复维护。
+`effranking` 的单录像与批量加入路径发布 `eff` 分区，仅覆盖 Thrp 和 NF IOE，TPE 系列不发布新闻。按写入前后的 score 判断是否进步，旧名次在写入前读取，新名次由写入 pipeline 中的 ZRANK 取得。补位变差、批量移除、管理员修复与全量重建不发布。各榜 payload、合计资格及展示规则统一见 `back_end/saolei/effranking/README.md` 的「首页新闻」，不在缓存文档重复维护。
 
 `TournamentUser` 是比赛积分持久化汇总表，Redis 用 9 个 zset 排序；total 降序，三类 best 升序。站内用户创建任意已支持赛种的 participant 时，信号在当前数据库事务内补建 `TournamentUser`，删除报名不删除该用户汇总。匿名用户数据库为 NULL，API 输出 user_id=0，不进入积分排行。原 `weekly_classic_total` 和 `weekly_classic_best` 保留，前端只精简重复展示。
 
@@ -792,6 +792,8 @@ participant 删除时，`revoke_rank_score_on_participant_delete` 在删除事�
 玩家摘要持久化到MySQL的`medal_playermedalsummary`，每名玩家一行，以玩家ID为主键。JSON只含有效授予的公开事实、进度数值、佩戴顺序和首次扫描状态；定义、隐藏条件和计分读取当前静态规则。摘要已建立时，`player_summary()`通过连接玩家表和摘要表的1次查询返回结果。此计数不包含认证、会话、Redis访问和中间件。
 
 后台评估、单项授予、人工决定和佩戴服务在同一玩家锁、同一数据库事务中更新业务记录和摘要；内容相同时不改写摘要。首次读取旧玩家时从现有勋章表补齐，不扫描录像。录像或比赛参加记录删除前，在同一玩家锁和删除事务内移除关联摘要。事务提交后再删掉该玩家的 `medal:display:v4:{user_id}`；删除回滚时摘要和键都还在。下次读取从完成外键置空的记录补齐摘要。维护原始勋章表的脚本必须使用服务入口，或在相同玩家锁和事务中删除受影响摘要；现有管理员重算入口也会同步重建摘要。
+
+录像状态查询使用组合索引 `video_state_player_level_idx(state, player_id, level)`，玩家外键由独立的 `player_id` 索引维护。原生 InnoDB 如果用包含 `state` 的组合索引检查外键，绑定、解绑更新录像状态时也可能等待勋章评估持有的玩家行锁。将 `state` 放在首列可避免这种竞争，参见 [MySQL 外键索引锁说明](https://bugs.mysql.com/bug.php?id=94148)。部署时照常运行 `makemigrations` 和 `migrate`，由 Django 替换旧组合索引并按需补建外键索引。
 
 录像补传或上传时间修改触发的刷新，在发布摘要前校正授予日期、证据和阶段日志；摘要仍在同一事务更新，状态键在提交后按数据库中的新日期重建。已有勋章也会处理时间变化，不要求成绩改善或档位变化。新手集合及三阶勋章记录完整分项证据，任一分项改时都可以重算完成时间。
 

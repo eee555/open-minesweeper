@@ -79,6 +79,19 @@ describe('<MediaListPanel />', () => {
             and('have.attr', 'alt', 'Saolei.wang');
     });
 
+    it('renders the GitHub icon as a theme-following mask', () => {
+        const githubWork = { ...mediaItem, id: 10, format: 'g_r', title: 'GitHub repo', suffix: 'owner/repo' };
+        cy.intercept({ method: 'GET', pathname: '/api/media/ranking' }, {
+            body: { ...pageBody, items: [githubWork], total: 1 },
+        });
+        mountPanel();
+        cy.get('[data-cy=media-row-10] [data-cy=media-platform-icon]').
+            should('have.class', 'media-platform-mask').
+            and('have.attr', 'aria-label', 'GitHub').
+            and('have.attr', 'style').
+            and('contain', 'github.svg');
+    });
+
     it('switches the backend sort through the table headers', () => {
         mountPanel();
         cy.wait('@ranking').its('request.query.sort').should('eq', 'hot');
