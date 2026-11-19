@@ -1,4 +1,4 @@
-Authlib==1.9.6
+Authlib==1.9.8
 beautifulsoup4==4.15.0
 bilibili-api-python==17.4.2
 curl_cffi==0.17.0

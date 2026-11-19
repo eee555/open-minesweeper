@@ -234,6 +234,12 @@ export default defineConfig({
                                 { text: 'Minigame Replay Format', link: '/en/guide/development/minigame-replay-format' },
                             ],
                         },
+                        {
+                            text: 'Tools',
+                            items: [
+                                { text: 'Browser Extension', link: '/en/guide/tools/browser-extension' },
+                            ],
+                        },
                     ],
                 },
             },
