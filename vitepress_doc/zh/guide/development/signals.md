@@ -21,7 +21,7 @@ top 原始十八项统一参与用户集合，并以变换后的均值作为降�
 
 NF 是独立维度，由 `VideoModel.right_ce == 0` 判断，不再使用模式 `12`；`right_ce` 为空不视为 NF。`UserMS` 不维护 NF 或原模式的子计数。`videomanager` 捕获 `right_ce` 变化并更新队列；`customranking` 不需要 NF 信息，不监听此字段。批量转换旧模式后需显式刷新统计及缓存，步骤见 `back_end/saolei/msuser/refactor.md`。
 
-效率榜由独立 `effranking.signals` 监听录像保存和删除，复用 `_old_values` 及 `update_fields` 分别判断三榜影响范围：Thrp 监控有效点击、BV 和上传时间；NF IOE、TPE 监控实际 `left/right/double`、BV 和用时，仅 NF IOE 另用 `right_ce=0` 判断 NF 资格。提交后只读取一次持久化录像，三榜共用 Redis 读取/写入 pipeline，各自处理选优和必要补位。Thrp 的高级 NF 项重建满分录像 ID 列表或最佳一局；NF IOE 满分单项比较用时，满分 sum 只比较高级用时；TPE 按 `time / ioe` 升序，合计要求中高级均有纪录。回滚不更新 Redis。绑定/解绑标识和比赛公开显式调用批量 service。异常记录上下文和堆栈后继续抛出，见 `back_end/saolei/effranking/README.md`。单录像与批量加入路径在写入后按成绩变优的单项发布 `eff` 分区新闻，TPE 以数值下降为进步；补位变差、批量移除、管理员单项修复和全量重建不发送该信号。
+效率榜由独立 `effranking.signals` 监听录像保存和删除，复用 `_old_values` 及 `update_fields` 分别判断三榜影响范围：Thrp 监控有效点击、BV 和上传时间；NF IOE、TPE 系列监控实际 `left/right/double`、BV 和用时，仅 NF IOE 另用 `right_ce=0` 判断 NF 资格。提交后只读取一次持久化录像，三榜共用 Redis 读取/写入 pipeline，各自处理选优和必要补位。Thrp 的高级 NF 项重建满分录像 ID 列表或最佳一局；NF IOE 满分单项比较用时，满分 sum 只比较高级用时；TPE 系列按各自公式独立选优，合计要求对应中高级均有纪录。回滚不更新 Redis。绑定/解绑标识和比赛公开显式调用批量 service。异常记录上下文和堆栈后继续抛出，见 `back_end/saolei/effranking/README.md`。仅 Thrp、NF IOE 在单录像与批量加入路径发布成绩变优的 `eff` 分区新闻，TPE 系列不发布；补位变差、批量移除、管理员单项修复和全量重建不发送该信号。
 
 录像删除时，`videomanager.signals.delete_video_expansion` 在当前事务内清理扩展记录；从扩展记录发起的删除沿用 Django 级联，避免重复处理。`customranking.signals.refresh_custom_pluck_rank_on_video_delete` 在提交后从剩余录像补选数据库纪录并更新 Redis；`CustomPluckRecord` 删除后的缓存同步提交后重读当前纪录，回滚不发布删除或补位结果。
 

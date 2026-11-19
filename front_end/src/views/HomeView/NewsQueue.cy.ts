@@ -257,7 +257,7 @@ describe('<NewsQueue />', () => {
             and('have.attr', 'href', '#/video/302');
         cy.get('[data-cy=news-eff]').eq(1).should('contain.text', '首次取得NF IOE总计纪录：1.500(2)');
         cy.get('[data-cy=news-eff]').eq(1).find('.video-preview-link').should('not.exist');
-        cy.get('[data-cy=news-eff]').eq(2).should('contain.text', '打破了TPE高级纪录：50.000(5) → 40.000(2)');
+        cy.get('[data-cy=news-eff]').should('have.length', 2);
     });
 
     it('keeps perfect game counts and comparison times in efficiency news', () => {

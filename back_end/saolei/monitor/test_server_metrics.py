@@ -112,7 +112,7 @@ class ProcessMemoryTests(SimpleTestCase):
 
 
 class RedisMemoryTests(SimpleTestCase):
-    NON_MINIGAME_RANKING_KEYS = 104  # Includes 2 WeeklyEff zsets, 5 MEDIA_CACHE_KEYS and 4 TPE keys.
+    NON_MINIGAME_RANKING_KEYS = 110  # Includes 2 WeeklyEff zsets, 5 MEDIA_CACHE_KEYS and 10 TPE keys.
 
     def redis_client(self, fields=None, sizes=None, total=1000):
         client = MagicMock()
@@ -147,6 +147,8 @@ class RedisMemoryTests(SimpleTestCase):
             'effranking:nf_ioe:records': 10, 'effranking:nf_ioe:b': 20, 'effranking:nf_ioe:i': 30,
             'effranking:nf_ioe:e': 40, 'effranking:nf_ioe:sum': 50,
             'effranking:tpe:records': 1, 'effranking:tpe:i': 2, 'effranking:tpe:e': 3, 'effranking:tpe:sum': 4,
+            'effranking:tpe:i2': 1, 'effranking:tpe:i3': 1, 'effranking:tpe:e2': 1,
+            'effranking:tpe:e3': 1, 'effranking:tpe:sum2': 1, 'effranking:tpe:sum3': 1,
             'minigame:rank:v1:left-click-b-50-v1': 11, 'minigame:detail:v1:left-click-b-50-v1': 12,
             'minigame:ready:v1:left-click-b-50-v1': 1,
             'minigame:rank:v1:multi-touch-e-87.5-v1': 13, 'minigame:detail:v1:multi-touch-e-87.5-v1': 14,
@@ -161,7 +163,7 @@ class RedisMemoryTests(SimpleTestCase):
         self.assertEqual(len([key for key in measured if not key.startswith(('speedranking:pb:', 'speedranking:pb_derived:')) and key != 'newest_queue']), self.NON_MINIGAME_RANKING_KEYS + 3 * len(RANKINGS))
         self.assertEqual(len([key for key in measured if key.startswith('speedranking:pb_derived:')]), len(list(PBDerivedCache().keys())))
         self.assertEqual(result['groups']['pb_rankings'], 100)
-        self.assertEqual(result['groups']['other_rankings'], 754)
+        self.assertEqual(result['groups']['other_rankings'], 760)
         self.assertEqual(len([key for key in measured if key.startswith('speedranking:strict_ng')]), 18)
         self.assertEqual(len([key for key in measured if key.startswith('minigame:')]), 3 * len(RANKINGS))
         self.assertEqual(result['groups']['latest_videos'], 80)

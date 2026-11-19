@@ -284,7 +284,7 @@ class EffNewsTests(SimpleTestCase):
         records = {1: thrp_record(b=thrp_part(0.9, 11))}
         self.assertEqual(prepare_news([(ranking, previous, records)]), [])
 
-    def test_all_efficiency_rankings_are_covered(self):
+    def test_news_enabled_efficiency_rankings_are_covered(self):
         thrp = ThrpRankingCache()
         ioe = NFIOERankingCache()
         previous_thrp = {1: thrp_record(e_nf={'value': 1.0, 'video_ids': [20]})}

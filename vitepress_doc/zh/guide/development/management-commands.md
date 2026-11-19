@@ -199,6 +199,8 @@ python manage.py rebuild_eff_ranks --ranking-name nf_ioe
 python manage.py rebuild_eff_ranks --ranking-name tpe
 ```
 
+`tpe` 会同时重建 TPE、TPE2、TPE3 的六项个人纪录和九个排序 zset。新增公式上线后需执行一次，补齐历史纪录；无需数据库迁移。
+
 首次建榜或缓存丢失后执行，API 不回源数据库。执行前暂停录像上传、审核、修改、删除、标识绑定/解绑和比赛公开等写入。命令先构建临时榜，成功后原子替换，失败保留旧榜。规则见 `back_end/saolei/effranking/README.md`。
 
 ### `rebuild_speed_ranks`
