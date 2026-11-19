@@ -83,18 +83,18 @@ MSGames 专属路由、响应 Schema 和接口权限检查位于 `accountlink/ms
 
 批量先等待列表同步任务完成，再从完整列表中选出未导入且前端判断支持的候选，逐条发送同步导入请求，等待当前请求完成后才发送下一条；仅列表任务每两秒轮询状态。条目之间仍保留至少 1.1 秒间隔。已确认的导入业务错误记录原因后继续；网络故障或超时导致结果无法确认时，停止本轮批量。停止按钮等待当前请求结束后停止后续请求；关闭对话框或切换账号会停止列表任务轮询及后续导入，已提交的列表任务仍继续执行，重新打开时读取已保存的导入引用。
 
-`task_sync_msgames` 的参数包含关联账号 ID、绑定的 UserProfile ID 。API 在短事务中锁定关联账号，复用参数相同且仍为 `READY/RUNNING` 的任务。执行前核对关联归属，避免排队期间解绑重绑后操作其他用户的数据。任务不保存权限或独立进度缓存；`DBTaskResult` 是状态来源。`SUCCESSFUL` 表示任务函数完成，还需检查 `return_value`：成功为 `SYNCED`、`count`、`video_update_time`；可预期失败为 `type=error/object/category`。非预期异常由任务框架标记 `FAILED`，前端只显示 `import/task_failed`。成功完成的任务（包括已返回业务错误的任务）由既有清理流程保留七天；框架 `FAILED` 留给任务管理页处理。轮询限制每用户每分钟 60 次。
+`task_sync_msgames` 的参数包含关联账号 ID、绑定的 UserProfile ID。API 在短事务中锁定关联账号，复用参数相同且仍为 `READY/RUNNING` 的任务。执行前核对关联归属，避免排队期间解绑重绑后操作其他用户的数据。任务不保存权限或独立进度缓存；`DBTaskResult` 是状态来源。`SUCCESSFUL` 表示任务函数完成，还需检查 `return_value`：成功为 `SYNCED`、`count`、`video_update_time`；可预期失败为 `type=error/object/category`。非预期异常由任务框架标记 `FAILED`。前端保留错误的 `object/category`，通过 `generalErrorNotification` 显示 `errorMsg.*` 本地化文案；框架失败映射 `import/task_failed`，异常结果映射 `import/response`，不直接展示错误编码。单独同步与批量导入前的列表同步共用此处理。成功完成的任务（包括已返回业务错误的任务）由既有清理流程保留七天；框架 `FAILED` 留给任务管理页处理。轮询限制每用户每分钟 60 次。
 
 ## 后台任务与部署
 
-列表同步需要依次读取五类外站历史，由现有数据库任务 worker 执行，Web 请求只入队或查询本地状态。单条录像下载、解析和保存保持同步，Nginx、uWSGI 和浏览器统一使用五秒预算。
+列表同步需要依次读取五类外站历史，由现有数据库任务 worker 执行，Web 请求只入队或查询本地状态。单条录像下载、解析和保存保持同步，Nginx 与 uWSGI 使用五秒预算；前端沿用项目默认配置，不单独设置超时。
 
 | 层 | MSGames 配置 | 范围与含义 |
 | --- | --- | --- |
 | 外站 HTTPX | 5 秒 | 列表任务及同步导入的建连、读、写和连接池各阶段等待限制，不是整个操作的总时限 |
 | uWSGI | 单条导入 5 秒，其他普通请求 10 秒 | 单条导入使用独立五秒路由，其余业务原有规则保留 |
 | Nginx | 5 秒 | `/api/accountlink/msgames/` 的连接与读取等待时间，覆盖单条同步导入、列表任务提交与轮询 |
-| 浏览器 Axios | 单条导入 5 秒，其他请求默认 20 秒 | 仅列表同步每两秒轮询状态，关闭对话框时停止轮询 |
+| 浏览器 Axios | 项目默认 20 秒 | 不为 MSGames 单独设置超时；仅列表同步每两秒轮询状态，关闭对话框时停止轮询 |
 
 部署需同步更新前后端、重启 uWSGI 和已有 `db_worker_robust` 进程，让 worker 加载新任务函数。若 worker 未启动或忙于其他任务，状态会保持 `READY`，不阻塞 Web worker；不要把入队成功误判为导入成功。后台进程仍复用 `start.sh` / `run_background.sh`，不增加第二套 worker。
 

@@ -81,8 +81,13 @@ interface MSGamesTask {
 }
 
 export class MSGamesTaskError extends Error {
+    public readonly object: string;
+    public readonly category: string;
+
     public constructor(object: string, category: string) {
         super(`${object}/${category}`);
+        this.object = object;
+        this.category = category;
     }
 }
 
@@ -94,7 +99,7 @@ async function waitMSGamesTask(task: MSGamesTask, signal?: AbortSignal): Promise
         task = data;
     }
     if (task.status === 'FAILED') throw new MSGamesTaskError('import', 'task_failed');
-    if (task.status !== 'SUCCESSFUL' || task.return_value === null) throw new Error('Invalid MSGames task result');
+    if (task.status !== 'SUCCESSFUL' || task.return_value === null) throw new MSGamesTaskError('import', 'response');
     if ('type' in task.return_value) throw new MSGamesTaskError(task.return_value.object, task.return_value.category);
     return task.return_value;
 }
@@ -105,6 +110,6 @@ export async function syncMSGamesVideos(msgamesId: number, signal?: AbortSignal)
 }
 
 export async function importMSGamesVideo(videoId: number, signal?: AbortSignal): Promise<MSGamesImportResult> {
-    const { data } = await $axios.post<MSGamesImportResult>(`/api/accountlink/msgames/videos/${videoId}/import`, undefined, { signal, timeout: 5000 });
+    const { data } = await $axios.post<MSGamesImportResult>(`/api/accountlink/msgames/videos/${videoId}/import`, undefined, { signal });
     return data;
 }

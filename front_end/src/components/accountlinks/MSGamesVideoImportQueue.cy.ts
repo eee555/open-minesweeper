@@ -31,6 +31,27 @@ function completedSync(count: number) {
 }
 
 describe('<MSGamesVideoImportQueue />', () => {
+    for (const scenario of [
+        { status: 'SUCCESSFUL', result: { type: 'error', object: 'import', category: 'timeout' }, button: 'Sync video list', message: 'Remote server time out' },
+        { status: 'FAILED', result: null, button: 'Import remaining videos', message: 'The background sync task failed. Please try again later.' },
+        { status: 'SUCCESSFUL', result: null, button: 'Sync video list', message: 'Unrecognised response' },
+    ]) {
+        it(`localizes ${scenario.status} sync failures when clicking ${scenario.button}`, () => {
+            cy.intercept('GET', '**/api/accountlink/msgames/videos?*', { body: [source] }).as('videos');
+            cy.intercept('GET', '**/api/accountlink/msgames/summary?*', summary).as('summary');
+            cy.intercept('POST', '**/api/accountlink/msgames/42/sync', queuedSync());
+            cy.intercept('GET', '**/api/accountlink/msgames/tasks/sync-task', {
+                id: 'sync-task', status: scenario.status, return_value: scenario.result,
+            });
+            mountAccountLink(MSGamesVideoImportQueue, { msgamesId: 42, owner: true });
+            cy.wait(['@videos', '@summary']);
+            cy.contains('button', scenario.button).click();
+            cy.contains('.el-notification', scenario.message).should('be.visible').and('not.contain', 'import/');
+            cy.contains('button', scenario.button).should('not.be.disabled');
+            cy.closeElNotifications();
+        });
+    }
+
     it('shows an API failure and retries synchronously to a local video link', () => {
         let attempts = 0;
         cy.intercept('GET', '**/api/accountlink/msgames/videos?*', (request) => {

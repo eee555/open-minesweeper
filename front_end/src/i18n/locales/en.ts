@@ -293,6 +293,11 @@ export default {
             requestexception: 'Unknown request exception',
             response: 'Unrecognised response',
             timeout: 'Remote server time out',
+            task_failed: 'The background sync task failed. Please try again later.',
+        },
+        accountlink: {
+            title: 'Account link',
+            not_found: 'The linked account no longer exists. Please refresh the page.',
         },
         saolei: {
             page_empty: '@:errorMsg.import.pageempty',

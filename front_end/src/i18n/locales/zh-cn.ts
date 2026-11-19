@@ -292,6 +292,11 @@ export default {
             requestexception: '未知的请求错误',
             response: '无法识别的响应',
             timeout: '目标服务器请求超时',
+            task_failed: '后台同步任务失败，请稍后重试。',
+        },
+        accountlink: {
+            title: '账号关联',
+            not_found: '关联账号已不存在，请刷新页面。',
         },
         saolei: {
             page_empty: '@:errorMsg.import.pageempty',

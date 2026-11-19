@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getAccountLinkUpdateErrorMessageKey, importMSGamesVideo, syncMSGamesVideos } from './accountLinkService';
+import { getAccountLinkUpdateErrorMessageKey, importMSGamesVideo, MSGamesTaskError, syncMSGamesVideos } from './accountLinkService';
 
 const { get, post } = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
 vi.mock('@/http', () => ({ default: { get, post } }));
@@ -12,11 +12,11 @@ describe('MSGames catalogue tasks and synchronous imports', () => {
         vi.resetAllMocks();
     });
 
-    it('imports one replay directly with a five-second timeout and no polling', async () => {
+    it('imports one replay directly without a custom timeout or polling', async () => {
         const result = { status: 'IMPORTED', import_video_id: 77, video_state: 'o' };
         post.mockResolvedValue({ data: result });
         await expect(importMSGamesVideo(7)).resolves.toEqual(result);
-        expect(post).toHaveBeenCalledWith('/api/accountlink/msgames/videos/7/import', undefined, { signal: undefined, timeout: 5000 });
+        expect(post).toHaveBeenCalledWith('/api/accountlink/msgames/videos/7/import', undefined, { signal: undefined });
         expect(get).not.toHaveBeenCalled();
     });
 
@@ -39,14 +39,19 @@ describe('MSGames catalogue tasks and synchronous imports', () => {
     });
 
     it.each([
-        ['SUCCESSFUL', { type: 'error', object: 'import', category: 'timeout' }, 'import/timeout'],
-        ['FAILED', null, 'import/task_failed'],
-    ] as const)('reports terminal %s failures rather than treating task submission as success', async (status, returnValue, message) => {
+        ['SUCCESSFUL', { type: 'error', object: 'import', category: 'timeout' }, 'import', 'timeout'],
+        ['SUCCESSFUL', { type: 'error', object: 'accountlink', category: 'not_found' }, 'accountlink', 'not_found'],
+        ['FAILED', null, 'import', 'task_failed'],
+        ['SUCCESSFUL', null, 'import', 'response'],
+        ['NULL', null, 'import', 'response'],
+    ] as const)('preserves localized error fields for %s task failures', async (status, returnValue, object, category) => {
         post.mockResolvedValue({ data: { id: 'sync-task', status: 'READY', return_value: null } });
         get.mockResolvedValue({ data: { id: 'sync-task', status, return_value: returnValue } });
-        const pending = expect(syncMSGamesVideos(42)).rejects.toThrow(message);
+        const task = syncMSGamesVideos(42);
+        const pending = expect(task).rejects.toMatchObject({ object, category });
         await vi.advanceTimersByTimeAsync(2000);
         await pending;
+        await expect(task).rejects.toBeInstanceOf(MSGamesTaskError);
     });
 
     it('stops polling after the component cancels without cancelling the server task', async () => {

@@ -113,9 +113,9 @@ import BasePagination from '@/components/common/BasePagination.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
 import SortIcon from '@/components/common/SortIcon.vue';
 import { nextSortOrder, sortState } from '@/components/common/sortState';
-import { httpErrorNotification } from '@/components/Notifications';
+import { generalErrorNotification, httpErrorNotification } from '@/components/Notifications';
 import VideoPreviewLink from '@/components/VideoPreviewLink.vue';
-import { fetchMSGamesImportSummary, fetchMSGamesVideos, importMSGamesVideo, syncMSGamesVideos } from '@/services/accountLinkService';
+import { fetchMSGamesImportSummary, fetchMSGamesVideos, importMSGamesVideo, MSGamesTaskError, syncMSGamesVideos } from '@/services/accountLinkService';
 import type { MSGamesImportSummary, MSGamesVideo } from '@/utils/accountlinks';
 import { canImportMSGamesVideo } from '@/utils/accountlinks';
 
@@ -206,10 +206,15 @@ async function sync() {
         await syncMSGamesVideos(props.msgamesId, taskRequests.signal);
         if (current === context) await refresh();
     } catch (error) {
-        if (current === context) httpErrorNotification(error);
+        if (current === context) syncErrorNotification(error);
     } finally {
         if (current === context) sending.value = false;
     }
+}
+
+function syncErrorNotification(error: unknown) {
+    if (error instanceof MSGamesTaskError) generalErrorNotification(error.object, error.category);
+    else httpErrorNotification(error);
 }
 
 function errorDescription(error: unknown): string {
@@ -234,7 +239,7 @@ async function importVideo(video: MSGamesVideo, current: number): Promise<boolea
     } catch (error) {
         if (current === context) failures.value[video.id] = errorDescription(error);
         // A transport failure leaves the request outcome unknown; stop the batch instead of sending more.
-        const category = isAxiosError<{ category?: string }>(error) ? (error.response?.data?.category ?? '') : '';
+        const category = isAxiosError<{ category?: string }>(error) ? error.response?.data?.category ?? '' : '';
         return category !== '' ? false : undefined;
     } finally {
         if (current === context) importingId.value = undefined;
@@ -278,7 +283,7 @@ async function importAll() {
             if (progress.value.completed < pending.length && !cancelled()) await promiseTimeout(1100);
         }
     } catch (error) {
-        if (current === context) httpErrorNotification(error);
+        if (current === context) syncErrorNotification(error);
     } finally {
         if (current === context) {
             await refresh();
