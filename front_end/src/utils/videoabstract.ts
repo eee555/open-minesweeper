@@ -2,7 +2,8 @@
 import { CustomLevel } from './customlevel';
 import { toDate, toISODateString } from './datetime';
 import type { MS_Level, MS_Mode, MS_Software } from './ms_const';
-import { isStandardLevel, MS_State, STNB_const } from './ms_const';
+import { isStandardLevel, MS_State } from './ms_const';
+import { STNB_COEFFICIENTS } from './stnb';
 import { formatBytes } from './strings';
 
 type VideoLevel = MS_Level | CustomLevel;
@@ -162,7 +163,7 @@ export class VideoAbstract {
 
     public get stnb(): number {
         if (!isStandardLevel(this.level)) return NaN;
-        return STNB_const.value[this.level] / this.qg;
+        return STNB_COEFFICIENTS[this.level] / this.qg;
     }
 
     public get ioe(): number {
