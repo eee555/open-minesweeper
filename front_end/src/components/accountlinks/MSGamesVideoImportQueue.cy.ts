@@ -22,6 +22,14 @@ function catalogueVideo(id: number, overrides: Partial<MSGamesVideo> = {}): MSGa
     return { ...source, id, ...overrides, filename, url: new URL(filename, source.url).href };
 }
 
+function queuedSync() {
+    return { statusCode: 202, body: { id: 'sync-task', status: 'READY', return_value: null } };
+}
+
+function completedSync(count: number) {
+    return { id: 'sync-task', status: 'SUCCESSFUL', return_value: { status: 'SYNCED', count, video_update_time: '2026-10-14T00:00:00Z' } };
+}
+
 describe('<MSGamesVideoImportQueue />', () => {
     it('shows an API failure and retries synchronously to a local video link', () => {
         let attempts = 0;
@@ -161,9 +169,12 @@ describe('<MSGamesVideoImportQueue />', () => {
         let releaseFirst: (() => void) | undefined;
         let synced = false;
         cy.intercept('POST', '**/api/accountlink/msgames/42/sync', (request) => {
-            synced = true;
-            request.reply({ status: 'SYNCED', count: 5, video_update_time: '2026-10-14T00:00:00Z' });
+            request.reply(queuedSync());
         }).as('sync');
+        cy.intercept('GET', '**/api/accountlink/msgames/tasks/sync-task', (request) => {
+            synced = true;
+            request.reply(completedSync(5));
+        });
         cy.intercept('GET', '**/api/accountlink/msgames/videos?*', { body: [
             source, catalogueVideo(2, { filename: 'legacy.mvr' }), catalogueVideo(3, { import_video: 76 }),
             catalogueVideo(4, { filename: 'another.avf' }), catalogueVideo(5),
@@ -206,7 +217,8 @@ describe('<MSGamesVideoImportQueue />', () => {
         let releaseFirst: (() => void) | undefined;
         cy.intercept('GET', '**/api/accountlink/msgames/videos?*', { body: [source, catalogueVideo(2)] }).as('videos');
         cy.intercept('GET', '**/api/accountlink/msgames/summary?*', summary).as('summary');
-        cy.intercept('POST', '**/api/accountlink/msgames/42/sync', { status: 'SYNCED', count: 2, video_update_time: '2026-10-14T00:00:00Z' });
+        cy.intercept('POST', '**/api/accountlink/msgames/42/sync', queuedSync());
+        cy.intercept('GET', '**/api/accountlink/msgames/tasks/sync-task', completedSync(2));
         cy.intercept('POST', '**/api/accountlink/msgames/videos/*/import', (request) => {
             requested.push(Number(request.url.split('/').at(-2)));
             return new Promise<void>((resolve) => {

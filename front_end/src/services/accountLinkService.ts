@@ -1,6 +1,9 @@
+import { promiseTimeout } from '@vueuse/core';
+
 import $axios from '@/http';
 import { AccountLinks } from '@/utils/accountlinks';
 import type { AccountLinkPlatform, AccountLinkQueueResponse, AccountLinksResponse, MSGamesImportResult, MSGamesImportSummary, MSGamesSyncResult, MSGamesVideo } from '@/utils/accountlinks';
+import type { DjangoTaskResultStatus } from '@/utils/common/structInterface';
 
 type AccountLinkUpdateErrorMessageCategory = 'cooldown' | 'empty' | 'indexerror' | 'pageempty' | 'requestexception' | 'timeout' | 'unknown';
 
@@ -71,12 +74,37 @@ export async function fetchMSGamesImportSummary(msgamesId: number): Promise<MSGa
     return data;
 }
 
-export async function syncMSGamesVideos(msgamesId: number): Promise<MSGamesSyncResult> {
-    const { data } = await $axios.post<MSGamesSyncResult>(`/api/accountlink/msgames/${msgamesId}/sync`, undefined, { timeout: 120000 });
-    return data;
+interface MSGamesTask {
+    id: string;
+    status: DjangoTaskResultStatus;
+    return_value: MSGamesSyncResult | { type: 'error'; object: string; category: string } | null;
 }
 
-export async function importMSGamesVideo(videoId: number): Promise<MSGamesImportResult> {
-    const { data } = await $axios.post<MSGamesImportResult>(`/api/accountlink/msgames/videos/${videoId}/import`, undefined, { timeout: 120000 });
+export class MSGamesTaskError extends Error {
+    public constructor(object: string, category: string) {
+        super(`${object}/${category}`);
+    }
+}
+
+async function waitMSGamesTask(task: MSGamesTask, signal?: AbortSignal): Promise<MSGamesSyncResult> {
+    while (task.status === 'READY' || task.status === 'RUNNING') {
+        await promiseTimeout(2000);
+        signal?.throwIfAborted();
+        const { data } = await $axios.get<MSGamesTask>(`/api/accountlink/msgames/tasks/${task.id}`, { signal });
+        task = data;
+    }
+    if (task.status === 'FAILED') throw new MSGamesTaskError('import', 'task_failed');
+    if (task.status !== 'SUCCESSFUL' || task.return_value === null) throw new Error('Invalid MSGames task result');
+    if ('type' in task.return_value) throw new MSGamesTaskError(task.return_value.object, task.return_value.category);
+    return task.return_value;
+}
+
+export async function syncMSGamesVideos(msgamesId: number, signal?: AbortSignal): Promise<MSGamesSyncResult> {
+    const { data } = await $axios.post<MSGamesTask>(`/api/accountlink/msgames/${msgamesId}/sync`, undefined, { signal });
+    return waitMSGamesTask(data, signal);
+}
+
+export async function importMSGamesVideo(videoId: number, signal?: AbortSignal): Promise<MSGamesImportResult> {
+    const { data } = await $axios.post<MSGamesImportResult>(`/api/accountlink/msgames/videos/${videoId}/import`, undefined, { signal, timeout: 5000 });
     return data;
 }
