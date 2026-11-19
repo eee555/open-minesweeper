@@ -93,7 +93,7 @@ function formatField(field: string): string {
 function formatEffField(field: string): string {
     const [ranking, stat] = field.split(':');
     const separator = i18n.global.locale.value.startsWith('zh') ? '' : ' ';
-    const rankingName = ranking === 'thrp' ? i18n.global.t('prop.thrp') : ranking === 'tpe' ? 'TPE' : t('local.nfIOE');
+    const rankingName = ranking === 'thrp' ? i18n.global.t('prop.thrp') : t('local.nfIOE');
     let statName = i18n.global.t(`level.${stat}`);
     if (stat === 'sum') statName = i18n.global.t('level.sum');
     if (stat === 'e_nf') statName = `${i18n.global.t('level.e')}${separator}${i18n.global.t('nf')}`;

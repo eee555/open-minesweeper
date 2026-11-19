@@ -12,18 +12,23 @@
         <BaseTable v-loading="loading" table-class="tpe-record-table">
             <template #head>
                 <tr>
-                    <th v-for="stat in tpeStats" :key="stat" scope="col" class="table-col-center">
-                        {{ t(`level.${stat}`) }}
+                    <th v-for="group in tpeGroups" :key="group" scope="colgroup" colspan="3" class="table-col-center tpe-group">
+                        {{ t(`level.${group}`) }}
+                    </th>
+                </tr>
+                <tr>
+                    <th v-for="column in tpeColumns" :key="column.stat" scope="col" class="table-col-center" :class="{ 'tpe-group': column.metric === 'TPE' }">
+                        {{ column.metric }}
                     </th>
                 </tr>
             </template>
             <tr>
-                <td v-for="stat in tpeStats" :key="stat" class="table-col-center" :data-field="stat" :title="String(tpeValue(record, stat) ?? '--')" :style="cellStyle(stat)">
-                    <VideoPreviewLink v-if="tpeVideoId(record, stat)" :id="tpeVideoId(record, stat)">
-                        {{ formatTPEValue(record, stat) }}
+                <td v-for="column in tpeColumns" :key="column.stat" class="table-col-center" :class="{ 'tpe-group': column.metric === 'TPE' }" :data-field="column.stat" :title="String(tpeValue(record, column.stat) ?? '--')" :style="cellStyle(column)">
+                    <VideoPreviewLink v-if="tpeVideoId(record, column.stat)" :id="tpeVideoId(record, column.stat)">
+                        {{ formatTPEValue(record, column.stat) }}
                     </VideoPreviewLink><template v-else>
-                        {{ formatTPEValue(record, stat) }}
-                    </template>({{ record?.ranks[stat] ?? '--' }})
+                        {{ formatTPEValue(record, column.stat) }}
+                    </template>({{ record?.ranks[column.stat] ?? '--' }})
                 </td>
             </tr>
         </BaseTable>
@@ -39,8 +44,8 @@ import BaseTable from '@/components/common/BaseTable.vue';
 import BaseTextButton from '@/components/common/BaseTextButton.vue';
 import VideoPreviewLink from '@/components/VideoPreviewLink.vue';
 import { fetchProfileTPERecord, profileDataRevision } from '@/services/profileDataService';
-import { formatTPEValue, tpeStats, tpeValue, tpeVideoId } from '@/services/tpeRankingService';
-import type { TPEPlayerRecord, TPEStat } from '@/services/tpeRankingService';
+import { formatTPEValue, tpeColumns, tpeGroups, tpeValue, tpeVideoId } from '@/services/tpeRankingService';
+import type { TPEPlayerRecord } from '@/services/tpeRankingService';
 import { colorThemes } from '@/store/color';
 import { local } from '@/store/local';
 
@@ -77,10 +82,10 @@ watch([() => props.userId, () => profileDataRevision(props.userId), active, retr
     }
 }, { immediate: true });
 
-function cellStyle(stat: TPEStat) {
-    const value = tpeValue(record.value, stat);
-    if (!local.value.colored || stat === 'sum' || value === null) return undefined;
-    return colorThemes[`${stat}time`].value.getStyle(value);
+function cellStyle(column: typeof tpeColumns[number]) {
+    const value = tpeValue(record.value, column.stat);
+    if (!local.value.colored || column.level === 'sum' || value === null) return undefined;
+    return colorThemes[`${column.level}time`].value.getStyle(value);
 }
 
 const i18nMessages = {
@@ -105,7 +110,11 @@ const { t } = useI18n({ messages: i18nMessages });
 
 :deep(.tpe-record-table th),
 :deep(.tpe-record-table td) {
-    width: 33.333%;
+    min-width: 6em;
     white-space: nowrap;
+}
+
+:deep(.tpe-group) {
+    border-left: 2px solid var(--ui-border-color);
 }
 </style>

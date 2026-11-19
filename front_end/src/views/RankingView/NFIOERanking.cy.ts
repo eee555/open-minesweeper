@@ -48,19 +48,20 @@ describe('Efficiency rankings', () => {
         cy.wait('@ioe').its('request.query.stat').should('equal', 'e');
         cy.get('.efficiency-selector').should('have.value', 'nf_ioe');
         cy.intercept('GET', '**/api/effranking/tpe/rank*', {
-            count: 1, players: [{ player_id: 42, i: { value: 0, video_id: 8001 }, e: { value: 123.456789, video_id: 8002 } }],
+            count: 1, players: [{ player_id: 42, i: { value: 0, video_id: 8001 }, i2: { value: 1, video_id: 8003 }, i3: { value: 2, video_id: 8004 }, e: { value: 123.456789, video_id: 8002 }, e2: { value: 200, video_id: 8005 }, e3: { value: 300, video_id: 8006 } }],
         }).as('tpe');
         cy.get('.efficiency-selector').select('tpe');
         cy.wait('@tpe').its('request.query').should('include', { stat: 'sum', start: '0', end: '20' });
         cy.wrap(router).its('currentRoute.value.path').should('equal', '/ranking/efficiency/tpe');
         cy.get('.tpe-ranking-table tbody').extractTableData().should((rows) => {
-            expect(rows[0]?.slice(2)).to.deep.equal(['0.000', '123.457', '123.457']);
+            expect(rows[0]?.slice(2)).to.deep.equal(['0.000', '1.000', '2.000', '123.457', '200.000', '300.000', '123.457', '201.000', '302.000']);
         });
+        cy.get('.tpe-ranking-table th[scope=colgroup]').should('have.length', 3).and('have.attr', 'colspan', '3');
         cy.get('.tpe-ranking-table tbody [data-field=e]').should('have.attr', 'title', '123.456789');
         cy.get('.tpe-ranking-table [data-field=i] .video-preview-link').should('have.attr', 'href', '#/video/8001');
         cy.get('.tpe-ranking-table [data-field=sum] a').should('not.exist');
-        cy.get('.tpe-ranking-table thead [data-field=e]').click();
-        cy.wait('@tpe').its('request.query.stat').should('equal', 'e');
-        cy.get('.tpe-ranking-table th[aria-sort=ascending]').should('contain.text', 'Expert');
+        cy.get('.tpe-ranking-table thead [data-field=e3]').click();
+        cy.wait('@tpe').its('request.query.stat').should('equal', 'e3');
+        cy.get('.tpe-ranking-table th[aria-sort=ascending]').should('contain.text', 'TPE3');
     });
 });
