@@ -218,6 +218,20 @@ const i18nMessages = {
             not_configured: 'GitHub authorization is not configured yet.',
         },
     } },
+    es: { local: {
+        loading: 'Cargando cuentas vinculadas…',
+        loadFailed: 'No se pudieron cargar las cuentas vinculadas. Inténtelo de nuevo.',
+        addFailed: 'No se pudo vincular la cuenta. Revise el ID y vuelva a intentarlo.',
+        noPublicLink: 'No hay enlace de cuenta disponible para mostrar.',
+        privateNotice: 'Los enlaces privados solo son visibles para el propietario de la cuenta y los moderadores del sitio.',
+        github: {
+            cancelled: 'La autorización de GitHub se canceló.',
+            conflict: 'La cuenta de GitHub o OpenMS ya está vinculada. Desvincule primero la cuenta existente.',
+            expired: 'La autorización ha expirado o tu sesión de inicio de sesión ha cambiado. Por favor, inicia de nuevo.',
+            remote_failed: 'La autorización de GitHub ha fallado. Por favor, inténtalo de nuevo.',
+            not_configured: 'La autorización de GitHub aún no está configurada.',
+        },
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

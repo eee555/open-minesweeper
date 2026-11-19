@@ -184,6 +184,29 @@ const i18nMessages = {
             network: 'Network error, please retry.',
         },
     } },
+    es: { local: {
+        title: 'Vincular Saolei.wang',
+        loading: 'Cargando la solicitud de enlace…',
+        intro1: 'Usuario de Saolei.wang ',
+        intro2: ' Solicitudes para enlazar con tu cuenta de OpenMS. Por favor, verifica el nombre anterior y confirma.',
+        toggle: 'Sincronizar automáticamente mis videos de Saolei.wang con OpenMS',
+        toggleHint: 'Habilitado por defecto; desmarca para omitir. Puedes cambiarlo en cualquier momento en la página de Enlaces de Cuenta tras enlazar.',
+        confirm: 'Confirmar',
+        done: 'Enlazado¡ OpenMS importará tus videos de Saolei.wang según tus ajustes de sincronización.',
+        loginRequired: 'Por favor inicia sesión en OpenMS primero (menú superior derecho → Iniciar sesión), luego actualiza esta página.',
+        invalid: 'La solicitud de enlace no existe o ha expirado. Por favor, comienza de nuevo en Saolei.wang.',
+        invalidToken: 'La solicitud de enlace no existe o ha expirado. Por favor, comienza de nuevo en Saolei.wang.',
+        networkError: 'Error de red, por favor actualiza y vuelve a intentarlo.',
+        guideTitle: 'Sobre el enlace de Saolei.wang',
+        guide1: 'Después de enlazar, tus repeticiones de Saolei.wang (historial y nuevas subidas) podrán ser importadas a OpenMS según tus ajustes de sincronización.',
+        guide2: 'El interruptor de sincronización del lado de Saolei.wang se encuentra en su página de autorización; cada sitio controla su propia dirección.',
+        error: {
+            login_required: 'Por favor inicia sesión en OpenMS primero, luego actualiza esta página.',
+            invalid_token: 'La solicitud de enlace no existe o ha expirado. Por favor, comienza de nuevo en Saolei.wang.',
+            collision: 'Esta cuenta de Saolei.wang ya está enlazada a otro usuario de OpenMS.',
+            network: 'Error de red, por favor vuelve a intentarlo.',
+        },
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

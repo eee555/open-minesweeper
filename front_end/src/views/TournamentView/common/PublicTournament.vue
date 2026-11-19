@@ -155,6 +155,15 @@ const i18nMessages = {
         refreshParticipants: 'Refresh participants',
         refreshPersonal: 'Refresh personal videos',
     } },
+    es: { local: {
+        autoUpload: 'Subida automática de repetición',
+        uploadGuide: 'Guía de subida',
+        data: 'Datos del torneo',
+        participants: 'Participantes',
+        export: 'Exportar todas las estadísticas de video',
+        refreshParticipants: 'Actualizar participantes',
+        refreshPersonal: 'Actualizar videos personales',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

@@ -144,6 +144,11 @@ const i18nMessages = {
         boardLabel: 'Flag-and-chord board. Right-click mines, then press both mouse buttons on each number.',
         rules: 'Beginner has 4 questions; Intermediate has 15. Every number is 1 and mines are visible. Single left clicks do nothing. Right-click to toggle flags; a chord triggers on the first button release. With exactly one adjacent flag, a correct flag completes the question and a wrong flag loses. Other chords do nothing.',
     } },
+    es: { local: {
+        remaining: 'Preguntas restantes',
+        boardLabel: 'Tablero de banderas y apertura simultánea. Haz clic derecho en las minas, luego presiona ambos botones del ratón en cada número.',
+        rules: 'Nivel principiante tiene 4 preguntas; nivel intermedio tiene 15. Cada número es 1 y las minas están visibles. Los clics simples no hacen nada. Haz clic derecho para alternar banderas; una apertura simultánea se activa al liberar el primer botón. Con exactamente una bandera adyacente, una bandera correcta completa la pregunta y una incorrecta la pierde. Otras aperturas simultáneas no hacen nada.',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

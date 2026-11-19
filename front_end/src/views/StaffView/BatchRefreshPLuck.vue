@@ -68,6 +68,11 @@ const i18nMessages = {
         endId: 'Ending user ID',
         failedIds: 'Failed user IDs: {ids}',
     } },
+    es: { local: {
+        startId: 'ID de usuario de inicio',
+        endId: 'ID de usuario de final',
+        failedIds: 'IDs de usuarios fallidos: {ids}',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

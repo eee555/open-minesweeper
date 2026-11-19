@@ -13,6 +13,7 @@ import { showInvisibleIdentifiers } from './identifierDisplay';
 const i18nMessages = {
     'zh-cn': { local: { showInvisible: '显示不可见字符' } },
     en: { local: { showInvisible: 'Show invisible characters' } },
+    es: { local: { showInvisible: 'Mostrar caracteres invisibles' } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

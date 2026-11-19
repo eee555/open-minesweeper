@@ -38,6 +38,9 @@ const i18nMessages = {
     en: { local: {
         showLayer: 'Show layer',
     } },
+    es: { local: {
+        showLayer: 'Mostrar capa',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

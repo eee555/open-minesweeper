@@ -19,6 +19,10 @@ const i18nMessages = {
         line1: 'Among all videos uploaded during (depending on when the server receives the file) the tournament, sum up the best 20 beginner (bv >= 10) games, 12 intermediate (bv >= 30) games and 5 expert (bv >= 100) games.',
         line2: 'The default scores are 10s for beginner, 60s for intermediate and 240s for expert, when there are not enough games uploaded.',
     } },
+    es: { local: {
+        line1: 'Entre todos los videos subidos durante el torneo (dependiendo del momento en que el servidor reciba el archivo), suma los 20 mejores juegos para principiantes (bv >= 10), 12 intermedios (bv >= 30) y 5 expertos (bv >= 100).',
+        line2: 'Los puntajes por defecto son de 10 segundos para principiantes, 60 segundos para intermedios y 240 segundos para expertos, cuando no hay suficientes juegos subidos.',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

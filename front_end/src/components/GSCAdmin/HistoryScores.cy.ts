@@ -2,6 +2,8 @@ import { gscScoreFields, historyCsvHeaders } from './history';
 import type { HistoryScoreRow } from './history';
 import HistoryScores from './HistoryScores.vue';
 
+import i18n from '@/i18n';
+
 function csv(count: number) {
     return [historyCsvHeaders('users').join(','), ...Array.from({ length: count }, (_, i) => [19, 101 + i, ...gscScoreFields.map(() => 1000)].join(','))].join('\n');
 }
@@ -23,20 +25,20 @@ describe('<GSC HistoryScores />', () => {
                 request.reply({ statusCode: 409, body: { detail: 'Already registered' } });
             }
         }).as('batch');
-        cy.mount(HistoryScores, { props: { kind: 'users' } });
+        cy.mount(HistoryScores, { global: { plugins: [i18n] }, props: { kind: 'users' } });
         cy.get('[data-cy=history-csv]').selectFile({ contents: Cypress.Buffer.from(csv(21)), fileName: 'scores.csv' });
         cy.get('[data-cy=history-csv-submit]').should('contain.text', '21').click();
         cy.wait('@batch');
         cy.wait('@batch');
         cy.get('[data-cy=history-csv-progress]').should('contain.text', '10 / 21');
-        cy.get('[data-cy=history-csv-error]').should('contain.text', '12, 13').and('contain.text', '后续批次未提交');
+        cy.get('[data-cy=history-csv-error]').should('contain.text', '12, 13').and('contain.text', 'Later batches were not submitted');
         cy.get('[data-cy=history-csv-submit]').should('be.disabled');
         cy.then(() => expect(batches).to.deep.equal([10, 10]));
     });
 
     it('rejects malformed files before any request and accepts the headered anonymous fixture', () => {
         cy.intercept('POST', '**/api/tournament/gsc/history/scores/anonymous', { body: 10 }).as('anonymous');
-        cy.mount(HistoryScores, { props: { kind: 'anonymous' } });
+        cy.mount(HistoryScores, { global: { plugins: [i18n] }, props: { kind: 'anonymous' } });
         cy.get('[data-cy=history-csv]').selectFile({ contents: Cypress.Buffer.from('19,unheadered,1000'), fileName: 'invalid.csv' });
         cy.get('[data-cy=history-csv-error]').should('contain.text', 'headers');
         cy.get('[data-cy=history-csv-submit]').should('be.disabled');

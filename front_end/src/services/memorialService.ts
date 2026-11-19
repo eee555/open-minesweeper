@@ -1,6 +1,7 @@
 import { isAxiosError } from 'axios';
 
 import $axios from '@/http';
+import i18n from '@/i18n';
 import { assignHistoryUploadTimes } from '@/utils/historyUploadTimes';
 import type { VideoAbstractData } from '@/utils/videoabstract';
 
@@ -78,21 +79,12 @@ export async function removeMemorialLink(id: number, platform: string, token: st
 
 export function memorialErrorText(error: unknown): string {
     if (isAxiosError<unknown>(error)) {
-        if (error.response?.status === 401 || error.response?.status === 403) return '仅站长可以操作，请确认登录状态。';
+        if (error.response?.status === 401 || error.response?.status === 403) return i18n.global.t('memorialError.forbidden');
         const payload: unknown = error.response?.data;
         if (payload !== null && typeof payload === 'object') {
             const category = 'category' in payload && typeof payload.category === 'string' ? payload.category : '';
-            const messages: Record<string, string> = {
-                not_memorial: '目标不是纪念账号。',
-                not_found: '没有找到该记录。',
-                userms_missing: '纪念账号缺少 UserMS，请先在服务器上修复关联。',
-                collision: '录像文件或平台账号归属冲突。',
-                timezone_required: '上传日期必须包含时区。',
-                platform_not_assignable: '该平台的账号不能由站长直接指定。',
-                identifier_required: '请填写平台账号 ID。',
-                identifier_invalid: '平台账号 ID 格式不正确。',
-            };
-            return messages[category] ?? JSON.stringify(payload);
+            const key = `memorialError.${category}`;
+            return i18n.global.te(key, 'en') ? i18n.global.t(key) : JSON.stringify(payload);
         }
     }
     return String(error);

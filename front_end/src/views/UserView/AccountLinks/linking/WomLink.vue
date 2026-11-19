@@ -52,6 +52,11 @@ const i18nMessages = {
         wom1: 'Go to your profile page on ',
         wom2: '. The number at the end of the url is your ID.',
     } },
+    es: { local: {
+        title: 'Cómo localizar el ID',
+        wom1: 'Ve a tu página de perfil en ',
+        wom2: 'El número al final de la URL es tu ID.',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

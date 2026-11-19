@@ -26,7 +26,7 @@
                     <input v-model="agree_TAC" class="checkbox-input" type="checkbox" name="checkoutSecret" :aria-label="`${t('local.agreeTAC1')} ${t('local.agreeTAC2')}`">
                     <span>{{ t('local.agreeTAC1') }}</span>
                 </label>
-                <a target="_blank" rel="noopener noreferrer" :href="`${AXIOS_BASE_URL}/agreement.html`">{{ t('local.agreeTAC2') }}</a>
+                <a target="_blank" rel="noopener noreferrer" :href="`${publicBase}agreement${locale === 'es' ? '-es' : ''}.html`">{{ t('local.agreeTAC2') }}</a>
             </div>
             <!-- 确认 -->
             <BaseButton type="primary" :disabled="confirm_disabled" :loading="isSubmitting" style="margin-left: auto" @click="submitForm(ruleFormRef!)">
@@ -61,7 +61,7 @@ const emit = defineEmits(['login']);
 const { proxy } = useCurrentInstance();
 const agree_TAC = ref(false);
 const isSubmitting = ref(false);
-const AXIOS_BASE_URL = import.meta.env.VITE_BASE_API;
+const publicBase = import.meta.env.BASE_URL;
 
 // Element Plus 2.8.0
 // el-form 有 rule 属性实现更方便的校验，但是功能受限，
@@ -167,6 +167,13 @@ const i18nMessages = {
         moderationUnavailable: 'Username moderation is temporarily unavailable. Please try again later.',
         invalidRegistration: 'Registration details are invalid or already in use. Please check and try again.',
     } },
+    es: { local: {
+        agreeTAC1: 'Acepto los',
+        agreeTAC2: 'Términos y condiciones',
+        usernameRejected: 'Este nombre de usuario no pasó la moderación de contenido. Por favor, elige otro nombre de usuario.',
+        moderationUnavailable: 'La moderación del nombre de usuario está temporalmente inactiva. Por favor, inténtalo de nuevo más tarde.',
+        invalidRegistration: 'Los detalles de registro son inválidos o ya están en uso. Por favor, revísalos y vuelve a intentarlo.',
+    } },
     de: { local: {
         confirm: 'bestätigen',
         agreeTAC1: 'Zustimmen',
@@ -174,7 +181,7 @@ const i18nMessages = {
     } },
 };
 
-const { t } = useI18n({ messages: i18nMessages });
+const { t, locale } = useI18n({ messages: i18nMessages });
 
 function usernameCharacterValidation(value: string) {
     if (value.length == 0) validateError(usernameFormRef, t('msg.usernameRequired'));

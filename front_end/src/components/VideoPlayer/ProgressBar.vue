@@ -64,6 +64,13 @@ const i18nMessages = {
         faster: 'Faster',
         step: 'Step 0.1 seconds',
     } },
+    es: { local: {
+        restart: 'Reiniciar',
+        speed: 'Velocidad de reproducción',
+        slower: 'Más lento',
+        faster: 'Más rápido',
+        step: 'Avanzar 0,1 segundos',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

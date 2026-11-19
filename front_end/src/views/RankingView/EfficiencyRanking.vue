@@ -92,6 +92,21 @@ const i18nMessages = {
             tpe: 'Upload your own completed Standard Intermediate and Expert replays, bind their identifiers and have them approved. Reduce time or actual clicks to lower time / IOE. Both levels are needed for Sum. NF replays also count; hidden tournament replays count after being revealed.',
         },
     } },
+    es: { local: {
+        rankingName: 'Clasificación',
+        label: { thrp: '@:prop.thrp', nf_ioe: 'NF IOE', tpe: 'TPE' },
+        howToImprove: 'Cómo mejorar',
+        rules: {
+            thrp: 'Se toma el mejor Thrp (3BV / clics efectivos) de cada nivel entre las repeticiones estándar, oficiales y públicas, sin mínimo de 3BV. La suma incluye los tres niveles y cuenta los que faltan como cero. En las cuatro clasificaciones originales tienen prioridad las subidas o partidas terminadas antes. Experto NF tiene su propia tabla: por debajo de 1 se ordena por Thrp y, al llegar a 1, por número de partidas perfectas. Cada partida cuenta, incluso con el mismo 3BV. Este resultado no entra en la suma.',
+            nf_ioe: 'Se admiten repeticiones NF estándar, oficiales y públicas, sin mínimo de 3BV. En cada nivel se toma el mejor IOE (3BV / clics realizados). Al llegar a 1, gana el menor tiempo. La suma incluye los tres niveles y cuenta los que faltan como cero. Si la suma es 3, solo el tiempo en experto desempata. Entre paréntesis se muestra el tiempo de comparación en segundos.',
+            tpe: 'TPE = tiempo / IOE. Cuanto menor, mejor. Se admiten repeticiones estándar, oficiales y públicas de nivel intermedio y experto, con o sin banderas y sin mínimo de 3BV. Se toma el mejor TPE de cada nivel y se requieren ambos para la suma.',
+        },
+        improve: {
+            thrp: 'Sube tus propias repeticiones completas de Estándar, vincula sus identificadores y espera su aprobación. Usa menos clics efectivos para el mismo 3BV, o sube un Thrp más alto. Una vez que alcances el NF Thrp=1, sube juegos perfectos de NF para mejorar esa clasificación. Las repeticiones de torneos ocultos se cuentan una vez reveladas.',
+            nf_ioe: 'Sube tus propias repeticiones completas de Estándar de NF, vincula sus identificadores y espera su aprobación. Usa menos clics reales para el mismo 3BV para mejorar el IOE. Una vez que alcances el 1, sube una repetición perfecta más rápida. Una vez que todos los tres niveles sean perfectos, una repetición más rápida en Expert mejora la clasificación Sum. Las repeticiones de torneos ocultos se cuentan una vez reveladas.',
+            tpe: 'Sube tus propias repeticiones completas de Estándar de Intermedio y Expert, vincula sus identificadores y espera su aprobación. Reduce el tiempo o los clics reales para bajar el tiempo / IOE. Se necesitan ambos niveles para la clasificación Sum. Las repeticiones de NF también se cuentan; las repeticiones de torneos ocultos se cuentan una vez reveladas.',
+        },
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

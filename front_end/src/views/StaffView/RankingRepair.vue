@@ -165,6 +165,28 @@ const i18nMessages = {
         sumt: 'Time Sum',
         sumb: '3BV/s Sum',
     } },
+    es: { local: {
+        ranking: 'Clasificación',
+        stat: 'Estadística',
+        standard: 'Reglas de Saolei.wang (Estándar)',
+        nf: 'Reglas de Saolei.wang (NF)',
+        strictNg: 'NG estricto (Estándar)',
+        strictNgNF: 'NG estricto (NF)',
+        pbDerived: 'Derivada de PB',
+        allDerivedFields: 'Todos los campos derivados',
+        derivedFields: 'Reconstruidos {count} campos',
+        rebuild: 'Reconstruir registro',
+        completed: 'Reconstrucción completada: {stat} {value}',
+        videoId: ', ID de video {id}',
+        bt: 'Tiempo en principiante',
+        bb: '3BV/s en principiante',
+        it: 'Tiempo en intermedio',
+        ib: '3BV/s en intermedio',
+        et: 'Tiempo en experto',
+        eb: '3BV/s en experto',
+        sumt: 'Suma de tiempos',
+        sumb: 'Suma de 3BV/s',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

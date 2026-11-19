@@ -128,6 +128,11 @@ const i18nMessages = {
         remaining: 'Reactions left',
         rules: 'Release at either end to start, then follow the numbers in that direction, skipping only a known mine. Clicking opened cells or the flag row has no effect; clicking a skipped mine or another wrong position loses. The first click of each line does not count as a reaction. Timing starts on the first release and continues across lines. Successful games save local history. Click the counters to restart.',
     } },
+    es: { local: {
+        probability: 'Probabilidad de que la casilla siguiente sea una mina',
+        remaining: 'Reacciones restantes',
+        rules: 'Suelta en cualquiera de los extremos para comenzar, luego sigue los números en esa dirección, saltando solo una mina conocida. Hacer clic en casillas abiertas o en la fila de banderas no tiene efecto; hacer clic en una mina saltada o en otra posición incorrecta pierde. El primer clic de cada línea no cuenta como reacción. El cronómetro comienza con la primera liberación y continúa entre líneas. Los juegos exitosos guardan el historial local. Haz clic en los contadores para reiniciar.',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

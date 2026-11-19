@@ -148,6 +148,7 @@ async function addIdentifier(identifier: string) {
 const i18nMessages = {
     'zh-cn': { local: { remove: '删除标识' } },
     en: { local: { remove: 'Delete identifier' } },
+    es: { local: { remove: 'Eliminar identificador' } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

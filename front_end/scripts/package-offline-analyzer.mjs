@@ -43,12 +43,12 @@ for (const [source, destination] of [
 ]) await writeFile(join(output, 'licenses', destination), await readFile(join(frontend, source)));
 
 const markdown = new MarkdownIt({ html: false, linkify: true });
-for (const language of ['zh', 'en']) {
+for (const [language, title] of Object.entries({ zh: '录像表达式参考', en: 'Replay expression reference', es: 'Expresiones de repetición' })) {
     const source = join(frontend, '..', 'vitepress_doc', language, 'guide', 'replay-expressions.md');
     const text = (await readFile(source, 'utf8')).replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/u, '');
-    const help = join(output, 'help', ...(language === 'en' ? ['en'] : []), 'guide', 'replay-expressions.html');
+    const help = join(output, 'help', ...(language === 'zh' ? [] : [language]), 'guide', 'replay-expressions.html');
     await mkdir(dirname(help), { recursive: true });
-    await writeFile(help, `<!doctype html><html lang="${language === 'zh' ? 'zh-CN' : 'en'}"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${language === 'zh' ? '录像表达式参考' : 'Replay expression reference'}</title><style>body{font:16px/1.6 system-ui,sans-serif;margin:24px auto;padding:0 16px;max-width:1100px}table{border-collapse:collapse;display:block;overflow:auto}th,td{border:1px solid #999;padding:4px 8px}code{background:#8882;padding:2px 4px}a{color:#337ecc}@media(prefers-color-scheme:dark){html{color-scheme:dark}a{color:#79bbff}}</style><body>${markdown.render(text)}</body></html>`);
+    await writeFile(help, `<!doctype html><html lang="${language === 'zh' ? 'zh-CN' : language}"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>body{font:16px/1.6 system-ui,sans-serif;margin:24px auto;padding:0 16px;max-width:1100px}table{border-collapse:collapse;display:block;overflow:auto}th,td{border:1px solid #999;padding:4px 8px}code{background:#8882;padding:2px 4px}a{color:#337ecc}@media(prefers-color-scheme:dark){html{color-scheme:dark}a{color:#79bbff}}</style><body>${markdown.render(text)}</body></html>`);
 }
 await writeFile(join(output, 'README.txt'), await readFile(join(frontend, 'local-analyzer', 'README.txt')));
 await writeFile(join(output, 'version.json'), versionFile);

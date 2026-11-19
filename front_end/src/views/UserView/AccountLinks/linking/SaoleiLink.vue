@@ -59,6 +59,13 @@ const i18nMessages = {
         saolei2: '. The number at the end of your profile URL is your ID, as shown below.',
         title: 'Manually enter your ID (fallback)',
     } },
+    es: { local: {
+        recommendTitle: 'Le recomendamos que se inicie sesión en Saolei.wang para la vinculación bidireccional.',
+        recommendBody: 'Inicia la vinculación en Saolei.wang y confírmala en OpenMS para completar la vinculación bidireccional; tus repeticiones se importarán según tus ajustes de sincronización. Introducir manualmente tu ID a continuación solo es una opción de respaldo, por lo que se recomienda usar la vinculación bidireccional cuando sea posible.',
+        saolei1: 'Ve a tu página de perfil en ',
+        saolei2: 'El número al final de tu URL de perfil es tu ID, como se muestra a continuación.',
+        title: 'Introduce manualmente tu ID (opción de respaldo)',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

@@ -5,7 +5,7 @@ import { getDocsUrl } from './docs';
 afterEach(() => vi.unstubAllEnvs());
 
 describe('getDocsUrl', () => {
-    it.each([['zh-cn', 'help/guide/replay-expressions.html'], ['en', 'help/en/guide/replay-expressions.html']])('opens bundled expression help in offline mode for %s', (language, expected) => {
+    it.each([['zh-cn', 'help/guide/replay-expressions.html'], ['en', 'help/en/guide/replay-expressions.html'], ['es-MX', 'help/es/guide/replay-expressions.html']])('opens bundled expression help in offline mode for %s', (language, expected) => {
         vi.stubEnv('VITE_OFFLINE_ANALYZER', 'true');
         expect(getDocsUrl('guide/replay-expressions', language)).toBe(expected);
     });

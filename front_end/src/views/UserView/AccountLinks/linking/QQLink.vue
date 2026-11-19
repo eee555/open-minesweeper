@@ -44,6 +44,9 @@ const i18nMessages = {
     en: { local: {
         QQ: 'The QQ number is accessible from site moderators. Please be aware of your privacy safety.',
     } },
+    es: { local: {
+        QQ: 'El número de QQ es accesible para los moderadores del sitio. Por favor, ten en cuenta tu seguridad de privacidad.',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

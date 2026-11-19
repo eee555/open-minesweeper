@@ -138,6 +138,9 @@ const i18nMessages = {
     en: { local: {
         description: 'Minesweeper Arbiter is the most popular authoritative minesweeper clone.',
     } },
+    es: { local: {
+        description: 'Minesweeper Arbiter es el clon más popular y autorizado de Buscaminas.',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

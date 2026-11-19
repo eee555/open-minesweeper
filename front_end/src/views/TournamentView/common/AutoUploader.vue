@@ -366,6 +366,27 @@ const i18nMessages = {
         uploaded: 'Uploaded',
         unsupported: 'Folder access is unavailable in this browser',
     } },
+    es: { local: {
+        existingFiles: '{count} archivos en esta carpeta',
+        scanTitle: 'Elegir alcance de subida',
+        scanAll: 'Incluir repeticiones existentes',
+        newOnly: 'Subir solo repeticiones nuevas',
+        resume: 'Reanudar',
+        stopped: 'Subida automática pausada: {folder}',
+        failed: 'Fallido',
+        filter: 'Filtro',
+        folder: 'Carpeta de repeticiones de Buscaminas',
+        idle: 'Subida automática desactivada',
+        outsideWindow: 'Fuera del marco de sesión',
+        pollInterval: 'Intervalo de encuesta (segundos)',
+        processing: 'Procesando',
+        running: 'Subida automática activa: {folder}',
+        selectFailed: 'No se puede leer esta carpeta',
+        selectFolder: 'Seleccionar carpeta',
+        skipped: 'Saltado',
+        uploaded: 'Subido',
+        unsupported: 'El acceso a la carpeta no está disponible en este navegador',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

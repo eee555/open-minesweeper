@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 
 <head>
     <meta charset="UTF-8">
@@ -288,15 +288,16 @@
                 </div>
                 <div class="col-md-6 align-self-center" id="word-right">
                     <h1>404</h1>
-                    <h2>呃呃！你迷路了(⊙﹏⊙)</h2>
-                    <p>我们动用了整个服务器的资源来做加强的异步请求，然而还是没能找到这个页面！虽然您已经迷失在了茫茫太空，但您依然可以点击下方按钮果断回到主页，也可以来一把精彩刺激的雷了个雷！
+                    <h2 data-es="¡Vaya! Te has perdido en el espacio (⊙﹏⊙)">呃呃！你迷路了(⊙﹏⊙)</h2>
+                    <p data-es="Hemos buscado esta página con todos los recursos del servidor y seguimos sin encontrarla. Puedes volver al inicio o echar una partida de Buscaminas.">我们动用了整个服务器的资源来做加强的异步请求，然而还是没能找到这个页面！虽然您已经迷失在了茫茫太空，但您依然可以点击下方按钮果断回到主页，也可以来一把精彩刺激的雷了个雷！
                     </p>
-                    <button class="btn green" onclick="location.href='http://1.94.99.210'">回到首页</button>
+                    <button class="btn green" onclick="location.href='http://1.94.99.210'" data-es="Volver al inicio">回到首页</button>
                     <button class="btn green" onclick="location.href='404'">🚩💣🚩</button>
                 </div>
             </div>
         </div>
     </main>
+    <script src="js/locale.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
     <script type="text/javascript" src="js/main.js"></script>
 </body>

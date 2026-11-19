@@ -1,7 +1,7 @@
 <template>
     <ElDialog v-model="visible" :title="creating ? t('local.add') : `${t('button.edit')}: ${row.key}`" width="min(480px, calc(100vw - 24px))" append-to-body @closed="emit('close')">
         <form id="counter-row-editor-form" class="counter-row-editor" @submit.prevent="save">
-            <label v-if="creating"><span>key</span><input v-model="draft.key" class="base-input counter-row-editor__key" type="text" required @input="validationError = ''"></label>
+            <label v-if="creating"><span>{{ t('local.key') }}</span><input v-model="draft.key" class="base-input counter-row-editor__key" type="text" required @input="validationError = ''"></label>
             <label><span>{{ t('prop.expression') }}</span><input v-model="draft.expression" class="base-input counter-row-editor__expression" type="text"></label>
             <label><span>{{ t('local.format') }}</span><input v-model="draft.format" class="base-input counter-row-editor__format" type="text"></label>
             <label><span>{{ t('local.sampling') }}</span><select v-model="draft.samplingMode" class="counter-row-editor__sampling"><option v-for="mode in samplingModes" :key="mode" :value="mode">{{ t(`local.${mode}`) }}</option></select></label>
@@ -62,6 +62,7 @@ function save() {
 
 const i18nMessages = {
     'zh-cn': { local: {
+        key: '键名',
         add: '添加计数器行',
         duplicateKey: '行 key 不能重复',
         format: '数字格式',
@@ -71,6 +72,7 @@ const i18nMessages = {
         board: '每次局面变化',
     } },
     en: { local: {
+        key: 'key',
         add: 'Add counter row',
         duplicateKey: 'Row keys must be unique',
         format: 'Number format',
@@ -78,6 +80,16 @@ const i18nMessages = {
         continuous: 'Continuous sampling',
         button: 'Every button event',
         board: 'Every board change',
+    } },
+    es: { local: {
+        key: 'Clave',
+        add: 'Añadir una fila de contador',
+        duplicateKey: 'Las claves de las filas deben ser únicas',
+        format: 'Formato de número',
+        sampling: 'Modo de muestreo',
+        continuous: 'Muestreo continuo',
+        button: 'Cada evento de botón',
+        board: 'Cada cambio del tablero',
     } },
 };
 const { t } = useI18n({ messages: i18nMessages });

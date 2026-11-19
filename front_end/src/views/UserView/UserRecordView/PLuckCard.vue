@@ -56,6 +56,9 @@ const { t } = useI18n({ messages: {
     en: { local: {
         pluckRecord: 'Density',
     } },
+    es: { local: {
+        pluckRecord: 'Densidad',
+    } },
 } });
 
 const recordByLevel = computed(() => new Map(

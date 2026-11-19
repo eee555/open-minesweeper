@@ -50,6 +50,11 @@ const i18nMessages = {
         remove: 'Remove',
         stop: 'Stop',
     } },
+    es: { local: {
+        selected: 'Seleccionado: {0} / {1}',
+        remove: 'Quitar',
+        stop: 'Detener',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

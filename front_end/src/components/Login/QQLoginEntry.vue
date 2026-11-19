@@ -8,16 +8,28 @@
 
 <script setup lang="ts">
 import { ElMessage } from 'element-plus';
+import { useI18n } from 'vue-i18n';
 
 defineProps({ compact: { type: Boolean, default: false } });
+const i18nMessages = {
+    'zh-cn': { local: {
+        pendingLogin: 'QQ 登录尚未开放，请先使用站内账号登录或注册。',
+    } },
+    en: { local: {
+        pendingLogin: 'QQ sign-in is not available yet. Sign in or register with a site account.',
+    } },
+    es: { local: {
+        pendingLogin: 'El acceso con QQ aún no está disponible. Inicia sesión o regístrate con una cuenta del sitio.',
+    } },
+};
+const { t } = useI18n({ messages: i18nMessages });
 
 const badge = `${import.meta.env.BASE_URL}img/qq_login_16x16.png`;
 // 审核 UI 规范要求文字含「QQ登录 / QQ / 登录」字样，故固定中文、不做本地化。
 const label = 'QQ登录';
-const pending = 'QQ 登录尚未开放，请先使用站内账号登录或注册。';
 
 function notifyPending() {
-    ElMessage.info(pending);
+    ElMessage.info(t('local.pendingLogin'));
 }
 </script>
 

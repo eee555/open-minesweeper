@@ -58,6 +58,13 @@ const i18nMessages = {
         privacyTitle: 'Privacy notice: ',
         title: 'How to locate the ID',
     } },
+    es: { local: {
+        bilibili1: 'Abre tu perfil en ',
+        bilibili2: '. El número después de space.bilibili.com/ es tu UID.',
+        bilibiliPrivacy: 'Este sitio muestra cuentas bajo nombres reales. Enlazar Bilibili podría permitir que otros conecten tu cuenta de Bilibili con tu identidad real.',
+        privacyTitle: 'Aviso de privacidad: ',
+        title: 'Cómo localizar el ID',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

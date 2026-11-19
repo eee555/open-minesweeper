@@ -45,7 +45,11 @@ const props = defineProps({
     pinned: { type: Boolean, default: false },
     cornerPlate: { type: Boolean, default: false },
 });
-const { locale } = useI18n({ useScope: 'global' });
+const { t, locale } = useI18n({ messages: {
+    'zh-cn': { local: { colorTier: '{title} · 色档 {tier}' } },
+    en: { local: { colorTier: '{title} · Color tier {tier}' } },
+    es: { local: { colorTier: '{title} · Nivel de color {tier}' } },
+} });
 const id = useId();
 const maskId = `${id}-body-mask`;
 const clipId = `${id}-fixed-badge`;
@@ -68,7 +72,7 @@ const bodyStyle = computed(() => {
 const difficultySrc = computed(() => `${import.meta.env.BASE_URL}assets/medals/difficulty/${difficulty.value}.webp?v=1`);
 const accessibleName = computed(() => {
     const { title } = medalCaption(props.series, props.code, props.stage, locale.value);
-    return tier.value !== undefined ? `${title} · ${locale.value.startsWith('zh') ? '色档' : 'Color tier'} ${tier.value}` : title;
+    return tier.value !== undefined ? t('local.colorTier', { title, tier: tier.value }) : title;
 });
 
 watch(color, (value, _, onCleanup) => {

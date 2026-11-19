@@ -331,6 +331,27 @@ const { t } = useI18n({ messages: {
         summary: '{total} videos, {imported} imported',
         updated: 'List updated',
     } },
+    es: { local: {
+        sync: 'Sincronizar lista de repeticiones',
+        importAll: 'Importar videos restantes',
+        stop: 'Detener las importaciones pendientes',
+        importing: 'Importando',
+        failed: 'Importación fallida',
+        requestFailed: 'Solicitud fallida',
+        progress: 'Procesadas: {completed}/{total}. Fallidas: {failed}',
+        date: 'Fecha de subida',
+        source: 'Repetición original',
+        category: 'Categoría',
+        score: 'Puntuación',
+        unsupported: 'Tablero o formato no soportado',
+        empty: 'No hay videos sincronizados',
+        categoryQuery: 'Buscar categoría',
+        statusFilter: 'Filtrar por estado de importación',
+        allStatuses: 'Todos los estados',
+        pending: 'No importado',
+        summary: '{total} videos, {imported} importados',
+        updated: 'Lista actualizada',
+    } },
 } });
 </script>
 

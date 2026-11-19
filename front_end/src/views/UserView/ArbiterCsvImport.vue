@@ -105,6 +105,27 @@ const i18nMessages = {
         missingEndTime: 'Some uploaded videos have no end time; local records may be unverifiable.',
         read: 'Could not read the file. Please select it again.',
     } },
+    es: { local: {
+        selectFile: 'Seleccionar un archivo CSV de árbitro',
+        clear: 'Limpiar registros locales',
+        reading: 'Leyendo CSV…',
+        count: '{count} videos locales no subidos (temporalmente en esta página)',
+        issues: '{count} notificaciones de importación',
+        more: 'Solo se muestran las primeras 100 notificaciones.',
+        row: 'Fila {row}: ',
+        headers: 'Faltan encabezados de fecha o hora, o hay encabezados duplicados.',
+        quotes: 'Citas CSV inválidas.',
+        limit: 'El CSV no debe exceder 10 MiB ni 100.000 filas.',
+        date: 'Fecha inválida; omitida.',
+        time: 'Hora inválida o precisión superior a milisegundos; omitida.',
+        columns: 'El número de columnas difiere del encabezado; solo se usan los campos legibles.',
+        number: 'Campo {field} inválido; tratado como ausente.',
+        level: 'Nivel desconocido {field}; aún se compara por fecha y hora.',
+        duplicate: 'Fecha y hora duplicadas; fusionadas.',
+        mismatch: 'Otros detalles difieren para el mismo video; se mantiene la coincidencia.',
+        missingEndTime: 'Algunos videos subidos no tienen hora de finalización; los registros locales pueden no ser verificables.',
+        read: 'No se pudo leer el archivo. Por favor, selecciónelo nuevamente.',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

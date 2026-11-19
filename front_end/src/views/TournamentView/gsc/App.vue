@@ -96,6 +96,11 @@ const i18nMessages = {
         supported: 'Supported levels and modes',
         bv: '3BV minimum met',
     } },
+    es: { local: {
+        tournament: 'Todos los videos del torneo',
+        supported: 'Niveles y modos compatibles',
+        bv: 'Se ha cumplido el mínimo de 3BV',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

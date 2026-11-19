@@ -105,6 +105,11 @@ const i18nMessages = {
         addSlot: 'Add plot',
         addEvent: 'Add custom event',
     } },
+    es: { local: {
+        timeline: 'Línea de tiempo',
+        addSlot: 'Añadir gráfico',
+        addEvent: 'Añadir evento personalizado',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

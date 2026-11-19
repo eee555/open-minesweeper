@@ -25,8 +25,8 @@ describe('<GSC HistoryImport />', () => {
         mountHistory(99);
         cy.get('[data-cy=history-participants] table').getTable().should((rows) => {
             expect(rows).to.have.length(2);
-            expect(rows[0]).to.include({ 选手: 'Anonymous Player', 成绩来源: '手工', 录像: '无', '总成绩 / ms': '6000' });
-            expect(rows[1].选手).to.equal('User#987654');
+            expect(rows[0]).to.include({ Player: 'Anonymous Player', 'Score source': 'Manual', Replay: 'None', 'Total / ms': '6000' });
+            expect(rows[1].Player).to.equal('User#987654');
         });
         cy.get('[data-cy=disqualify-participant]').should('have.length', 2).first().click();
         cy.get('@disqualify.all').should('have.length', 0);

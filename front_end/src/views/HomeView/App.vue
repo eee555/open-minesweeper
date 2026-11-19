@@ -72,6 +72,7 @@ async function refreshCurrentTab() {
 const i18nMessages = {
     'zh-cn': { local: { refresh: '刷新' } },
     en: { local: { refresh: 'Refresh' } },
+    es: { local: { refresh: 'Actualizar' } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

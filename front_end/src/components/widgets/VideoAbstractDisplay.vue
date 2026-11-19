@@ -190,6 +190,10 @@ const i18nMessages = {
         loading: 'Loading video information…',
         unavailable: 'Video information is unavailable',
     } },
+    es: { local: {
+        loading: 'Cargando información del video…',
+        unavailable: 'La información del video no está disponible',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

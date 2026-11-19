@@ -29,6 +29,10 @@ const i18nMessages = {
         dragOrClick: 'Drag files here or click here to select',
         constraintSize: '*File size maximum is 5MB.',
     } },
+    es: { local: {
+        dragOrClick: 'Arrastra los archivos aquí o haz clic para seleccionar',
+        constraintSize: '*Tamaño máximo del archivo es de 5 MB.',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

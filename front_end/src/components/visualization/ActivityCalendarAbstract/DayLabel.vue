@@ -12,12 +12,13 @@
         <IconSetting>
             <Setting />
         </IconSetting><br>
-        Sun<br>Mon<br>Tue<br>Wed<br>Thu<br>Fri<br>Sat
+        <template v-for="(day, i) in weekdays" :key="i"><br v-if="i">{{ day }}</template>
     </span>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 
 import Setting from './Setting.vue';
 
@@ -28,5 +29,10 @@ const props = defineProps({
     cellMargin: { type: Number, default: 3 }, // 格子间距，单位为px
 });
 
+const { locale } = useI18n();
+const weekdays = computed(() => {
+    const format = new Intl.DateTimeFormat(locale.value === 'dev' ? 'en' : locale.value, { weekday: 'short', timeZone: 'UTC' });
+    return Array.from({ length: 7 }, (_, day) => format.format(Date.UTC(2023, 0, day + 1)));
+});
 const cellFullSize = computed(() => props.cellSize + props.cellMargin);
 </script>

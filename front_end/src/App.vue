@@ -1,34 +1,38 @@
 <template>
-    <Menu>
-        <main class="common-layout">
-            <VideoPlayer />
-            <VideoInfoProgress />
-            <router-view />
-            <Footer />
-        </main>
-    </Menu>
+    <ElConfigProvider :locale="locale === 'es' ? es : undefined">
+        <Menu>
+            <main class="common-layout">
+                <VideoPlayer />
+                <VideoInfoProgress />
+                <router-view />
+                <Footer />
+            </main>
+        </Menu>
 
-    <ElDialog
-        v-if="false" v-model="notice_visible" draggable :lock-scroll="false" title="站长通知"
-        :before-close="handle_notice_close" style="white-space: pre-wrap;" width="min(max(50%, 400px), 90vw)"
-    >
-        <span>{{ notice }}</span>
-        <template #footer>
-            <span class="dialog-footer">
-                <label class="checkbox">
-                    <input v-model="never_show_notice" class="checkbox-input" type="checkbox">
-                    <span>不再显示此对话框&nbsp;&nbsp;&nbsp;</span>
-                </label>
-                <BaseButtonConfirm @click="handle_notice_close()" />
-            </span>
-        </template>
-    </ElDialog>
+        <ElDialog
+            v-if="false" v-model="notice_visible" draggable :lock-scroll="false" title="站长通知"
+            :before-close="handle_notice_close" style="white-space: pre-wrap;" width="min(max(50%, 400px), 90vw)"
+        >
+            <span>{{ notice }}</span>
+            <template #footer>
+                <span class="dialog-footer">
+                    <label class="checkbox">
+                        <input v-model="never_show_notice" class="checkbox-input" type="checkbox">
+                        <span>不再显示此对话框&nbsp;&nbsp;&nbsp;</span>
+                    </label>
+                    <BaseButtonConfirm @click="handle_notice_close()" />
+                </span>
+            </template>
+        </ElDialog>
+    </ElConfigProvider>
 </template>
 
 <script setup lang="ts">
 import { useDark, useToggle } from '@vueuse/core';
-import { ElDialog } from 'element-plus';
+import { ElConfigProvider, ElDialog } from 'element-plus';
+import es from 'element-plus/es/locale/lang/es';
 import { onMounted, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 
 import BaseButtonConfirm from './components/common/BaseButtonConfirm.vue';
 import Footer from './components/Footer.vue';
@@ -37,6 +41,7 @@ import VideoPlayer from './components/VideoPlayer/App.vue';
 import { local } from './store';
 import Menu from './views/Menu.vue';
 
+const { locale } = useI18n();
 const isDark = useDark();
 useToggle(isDark);
 watch(isDark, (v) => {

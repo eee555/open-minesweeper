@@ -8,14 +8,15 @@
             transform: 'translate(-50%,0)'
         }"
     >
-        {{ monthNameShort[date.getMonth()] }}
+        {{ monthFormat.format(date) }}
     </span>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 
-import { fullWeek, getWeekTime, monthNameShort } from '@/utils/datetime';
+import { fullWeek, getWeekTime } from '@/utils/datetime';
 
 const props = defineProps({
     startDate: { type: Date, required: true },
@@ -24,6 +25,8 @@ const props = defineProps({
     cellMargin: { type: Number, default: 3 }, // 格子间距，单位为px
 });
 
+const { locale } = useI18n();
+const monthFormat = computed(() => new Intl.DateTimeFormat(locale.value === 'dev' ? 'en' : locale.value, { month: 'short' }));
 const startWeekTime = computed(() => getWeekTime(props.startDate));
 const cellFullSize = computed(() => props.cellSize + props.cellMargin);
 

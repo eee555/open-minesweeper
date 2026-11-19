@@ -198,6 +198,12 @@ const i18nMessages = {
         noPreviousKeyframe: 'No previous keyframe',
         noNextKeyframe: 'No next keyframe',
     } },
+    es: { local: {
+        analysis: 'Análisis de repeticiones',
+        info: 'Información de la repetición',
+        noPreviousKeyframe: 'No hay fotograma clave anterior',
+        noNextKeyframe: 'No hay fotograma clave siguiente',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

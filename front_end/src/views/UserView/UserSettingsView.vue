@@ -62,6 +62,7 @@ watch([() => route.name, () => route.params.id, () => store.login_status, canEdi
 const i18nMessages = {
     'zh-cn': { local: { profile: '个人资料' } },
     en: { local: { profile: 'Profile' } },
+    es: { local: { profile: 'Perfil' } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

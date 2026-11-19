@@ -41,6 +41,13 @@ const i18nMessages = {
         useEndTime: 'Display by finishing time',
         useEndTimeTooltip: 'Display by the time of finishing games when switching on, and the time of uploading when switching off. The finishing time represents the user\'s system time and can be incorrect.',
     } },
+    es: { local: {
+        cellGap: 'Espacio entre casillas',
+        cellSize: 'Tamaño de casilla',
+        showDate: 'Mostrar fecha',
+        useEndTime: 'Ordenar por tiempo de finalización',
+        useEndTimeTooltip: 'Mostrar por el tiempo de finalización cuando está activado y por el tiempo de subida cuando está desactivado. El tiempo de finalización representa la hora del sistema del usuario y puede ser incorrecto.',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

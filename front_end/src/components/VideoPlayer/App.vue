@@ -73,6 +73,10 @@ const i18nMessages = {
         video: 'Video',
         tournamentIdentifier: 'Tournament identifier',
     } },
+    es: { local: {
+        video: 'Repetición',
+        tournamentIdentifier: 'Identificador del torneo',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

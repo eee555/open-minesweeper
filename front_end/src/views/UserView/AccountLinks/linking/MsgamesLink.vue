@@ -56,6 +56,12 @@ const i18nMessages = {
         msgames3: 'Click the link next to your name (see image above) to get to your profile (see image below). The number at the end of the url is your ID.',
         title: 'How to locate the ID',
     } },
+    es: { local: {
+        msgames1: 'Busca a ti mismo en el ',
+        msgames2: ' clasificación:',
+        msgames3: 'Haz clic en el enlace junto a tu nombre (véase la imagen anterior) para acceder a tu perfil (véase la imagen siguiente). El número al final de la URL es tu ID.',
+        title: 'Cómo localizar el ID',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

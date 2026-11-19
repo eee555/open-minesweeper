@@ -76,6 +76,15 @@ const i18nMessages = {
         yuanshen: 'Yuanshen Toolbox',
         'browser-extension': 'Browser Extension',
     } },
+    es: { local: {
+        metasweeper: 'Metasweeper',
+        arbiter: 'Arbiter',
+        vienna: 'ViennaSweeper',
+        classic95: '95 Classic',
+        analyzer: 'Analizador de video',
+        yuanshen: 'Yuanshen Toolbox',
+        'browser-extension': 'Extensión de navegador',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

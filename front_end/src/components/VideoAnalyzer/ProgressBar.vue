@@ -160,6 +160,24 @@ const i18nMessages = {
         setRangeStart: 'Set range start',
         setRangeEnd: 'Set range end',
     } },
+    es: { local: {
+        navigation: 'Controles de reproducción',
+        start: 'Ir al inicio',
+        end: 'Ir al final',
+        previousKeyframe: 'Fotograma clave anterior',
+        nextKeyframe: 'Fotograma clave siguiente',
+        position: 'Posición de reproducción',
+        slower: 'Más lento',
+        faster: 'Más rápido',
+        speed: 'Velocidad de reproducción',
+        loopMode: 'Modo de bucle',
+        noLoop: 'Sin bucle',
+        loopRange: 'Repetir el intervalo',
+        loopAll: 'Repetir todo',
+        range: 'Rango seleccionado',
+        setRangeStart: 'Fijar inicio del intervalo',
+        setRangeEnd: 'Fijar fin del intervalo',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

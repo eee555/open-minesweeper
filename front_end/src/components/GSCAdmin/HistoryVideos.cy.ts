@@ -2,6 +2,7 @@ import { interceptFormData } from 'cypress-intercept-formdata';
 
 import HistoryVideos from './HistoryVideos.vue';
 
+import i18n from '@/i18n';
 import { MS_State } from '@/utils/ms_const';
 
 describe('<GSC HistoryVideos />', () => {
@@ -10,20 +11,20 @@ describe('<GSC HistoryVideos />', () => {
         cy.intercept({ method: 'POST', pathname: '/api/tournament/gsc/history/prepare', times: 1 }, { forceNetworkError: true }).as('lostPrepare');
         cy.intercept('POST', '**/api/tournament/gsc/history/participants/324/identifier', { body: { identifier: 'selected', bound: true } }).as('bind');
         cy.intercept('POST', '**/api/tournament/gsc/history/participants/324/videos', { body: { id: 904, state: MS_State.Official } }).as('upload');
-        cy.mount(HistoryVideos, { props: { order: 19, endTime: new Date('2020-01-01T00:00:00Z') } });
+        cy.mount(HistoryVideos, { global: { plugins: [i18n] }, props: { order: 19, endTime: new Date('2020-01-01T00:00:00Z') } });
         cy.get('[data-cy=history-user-id]').type('101');
         cy.get('[data-cy=history-video-files]').selectFile('cypress/fixtures/standard_gsc.evf');
         cy.get('[data-cy=history-identifiers] .el-tag').should('have.length', 1);
         cy.get('[data-cy=history-videos-submit]').click();
         cy.wait('@lostPrepare');
-        cy.get('[role=alert]').should('contain.text', '重试未完成步骤');
+        cy.get('[role=alert]').should('contain.text', 'Retry the remaining steps');
         cy.get('@bind.all').should('have.length', 0);
         cy.get('@upload.all').should('have.length', 0);
         cy.get('[data-cy=history-videos-submit]').click();
         cy.wait('@prepare').its('response.body.id').should('eq', 324);
         cy.wait('@bind');
         cy.wait('@upload');
-        cy.get('[data-cy=history-video-results]').should('contain.text', '录像 #904');
+        cy.get('[data-cy=history-video-results]').should('contain.text', 'Replay #904');
         cy.get('[role=alert]').should('not.exist');
     });
 
@@ -60,7 +61,7 @@ describe('<GSC HistoryVideos />', () => {
             times.push(String(fields.upload_time));
             request.reply(++uploadCount === 1 ? { statusCode: 500, body: { detail: 'Retry' } } : { body: { id: 901, state: MS_State.Identifier } });
         }).as('upload');
-        cy.mount(HistoryVideos, { props: { order: 19, endTime: new Date(anchor) } });
+        cy.mount(HistoryVideos, { global: { plugins: [i18n] }, props: { order: 19, endTime: new Date(anchor) } });
         cy.get('[data-cy=history-user-id]').type('101');
         cy.fixture<Uint8Array>('standard_gsc.evf', null).then((content) => {
             cy.get('[data-cy=history-video-files]').selectFile([
@@ -74,15 +75,15 @@ describe('<GSC HistoryVideos />', () => {
         cy.wait('@bind');
         cy.wait('@upload');
         cy.wait('@upload');
-        cy.get('[data-cy=history-binding-results]').should('contain.text', '归属冲突');
+        cy.get('[data-cy=history-binding-results]').should('contain.text', 'Ownership conflict');
         cy.get('[data-cy=history-video-results] table').getTable().should((rows) => {
-            expect(rows[0].文件).to.equal('first.evf');
-            expect(rows[0].上传时间).to.equal(firstTime);
-            expect(rows[0].结果).to.contain('500');
+            expect(rows[0].File).to.equal('first.evf');
+            expect(rows[0]['Upload time']).to.equal(firstTime);
+            expect(rows[0].Result).to.contain('500');
         });
         cy.get('[data-cy=history-videos-submit]').click();
         cy.wait('@upload');
-        cy.get('[data-cy=history-video-results]').should('contain.text', `录像 #901 / ${MS_State.Identifier}`).and('not.contain.text', '500');
+        cy.get('[data-cy=history-video-results]').should('contain.text', `Replay #901 / ${MS_State.Identifier}`).and('not.contain.text', '500');
         cy.get('@prepare.all').should('have.length', 1);
         cy.get('@bind.all').should('have.length', 1);
         cy.then(() => expect(times).to.deep.equal([firstTime, anchor, firstTime]));
@@ -104,7 +105,7 @@ describe('<GSC HistoryVideos />', () => {
             expect(fields.upload_time).to.equal(custom.toISOString());
             request.reply({ body: { id: 902, state: MS_State.Official } });
         }).as('upload');
-        cy.mount(HistoryVideos, { props: { order: 19, endTime: new Date('2020-01-01T00:00:00Z') } });
+        cy.mount(HistoryVideos, { global: { plugins: [i18n] }, props: { order: 19, endTime: new Date('2020-01-01T00:00:00Z') } });
         cy.get('[data-cy=history-user-id]').type('101');
         cy.get('[data-cy=history-video-files]').selectFile(['cypress/fixtures/standard_gsc.evf', 'cypress/fixtures/3819-Time-1616-NF-9469-32-20151031.rmv']);
         cy.get('[data-cy=history-identifiers] .el-tag').should('have.length', 2);
@@ -148,7 +149,7 @@ describe('<GSC HistoryVideos />', () => {
             expect(allBindingsFinished).to.equal(true);
             request.reply({ body: { id: 903, state: MS_State.Official } });
         }).as('upload');
-        cy.mount(HistoryVideos, { props: { order: 19, endTime: new Date('2020-01-01T00:00:00Z') } });
+        cy.mount(HistoryVideos, { global: { plugins: [i18n] }, props: { order: 19, endTime: new Date('2020-01-01T00:00:00Z') } });
         cy.get('[data-cy=history-user-id]').type('101');
         cy.get('[data-cy=history-video-files]').selectFile(['cypress/fixtures/standard_gsc.evf', 'cypress/fixtures/3819-Time-1616-NF-9469-32-20151031.rmv']);
         cy.get('[data-cy=history-identifiers] .el-tag').should('have.length', 2);
@@ -158,7 +159,7 @@ describe('<GSC HistoryVideos />', () => {
         cy.wait('@bind');
         cy.get('[role=alert]').should('contain.text', '500');
         cy.get('@upload.all').should('have.length', 0);
-        cy.get('[data-cy=history-videos-submit]').should('contain.text', '继续绑定并上传').click();
+        cy.get('[data-cy=history-videos-submit]').should('contain.text', 'Continue linking and upload').click();
         cy.wait('@bind');
         cy.wait('@upload');
         cy.wait('@upload');

@@ -39,6 +39,9 @@ const i18nMessages = {
     en: { local: {
         title: 'Video analysis',
     } },
+    es: { local: {
+        title: 'Análisis de video',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

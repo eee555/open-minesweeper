@@ -64,6 +64,17 @@ const i18nMessages = {
         triangle: 'Filled triangle',
         open: 'Open arrow',
     } },
+    es: { local: {
+        timeRange: 'Rango de tiempo',
+        all: 'Repetición completa',
+        past: 'Hasta el instante actual',
+        events: 'Eventos personalizados',
+        spacing: 'Espaciado de las flechas (px)',
+        size: 'Tamaño de las flechas (px)',
+        shape: 'Forma de las flechas',
+        triangle: 'Triángulo relleno',
+        open: 'Flecha abierta',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

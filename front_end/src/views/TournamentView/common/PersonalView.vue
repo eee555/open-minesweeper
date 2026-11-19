@@ -68,6 +68,10 @@ const i18nMessages = {
         summary: 'Summary',
         videos: 'Videos',
     } },
+    es: { local: {
+        summary: 'Resumen',
+        videos: 'Repeticiones',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

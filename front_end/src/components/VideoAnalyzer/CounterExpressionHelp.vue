@@ -20,6 +20,9 @@ const i18nMessages = {
     en: { local: {
         reference: 'Expression reference',
     } },
+    es: { local: {
+        reference: 'Referencia de expresiones',
+    } },
 };
 const { t, locale } = useI18n({ messages: i18nMessages });
 </script>

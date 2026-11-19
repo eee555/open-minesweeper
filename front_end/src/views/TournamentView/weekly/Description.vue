@@ -19,6 +19,10 @@ const i18nMessages = {
         line1: 'Choose any 2-hour interval during the tournament. Among all videos uploaded within (depending on when the server receives the file) 2 hours after the registration, sum up the best 5 intermediate games and 2 expert games.',
         line2: 'The default scores are 60s for intermediate and 240s for expert, when there are not enough games uploaded.',
     } },
+    es: { local: {
+        line1: 'Elige cualquier intervalo de 2 horas durante el torneo. Entre todos los videos subidos dentro (dependiendo del momento en que el servidor reciba el archivo) de las 2 horas tras el registro, suma los 5 mejores juegos intermedios y 2 juegos expertos.',
+        line2: 'Los puntajes por defecto son de 60 segundos para intermedios y 240 segundos para expertos, cuando no hay suficientes juegos subidos.',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

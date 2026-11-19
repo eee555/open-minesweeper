@@ -53,7 +53,7 @@ const props = defineProps({
 });
 const emit = defineEmits<{ feed: [result: MediaLikeResult] }>();
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 const currentLikes = ref(props.media.likes);
 const currentHot = ref(props.media.hot_now);
@@ -84,7 +84,7 @@ const languageLabel = computed(() => LANGUAGE_LABELS[props.media.language.trim()
 
 function formatDate(value: string): string {
     const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
+    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString(locale.value);
 }
 
 function formatHeat(value: number): string {

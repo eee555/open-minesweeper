@@ -149,6 +149,17 @@ const i18nMessages = {
         best: 'Best',
         edition: 'Best Edition',
     } },
+    es: { local: {
+        empty: 'Sin datos de clasificación de torneo',
+        current: 'Actual',
+        historical: 'Historial Total',
+        gsc: 'Total GSC',
+        weekly: 'Velocidad Semanal Total',
+        weeklyEff: 'Eficiencia Semanal Total',
+        total: 'Total',
+        best: 'Mejor',
+        edition: 'Edición Mejor',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

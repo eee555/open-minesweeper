@@ -88,6 +88,11 @@ const i18nMessages = {
         all: 'All',
         custom: 'Custom level',
     } },
+    es: { local: {
+        filter: 'Filtro',
+        all: 'Todos',
+        custom: 'Nivel personalizado',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

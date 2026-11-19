@@ -86,6 +86,7 @@ function cellStyle(stat: TPEStat) {
 const i18nMessages = {
     'zh-cn': { local: { loadFailed: 'TPE 纪录加载失败，请重试。' } },
     en: { local: { loadFailed: 'Unable to load TPE records. Please retry.' } },
+    es: { local: { loadFailed: 'No se puede cargar la información de TPE. Por favor, inténtalo de nuevo.' } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

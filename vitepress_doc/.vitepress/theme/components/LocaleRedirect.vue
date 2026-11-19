@@ -2,10 +2,16 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useData, withBase } from 'vitepress';
 
+import { docLocales, isDocLocale, languageNames, missingTitles } from '../../locales';
+
+const availableText = { zh: '可使用以下语言阅读此页面：', en: 'You can read this page in:', es: 'Puedes leer esta página en los siguientes idiomas:' };
 const { page, theme, hash } = useData();
-const path = computed(() => page.value.relativePath.replace(/^(zh|en)\//, '').replace(/(^|\/)index\.md$/, '$1').replace(/\.md$/, ''));
-const locales = computed(() => (['zh', 'en'] as const).filter((locale) => theme.value.localizedPages[locale].includes(path.value)));
-const missingLocale = computed(() => /^(zh|en)\//.exec(page.value.relativePath)?.[1]);
+const path = computed(() => page.value.relativePath.replace(/^(zh|en|es)\//, '').replace(/(^|\/)index\.md$/, '$1').replace(/\.md$/, ''));
+const locales = computed(() => docLocales.filter((locale) => theme.value.localizedPages[locale].includes(path.value)));
+const missingLocale = computed(() => {
+    const first = page.value.relativePath.split('/')[0];
+    return isDocLocale(first) ? first : undefined;
+});
 const suffix = ref('');
 
 onMounted(() => {
@@ -18,12 +24,12 @@ onMounted(() => {
 <template>
     <div class="locale-page vp-doc">
         <template v-if="missingLocale">
-            <h1>{{ missingLocale === 'zh' ? '此页面暂无中文版本' : 'This page is not available in English.' }}</h1>
-            <p>{{ missingLocale === 'zh' ? '可使用以下语言阅读此页面：' : 'You can read this page in:' }}</p>
+            <h1>{{ missingTitles[missingLocale] }}</h1>
+            <p>{{ availableText[missingLocale] }}</p>
         </template>
-        <p v-else>正在根据浏览器语言跳转…… / Redirecting to your browser language…</p>
+        <p v-else>正在根据浏览器语言跳转…… / Redirecting to your browser language… / Redirigiendo al idioma de tu navegador…</p>
         <ul>
-            <li v-for="locale in locales" :key="locale"><a :href="withBase(`/${locale}/${path}${suffix}`)">{{ locale === 'zh' ? '简体中文' : 'English' }}</a></li>
+            <li v-for="locale in locales" :key="locale"><a :href="withBase(`/${locale}/${path}${suffix}`)">{{ languageNames[locale] }}</a></li>
         </ul>
     </div>
 </template>

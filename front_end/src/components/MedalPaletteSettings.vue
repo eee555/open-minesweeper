@@ -176,6 +176,24 @@ const i18nMessages = {
         difficulty: { b: 'Beginner', i: 'Intermediate', e: 'Expert' },
         status: { default: 'Default colors. Changes are saved automatically.', saved: 'Personal colors saved in this browser.', unavailable: 'Colors applied, but browser storage is unavailable. Export JSON to keep a copy.', invalid: 'Saved colors were invalid. Showing defaults.' },
     } },
+    es: { local: {
+        title: 'Colores de las medallas',
+        description: 'El acabado predeterminado es de metal suave. Los cambios solo afectan a tu pantalla. Las estrellas indican la dificultad y los colores, el nivel alcanzado.',
+        tier: 'Nivel {tier}',
+        hex: 'Color hexadecimal del nivel {tier}',
+        resetOne: 'Predeterminado',
+        reset: 'Restablecer todos los colores',
+        export: 'Exportar JSON',
+        import: 'Importar JSON',
+        advanced: 'Colores de umbral individual',
+        definition: 'Título y dificultad',
+        override: 'Color para {stage}',
+        followTier: 'Usar el color del nivel',
+        invalidColor: 'Introduce un color en formato #RRGGBB.',
+        invalidImport: 'No se pudo importar la paleta. Usa un archivo JSON válido de hasta 64 KiB.',
+        difficulty: { b: 'Principiante', i: 'Intermedio', e: 'Experto' },
+        status: { default: 'Colores predeterminados. Los cambios se guardan automáticamente.', saved: 'Colores personales guardados en este navegador.', unavailable: 'Colores aplicados, pero no está disponible el almacenamiento del navegador. Exportar JSON para conservar una copia.', invalid: 'Los colores guardados no eran válidos. Se muestran los predeterminados.' },
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 const { locale } = useI18n({ useScope: 'global' });

@@ -81,6 +81,15 @@ const i18nMessages = {
         degradedHint: 'Submission kept; a moderator will fill in the title and verify the external account',
         dailyFeedRemaining: 'Feeds left today',
     } },
+    es: { local: {
+        submit: 'Enviar',
+        refresh: 'Actualizar',
+        loading: 'Cargando',
+        submitDone: 'Enviado',
+        normalHint: 'Tu trabajo está en la cola de revisión; búscalos en tu perfil',
+        degradedHint: 'La entrega se ha conservado; un moderador completará el título y verificará la cuenta externa',
+        dailyFeedRemaining: 'Entradas restantes hoy',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

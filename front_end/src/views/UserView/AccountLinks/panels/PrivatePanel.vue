@@ -27,6 +27,9 @@ const i18nMessages = {
     en: { local: {
         privateNotice: 'Private link, visible only to you and site moderators.',
     } },
+    es: { local: {
+        privateNotice: 'Enlace privado, visible solo para ti y los moderadores del sitio.',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

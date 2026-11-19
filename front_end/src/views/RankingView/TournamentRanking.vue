@@ -32,6 +32,9 @@ const i18nMessages = {
     en: { local: {
         ranking: 'Tournament ranking', overall: 'Overall', gsc: 'GSC', weekly: 'Speed Weekly', weekly_eff: 'Efficiency Weekly',
     } },
+    es: { local: {
+        ranking: 'Clasificación de torneo', overall: 'General', gsc: 'GSC', weekly: 'Velocidad Semanal', weekly_eff: 'Eficiencia Semanal',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

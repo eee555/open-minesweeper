@@ -114,6 +114,20 @@ const i18nMessages = {
         pb: '3BV ranking',
         pluck: 'pluck ranking',
     } },
+    es: { local: {
+        website: 'Información de repetición del sitio web',
+        links: 'Enlaces de análisis de repetición',
+        downloadReplay: 'Descargar archivo de repetición',
+        downloadOffline: 'Descargar paquete offline',
+        videoId: 'ID de repetición',
+        loading: 'Cargando información del sitio web…',
+        loadFailed: 'No se pudo cargar la información del sitio web',
+        unranked: 'No clasificado',
+        saoleiTime: 'Tiempo de Saolei',
+        saoleiBvs: 'Velocidad de Saolei',
+        pb: 'Clasificación de 3BV',
+        pluck: 'Clasificación de pluck',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

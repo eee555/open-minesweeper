@@ -120,6 +120,18 @@ const i18nMessage = {
         designer: 'UI designers',
         acknowledgement: 'Acknowledgement',
     } },
+    es: { local: {
+        owner: 'Dueño',
+        moderator: 'Moderadores',
+        software: 'Desarrolladores',
+        localization: 'Localización',
+        zhCn: 'Chino simplificado',
+        en: 'Inglés',
+        de: 'Alemán',
+        pl: 'Polaco',
+        designer: 'Diseño de la interfaz',
+        acknowledgement: 'Agradecimientos',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessage });
