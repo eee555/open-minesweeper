@@ -80,8 +80,8 @@ const selectedLabel = computed(() => {
     if (rankingName.value === 'pb_derived') return t('local.pbDerived');
     if (rankingName.value === 'nf_ioe') return t(`level.${ioeStat.value}`);
     if (rankingName.value === 'tpe') {
-        const column = tpeColumns.find((item) => item.stat === tpeStat.value)!;
-        return `${t(`level.${column.level}`)} ${column.metric}`;
+        const column = tpeColumns.find((item) => item.stat === tpeStat.value);
+        return column ? `${t(`level.${column.level}`)} ${column.metric}` : tpeStat.value;
     }
     if (rankingName.value === 'thrp') return thrpStat.value === 'e_nf' ? `${t('level.e')} NF` : t(`level.${thrpStat.value}`);
     return t(`local.${stat.value}`);
