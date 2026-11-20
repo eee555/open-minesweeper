@@ -87,7 +87,7 @@ class VideoModel(models.Model):
     # 软件: "a"->avf; "e"->evf; "u" ->url(未下载);
     software = models.CharField(max_length=MaxSizes.SOFTWARE, choices=MS_TextChoices.Software.choices)
     # ms-toollib 的 software 原始字符串，包含软件名及版本信息。
-    version = models.CharField(max_length=64, null=False, blank=True, default='')
+    version = models.CharField(max_length=128, null=False, blank=True, default='')
     # 难度
     level = models.CharField(
         max_length=MaxSizes.GAMELEVEL, choices=MS_TextChoices.Level.choices)
