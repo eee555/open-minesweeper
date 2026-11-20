@@ -4,8 +4,7 @@
             <slot name="personalSummary" :videos="videos" :participant="participant" />
         </ElTabPane>
         <ElTabPane :label="t('local.videos')" lazy>
-            <MultiSelector v-model="VideoListConfig.tournament" :options="thisColumnChoices" :labels="thisColumnChoices.map((s) => t(`prop.${s}`))" />
-            <VideoList :videos="videos" :columns="VideoListConfig.tournament" sortable paginator />
+            <VideoList :videos="videos" :columns="columns" sortable paginator />
         </ElTabPane>
     </ElTabs>
 </template>
@@ -18,11 +17,8 @@ import { useI18n } from 'vue-i18n';
 
 import { httpErrorNotification } from '@/components/Notifications';
 import VideoList from '@/components/VideoList/App.vue';
-import MultiSelector from '@/components/widgets/MultiSelector.vue';
+import { videoColumnStore } from '@/components/VideoList/columnStore';
 import { fetchParticipantVideos } from '@/services/tournamentService';
-import { VideoListConfig } from '@/store';
-import { ArrayUtils } from '@/utils/arrays';
-import { ColumnChoices } from '@/utils/ms_const';
 import type { TournamentParticipant } from '@/utils/tournaments';
 import { VideoAbstract } from '@/utils/videoabstract';
 
@@ -35,7 +31,7 @@ defineSlots<{
     personalSummary?: (props: { videos: VideoAbstract[]; participant: TParticipant }) => unknown;
 }>();
 
-const thisColumnChoices = ArrayUtils.sortByReferenceOrder(['upload_time', 'software', 'level', 'mode', 'time', 'bv', 'bvs', 'stnb', 'ioe', 'thrp', 'path', 'file_size'], ColumnChoices);
+const { columns } = videoColumnStore('fixed-player');
 const videos = computed(() => participant.value.videos ?? []);
 
 async function refresh() {

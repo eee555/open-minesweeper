@@ -55,12 +55,13 @@ export function countRows(str: string): number {
 }
 
 export function formatBytes(bytes: number, significant = 3): string {
+    if (!Number.isFinite(bytes) || bytes < 0) return 'NaN';
     if (bytes === 0) return '0 B';
 
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
 
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    const i = Math.max(0, Math.min(sizes.length - 1, Math.floor(Math.log(bytes) / Math.log(k))));
     const value = bytes / Math.pow(k, i);
     const integerDigits = Math.floor(value).toString().length;
     const decimalPlaces = Math.max(significant - integerDigits, 0);

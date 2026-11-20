@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
+import { evaluateVideoColumn, prepareVideoColumn } from './columns';
+import { presetColumn } from './presets';
 import {
-    columnConfig, createVideoListFilters, CUSTOM_LEVEL_FILTER, filterVideos,
-    isColumnFilterActive, sliceVideos, sortValue, sortVideos,
+    createVideoListFilters, CUSTOM_LEVEL_FILTER, filterVideos,
+    isColumnFilterActive, sliceVideos, sortVideos as sortEvaluatedVideos,
 } from './videoListData';
 
 import { MS_Mode, MS_State } from '@/utils/ms_const';
 import type { VideoAbstractData } from '@/utils/videoabstract';
 import { VideoAbstract } from '@/utils/videoabstract';
+import { createVideoExpressionContext } from '@/utils/videoExpression';
 
 function makeVideo(overrides: Partial<VideoAbstractData> = {}): VideoAbstract {
     return new VideoAbstract({
@@ -27,6 +30,11 @@ function ids(videos: readonly VideoAbstract[]): number[] {
     return videos.map((video) => video.id);
 }
 
+function sortVideos(videos: readonly VideoAbstract[], field: string, order: number | undefined): VideoAbstract[] {
+    const prepared = prepareVideoColumn(presetColumn(field));
+    return sortEvaluatedVideos(videos, order, (video) => evaluateVideoColumn(prepared, createVideoExpressionContext(video)).sortValue);
+}
+
 describe('video list filters', () => {
     it('starts from all states, softwares and modes with no level restriction', () => {
         const filters = createVideoListFilters();
@@ -44,6 +52,30 @@ describe('video list filters', () => {
         ];
         expect(ids(filterVideos(videos, createVideoListFilters()))).toEqual([1, 2, 0]);
         expect(videos[2]?.isLocal).toBe(true);
+    });
+
+    it('combines boolean expressions before paging and rejects invalid results for either choice', () => {
+        const videos = [
+            makeVideo({ id: 1, bv: 100, right_ce: 0 }),
+            makeVideo({ id: 2, bv: 120, right_ce: 1 }),
+            makeVideo({ id: 3, bv: 150, right_ce: 0 }),
+        ];
+        const filters = createVideoListFilters();
+        filters.bool = { 'bool:NF': { expr: 'right_ce == 0', value: true } };
+        expect(ids(filterVideos(videos, filters))).toEqual([1, 3]);
+        filters.bool['bool:Large'] = { expr: 'bv > 110', value: true };
+        expect(ids(filterVideos(videos, filters))).toEqual([3]);
+        filters.bool['bool:NF'].value = false;
+        expect(ids(filterVideos(videos, filters))).toEqual([2]);
+        expect(ids(sliceVideos(filterVideos(videos, filters), 0, 1))).toEqual([2]);
+        for (const expr of ['bv', 'unknown > 0', 'bv +']) {
+            for (const value of [true, false]) {
+                filters.bool = { 'bool:Invalid': { expr, value } };
+                expect(filterVideos(videos, filters)).toEqual([]);
+            }
+        }
+        filters.bool = {};
+        expect(ids(filterVideos(videos, filters))).toEqual([1, 2, 3]);
     });
 
     it('combines state, software, mode and level without mutating the input', () => {
@@ -80,13 +112,12 @@ describe('video list filters', () => {
 });
 
 describe('video list sorting', () => {
-    it('sorts raw numbers and derived getters by value instead of display text', () => {
+    it('sorts expression results by value instead of display text', () => {
         const slower = makeVideo({ id: 1, timems: 40000, bv: 100 });
         const faster = makeVideo({ id: 2, timems: 20000, bv: 100 });
         expect(ids(sortVideos([slower, faster], 'bv', 1))).toEqual([1, 2]);
         expect(ids(sortVideos([faster, slower], 'bvs', 1))).toEqual([1, 2]);
         expect(ids(sortVideos([faster, slower], 'bvs', -1))).toEqual([2, 1]);
-        expect(sortValue(slower, 'bvs')).toBeCloseTo(2.5);
     });
 
     it('sorts dates and keeps an undefined order as the original order', () => {
@@ -116,14 +147,6 @@ describe('video list sorting', () => {
         expect(ids(sortVideos(videos, 'bv', 1))).toEqual([1, 2, 3]);
         expect(videos).toEqual(snapshot);
     });
-
-    it('uses custom level codes for the level sort value', () => {
-        const custom = makeVideo({ id: 1, level: 'c9_9_10' });
-        const standard = makeVideo({ id: 2, level: 'e' });
-        expect(sortValue(custom, 'level')).toBe('c9_9_10');
-        expect(sortValue(custom, 'stnb')).toBeNaN();
-        expect(ids(sortVideos([custom, standard], 'level', 1))).toEqual([1, 2]);
-    });
 });
 
 describe('video list slicing', () => {
@@ -137,25 +160,7 @@ describe('video list slicing', () => {
     });
 });
 
-describe('video list columns', () => {
-    it('keeps fixed sort and filter capabilities for each column family', () => {
-        expect(columnConfig('state')).toMatchObject({ sortable: false, filterable: true });
-        expect(columnConfig('player')).toMatchObject({ sortable: false, filterable: false });
-        expect(columnConfig('upload_time')).toMatchObject({ sortable: true, sortField: 'upload_time' });
-        expect(columnConfig('bv')).toMatchObject({ sortable: true, sortField: 'bv', filterable: false });
-        expect(columnConfig('file_size')).toMatchObject({ sortable: true, sortField: 'file_size' });
-    });
-
-    it('omits header labels only for the four filtered icon columns', () => {
-        expect(columnConfig('state').headLabel).toBe(false);
-        expect(columnConfig('software').headLabel).toBe(false);
-        expect(columnConfig('mode').headLabel).toBe(false);
-        expect(columnConfig('level').headLabel).toBe(false);
-        expect(columnConfig('player').headLabel).toBe(true);
-        expect(columnConfig('upload_time').headLabel).toBe(true);
-        expect(columnConfig('bv').headLabel).toBe(true);
-    });
-
+describe('column filter state', () => {
     it('marks a column filter active only when its selection is not full', () => {
         const filters = createVideoListFilters();
         const choices = ['state', 'software', 'mode', 'level'] as const;
@@ -171,6 +176,6 @@ describe('video list columns', () => {
         }
         expect(isColumnFilterActive('state', { ...filters, state: ['a', 'b', 'c', 'd'] }, false)).toBe(false);
         expect(isColumnFilterActive('state', { ...filters, state: ['a', 'b', 'c', 'd'] }, true)).toBe(true);
-        expect(isColumnFilterActive('bv', filters)).toBe(false);
+        expect(isColumnFilterActive('player', filters)).toBe(false);
     });
 });

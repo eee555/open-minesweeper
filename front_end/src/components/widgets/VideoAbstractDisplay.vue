@@ -10,76 +10,16 @@
             {{ resolvedVideo.mode ? t(`mode.code${resolvedVideo.mode}`) : '—' }}
         </span>
     </div>
-    <div class="description-layout" style="width: 32em; max-width: 100%;">
-        <dl class="descriptions descriptions-bordered descriptions-small">
-            <div v-if="uploadTime && state !== MS_State.Local" class="description-item description-wide">
-                <dt>{{ t('prop.upload_time') }}</dt>
+    <div v-if="descriptionItems.length > 0" class="description-layout" style="width: 32em; max-width: 100%;">
+        <dl class="descriptions descriptions-bordered descriptions-small video-abstract-description-grid">
+            <div v-for="entry in descriptionItems" :key="entry.id" class="description-item" :class="`description-width-${entry.width}`">
+                <dt>{{ videoColumnLabel(entry.column) }}</dt>
                 <dd>
-                    {{ toISODateTimeString(uploadTime) }}
-                </dd>
-            </div>
-
-            <div v-if="endTime" class="description-item description-wide">
-                <dt>{{ t('prop.end_time') }}</dt>
-                <dd>
-                    {{ toISODateTimeString(endTime) }}
-                </dd>
-            </div>
-
-            <div class="description-item">
-                <dt>{{ t('prop.time') }}</dt>
-                <dd>
-                    {{ displayStat('time') }}
-                </dd>
-            </div>
-            <div class="description-item">
-                <dt>{{ t('prop.bv') }}</dt>
-                <dd>
-                    {{ displayStat('bv') }}
-                </dd>
-            </div>
-            <div class="description-item">
-                <dt>{{ t('prop.stnb') }}</dt>
-                <dd>
-                    {{ displayStat('stnb') }}
-                </dd>
-            </div>
-
-            <div class="description-item">
-                <dt>{{ t('prop.bvs') }}</dt>
-                <dd>
-                    {{ displayStat('bvs') }}
-                </dd>
-            </div>
-            <div class="description-item">
-                <dt>{{ t('prop.cl_s') }}</dt>
-                <dd>
-                    {{ displayStat('cls') }}
-                </dd>
-            </div>
-            <div class="description-item">
-                <dt>{{ t('prop.ce_s') }}</dt>
-                <dd>
-                    {{ displayStat('ces') }}
-                </dd>
-            </div>
-
-            <div class="description-item">
-                <dt>{{ t('prop.ioe') }}</dt>
-                <dd>
-                    {{ displayStat('ioe') }}
-                </dd>
-            </div>
-            <div class="description-item">
-                <dt>{{ t('prop.thrp') }}</dt>
-                <dd>
-                    {{ displayStat('thrp') }}
-                </dd>
-            </div>
-            <div class="description-item">
-                <dt>{{ t('prop.corr') }}</dt>
-                <dd>
-                    {{ displayStat('corr') }}
+                    <template v-if="isFixedColumn(entry.column)">
+                        <VideoListCell v-if="fixedAvailable(entry.column.type)" :video="statistics" :choice="entry.column.type" />
+                        <span v-else>—</span>
+                    </template>
+                    <ExpressionValue v-else :result="expressionResults.get(entry.id) ?? invalidValue" />
                 </dd>
             </div>
         </dl>
@@ -98,13 +38,18 @@ import { useI18n } from 'vue-i18n';
 import SoftwareIcon from './SoftwareIcon.vue';
 import VideoStateIcon from './VideoStateIcon.vue';
 
+import { evaluateVideoColumn, isFixedColumn, prepareVideoColumn, videoColumnLabel } from '@/components/VideoList/columns';
+import type { FixedColumnType, VideoColumnResult } from '@/components/VideoList/columns';
+import { videoDescriptionStore } from '@/components/VideoList/columnStore';
+import ExpressionValue from '@/components/VideoList/ExpressionValue.vue';
+import VideoListCell from '@/components/VideoList/VideoListCell.vue';
 import { fetchVideoInfo, videoDisplayFields } from '@/services/videoInfoService';
 import type { VideoDisplayFields } from '@/services/videoInfoService';
 import { CustomLevel } from '@/utils/customlevel';
-import { toDate, toISODateTimeString } from '@/utils/datetime';
 import { isStandardLevel, MS_Softwares, MS_State } from '@/utils/ms_const';
 import { VideoAbstract } from '@/utils/videoabstract';
-import type { getStat_stat, VideoAbstractData } from '@/utils/videoabstract';
+import type { VideoAbstractData } from '@/utils/videoabstract';
+import { createVideoExpressionContext } from '@/utils/videoExpression';
 
 const props = defineProps({
     id: { type: Number as PropType<number | null>, default: undefined },
@@ -153,19 +98,18 @@ const statistics = computed(() => (resolvedVideo.value instanceof VideoAbstract
         bv: resolvedVideo.value.bv,
     })));
 
-function validDate(value: string | Date | null | undefined) {
-    const date = toDate(value);
-    return date !== undefined && Number.isFinite(date.getTime()) ? date : undefined;
-}
-
-const uploadTime = computed(() => {
-    const video = resolvedVideo.value;
-    return validDate(video instanceof VideoAbstract ? video.upload_time : video.upload_time ?? video.time);
+const { columns: descriptionColumns } = videoDescriptionStore;
+const descriptionItems = computed(() => descriptionColumns.value.map((column) => ({ ...prepareVideoColumn(column), width: column.width })));
+const expressionResults = computed(() => {
+    const source = resolvedVideo.value;
+    const context = createVideoExpressionContext(statistics.value, source instanceof VideoAbstract ? undefined : source);
+    return new Map(descriptionItems.value.filter((entry) => !isFixedColumn(entry.column)).map((entry) => [entry.id, evaluateVideoColumn(entry, context, true)]));
 });
-const endTime = computed(() => validDate(resolvedVideo.value.end_time));
-
-function displayStat(stat: getStat_stat): string {
-    return Number.isFinite(statistics.value[stat]) ? statistics.value.displayStat(stat) : '—';
+const invalidValue: VideoColumnResult = { text: 'NaN', sortValue: NaN, error: '' };
+function fixedAvailable(type: FixedColumnType): boolean {
+    const source = resolvedVideo.value;
+    const value = type === 'player' ? source.player_id ?? ('player' in source ? source.player : undefined) : source[type];
+    return value !== null && value !== undefined && value !== '';
 }
 
 const levelLabel = computed(() => {
@@ -197,3 +141,35 @@ const i18nMessages = {
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>
+
+<style scoped>
+.video-abstract-description-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.description-width-2 {
+    grid-column: span 2;
+}
+.description-width-3 {
+    grid-column: span 3;
+}
+.description-item dd {
+    white-space: pre-wrap;
+}
+@container descriptions (width < 20rem) {
+    .video-abstract-description-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .description-width-3 {
+        grid-column: span 2;
+    }
+}
+@container descriptions (width < 12rem) {
+    .video-abstract-description-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .description-width-2,
+    .description-width-3 {
+        grid-column: span 1;
+    }
+}
+</style>

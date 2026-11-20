@@ -15,13 +15,7 @@ function makeVideo(overrides: Partial<VideoAbstractData> = {}) {
 }
 
 describe('VideoAbstract', () => {
-    it('derives NF from right_ce independently of mode', () => {
-        for (const mode of ['00', '05', '10', '11'] as const) {
-            expect(makeVideo({ mode, right_ce: 0 }).isNF).toBe(true);
-            expect(makeVideo({ mode, right_ce: 1 }).isNF).toBe(false);
-            expect(makeVideo({ mode, right_ce: null }).isNF).toBe(false);
-            expect(makeVideo({ mode }).isNF).toBe(false);
-        }
+    it('preserves right_ce from Redis records independently of mode', () => {
         const video = VideoAbstract.fromVideoRedisInfo(1, {
             state: 'c',
             software: 'e',
@@ -34,7 +28,7 @@ describe('VideoAbstract', () => {
             identifier: '',
             right_ce: 0,
         });
-        expect(video.isNF).toBe(true);
+        expect(video.right_ce).toBe(0);
         expect(video.mode).toBe('05');
     });
 

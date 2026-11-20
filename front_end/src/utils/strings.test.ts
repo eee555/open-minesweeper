@@ -45,6 +45,12 @@ describe('strings', () => {
     });
 
     describe('formatBytes', () => {
+        it('handles fractional sizes and bounds units while rejecting invalid sizes', () => {
+            expect(formatBytes(0.5)).toBe('0.50 B');
+            expect(formatBytes(1024 ** 9)).toBe('1024 YB');
+            for (const value of [-1, NaN, Infinity, -Infinity]) expect(formatBytes(value)).toBe('NaN');
+        });
+
         it('Zero bytes', () => {
             expect(formatBytes(0)).toBe('0 B');
         });

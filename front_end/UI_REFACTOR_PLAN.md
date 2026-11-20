@@ -217,43 +217,11 @@ Slider 使用方涉及公共播放器；实施前检查 Analyzer 与离线入口
 
 #### 5.1 VideoList：VideoAbstract 专用原生表格（已实现）
 
-[`VideoList/App.vue`](src/components/VideoList/App.vue) 已弃用 PrimeVue DataTable，改用 BaseTable + 原生 HTML / CSS，保留筛选、单字段排序、分页和现有单元格操作。实现分为 [`videoListData.ts`](src/components/VideoList/videoListData.ts) 的纯数据逻辑、[`VideoListCell.vue`](src/components/VideoList/VideoListCell.vue) 的单元格、[`VideoListFilter.vue`](src/components/VideoList/VideoListFilter.vue) 的列头筛选与 `styles/videoList.css`。仅面向 `VideoAbstract`，按 `ColumnChoice` 定义固定列及其渲染、排序能力；不建设通用表格引擎或递归列注册体系，不引入其他表格库。
+录像列表已使用 BaseTable、BasePagination 和原生表头交互。BaseTable 只提供展示容器，筛选、稳定排序和分页由 VideoList 或页面按职责处理。
 
-当前 5 个直接调用方为首页 `NewestQueue.vue`、`ReviewQueue.vue`，个人主页 `UserVideoView.vue`，比赛 `common/PersonalView.vue` 与数据库 `DatabaseView/VideoView.vue`。VideoList 当前没有行选择、展开、编辑或固定列，这些能力不纳入本轮范围；其他 PrimeVue 表格保持独立迁移。
+两组表格列配置及全站 tooltip 配置集中在设置页，使用项目卡片样式，并共用固定 VideoAbstract 预览。字段支持、预设与默认配置、持久化及调用方分工统一维护在 [组件说明](src/components/VideoList/README.md)。数据库页保持后端筛选排序及分页，表头不提供筛选排序；个人主页与散点图共享筛选状态。
 
-职责与兼容边界：
-
-- BaseTable 继续只提供原生表格、滚动容器、空状态与公共样式；筛选、排序、分页状态及数据处理放在 VideoList 内，不向 BaseTable 增加交互引擎。
-- 保留 `videos`、`columns`、`paginator`、`paginatorRows`、`sortable`、`externalFiltering`，以及 `first`、`rows`、`sortField`、`sortOrder`、`filters` 的双向绑定和 `rowActions` 插槽；新增 `displayOnly` 供数据库查询页使用，新增 `includeLocal` 让外部筛选的调用方声明本地录像是否存在。保留默认排序；`sortable` 控制用户能否切换排序，不能顺带取消既有默认顺序。
-- 内部筛选仍覆盖状态、软件、等级与模式，列头按钮 + Tippy 弹层内复用 `SoftwareFilter` / `VideoStateFilter`，等级与模式均使用按钮组（等级单选、模式多选），选项数量少，弹层不再提供重置按钮；保留单选 / 多选、清空与空数组的实际语义，等级额外支持自定义等级，状态筛选在存在本地录像时提供 `l`。个人主页与 VideoList 共用同一份 `VideoListFilters` 与 `filterVideos`，不再维护页面专用的空数组语义。列头图标用 `pi-filter` / `pi-filter-fill` 区分未生效与生效的筛选器，`displayOnly` 关闭筛选时显示 `pi-filter-slash`。
-- 数据处理顺序为筛选 → 排序 → 分页。基于原始数值、日期及 `VideoAbstract` getter 排序，显示继续使用现有格式化逻辑；不按显示文字排序，不原地修改传入数组。非有限值、缺失 / 无效日期不论升降序恒排末尾，同值记录保持输入顺序。
-- 分页复用 5.0 的 BasePagination，`currentStart = first + 1`、`pageSize = rows`；区间显示为 `1-25` 等形式，允许任意起点。非空区间 `{ start, end }` 对应 `slice(start - 1, end)`，因为公开 `end` 是包含端点的索引，恰好对应数组切片的排除上界。保留首末页、上一页 / 下一页、每页条数 `[5, 10, 25, 50, 100]`、按起始索引跳转及记录数；筛选、用户切换排序或页容量后将 `first` 重置为 0，刷新后起始索引越界时修正，空结果单独处理。
-- 保留 `rowKey`，兼容本地 CSV 录像的占位显示与禁止预览、隐藏行操作等行为；保留玩家链接、软件说明浮层、录像预览和 `rowActions` 操作菜单，独立单元格操作不误触整行预览。
-- 表头排序采用原生按钮与 `aria-sort`，并通过 `SortIcon`、`sortState` 与 `nextSortOrder` 统一三态图标、状态判定和切换顺序（`pi-sort-amount-down` 表示降序、`pi-sort-amount-down-alt` 表示升序，未排序列使用中性图标 `pi-sort-alt`）：当前排序列用主色高亮并显示当前方向，其余列淡色显示中性图标；清除排序只取消高亮，图标仍按未排序列处理。`aria-sort` 仍绑定在 `<th>` 上，图标组件只消费状态；`nextSortOrder` 只返回下一顺序，字段写入、分页重置和后端请求仍由调用方负责。行预览保留鼠标操作并支持键盘触发；分页、筛选及操作菜单保留焦点、禁用和键盘行为。复用项目主题、公共列样式与 Tippy，支持深浅主题和容器内横向滚动。
-
-`externalFiltering` 只关闭内部筛选计算，列头筛选 UI 仍保留，状态由 `v-model:filters` 交给调用方，且不隐式关闭排序或分页；`displayOnly` 是仅由数据库查询页使用的显式纯展示开关，同时关闭筛选 UI、内部筛选、排序、切片与 BasePagination 渲染。各调用方维持以下分工，避免重复处理：
-
-| 场景 | 页面负责 | VideoList 负责 |
-| --- | --- | --- |
-| 首页最新 / 待审录像、比赛个人页 | 获取录像与配置展示列 | 内部筛选、分页；按原有配置开放排序切换 |
-| 个人主页 | 日期 / BV 范围选择、表格 / 散点切换及共享筛选状态（表格模式由列头弹层修改，散点模式保留页面一排控件） | 对传入结果排序、分页，双向同步状态并渲染列头筛选 UI；分页不影响散点收到的完整筛选结果 |
-| 数据库查询页 | 后端查询、筛选、排序和结果分页，以及页面自有的独立分页 UI（`data-cy=page-buttons` / `page-size`） | 传入 `displayOnly`，仅展示页面已切好的 `pageRows`，不重复排序或分页，也不渲染第二套分页器 |
-
-三批均已实施，以下保留拆分依据与仍需用户执行的验证。
-
-##### 5.1.1 提取专用数据处理逻辑（已完成）
-
-[`videoListData.ts`](src/components/VideoList/videoListData.ts) 提取仅服务 VideoAbstract 的筛选、稳定比较、结果切片与固定列配置，索引区间通用计算复用 5.0；`videoListData.test.ts` 覆盖组合筛选与清空、原始数值 / 日期及派生值排序、缺失值、稳定顺序、输入数组不变、筛选结果与任意起始索引切片衔接、本地录像和自定义等级。
-
-##### 5.1.2 切换原生表格与控件（已完成）
-
-VideoList 已接到上述逻辑，改用 BaseTable、BasePagination 与列头 Tippy 弹层；9 个 PrimeVue 列包装已删除，统一由 [`VideoListCell.vue`](src/components/VideoList/VideoListCell.vue) 的单元格内容替代，继续复用 PlayerName、SoftwareIcon、VideoStateIcon、GameLevelIcon 等业务组件。[`App.cy.ts`](src/components/VideoList/App.cy.ts) 覆盖筛选后翻页、排序重置、外部模型更新、行操作、本地录像与纯展示模式；深浅主题与窄容器仍需人工检查。
-
-##### 5.1.3 回归与依赖清理（代码已完成，运行验证待用户）
-
-`UserVideoView.cy.ts`、`VideoView.cy.ts`、`HomeView.cy.ts` 已改用 `[data-cy=video-list-table] table` 等稳定定位并移除不再需要的 PrimeVue 插件注册；E2E 沿用通用 `table:visible` 定位。VideoList 路径的 DataTable / Column / Listbox、筛选类型、列包装、样式导入与测试注册均已删除；仍服务其余表格的适配样式、注册和包依赖继续保留。
-
-待用户执行：Cypress 组件 spec、个人主页 / 数据库查询页 / 首页 / 比赛调用链的 E2E，以及生产构建与产物检查。验证重点为筛选 / 排序 / 翻页不新增录像请求、页码与排序状态双向同步、表格 / 散点切换、预览及独立单元格操作。加载性能收益以构建与测量结果为准，不把局部迁移视为整个项目已退出 PrimeVue。
+浏览器验证由用户执行，命令及覆盖范围见组件说明。其他 PrimeVue 表格继续按 5.2 独立迁移。
 
 #### 5.2 其他使用方与最终清理（a / b / c / d / e 已实施，运行验证待用户）
 

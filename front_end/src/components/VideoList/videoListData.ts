@@ -1,7 +1,10 @@
-import type { ColumnChoice, MS_Software } from '@/utils/ms_const';
+import { columnKey, isFixedColumn } from './columns';
+import type { FixedColumnType, VideoColumn } from './columns';
+
+import type { MS_Software } from '@/utils/ms_const';
 import { isStandardLevel, MS_Mode, MS_ServerStates, MS_Softwares, MS_State } from '@/utils/ms_const';
-import { getStat_keys } from '@/utils/videoabstract';
-import type { getStat_stat, VideoAbstract } from '@/utils/videoabstract';
+import type { VideoAbstract } from '@/utils/videoabstract';
+import { compileVideoExpression, createVideoExpressionContext, evaluateVideoExpression } from '@/utils/videoExpression';
 
 export const CUSTOM_LEVEL_FILTER = 'custom';
 
@@ -10,6 +13,7 @@ export interface VideoListFilters {
     software: MS_Software[];
     level: string | null;
     mode: string[];
+    bool: Record<string, { expr: string; value: boolean }>;
 }
 
 export function createVideoListFilters(): VideoListFilters {
@@ -18,10 +22,11 @@ export function createVideoListFilters(): VideoListFilters {
         software: [...MS_Softwares],
         level: null,
         mode: Object.values(MS_Mode),
+        bool: {},
     };
 }
 
-export function isColumnFilterActive(choice: ColumnChoice, filters: VideoListFilters, includeLocal = false): boolean {
+export function isColumnFilterActive(choice: FixedColumnType, filters: VideoListFilters, includeLocal = false): boolean {
     switch (choice) {
         case 'state': {
             const states: readonly string[] = includeLocal ? Object.values(MS_State) : MS_ServerStates;
@@ -43,61 +48,33 @@ export function filterVideos(videos: readonly VideoAbstract[], filters: VideoLis
     const states = new Set<string>(filters.state);
     const softwares = new Set<string>(filters.software);
     const modes = new Set<string>(filters.mode);
+    const boolFilters = Object.values(filters.bool).map((filter) => ({ ...filter, compiled: compileVideoExpression(filter.expr) }));
     return videos.filter((video) => states.has(video.state)
         && softwares.has(video.software)
         && modes.has(video.mode)
-        && (filters.level === null || levelMatches(video, filters.level)));
-}
+        && (filters.level === null || levelMatches(video, filters.level))
+        && matchesBoolFilters(video));
 
-export function isStatKey(field: string): field is getStat_stat {
-    return (getStat_keys as readonly string[]).includes(field);
-}
-
-export type SortValue = number | string | Date | null | undefined;
-
-export function sortValue(video: VideoAbstract, field: string): SortValue {
-    switch (field) {
-        case 'upload_time': return video.upload_time;
-        case 'end_time': return video.end_time;
-        case 'state': return video.state;
-        case 'software': return video.software;
-        case 'mode': return video.mode;
-        case 'level': return isStandardLevel(video.level) ? video.level : video.level.code;
-        case 'player': return video.player_id;
-        case 'file_size': return video.file_size;
-        default: {
-            if (!isStatKey(field)) return undefined;
-            const value: unknown = video[field];
-            return typeof value === 'number' ? value : undefined;
-        }
+    function matchesBoolFilters(video: VideoAbstract): boolean {
+        if (boolFilters.length === 0) return true;
+        const context = createVideoExpressionContext(video);
+        return boolFilters.every((filter) => {
+            const result = evaluateVideoExpression(filter.compiled, context);
+            return result.error === '' && result.value === filter.value;
+        });
     }
 }
 
-export function isMissingSortValue(value: SortValue): boolean {
-    if (value === undefined || value === null) return true;
-    if (typeof value === 'number') return !Number.isFinite(value);
-    if (value instanceof Date) return !Number.isFinite(value.getTime());
-    return false;
+function compareSortValues(a: number | undefined, b: number | undefined, order: number): number {
+    if (a === undefined || !Number.isFinite(a)) return b === undefined || !Number.isFinite(b) ? 0 : 1;
+    if (b === undefined || !Number.isFinite(b)) return -1;
+    return Math.sign(a - b) * (order < 0 ? -1 : 1);
 }
 
-function compareDefinedValues(a: SortValue, b: SortValue): number {
-    if (typeof a === 'number' && typeof b === 'number') return Math.sign(a - b);
-    if (a instanceof Date && b instanceof Date) return Math.sign(a.getTime() - b.getTime());
-    return String(a).localeCompare(String(b));
-}
-
-export function compareSortValues(a: SortValue, b: SortValue, order: number): number {
-    const aMissing = isMissingSortValue(a);
-    const bMissing = isMissingSortValue(b);
-    if (aMissing !== bMissing) return aMissing ? 1 : -1;
-    if (aMissing) return 0;
-    return compareDefinedValues(a, b) * (order < 0 ? -1 : 1);
-}
-
-export function sortVideos(videos: readonly VideoAbstract[], field: string, order: number | undefined): VideoAbstract[] {
+export function sortVideos(videos: readonly VideoAbstract[], order: number | undefined, valueFor: (video: VideoAbstract) => number | undefined): VideoAbstract[] {
     const result = [...videos];
-    if (order === undefined || order === 0 || field === '') return result;
-    const decorated = result.map((video, index) => ({ video, index, value: sortValue(video, field) }));
+    if (order === undefined || order === 0) return result;
+    const decorated = result.map((video, index) => ({ video, index, value: valueFor(video) }));
     decorated.sort((a, b) => compareSortValues(a.value, b.value, order) || a.index - b.index);
     return decorated.map((entry) => entry.video);
 }
@@ -116,16 +93,15 @@ export interface VideoListColumnConfig {
     headLabel: boolean;
 }
 
-export function columnConfig(choice: ColumnChoice): VideoListColumnConfig {
+export function columnConfig(column: VideoColumn): VideoListColumnConfig {
+    if (column.type === 'bool') return { sortable: false, sortField: columnKey(column), cellClass: 'video-list__col-icon', filterable: true, headLabel: false };
+    if (!isFixedColumn(column)) return { sortable: true, sortField: columnKey(column), cellClass: column.type === 'date' ? 'table-col-datetime' : 'table-col-number', filterable: false, headLabel: true };
+    const choice = column.type;
     switch (choice) {
-        case 'state': return { sortable: false, sortField: 'state', cellClass: 'video-list__col-icon', filterable: true, headLabel: false };
-        case 'software': return { sortable: false, sortField: 'software', cellClass: 'video-list__col-icon', filterable: true, headLabel: false };
+        case 'state':
+        case 'software':
+        case 'level': return { sortable: false, sortField: choice, cellClass: 'video-list__col-icon', filterable: true, headLabel: false };
         case 'mode': return { sortable: false, sortField: 'mode', cellClass: 'table-col-mode', filterable: true, headLabel: false };
-        case 'level': return { sortable: false, sortField: 'level', cellClass: 'video-list__col-icon', filterable: true, headLabel: false };
         case 'player': return { sortable: false, sortField: 'player', cellClass: 'table-col-player', filterable: false, headLabel: true };
-        case 'upload_time': return { sortable: true, sortField: 'upload_time', cellClass: 'table-col-datetime', filterable: false, headLabel: true };
-        case 'end_time': return { sortable: true, sortField: 'end_time', cellClass: 'table-col-datetime', filterable: false, headLabel: true };
-        case 'file_size': return { sortable: true, sortField: 'file_size', cellClass: 'table-col-number', filterable: false, headLabel: true };
-        default: return { sortable: true, sortField: choice, cellClass: 'table-col-number', filterable: false, headLabel: true };
     }
 }

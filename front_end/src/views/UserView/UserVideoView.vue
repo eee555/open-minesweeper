@@ -8,9 +8,6 @@
         <BaseButton size="small" :loading="loading" data-cy="refresh-videos" @click="refresh">
             {{ t('action.refresh') }}
         </BaseButton>
-        <BaseButton v-if="presentation === 'table'" class="square-button" :type="showSetting ? 'primary' : 'default'" :aria-label="t('local.columns')" :aria-pressed="showSetting" @click="showSetting = !showSetting">
-            <BaseIconSetting />
-        </BaseButton>
     </div>
     <ArbiterCsvImport v-if="isOwnProfile && showCsvImport" :id="csvPanelId" :enabled="valid && !loading" :reading="csvReading" :has-csv="hasCsv" :filename="csvFilename" :count="localVideos.length" :issues="csvIssues" :failure="csvFailure" @import="importFile" @clear="clearCsv" />
     <p v-if="loading" role="status">
@@ -62,11 +59,10 @@
                 <ElOption v-for="mode in Object.values(MS_Mode)" :key="mode" :value="mode" :label="t(`mode.code${mode}`)" />
             </ElSelect>
         </div>
-        <MultiSelector v-if="presentation === 'table' && showSetting" v-model="VideoListConfig.profile" :options="thisColumnChoices" :labels="thisColumnChoices.map((s) => t(`prop.${s}`))" />
         <VideoList
             v-if="presentation === 'table'"
             v-model:filters="filters" v-model:first="first" v-model:rows="rows" v-model:sort-field="sortField" v-model:sort-order="sortOrder"
-            :videos="filteredVideos" :columns="VideoListConfig.profile" :include-local="localVideos.length > 0" sortable paginator external-filtering
+            :videos="filteredVideos" :columns="columns" :include-local="localVideos.length > 0" sortable paginator external-filtering
         >
             <template v-if="isOwnProfile" #rowActions="{ video, close }">
                 <BaseButton text :disabled="!video.ongoing_tournament || revealing" data-cy="reveal-video" @click="requestReveal(video.id); close()">
@@ -109,20 +105,20 @@ import type { VideoSelection } from './videoSelection';
 import BaseButton from '@/components/common/BaseButton.vue';
 import BaseButtonConfirm from '@/components/common/BaseButtonConfirm.vue';
 import BaseCardNormal from '@/components/common/BaseCardNormal.vue';
-import { BaseIconSetting, BaseIconShow } from '@/components/common/icon';
+import { BaseIconShow } from '@/components/common/icon';
 import SoftwareFilter from '@/components/Filters/SoftwareFilter.vue';
 import VideoStateFilter from '@/components/Filters/VideoStateFilter.vue';
 import { actionSuccessNotification, httpErrorNotification } from '@/components/Notifications';
 import VideoList from '@/components/VideoList/App.vue';
+import { defaultVideoSortField } from '@/components/VideoList/columns';
+import { videoColumnStore } from '@/components/VideoList/columnStore';
 import type { VideoListFilters } from '@/components/VideoList/videoListData';
 import { createVideoListFilters, filterVideos } from '@/components/VideoList/videoListData';
-import MultiSelector from '@/components/widgets/MultiSelector.vue';
 import UserArbiterCSV from '@/components/widgets/UserArbiterCSV.vue';
 import { revealUserVideo } from '@/services/userService';
-import { activityCalendarConfig, BBBvSummaryConfig, store, VideoListConfig } from '@/store';
-import { ArrayUtils } from '@/utils/arrays';
+import { activityCalendarConfig, BBBvSummaryConfig, store } from '@/store';
 import { LoginStatus } from '@/utils/common/structInterface';
-import { ColumnChoices, MS_Levels, MS_Mode } from '@/utils/ms_const';
+import { MS_Levels, MS_Mode } from '@/utils/ms_const';
 import type { MS_Level } from '@/utils/ms_const';
 import { UserProfile } from '@/utils/userprofile';
 
@@ -145,7 +141,8 @@ const selection = ref<VideoSelection>({ kind: 'all' });
 const filters = ref<VideoListFilters>(createVideoListFilters());
 const first = ref(0);
 const rows = ref(25);
-const sortField = ref('upload_time');
+const { columns } = videoColumnStore('fixed-player');
+const sortField = ref(defaultVideoSortField(columns.value));
 const sortOrder = ref<number | undefined>(-1);
 const selectedVideos = computed(() => selectProfileVideos(displayVideos.value, selection.value, activityCalendarConfig.value.useEndTime));
 const filteredVideos = computed(() => filterVideos(selectedVideos.value, filters.value));
@@ -189,9 +186,6 @@ watch([() => user.value.id, viewerKey], () => {
     first.value = 0;
 });
 
-const showSetting = ref(false);
-const thisColumnChoices = ArrayUtils.sortByReferenceOrder(['bv', 'bvs', 'stnb', 'ces', 'cls', 'corr', 'end_time', 'ioe', 'level', 'state', 'software', 'thrp', 'time', 'upload_time', 'path', 'pluck', 'file_size', 'mode'], ColumnChoices);
-
 const dialogVisible = ref(false);
 const selectedVideoId = ref<number>();
 const revealing = ref(false);
@@ -226,7 +220,6 @@ watch([() => user.value.id, viewerKey], () => {
 
 const i18nMessages = {
     'zh-cn': { local: {
-        columns: '选择显示列',
         importCsv: '导入CSV',
         loading: '正在加载录像…',
         failed: '录像加载失败，请点击刷新重试。',
@@ -247,7 +240,6 @@ const i18nMessages = {
         confirmReveal: '公开后所有人都能观看此录像，且无法重新隐藏。录像仍计入其参加的所有比赛。确定公开吗？',
     } },
     en: { local: {
-        columns: 'Select columns',
         importCsv: 'Import CSV',
         loading: 'Loading videos…',
         failed: 'Could not load videos. Refresh to retry.',
@@ -268,7 +260,6 @@ const i18nMessages = {
         confirmReveal: 'Everyone will be able to watch this video, and it cannot be hidden again. It will still count in all its tournaments. Reveal it?',
     } },
     es: { local: {
-        columns: 'Seleccionar columnas',
         importCsv: 'Importar CSV',
         loading: 'Cargando videos…',
         failed: 'No se pudieron cargar los videos. Refresca para intentarlo de nuevo.',
