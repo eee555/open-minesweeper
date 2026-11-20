@@ -5,6 +5,8 @@ import HistoryVideos from './HistoryVideos.vue';
 import i18n from '@/i18n';
 import { MS_State } from '@/utils/ms_const';
 
+const importFailure = 'The history import operation failed. Please try again.';
+
 describe('<GSC HistoryVideos />', () => {
     it('retries preparation after a lost response and uploads using the returned participant', () => {
         cy.intercept('POST', '**/api/tournament/gsc/history/prepare', { body: { id: 324, manual_scores: false } }).as('prepare');
@@ -73,17 +75,17 @@ describe('<GSC HistoryVideos />', () => {
         cy.get('[data-cy=history-videos-submit]').click();
         cy.wait('@prepare');
         cy.wait('@bind');
-        cy.wait('@upload');
+        cy.wait('@upload').its('response.statusCode').should('eq', 500);
         cy.wait('@upload');
         cy.get('[data-cy=history-binding-results]').should('contain.text', 'Ownership conflict');
         cy.get('[data-cy=history-video-results] table').getTable().should((rows) => {
             expect(rows[0].File).to.equal('first.evf');
             expect(rows[0]['Upload time']).to.equal(firstTime);
-            expect(rows[0].Result).to.contain('500');
+            expect(rows[0].Result).to.equal(importFailure);
         });
         cy.get('[data-cy=history-videos-submit]').click();
         cy.wait('@upload');
-        cy.get('[data-cy=history-video-results]').should('contain.text', `Replay #901 / ${MS_State.Identifier}`).and('not.contain.text', '500');
+        cy.get('[data-cy=history-video-results]').should('contain.text', `Replay #901 / ${MS_State.Identifier}`).and('not.contain.text', importFailure);
         cy.get('@prepare.all').should('have.length', 1);
         cy.get('@bind.all').should('have.length', 1);
         cy.then(() => expect(times).to.deep.equal([firstTime, anchor, firstTime]));
@@ -156,13 +158,14 @@ describe('<GSC HistoryVideos />', () => {
         cy.get('[data-cy=history-videos-submit]').click();
         cy.wait('@prepare');
         cy.wait('@bind');
-        cy.wait('@bind');
-        cy.get('[role=alert]').should('contain.text', '500');
+        cy.wait('@bind').its('response.statusCode').should('eq', 500);
+        cy.get('[role=alert]').should('contain.text', importFailure).and('contain.text', 'Completed steps were saved. Retry the remaining steps.').and('not.contain.text', '500');
         cy.get('@upload.all').should('have.length', 0);
         cy.get('[data-cy=history-videos-submit]').should('contain.text', 'Continue linking and upload').click();
         cy.wait('@bind');
         cy.wait('@upload');
         cy.wait('@upload');
+        cy.get('[role=alert]').should('not.exist');
         cy.get('@prepare.all').should('have.length', 1);
         cy.get('@bind.all').should('have.length', 3);
         cy.then(() => {

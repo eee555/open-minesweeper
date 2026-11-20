@@ -14,7 +14,8 @@
         </BaseButton>
     </div>
     <p v-if="error" role="alert">
-        {{ error }}
+        {{ error }}<br>
+        {{ t('local.retryPending') }}
     </p>
     <ul>
         <li v-for="issue in parseIssues" :key="issue">
@@ -59,7 +60,7 @@ const emit = defineEmits<{ imported: [] }>();
 const i18nMessages = {
     'zh-cn': { local: {
         replayResult: '录像 #{id} / {state}',
-        retryPending: '{reason}。已完成步骤已保留，请重试未完成步骤。',
+        retryPending: '已完成步骤已保留，请重试未完成步骤。',
         conflict: '归属冲突，跳过绑定',
         bindAndUpload: '绑定标识并上传',
         resumeBinding: '继续绑定并上传',
@@ -79,7 +80,7 @@ const i18nMessages = {
     } },
     en: { local: {
         replayResult: 'Replay #{id} / {state}',
-        retryPending: '{reason}. Completed steps were saved. Retry the remaining steps.',
+        retryPending: 'Completed steps were saved. Retry the remaining steps.',
         conflict: 'Ownership conflict, skipped',
         bindAndUpload: 'Link identifiers and upload',
         resumeBinding: 'Continue linking and upload',
@@ -99,7 +100,7 @@ const i18nMessages = {
     } },
     es: { local: {
         replayResult: 'Repetición #{id} / {state}',
-        retryPending: '{reason}. Se han guardado los pasos completados. Reintenta los pendientes.',
+        retryPending: 'Se han guardado los pasos completados. Reintenta los pendientes.',
         conflict: 'Conflicto de titularidad. Se omitió la vinculación',
         bindAndUpload: 'Vincular identificadores y subir',
         resumeBinding: 'Continuar la vinculación y subir',
@@ -215,7 +216,7 @@ async function upload() {
             }
         }
     } catch (reason) {
-        error.value = t('local.retryPending', { reason: historyErrorText(reason) });
+        error.value = historyErrorText(reason);
     } finally {
         busy.value = false;
         emit('imported');

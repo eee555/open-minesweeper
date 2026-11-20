@@ -34,7 +34,7 @@ const emit = defineEmits<{ imported: [] }>();
 const i18nMessages = {
     'zh-cn': { local: {
         batchSuccess: '第 {order} 届，CSV 行 {lines}：成功 {count} 条',
-        batchFailed: '第 {order} 届，CSV 行 {lines}：{reason}。后续批次未提交。超时可能已写入，请先核对管理列表，再用仅含剩余记录的 CSV 重试。',
+        batchFailed: '第 {order} 届，CSV 行 {lines}。{reason}后续批次未提交。超时可能已写入，请先核对管理列表，再用仅含剩余记录的 CSV 重试。',
         unsent: '未提交 CSV 行：{lines}',
         milliseconds: '。成绩单位：毫秒。',
         csvHeader: 'CSV 表头：',
@@ -45,7 +45,7 @@ const i18nMessages = {
     } },
     en: { local: {
         batchSuccess: 'Edition {order}, CSV rows {lines}: {count} imported',
-        batchFailed: 'Edition {order}, CSV rows {lines}: {reason}. Later batches were not submitted. A timeout can occur after a write. Check the list before retrying with a CSV containing only the remaining rows.',
+        batchFailed: 'Edition {order}, CSV rows {lines}. {reason} Later batches were not submitted. A timeout can occur after a write. Check the list before retrying with a CSV containing only the remaining rows.',
         unsent: 'CSV rows not submitted: {lines}',
         milliseconds: '. Scores are in milliseconds.',
         csvHeader: 'CSV header: ',
@@ -56,7 +56,7 @@ const i18nMessages = {
     } },
     es: { local: {
         batchSuccess: 'Edición {order}, filas {lines} del CSV: {count} importadas',
-        batchFailed: 'Edición {order}, filas {lines} del CSV: {reason}. Los lotes posteriores no se enviaron. Si caducó la solicitud, es posible que se haya guardado. Comprueba la lista antes de reintentar con un CSV que contenga solo las filas pendientes.',
+        batchFailed: 'Edición {order}, filas {lines} del CSV. {reason} Los lotes posteriores no se enviaron. Si caducó la solicitud, es posible que se haya guardado. Comprueba la lista antes de reintentar con un CSV que contenga solo las filas pendientes.',
         unsent: 'Filas del CSV sin enviar: {lines}',
         milliseconds: '. Las puntuaciones se expresan en milisegundos.',
         csvHeader: 'Cabecera del CSV: ',
