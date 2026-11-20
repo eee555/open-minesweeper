@@ -6,7 +6,9 @@ from unittest.mock import patch
 from django.conf import settings
 from django.core.cache import caches
 from django.core.management import call_command
+from django.db import connection
 from django.test import override_settings, RequestFactory, TestCase
+from django.test.utils import CaptureQueriesContext
 from django_redis import get_redis_connection
 
 from msuser.models import UserMS
@@ -148,6 +150,19 @@ class VideoInfoTests(TestCase):
         response = self.client.get('/api/video/query', {'filters': filters, 'sorts': sorts})
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual([row['id'] for row in response.json()['videos']], [self.video.pk])
+
+    def test_query_uses_only_requested_sort_keys_and_defaults_to_id_when_empty(self):
+        for sorts, expected in (
+            ([], '1 ASC'),
+            ([{'field': 'bvs', 'direction': 'desc'}], '`videomanager_videomodel`.`bvs` DESC'),
+            ([{'field': 'bvs', 'direction': 'desc'}, {'field': 'timems'}], '`videomanager_videomodel`.`bvs` DESC, `videomanager_videomodel`.`timems` ASC'),
+            ([{'field': 'id', 'direction': 'desc'}], '1 DESC'),
+        ):
+            with self.subTest(sorts=sorts), CaptureQueriesContext(connection) as queries:
+                response = self.client.get('/api/video/query', {'sorts': json.dumps(sorts)})
+                self.assertEqual(response.status_code, 200, response.content)
+                sql = next(query['sql'] for query in queries if 'FROM `videomanager_videomodel`' in query['sql'])
+                self.assertEqual(sql.split(' ORDER BY ')[1].split(' LIMIT ')[0], expected)
 
     def test_batch_loads_expanded_fields_without_per_video_queries(self):
         from .api import get_static_video_detail_batch
