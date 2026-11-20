@@ -52,13 +52,19 @@ describe('<VideoAbstractDisplay />', () => {
             { id: 'values', type: 'data', key: 'Values', expr: '[bv, timems / 1000]', width: 2 },
         ];
         const video = new VideoAbstract({ id: 1, software: 'a', mode: '00', level: 'c16_30_150', bv: 100, timems: 12345, right_ce: 1 });
-        cy.mount(defineComponent({ expose: [], render: () => h('div', { style: 'width: 180px' }, [h(VideoAbstractDisplay, { video })]) }), { global: { plugins: [i18n] } });
+        cy.mount(defineComponent({ expose: [], render: () => h('div', { style: 'width: 11rem' }, [h(VideoAbstractDisplay, { video })]) }), { global: { plugins: [i18n] } });
         cy.get('.descriptions dt').eq(0).should('have.text', 'time');
         cy.get('.descriptions dd').eq(0).should('have.text', 'c16_30_150');
         cy.get('.descriptions [role=img]').should('have.attr', 'aria-label', 'false').and('have.class', 'text-danger').find('.pi-times').should('exist');
         cy.get('.descriptions dd').eq(2).should('contain.text', '100').and('contain.text', '12.345');
-        cy.get('.description-width-3').should(($item) => {
-            expect(getComputedStyle($item[0]).gridColumnEnd).to.equal('span 1');
+        cy.get('.descriptions').should(($grid) => {
+            const [grid] = $grid;
+            const items = [...grid.children].map((item) => item.getBoundingClientRect());
+            expect(items).to.have.length(3);
+            items.forEach((item, index) => {
+                expect(item.width).to.be.closeTo(grid.clientWidth, 0.5);
+                if (index > 0) expect(item.top).to.be.at.least(items[index - 1].bottom - 0.5);
+            });
         });
         cy.then(() => {
             videoDescriptionStore.columns.value = [];
