@@ -446,7 +446,7 @@ interface QueryState {
 }
 
 function syncUrl(): void {
-    if (window.top !== window) return;
+    if (window.top !== window || !hasQueryState) return;
     try {
         const state: QueryState = {
             filters: filterTags.value.map((tag) => ({ ...tag, selected: [...tag.selected] })),
@@ -471,6 +471,7 @@ function restoreUrl(): void {
         if (raw === null) return;
         const state = JSON.parse(raw) as QueryState;
         if (!Array.isArray(state.filters) || !Array.isArray(state.sorts)) return;
+        hasQueryState = true;
         filterTags.value = state.filters;
         sortRules.value = state.sorts;
         nextTagId = Math.max(0, ...filterTags.value.map((tag) => tag.id), ...sortRules.value.map((rule) => rule.id)) + 1;
@@ -485,6 +486,7 @@ const QUERY_DEBOUNCE_MS = 5000;
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 let controller: AbortController | undefined;
 let revision = 0;
+let hasQueryState = false;
 
 async function runQuery(): Promise<void> {
     controller?.abort();
@@ -518,9 +520,11 @@ function scheduleQuery(): void {
 
 restoreUrl();
 watch([filterTags, sortRules], () => {
+    hasQueryState = true;
     scheduleQuery();
 }, { deep: true });
 watch([pageSize, currentPage], () => {
+    hasQueryState = true;
     syncUrl();
 });
 onActivated(() => {
