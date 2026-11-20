@@ -37,6 +37,12 @@ const i18nMessages = {
         end: 'End',
         duration: 'Duration',
     } },
+    es: { local: {
+        time: 'Tiempo',
+        start: 'Iniciar',
+        end: 'Fin',
+        duration: 'Duración',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

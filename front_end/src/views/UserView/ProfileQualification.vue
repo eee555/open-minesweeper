@@ -28,6 +28,10 @@ const i18nMessages = {
         loading: 'Checking avatar/signature eligibility…',
         failed: 'Could not check eligibility.',
     } },
+    es: { local: {
+        loading: 'Verificando la elegibilidad del avatar/firma…',
+        failed: 'No se pudo verificar la elegibilidad.',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

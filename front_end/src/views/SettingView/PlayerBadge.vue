@@ -1,7 +1,7 @@
 <template>
     <section class="card" data-cy="player-badge-settings">
         <h2 class="card-title">
-            Player Badge
+            {{ t('local.playerBadge') }}
         </h2>
         <div class="description-layout">
             <dl class="descriptions">
@@ -17,13 +17,13 @@
                         <label>
                             {{ t('prop.format') }}
                             <select v-model="local.playerNameFormat" class="player-name-select" :aria-label="t('local.playerNameFormat')" data-cy="player-name-format">
-                                <option value="name1">name1</option>
-                                <option value="name1 (name2)">name1 (name2)</option>
+                                <option value="name1">{{ t('local.name1') }}</option>
+                                <option value="name1 (name2)">{{ t('local.name1') }} ({{ t('local.name2') }})</option>
                             </select>
                         </label>
                         <label v-for="slot in playerNameSlots" v-show="slot === 'playerName1' || local.playerNameFormat === 'name1 (name2)'" :key="slot">
-                            {{ slot === 'playerName1' ? 'name1' : 'name2' }}
-                            <select v-model="local[slot]" class="player-name-select" :aria-label="slot === 'playerName1' ? 'name1' : 'name2'" :data-cy="slot === 'playerName1' ? 'player-name-1' : 'player-name-2'">
+                            {{ t(slot === 'playerName1' ? 'local.name1' : 'local.name2') }}
+                            <select v-model="local[slot]" class="player-name-select" :aria-label="t(slot === 'playerName1' ? 'local.name1' : 'local.name2')" :data-cy="slot === 'playerName1' ? 'player-name-1' : 'player-name-2'">
                                 <option value="realname">{{ t('prop.localName') }}</option>
                                 <option value="international">{{ t('prop.internationalName') }}</option>
                                 <option value="username">{{ t('form.username') }}</option>
@@ -65,6 +65,9 @@ const nameOrderRadioName = `name-order-${useId()}`;
 
 const i18nMessages = {
     'zh-cn': { local: {
+        playerBadge: '玩家名牌',
+        name1: '名称1',
+        name2: '名称2',
         nameFormat: '英文名格式',
         nameFormatFirstLast: '名 姓',
         nameFormatLastFirst: '姓, 名',
@@ -73,12 +76,26 @@ const i18nMessages = {
         playerNameFormat: '名字格式化规则',
     } },
     en: { local: {
+        playerBadge: 'Player Badge',
+        name1: 'name1',
+        name2: 'name2',
         nameFormat: 'International name format',
         nameFormatFirstLast: 'Given Family',
         nameFormatLastFirst: 'Family, Given',
         nameFormatTooltip: 'Display format for international names',
         playerAvatar: 'Show player avatars',
         playerNameFormat: 'Player name format',
+    } },
+    es: { local: {
+        playerBadge: 'Insignia de jugador',
+        name1: 'nombre1',
+        name2: 'nombre2',
+        nameFormat: 'Formato internacional para nombres',
+        nameFormatFirstLast: 'Nombre Apellido',
+        nameFormatLastFirst: 'Apellido, Nombre',
+        nameFormatTooltip: 'Formato de visualización para nombres internacionales',
+        playerAvatar: 'Mostrar avatares del jugador',
+        playerNameFormat: 'Formato del nombre del jugador',
     } },
 };
 

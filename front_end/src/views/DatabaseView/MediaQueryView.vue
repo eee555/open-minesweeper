@@ -142,6 +142,15 @@ const i18nMessages = {
         search: 'Search',
         searchFailed: 'Search failed',
     } },
+    es: { local: {
+        field: 'Campo',
+        fieldTitle: 'Título',
+        fieldSuffix: 'Identificador externo',
+        mode: 'Tipo de coincidencia',
+        value: 'Consultar',
+        search: 'Buscar',
+        searchFailed: 'Búsqueda fallida',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

@@ -5,7 +5,7 @@ import type { WeeklyVideoScore } from './weekly';
 
 export function weeklyEffVideoScore(video: Pick<VideoAbstract, 'timems' | 'cl' | 'bv'>): number {
     if (![video.timems, video.cl, video.bv].every((value) => Number.isFinite(value) && value > 0)) return NaN;
-    return video.timems * video.cl / (1000 * video.bv);
+    return video.timems * video.cl ** 2 / (1000 * video.bv ** 2);
 }
 
 export function isWeeklyEffSupportedVideo(video: VideoAbstract): boolean {

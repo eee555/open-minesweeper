@@ -18,7 +18,7 @@ npm.cmd run build:offline
 
 解压后双击 index.html，在信息区选择或拖入 EVF、AVF、MVF、RMV。无需本地 HTTP 服务、联网缓存或 Service Worker；导出期间禁止更换文件。
 
-包内包含主 HTML、version.json、README.txt、COPYRIGHT.txt、项目 LICENSE、第三方许可证和中英文 help/。信息区内的 README/COPYRIGHT details 与 ZIP 复制同一份正文；语言切换保存到本地设置。用户说明见 [README.txt](./README.txt)，版本与发布管理见 [VERSIONING.md](./VERSIONING.md)。
+包内包含主 HTML、version.json、README.txt、COPYRIGHT.txt、项目 LICENSE、第三方许可证和中英西三种语言的 help/。信息区内的 README/COPYRIGHT details 与 ZIP 复制同一份正文；语言切换保存到本地设置。用户说明见 [README.txt](./README.txt)，版本与发布管理见 [VERSIONING.md](./VERSIONING.md)。
 
 ## 资源与构建边界
 

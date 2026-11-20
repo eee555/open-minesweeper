@@ -92,6 +92,9 @@ const i18nMessages = {
     en: { local: {
         description: 'Classic Minesweeper 95 is a newly released WeChat Mini Program that supports EVF export, Open Minesweeper account link & video upload. It includes a tutorial and a PVP mode. It has 4 seasons each year, and the winner can get a prize. Since its reliability is yet to be tested, the videos uploaded through it are temporarily marked as ',
     } },
+    es: { local: {
+        description: 'Classic Minesweeper 95 es una nueva aplicación de WeChat Mini Program que soporta la exportación de EVF, enlace de cuenta de Open Minesweeper y subida de video. Incluye una guía y un modo PVP. Tiene 4 temporadas al año, y el ganador puede obtener una recompensa. Dado que su fiabilidad aún no ha sido probada, los videos subidos a través de ella están temporalmente marcados como ',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

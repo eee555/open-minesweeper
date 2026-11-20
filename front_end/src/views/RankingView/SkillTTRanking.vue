@@ -44,6 +44,9 @@ const i18nMessages = {
     en: { local: {
         views: 'Views',
     } },
+    es: { local: {
+        views: 'Vistas',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 

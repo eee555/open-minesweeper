@@ -155,6 +155,18 @@ const i18nMessage = {
         sign: 'Signature',
         videoCount: 'Videos',
     } },
+    es: { local: {
+        articleCount: 'Artículos',
+        follower: 'Seguidores',
+        following: 'Seguidos',
+        level: 'Nivel',
+        name: 'Nombre',
+        officialTitle: 'Identidad',
+        opusCount: 'Publicaciones',
+        profile: 'Perfil',
+        sign: 'Firma',
+        videoCount: 'Repeticiones',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessage });

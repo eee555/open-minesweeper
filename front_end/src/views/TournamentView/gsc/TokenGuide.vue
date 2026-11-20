@@ -122,6 +122,9 @@ const i18nMessages = {
     en: { local: {
         registeredPreparing: 'Registered. The tournament token and Arbiter identifier registration will be available when the tournament starts.',
     } },
+    es: { local: {
+        registeredPreparing: 'Registrado. El token del torneo y el identificador del árbitro estarán disponibles cuando comience el torneo.',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

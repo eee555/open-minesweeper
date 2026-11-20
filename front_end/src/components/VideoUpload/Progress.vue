@@ -68,6 +68,15 @@ const i18nMessages = {
         uploadFailed: 'Failed',
         toUpload: 'Queueing',
     } },
+    es: { local: {
+        parsing: 'Analizando archivos: {0}/{1}',
+        parsed: 'Analizado',
+        toParse: 'Sin analizar',
+        uploading: 'Subiendo: {0}/{1}',
+        uploaded: 'Subido',
+        uploadFailed: 'Fallido',
+        toUpload: 'En cola',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

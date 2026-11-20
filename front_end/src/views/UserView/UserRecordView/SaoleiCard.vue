@@ -45,11 +45,23 @@ import type { SaoleiField, SaoleiPlayerRecord, SaoleiRankingName } from '@/servi
 const props = defineProps({
     userId: { type: Number, required: true },
 });
+const i18nMessages = {
+    'zh-cn': { local: {
+        loadFailed: '竞速纪录加载失败',
+    } },
+    en: { local: {
+        loadFailed: 'Could not load speed records',
+    } },
+    es: { local: {
+        loadFailed: 'No se pudieron cargar los récords de velocidad',
+    } },
+};
+const { t } = useI18n({ messages: i18nMessages });
+
 const records = ref<Partial<Record<SaoleiRankingName, SaoleiPlayerRecord>>>({});
 const loading = ref(false);
 const rankingNames: SaoleiRankingName[] = ['saolei', 'saolei_nf'];
 const levels = [...SaoleiLevels, 'sum'] as const;
-const { t } = useI18n();
 
 watch([() => props.userId, () => profileDataRevision(props.userId)], async ([userId], _, onCleanup) => {
     let active = true;
@@ -64,7 +76,7 @@ watch([() => props.userId, () => profileDataRevision(props.userId)], async ([use
         const data = await fetchProfileSaoleiRecords(userId);
         if (active) records.value = data;
     } catch {
-        if (active) ElMessage.error({ message: '竞速纪录加载失败', offset: 68 });
+        if (active) ElMessage.error({ message: t('local.loadFailed'), offset: 68 });
     } finally {
         if (active) loading.value = false;
     }

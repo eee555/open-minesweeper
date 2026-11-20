@@ -26,6 +26,10 @@ const i18nMessages = {
         autoUploadAfterParse: 'Auto-upload after parsing',
         autoRemoveAfterUpload: 'Auto-remove after uploading',
     } },
+    es: { local: {
+        autoUploadAfterParse: 'Subir automáticamente tras el análisis',
+        autoRemoveAfterUpload: 'Quitar automáticamente tras la subida',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

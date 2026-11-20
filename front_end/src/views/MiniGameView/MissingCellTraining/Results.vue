@@ -61,6 +61,11 @@ const i18nMessages = {
         totalTime: 'Total time breakdown',
         round: 'Board {round}',
     } },
+    es: { local: {
+        roundTimes: 'Tiempo por tablero (segundos)',
+        totalTime: 'Desglose total del tiempo',
+        round: 'Tablero {round}',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

@@ -2,11 +2,17 @@ import '../src/setup';
 import { createApp, watch } from 'vue';
 
 import i18n from '@/i18n';
+import { resolveContentLanguage } from '@/i18n/language';
 import { local } from '@/store/local';
 import App from '@/views/LocalVideoAnalyzerView/App.vue';
 
-i18n.global.locale.value = local.value.language.startsWith('zh') ? 'zh-cn' : 'en';
-document.documentElement.lang = i18n.global.locale.value;
+i18n.global.locale.value = resolveContentLanguage(local.value.language);
+watch(i18n.global.locale, (language) => {
+    document.documentElement.lang = language;
+    document.title = language === 'es'
+        ? 'Analizador de repeticiones sin conexión'
+        : language === 'zh-cn' ? '离线录像分析器' : 'VideoAnalyzer — Offline';
+}, { immediate: true });
 watch(() => local.value.darkmode, (dark) => {
     document.documentElement.classList.toggle('dark', dark);
 }, { immediate: true });

@@ -117,6 +117,9 @@ const i18nMessages = {
     en: { local: {
         countsFailed: 'Unable to load board counts',
     } },
+    es: { local: {
+        countsFailed: 'Imposible cargar los conteos del tablero',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

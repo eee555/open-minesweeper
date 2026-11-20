@@ -96,6 +96,19 @@ const i18nMessages = {
         hint: 'Title and publish time are fetched from the source site; a moderator fills them in if unavailable.',
         submitAction: 'Submit',
     } },
+    es: { local: {
+        title: 'Enviar una obra',
+        format: 'Plataforma y tipo',
+        formatBv: 'Vídeo de Bilibili',
+        formatBa: 'Artículo de Bilibili',
+        formatCp: 'Publicación de Saolei',
+        formatGr: 'Repositorio de GitHub',
+        githubHint: 'Vincula primero tu cuenta de GitHub. Solo se admiten tus repositorios personales públicos que no sean bifurcaciones. Si no se pueden recuperar, inténtalo más tarde.',
+        suffix: 'ID de la obra',
+        language: 'Idioma (texto libre)',
+        hint: 'El título y la fecha de publicación se obtienen del sitio de origen. Si no están disponibles, un moderador los completará.',
+        submitAction: 'Enviar',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

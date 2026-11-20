@@ -97,6 +97,10 @@ const i18nMessages = {
         mouseSpeed: 'Mouse speed (cells/s)',
         clickSpeed: 'Click speed (clicks/s)',
     } },
+    es: { local: {
+        mouseSpeed: 'Velocidad del ratón (casillas/s)',
+        clickSpeed: 'Velocidad de clic (clics/s)',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

@@ -131,6 +131,17 @@ const i18nMessages = {
         empty: 'No matching local results',
         loadFailed: 'Could not load local history. Please try again.',
     } },
+    es: { local: {
+        history: 'Historial local',
+        from: 'Desde',
+        to: 'Hasta',
+        date: 'Fecha',
+        time: 'Hora (s)',
+        play: 'Reproducir la partida del {date}',
+        loading: 'Cargando el historial local…',
+        empty: 'No hay resultados locales que coincidan',
+        loadFailed: 'No se pudo cargar el historial local. Inténtalo de nuevo.',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

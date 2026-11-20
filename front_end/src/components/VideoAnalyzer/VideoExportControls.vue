@@ -211,6 +211,25 @@ const i18nMessages = {
         high: 'High',
         'very-high': 'Very high',
     } },
+    es: { local: {
+        export: 'Exportar video',
+        exporting: 'Exportando video',
+        preparing: 'Preparando la repetición',
+        failed: 'Exportación de la repetición fallida',
+        scope: 'Rango de tiempo',
+        all: 'Repetición completa',
+        range: 'Rango seleccionado',
+        fps: 'Fotogramas por segundo',
+        quality: 'Calidad',
+        top: 'arriba',
+        bottom: 'abajo',
+        left: 'izquierda',
+        right: 'derecha',
+        low: 'Baja',
+        medium: 'Media',
+        high: 'Alta',
+        'very-high': 'Muy alta',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

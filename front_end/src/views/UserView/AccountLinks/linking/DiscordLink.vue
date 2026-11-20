@@ -61,6 +61,14 @@ const i18nMessages = {
         discordPaste: 'Paste your own numeric User ID into the ID field above. Do not enter a username, display name or server ID.',
         discordVerification: 'After submitting, contact a moderator for verification. The link is visible only to you and site moderators.',
     } },
+    es: { local: {
+        discordTitle: 'Cómo encontrar tu propio ID de usuario en Discord',
+        discordEnable: 'Activa el modo desarrollador en Discord bajo Configuración de usuario → Avanzado.',
+        discordDesktop: 'En escritorio o en web: Busca a ti mismo en un chat o en la lista de miembros, haz clic derecho en tu propio avatar → Copiar ID de usuario.',
+        discordMobile: 'En móvil: Haz clic en tu propio avatar en un chat o en la lista de miembros para abrir tu perfil → el menú ⋯ en la esquina superior derecha → Copiar ID de usuario.',
+        discordPaste: 'Pega tu propio ID numérico en el campo de ID arriba. No introduzcas un nombre de usuario, nombre de pantalla ni ID de servidor.',
+        discordVerification: 'Después de enviarlo, contacta a un moderador para la verificación. El enlace solo es visible para ti y para los moderadores del sitio.',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

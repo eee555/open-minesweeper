@@ -1,7 +1,7 @@
 <template>
     <ElDialog v-model="visible" :title="creating ? t('local.add') : `${t('local.edit')}: ${event.key}`" width="min(520px, calc(100vw - 24px))" append-to-body @closed="emit('close')">
         <form id="custom-event-editor-form" class="custom-event-editor" @submit.prevent="save">
-            <label><span>key</span><input v-model="draft.key" class="base-input custom-event-editor__key" required @input="validationError = ''"></label>
+            <label><span>{{ t('local.key') }}</span><input v-model="draft.key" class="base-input custom-event-editor__key" required @input="validationError = ''"></label>
             <label><span>{{ t('prop.expression') }}</span><textarea v-model="draft.expression" class="base-input custom-event-editor__expression" rows="3" /></label>
             <div class="custom-event-editor__field">
                 <span>{{ t('local.type') }}</span>
@@ -86,6 +86,7 @@ function save() {
 
 const i18nMessages = {
     'zh-cn': { local: {
+        key: '键名',
         add: '添加自定义事件',
         edit: '编辑自定义事件',
         type: '类型',
@@ -109,6 +110,7 @@ const i18nMessages = {
         remove: '删除事件',
     } },
     en: { local: {
+        key: 'key',
         add: 'Add custom event',
         edit: 'Edit custom event',
         type: 'Type',
@@ -130,6 +132,30 @@ const i18nMessages = {
         requiredKey: 'Event key is required',
         duplicateKey: 'Custom event keys must be unique',
         remove: 'Delete event',
+    } },
+    es: { local: {
+        key: 'Clave',
+        add: 'Añadir evento personalizado',
+        edit: 'Editar evento personalizado',
+        type: 'Tipo',
+        pulse: 'Pulso',
+        sustained: 'Sostenido',
+        shape: 'Forma del marcador',
+        size: 'Tamaño del marcador en el tablero',
+        lineStyle: 'Estilo de línea',
+        width: 'Ancho de línea',
+        solid: 'Continua',
+        dash: 'Discontinua',
+        dot: 'Punteada',
+        circle: 'Círculo',
+        square: 'Cuadrado',
+        triangle: 'Triángulo',
+        diamond: 'Diamante',
+        cross: 'Cruz',
+        occurrences: 'Ocurrencias: {count}',
+        requiredKey: 'Se requiere clave de evento',
+        duplicateKey: 'Las claves de evento personalizado deben ser únicas',
+        remove: 'Eliminar evento',
     } },
 };
 const { t } = useI18n({ messages: i18nMessages });

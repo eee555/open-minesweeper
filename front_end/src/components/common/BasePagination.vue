@@ -163,6 +163,15 @@ const i18nMessages = {
         jumpStartIndex: 'Jump to start index',
         range: 'Records {start}-{end}',
     } },
+    es: { local: {
+        pagination: 'Paginación',
+        prev: 'Anterior',
+        next: 'Siguiente',
+        perPage: 'Por página',
+        jump: 'Ir',
+        jumpStartIndex: 'Saltar al índice inicial',
+        range: 'Registros {start}–{end}',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

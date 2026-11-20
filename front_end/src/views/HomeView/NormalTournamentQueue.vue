@@ -88,6 +88,13 @@ const i18nMessages = {
         [TournamentState.Preparing]: 'starts in {0}',
         title: 'Active Tournaments',
     } },
+    es: { local: {
+        empty: 'No hay torneos activos',
+        [TournamentState.Finished]: 'terminó hace {0}',
+        [TournamentState.Ongoing]: 'termina en {0}',
+        [TournamentState.Preparing]: 'empieza en {0}',
+        title: 'Torneos activos',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

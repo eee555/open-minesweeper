@@ -202,6 +202,14 @@ const i18nMessages = {
         filterPlatform: 'Filter platform',
         filterVerified: 'Filter verification',
     } },
+    es: { local: {
+        platformId: 'ID de plataforma',
+        selectPlatform: 'Seleccionar una plataforma',
+        unverified: 'No verificado',
+        empty: 'Sin enlaces de cuenta',
+        filterPlatform: 'Filtrar por plataforma',
+        filterVerified: 'Filtrar verificación',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

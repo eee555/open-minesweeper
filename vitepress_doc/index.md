@@ -1,5 +1,5 @@
 ---
-title: 选择语言 / Choose language
+title: 选择语言 / Choose language / Elegir idioma
 layout: page
 search: false
 localeRedirect: true

@@ -109,6 +109,16 @@ const i18nMessages = {
         result: 'Creation result',
         weekly: 'Weekly tournament',
     } },
+    es: { local: {
+        kind: 'Tipo de torneo',
+        speed: 'Velocidad Semanal',
+        efficiency: 'Eficiencia Semanal',
+        format: 'Formato de torneo',
+        classicFormat: '2 Expertos + 5 Intermedios',
+        create: 'Crear el próximo torneo de la semana',
+        result: 'Resultado de creación',
+        weekly: 'Torneo semanal',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

@@ -151,6 +151,20 @@ const i18nMessages = {
         verified: 'Verified',
         unverified: 'Not verified',
     } },
+    es: { local: {
+        userProfile: 'Perfil de usuario (UserProfile)',
+        userMS: 'Datos de Buscaminas (UserMS)',
+        patchUserProfile: 'PATCH Perfil de usuario (Actualizar perfil de usuario)',
+        patchUserMS: 'PATCH UserMS (Actualizar datos de Buscaminas)',
+        jsonError: 'Error JSON',
+        jsonObjectRequired: 'El cuerpo de la solicitud debe ser un objeto JSON',
+        userMSError: 'Error de UserMS',
+        missingUserMS: 'Este usuario no tiene un id disponible para userms_id',
+        revokePrivacy: 'Revocar la verificación del jugador también elimina la capacidad de ocultar el nombre. Los nombres se vuelven públicos tras las actualizaciones normales del caché. ¿Continuar?',
+        verifiedState: 'Verificación del jugador',
+        verified: 'Verificado',
+        unverified: 'No verificado',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

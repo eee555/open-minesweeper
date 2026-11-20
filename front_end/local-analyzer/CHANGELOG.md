@@ -6,6 +6,8 @@
 - Upgrade the replay parsing dependency ms-toollib to 1.6.2.
 - 计数器及自定义事件表达式支持有效点击路径、左击/双击解决的 3BV、Luck 和期望解决量/用时指标。
 - Support effective-click paths, left-click/chord solved 3BV, Luck, and expected progress/time metrics in counter and custom-event expressions.
+- 支持西班牙语界面及随包表达式参考。
+- Added a Spanish interface and bundled Spanish expression reference.
 
 ## 0.2.2 — 2026-11-06
 

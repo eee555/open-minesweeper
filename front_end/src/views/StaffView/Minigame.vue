@@ -104,6 +104,12 @@ const i18nMessages = {
         achievedAt: 'Achieved at',
         confirmDelete: 'Delete player {player}\'s best score and replay for {key}?',
     } },
+    es: { local: {
+        rankingKey: 'Clave de clasificación',
+        score: 'Tiempo (segundos)',
+        achievedAt: 'Fecha de la marca',
+        confirmDelete: 'Eliminar el mejor puntaje y la repetición del jugador {player} para {key}?',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

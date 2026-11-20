@@ -99,6 +99,10 @@ const i18nMessages = {
         loading: 'Loading PB records…',
         failed: 'Could not load PB records. Refresh to retry.',
     } },
+    es: { local: {
+        loading: 'Cargando registros de marca personal…',
+        failed: 'No se pudieron cargar los registros de marca personal. Refresca para intentarlo de nuevo.',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

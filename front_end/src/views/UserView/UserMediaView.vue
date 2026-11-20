@@ -127,6 +127,7 @@ onScopeDispose(() => {
 const i18nMessages = {
     'zh-cn': { local: { desc: '降序', asc: '升序' } },
     en: { local: { desc: 'Descending', asc: 'Ascending' } },
+    es: { local: { desc: 'Descendente', asc: 'Ascendente' } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

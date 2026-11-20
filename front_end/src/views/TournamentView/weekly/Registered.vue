@@ -119,6 +119,12 @@ const i18nMessages = {
         deleteParticipant: 'Reset registration',
         confirmDeletion: 'Reset this registration so the player can start a new session?',
     } },
+    es: { local: {
+        interval: 'Intervalo de sesión',
+        token: 'Token del torneo',
+        deleteParticipant: 'Restablecer registro',
+        confirmDeletion: 'Restablecer este registro para que el jugador pueda iniciar una nueva sesión?',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

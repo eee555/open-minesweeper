@@ -80,6 +80,7 @@ defineExpose({ close: closeSettings });
 const i18nMessages = {
     'zh-cn': { local: { settings: '{label}设置' } },
     en: { local: { settings: '{label} settings' } },
+    es: { local: { settings: 'Ajustes de {label}' } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

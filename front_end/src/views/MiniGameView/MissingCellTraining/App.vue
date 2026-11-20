@@ -148,6 +148,12 @@ const i18nMessages = {
         boardLabel: 'Missing cell board. Find the only unopened safe cell.',
         rules: 'Every safe cell except one is open. The target has no adjacent zero cells but may itself be zero. Mines stay hidden, and the visible clues uniquely identify the target. Hitting a mine ends the run; right clicks, chords and clicks on open cells do nothing. Complete 10 boards with one continuous timer. Changing level starts a new run.',
     } },
+    es: { local: {
+        restart: 'Nueva partida',
+        remaining: 'Tableros restantes',
+        boardLabel: 'Tablero de casilla faltante. Encuentra la única casilla segura no abierta.',
+        rules: 'Cada casilla segura excepto una está abierta. El objetivo no tiene casillas adyacentes con cero, pero puede ser cero mismo. Las minas permanecen ocultas y las pistas visibles identifican únicamente al objetivo. Tochar una mina termina la partida; los clics derechos, aperturas simultáneas y clics en casillas abiertas no tienen efecto. Completa 10 tableros con un cronómetro continuo. Cambiar de nivel inicia una nueva partida.',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

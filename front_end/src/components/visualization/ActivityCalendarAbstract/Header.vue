@@ -78,6 +78,10 @@ const i18nMessages = {
         totalNBytes: '{0} bytes',
         totalNVideos: '{0} videos in total',
     } },
+    es: { local: {
+        totalNBytes: '{0} bytes',
+        totalNVideos: '{0} videos en total',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

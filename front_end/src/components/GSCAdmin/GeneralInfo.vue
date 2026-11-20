@@ -1,70 +1,70 @@
 <template>
     <span v-if="id === 0">
-        请输入非零届数
+        {{ t('local.editionRequired') }}
     </span>
     <span v-else-if="notFound">
-        未找到该届信息
+        {{ t('local.missingEdition') }}
         <BaseButton @click="createGSC">
-            创建比赛
+            {{ t('local.create') }}
         </BaseButton>
     </span>
     <span v-else-if="loadingGSCInfo">
-        正在加载信息...
+        {{ t('local.loading') }}
     </span>
     <span v-else>
-        <span>开始时间：{{ gscInfo.start_time ? toISODateTimeString(gscInfo.start_time) : '未设置' }}</span>
+        <span>{{ t('local.startLabel') }}{{ gscInfo.start_time ? toISODateTimeString(gscInfo.start_time) : t('local.notSet') }}</span>
         &nbsp;
-        <span>设置开始时间：</span>
+        <span>{{ t('local.setStart') }}</span>
         <ElDatePicker v-model="newStartTime" type="datetime" @change="setStartTime" />
         <br>
-        <span>结束时间：{{ gscInfo.end_time ? toISODateTimeString(gscInfo.end_time) : '未设置' }}</span>
+        <span>{{ t('local.endLabel') }}{{ gscInfo.end_time ? toISODateTimeString(gscInfo.end_time) : t('local.notSet') }}</span>
         &nbsp;
-        <span>设置结束时间：</span>
+        <span>{{ t('local.setEnd') }}</span>
         <ElDatePicker v-model="newEndTime" type="datetime" @change="setEndTime" />
         <br>
-        <span>标识：{{ gscInfo.token || '未设置' }}</span>
+        <span>{{ t('local.tokenLabel') }}{{ gscInfo.token || t('local.notSet') }}</span>
         &nbsp;
-        <span>设置标识：</span>
+        <span>{{ t('local.setToken') }}</span>
         <ElInput v-model="newToken" style="width: 300px;" />
         <BaseButton @click="setToken(newToken)">
-            修改！
+            {{ t('local.apply') }}
         </BaseButton>
         <br>
         <label class="switch" data-cy="allow-empty-token">
-            <span>想设置空标识需打开此开关</span>
+            <span>{{ t('local.allowEmpty') }}</span>
             <input v-model="allowEmptyToken" class="switch-input" type="checkbox" role="switch">
             <span class="switch-track" aria-hidden="true" />
         </label>
         <br>
         <br>
-        <ElDescriptions title="结算后台任务" border :column="2">
-            <ElDescriptionsItem label="任务 ID">
-                {{ taskInfo?.id ?? '无' }}
+        <ElDescriptions :title="t('local.finishTask')" border :column="2">
+            <ElDescriptionsItem :label="t('local.taskId')">
+                {{ taskInfo?.id ?? t('local.none') }}
             </ElDescriptionsItem>
-            <ElDescriptionsItem label="状态">
+            <ElDescriptionsItem :label="t('local.status')">
                 <DjangoTaskResultStatusBadge :status="taskInfo?.status ?? 'NULL'" />
             </ElDescriptionsItem>
-            <ElDescriptionsItem label="创建时间">
+            <ElDescriptionsItem :label="t('local.created')">
                 {{ formatTaskTime(taskInfo?.enqueued_at) }}
             </ElDescriptionsItem>
-            <ElDescriptionsItem label="开始时间">
+            <ElDescriptionsItem :label="t('local.start')">
                 {{ formatTaskTime(taskInfo?.started_at) }}
             </ElDescriptionsItem>
-            <ElDescriptionsItem label="结束时间">
+            <ElDescriptionsItem :label="t('local.end')">
                 {{ formatTaskTime(taskInfo?.finished_at) }}
             </ElDescriptionsItem>
-            <ElDescriptionsItem label="异常">
-                {{ taskInfo?.exception_class_path || '无' }}
+            <ElDescriptionsItem :label="t('local.exception')">
+                {{ taskInfo?.exception_class_path || t('local.none') }}
             </ElDescriptionsItem>
         </ElDescriptions>
         <BaseButton :loading="loadingTaskInfo" @click="refreshTaskInfo">
-            刷新任务
+            {{ t('local.refreshTask') }}
         </BaseButton>
         <BaseButton :loading="creatingFinishTask" @click="createFinishTask">
-            计算排行并结束比赛
+            {{ t('local.finishCompetition') }}
         </BaseButton>
         <BaseButton v-if="taskInfo?.status === 'FAILED'" @click="console.log(taskInfo.traceback)">
-            输出错误
+            {{ t('local.printError') }}
         </BaseButton>
     </span>
 </template>
@@ -74,6 +74,7 @@ import '@/styles/vendors/element-plus.css';
 import { isAxiosError } from 'axios';
 import { ElDatePicker, ElDescriptions, ElDescriptionsItem, ElInput } from 'element-plus';
 import { ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 
 import { httpErrorNotification, successNotification } from '../Notifications';
 
@@ -88,6 +89,87 @@ import { utc_to_local_format } from '@/utils/system/tools';
 const props = defineProps({
     id: { type: Number, default: 0 },
 });
+const i18nMessages = {
+    'zh-cn': { local: {
+        allowEmpty: '想设置空标识需打开此开关',
+        loading: '正在加载信息...',
+        finishCompetition: '计算排行并结束比赛',
+        editionRequired: '请输入非零届数',
+        missingEdition: '未找到该届信息',
+        setStart: '设置开始时间：',
+        setEnd: '设置结束时间：',
+        finishTask: '结算后台任务',
+        startLabel: '开始时间：',
+        endLabel: '结束时间：',
+        setToken: '设置标识：',
+        taskId: '任务 ID',
+        create: '创建比赛',
+        created: '创建时间',
+        start: '开始时间',
+        end: '结束时间',
+        refreshTask: '刷新任务',
+        printError: '输出错误',
+        notSet: '未设置',
+        tokenLabel: '标识：',
+        apply: '修改！',
+        status: '状态',
+        exception: '异常',
+        none: '无',
+    } },
+    en: { local: {
+        allowEmpty: 'Enable to allow an empty token',
+        loading: 'Loading tournament information…',
+        finishCompetition: 'Calculate rankings and finish the tournament',
+        editionRequired: 'Enter a nonzero edition number',
+        missingEdition: 'This edition was not found',
+        setStart: 'Set start time:',
+        setEnd: 'Set end time:',
+        finishTask: 'Results calculation task',
+        startLabel: 'Start time: ',
+        endLabel: 'End time: ',
+        setToken: 'Set token:',
+        taskId: 'Task ID',
+        create: 'Create tournament',
+        created: 'Created at',
+        start: 'Start time',
+        end: 'End time',
+        refreshTask: 'Refresh task',
+        printError: 'Print error',
+        notSet: 'Not set',
+        tokenLabel: 'Token: ',
+        apply: 'Apply',
+        status: 'Status',
+        exception: 'Exception',
+        none: 'None',
+    } },
+    es: { local: {
+        allowEmpty: 'Activa esta opción para permitir un identificador vacío',
+        loading: 'Cargando los datos del torneo…',
+        finishCompetition: 'Calcular la clasificación y finalizar el torneo',
+        editionRequired: 'Introduce un número de edición distinto de cero',
+        missingEdition: 'No se encontró esta edición',
+        setStart: 'Definir el inicio:',
+        setEnd: 'Definir el fin:',
+        finishTask: 'Tarea de cálculo de resultados',
+        startLabel: 'Inicio: ',
+        endLabel: 'Fin: ',
+        setToken: 'Definir identificador:',
+        taskId: 'ID de tarea',
+        create: 'Crear torneo',
+        created: 'Fecha de creación',
+        start: 'Inicio',
+        end: 'Fin',
+        refreshTask: 'Actualizar tarea',
+        printError: 'Mostrar el error',
+        notSet: 'Sin definir',
+        tokenLabel: 'Identificador: ',
+        apply: 'Aplicar',
+        status: 'Estado',
+        exception: 'Excepción',
+        none: 'Ninguno',
+    } },
+};
+const { t } = useI18n({ messages: i18nMessages });
 
 const { proxy } = useCurrentInstance();
 const gscInfo = ref<GSCInfo>({ id: 0 });
@@ -176,7 +258,7 @@ async function createFinishTask() {
 }
 
 function formatTaskTime(time: string | null | undefined) {
-    if (time === null || time === undefined || time === '') return '无';
+    if (time === null || time === undefined || time === '') return t('local.none');
     return utc_to_local_format(time);
 }
 

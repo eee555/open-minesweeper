@@ -112,6 +112,18 @@ const i18nMessages = {
         total: 'Total interval',
         count: 'Clicks',
     } },
+    es: { local: {
+        clickDurations: 'Duración del clic izquierdo (ms, sin contar el primero)',
+        chordDurations: 'Duración de las aperturas simultáneas con bandera correctas (ms)',
+        operation: 'Bandera y apertura simultánea {number}',
+        flagTime: 'Última bandera',
+        leftTime: 'Pulsación del botón izquierdo',
+        chordTime: 'Activación de la apertura simultánea',
+        flagPart: 'Bandera → pulsación izquierda',
+        chordPart: 'Pulsación izquierda → apertura simultánea',
+        total: 'Intervalo total',
+        count: 'Haces',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

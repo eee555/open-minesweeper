@@ -147,6 +147,15 @@ const i18nMessages = {
         loginExpiry: 'Login duration',
         keepMeLoggedInTooltip: 'Automatically log out after a few days of inactivity',
     } },
+    es: { local: {
+        confirm: 'Iniciar sesión',
+        forDays1: 'para',
+        forDays2: 'días',
+        forgetPassword: '¿Has olvidado tu contraseña?',
+        keepMeLoggedIn: 'Mantener la sesión iniciada',
+        loginExpiry: 'Duración de la sesión',
+        keepMeLoggedInTooltip: 'Cerrar la sesión automáticamente tras varios días de inactividad',
+    } },
     de: { local: {
         confirm: 'Login',
         forgetPassword: 'Passwort vergessen?',

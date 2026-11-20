@@ -44,6 +44,9 @@ const i18nMessages = {
     en: { local: {
         position: 'Replay position',
     } },
+    es: { local: {
+        position: 'Posición de repetición',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

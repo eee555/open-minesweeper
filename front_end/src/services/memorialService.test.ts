@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { planMemorialUploads, uploadMemorialBatch } from './memorialService';
+import { memorialErrorCode, planMemorialUploads, uploadMemorialBatch } from './memorialService';
 import type { MemorialBinding, MemorialReplay } from './memorialService';
 
 const { post } = vi.hoisted(() => ({ post: vi.fn() }));
@@ -43,7 +43,7 @@ describe('memorial replay import', () => {
         post.mockRejectedValueOnce(failure);
         post.mockResolvedValueOnce({ data: { video: { id: 2 }, bindings: [] } });
         await uploadMemorialBatch(42, ['selected'], bindings, uploads, 'csrf');
-        expect(uploads[0].error).toBeDefined();
+        expect(uploads[0].errorCode).toBe('unknown');
         expect(bindings[0].bound).toBe(true);
         expect(uploads[1].result?.id).toBe(2);
         const assignedTime = uploads[0].uploadTime.toISOString();
@@ -52,7 +52,7 @@ describe('memorial replay import', () => {
         expect(post).toHaveBeenCalledTimes(3);
         expect((post.mock.calls[2][1] as FormData).get('upload_time')).toBe(assignedTime);
         expect((post.mock.calls[2][1] as FormData).get('identifiers')).toBe('[]');
-        expect(uploads[0].error).toBeUndefined();
+        expect(uploads[0].errorCode).toBeUndefined();
     });
 
     it('retries identifier preparation when a network failure leaves its result unknown', async () => {
@@ -67,5 +67,22 @@ describe('memorial replay import', () => {
         const uploads = planMemorialUploads([replay(0, 'selected')], ['selected'], anchor);
         await uploadMemorialBatch(42, ['selected'], [], uploads, 'csrf', () => true);
         expect(post).not.toHaveBeenCalled();
+    });
+});
+
+describe('memorial error categories', () => {
+    it.each([
+        [403, { detail: 'private detail' }, 'forbidden'],
+        [409, { category: 'collision' }, 'collision'],
+        [422, { category: 'timezone_required' }, 'timezone_required'],
+        [500, { category: 'unexpected', detail: 'internal response' }, 'unknown'],
+        [500, { category: 'constructor' }, 'unknown'],
+        [500, '<html>internal response</html>', 'unknown'],
+    ])('maps HTTP %s to a stable error code', (status, data, expected) => {
+        expect(memorialErrorCode({ isAxiosError: true, response: { status, data } })).toBe(expected);
+    });
+
+    it('returns the fallback for network errors', () => {
+        expect(memorialErrorCode(new Error('internal network details'))).toBe('unknown');
     });
 });

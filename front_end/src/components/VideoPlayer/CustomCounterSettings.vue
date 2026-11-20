@@ -52,6 +52,11 @@ const i18nMessages = {
         fontSize: 'Font Size',
         width: 'Column Widths',
     } },
+    es: { local: {
+        developerMode: 'Modo desarrollador',
+        fontSize: 'Tamaño de fuente',
+        width: 'Anchos de columna',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

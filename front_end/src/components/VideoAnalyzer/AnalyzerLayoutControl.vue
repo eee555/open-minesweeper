@@ -40,6 +40,14 @@ const i18nMessages = {
         'counter-top': 'Counters on top',
         'board-top': 'Board on top',
     } },
+    es: { local: {
+        layout: 'Disposición',
+        auto: 'Automático',
+        'counter-left': 'Contadores a la izquierda',
+        'counter-right': 'Contadores a la derecha',
+        'counter-top': 'Contadores arriba',
+        'board-top': 'Tablero arriba',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

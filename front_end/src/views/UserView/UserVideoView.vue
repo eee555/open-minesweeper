@@ -267,6 +267,27 @@ const i18nMessages = {
         reveal: 'Reveal video',
         confirmReveal: 'Everyone will be able to watch this video, and it cannot be hidden again. It will still count in all its tournaments. Reveal it?',
     } },
+    es: { local: {
+        columns: 'Seleccionar columnas',
+        importCsv: 'Importar CSV',
+        loading: 'Cargando videos…',
+        failed: 'No se pudieron cargar los videos. Refresca para intentarlo de nuevo.',
+        overview: 'Resumen',
+        none: 'Ninguno',
+        calendar: 'Calendario',
+        bv: 'Cuadrícula de BV',
+        presentation: 'Visualización',
+        table: 'Tabla',
+        scatter: 'Gráfico de dispersión',
+        allVideos: 'Todos los videos',
+        includesLocal: 'Incluye registros locales',
+        allModes: 'Todos los modos',
+        custom: 'Personalizado',
+        clear: 'Limpiar selección',
+        count: '{selected} videos en rango, {filtered} después de filtrar',
+        reveal: 'Mostrar video',
+        confirmReveal: 'Cualquiera podrá ver este video y no se podrá ocultar nuevamente. Aún se contará en todos sus torneos. ¿Quieres mostrarlo?',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

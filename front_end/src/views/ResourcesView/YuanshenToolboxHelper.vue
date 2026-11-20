@@ -1,5 +1,5 @@
 <template>
-    <section class="text yuanshen-helper" aria-label="元神工具箱">
+    <section class="text yuanshen-helper" :aria-label="t('local.toolbox')">
         <p>{{ t('local.description') }}</p>
         <p>{{ t('local.usage') }}</p>
         <p>
@@ -23,16 +23,25 @@ import { getDocsUrl } from '@/utils/docs';
 
 const i18nMessages = {
     'zh-cn': { local: {
+        toolbox: '元神工具箱',
         description: '第三方工具：在本机读取元扫雷（EVF）与阿比特（AVF）录像，统计 PB 表与前端成绩，并把完成局上传到开源扫雷网。',
         usage: '放到元扫雷的 replay 目录上一级，双击运行即可，无需安装。',
         download: 'GitHub Releases',
         guide: '使用说明',
     } },
     en: { local: {
+        toolbox: 'Yuanshen Toolbox',
         description: 'A third-party tool that reads Metasweeper (EVF) and Arbiter (AVF) replays locally, builds your PB table and Top-5 results, and uploads finished games to Open Minesweeper.',
         usage: 'Place it one level above Metasweeper’s replay folder and run it. No installation required.',
         download: 'GitHub Releases',
         guide: 'Guide',
+    } },
+    es: { local: {
+        toolbox: 'Yuanshen Toolbox',
+        description: 'Herramienta de terceros que lee repeticiones locales de Metasweeper (EVF) y Arbiter (AVF), construye tu tabla de marcas personales (PB) y los 5 mejores resultados, y sube los juegos terminados a Open Minesweeper.',
+        usage: 'Colócalo una carpeta por encima de la carpeta de repeticiones de Metasweeper y ejecútalo. No se requiere instalación.',
+        download: 'Versiones en GitHub',
+        guide: 'Guía',
     } },
 };
 

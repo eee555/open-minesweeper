@@ -158,6 +158,18 @@ const i18nMessages = {
             retrieve: 'Reset Password',
         },
     } },
+    es: { local: {
+        confirmLogout: '¿Salir de la cuenta actual?',
+        menu: {
+            login: 'Iniciar sesión',
+            logout: 'Cerrar sesión',
+        },
+        title: {
+            login: 'Iniciar sesión',
+            register: 'Registrarse',
+            retrieve: 'Restablecer contraseña',
+        },
+    } },
     de: { local: {
         menu: {
             login: 'Login',

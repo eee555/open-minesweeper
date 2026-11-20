@@ -1,56 +1,59 @@
 <template>
-    <main class="offline-minigame">
-        <GamePicker :model-value="game" @update:model-value="selectGame" />
-        <BaseButton v-show="!showHistory" class="offline-history-toggle square-button" :title="t('local.history')" :aria-label="t('local.history')" :aria-expanded="showHistory" :aria-controls="historyDrawerId" data-cy="minigame-history-toggle" @click="showHistory = true">
-            <i class="pi pi-history" aria-hidden="true" />
-        </BaseButton>
-        <p v-if="loadingReplay" role="status" class="text" data-cy="minigame-replay-loading">
-            {{ t('local.loading') }}
-        </p>
-        <p v-if="replayError" role="alert" class="text text-danger" data-cy="minigame-replay-error">
-            {{ t(`local.${replayError}`) }}
-        </p>
-        <div class="offline-game" :inert="loadingReplay">
-            <ReactionTraining v-if="game === 'reaction'" :replay-data="replay?.game === 'reaction' ? replay : null" @reset="resetReplay" @ranking-change="selectedRankingKey = $event" />
-            <LeftClickTraining v-else-if="game === 'left-click' || game === 'multi-touch'" :key="game" :game-type="game" :replay-data="replay?.game === 'left-click' || replay?.game === 'multi-touch' ? replay : null" offline @reset="resetReplay" @ranking-change="selectedRankingKey = $event" />
-            <FlagChordTraining v-else-if="game === 'flag-chord'" :replay-data="replay?.game === 'flag-chord' ? replay : null" offline @reset="resetReplay" @ranking-change="selectedRankingKey = $event" />
-            <MissingCellTraining v-else :replay-data="replay?.game === 'missing-cell' ? replay : null" offline @reset="resetReplay" @ranking-change="selectedRankingKey = $event" />
-        </div>
-        <ElConfigProvider :locale="locale.startsWith('zh') ? zhCn : en">
+    <ElConfigProvider :locale="locale === 'es' ? es : locale.startsWith('zh') ? zhCn : en">
+        <main class="offline-minigame">
+            <GamePicker :model-value="game" @update:model-value="selectGame" />
+            <BaseButton v-show="!showHistory" class="offline-history-toggle square-button" :title="t('local.history')" :aria-label="t('local.history')" :aria-expanded="showHistory" :aria-controls="historyDrawerId" data-cy="minigame-history-toggle" @click="showHistory = true">
+                <i class="pi pi-history" aria-hidden="true" />
+            </BaseButton>
+            <p v-if="loadingReplay" role="status" class="text" data-cy="minigame-replay-loading">
+                {{ t('local.loading') }}
+            </p>
+            <p v-if="replayError" role="alert" class="text text-danger" data-cy="minigame-replay-error">
+                {{ t(`local.${replayError}`) }}
+            </p>
+            <div class="offline-game" :inert="loadingReplay">
+                <ReactionTraining v-if="game === 'reaction'" :replay-data="replay?.game === 'reaction' ? replay : null" @reset="resetReplay" @ranking-change="selectedRankingKey = $event" />
+                <LeftClickTraining v-else-if="game === 'left-click' || game === 'multi-touch'" :key="game" :game-type="game" :replay-data="replay?.game === 'left-click' || replay?.game === 'multi-touch' ? replay : null" offline @reset="resetReplay" @ranking-change="selectedRankingKey = $event" />
+                <FlagChordTraining v-else-if="game === 'flag-chord'" :replay-data="replay?.game === 'flag-chord' ? replay : null" offline @reset="resetReplay" @ranking-change="selectedRankingKey = $event" />
+                <MissingCellTraining v-else :replay-data="replay?.game === 'missing-cell' ? replay : null" offline @reset="resetReplay" @ranking-change="selectedRankingKey = $event" />
+            </div>
             <ElDrawer :id="historyDrawerId" v-model="showHistory" :title="t('local.history')" direction="rtl" size="min(100vw, 24rem)" :style="{ '--el-drawer-padding-primary': '12px' }" :modal="false" modal-penetrable :lock-scroll="false" :close-on-click-modal="false" aria-modal="false" append-to-body destroy-on-close>
                 <HistoryPanel v-if="showHistory && currentRankingKey" :ranking-key="currentRankingKey" @play="playHistory" />
             </ElDrawer>
-        </ElConfigProvider>
-        <GameSettings />
-        <HistoryMigration :progress="minigameHistoryMigration" />
-        <div class="offline-controls">
-            <span class="text text-small">{{ t('local.offline') }} · v{{ version.version }}</span>
-            <BaseButton size="small" data-cy="offline-language" @click="toggleLanguage">
-                {{ locale.startsWith('zh') ? 'English' : '中文' }}
-            </BaseButton>
-            <label>{{ t('local.theme') }}
-                <select v-model="colorMode" data-cy="offline-theme">
-                    <option value="auto">{{ t('local.auto') }}</option>
-                    <option value="light">{{ t('local.light') }}</option>
-                    <option value="dark">{{ t('local.dark') }}</option>
+            <GameSettings />
+            <HistoryMigration :progress="minigameHistoryMigration" />
+            <div class="offline-controls">
+                <span class="text text-small">{{ t('local.offline') }} · v{{ version.version }}</span>
+                <select v-model="locale" data-cy="offline-language" :aria-label="t('media.language')">
+                    <option v-for="option in offlineLanguages" :key="option.lang" :value="option.lang">
+                        {{ option.text }}
+                    </option>
                 </select>
-            </label>
-        </div>
-        <details>
-            <summary>{{ t('local.usage') }}</summary>
-            <pre>{{ readme }}</pre>
-        </details>
-        <details>
-            <summary>{{ t('local.copyright') }}</summary>
-            <pre>{{ copyright }}</pre>
-        </details>
-    </main>
+                <label>{{ t('local.theme') }}
+                    <select v-model="colorMode" data-cy="offline-theme">
+                        <option value="auto">{{ t('local.auto') }}</option>
+                        <option value="light">{{ t('local.light') }}</option>
+                        <option value="dark">{{ t('local.dark') }}</option>
+                    </select>
+                </label>
+            </div>
+            <details>
+                <summary>{{ t('local.usage') }}</summary>
+                <pre>{{ readme }}</pre>
+            </details>
+            <details>
+                <summary>{{ t('local.copyright') }}</summary>
+                <pre>{{ copyright }}</pre>
+            </details>
+        </main>
+    </ElConfigProvider>
 </template>
 
 <script setup lang="ts">
 import { useColorMode } from '@vueuse/core';
 import { ElConfigProvider, ElDrawer } from 'element-plus';
 import en from 'element-plus/es/locale/lang/en';
+import es from 'element-plus/es/locale/lang/es';
 import zhCn from 'element-plus/es/locale/lang/zh-cn';
 import { computed, onBeforeUnmount, ref, shallowRef, useId, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -64,6 +67,7 @@ import GamePicker from '@/components/MiniGame/GamePicker.vue';
 import HistoryMigration from '@/components/MiniGame/HistoryMigration.vue';
 import HistoryPanel from '@/components/MiniGame/HistoryPanel.vue';
 import GameSettings from '@/components/MiniGame/Settings.vue';
+import { offlineLanguages } from '@/i18n/language';
 import type { TrainingGame } from '@/utils/minigame/games';
 import { getMinigameDatabase, MINIGAME_RESULTS_STORE, minigameHistoryMigration } from '@/utils/minigame/history';
 import { readMinigameHistoryReplay } from '@/utils/minigame/review';
@@ -127,10 +131,6 @@ watch(locale, (language) => {
     document.documentElement.lang = language;
 }, { immediate: true });
 
-function toggleLanguage() {
-    locale.value = locale.value.startsWith('zh') ? 'en' : 'zh-cn';
-}
-
 const i18nMessages = {
     'zh-cn': { local: {
         offline: '小游戏离线版',
@@ -159,6 +159,20 @@ const i18nMessages = {
         dark: 'Dark',
         usage: 'Usage',
         copyright: 'Copyright and licenses',
+    } },
+    es: { local: {
+        offline: 'Minijuegos sin conexión',
+        history: 'Historial local',
+        loading: 'Cargando repetición…',
+        notFound: 'No se encontró repetición local.',
+        loadFailed: 'No se pudo cargar la repetición. Por favor, inténtalo de nuevo.',
+        corrupt: 'La repetición está dañada y no puede reproducirse.',
+        theme: 'Tema',
+        auto: 'Sistema',
+        light: 'Claro',
+        dark: 'Oscuro',
+        usage: 'Instrucciones de uso',
+        copyright: 'Derechos de autor y licencias',
     } },
 };
 const { t } = useI18n({ messages: i18nMessages });

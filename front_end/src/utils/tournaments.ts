@@ -192,16 +192,19 @@ export class Tournament {
                 return {
                     zh: `第${this.gscData?.order ?? ''}届金羊杯`,
                     en: `GSC#${this.gscData?.order ?? ''}`,
+                    es: `Copa de la Oveja de Oro n.º ${this.gscData?.order ?? ''}`,
                 };
             case TournamentSubclass.Weekly:
                 return {
                     zh: `${this.weeklyData?.year ?? ''}年第${this.weeklyData?.week ?? ''}周竞速打卡赛`,
                     en: `Speed Weekly ${this.weeklyData?.year ?? ''}#${this.weeklyData?.week ?? ''}`,
+                    es: `Semanal de velocidad ${this.weeklyData?.year ?? ''}#${this.weeklyData?.week ?? ''}`,
                 };
             case TournamentSubclass.WeeklyEff:
                 return {
                     zh: `${this.weeklyEffData?.year ?? ''}年第${this.weeklyEffData?.week ?? ''}周效率打卡赛`,
                     en: `Efficiency Weekly ${this.weeklyEffData?.year ?? ''}#${this.weeklyEffData?.week ?? ''}`,
+                    es: `Semanal de eficiencia ${this.weeklyEffData?.year ?? ''}#${this.weeklyEffData?.week ?? ''}`,
                 };
             default:
                 return '';

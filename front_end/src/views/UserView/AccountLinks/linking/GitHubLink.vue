@@ -52,6 +52,11 @@ const i18nMessages = {
         authorize: 'Link with GitHub',
         failed: 'Could not start authorization. Please retry later.',
     } },
+    es: { local: {
+        explanation: 'Autoriza en GitHub para verificar la propiedad de la cuenta. Tu ID numérico será público. No se solicitan permisos de correo ni de repositorio.',
+        authorize: 'Conectar con GitHub',
+        failed: 'No se pudo iniciar la autorización. Por favor, inténtalo más tarde.',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

@@ -119,6 +119,19 @@ const i18nMessages = {
         up: 'Raised',
         down: 'Pressed',
     } },
+    es: { local: {
+        restartHotkey: 'Atajo para reiniciar',
+        unset: 'Sin asignar',
+        clear: 'Borrar',
+        hint: 'Selecciona el campo y pulsa una tecla o combinación. El atajo se comparte entre los juegos y se desactiva mientras editas los ajustes.',
+        mineOpacity: 'Clic izquierdo y multitáctil · Opacidad de las minas',
+        mineState: 'Clic izquierdo y multitáctil · Estado de las casillas con mina',
+        scoreDisplay: 'Clic izquierdo y multitáctil · Visualización de la puntuación',
+        cesHint: 'CES = clics exitosos (excluyendo el primero) / segundos transcurridos. Se aplica al contador superior derecho y a las clasificaciones completas.',
+        scrollThreshold: 'Práctica multitáctil · Umbral de desplazamiento',
+        up: 'En relieve',
+        down: 'Hundida',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

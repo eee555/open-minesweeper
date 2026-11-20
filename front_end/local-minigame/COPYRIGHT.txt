@@ -13,3 +13,17 @@ https://mzrg.com/js/mine/mouse.html
 See LICENSE for the project MIT notice and THIRD_PARTY_LICENSES.txt / .json for bundled dependency notices.
 主题变量及 PrimeIcons 字体的许可见 licenses/。
 See licenses/ for theme-variable and PrimeIcons font notices.
+
+Español
+
+Copyright (c) 2023 eee555
+Sitio web de Open Minesweeper
+https://github.com/eee555/saolei_website
+https://openms.top
+
+Inspiración:
+https://mzrg.com/js/mine/square_finder.html
+https://mzrg.com/js/mine/mouse.html
+League of Minesweeper
+
+La licencia MIT del proyecto se encuentra en LICENSE. Los avisos de las dependencias incluidas se encuentran en THIRD_PARTY_LICENSES.txt y THIRD_PARTY_LICENSES.json. La carpeta licenses/ contiene los avisos de los estilos y las fuentes.

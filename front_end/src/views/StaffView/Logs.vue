@@ -314,6 +314,24 @@ const i18nMessages = {
         rotated: '[Log file truncated or rotated; continuing from the new file]',
         truncated: '[Showing only the last {bytes} bytes]',
     } },
+    es: { local: {
+        getDirectory: 'Obtener directorio de logs',
+        selectFile: 'Seleccionar un archivo de log',
+        startPolling: 'Iniciar sondeo',
+        stopPolling: 'Detener sondeo',
+        pollInterval: 'Intervalo de sondeo',
+        tailBytes: 'Bytes al final del archivo',
+        disconnected: 'Desconectado',
+        pollingStopped: 'Polling detenido',
+        deleted: 'Archivo de log eliminado',
+        pollingFailed: 'Polling fallido',
+        polling: 'Polling',
+        loading: 'Cargando cola de logs',
+        loaded: 'Cargado, polling no iniciado',
+        loadFailed: 'Carga fallida',
+        rotated: '[Archivo de log truncado o rotado; continuando desde el nuevo archivo]',
+        truncated: '[Mostrando solo los últimos {bytes} bytes]',
+    } },
 };
 
 const { t, locale } = useI18n({ messages: i18nMessages });

@@ -190,6 +190,23 @@ const i18nMessages = {
         unsortedThresholds: 'Thresholds must be in ascending or descending order.',
         invalidColors: 'Colors must be valid color strings.',
     } },
+    es: { local: {
+        reverse: 'Cambiar los límites de los intervalos',
+        reverseUnavailable: 'Se requieren al menos dos umbral distintos para cambiar los límites del intervalo',
+        threshold: 'Umbral {index}',
+        lowerBound: 'Mínimo del dominio',
+        upperBound: 'Máximo del dominio',
+        color: 'Color para el intervalo {index}',
+        split: 'Dividir intervalo',
+        merge: 'Quitar umbral',
+        export: 'Exportar',
+        json: 'Pega la escala de colores en JSON',
+        invalidJson: 'JSON no válido',
+        invalidShape: 'Se esperan dos listas, una de umbrales y otra de colores, con un color más que umbrales.',
+        invalidThresholds: 'Los umbral deben ser números finitos dentro del rango permitido.',
+        unsortedThresholds: 'Los umbral deben estar en orden ascendente o descendente.',
+        invalidColors: 'Los colores deben ser cadenas de color válidas.',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

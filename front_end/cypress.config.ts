@@ -13,6 +13,7 @@ export default defineConfig({
     defaultBrowser: 'chrome',
     e2e: {
         baseUrl: 'http://localhost:8080',
+        blockHosts: 'hm.baidu.com',
         setupNodeEvents(on, config) {
             on('before:browser:launch', (browser, launchOptions) => {
                 if (browser.name === 'chrome') {

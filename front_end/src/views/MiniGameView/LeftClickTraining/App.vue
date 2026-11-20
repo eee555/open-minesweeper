@@ -248,6 +248,21 @@ const i18nMessages = {
         boardLabel: 'Left-click training board. Click raised cells without mines.',
         rules: 'Mouse only. Adjust mine opacity in minigame settings. Each left-button release opens just one safe cell; hitting a mine ends the game. Right clicks and chords have no effect.',
     } },
+    es: { local: {
+        touchBoardLabel: 'Tablero de entrenamiento multi-touch. Tocha las casillas elevadas que no contienen minas.',
+        touchRules: 'Solo para pantallas táctiles; cada dedo actúa de forma independiente. Toque para abrir una casilla segura y comenzar el cronómetro con el primer toque; moverse o levantar no abre casillas. Tochar una mina termina el juego. Arrastra con un dedo para desplazarte; mantener varios dedos detiene el desplazamiento. Solo se permite un dedo. Ajusta la transparencia de las minas en la configuración del juego pequeño.',
+        orientation: 'Orientación del tablero',
+        horizontal: 'Horizontal',
+        vertical: 'Vertical',
+        exitFullscreen: 'Salir del modo completo',
+        fullscreenFailed: 'No se puede entrar en modo completo. Abre esta página en un navegador que permita el modo completo.',
+        decreaseCellSize: 'Reducir el tamaño de la casilla',
+        increaseCellSize: 'Aumentar el tamaño de la casilla',
+        density: 'Densidad de minas',
+        remaining: 'Clicks izquierdo',
+        boardLabel: 'Entrenamiento en el tablero de izquierda. Haz clic en las casillas elevadas que no contengan minas.',
+        rules: 'Solo con ratón. Ajusta la opacidad de las minas en las configuraciones del juego pequeño. Cada liberación del botón izquierdo abre una sola casilla segura; tocar una mina termina el juego. Los clics derechos y las aperturas simultáneas no tienen efecto.',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

@@ -83,6 +83,12 @@ const i18nMessages = {
         uploadMemorial: 'Upload memorial replays',
         verified: 'Verified player',
     } },
+    es: { local: {
+        editButton: 'Editar perfil',
+        hiddenName: 'Oculto',
+        uploadMemorial: 'Subir repeticiones de homenaje',
+        verified: 'Jugador verificado',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

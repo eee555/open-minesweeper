@@ -86,6 +86,15 @@ const i18nMessages = {
         upload: 'Upload',
         settings: 'Settings',
     } },
+    es: { local: {
+        accountlink: 'Cuenta vinculada',
+        record: 'Récord',
+        videos: 'Repeticiones',
+        works: 'Obras',
+        medals: 'Medallas',
+        upload: 'Subir',
+        settings: 'Ajustes',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

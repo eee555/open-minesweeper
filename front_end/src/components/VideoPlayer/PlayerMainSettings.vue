@@ -66,6 +66,16 @@ const i18nMessages = {
         top: 'Top',
         transposeBoard: 'Transpose Board',
     } },
+    es: { local: {
+        bottom: 'Abajo',
+        cellSize: 'Tamaño de casilla',
+        counterPosition: 'Posición del contador',
+        left: 'Izquierda',
+        right: 'Derecha',
+        showProbability: 'Mostrar probabilidad',
+        top: 'Arriba',
+        transposeBoard: 'Transponer tablero',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

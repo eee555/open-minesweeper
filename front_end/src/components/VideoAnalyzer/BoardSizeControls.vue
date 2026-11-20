@@ -79,6 +79,13 @@ const i18nMessages = {
         pixels: 'Cell size (px)',
         percent: 'Scale (%)',
     } },
+    es: { local: {
+        fixed: 'Tamaño fijo',
+        relative: 'Escala relativa',
+        auto: 'Tamaño adaptativo',
+        pixels: 'Tamaño de casilla (px)',
+        percent: 'Escala (%)',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

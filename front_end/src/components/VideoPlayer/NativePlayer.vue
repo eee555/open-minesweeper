@@ -107,6 +107,14 @@ const i18nMessages = {
         loading: 'Loading video',
         noVideo: 'No video',
     } },
+    es: { local: {
+        download: 'Descargar repetición',
+        editCounter: 'Editar contador',
+        editPlayerMain: 'Ajustes principales',
+        loadFailed: 'No se pudo cargar el vídeo',
+        loading: 'Cargando repetición',
+        noVideo: 'Sin repetición',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

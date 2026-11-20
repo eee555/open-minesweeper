@@ -140,6 +140,14 @@ const i18nMessages = {
         deleteSlot: 'Delete plot',
         confirmDelete: 'Delete {name} and all its tracks?',
     } },
+    es: { local: {
+        addTrack: 'Añadir pista',
+        removeTrack: 'Eliminar pista',
+        missingKey: 'La clave del contador ya no existe',
+        rename: 'Cambiar nombre del gráfico',
+        deleteSlot: 'Eliminar gráfico',
+        confirmDelete: '¿Eliminar {name} y todas sus pistas?',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

@@ -1,14 +1,22 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { getLocaleRedirect, type LocalizedPages } from '../theme/locale-routing.ts';
+import { getLocaleRedirect } from '../theme/locale-routing.ts';
 import { getLocalizedPages } from '../localized-pages.ts';
 
+import type { LocalizedPages } from '../locales.ts';
+
 const pages: LocalizedPages = {
+    es: ['', 'guide/minesweeper/stat'],
     zh: ['', 'guide/minesweeper/stat', 'guide/development/cache'],
     en: ['', 'guide/', 'guide/minesweeper/stat'],
 };
 
 for (const [path, language, expected] of [
+    ['/docs/', 'es-ES', '/docs/es/'],
+    ['/docs/guide/minesweeper/stat?from=menu#stnb', 'es-MX', '/docs/es/guide/minesweeper/stat?from=menu#stnb'],
+    ['/docs/?lang=es', 'en', '/docs/es/?lang=es'],
+    ['/docs/es/guide/minesweeper/stat?lang=zh', 'zh', undefined],
+    ['/docs/guide/development/cache', 'es', '/docs/es/guide/development/cache'],
     ['/docs/', 'zh-CN', '/docs/zh/'],
     ['/docs', 'en-US', '/docs/en/'],
     ['/docs/index.html', 'fr-FR', '/docs/en/'],
@@ -48,13 +56,14 @@ for (const base of ['/', '/saolei_website/']) {
     });
 }
 
-test('discovers localized pages including Spanish QQ login and Chinese-only development pages', () => {
+test('provides a Spanish counterpart for every guide, including development pages', () => {
     const actual = getLocalizedPages();
+    assert.deepEqual(actual.es, [...new Set([...actual.zh, ...actual.en])].sort());
+    assert.ok(actual.es.includes('guide/account-links'));
     assert.ok(actual.zh.includes(''));
     assert.ok(actual.en.includes(''));
     assert.ok(actual.zh.includes('guide/minesweeper/stat'));
     assert.ok(actual.en.includes('guide/minesweeper/stat'));
     assert.ok(actual.zh.includes('guide/development/management-commands'));
     assert.ok(!actual.en.includes('guide/development/management-commands'));
-    assert.ok(actual.es.includes('guide/account-links'));
 });
