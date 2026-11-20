@@ -6,6 +6,20 @@
 python manage.py <command> --help
 ```
 
+## 数据库迁移
+
+### `migrate`
+
+位置：`common/management/commands/migrate.py`。复用 Django 原生迁移命令，仅将本次迁移所选 MySQL 数据库连接的 `read_timeout` 和 `write_timeout` 设置为 300 秒（5 分钟），连接建立超时沿用原配置。普通网站请求和其他管理命令仍使用原有读写超时。
+
+```bash
+python manage.py migrate
+python manage.py migrate videomanager
+python manage.py migrate --database default
+```
+
+原生参数照常使用，部署脚本无需改动。迁移前关闭已有连接，以新超时重新连接；命令成功或异常退出时都恢复原配置并关闭迁移连接。非 MySQL 数据库沿用原行为。此处设置的是客户端读写等待时间，不是整个迁移任务的总时限，也不调整数据库服务器的锁等待超时。
+
 ## 纪念账号建档
 
 ### `create_memorial_account`
@@ -388,6 +402,8 @@ python manage.py backfill_video_hashes --start 10000 --end 20000 --step 10
 位置：`videomanager/management/commands/refresh_videos.py`
 
 按 ID 顺序逐条重新解析录像并通过实例保存触发信号，默认处理全部录像，不限制状态、模式、级别或比赛标记。每条录像独立加锁和提交，解析期间会阻塞同一录像的其他写入。
+
+`VideoModel.cpath`、`epath` 分别保存 ms-toollib 的 `c_path`、`e_path`，均为可空浮点数，沿用每格 16 像素的归一化单位。新增录像直接写入，存量录像迁移后为 `NULL`，运行本命令可重新解析并回填；单纯添加字段不会自动回算。部署时先运行 `python manage.py makemigrations videomanager` 和 `python manage.py migrate`，再按需刷新指定 ID 区间。
 
 已知解析异常会报告 ID 并跳过；其他错误会停止命令，回滚当前条的数据库写入，此前完成的刷新和已写入 Redis 的内容不回滚。此命令不替代排行榜全量重建；需要重算录像计数时另行使用 `refresh_video_counts`。
 

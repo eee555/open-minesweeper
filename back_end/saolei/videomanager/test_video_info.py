@@ -6,7 +6,9 @@ from unittest.mock import patch
 from django.conf import settings
 from django.core.cache import caches
 from django.core.management import call_command
+from django.db import connection
 from django.test import override_settings, RequestFactory, TestCase
+from django.test.utils import CaptureQueriesContext
 from django_redis import get_redis_connection
 
 from msuser.models import UserMS
@@ -23,7 +25,7 @@ class VideoInfoTests(TestCase):
         self.other = UserProfile.objects.create_user(username='video-info-other', email='video-info-other@example.com', userms=UserMS.objects.create())
         self.video = VideoModel.objects.create(
             player=self.owner, video=ExpandVideoModel.objects.create(identifier='Fixture'), file='fixture.evf', file_size=123,
-            software='e', level='b', mode='00', bv=4, timems=1000, state='c', left=5, right=0, double=1, left_ce=3, right_ce=0, double_ce=1,
+            software='e', version='元3.3.4', level='b', mode='00', bv=4, timems=1000, state='c', left=5, right=0, double=1, left_ce=3, right_ce=0, double_ce=1, cpath=123.5, epath=32.0,
         )
         self.private = VideoModel.objects.create(
             player=self.owner, video=ExpandVideoModel.objects.create(), file='private.evf', software='e', level='b', bv=4, ongoing_tournament=True,
@@ -49,6 +51,10 @@ class VideoInfoTests(TestCase):
                     self.assertEqual(sorted(row['id'] for row in rows), sorted(expected))
                     fields = {'id', 'ongoing_tournament', 'identifier', 'tournament_identifier', *PARSED_VIDEO_FIELDS} if endpoint == 'staticdetailbatch' else {'id', 'player', 'upload_time', 'state'}
                     self.assertEqual(set(rows[0]), fields)
+                    if endpoint == 'staticdetailbatch':
+                        public = next(row for row in rows if row['id'] == self.video.id)
+                        self.assertEqual((public['cpath'], public['epath']), (123.5, 32.0))
+                        self.assertEqual(public['version'], '元3.3.4')
                     if user is None:
                         if endpoint == 'staticdetailbatch':
                             self.assertEqual(rows[0]['file_size'], 123)
@@ -145,6 +151,19 @@ class VideoInfoTests(TestCase):
         response = self.client.get('/api/video/query', {'filters': filters, 'sorts': sorts})
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual([row['id'] for row in response.json()['videos']], [self.video.pk])
+
+    def test_query_uses_only_requested_sort_keys_and_defaults_to_id_when_empty(self):
+        for sorts, expected in (
+            ([], '1 ASC'),
+            ([{'field': 'bvs', 'direction': 'desc'}], '`videomanager_videomodel`.`bvs` DESC'),
+            ([{'field': 'bvs', 'direction': 'desc'}, {'field': 'timems'}], '`videomanager_videomodel`.`bvs` DESC, `videomanager_videomodel`.`timems` ASC'),
+            ([{'field': 'id', 'direction': 'desc'}], '1 DESC'),
+        ):
+            with self.subTest(sorts=sorts), CaptureQueriesContext(connection) as queries:
+                response = self.client.get('/api/video/query', {'sorts': json.dumps(sorts)})
+                self.assertEqual(response.status_code, 200, response.content)
+                sql = next(query['sql'] for query in queries if 'FROM `videomanager_videomodel`' in query['sql'])
+                self.assertEqual(sql.split(' ORDER BY ')[1].split(' LIMIT ')[0], expected)
 
     def test_batch_loads_expanded_fields_without_per_video_queries(self):
         from .api import get_static_video_detail_batch

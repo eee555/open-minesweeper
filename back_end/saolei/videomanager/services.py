@@ -283,6 +283,6 @@ def query_videos(base_qs, filters_json, sorts_json):
                 value = [entry / coefficient for entry in value] if op == 'in' else value / coefficient
             lookups[f'{mapped}__{VIDEO_QUERY_LOOKUPS[op]}'] = value
     order = [('-' if direction == 'desc' else '') + ('iqg' if field == 'stnb' else field) for field, direction in sorts]
-    if not any(field == 'id' for field, _ in sorts):
+    if not order:
         order.append('id')
     return list(base_qs.filter(**lookups).order_by(*order).values('id', 'upload_time', 'state', 'ongoing_tournament', 'player_id')[:VIDEO_QUERY_LIMIT])

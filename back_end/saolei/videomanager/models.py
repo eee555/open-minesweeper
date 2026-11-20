@@ -86,6 +86,8 @@ class VideoModel(models.Model):
     ongoing_tournament = models.BooleanField(default=False)
     # 软件: "a"->avf; "e"->evf; "u" ->url(未下载);
     software = models.CharField(max_length=MaxSizes.SOFTWARE, choices=MS_TextChoices.Software.choices)
+    # ms-toollib 的 software 原始字符串，包含软件名及版本信息。
+    version = models.CharField(max_length=128, null=False, blank=True, default='')
     # 难度
     level = models.CharField(
         max_length=MaxSizes.GAMELEVEL, choices=MS_TextChoices.Level.choices)
@@ -138,6 +140,8 @@ class VideoModel(models.Model):
         models.F('ce')), output_field=models.FloatField(), db_persist=True)
 
     path = models.FloatField(null=True)
+    cpath = models.FloatField(null=True)
+    epath = models.FloatField(null=True)
     pluck = models.FloatField(null=True, default=None)
     flag = models.PositiveSmallIntegerField(null=True)
     op = models.PositiveSmallIntegerField(null=True)
@@ -189,7 +193,6 @@ class VideoModel(models.Model):
             models.Index(fields=['timems'], name='timems_idx'),
             models.Index(fields=['state'], name='state_idx'),
             models.Index(fields=['software'], name='software_idx'),
-            models.Index(fields=['level', 'mode', 'player', 'pluck'], name='video_lmp_pluck_idx'),
             # state 放在首列，避免 InnoDB 用此索引校验 player 外键，更新录像状态时等待玩家行锁。
             models.Index(fields=['state', 'player', 'level'], name='video_state_player_level_idx'),
             models.Index(fields=['compression_format'], name='video_compression_format_idx'),
@@ -235,12 +238,12 @@ class VideoModel(models.Model):
             original_filename=original_filename, stored_file_size=len(stored_data), compression_format=compression_format, compression_failed=compression_failed,
             video=e_video,
             end_time=parser.end_time,
-            state=parser.state, software=parser.software,
+            state=parser.state, software=parser.software, version=parser.version,
             level=parser.level, mode=parser.mode,
             timems=parser.timems, bv=parser.bv,
             left=parser.left, right=parser.right, double=parser.double,
             left_ce=parser.left_ce, right_ce=parser.right_ce, double_ce=parser.double_ce,
-            path=parser.path, pluck=parser.pluck, flag=parser.flag,
+            path=parser.path, cpath=parser.cpath, epath=parser.epath, pluck=parser.pluck, flag=parser.flag,
             op=parser.op, isl=parser.isl,
             cell0=parser.cell0, cell1=parser.cell1, cell2=parser.cell2,
             cell3=parser.cell3, cell4=parser.cell4, cell5=parser.cell5,

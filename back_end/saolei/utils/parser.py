@@ -105,6 +105,7 @@ class MSVideoParser:
     file: File
 
     software: MS_TextChoices.Software
+    version: str
     level: MS_TextChoices.Level
     mode: MS_TextChoices.Mode
 
@@ -126,6 +127,8 @@ class MSVideoParser:
     double_ce: int
 
     path: float
+    cpath: float
+    epath: float
     flag: int
     op: int
     isl: int
@@ -157,6 +160,7 @@ class MSVideoParser:
             raise ExceptionToResponse(obj='file', category='incomplete')
         v.current_time = 1e8
 
+        self.version = v.software
         self.level = MSVideoParser.get_level_from_BaseVideo(v)
         self.mode = MSVideoParser.get_mode_from_BaseVideo(v, self.software)
         self.pluck = calculate_pluck_from_video(v, self.level, self.mode)
@@ -189,6 +193,8 @@ class MSVideoParser:
         self.double_ce = v.dce
 
         self.path = v.path
+        self.cpath = v.c_path
+        self.epath = v.e_path
         self.flag = v.flag
         self.op = v.op
         self.isl = v.isl
@@ -272,6 +278,7 @@ class MSVideoParser:
             'tournament_identifier': tournament_identifiers,
             'end_time': datetime.fromtimestamp(v.end_time / 1000000, tz=timezone.utc),
             'software': software,
+            'version': v.software,
             'level': level,
             'mode': mode,
             'state': state,
@@ -284,6 +291,8 @@ class MSVideoParser:
             'right_ce': v.rce,
             'double_ce': v.dce,
             'path': v.path,
+            'cpath': v.c_path,
+            'epath': v.e_path,
             'pluck': pluck,
             'flag': v.flag,
             'op': v.op,

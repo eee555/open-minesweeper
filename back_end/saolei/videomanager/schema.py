@@ -5,9 +5,9 @@ from .models import VideoModel
 
 VIDEO_INFO_BATCH_LIMIT = 100
 PARSED_VIDEO_FIELDS = [
-    'software', 'level', 'mode', 'end_time', 'file_size', 'timems', 'bv',
+    'software', 'version', 'level', 'mode', 'end_time', 'file_size', 'timems', 'bv',
     'left', 'right', 'double', 'left_ce', 'right_ce', 'double_ce',
-    'path', 'pluck', 'flag', 'op', 'isl',
+    'path', 'cpath', 'epath', 'pluck', 'flag', 'op', 'isl',
     'cell0', 'cell1', 'cell2', 'cell3', 'cell4', 'cell5', 'cell6', 'cell7', 'cell8',
 ]
 PUBLIC_VIDEO_METADATA_FIELDS = ['id', 'player', 'upload_time', 'state']
