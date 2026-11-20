@@ -53,6 +53,10 @@
             {{ t('local.pl') }}
             <GitHubUser username="kiraa96" />
         </div>
+        <div>
+            {{ t('local.es') }}
+            <GitHubUser username="SandCrawl" />
+        </div>
     </div>
     <div class="section-label">
         <strong>{{ t('local.acknowledgement') }}</strong>
@@ -105,6 +109,7 @@ const i18nMessage = {
         en: '英语',
         de: '德语',
         pl: '波兰语',
+        es: '西班牙语',
         designer: '外观设计',
         acknowledgement: '致谢',
     } },
@@ -117,6 +122,7 @@ const i18nMessage = {
         en: 'English',
         de: 'German',
         pl: 'Polish',
+        es: 'Spanish',
         designer: 'UI designers',
         acknowledgement: 'Acknowledgement',
     } },
@@ -129,6 +135,7 @@ const i18nMessage = {
         en: 'Inglés',
         de: 'Alemán',
         pl: 'Polaco',
+        es: 'Español',
         designer: 'Diseño de la interfaz',
         acknowledgement: 'Agradecimientos',
     } },

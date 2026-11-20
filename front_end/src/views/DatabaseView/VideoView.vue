@@ -486,7 +486,17 @@ async function runQuery(): Promise<void> {
     queryFailed.value = false;
     syncUrl();
     try {
-        const rows = await fetchVideoQuery(buildFilters(), buildSorts(), controller.signal);
+        let filled = false;
+        const rows = await fetchVideoQuery(buildFilters(), buildSorts(), controller.signal, (batch) => {
+            if (current !== revision) return;
+            if (!filled) {
+                resultRows.value = [];
+                currentPage.value = 1;
+                filled = true;
+                loading.value = false;
+            }
+            resultRows.value.push(...batch);
+        });
         if (current !== revision) return;
         resultRows.value = rows;
         currentPage.value = 1;
