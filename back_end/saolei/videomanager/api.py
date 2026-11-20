@@ -259,7 +259,7 @@ def video_query_by_id(request, user_id: int = Query(..., alias='id')):  # noqa: 
     # Self-contained export endpoint, also used outside the website.
     return list(videos.values(
         'id', 'upload_time', 'end_time', 'level', 'mode', 'timems', 'bv', 'bvs', 'state', 'video__identifier',
-        'software', 'right_ce', 'flag', 'cell0', 'cell1', 'cell2', 'cell3', 'cell4', 'cell5', 'cell6', 'cell7', 'cell8', 'left', 'right', 'double', 'op', 'isl', 'path', 'cpath', 'epath', 'pluck',
+        'software', 'version', 'right_ce', 'flag', 'cell0', 'cell1', 'cell2', 'cell3', 'cell4', 'cell5', 'cell6', 'cell7', 'cell8', 'left', 'right', 'double', 'op', 'isl', 'path', 'cpath', 'epath', 'pluck',
     ))
 
 

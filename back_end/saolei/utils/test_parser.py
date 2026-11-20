@@ -32,7 +32,7 @@ class IncompleteVideoParserTests(SimpleTestCase):
         for metadata_only in [False, True]:
             for software in MS_TextChoices.Software:
                 with self.subTest(metadata_only=metadata_only, software=software):
-                    video = Mock(is_completed=True, level=3, mode=10, player_identifier='player', race_identifier='', end_time=0)
+                    video = Mock(is_completed=True, level=3, mode=10, software='Arbiter 0.52.3', player_identifier='player', race_identifier='', end_time=0)
                     video.is_valid.return_value = 0
                     parser_method = MSVideoParser.parse_video_metadata if metadata_only else MSVideoParser
                     read_path = 'utils.parser.create_video_from_data' if metadata_only else 'utils.parser.MSVideoParser.read_file'
@@ -40,6 +40,7 @@ class IncompleteVideoParserTests(SimpleTestCase):
                         result = parser_method(ContentFile(b'replay', name='replay'))
                     expected = '10' if software == MS_TextChoices.Software.EVF else '00'
                     self.assertEqual(result['mode'] if metadata_only else result.mode, expected)
+                    self.assertEqual(result['version'] if metadata_only else result.version, video.software)
                     pluck.assert_called_once_with(video, MS_TextChoices.Level.BEGINNER, expected)
 
     def test_incomplete_video_is_rejected_before_review_or_feature_analysis(self):
@@ -72,8 +73,10 @@ class IsolatedVideoParserTests(SimpleTestCase):
 
         parser = MSVideoParser(file)
         self.assertEqual((parser.cpath, parser.epath), expected)
+        self.assertEqual(parser.version, video.software)
         metadata = MSVideoParser.parse_video_metadata(file)
         self.assertEqual((metadata['cpath'], metadata['epath']), expected)
+        self.assertEqual(metadata['version'], video.software)
 
     def test_isolated_parser_preserves_all_fields_and_rewinds_the_original_file(self):
         for name in ['beginner_personal.evf', 'expert_personal.evf', 'custom_pluck.evf', 'standard_gsc.evf']:

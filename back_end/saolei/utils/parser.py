@@ -105,6 +105,7 @@ class MSVideoParser:
     file: File
 
     software: MS_TextChoices.Software
+    version: str
     level: MS_TextChoices.Level
     mode: MS_TextChoices.Mode
 
@@ -159,6 +160,7 @@ class MSVideoParser:
             raise ExceptionToResponse(obj='file', category='incomplete')
         v.current_time = 1e8
 
+        self.version = v.software
         self.level = MSVideoParser.get_level_from_BaseVideo(v)
         self.mode = MSVideoParser.get_mode_from_BaseVideo(v, self.software)
         self.pluck = calculate_pluck_from_video(v, self.level, self.mode)
@@ -276,6 +278,7 @@ class MSVideoParser:
             'tournament_identifier': tournament_identifiers,
             'end_time': datetime.fromtimestamp(v.end_time / 1000000, tz=timezone.utc),
             'software': software,
+            'version': v.software,
             'level': level,
             'mode': mode,
             'state': state,

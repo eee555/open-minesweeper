@@ -86,6 +86,8 @@ class VideoModel(models.Model):
     ongoing_tournament = models.BooleanField(default=False)
     # 软件: "a"->avf; "e"->evf; "u" ->url(未下载);
     software = models.CharField(max_length=MaxSizes.SOFTWARE, choices=MS_TextChoices.Software.choices)
+    # ms-toollib 的 software 原始字符串，包含软件名及版本信息。
+    version = models.CharField(max_length=64, null=False, blank=True, default='')
     # 难度
     level = models.CharField(
         max_length=MaxSizes.GAMELEVEL, choices=MS_TextChoices.Level.choices)
@@ -236,7 +238,7 @@ class VideoModel(models.Model):
             original_filename=original_filename, stored_file_size=len(stored_data), compression_format=compression_format, compression_failed=compression_failed,
             video=e_video,
             end_time=parser.end_time,
-            state=parser.state, software=parser.software,
+            state=parser.state, software=parser.software, version=parser.version,
             level=parser.level, mode=parser.mode,
             timems=parser.timems, bv=parser.bv,
             left=parser.left, right=parser.right, double=parser.double,

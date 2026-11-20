@@ -20,7 +20,7 @@ def refresh_video(video: VideoModel):
         raise VideoParseError(str(exc)) from exc
 
     parser_fields = [
-        'level', 'mode', 'software', 'end_time', 'timems', 'bv',
+        'level', 'mode', 'software', 'version', 'end_time', 'timems', 'bv',
         'left', 'right', 'double',
         'left_ce', 'right_ce', 'double_ce',
         'path', 'cpath', 'epath', 'pluck', 'flag', 'op', 'isl',

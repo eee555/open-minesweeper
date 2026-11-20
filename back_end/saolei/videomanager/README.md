@@ -5,6 +5,7 @@
 ## 核心模型
 
 - `VideoModel`：录像主表，保存玩家、文件、审核状态、级别、模式、成绩、`pluck`、比赛标记等信息。
+- `VideoModel.version`：原样保存 ms-toollib 的 `software` 字符串（软件名及版本信息），不单独提取版本号。最长 64 字符，不允许 `NULL`，默认为空字符串。新上传、导入及重新解析时填充；存量记录迁移后为空字符串，不自动解析回填。
 - `ExpandVideoModel`：录像扩展信息，保存录像内标识 `identifier`、比赛标识列表 `tournament_identifier` 和冻结原因 `freeze_reason`（不设长度上限的文本，旧记录默认为空字符串）。
 
 `VideoModel` 是多个 app 的事实事件源。任何保存 `VideoModel` 的代码都应尽量使用 `save(update_fields=[...])`，让信号接收器能判断本次修改的影响范围。
