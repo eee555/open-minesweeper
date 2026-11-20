@@ -16,6 +16,7 @@ export default {
     settings: '设置',
     timeSeconds: '@:{\'prop.time\'}@:{\'punct.lparen\'}秒@:{\'punct.rparen\'}',
     memorialError: {
+        unknown: '纪念账号操作失败，请重试。',
         forbidden: '仅站长可以操作，请确认登录状态。',
         not_memorial: '目标不是纪念账号。',
         not_found: '没有找到该记录。',
@@ -27,6 +28,8 @@ export default {
         identifier_invalid: '平台账号 ID 格式不正确。',
     },
     historyError: {
+        unknown: '历史补录操作失败，请重试。',
+        malformedCsv: 'CSV 格式无效。',
         invalidField: '第 {row} 行：{field} 无效',
         size: 'CSV 超过 10 MiB',
         headers: 'CSV 表头缺失或重复',

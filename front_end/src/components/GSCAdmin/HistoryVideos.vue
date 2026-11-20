@@ -48,6 +48,7 @@ import { assignHistoryUploadTimes } from './history';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
+import { historyErrorText } from '@/i18n/historyErrorText';
 import { bindGSCHistoryIdentifier, prepareGSCHistory, uploadGSCHistoryVideo } from '@/services/gscHistoryService';
 import type { IdentifierBinding } from '@/services/gscHistoryService';
 import { extract_stat, load_video_file } from '@/utils/fileIO';
@@ -210,11 +211,11 @@ async function upload() {
                 entry.result = await uploadGSCHistoryVideo(participantId.value, entry.file, entry.uploadTime);
                 entry.error = undefined;
             } catch (reason) {
-                entry.error = String(reason);
+                entry.error = historyErrorText(reason);
             }
         }
     } catch (reason) {
-        error.value = t('local.retryPending', { reason: String(reason) });
+        error.value = t('local.retryPending', { reason: historyErrorText(reason) });
     } finally {
         busy.value = false;
         emit('imported');

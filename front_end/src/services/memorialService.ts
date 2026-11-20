@@ -1,11 +1,15 @@
 import { isAxiosError } from 'axios';
 
 import $axios from '@/http';
-import i18n from '@/i18n';
 import { assignHistoryUploadTimes } from '@/utils/historyUploadTimes';
 import type { VideoAbstractData } from '@/utils/videoabstract';
 
 const endpoint = '/api/common/admin/memorial';
+const memorialErrorCategories = [
+    'not_memorial', 'not_found', 'userms_missing', 'collision', 'timezone_required',
+    'platform_not_assignable', 'identifier_required', 'identifier_invalid',
+] as const;
+type MemorialErrorCode = typeof memorialErrorCategories[number] | 'forbidden' | 'unknown';
 
 export interface MemorialUser {
     id: number;
@@ -30,7 +34,7 @@ export interface MemorialReplay {
 export interface MemorialUpload extends MemorialReplay {
     uploadTime: Date;
     result?: VideoAbstractData;
-    error?: string;
+    errorCode?: MemorialErrorCode;
 }
 export interface MemorialBinding {
     identifier: string;
@@ -77,17 +81,12 @@ export async function removeMemorialLink(id: number, platform: string, token: st
     await $axios.delete(`${endpoint}/users/${id}/account-links`, { params: { platform }, headers: { 'X-CSRFToken': token } });
 }
 
-export function memorialErrorText(error: unknown): string {
-    if (isAxiosError<unknown>(error)) {
-        if (error.response?.status === 401 || error.response?.status === 403) return i18n.global.t('memorialError.forbidden');
-        const payload: unknown = error.response?.data;
-        if (payload !== null && typeof payload === 'object') {
-            const category = 'category' in payload && typeof payload.category === 'string' ? payload.category : '';
-            const key = `memorialError.${category}`;
-            return i18n.global.te(key, 'en') ? i18n.global.t(key) : JSON.stringify(payload);
-        }
-    }
-    return String(error);
+export function memorialErrorCode(error: unknown): MemorialErrorCode {
+    if (!isAxiosError<unknown>(error)) return 'unknown';
+    if (error.response?.status === 401 || error.response?.status === 403) return 'forbidden';
+    const payload = error.response?.data;
+    if (payload === null || typeof payload !== 'object' || !('category' in payload)) return 'unknown';
+    return memorialErrorCategories.find((category) => category === payload.category) ?? 'unknown';
 }
 
 export function planMemorialUploads(replays: MemorialReplay[], identifiers: string[], anchor: Date): MemorialUpload[] {
@@ -119,10 +118,10 @@ export async function uploadMemorialBatch(
             const { data } = await $axios.post<UploadResult>(`${endpoint}/users/${userId}/videos`, form, { headers: { 'X-CSRFToken': token } });
             receiveBindings(data.bindings);
             entry.result = data.video;
-            entry.error = undefined;
+            entry.errorCode = undefined;
         } catch (error) {
             if (isAxiosError<Partial<UploadResult>>(error) && Array.isArray(error.response?.data?.bindings)) receiveBindings(error.response.data.bindings);
-            entry.error = memorialErrorText(error);
+            entry.errorCode = memorialErrorCode(error);
         }
     }
 }

@@ -48,6 +48,7 @@ import HistoryVideos from './HistoryVideos.vue';
 import BaseButton from '@/components/common/BaseButton.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
 import PlayerName from '@/components/PlayerName.vue';
+import { historyErrorText } from '@/i18n/historyErrorText';
 import { fetchGSCHistory } from '@/services/gscHistoryService';
 import { store } from '@/store';
 import DisqualifyParticipant from '@/views/TournamentView/common/DisqualifyParticipant.vue';
@@ -123,7 +124,7 @@ async function refresh() {
         const result = await fetchGSCHistory(order);
         if (request === generation) history.value = result;
     } catch (reason) {
-        if (request === generation) error.value = String(reason);
+        if (request === generation) error.value = historyErrorText(reason);
     } finally {
         if (request === generation) loading.value = false;
     }

@@ -26,6 +26,7 @@ import { historyCsvHeaders, parseHistoryCsv, splitHistoryBatches } from './histo
 import type { HistoryCsvRecord, HistoryKind } from './history';
 
 import BaseButton from '@/components/common/BaseButton.vue';
+import { historyErrorText } from '@/i18n/historyErrorText';
 import { importGSCHistoryScores } from '@/services/gscHistoryService';
 
 const props = defineProps({ kind: { type: String as PropType<HistoryKind>, required: true } });
@@ -92,7 +93,7 @@ async function selectCsv(event: Event) {
     try {
         records.value = parseHistoryCsv(await file.text(), props.kind);
     } catch (reason) {
-        error.value = String(reason);
+        error.value = historyErrorText(reason);
     } finally {
         busy.value = false;
     }
@@ -112,7 +113,7 @@ async function submit() {
                 confirmed.value += count;
                 messages.value.push(t('local.batchSuccess', { order: batch.order, lines, count }));
             } catch (reason) {
-                error.value = t('local.batchFailed', { order: batch.order, lines, reason: String(reason) });
+                error.value = t('local.batchFailed', { order: batch.order, lines, reason: historyErrorText(reason) });
                 const remaining = batches.slice(index + 1).flatMap((pending) => pending.records.map((record) => record.sourceRow));
                 if (remaining.length) messages.value.push(t('local.unsent', { lines: remaining.join(', ') }));
                 break;

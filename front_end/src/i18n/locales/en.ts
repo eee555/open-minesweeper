@@ -17,6 +17,7 @@ export default {
     settings: 'Settings',
     timeSeconds: '@:{\'prop.time\'}@:{\'punct.lparen\'}seconds@:{\'punct.rparen\'}',
     memorialError: {
+        unknown: 'The memorial account operation failed. Please try again.',
         forbidden: 'Only the site owner can perform this action. Check that you are signed in.',
         not_memorial: 'This is not a memorial account.',
         not_found: 'Record not found.',
@@ -28,6 +29,8 @@ export default {
         identifier_invalid: 'The platform account ID has an invalid format.',
     },
     historyError: {
+        unknown: 'The history import operation failed. Please try again.',
+        malformedCsv: 'The CSV format is invalid.',
         invalidField: 'Row {row}: invalid {field}',
         size: 'CSV exceeds 10 MiB',
         headers: 'Missing or duplicate CSV headers',

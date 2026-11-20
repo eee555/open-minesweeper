@@ -68,7 +68,7 @@
             </ul>
             <ul data-cy="memorial-bindings">
                 <li v-for="binding in bindings" :key="binding.identifier">
-                    {{ binding.identifier || t('local.emptyId') }}：{{ binding.bound ? t('local.bound') : binding.error || t('local.bindConflict') }}
+                    {{ binding.identifier || t('local.emptyId') }}：{{ binding.bound ? t('local.bound') : t(binding.error ? 'local.bindFailed' : 'local.bindConflict') }}
                 </li>
             </ul>
             <p v-if="completed">
@@ -87,7 +87,7 @@
                     <tr><th>{{ t('local.file') }}</th><th>{{ t('local.identifier') }}</th><th>{{ t('local.planned') }}</th><th>{{ t('local.actual') }}</th><th>{{ t('local.result') }}</th></tr>
                 </template>
                 <tr v-for="entry in uploads" :key="entry.index">
-                    <td>{{ entry.file.name }}</td><td>{{ entry.identifier }}</td><td>{{ entry.uploadTime.toISOString() }}</td><td>{{ entry.result?.upload_time ?? '—' }}</td><td>{{ entry.result ? t('local.replayResult', { id: entry.result.id, state: entry.result.state }) : entry.error || t('local.pending') }}</td>
+                    <td>{{ entry.file.name }}</td><td>{{ entry.identifier }}</td><td>{{ entry.uploadTime.toISOString() }}</td><td>{{ entry.result?.upload_time ?? '—' }}</td><td>{{ entry.result ? t('local.replayResult', { id: entry.result.id, state: entry.result.state }) : t(entry.errorCode ? `memorialError.${entry.errorCode}` : 'local.pending') }}</td>
                 </tr>
             </BaseTable>
         </template>
@@ -107,9 +107,11 @@ import { RouterLink, useRoute } from 'vue-router';
 import VideoImportQueue from '@/components/accountlinks/VideoImportQueue.vue';
 import BaseButton from '@/components/common/BaseButton.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
-import { assignMemorialLink, fetchMemorialAccess, fetchMemorialLinks, memorialErrorText, planMemorialUploads, removeMemorialLink, uploadMemorialBatch } from '@/services/memorialService';
+import { historyErrorText } from '@/i18n/historyErrorText';
+import { assignMemorialLink, fetchMemorialAccess, fetchMemorialLinks, memorialErrorCode, planMemorialUploads, removeMemorialLink, uploadMemorialBatch } from '@/services/memorialService';
 import type { MemorialAccess, MemorialAccountLink, MemorialBinding, MemorialReplay, MemorialUpload } from '@/services/memorialService';
 import { extract_stat, load_video_file } from '@/utils/fileIO';
+import { HistoryImportError } from '@/utils/historyImportError';
 
 const i18nMessages = {
     'zh-cn': { local: {
@@ -123,6 +125,7 @@ const i18nMessages = {
         linkFirst: '先在“账号关联”中设置扫雷网账号，之后可以在这里同步并导入其录像。',
         invalidReplay: '录像未完成，或完成时间、耗时无效',
         bindConflict: '归属冲突，未绑定；录像仍会上传',
+        bindFailed: '标识绑定失败，录像仍会上传',
         working: '正在处理，请等待本次请求完成。',
         noLinks: '尚未设置任何账号关联。',
         bindSelected: '绑定标识并上传所选录像',
@@ -163,6 +166,7 @@ const i18nMessages = {
         linkFirst: 'Link a Saolei.wang account under Account links before synchronizing and importing its replays here.',
         invalidReplay: 'Unfinished replay or invalid finish time or duration',
         bindConflict: 'Ownership conflict. Replay uploads will continue without linking.',
+        bindFailed: 'Could not link the identifier. Replay uploads will continue.',
         working: 'Processing. Wait for this request to finish.',
         noLinks: 'No accounts linked yet.',
         bindSelected: 'Link identifiers and upload selected replays',
@@ -203,6 +207,7 @@ const i18nMessages = {
         linkFirst: 'Vincula primero la cuenta de Saolei.wang en «Cuentas vinculadas». Después podrás sincronizar e importar sus repeticiones aquí.',
         invalidReplay: 'Partida sin terminar, fecha de finalización o duración no válidas',
         bindConflict: 'Conflicto de titularidad. Las repeticiones se subirán sin vincular el identificador.',
+        bindFailed: 'No se pudo vincular el identificador. Las repeticiones se seguirán subiendo.',
         working: 'Procesando. Espera a que termine la solicitud.',
         noLinks: 'Aún no hay cuentas vinculadas.',
         bindSelected: 'Vincular los identificadores y subir las repeticiones seleccionadas',
@@ -289,7 +294,7 @@ async function act(callback: () => Promise<void>) {
     try {
         await callback();
     } catch (reason) {
-        error.value = memorialErrorText(reason);
+        error.value = reason instanceof HistoryImportError ? historyErrorText(reason) : t(`memorialError.${memorialErrorCode(reason)}`);
     } finally {
         busy.value = false;
     }
@@ -320,7 +325,7 @@ async function assignLink() {
         links.value = (await fetchMemorialLinks(id)).links;
         linkIdentifier.value = '';
     } catch (reason) {
-        error.value = memorialErrorText(reason);
+        error.value = t(`memorialError.${memorialErrorCode(reason)}`);
     } finally {
         linkBusy.value = false;
     }
@@ -336,7 +341,7 @@ async function removeLink(platform: string) {
         links.value = (await fetchMemorialLinks(id)).links;
         if (platform === 'c') saoleiAccountId.value = undefined;
     } catch (reason) {
-        error.value = memorialErrorText(reason);
+        error.value = t(`memorialError.${memorialErrorCode(reason)}`);
     } finally {
         linkBusy.value = false;
     }

@@ -16,6 +16,7 @@ export default {
     settings: 'Ajustes',
     timeSeconds: '@:{\'prop.time\'}@:{\'punct.lparen\'}segundos@:{\'punct.rparen\'}',
     memorialError: {
+        unknown: 'No se pudo completar la operación de la cuenta conmemorativa. Inténtalo de nuevo.',
         forbidden: 'Solo el propietario del sitio puede realizar esta acción. Comprueba que has iniciado sesión.',
         not_memorial: 'Esta cuenta no es conmemorativa.',
         not_found: 'No se ha encontrado el registro.',
@@ -27,6 +28,8 @@ export default {
         identifier_invalid: 'El formato del ID de la cuenta en la plataforma no es válido.',
     },
     historyError: {
+        unknown: 'No se pudo completar la importación histórica. Inténtalo de nuevo.',
+        malformedCsv: 'El formato del CSV no es válido.',
         invalidField: 'Fila {row}: valor no válido en {field}',
         size: 'El CSV supera los 10 MiB',
         headers: 'Faltan encabezados en el CSV o hay encabezados duplicados',

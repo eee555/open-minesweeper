@@ -3,8 +3,8 @@ import { ArrowLeft, ArrowRight, Key, Lock, Message, QuestionFilled, User } from 
 import { definePreset } from '@primeuix/themes';
 import Aura from '@primeuix/themes/aura';
 import type { AxiosInstance } from 'axios';
-import PrimeVue, { usePrimeVue } from 'primevue/config';
-import { createApp, watch } from 'vue';
+import PrimeVue from 'primevue/config';
+import { createApp } from 'vue';
 
 import App from './App.vue';
 import $axios from './http';
@@ -12,7 +12,6 @@ import router from './router';
 import { pinia } from './store/create';
 
 import i18n from '@/i18n';
-import { primeVueSpanish } from '@/i18n/primevue-es';
 
 updateStartupStatus('2/3 正在初始化应用…', '2/3 Initializing application…', '2/3 Inicializando la aplicación…');
 
@@ -60,11 +59,6 @@ app.use(PrimeVue, {
     autoImport: false,
 });
 app.use(pinia).use(router).use(i18n);
-const { config } = app.runWithContext(usePrimeVue);
-const defaultLocale = config.locale;
-watch(i18n.global.locale, (language) => {
-    if (defaultLocale) config.locale = language === 'es' ? { ...defaultLocale, ...primeVueSpanish } : defaultLocale;
-}, { immediate: true });
 updateStartupStatus('3/3 正在准备页面…', '3/3 Preparing page…', '3/3 Preparando la página…');
 
 // Keep the HTML placeholder until the route and CDN (or local fallback) styles are ready.

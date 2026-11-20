@@ -22,6 +22,14 @@ describe('<MemorialAccounts />', () => {
         cy.get('[data-cy=memorial-upload-controls]').should('not.exist');
     });
 
+    it('shows a generic message for an unknown server category', () => {
+        cy.intercept('GET', '**/api/common/admin/memorial/users/42/videos', {
+            statusCode: 500, body: { category: 'unexpected', detail: 'internal response' },
+        });
+        mountPage();
+        cy.get('[role=alert]').should('have.text', 'The memorial account operation failed. Please try again.');
+    });
+
     it('requires manual selection and displays a successful upload despite binding failure', () => {
         cy.intercept('GET', '**/api/common/admin/memorial/users/42/videos', { body: { user: target, csrf_token: 'csrf' } }).as('access');
         cy.intercept('POST', '**/api/common/admin/memorial/users/42/videos', { body: {
@@ -38,7 +46,7 @@ describe('<MemorialAccounts />', () => {
         cy.get('[data-cy=memorial-identifier]').check();
         cy.get('[data-cy=memorial-upload-submit]').click();
         cy.wait('@upload');
-        cy.get('[data-cy=memorial-bindings]').should('contain.text', '绑定失败');
+        cy.get('[data-cy=memorial-bindings]').should('contain.text', 'Could not link the identifier').and('not.contain.text', '绑定失败');
         cy.get('[data-cy=memorial-upload-results]').should('contain.text', 'Replay #91');
     });
 });
