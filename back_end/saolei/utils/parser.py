@@ -126,6 +126,8 @@ class MSVideoParser:
     double_ce: int
 
     path: float
+    cpath: float
+    epath: float
     flag: int
     op: int
     isl: int
@@ -189,6 +191,8 @@ class MSVideoParser:
         self.double_ce = v.dce
 
         self.path = v.path
+        self.cpath = v.c_path
+        self.epath = v.e_path
         self.flag = v.flag
         self.op = v.op
         self.isl = v.isl
@@ -284,6 +288,8 @@ class MSVideoParser:
             'right_ce': v.rce,
             'double_ce': v.dce,
             'path': v.path,
+            'cpath': v.c_path,
+            'epath': v.e_path,
             'pluck': pluck,
             'flag': v.flag,
             'op': v.op,

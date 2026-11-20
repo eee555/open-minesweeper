@@ -59,6 +59,22 @@ class IncompleteVideoParserTests(SimpleTestCase):
 
 
 class IsolatedVideoParserTests(SimpleTestCase):
+    def test_click_paths_are_preserved_by_both_parser_entry_points(self):
+        name = 'expert_personal.evf'
+        file = ContentFile((FIXTURES / name).read_bytes(), name=name)
+        video, _ = MSVideoParser.read_file(file)
+        video.parse()
+        video.analyse()
+        video.current_time = 1e8
+        expected = (video.c_path, video.e_path)
+        self.assertGreater(expected[0], 0)
+        self.assertGreater(expected[1], 0)
+
+        parser = MSVideoParser(file)
+        self.assertEqual((parser.cpath, parser.epath), expected)
+        metadata = MSVideoParser.parse_video_metadata(file)
+        self.assertEqual((metadata['cpath'], metadata['epath']), expected)
+
     def test_isolated_parser_preserves_all_fields_and_rewinds_the_original_file(self):
         for name in ['beginner_personal.evf', 'expert_personal.evf', 'custom_pluck.evf', 'standard_gsc.evf']:
             with self.subTest(name=name):

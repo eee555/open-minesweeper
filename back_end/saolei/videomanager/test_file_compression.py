@@ -50,6 +50,8 @@ class ReplayCompressionTests(TestCase):
         self.assertEqual(video.compression_format, pack_compression_format(1, 1, 2))
         self.assertEqual(video.stored_file_size, video.file.size)
         self.assertFalse(video.compression_failed)
+        video.refresh_from_db()
+        self.assertEqual((video.cpath, video.epath), (parser.cpath, parser.epath))
         self.user.userms.refresh_from_db()
         self.assertEqual(self.user.userms.video_size_total, video.stored_file_size)
         self.assertEqual(source.tell(), 0)
@@ -256,6 +258,9 @@ class ReplayCompressionTests(TestCase):
         fixture = Path(__file__).parents[1] / 'common/test_fixtures/video_upload_ranking/beginner_personal.evf'
         data = fixture.read_bytes()
         video = self.video(data)
+        self.assertIsNone(video.cpath)
+        self.assertIsNone(video.epath)
+        parser = MSVideoParser(ContentFile(data, name='original.evf'))
         with self.captureOnCommitCallbacks(execute=True):
             compress_video_file(video)
         video.refresh_from_db()
@@ -265,6 +270,7 @@ class ReplayCompressionTests(TestCase):
         call_command('backfill_video_hashes', stdout=StringIO())
         video.refresh_from_db()
         self.assertEqual(video.original_hash, hashlib.sha256(data).hexdigest()[:24])
+        self.assertEqual((video.cpath, video.epath), (parser.cpath, parser.epath))
 
     def test_dry_run_and_private_video_access(self):
         video = self.video(ongoing_tournament=True)

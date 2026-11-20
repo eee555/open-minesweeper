@@ -403,6 +403,8 @@ python manage.py backfill_video_hashes --start 10000 --end 20000 --step 10
 
 按 ID 顺序逐条重新解析录像并通过实例保存触发信号，默认处理全部录像，不限制状态、模式、级别或比赛标记。每条录像独立加锁和提交，解析期间会阻塞同一录像的其他写入。
 
+`VideoModel.cpath`、`epath` 分别保存 ms-toollib 的 `c_path`、`e_path`，均为可空浮点数，沿用每格 16 像素的归一化单位。新增录像直接写入，存量录像迁移后为 `NULL`，运行本命令可重新解析并回填；单纯添加字段不会自动回算。部署时先运行 `python manage.py makemigrations videomanager` 和 `python manage.py migrate`，再按需刷新指定 ID 区间。
+
 已知解析异常会报告 ID 并跳过；其他错误会停止命令，回滚当前条的数据库写入，此前完成的刷新和已写入 Redis 的内容不回滚。此命令不替代排行榜全量重建；需要重算录像计数时另行使用 `refresh_video_counts`。
 
 | 参数 | 默认值 | 说明 |

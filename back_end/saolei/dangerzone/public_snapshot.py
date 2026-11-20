@@ -23,7 +23,7 @@ from .utils import snapshot_pages, validate_snapshot
 
 USER_FIELDS = ('id', 'username', 'firstname', 'lastname', 'realname', 'signature', 'country', 'is_banned', 'left_avatar_n', 'left_signature_n')
 VIDEO_FIELDS = (
-    'id', 'software', 'level', 'mode', 'state', 'timems', 'bv', 'path', 'pluck', 'flag', 'op', 'isl', 'file_size',
+    'id', 'software', 'level', 'mode', 'state', 'timems', 'bv', 'path', 'cpath', 'epath', 'pluck', 'flag', 'op', 'isl', 'file_size',
     'left', 'right', 'double', 'left_ce', 'right_ce', 'double_ce',
     'cell0', 'cell1', 'cell2', 'cell3', 'cell4', 'cell5', 'cell6', 'cell7', 'cell8',
 )

@@ -23,7 +23,7 @@ class VideoInfoTests(TestCase):
         self.other = UserProfile.objects.create_user(username='video-info-other', email='video-info-other@example.com', userms=UserMS.objects.create())
         self.video = VideoModel.objects.create(
             player=self.owner, video=ExpandVideoModel.objects.create(identifier='Fixture'), file='fixture.evf', file_size=123,
-            software='e', level='b', mode='00', bv=4, timems=1000, state='c', left=5, right=0, double=1, left_ce=3, right_ce=0, double_ce=1,
+            software='e', level='b', mode='00', bv=4, timems=1000, state='c', left=5, right=0, double=1, left_ce=3, right_ce=0, double_ce=1, cpath=123.5, epath=32.0,
         )
         self.private = VideoModel.objects.create(
             player=self.owner, video=ExpandVideoModel.objects.create(), file='private.evf', software='e', level='b', bv=4, ongoing_tournament=True,
@@ -49,6 +49,9 @@ class VideoInfoTests(TestCase):
                     self.assertEqual(sorted(row['id'] for row in rows), sorted(expected))
                     fields = {'id', 'ongoing_tournament', 'identifier', 'tournament_identifier', *PARSED_VIDEO_FIELDS} if endpoint == 'staticdetailbatch' else {'id', 'player', 'upload_time', 'state'}
                     self.assertEqual(set(rows[0]), fields)
+                    if endpoint == 'staticdetailbatch':
+                        public = next(row for row in rows if row['id'] == self.video.id)
+                        self.assertEqual((public['cpath'], public['epath']), (123.5, 32.0))
                     if user is None:
                         if endpoint == 'staticdetailbatch':
                             self.assertEqual(rows[0]['file_size'], 123)
