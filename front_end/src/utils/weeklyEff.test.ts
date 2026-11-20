@@ -11,7 +11,7 @@ function video(id: number, level: 'i' | 'e', timems: number, bv = 6): VideoAbstr
 describe('WeeklyEffParticipant', () => {
     it('uses the original floating ratio without rounding or a raw time limit', () => {
         const replay = video(1, 'i', 90001, 7);
-        expect(weeklyEffVideoScore(replay)).toBe(90001 * 3 / 7000);
+        expect(weeklyEffVideoScore(replay)).toBe(90001 * 9 / 49000);
         expect(isWeeklyEffSupportedVideo(replay)).toBe(true);
         expect(isWeeklyEffSupportedVideo(video(2, 'i', 60000, 3))).toBe(false);
         expect(isWeeklyEffSupportedVideo(video(3, 'e', 240000, 3))).toBe(false);

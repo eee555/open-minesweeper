@@ -58,6 +58,18 @@ const componentMessages = {
         line_4_3: 'Secondly, approve the earlist claim of the identifier, where a claim refers to publishing a video with the identifier anywhere.',
         line_4_4: 'After the decision, some users may lose the identifier, which could result in scores withdrawn from Ranking.',
     } },
+    es: { local: {
+        line_1_1: 'El identificador es la firma que el jugador guarda en el archivo de repetición. Se llama «Player Identification Text» en los ajustes de ',
+        line_1_2: ' e «Identifier» en los de ',
+        line_1_3: '.',
+        line_2_1: 'Cada usuario puede tener un número ilimitado de identificadores, mientras que diferentes usuarios no pueden tener el mismo identificador. Un usuario puede modificar sus identificadores en su página de perfil.',
+        line_3_1: 'Si el identificador de la repetición no figura en la lista del jugador, la repetición se marca como ',
+        line_3_2: ' y se excluye de las noticias y las clasificaciones.',
+        line_4_1: 'Cuando múltiples usuarios enfrentan una colisión de identificadores, pueden encontrar una solución por sí mismos o contactar a un moderador para ayuda. El moderador tomará una decisión basándose en los siguientes principios:',
+        line_4_2: 'En primer lugar, proteger el derecho de los usuarios que usan su nombre real en los identificadores;',
+        line_4_3: 'En segundo lugar, tiene prioridad quien primero haya publicado una repetición con ese identificador, en cualquier sitio.',
+        line_4_4: 'Después de la decisión, algunos usuarios podrían perder su identificador, lo que podría resultar en la retirada de puntuaciones de la Clasificación.',
+    } },
 };
 
 const { t } = useI18n({

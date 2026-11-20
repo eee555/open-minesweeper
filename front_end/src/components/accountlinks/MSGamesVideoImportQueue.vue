@@ -17,6 +17,7 @@
             </template>
             <span v-if="summary">{{ t('local.summary', { total: summary.total, imported: summary.imported }) }}</span>
             <span v-if="progress">{{ t('local.progress', progress) }}</span>
+            <span v-if="sending && importingId === undefined && progress === undefined">{{ t('local.taskRunning') }}</span>
         </div>
         <p v-if="summary?.video_update_time">
             {{ t('local.updated') }}: {{ summary.video_update_time }}
@@ -112,9 +113,9 @@ import BasePagination from '@/components/common/BasePagination.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
 import SortIcon from '@/components/common/SortIcon.vue';
 import { nextSortOrder, sortState } from '@/components/common/sortState';
-import { httpErrorNotification } from '@/components/Notifications';
+import { generalErrorNotification, httpErrorNotification } from '@/components/Notifications';
 import VideoPreviewLink from '@/components/VideoPreviewLink.vue';
-import { fetchMSGamesImportSummary, fetchMSGamesVideos, importMSGamesVideo, syncMSGamesVideos } from '@/services/accountLinkService';
+import { fetchMSGamesImportSummary, fetchMSGamesVideos, importMSGamesVideo, MSGamesTaskError, syncMSGamesVideos } from '@/services/accountLinkService';
 import type { MSGamesImportSummary, MSGamesVideo } from '@/utils/accountlinks';
 import { canImportMSGamesVideo } from '@/utils/accountlinks';
 
@@ -137,6 +138,7 @@ const failures = ref<Record<number, string>>({});
 const progress = ref<{ completed: number; total: number; failed: number }>();
 let generation = 0;
 let context = 0;
+let taskRequests = new AbortController();
 
 const tableData = computed<MSGamesTableVideo[]>(() => videos.value.map((video) => ({
     ...video, import_status: msgamesImportStatusOf(video, canImportMSGamesVideo(video), importingId.value, failures.value),
@@ -178,6 +180,8 @@ async function refresh(shouldContinue: () => boolean = () => true): Promise<bool
 }
 
 watch(() => props.msgamesId, () => {
+    taskRequests.abort();
+    taskRequests = new AbortController();
     context++;
     generation++;
     videos.value = [];
@@ -199,13 +203,18 @@ async function sync() {
     const current = context;
     sending.value = true;
     try {
-        await syncMSGamesVideos(props.msgamesId);
+        await syncMSGamesVideos(props.msgamesId, taskRequests.signal);
         if (current === context) await refresh();
     } catch (error) {
-        if (current === context) httpErrorNotification(error);
+        if (current === context) syncErrorNotification(error);
     } finally {
         if (current === context) sending.value = false;
     }
+}
+
+function syncErrorNotification(error: unknown) {
+    if (error instanceof MSGamesTaskError) generalErrorNotification(error.object, error.category);
+    else httpErrorNotification(error);
 }
 
 function errorDescription(error: unknown): string {
@@ -216,11 +225,11 @@ function errorDescription(error: unknown): string {
     return t('local.requestFailed');
 }
 
-async function importVideo(video: MSGamesVideo, current: number): Promise<boolean> {
+async function importVideo(video: MSGamesVideo, current: number): Promise<boolean | undefined> {
     importingId.value = video.id;
     failures.value[video.id] = '';
     try {
-        const result = await importMSGamesVideo(video.id);
+        const result = await importMSGamesVideo(video.id, taskRequests.signal);
         if (current !== context) return false;
         video.import_video = result.import_video_id;
         const visible = videos.value.find((item) => item.id === video.id);
@@ -229,7 +238,9 @@ async function importVideo(video: MSGamesVideo, current: number): Promise<boolea
         return true;
     } catch (error) {
         if (current === context) failures.value[video.id] = errorDescription(error);
-        return false;
+        // A transport failure leaves the request outcome unknown; stop the batch instead of sending more.
+        const category = isAxiosError<{ category?: string }>(error) ? error.response?.data?.category ?? '' : '';
+        return category !== '' ? false : undefined;
     } finally {
         if (current === context) importingId.value = undefined;
     }
@@ -257,7 +268,7 @@ async function importAll() {
     stopping.value = false;
     progress.value = undefined;
     try {
-        await syncMSGamesVideos(account);
+        await syncMSGamesVideos(account, taskRequests.signal);
         if (cancelled()) return;
         if (!await refresh(() => !cancelled()) || cancelled()) return;
         const pending = videos.value.filter((video) => video.import_video === null && canImportMSGamesVideo(video));
@@ -267,11 +278,12 @@ async function importAll() {
             const success = await importVideo(video, current);
             if (current !== context) return;
             progress.value.completed++;
-            if (!success) progress.value.failed++;
+            if (success !== true) progress.value.failed++;
+            if (success === undefined) break;
             if (progress.value.completed < pending.length && !cancelled()) await promiseTimeout(1100);
         }
     } catch (error) {
-        if (current === context) httpErrorNotification(error);
+        if (current === context) syncErrorNotification(error);
     } finally {
         if (current === context) {
             await refresh();
@@ -284,12 +296,14 @@ async function importAll() {
 }
 
 onBeforeUnmount(() => {
+    taskRequests.abort();
     context++;
     generation++;
 });
 
 const { t } = useI18n({ messages: {
     'zh-cn': { local: {
+        taskRunning: '后台任务排队或处理中…',
         sync: '同步录像列表',
         importAll: '导入未导入录像',
         stop: '停止后续导入',
@@ -311,6 +325,7 @@ const { t } = useI18n({ messages: {
         updated: '列表更新时间',
     } },
     en: { local: {
+        taskRunning: 'Background task queued or running…',
         sync: 'Sync video list',
         importAll: 'Import remaining videos',
         stop: 'Stop further imports',
@@ -330,6 +345,28 @@ const { t } = useI18n({ messages: {
         pending: 'Not imported',
         summary: '{total} videos, {imported} imported',
         updated: 'List updated',
+    } },
+    es: { local: {
+        sync: 'Sincronizar lista de repeticiones',
+        importAll: 'Importar videos restantes',
+        stop: 'Detener las importaciones pendientes',
+        importing: 'Importando',
+        failed: 'Importación fallida',
+        requestFailed: 'Solicitud fallida',
+        progress: 'Procesadas: {completed}/{total}. Fallidas: {failed}',
+        date: 'Fecha de subida',
+        source: 'Repetición original',
+        category: 'Categoría',
+        score: 'Puntuación',
+        unsupported: 'Tablero o formato no soportado',
+        empty: 'No hay videos sincronizados',
+        categoryQuery: 'Buscar categoría',
+        statusFilter: 'Filtrar por estado de importación',
+        allStatuses: 'Todos los estados',
+        pending: 'No importado',
+        summary: '{total} videos, {imported} importados',
+        updated: 'Lista actualizada',
+        taskRunning: 'Tarea en segundo plano en cola o en ejecución…',
     } },
 } });
 </script>

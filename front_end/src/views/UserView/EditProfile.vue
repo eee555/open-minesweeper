@@ -346,6 +346,43 @@ const i18nMessages = {
             },
         },
     } },
+    es: { local: {
+        englishName: 'Nombre internacional',
+        englishNameTooltip: 'Rellene su nombre dado y apellido en inglés para que los jugadores de Buscaminas del mundo entero te conozcan.',
+        firstname: 'Nombre dado',
+        lastname: 'Apellido',
+        localname: 'Nombre local',
+        localnameTooltip: 'Rellene su nombre completo en su idioma local. Este campo es obligatorio para subir videos.',
+        realname: 'Nombre real',
+        realnameTooltip: 'Su nombre real no puede cambiarse una vez establecido. Si tiene una razón legítima para cambiarlo, por favor contacte a un moderador.',
+        signature: 'Firma',
+        tooltipExpTime: 'Logra sub200 experto para cambiar la firma',
+        updateSuccess: 'Actualización exitosa',
+        hideWithName: 'Ocultar mi nombre real al guardar',
+        hideRealname: 'Ocultar mi nombre real',
+        privacyAutoSave: 'Los cambios se guardan automáticamente. No es necesario hacer clic en Guardar.',
+        privacySaveWithName: 'Haz clic en Guardar para guardar tu nombre real y tus ajustes de privacidad juntos.',
+        privacySaving: 'Guardando...',
+        privacySaved: 'Nombre de privacidad guardado',
+        privacyAuthorization: 'Se requiere verificación del jugador para ocultar tu nombre real.',
+        privacyScope: 'Oculta los nombres del perfil del sitio. Los nombres de las cuentas vinculadas y los replays originales no se ven afectados. Debido al caché, el ocultamiento del nombre puede no tener efecto inmediatamente.',
+        signatureTooltip: ({ named }: { named: { (key: 'left'): number; (key: 'next'): string } }) => {
+            if (named('left') > 0) {
+                return `Cada mes puedes cambiar tu firma una vez más. Cambios disponibles: ${named('left')}.`;
+            } else {
+                return `Cada mes puedes cambiar tu firma una vez más. Has agotado los cambios. Próxima fecha disponible: ${named('next')}`;
+            }
+        },
+        error: {
+            name: { exist: 'Este nombre ya está establecido. Contacta a un administrador para cambiarlo' },
+            database: { validation: 'Formato de nombre inválido' },
+            privacy: { realname_required: 'Introduce un nombre real válido primero', not_authorized: 'No tienes autorización para ocultar tu nombre real' },
+            censorship: {
+                unknown: 'Ocurrió un error desconocido en la censura. Por favor, contacte a un moderador',
+                illegal: 'El contenido está bloqueado por censura. Por favor, cambia el texto o contacta a un moderador para una revisión manual',
+            },
+        },
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

@@ -1,12 +1,12 @@
 # MSGames 资料与录像导入
 
-记录日期：2026-10-14；更新日期：2026-10-19。当前使用 [msgames-api v0.1.1](https://github.com/putianyi889/msgames-api/releases/tag/v0.1.1)。首次调研基于 v0.1.0，源码提交为 `fad7a5df77e02c87508106f3282278c082761584`。当前业务通过 `accountlink/msgames/client.py` 调用库，由 `services.py` 保存资料和录像列表；旧的 MSGames XPath 抓取已移除。
+记录日期：2026-10-14；更新日期：2026-11-19。当前使用 [msgames-api v0.1.1](https://github.com/putianyi889/msgames-api/releases/tag/v0.1.1)。首次调研基于 v0.1.0，源码提交为 `fad7a5df77e02c87508106f3282278c082761584`。当前业务通过 `accountlink/msgames/client.py` 调用库，由 `services.py` 保存资料和录像列表；旧的 MSGames XPath 抓取已移除。
 
 ## 结论
 
 已使用同步 `Client.get_profile()` 替换资料页抓取，保留姓名、本地姓名和加入日期，新增国家、地区、惯用手和鼠标的原文文本。根据用户决定，这四个字段不限定枚举。昵称、外部网站链接和排名不保存，也不增加排行榜、世界纪录或历史排名的业务入口。
 
-新增 `VideoMSGames` 保存原始录像 URL、文件名、上传日期、分类字符串和成绩字符串，以及站内录像引用。原始 URL 的 SHA-256 保存为全局唯一的 `source_key`，`user` 记录账号归属；同步仍按账号和键查找，避免将其他账号的记录改绑。跨指标、普通和 NF 标签中的分类与成绩合并为多行字符串，不存完整响应或独立数值成绩列。不同 URL 的相同文件可关联同一个站内 `VideoModel`。列表同步和单条导入在普通 API 中同步执行；批量由前端循环等待每次响应，不创建 MSGames 后台任务。
+`VideoMSGames` 保存原始录像 URL、文件名、上传日期、分类字符串和成绩字符串，以及站内录像引用。原始 URL 的 SHA-256 保存为全局唯一的 `source_key`，`user` 记录账号归属；同步仍按账号和键查找，避免将其他账号的记录改绑。跨指标、普通和 NF 标签中的分类与成绩合并为多行字符串，不存完整响应或独立数值成绩列。不同 URL 的相同文件可关联同一个站内 `VideoModel`。列表同步交给 Django Tasks，由现有 `db_worker_robust` 执行；前端轮询列表任务结果。单条录像在同步请求内导入，批量由前端逐条等待，单条预算为五秒。
 
 该包是 MIT 许可的非官方 Alpha 客户端，仍通过公开 HTML 和网站脚本中明确出现的 GET 入口获取数据，不是官方稳定 JSON API。替换可以把网站专有解析交给独立包维护，但不能消除页面结构变化的风险。公开资料不能证明账号归属，现有账号审核流程继续适用。
 
@@ -16,7 +16,7 @@
 
 管理员解绑使用 `POST /api/accountlink/unverify/`，以表单提交 `id`、`platform`、`identifier`；旧 `/accountlink/unverify/` 已移除。关联账号与申请队列行同事务删除，待验证申请也可取消，用户随后可以申请正确的 MSGames ID。已有隐藏资格及选择保留。Mineracer 继续禁止人工解绑。
 
-资料模型为 `AccountMinesweeperGames`，Ninja 输出通过 `create_schema` 自动生成；前端 `AccountMSGames` 和 `CardMsgames.vue` 展示资料，并以按需创建的对话框提供分页录像列表与导入管理。
+资料模型为 `AccountMinesweeperGames`，Ninja 输出通过 `create_schema` 自动生成；前端 `AccountMSGames` 和 `panels/MsgamesPanel.vue` 展示资料，并以按需创建的对话框提供分页录像列表与导入管理。
 
 | 现有字段 | 包字段 | 接入处理 |
 | --- | --- | --- |
@@ -57,7 +57,7 @@
 
 v0.1.0 会将缺少难度标签和成绩表格的正常空成绩页误判为 `ParseError`，使整次同步返回 `import/indexerror`、HTTP 502。2026-10-19 已用账号 7714 复现：五类页面均返回 HTTP 200，但空 Problems 页触发该异常。v0.1.1 修复了正常空内容区的识别，仍会拒绝非空异常页面和缺失内容结构；网站继续读取全部五类，不跳过 Problems。
 
-导入业务参考 VideoSaolei：仅已验证关联账号本人能够导入；API 调用包的 `download_replay()`，对原始文件计算一次 SHA-256 的前 96 位，通过 `original_hash` 索引查重。命中时直接复用已有录像，不读取已存文件、不运行 parser；未命中才用本站 `MSVideoParser` 检查完整性和合法性，并对标识不匹配的合法录像保留 `IDENTIFIER` 审核状态。原文分类中的 Official 不会强制改变本站审核状态。新录像通过 `VideoModel.create_from_parser(..., original_hash=...)` 保存已算好的摘要。成功返回站内录像 ID 和审核状态，已导入的来源再次请求直接返回已有录像；外站请求失败返回 HTTP 502，文件解析／校验失败返回 HTTP 400，保留 `type/object/category` 错误正文，前端显示失败原因并允许重试。下载后先锁定同一来源并复查导入引用，再查重、解析及保存，避免重复创建该来源的录像。
+仅已验证关联账号本人或现有纪念账号代管权限能够提交任务；权限统一在 API 检查。单条导入接口调用包的 `download_replay()`，对原始文件计算一次 SHA-256 的前 96 位，通过 `original_hash` 索引查重。命中时直接复用已有录像，不读取已存文件、不运行 parser；未命中才用本站 `MSVideoParser` 检查完整性和合法性，并对标识不匹配的合法录像保留 `IDENTIFIER` 审核状态。原文分类中的 Official 不会强制改变本站审核状态。新录像通过 `VideoModel.create_from_parser(..., original_hash=...)` 保存已算好的摘要。成功响应包含站内录像 ID 和审核状态，已导入的来源返回已有录像；外站请求失败返回 HTTP 502，文件校验失败返回 HTTP 400，错误正文保留 `type/object/category`，前端显示并允许重试。下载后先锁定同一来源并复查导入引用，再查重、解析及保存，避免重复创建该来源的录像。
 
 用户已确认页面 Date 为上传日期。模型保留日粒度的 `upload_date`，回填站内 `upload_time` 时取**次日 00:00:00 UTC**，作为上传日期用于纪录 tiebreaker 的最坏边界。例如 `2020-02-29` 回填为 `2020-03-01T00:00:00Z`。不取当日零点或 23:59:59，也不把今天上传的次日边界截断到当前时刻。如果相同文件在站内已有更早的上传时间，则保留更早的时间；缺少来源日期时保留站内导入时间。
 
@@ -73,41 +73,32 @@ MSGames 专属路由、响应 Schema 和接口权限检查位于 `accountlink/ms
 | --- | --- |
 | `GET /api/accountlink/msgames/videos?msgames_id={id}` | 一次返回全部本地录像，响应为数组 `[...]`，不返回 `count` 或 `can_import`，不需要 `page`，不抓取外站；已验证账号可公开查看 |
 | `GET /api/accountlink/msgames/summary?msgames_id={id}` | 列表更新时间、总数和已导入数量 |
-| `POST /api/accountlink/msgames/{id}/sync` | 无需 `mode`；同步五类历史后返回 `status=SYNCED`、`count`、`video_update_time`，不导入录像 |
-| `POST /api/accountlink/msgames/videos/{id}/import` | 本人单条同步导入；返回 `status=IMPORTED/ALREADY_IMPORTED`、`import_video_id`、`video_state` |
+| `POST /api/accountlink/msgames/{id}/sync` | 返回 HTTP 202 和任务的 `id/status/return_value`；后台同步五类历史，不导入录像 |
+| `POST /api/accountlink/msgames/videos/{id}/import` | 同步导入一条录像；返回 HTTP 200 和 `status=IMPORTED/ALREADY_IMPORTED`、`import_video_id`、`video_state` |
+| `GET /api/accountlink/msgames/tasks/{task_id}` | 本人或现有纪念账号代管者查询任务状态和业务结果；重新核对当前关联和验证状态，不返回堆栈 |
 
 新增接口均限流，单条导入限制为每用户每分钟 60 次，列表同步限制为每用户每小时 6 次。未验证账号的列表只向本人或管理员开放；其他用户看不到。前端显示原始链接、上传日期、分类和保留精度的成绩字符串，可翻页；本人能够同步列表、批量导入或重试失败的单条请求。
 
-录像列表使用 PrimeVue DataTable。打开／刷新时一次请求取得完整列表，分页、上传日期升降序排序、分类包含查询和导入状态筛选全部在前端完成；默认每页 10 条，翻页不重新请求 API。分类输入框与状态选择框和各自的表头标题放在同一行；查询或筛选改变时回到第一页。状态包括未导入、正在导入、已导入、失败和不支持，失败状态与原因保留在当前对话框中。筛选只影响表格展示，批量仍处理完整列表中尚未导入且支持的录像。
+录像列表使用 BaseTable。打开／刷新时一次请求取得完整列表，分页、上传日期升降序排序、分类包含查询和导入状态筛选全部在前端完成；默认每页 10 条，翻页不重新请求 API。分类输入框与状态选择框和各自的表头标题放在同一行；查询或筛选改变时回到第一页。状态包括未导入、正在导入、已导入、失败和不支持，失败状态与原因保留在当前对话框中。筛选只影响表格展示，批量仍处理完整列表中尚未导入且支持的录像。
 
-批量先等待列表同步完成，再从完整列表中选出未导入且前端判断支持的候选，逐条发送单条导入 API 并等待响应。每条之间至少间隔 1.1 秒以适配接口限流；失败项记录在当前对话框中并继续后续项，显示已处理数和失败数。停止按钮在当前请求结束后停止后续请求；关闭对话框或切换账号后也不再发送下一条，已经在服务器执行的请求仍可能完成。无需状态轮询，重新打开时读取已保存的导入引用；请求响应有版本检查，避免账号／页面切换后旧响应覆盖新列表。同步与导入请求单独使用 120 秒客户端等待时间，其他接口仍使用项目原有超时配置。
+批量先等待列表同步任务完成，再从完整列表中选出未导入且前端判断支持的候选，逐条发送同步导入请求，等待当前请求完成后才发送下一条；仅列表任务每两秒轮询状态。条目之间仍保留至少 1.1 秒间隔。已确认的导入业务错误记录原因后继续；网络故障或超时导致结果无法确认时，停止本轮批量。停止按钮等待当前请求结束后停止后续请求；关闭对话框或切换账号会停止列表任务轮询及后续导入，已提交的列表任务仍继续执行，重新打开时读取已保存的导入引用。
 
-## 生产请求超时
+`task_sync_msgames` 的参数包含关联账号 ID、绑定的 UserProfile ID。API 在短事务中锁定关联账号，复用参数相同且仍为 `READY/RUNNING` 的任务。执行前核对关联归属，避免排队期间解绑重绑后操作其他用户的数据。任务不保存权限或独立进度缓存；`DBTaskResult` 是状态来源。`SUCCESSFUL` 表示任务函数完成，还需检查 `return_value`：成功为 `SYNCED`、`count`、`video_update_time`；可预期失败为 `type=error/object/category`。非预期异常由任务框架标记 `FAILED`。前端保留错误的 `object/category`，通过 `generalErrorNotification` 显示 `errorMsg.*` 本地化文案；框架失败映射 `import/task_failed`，异常结果映射 `import/response`，不直接展示错误编码。单独同步与批量导入前的列表同步共用此处理。成功完成的任务（包括已返回业务错误的任务）由既有清理流程保留七天；框架 `FAILED` 留给任务管理页处理。轮询限制每用户每分钟 60 次。
 
-仓库原配置对 API 设置 `uwsgi_read_timeout 2`，uWSGI 全局 `harakiri=10`。同步列表涉及五次外站读取，单条导入还包括下载、解析和保存，仅增加 Axios 的等待时间无法绕过这两层限制。
+## 后台任务与部署
 
-当前配置将超时分层设置：
+列表同步需要依次读取五类外站历史，由现有数据库任务 worker 执行，Web 请求只入队或查询本地状态。单条录像下载、解析和保存保持同步，Nginx 与 uWSGI 使用五秒预算；前端沿用项目默认配置，不单独设置超时。
 
 | 层 | MSGames 配置 | 范围与含义 |
 | --- | --- | --- |
-| 外站 HTTPX | 5 秒 | 建连、读、写和连接池各阶段的等待限制；不是整个导入的总耗时上限 |
-| uWSGI | 90 秒 | 全局上限设为 90 秒；内部路由为其他路径额外设置 10 秒计时器，仅 `/api/accountlink/msgames/{id}/sync` 和 `/api/accountlink/msgames/videos/{id}/import` 使用完整 90 秒预算 |
-| Nginx | 95 秒 | `default.conf` 中更具体的 `/api/accountlink/msgames/` location；上游建连限制为 5 秒，其他 API 的读取超时仍为 2 秒 |
-| 浏览器 Axios | 120 秒 | 同步列表与单条导入两个请求，其他接口保持原配置 |
+| 外站 HTTPX | 5 秒 | 列表任务及同步导入的建连、读、写和连接池各阶段等待限制，不是整个操作的总时限 |
+| uWSGI | 单条导入 5 秒，其他普通请求 10 秒 | 单条导入使用独立五秒路由，其余业务原有规则保留 |
+| Nginx | 5 秒 | `/api/accountlink/msgames/` 的连接与读取等待时间，覆盖单条同步导入、列表任务提交与轮询 |
+| 浏览器 Axios | 项目默认 20 秒 | 不为 MSGames 单独设置超时；仅列表同步每两秒轮询状态，关闭对话框时停止轮询 |
 
-Nginx [`uwsgi_read_timeout`](https://nginx.org/en/docs/http/ngx_http_uwsgi_module.html#uwsgi_read_timeout) 是两次读取之间的等待时间；这些 API 完成后才返回 JSON，因此通常体现为等待后端完成的时间。[HTTPX 的 read timeout](https://www.python-httpx.org/advanced/timeouts/) 同样约束等待下一个数据块，不是总下载时长。90 秒 uWSGI 上限为整次请求保留有限预算，超过上限时 worker 会被终止，不能视作应用返回了完整的失败结果；重新读取列表可确认录像是否已保存。
+部署需同步更新前后端、重启 uWSGI 和已有 `db_worker_robust` 进程，让 worker 加载新任务函数。若 worker 未启动或忙于其他任务，状态会保持 `READY`，不阻塞 Web worker；不要把入队成功误判为导入成功。后台进程仍复用 `start.sh` / `run_background.sh`，不增加第二套 worker。
 
-uWSGI 的 [`harakiri` 内部路由](https://uwsgi-docs.readthedocs.io/en/latest/InternalRouting.html#harakiri) 需要其构建包含 PCRE 和相应路由支持。该动作设置的是独立的 user harakiri，不能延长已有的全局计时器：[路由源码](https://github.com/unbit/uwsgi/blob/master/core/routing.c)调用 `set_user_harakiri`，[主进程源码](https://github.com/unbit/uwsgi/blob/master/core/master_checks.c)分别检查两种计时器。因此不能保留全局 10 秒、仅给 MSGames 加一条 90 秒路由；当前采用全局 90 秒加普通请求 10 秒路由的组合。
-
-部署时核对启动日志没有 `no internal routing support` 或未知 `route`／`harakiri` 动作错误，并确认内部路由表加载了上述限制。如果构建不支持内部路由，普通请求的 10 秒限制不会生效，应先补齐相应支持再部署这份配置。不能仅重载 Nginx，否则正在运行的旧 uWSGI 配置仍会在 10 秒终止长请求。
-
-将 `default.conf` 同步到服务器实际加载的配置文件后，先检查再重载：
-
-```bash
-sudo nginx -t && sudo nginx -s reload
-```
-
-然后按现有部署方式重启 uWSGI，让更新的 `uwsgi.ini` 生效。仓库 `start.sh` 会复制 `default.conf` 并使用 `uwsgi.ini` 启动；仅推送代码不会保证正在运行的服务已加载这些设置。可通过 `sudo nginx -T` 核对实际 location，通过 uWSGI 启动配置／日志核对路由支持，再通过 Nginx 入口测试列表同步和单条导入。本地 Windows 环境未执行 Nginx 配置检查或 uWSGI 路由运行测试，也未修改生产服务器。
+将 `default.conf` 同步到服务器实际加载的配置后执行 `sudo nginx -t && sudo nginx -s reload`。uWSGI 原有普通请求 10 秒内部路由仍依赖 PCRE 支持，部署时核对启动日志及实际配置。前端与后端列表同步的 HTTP 202／轮询契约需一同更新；本地语法和单元验证不替代生产入口验收。
 
 ## 依赖与服务器分发
 
@@ -154,22 +145,22 @@ git add -f back_end/saolei/accountlink/migrations/0013_msgames_profiles_and_repl
 - 下载一份公开 AVF，大小 67,086 字节，SHA-256 为 `4a493254c90c08cf393c87ebfe9d9bbf7eb4a59e46d5fe9c5529834ec5b6e21f`。项目现有 `ms_toollib.AvfVideo` 完成 `parse()` 与 `analyse()`，识别为已完成的 16×30、99 雷棋盘，时间 199210 毫秒，3BV 181。原始文件仅存临时目录，不纳入仓库。
 - 本轮默认 HTTPX TLS 验证即可访问两个资料页，无需关闭证书校验或使用系统证书注入；其他环境仍需单独核对 TLS。
 
-MSGames 专项测试覆盖文本字段、全指标链接合并、次日零点回填、去重、审核状态、失败保留数据、完整列表契约、本人权限、解绑保留站内文件、Density 四种配置和未知／冲突配置，以及同步导入响应、重复请求幂等、失败响应与重试。测试与合成 HTML fixture 统一放在 `test/`，不依赖实时资料值；四种 Density 配置与 MVR 格式拦截统一由导入 API 用例覆盖，资料文本映射合并到数据库刷新用例，删除重复的成功路径断言。不维护旧分页参数或后台任务表断言：
+MSGames 专项测试覆盖文本字段、全指标链接合并、次日零点回填、去重、审核状态、失败保留数据、完整列表契约、本人权限、解绑保留站内文件、Density 四种配置和未知／冲突配置，以及后台入队／轮询、重复提交复用、归属变化、失败结果与重试。测试与合成 HTML fixture 统一放在 `test/`，不依赖实时资料值；四种 Density 配置与 MVR 格式拦截统一由导入 API 用例覆盖，资料文本映射合并到数据库刷新用例，删除重复的成功路径断言。不维护旧分页参数或同步 HTTP 成功／失败响应契约：
 
 ```powershell
 python manage.py test accountlink.msgames.test --keepdb --noinput
 ```
 
-本轮清理后，28 项 MSGames、13 项 WOM 和 12 项现有任务删除／重启测试共 53 项通过，修改的后端测试文件 flake8 通过。跨账号重复 `source_key` 被拒绝且保留原归属，完整列表直接返回数组且不含 `can_import` 的断言继续保留。此前接入轮的后端静态安全测试 7 项、迁移一致性检查和 `pip check` 通过。静态检查仍有既有 Django 邮件配置弃用等警告，Django 系统检查仍报告缺少前端 `dist/` 和重复 API namespace。此前适配层在实际 Python 3.12 环境只读核对玩家 7872 的公开资料与五类历史，取得 224 个链接（223 AVF、1 RMV），上传日期均存在、成绩均为字符串；没有写入实际数据库。这些数量是该次实时样本，不作为长期断言。
+2026-11-19 后台任务改造：34 项 MSGames 专项测试通过，修改的后端文件 flake8 通过。使用隔离 MySQL 测试库和 Redis 测试库，入队使用真实 DatabaseBackend，测试显式执行任务并保存结果后核对轮询接口；下载和解析使用模拟，不代表生产 worker 或真实上游链路已验收。新增覆盖提交不访问外站、重复提交复用、轮询权限、归属变化、隐藏堆栈及失败重试。完整列表、Density 和既有导入规则仍在同一专项测试中覆盖。Nginx 配置在本地替换部署路径、移除 TLS 指令后语法检查通过，未运行生产 uWSGI 路由测试。
 
 前端 lintfix/typecheck 按跨轮工作流启动，结果见对应交付；没有运行 Cypress，命令留给用户：
 
 ```powershell
-npx.cmd vitest run src/services/accountLinkService.test.ts src/utils/accountlinks/msgames.test.ts src/utils/customlevel.test.ts
-npx.cmd cypress run --component --browser chrome --headless --spec "src/components/accountlinks/CardMsgames.cy.ts,src/components/accountlinks/MSGamesVideoImportQueue.cy.ts,src/components/accountlinks/CardWoM.cy.ts"
+npx.cmd vitest run src/services/accountLinkService.test.ts src/utils/accountlinks/msgames.test.ts src/components/accountlinks/msgamesImportQueueData.test.ts
+npx.cmd cypress run --component --browser chrome --headless --spec "src/components/accountlinks/MSGamesVideoImportQueue.cy.ts"
 ```
 
-本轮上述三个 Vitest 文件共 15 项通过，包括账号更新错误映射、公共 custom 配置和 4 项 MSGames 前端导入判断测试；导入判断覆盖文件格式、全部四种 Density 配置、缺失／未知／冲突配置和跨指标合并。完整列表响应契约由后端接口测试覆盖；录像列表保留 5 项组件用例，访客展示与本地分页合并到一次挂载，继续覆盖单条失败重试、日期排序、表头同行查询／筛选与不支持项、批量顺序等待和停止。模拟列表中的每条录像使用独立原始 URL，加入日期使用 API 的日粒度字符串，尚未执行 Cypress。
+上述三个 Vitest 文件共 17 项通过，覆盖账号更新错误映射、排队与执行状态轮询、业务错误和框架失败、关闭后停止轮询、网络故障，以及前端导入判断和列表处理。`npm run build:openms` 通过。组件 spec 已更新为列表同步 HTTP 202／轮询、单条录像同步请求的契约，保留单条重试、排序筛选、批量等待当前请求完成再发送下一条及停止后续任务等关键交互；尚未运行 Cypress。
 
 前期实时验证没有独立复测所有排行榜、异步实时请求及其他录像格式；支持范围依据发布源码、离线测试和[上游验证记录](https://github.com/putianyi889/msgames-api/blob/v0.1.0/docs/research/live-validation.json)。生产部署与浏览器中的真实批量下载尚未验证；本地数据库测试使用模拟下载和解析，AVF 真实解析证据来自上面的前期验证。组件 spec 已覆盖顺序等待、跳过不支持项、失败后继续、停止后续请求与单条重试，留给用户运行。
 

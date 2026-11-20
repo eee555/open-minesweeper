@@ -15,6 +15,7 @@ import '@/styles/link.css';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 
+import { resolveContentLanguage } from '@/i18n/language';
 import { getDocsUrl } from '@/utils/docs';
 
 const i18nMessages = {
@@ -34,10 +35,21 @@ const i18nMessages = {
         releases: 'GitHub Releases',
         guide: 'Guide',
     } },
+    es: { local: {
+        name: 'Extensión de navegador (Yuanshen Helper)',
+        description: 'Yuanshen Helper es una extensión de navegador de terceros para buscar jugadores, subir repeticiones automáticamente, analizar resultados y crear clasificaciones personalizadas del sitio.',
+        install: 'Instalación: extrae el archivo en una carpeta permanente, activa el modo Desarrollador en la página de extensiones del navegador, luego elige "Cargar desempaquetado" y selecciona esa carpeta.',
+        project: 'Proyecto',
+        releases: 'Versiones en GitHub',
+        guide: 'Guía de uso',
+    } },
 };
 
 const { t, locale } = useI18n({ messages: i18nMessages });
-const guideUrl = computed(() => getDocsUrl(`${locale.value.startsWith('zh') ? 'zh' : 'en'}/guide/tools/browser-extension`));
+const guideUrl = computed(() => {
+    const language = resolveContentLanguage(locale.value);
+    return getDocsUrl(`${language === 'zh-cn' ? 'zh' : language}/guide/tools/browser-extension`);
+});
 </script>
 
 <style scoped>

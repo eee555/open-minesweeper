@@ -4,15 +4,43 @@
 import ordinal from 'ordinal';
 import type { MessageContext } from 'vue-i18n';
 
+import { qqLoginEn } from '../qqLogin';
+
 import { MedalSeries } from '@/utils/medal_const';
 
 export default {
+    qqLogin: qqLoginEn,
     local: 'en',
     name: 'English',
     all: 'All',
     other: 'Other',
     settings: 'Settings',
     timeSeconds: '@:{\'prop.time\'}@:{\'punct.lparen\'}seconds@:{\'punct.rparen\'}',
+    memorialError: {
+        unknown: 'The memorial account operation failed. Please try again.',
+        forbidden: 'Only the site owner can perform this action. Check that you are signed in.',
+        not_memorial: 'This is not a memorial account.',
+        not_found: 'Record not found.',
+        userms_missing: 'This memorial account has no UserMS. Repair the association on the server first.',
+        collision: 'The replay file or platform account belongs to another player.',
+        timezone_required: 'The upload date must include a time zone.',
+        platform_not_assignable: 'The site owner cannot assign accounts on this platform directly.',
+        identifier_required: 'Enter the platform account ID.',
+        identifier_invalid: 'The platform account ID has an invalid format.',
+    },
+    historyError: {
+        unknown: 'The history import operation failed. Please try again.',
+        malformedCsv: 'The CSV format is invalid.',
+        invalidField: 'Row {row}: invalid {field}',
+        size: 'CSV exceeds 10 MiB',
+        headers: 'Missing or duplicate CSV headers',
+        columns: 'Row {row}: invalid column count',
+        duplicate: 'Row {row}: duplicate participant',
+        empty: 'CSV has no records',
+        uploadTime: 'Invalid upload time',
+        duration: 'Invalid replay end time or duration',
+        range: 'Upload time out of range',
+    },
     minigame: {
         title: 'Minigames',
         'left-click': 'Left-click training',
@@ -290,6 +318,11 @@ export default {
             requestexception: 'Unknown request exception',
             response: 'Unrecognised response',
             timeout: 'Remote server time out',
+            task_failed: 'The background sync task failed. Please try again later.',
+        },
+        accountlink: {
+            title: 'Account link',
+            not_found: 'The linked account no longer exists. Please refresh the page.',
         },
         saolei: {
             page_empty: '@:errorMsg.import.pageempty',

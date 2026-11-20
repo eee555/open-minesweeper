@@ -5,7 +5,9 @@ import { serviceConfig } from './store';
 
 import $axios from '@/http';
 import i18n from '@/i18n';
+import { resolveContentLanguage } from '@/i18n/language';
 import en from '@/i18n/locales/en';
+import es from '@/i18n/locales/es';
 import zhCn from '@/i18n/locales/zh-cn';
 import { MedalSeries } from '@/utils/medal_const';
 import type { MedalDirection } from '@/utils/medal_const';
@@ -301,8 +303,10 @@ export function fetchPlayerMedalState(userId: number): Promise<MedalStateRecord[
     return promise;
 }
 
+const medalLocales = { 'zh-cn': zhCn, en, es };
+
 export function medalSeriesLabel(series: string, locale: string): string {
-    const labels = locale.startsWith('zh') ? zhCn.medal.series : en.medal.series;
+    const labels = medalLocales[resolveContentLanguage(locale)].medal.series;
     return Object.hasOwn(labels, series) ? labels[series as MedalSeries] : series;
 }
 
@@ -344,12 +348,12 @@ export function medalDisplayName(series: string, code: string, stage: number | n
 }
 
 export function medalCaption(series: string, code: string, stage: number | null, locale: string): { title: string; meaning: string; flavor: string } {
-    const chinese = locale.startsWith('zh');
-    const copy = chinese ? zhCn.medal : en.medal;
+    const language = resolveContentLanguage(locale);
+    const chinese = language === 'zh-cn';
+    const { medal: copy, level: levelNames } = medalLocales[language];
     const seriesName = medalSeriesLabel(series, locale);
     const stageName = medalStageLabel(series, stage);
     const levelCode = medalLevel(code);
-    const levelNames = chinese ? zhCn.level : en.level;
     const level = levelCode ? levelNames[levelCode] : '';
     let title = seriesName;
     if (stageName) {
@@ -360,7 +364,7 @@ export function medalCaption(series: string, code: string, stage: number | null,
     const values = { level, value: medalPlainStage(series, stage) };
     return {
         title,
-        meaning: Object.hasOwn(copy.meaning, series) ? i18n.global.t(`medal.meaning.${series}`, values, { locale: chinese ? 'zh-cn' : 'en' }) : '',
+        meaning: Object.hasOwn(copy.meaning, series) ? i18n.global.t(`medal.meaning.${series}`, values, { locale: language }) : '',
         flavor: Object.hasOwn(copy.flavor, series) ? copy.flavor[series as keyof typeof copy.flavor] : '',
     };
 }

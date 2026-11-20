@@ -107,6 +107,10 @@ const i18nMessages = {
         recordsFailed: 'Could not load top records. Refresh to retry.',
         loading: 'Loading top…',
     } },
+    es: { local: {
+        recordsFailed: 'No se pudieron cargar los registros top. Refresca para intentarlo de nuevo.',
+        loading: 'Cargando los mejores…',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

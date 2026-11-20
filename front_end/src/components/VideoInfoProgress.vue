@@ -31,6 +31,10 @@ const i18nMessages = {
         title: 'Video information download progress',
         progress: 'Loading video information in the background: {completed} / {total}',
     } },
+    es: { local: {
+        title: 'Progreso de descarga de los datos de las repeticiones',
+        progress: 'Descargando información de las repeticiones en segundo plano: {completed}/{total}',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

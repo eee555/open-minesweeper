@@ -102,6 +102,11 @@ const i18nMessages = {
         confirm: 'Disqualify this participant? Awarded points will be revoked. Replay files will be kept.',
         failed: 'The background task failed. Contact an administrator to inspect it.',
     } },
+    es: { local: {
+        disqualify: 'Desqualificar participante',
+        confirm: '¿Desqualificar a este participante? Los puntos otorgados se revocarán. Los archivos de repetición se conservarán.',
+        failed: 'La tarea en segundo plano ha fallado. Contácte al administrador para revisarla.',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

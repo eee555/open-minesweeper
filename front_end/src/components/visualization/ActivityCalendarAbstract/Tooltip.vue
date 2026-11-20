@@ -55,6 +55,10 @@ const i18nMessages = {
         noVideoOnDate: 'No video on {0}',
         uploadedNVideosOnDate: '{1} videos on {0}',
     } },
+    es: { local: {
+        noVideoOnDate: 'No hay video en {0}',
+        uploadedNVideosOnDate: '{1} videos en {0}',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

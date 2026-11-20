@@ -84,6 +84,7 @@ function cellStyle(stat: ThrpStat) {
 const i18nMessages = {
     'zh-cn': { local: { loadFailed: 'Thrp 纪录加载失败，请重试。' } },
     en: { local: { loadFailed: 'Unable to load Thrp records. Please retry.' } },
+    es: { local: { loadFailed: 'No se puede cargar la información de Thrp. Por favor, inténtalo de nuevo.' } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

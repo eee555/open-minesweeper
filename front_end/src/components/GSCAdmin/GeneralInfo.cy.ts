@@ -1,6 +1,7 @@
 import GeneralInfo from './GeneralInfo.vue';
 
 import $axios from '@/http';
+import i18n from '@/i18n';
 
 interface GeneralInfoProps {
     id: number;
@@ -10,6 +11,7 @@ function mountOptions(props: GeneralInfoProps) {
     return {
         props,
         global: {
+            plugins: [i18n],
             config: {
                 globalProperties: {
                     $axios,
@@ -74,7 +76,7 @@ describe('<GeneralInfo />', () => {
 
         mountGeneralInfo(0);
 
-        cy.contains('请输入非零届数').should('be.visible');
+        cy.contains('Enter a nonzero edition number').should('be.visible');
         cy.then(() => {
             expect(adminInfoRequests).to.equal(0);
         });
@@ -96,10 +98,10 @@ describe('<GeneralInfo />', () => {
 
         cy.wait('@getGSCInfo').its('request.query').should('deep.equal', { order: '7' });
         cy.wait('@getGSCTask').its('request.query').should('deep.equal', { order: '7' });
-        cy.contains('开始时间：2026-07-30 08:00:00').should('be.visible');
-        cy.contains('结束时间：2026-08-03 20:30:45').should('be.visible');
-        cy.contains('标识：G12345').should('be.visible');
-        cy.contains('结算后台任务').should('be.visible');
+        cy.contains('Start time: 2026-07-30 08:00:00').should('be.visible');
+        cy.contains('End time: 2026-08-03 20:30:45').should('be.visible');
+        cy.contains('Token: G12345').should('be.visible');
+        cy.contains('Results calculation task').should('be.visible');
         cy.contains('NULL').should('be.visible');
     });
 
@@ -130,15 +132,15 @@ describe('<GeneralInfo />', () => {
         mountGeneralInfo(8);
 
         cy.wait('@getGSCInfo');
-        cy.contains('未找到该届信息').should('be.visible');
-        cy.contains('button', '创建比赛').click();
+        cy.contains('This edition was not found').should('be.visible');
+        cy.contains('button', 'Create tournament').click();
         cy.wait('@createGSC');
         cy.wait('@getGSCInfo');
         cy.wait('@getGSCTask');
         cy.then(() => {
             expect(adminInfoRequests).to.equal(2);
         });
-        cy.contains('标识：G67890').should('be.visible');
+        cy.contains('Token: G67890').should('be.visible');
     });
 
     it('updates the token after user input', () => {
@@ -162,12 +164,12 @@ describe('<GeneralInfo />', () => {
 
         cy.wait('@getGSCInfo');
         cy.wait('@getGSCTask');
-        cy.contains('标识：G11111').should('be.visible');
-        cy.contains('span', '设置标识：').next().find('input').type('G22222');
-        cy.contains('button', '修改！').click();
+        cy.contains('Token: G11111').should('be.visible');
+        cy.contains('span', 'Set token:').next().find('input').type('G22222');
+        cy.contains('button', 'Apply').click();
 
         cy.wait('@setTournament');
-        cy.contains('标识：G22222').should('be.visible');
+        cy.contains('Token: G22222').should('be.visible');
     });
 
     it('blocks empty token updates until the explicit switch is enabled', () => {
@@ -193,9 +195,9 @@ describe('<GeneralInfo />', () => {
 
         cy.wait('@getGSCInfo');
         cy.wait('@getGSCTask');
-        cy.contains('标识：G33333').should('be.visible');
+        cy.contains('Token: G33333').should('be.visible');
         cy.get('[data-cy=allow-empty-token] input').should('not.be.checked');
-        cy.contains('button', '修改！').click();
+        cy.contains('button', 'Apply').click();
         cy.then(() => {
             expect(setTournamentRequests).to.equal(0);
         });
@@ -205,17 +207,17 @@ describe('<GeneralInfo />', () => {
         cy.then(() => {
             expect(setTournamentRequests).to.equal(0);
         });
-        cy.contains('button', '修改！').click();
+        cy.contains('button', 'Apply').click();
         cy.wait('@setTournament');
         cy.then(() => {
             expect(setTournamentRequests).to.equal(1);
         });
-        cy.contains('标识：未设置').should('be.visible');
+        cy.contains('Token: Not set').should('be.visible');
         cy.closeElNotifications();
         cy.get('[data-cy=allow-empty-token] input').focus();
         cy.realPress('Space');
         cy.get('[data-cy=allow-empty-token] input').should('not.be.checked');
-        cy.contains('button', '修改！').click();
+        cy.contains('button', 'Apply').click();
         cy.then(() => {
             expect(setTournamentRequests).to.equal(1);
         });

@@ -33,6 +33,7 @@ const hoverMs = defineModel<number | null>('hoverMs', { default: null });
 const i18nMessages = {
     'zh-cn': { local: { settings: '自定义事件设置' } },
     en: { local: { settings: 'Custom event settings' } },
+    es: { local: { settings: 'Configuración de evento personalizado' } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

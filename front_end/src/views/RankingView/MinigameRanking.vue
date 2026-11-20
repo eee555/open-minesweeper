@@ -60,6 +60,11 @@ const i18nMessages = {
         playGame: 'Play game',
         colorPending: 'Colors coming later',
     } },
+    es: { local: {
+        game: 'Minijuego',
+        playGame: 'Jugar',
+        colorPending: 'Colores disponibles más adelante',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

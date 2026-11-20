@@ -22,10 +22,11 @@ let links: Link[];
 const fontLoad = vi.fn(() => Promise.resolve([{}]));
 const chinese = { textContent: '' };
 const english = { textContent: '' };
+const spanish = { textContent: '' };
 const label = {
     hidden: true,
     querySelector(selector: string) {
-        return selector.includes('zh-CN') ? chinese : english;
+        return selector.includes('zh-CN') ? chinese : selector.includes('es') ? spanish : english;
     },
 };
 const progress = { max: 0, value: 0, setAttribute: vi.fn() };

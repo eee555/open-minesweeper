@@ -37,6 +37,11 @@ const i18nMessages = {
         efficiency: 'Efficiency',
         density: 'Density',
     } },
+    es: { local: {
+        speed: 'Velocidad',
+        efficiency: 'Eficiencia',
+        density: 'Densidad',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

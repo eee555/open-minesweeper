@@ -3,11 +3,13 @@ import type { ComponentProps } from 'vue-component-type-helpers';
 
 import BaseFileInput from './BaseFileInput.vue';
 
+import i18n from '@/i18n';
+
 function mountFileInput(props: () => ComponentProps<typeof BaseFileInput> = () => ({})) {
     cy.mount(defineComponent({
         expose: [],
         render: () => h(BaseFileInput, props()),
-    }));
+    }), { global: { plugins: [i18n] } });
 }
 
 describe('<BaseFileInput />', () => {

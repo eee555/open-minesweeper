@@ -12,6 +12,7 @@
 <script lang="ts" setup>
 import { ElMessage, ElSkeleton } from 'element-plus';
 import { nextTick, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 
 import PLuckCard from './PLuckCard.vue';
 import SaoleiCard from './SaoleiCard.vue';
@@ -23,6 +24,19 @@ import type { CustomPluckRecord } from '@/services/msuserService';
 import { fetchCustomPluckPlayerRecords } from '@/services/msuserService';
 import { store } from '@/store';
 
+const i18nMessages = {
+    'zh-cn': { local: {
+        loadFailed: '自定义密度纪录加载失败',
+    } },
+    en: { local: {
+        loadFailed: 'Could not load custom density records',
+    } },
+    es: { local: {
+        loadFailed: 'No se pudieron cargar los récords de densidad personalizada',
+    } },
+};
+const { t } = useI18n({ messages: i18nMessages });
+
 const loading = ref(true);
 const pluckRecords = ref<CustomPluckRecord[]>([]);
 
@@ -32,7 +46,7 @@ void nextTick(() => {
     void fetchCustomPluckPlayerRecords(playerId).then((data) => {
         pluckRecords.value = data;
     }).catch(() => {
-        ElMessage.error({ message: '自定义密度纪录加载失败', offset: 68 });
+        ElMessage.error({ message: t('local.loadFailed'), offset: 68 });
     }).finally(() => {
         loading.value = false;
     });

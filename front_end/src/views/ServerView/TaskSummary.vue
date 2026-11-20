@@ -95,6 +95,13 @@ const i18nMessages = {
         SUCCESSFUL: 'Successful',
         FAILED: 'Failed',
     } },
+    es: { local: {
+        title: 'Tareas en segundo plano',
+        READY: 'Listo',
+        RUNNING: 'En ejecución',
+        SUCCESSFUL: 'Éxito',
+        FAILED: 'Fallido',
+    } },
 };
 const { t, locale } = useI18n({ messages: i18nMessages });
 </script>

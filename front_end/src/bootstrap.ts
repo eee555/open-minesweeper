@@ -13,7 +13,7 @@ import { pinia } from './store/create';
 
 import i18n from '@/i18n';
 
-updateStartupStatus('2/3 正在初始化应用…', '2/3 Initializing application…');
+updateStartupStatus('2/3 正在初始化应用…', '2/3 Initializing application…', '2/3 Inicializando la aplicación…');
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- 根 .vue 组件在 typescript-eslint 中可能被解析为 error type；vue-tsc 已负责 SFC 类型校验。
 const app = createApp(App);
@@ -59,23 +59,25 @@ app.use(PrimeVue, {
     autoImport: false,
 });
 app.use(pinia).use(router).use(i18n);
-updateStartupStatus('3/3 正在准备页面…', '3/3 Preparing page…');
+updateStartupStatus('3/3 正在准备页面…', '3/3 Preparing page…', '3/3 Preparando la página…');
 
 // Keep the HTML placeholder until the route and CDN (or local fallback) styles are ready.
 void Promise.all([router.isReady(), window.__cdnStylesReady]).then(() => {
     app.mount('#app');
 }).catch((error: unknown) => {
-    updateStartupStatus('页面加载失败，请刷新重试。', 'Failed to load the page. Please refresh to try again.');
+    updateStartupStatus('页面加载失败，请刷新重试。', 'Failed to load the page. Please refresh to try again.', 'No se pudo cargar la página. Actualízala para reintentar.');
     document.querySelector('#startup-loading progress')?.setAttribute('hidden', '');
     console.error(error);
 });
 
-function updateStartupStatus(zh: string, en: string) {
+function updateStartupStatus(zh: string, en: string, es: string) {
     const label = document.querySelector('#startup-loading-label .startup-loading-status');
     const chinese = label?.querySelector('[lang="zh-CN"]');
     const english = label?.querySelector('[lang="en"]');
     if (chinese) chinese.textContent = zh;
     if (english) english.textContent = en;
+    const spanish = label?.querySelector('[lang="es"]');
+    if (spanish) spanish.textContent = es;
 }
 
 declare module '@vue/runtime-core' {

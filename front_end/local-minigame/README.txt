@@ -85,8 +85,67 @@ Hover a bar or segment to review that board with its target highlighted. The cou
 支持鼠标的训练共用按下预览：按住左键时鼠标所在格显示压下；双键时鼠标周围 3×3 格显示压下。两种预览均仅排除旗格，旗格始终凸起；松开后恢复。
 Mouse-controlled training games preview a held left button on the cell under the cursor, and held chords on the surrounding 3×3 region. Both previews exclude only flagged cells, which stay raised. Releasing clears the preview.
 
-可切换训练游戏、中文/英文及浅色/深色主题。切换游戏放弃当前局。五种训练的成功成绩、模式和完成时间自动保存在当前浏览器：左键、多指及标双保留回放轨迹，漏雷保留逐局棋盘、目标和用时，反应训练保留各行起点、随机结果和有效点击时间对。失败及未完成的对局不保存。点击右上角的历史书签，查看当前游戏和配置的纪录；可按日期范围筛选、点击用时表头排序，点击任意一行回放。点击计数器或切换玩法参数即可退出回放，开始新局。离线版不上传；网站登录且未封禁时可在成功后点击“上传成绩与回放”提交至小游戏排行榜，无需实名，服务器保留个人最佳成绩对应的回放。清除浏览器站点数据会删除本地记录。
-Switch games, Chinese/English and light/dark themes. Switching games discards the current round. All five games save successful results with modes and completion times in this browser. Left-click, multi-touch and flag-and-chord retain replay paths; missing cell retains each board, target and time; reaction training retains starting sides, random outcomes and advancing click time pairs. Failed and unfinished games are not saved. Open the history bookmark at the top right to view results for the current game and configuration. Filter by date, click the time heading to sort, and click a row to replay it. Click the counter bar or change game parameters to leave the replay and start a new game. The offline version uploads nothing. On the website, all games offer "Upload score and replay" after success while logged in and not banned; a real name is not required. The server retains the replay for each personal best. Clearing browser site data removes local records.
+可切换训练游戏、中文/英文/西班牙文及浅色/深色主题。切换游戏放弃当前局。五种训练的成功成绩、模式和完成时间自动保存在当前浏览器：左键、多指及标双保留回放轨迹，漏雷保留逐局棋盘、目标和用时，反应训练保留各行起点、随机结果和有效点击时间对。失败及未完成的对局不保存。点击右上角的历史书签，查看当前游戏和配置的纪录；可按日期范围筛选、点击用时表头排序，点击任意一行回放。点击计数器或切换玩法参数即可退出回放，开始新局。离线版不上传；网站登录且未封禁时可在成功后点击“上传成绩与回放”提交至小游戏排行榜，无需实名，服务器保留个人最佳成绩对应的回放。清除浏览器站点数据会删除本地记录。
+Switch games, Chinese/English/Spanish and light/dark themes. Switching games discards the current round. All five games save successful results with modes and completion times in this browser. Left-click, multi-touch and flag-and-chord retain replay paths; missing cell retains each board, target and time; reaction training retains starting sides, random outcomes and advancing click time pairs. Failed and unfinished games are not saved. Open the history bookmark at the top right to view results for the current game and configuration. Filter by date, click the time heading to sort, and click a row to replay it. Click the counter bar or change game parameters to leave the replay and start a new game. The offline version uploads nothing. On the website, all games offer "Upload score and replay" after success while logged in and not banned; a real name is not required. The server retains the replay for each personal best. Clearing browser site data removes local records.
 
 版本见页面及 version.json。版权与许可见 COPYRIGHT.txt、LICENSE、THIRD_PARTY_LICENSES.txt / .json 和 licenses/。
 The version is displayed on the page and in version.json. See COPYRIGHT.txt, LICENSE, THIRD_PARTY_LICENSES.txt / .json and licenses/ for copyright and license notices.
+
+Español
+
+Minijuegos sin conexión
+
+Extrae el ZIP y abre index.html en Chrome o Edge. No se requiere servidor ni conexión a internet.
+
+El contador en la esquina superior izquierda muestra clics o preguntas restantes. El contador en la esquina superior derecha tiene como valor predeterminado el tiempo en segundos transcurridos con tres decimales.
+El entrenamiento por clic izquierdo y multitáctil tiene una configuración local de tiempo / CES. CES = clics exitosos excluyendo el primero / segundos transcurridos, calculado en la posición actual durante las repeticiones. El historial local siempre muestra tanto tiempo como CES; haz clic en cualquiera de los encabezados de puntuación para ordenarlos.
+Fuera del modo de pantalla completa, haz clic en cualquier parte de la barra de contadores para comenzar un nuevo juego, o enfoque la barra con la tecla Tab y presiona Enter o Espacio.
+El tamaño de la casilla tiene un valor por defecto de 32 px. Introduce un entero positivo en las configuraciones del juego; todos los juegos comparten este tamaño, que se almacena localmente.
+La tecla de reinicio se comparte por todos los juegos y está desactivada de forma predeterminada. Enfoca el campo y presiona una tecla o combinación para asignarla; elige Borrar para eliminarla. La configuración se guarda en el almacenamiento del navegador y está inactiva mientras se editan las opciones.
+
+Práctica de reacción
+Entrenamiento de reacción: comienza por cualquiera de los extremos, sigue las pistas en esa dirección y salta solo las minas conocidas. Las líneas horizontales tienen 5/10/20 casillas para principiante/intermedio/experto, con 10/20/40 reacciones excluyendo el primer clic de cada línea. El cronómetro comienza con la primera liberación y continúa entre líneas. Elige una probabilidad del 25% o del 50%. El disparo por ratón y por toque se activa al soltar. Hacer clic en casillas abiertas o en la fila de banderas no tiene efecto; hacer clic en una mina saltada o en otra posición incorrecta termina el juego. Los juegos exitosos guardan repeticiones locales con tiempos acumulados de reacción y histogramas de intervalos para clics adyacentes y de salto de una casilla.
+
+Práctica de clic izquierdo
+
+Elige principiante 8×8, intermedio 16×16 o avanzado 16×30, y una densidad de minas del 1/2, 3/4 o 7/8.
+La opacidad de las minas tiene un valor por defecto del 50%. Ajusta este valor en las configuraciones del juego desde el 0% (transparente) hasta el 100% (opaco). Las casillas de mina tienen por defecto el estado elevado y también pueden establecerse como presionadas. Ambas preferencias se comparten con el entrenamiento por multitáctil, se almacenan localmente y se excluyen de las grabaciones; las repeticiones usan las configuraciones actuales de visualización. Haz clic sucesivamente en cada casilla segura. Al tocar una mina, termina el juego.
+No hay apertura por inundación ni conteo de minas adyacentes. Puedes revisar el tablero antes de jugar.
+El cronómetro comienza con la primera liberación válida del botón izquierdo y termina cuando se abra la última casilla segura.
+Los clics derechos y las combinaciones simultáneas no tienen efecto. Cambiar el modo o hacer clic en la barra de contadores crea un nuevo tablero.
+
+Después de finalizar el entrenamiento por clic izquierdo o por bandera y combinación, utiliza el icono de reproducción/pausa o arrastra la barra de progreso debajo del tablero. Buscar mantiene el estado de reproducción anterior; la reproducción se detiene al final. El rastro conserva todos los movimientos desde el inicio hasta el momento actual, con una máscara transparente y marcadores de acción de una cuarta de casilla.
+El entrenamiento por clic izquierdo muestra las velocidades del ratón y del clic, seguido de un histograma de duración de presión a liberación, excluyendo el primer clic, con intervalos fijos de 0.01 segundos. Las velocidades usan un ventanal de un segundo traslado, medido en casillas/s y clics/s.
+Pasa el ratón sobre el gráfico de líneas para revisar los valores y el tablero en ese momento. Moverse lejos restaura la reproducción. Empezar otro juego borra la vista previa actual mientras conserva los juegos exitosos guardados localmente; las grabaciones de descarga aún no están disponibles.
+
+Práctica multitáctil
+
+Solo para pantallas táctiles, con los mismos tamaños, densidades y reglas de victoria/perder que el entrenamiento por clic izquierdo. Revisa el tablero antes de jugar; el primer toque inicia el cronómetro. Cada dedo abre su casilla al tocar. Moverse o levantar no abre nada. No hay vista previa de casilla presionada. Los toques actúan de forma independiente; se permite solo un dedo. La opacidad de las minas se comparte con el entrenamiento por clic izquierdo.
+Después del juego, juega, pausa o busca la repetición. Cada contacto tiene un camino completo independiente, con marcadores activos. La máscara es transparente y los marcadores ocupan una cuarta parte de una casilla.
+Arrastra con un dedo para desplazar el tablero y las páginas sin detenerse en los bordes del tablero; mantener varios contactos detiene el desplazamiento. Ajusta el umbral de desplazamiento en las configuraciones del minijuego (0px por defecto); el desplazamiento comienza solo cuando un dedo se mueve más allá de él, por lo que movimientos leves al tocar no desplazan la vista. El modo experto ofrece 16 filas por 30 columnas horizontalmente o 30 filas por 16 columnas verticalmente. La orientación se almacena localmente; cambiarla conserva el juego actual y la repetición. En pantalla completa se eliminan los marcos del tablero y el espacio circundante. Ingresa el tamaño de la casilla en su barra de herramientas; se comparte con las configuraciones del minijuego y se guarda, sin redimensionamiento automático. Desplázate horizontal y verticalmente cuando sea necesario. Los contadores en pantalla completa son de solo visualización; usa el botón de reinicio de la barra de herramientas para comenzar un nuevo juego. Cambiar el tamaño o salir de pantalla completa conserva el juego y el tamaño de la casilla; salir restaura la acción de reinicio del contador.
+
+Práctica de banderas y apertura simultánea
+
+Principiante 8×8 tiene 4 preguntas; Intermedio 16×16 tiene 15. Cada número es 1, con exactamente una mina adyacente.
+Cada pregunta ocupa un área independiente de 3×3 con posición y mina aleatorias.
+Haz clic derecho para alternar banderas, luego presiona ambos botones del ratón sobre el número. La primera liberación activa la apertura simultánea.
+Un conteo de banderas incorrecto no hace nada; coincidir con el conteo y tener banderas incorrectas pierde. Los clics simples no hacen nada.
+El cronómetro comienza con tu primera bandera y se detiene cuando se completa la última pregunta.
+
+El entrenamiento con banderas y apertura simultánea muestra la velocidad del ratón seguido de barras superpuestas para operaciones exitosas. El segmento inferior va desde la última bandera de la pregunta hasta el clic izquierdo; el segmento superior va desde ese clic hasta la apertura simultánea exitoso. Las aperturas simultáneas fallidas o ineficaces se excluyen.
+Pasa el ratón sobre una barra superpuesta para revisar sus tiempos, marcar la operación en el gráfico de velocidad y revisar el tablero en su activación exitosa.
+
+Práctica de casillas faltantes
+
+Principiante, Intermedio y Experto usan 10, 40 y 99 minas. Haz clic en cualquier parte del tablero para revelar el primer acertijo y comenzar el cronómetro con la primera liberación del botón izquierdo.
+Cada casilla segura, excepto una, está abierta. El objetivo y las minas están cubiertos, y las pistas visibles identifican de forma única al objetivo.
+El objetivo no tiene casillas adyacentes cero, pero puede ser cero mismo. Haz clic en él para revelar el siguiente tablero inmediatamente; completa 10 tableros para detener el cronómetro.
+Hacer clic en una mina termina la partida. Los clics derechos, acordes y clics en casillas abiertas no hacen nada. Los contadores muestran tableros restantes y el tiempo total transcurrido.
+Después de completar, los gráficos debajo del tablero muestran los tiempos por tablero y un desglose acumulado del tiempo total, ordenados del tablero 1 al 10, sin leyendas.
+Pasa el ratón sobre una barra o segmento para revisar ese tablero con el objetivo resaltado. Los contadores muestran los tableros restantes en ese momento y el tiempo de ese tablero. Mueve el ratón para restaurar el último tablero y el tiempo total.
+
+Los juegos de entrenamiento controlados por ratón muestran un botón izquierdo mantenido en la casilla bajo el cursor y apertura simultáneas mantenido en la región 3×3 circundante. Ambos previsores excluyen solo casillas marcadas, que permanecen elevadas. Al liberar se borra el previsores.
+
+Alternar juegos, idiomas chino/inglés/español y temas claro/oscuro. Al cambiar de juego se descarta la ronda actual. Todos los cinco juegos guardan los resultados exitosos con los modos y tiempos de finalización en este navegador. Hacer clic izquierdo, multitáctil y marcar con apertura simultánea conservan los caminos de repetición; la casilla ausente conserva cada tablero, objetivo y tiempo; el entrenamiento de reacción conserva los lados iniciales, resultados aleatorios y pares de tiempos de clic progresivos. Los juegos fallidos o incompletos no se guardan. Abre el marcador de historia en la esquina superior derecha para ver los resultados del juego actual y de la configuración. Filtra por fecha, haz clic en la cabecera de tiempo para ordenar y haz clic en una fila para repetirlo. Haz clic en la barra del contador o cambia los parámetros del juego para salir de la repetición y comenzar un nuevo juego. La versión sin conexión no envía nada. En el sitio web, todos los juegos ofrecen "Subir puntuación y repetición" tras el éxito mientras esté conectado y no esté prohibido; no se requiere nombre real. El servidor conserva la repetición para cada marca personal. Borrar los datos del sitio del navegador elimina los registros locales.
+
+La versión se muestra en la página y en version.json. Consulta COPYRIGHT.txt, LICENSE, THIRD_PARTY_LICENSES.txt / .json y licenses/ para los avisos de derechos de autor y licencias.

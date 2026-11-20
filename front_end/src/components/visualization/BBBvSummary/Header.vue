@@ -187,6 +187,24 @@ const i18nMessage = {
         iconLabel: 'Icon ',
         noIcon: 'None',
     } },
+    es: { local: {
+        customTemplate: 'Personalizado',
+        template: 'Plantilla',
+        sortBy: 'Ordenar por',
+        displayBy: 'Mostrar por',
+        settingDisplayBy: 'y mostrar por',
+        settingMax: 'Buscar máximo',
+        settingMin: 'Buscar mínimo',
+        newHighlight1: 'Resaltar videos ',
+        newHighlight2: ' dentro de ',
+        newHighlight3: ' días',
+        newHighlight: {
+            end_time: 'finalizados',
+            upload_time: 'subidos',
+        },
+        iconLabel: 'Icono ',
+        noIcon: 'Ninguno',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessage });

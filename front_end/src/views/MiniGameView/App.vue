@@ -173,6 +173,18 @@ const i18nMessages = {
         loginRequired: 'Log in to upload your score and replay',
         banned: 'Banned accounts cannot upload',
     } },
+    es: { local: {
+        ranking: 'Clasificaciones',
+        fullRanking: 'Clasificación completa',
+        showRanking: 'Mostrar clasificación',
+        history: 'Historial local',
+        showHistory: 'Mostrar historial local',
+        upload: 'Subir puntuación y repetición',
+        uploading: 'Subiendo',
+        uploaded: 'Subido',
+        loginRequired: 'Inicia sesión para subir tu puntuación y tu repetición',
+        banned: 'Las cuentas suspendidas no pueden subir repeticiones',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

@@ -55,6 +55,7 @@ function copyOriginalSelection(event: ClipboardEvent) {
 const i18nMessages = {
     'zh-cn': { local: { escaped: '转义字符', unnamed: '未命名的不可见字符' } },
     en: { local: { escaped: 'Escaped character', unnamed: 'Unnamed invisible character' } },
+    es: { local: { escaped: 'Carácter de escape', unnamed: 'Carácter invisible sin nombre' } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

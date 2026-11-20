@@ -27,6 +27,7 @@ watch(dialog, (element, previous) => {
 const i18nMessages = {
     'zh-cn': { local: { message: '正在优化录像格式，请不要关闭页面' } },
     en: { local: { message: 'Optimizing replay format. Please do not close this page.' } },
+    es: { local: { message: 'Optimizando el formato de las repeticiones. Mantén abierta esta página.' } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

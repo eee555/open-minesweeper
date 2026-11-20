@@ -51,13 +51,14 @@
                     {{ t('local.noPublicLink') }}
                 </p>
             </template>
+            <QQLoginManager v-if="ownPage && selected === 'q'" />
         </section>
     </div>
 </template>
 
 <script setup lang="ts">
 import './page.css';
-import { computed, onMounted, reactive, ref, useId } from 'vue';
+import { computed, defineAsyncComponent, onMounted, reactive, ref, useId } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import BilibiliLink from './linking/BilibiliLink.vue';
@@ -91,6 +92,7 @@ import { AccountLinks } from '@/utils/accountlinks';
 import type { AccountLinkPlatform } from '@/utils/accountlinks';
 
 const props = defineProps({ userId: { type: Number, required: true } });
+const QQLoginManager = defineAsyncComponent(() => import('@/components/Login/QQLoginManager.vue'));
 const panelId = `account-details-${useId()}`;
 const isActive = useActivePanel();
 const links = ref(new AccountLinks());
@@ -177,6 +179,10 @@ async function submitLink(platform: AccountLinkPlatform) {
 onMounted(() => {
     const [path, query = ''] = window.location.hash.split('?');
     const params = new URLSearchParams(query);
+    if (ownPage.value && params.get('qq_login') === 'manage') {
+        selected.value = 'q';
+        manuallySelected = true;
+    }
     const result = params.get('github');
     if (ownPage.value && path === `#/player/${props.userId}/accountlink` && result !== null
         && ['linked', 'cancelled', 'conflict', 'expired', 'remote_failed', 'not_configured'].includes(result)) {
@@ -216,6 +222,20 @@ const i18nMessages = {
             expired: 'Authorization expired or your login session changed. Please start again.',
             remote_failed: 'GitHub authorization failed. Please try again.',
             not_configured: 'GitHub authorization is not configured yet.',
+        },
+    } },
+    es: { local: {
+        loading: 'Cargando cuentas vinculadas…',
+        loadFailed: 'No se pudieron cargar las cuentas vinculadas. Inténtelo de nuevo.',
+        addFailed: 'No se pudo vincular la cuenta. Revise el ID y vuelva a intentarlo.',
+        noPublicLink: 'No hay enlace de cuenta disponible para mostrar.',
+        privateNotice: 'Los enlaces privados solo son visibles para el propietario de la cuenta y los moderadores del sitio.',
+        github: {
+            cancelled: 'La autorización de GitHub se canceló.',
+            conflict: 'La cuenta de GitHub o OpenMS ya está vinculada. Desvincule primero la cuenta existente.',
+            expired: 'La autorización ha expirado o tu sesión de inicio de sesión ha cambiado. Por favor, inicia de nuevo.',
+            remote_failed: 'La autorización de GitHub ha fallado. Por favor, inténtalo de nuevo.',
+            not_configured: 'La autorización de GitHub aún no está configurada.',
         },
     } },
 };

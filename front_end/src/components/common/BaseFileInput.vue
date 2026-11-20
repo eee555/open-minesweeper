@@ -11,7 +11,7 @@
 
         <button type="button" class="base-button base-file-input__trigger" :disabled="disabled" @click="triggerFileDialog">
             <slot name="default">
-                <span>点击此处或拖拽文件到此区域</span>
+                <span>{{ t('local.choose') }}</span>
             </slot>
         </button>
         <!-- 交互选项放在按钮外，避免在 button 中嵌套表单控件。 -->
@@ -24,6 +24,7 @@
 <script setup lang="ts">
 import '@/styles/button.css';
 import { ref, useTemplateRef } from 'vue';
+import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
     multiple: { type: Boolean, default: true },
@@ -40,6 +41,12 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['add']);
+
+const { t } = useI18n({ messages: {
+    'zh-cn': { local: { choose: '点击此处或拖拽文件到此区域' } },
+    en: { local: { choose: 'Click or drop files here' } },
+    es: { local: { choose: 'Haz clic aquí o arrastra los archivos' } },
+} });
 
 defineSlots<{
     default?: () => unknown;

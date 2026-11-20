@@ -283,6 +283,28 @@ const i18nMessage = {
         totalArenaPlayTime: 'Total Arena Play Time',
         total3BV: 'Total 3BV',
     } },
+    es: { local: {
+        arenaPoint: 'Arena',
+        experience: 'Experiencia',
+        lastSeason: 'Última temporada',
+        maxDifficulty: 'Dificultad máxima',
+        trophy: 'Trophies',
+        win: 'Victorias',
+        gameCount: 'Juegos',
+        seasonCount: 'Temporadas jugadas',
+        noGuessTime: 'Tiempo NG (B/I/E)',
+        endurance: 'Tiempo de resistencia (B/I/E)',
+        standardWins: 'Victorias estándar (B/I/E)',
+        noGuessWins: 'Victorias NG (B/I/E)',
+        noFlagWins: 'Victorias NF',
+        totalExperience: 'Experiencia acumulada a lo largo de la vida',
+        totalMinecoins: 'Monedas de mina acumuladas a lo largo de la vida',
+        totalGems: 'Piedras acumuladas a lo largo de la vida',
+        totalArenaCoins: 'Monedas de arena acumuladas a lo largo de la vida',
+        totalPlayTime: 'Tiempo total de juego',
+        totalArenaPlayTime: 'Tiempo total de juego en arena',
+        total3BV: 'Total de 3BV',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessage });

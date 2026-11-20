@@ -112,6 +112,13 @@ const i18nMessages = {
         registerConfirm: 'This action is irreversible. Are you sure you want to start your session? You will have 2 hours to upload your videos.',
         registerHeader: 'Are you ready?',
     } },
+    es: { local: {
+        deadline: 'Intervalo de sesión',
+        register: 'Iniciar mi sesión',
+        registerCancel: 'Aún no estoy listo',
+        registerConfirm: 'Esta acción no es reversible. ¿Está seguro de que desea iniciar su sesión? Dispondrá de 2 horas para subir sus videos.',
+        registerHeader: '¿Está listo?',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

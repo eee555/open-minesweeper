@@ -60,6 +60,9 @@ const i18nMessages = {
     en: { local: {
         mean: 'Mean',
     } },
+    es: { local: {
+        mean: 'Media',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

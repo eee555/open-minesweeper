@@ -501,6 +501,14 @@ describe('bounded synchronization after uploads', () => {
 });
 
 describe('medalCaption', () => {
+    it('uses the Spanish level, medal name and interpolated threshold together', async () => {
+        const { medalCaption } = await import('./medalService');
+        const caption = medalCaption(MedalSeries.SPEED, 'ability.bvs.b', 15000, 'es');
+        expect(caption.title).toContain('Principiante');
+        expect(caption.title).toContain('Velocidad');
+        expect(caption.meaning).toBe('Tu mejor 3BV/s en Principiante ha alcanzado 1.5.');
+    });
+
     it.each([
         [MedalSeries.LEVELS, 'Minesweeper Rookie'],
         [MedalSeries.LEVELS_NF, 'NF Rookie'],

@@ -162,6 +162,10 @@ const i18nMessages = {
         details: '{level} {stat} Top 5',
         showDetails: 'Show {level} {stat} top five records',
     } },
+    es: { local: {
+        details: '{level} {stat} Top 5',
+        showDetails: 'Mostrar los cinco registros más destacados de {level} {stat}',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

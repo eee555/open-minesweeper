@@ -99,6 +99,14 @@ const i18nMessages = {
         estimated: 'Allocated Redis memory (estimated)',
         explanation: 'Includes other databases and Redis overhead. This differs from resident process memory.',
     } },
+    es: { local: {
+        title: 'Distribución de memoria de Redis',
+        pb_rankings: 'Clasificaciones de PB',
+        other_rankings: 'Otras clasificaciones',
+        latest_videos: 'Últimos videos',
+        estimated: 'Memoria de Redis asignada (estimada)',
+        explanation: 'Incluye otras bases de datos y sobrecarga de Redis. Esto difiere de la memoria del proceso residente.',
+    } },
 };
 const { t, locale } = useI18n({ messages: i18nMessages });
 </script>

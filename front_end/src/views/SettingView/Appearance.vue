@@ -94,6 +94,17 @@ const i18nMessages = {
         notificationDurationTooltip2: 'It will not automatically close if set 0. ',
         viennaLogo: 'RMV logo',
     } },
+    es: { local: {
+        appearance: 'Apariencia',
+        experimentalFeature: 'Características experimentales',
+        navigationLayout: 'Posición de navegación',
+        navigationTop: 'Barra superior',
+        navigationSidebar: 'Barra lateral',
+        notificationDuration: 'Duración de notificación',
+        notificationDurationTooltip1: 'Duración antes de cerrar. ',
+        notificationDurationTooltip2: 'No se cerrará automáticamente si se establece en 0. ',
+        viennaLogo: 'Logo de RMV',
+    } },
 };
 
 const { t } = useI18n({

@@ -146,6 +146,7 @@ defineExpose({ refresh: load, loading });
 const i18nMessages = {
     'zh-cn': { local: { switchDisplay: '切换为 {metric}' } },
     en: { local: { switchDisplay: 'Switch to {metric}' } },
+    es: { local: { switchDisplay: 'Cambiar a {metric}' } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

@@ -100,6 +100,9 @@ const i18nMessages = {
     en: { local: {
         review: 'Review',
     } },
+    es: { local: {
+        review: 'Revisión',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

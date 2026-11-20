@@ -31,13 +31,13 @@
                             IOE / Thrp / Corr / IOME
                         </option>
                         <option value="btime">
-                            Beg Time
+                            {{ t('local.begTime') }}
                         </option>
                         <option value="itime">
-                            Int Time
+                            {{ t('local.intTime') }}
                         </option>
                         <option value="etime">
-                            Exp Time
+                            {{ t('local.expTime') }}
                         </option>
                         <option value="stnb">
                             STNB
@@ -80,6 +80,9 @@ function restoreDefault() {
 
 const i18nMessages = {
     'zh-cn': { local: {
+        begTime: '初级用时',
+        intTime: '中级用时',
+        expTime: '高级用时',
         level: '各级别主色',
         colored: '成绩上色',
         piecewise: '分段色阶',
@@ -88,12 +91,26 @@ const i18nMessages = {
         visualizationColorScheme: '数据可视化 - 配色方案',
     } },
     en: { local: {
+        begTime: 'Beg Time',
+        intTime: 'Int Time',
+        expTime: 'Exp Time',
         level: 'Primary Colors for Levels',
         colored: 'Color Results',
         piecewise: 'Piecewise Palette',
         grade: 'Tier (Equivalent et in Seconds)',
         restoreDefault: 'Restore Default',
         visualizationColorScheme: 'Visualization - Color Scheme',
+    } },
+    es: { local: {
+        begTime: 'Tiempo en principiante',
+        intTime: 'Tiempo en intermedio',
+        expTime: 'Tiempo en experto',
+        level: 'Colores principales por nivel',
+        colored: 'Colorear resultados',
+        piecewise: 'Escala de colores por tramos',
+        grade: 'Nivel (tiempo experto equivalente en segundos)',
+        restoreDefault: 'Restaurar valores predeterminados',
+        visualizationColorScheme: 'Visualización - Esquema de colores',
     } },
 };
 

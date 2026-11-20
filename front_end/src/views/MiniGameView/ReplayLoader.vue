@@ -94,6 +94,14 @@ const i18nMessages = {
         loadFailed: 'Failed to load the replay. Please try again later.',
         corrupt: 'The replay is damaged and cannot be played.',
     } },
+    es: { local: {
+        loading: 'Cargando repetición…',
+        invalidLink: 'Parámetros de enlace de repetición inválidos.',
+        notFound: 'No se encontró repetición para este jugador y clasificación.',
+        localNotFound: 'No se encontró repetición local. Este enlace solo funciona en el navegador donde fue guardado.',
+        loadFailed: 'Error al cargar la repetición. Por favor, inténtalo de nuevo más tarde.',
+        corrupt: 'La repetición está dañada y no puede reproducirse.',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

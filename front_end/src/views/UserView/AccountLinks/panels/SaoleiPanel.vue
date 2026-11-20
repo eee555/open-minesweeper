@@ -163,5 +163,17 @@ const { t } = useI18n({ messages: {
         rejected: 'Rejected locally',
         skipped: 'Unsupported software',
     } },
+    es: { local: {
+        name: 'Nombre',
+        catalogueUpdated: 'Catálogo actualizado',
+        videos: 'Lista de repeticiones',
+        refreshProfile: 'Refrescar perfil',
+        autoSync: 'Sincronización automática del catálogo y las repeticiones',
+        autoSyncHint: 'Las cuentas vinculadas actualizan su catálogo diariamente e importan hasta 100 repeticiones cada hora por defecto. Puedes desactivar esta función.',
+        imported: 'Importados',
+        pending: 'Pendientes',
+        rejected: 'Rechazados localmente',
+        skipped: 'Software no compatible',
+    } },
 } });
 </script>

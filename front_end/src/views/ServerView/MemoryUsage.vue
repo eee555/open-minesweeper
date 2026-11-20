@@ -112,6 +112,19 @@ const i18nMessages = {
         hostTotal: 'Host memory',
         available: 'Available memory',
     } },
+    es: { local: {
+        title: 'Uso de memoria',
+        uwsgi: 'uWSGI',
+        apscheduler: 'APScheduler',
+        redis: 'Redis',
+        mysql: 'MySQL',
+        db_worker: 'db_worker',
+        pss: 'Memoria residente del proceso (PSS)',
+        rss: 'Memoria residente del proceso (RSS; las páginas compartidas pueden contarse más de una vez)',
+        scope: 'El total incluye procesos, excluyendo la memoria del kernel y el caché de archivos no mapeados.',
+        hostTotal: 'Memoria del host',
+        available: 'Memoria disponible',
+    } },
 };
 const { t, locale } = useI18n({ messages: i18nMessages });
 </script>

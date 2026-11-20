@@ -1,5 +1,3 @@
-import { useLocalStorage } from '@vueuse/core';
-
 export const MS_Levels = ['b', 'i', 'e'] as const;
 export type MS_Level = typeof MS_Levels[number];
 
@@ -9,12 +7,6 @@ export function isStandardLevel(level: unknown): level is MS_Level {
 
 export const MS_Softwares = ['e', 'a', 'r', 'm', 'x'] as const;
 export type MS_Software = typeof MS_Softwares[number];
-
-export const STNB_const = useLocalStorage('stnb_const', {
-    b: 36,
-    i: 162,
-    e: 435,
-});
 
 export const MS_Mode = {
     Standard: '00',

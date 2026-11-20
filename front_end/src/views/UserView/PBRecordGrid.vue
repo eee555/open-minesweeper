@@ -200,6 +200,9 @@ const i18nMessages = {
     en: { local: {
         empty: 'No PB records',
     } },
+    es: { local: {
+        empty: 'Sin registros de marca personal',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

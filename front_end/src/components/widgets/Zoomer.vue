@@ -32,6 +32,10 @@ const i18nMessages = {
         zoomOut: 'Zoom out',
         zoomIn: 'Zoom in',
     } },
+    es: { local: {
+        zoomOut: 'Alejar',
+        zoomIn: 'Acercar',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

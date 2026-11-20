@@ -105,6 +105,28 @@ const i18nMessages = {
         square: 'Square',
         diamond: 'Diamond',
     } },
+    es: { local: {
+        lines: 'Líneas',
+        lineWidth: 'Grosor de línea (casillas)',
+        uu: 'Ningún botón pulsado',
+        du: 'Botón izquierdo pulsado',
+        ud: 'Botón derecho pulsado',
+        dd: 'Ambos botones pulsados',
+        lc: 'Marcador al pulsar el botón izquierdo',
+        lr: 'Marcador al soltar el botón izquierdo',
+        rc: 'Marcador al pulsar el botón derecho',
+        rr: 'Marcador al soltar el botón derecho',
+        showMarker: 'Mostrar marcador',
+        size: 'Tamaño (casillas)',
+        fill: 'Color de relleno',
+        stroke: 'Color del trazo',
+        strokeWidth: 'Grosor del trazo (casillas)',
+        circle: 'Círculo',
+        ring: 'Anillo',
+        cross: 'Cruz',
+        square: 'Cuadrado',
+        diamond: 'Diamante',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

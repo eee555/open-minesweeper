@@ -22,7 +22,36 @@ function catalogueVideo(id: number, overrides: Partial<MSGamesVideo> = {}): MSGa
     return { ...source, id, ...overrides, filename, url: new URL(filename, source.url).href };
 }
 
+function queuedSync() {
+    return { statusCode: 202, body: { id: 'sync-task', status: 'READY', return_value: null } };
+}
+
+function completedSync(count: number) {
+    return { id: 'sync-task', status: 'SUCCESSFUL', return_value: { status: 'SYNCED', count, video_update_time: '2026-10-14T00:00:00Z' } };
+}
+
 describe('<MSGamesVideoImportQueue />', () => {
+    for (const scenario of [
+        { status: 'SUCCESSFUL', result: { type: 'error', object: 'import', category: 'timeout' }, button: 'Sync video list', message: 'Remote server time out' },
+        { status: 'FAILED', result: null, button: 'Import remaining videos', message: 'The background sync task failed. Please try again later.' },
+        { status: 'SUCCESSFUL', result: null, button: 'Sync video list', message: 'Unrecognised response' },
+    ]) {
+        it(`localizes ${scenario.status} sync failures when clicking ${scenario.button}`, () => {
+            cy.intercept('GET', '**/api/accountlink/msgames/videos?*', { body: [source] }).as('videos');
+            cy.intercept('GET', '**/api/accountlink/msgames/summary?*', summary).as('summary');
+            cy.intercept('POST', '**/api/accountlink/msgames/42/sync', queuedSync());
+            cy.intercept('GET', '**/api/accountlink/msgames/tasks/sync-task', {
+                id: 'sync-task', status: scenario.status, return_value: scenario.result,
+            });
+            mountAccountLink(MSGamesVideoImportQueue, { msgamesId: 42, owner: true });
+            cy.wait(['@videos', '@summary']);
+            cy.contains('button', scenario.button).click();
+            cy.contains('.el-notification', scenario.message).should('be.visible').and('not.contain', 'import/');
+            cy.contains('button', scenario.button).should('not.be.disabled');
+            cy.closeElNotifications();
+        });
+    }
+
     it('shows an API failure and retries synchronously to a local video link', () => {
         let attempts = 0;
         cy.intercept('GET', '**/api/accountlink/msgames/videos?*', (request) => {
@@ -161,9 +190,12 @@ describe('<MSGamesVideoImportQueue />', () => {
         let releaseFirst: (() => void) | undefined;
         let synced = false;
         cy.intercept('POST', '**/api/accountlink/msgames/42/sync', (request) => {
-            synced = true;
-            request.reply({ status: 'SYNCED', count: 5, video_update_time: '2026-10-14T00:00:00Z' });
+            request.reply(queuedSync());
         }).as('sync');
+        cy.intercept('GET', '**/api/accountlink/msgames/tasks/sync-task', (request) => {
+            synced = true;
+            request.reply(completedSync(5));
+        });
         cy.intercept('GET', '**/api/accountlink/msgames/videos?*', { body: [
             source, catalogueVideo(2, { filename: 'legacy.mvr' }), catalogueVideo(3, { import_video: 76 }),
             catalogueVideo(4, { filename: 'another.avf' }), catalogueVideo(5),
@@ -206,7 +238,8 @@ describe('<MSGamesVideoImportQueue />', () => {
         let releaseFirst: (() => void) | undefined;
         cy.intercept('GET', '**/api/accountlink/msgames/videos?*', { body: [source, catalogueVideo(2)] }).as('videos');
         cy.intercept('GET', '**/api/accountlink/msgames/summary?*', summary).as('summary');
-        cy.intercept('POST', '**/api/accountlink/msgames/42/sync', { status: 'SYNCED', count: 2, video_update_time: '2026-10-14T00:00:00Z' });
+        cy.intercept('POST', '**/api/accountlink/msgames/42/sync', queuedSync());
+        cy.intercept('GET', '**/api/accountlink/msgames/tasks/sync-task', completedSync(2));
         cy.intercept('POST', '**/api/accountlink/msgames/videos/*/import', (request) => {
             requested.push(Number(request.url.split('/').at(-2)));
             return new Promise<void>((resolve) => {

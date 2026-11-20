@@ -1,5 +1,10 @@
 # Analyzer 更新记录 / Analyzer changelog
 
+## 未发布 / Unreleased
+
+- 支持西班牙语界面及随包表达式参考。
+- Added a Spanish interface and bundled Spanish expression reference.
+
 ## 0.2.2 — 2026-11-06
 
 - 随包表达式参考补充原生播放器的 `toFixed` 固定小数位函数；分析器计数器仍使用独立 format。

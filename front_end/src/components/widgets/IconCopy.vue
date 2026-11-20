@@ -22,6 +22,7 @@ defineProps({
 const i18nMessages = {
     'zh-cn': { local: { copy: '复制' } },
     en: { local: { copy: 'Copy' } },
+    es: { local: { copy: 'Copiar' } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

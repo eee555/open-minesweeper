@@ -163,6 +163,10 @@ const i18nMessages = {
         description1: 'Viennasweeper is an official minesweeper clone. It has the best compatibility with Scoreganizer.',
         description2: 'From v5.0.0, Viennasweeper moves to a new replay format that is only currently supported by Open Minesweeper and Scoreganizer.',
     } },
+    es: { local: {
+        description1: 'Viennasweeper es un clon oficial de Buscaminas. Tiene la mejor compatibilidad con Scoreganizer.',
+        description2: 'A partir de v5.0.0, Viennasweeper pasa a un nuevo formato de repetición que actualmente solo es compatible con Open Minesweeper y Scoreganizer.',
+    } },
 };
 
 const { t } = useI18n({

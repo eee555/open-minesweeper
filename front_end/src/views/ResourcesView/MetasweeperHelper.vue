@@ -293,6 +293,9 @@ const i18nMessages = {
     en: { local: {
         description: 'Metasweeper is an open-source minesweeper clone under active development.',
     } },
+    es: { local: {
+        description: 'Metasweeper es un clon abierto de Buscaminas bajo desarrollo activo.',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

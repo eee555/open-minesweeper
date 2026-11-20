@@ -35,6 +35,12 @@ describe('GSC history CSV', () => {
         expect(() => parseHistoryCsv(csv('anonymous', ['']), 'anonymous')).toThrow();
     });
 
+    it('preserves a stable CSV error code, message and source location', () => {
+        expect(() => parseHistoryCsv(csv('users', [0]), 'users')).toThrow(expect.objectContaining({
+            code: 'invalidField', message: 'Row 2: invalid user_id', params: { row: 2, field: 'user_id' },
+        }));
+    });
+
     it('groups by order, preserves source rows and splits into sequential batches of at most ten', () => {
         const rows = csv('users', Array.from({ length: 21 }, (_, i) => 101 + i));
         const [, otherOrder] = csv('users', [101], 20).split('\n');
@@ -65,7 +71,9 @@ describe('GSC history replay timestamps', () => {
     });
 
     it('rejects invalid anchors, missing/invalid end times and nonpositive duration', () => {
-        expect(() => assignHistoryUploadTimes([replay(1, 10)], new Date(NaN))).toThrow();
+        expect(() => assignHistoryUploadTimes([replay(1, 10)], new Date(NaN))).toThrow(expect.objectContaining({
+            code: 'uploadTime', message: 'Invalid upload time',
+        }));
         for (const file of [replay(1, 0), replay(1, -1), { ...replay(1, 1), endTime: new Date(NaN) }, { ...replay(1, 1), timems: 1.5 }]) {
             expect(() => assignHistoryUploadTimes([file], anchor)).toThrow();
         }

@@ -175,7 +175,7 @@ function selectSort(value: WorksSort): void {
 
 function formatDate(value: string): string {
     const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
+    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString(locale.value);
 }
 
 function formatHeat(value: number): string {
@@ -253,6 +253,9 @@ const i18nMessages = {
     en: { local: {
         loading: 'Loading',
     } },
+    es: { local: {
+        loading: 'Cargando',
+    } },
 };
-const { t } = useI18n({ messages: i18nMessages });
+const { t, locale } = useI18n({ messages: i18nMessages });
 </script>

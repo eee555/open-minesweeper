@@ -123,6 +123,10 @@ const i18nMessages = {
         board: 'Board',
         empty: 'No ranking data',
     } },
+    es: { local: {
+        board: 'Tablero',
+        empty: 'Sin datos de clasificación',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

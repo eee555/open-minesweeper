@@ -107,6 +107,13 @@ const i18nMessages = {
         other: 'Other',
         free: 'Free',
     } },
+    es: { local: {
+        title: 'Uso del disco',
+        video: 'Repeticiones',
+        db: 'Base de datos',
+        other: 'Otros',
+        free: 'Libre',
+    } },
 };
 const { t, locale } = useI18n({ messages: i18nMessages });
 </script>

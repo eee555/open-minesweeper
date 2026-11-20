@@ -54,8 +54,8 @@ When first selecting a folder, choose whether to upload only new replays or also
 ### Weekly Tournaments
 
 1. All tournament videos: includes your [tournament identifier](./identifier.md#tournament-token). AVF is not supported.
-2. Supported tournament videos: Intermediate or Expert replays in Standard mode. Efficiency Weekly additionally requires `Time / IOE` below 60 for Intermediate or 240 for Expert.
-3. Score-improving videos: the replay improves your best 5 Intermediate or 2 Expert results. Speed Weekly compares time; Efficiency Weekly compares `Time / IOE`.
+2. Supported tournament videos: Intermediate or Expert replays in Standard mode. Efficiency Weekly additionally requires `Time / IOE²` below 60 for Intermediate or 240 for Expert.
+3. Score-improving videos: the replay improves your best 5 Intermediate or 2 Expert results. Speed Weekly compares time; Efficiency Weekly compares `Time / IOE²`.
 
 ### Golden Sheep Cup
 

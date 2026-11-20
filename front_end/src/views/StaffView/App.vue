@@ -89,6 +89,23 @@ const i18nMessages = {
         minigame: 'Minigame records',
         media: 'Media review',
     } },
+    es: { local: {
+        medals: 'Gestión de medallas',
+        userprofile: 'Perfiles de usuarios',
+        'verification-graph': 'Gráfico de verificación',
+        videomodel: 'Información del video',
+        accountlink: 'Enlaces de cuenta',
+        identifier: 'Gestión de identificadores',
+        logs: 'Registros de servidor',
+        tournament: 'Gestión de torneos',
+        'weekly-tournament': 'Crear torneo semanal',
+        task: 'Tareas en segundo plano',
+        batchvideo: 'Actualización en lote de videos',
+        batchpluck: 'Actualización en lote de registros de pLuck',
+        'ranking-repair': 'Reconstruir registros de clasificación',
+        minigame: 'Registros de minijuegos',
+        media: 'Revisión de medios',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

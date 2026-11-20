@@ -36,6 +36,7 @@ function handleTabClick(tab: TabsPaneContext) {
 const i18nMessages = {
     'zh-cn': { local: { users: '用户', videos: '录像', identifiers: '标识查询', works: '作品' } },
     en: { local: { users: 'Users', videos: 'Videos', identifiers: 'Identifier Lookup', works: 'Works' } },
+    es: { local: { users: 'Usuarios', videos: 'Repeticiones', identifiers: 'Buscar identificadores', works: 'Obras' } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

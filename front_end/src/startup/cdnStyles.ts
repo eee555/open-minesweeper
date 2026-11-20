@@ -24,21 +24,27 @@ export function loadCdnStyles(styles: CdnStyle[], cdnTimeout = 4000, localTimeou
         const values = [...states.values()];
         let zh = '正在从 CDN 加载';
         let en = 'Loading from CDN';
+        let es = 'Cargando desde la CDN';
         if (values.includes('failed')) {
             zh = '加载失败，请刷新重试';
+            es = 'Error de carga. Actualiza la página para reintentar';
             en = 'Loading failed. Please refresh to retry';
         } else if (values.includes('local')) {
             zh = `CDN ${fallbackReason === 'timeout' ? '加载较慢' : '不可用'}，正在从本站加载`;
+            es = fallbackReason === 'timeout' ? 'La CDN tarda en responder. Cargando desde este sitio' : 'La CDN no está disponible. Cargando desde este sitio';
             en = `CDN ${fallbackReason === 'timeout' ? 'is slow' : 'unavailable'}. Loading from this site`;
         } else if (completed.size === total) {
             zh = '已就绪，正在准备页面';
             en = 'Ready. Preparing page';
+            es = 'Listo. Preparando la página';
         }
         const label = document.querySelector<HTMLElement>('#startup-loading-resource-status');
         const chinese = label?.querySelector('[lang="zh-CN"]');
         const english = label?.querySelector('[lang="en"]');
         if (chinese) chinese.textContent = `界面资源 ${completed.size}/${total}：${zh}`;
         if (english) english.textContent = `Interface resources ${completed.size}/${total}: ${en}`;
+        const spanish = label?.querySelector('[lang="es"]');
+        if (spanish) spanish.textContent = `Recursos de la interfaz ${completed.size}/${total}: ${es}`;
         if (label) label.hidden = false;
         const progress = document.querySelector<HTMLProgressElement>('#startup-loading progress');
         if (progress) {

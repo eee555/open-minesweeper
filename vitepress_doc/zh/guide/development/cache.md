@@ -5,6 +5,12 @@ description: 开源扫雷网Redis/Django缓存结构详解，包括录像队列�
 
 # 缓存结构
 
+## QQ 登录临时状态
+
+`userprofile/qqconnect/cache.py` 使用 Django 默认 cache，键前缀 `userprofile:qq:`，TTL 统一为 600 秒：`flow:{state}` 保存模式、appid、会话 HMAC 与绑定用户 ID；`active:{session_hmac}` 和 `user:{user_id}` 标识当前有效授权；`used:{state}` 一次性占用或标记撤销。原始 Session key 不进入这些缓存值。
+
+`pending:{session_hmac}` 临时保存已确认的 appid/OpenID、可选 unionid 和昵称／头像，供匿名用户明确确认注册；不包含 token、code 或 secret。`registered:{state}` 防止重复确认。取消或重新开始会移除 pending，过期自动失效；未确认前不创建数据库账号。绑定与解绑按用户行锁串行化，删除身份立即撤销用户的在途授权。此处是短期授权状态，不是可恢复的任务队列或公开资料缓存。
+
 本文记录项目当前使用的 Redis / Django cache 结构，以及缓存与数据库、API 之间的读写流向。数据库字段结构以各 app 的 `models.py` 为准，这里只记录缓存中实际保存的数据结构。
 
 ## GitHub 授权临时状态
@@ -24,6 +30,8 @@ GitHub 使用默认 Django cache（当前 Redis DB 1），所有键 TTL 为 600 
 `SaoleiApiVideo` 不保存录像文件地址，也没有单独的 URL 缓存：上游不再返回 `fileUrl`，导入直接用 `remote_id` 请求 `https://saolei.wang/video/download/{id}`，文件名取下载响应的 `Content-Disposition`。目录与批量详情只维护元数据；详情缺项保留已有信息。自动导入和命令 videos 阶段不重复请求详情，前端单条手动导入仍先取得该条最新详情。
 
 `SaoleiApiVideo.import_rejected` 在数据库中持久化本站文件校验直接拒收的结果，不使用缓存。导入事务回滚后单独写入；后续同步在请求详情和下载文件前跳过，目录刷新及 `--full` 不清除此标记。需人工重试时由站长在 Django shell 清除；网络、上游及其他非文件校验故障不设置标记，仍按本地未完成来源补导。
+
+MSGames 手动列表同步使用 `accountlink.msgames.tasks.task_sync_msgames`，复用 Django Tasks 的 `DBTaskResult` 保存状态和业务结果，不增加 Redis 进度缓存。列表 API 仅入队／查询，前端每两秒轮询；单条录像保持同步导入和五秒超时，批量逐条等待响应。列表重复提交复用同一关联的 `READY/RUNNING` 任务。任务参数包含当时的账号归属，执行与查询均防止解绑重绑后误用旧任务。成功完成的任务保留七天，由既有任务清理流程分批删除；返回业务错误的任务同样适用，框架标记 `FAILED` 的任务保留用于人工排查。
 
 录像解析字段现在由前端 IndexedDB 按 ID 缓存。普通查询返回 ID 和网站动态字段，再批量补全；字段定义变化时随前端更新递增 `CACHE_STORE_DEFINITIONS['video-info'].version`，加载新前端后清空整张录像表，接口无需携带版本。接口和 Redis 改动前后字段表见仓库 `front_end/src/services/videoService.md`。部署后运行 [compact_video_cache](./management-commands.md#compact-video-cache) 压缩存量载荷。
 
@@ -552,7 +560,7 @@ digraph cache {
 
     tournament_db -> task_weekly_eff_finish [label="read/state write"];
     participant_db -> task_weekly_eff_finish [label="read/delete empty"];
-    video_db -> task_weekly_eff_finish [label="OFFICIAL STD query time/IOE; reveal"];
+    video_db -> task_weekly_eff_finish [label="OFFICIAL STD query time/IOE²; reveal"];
     tournament_user_db -> task_weekly_eff_finish [label="ensure users"];
     task_weekly_eff_finish -> participant_db [label="float scores/ranks"];
     task_weekly_eff_finish -> tournament_db [label="AWARDED"];
@@ -763,7 +771,7 @@ digraph cache {
 
 GSC、竞速及效率 finish 任务先补齐用户汇总，再清理无录像参赛者、刷新成绩和名次、设为 AWARDED、批量公开录像，并排队独立的积分和 best 任务。结束任务不早于原 end_time 后一小时，个人时间窗口和积分衰减仍使用原结束时间。worker 单进程串行，后续两项任务没有顺序依赖；人工重算、缓存重建避免与其重叠。积分按新旧 rank_score 差额修正，批量写库，提交后批量刷新相关 zset。
 
-效率赛只统计 OFFICIAL、标准模式的中高级录像，用原始 `timems * cl / (1000 * bv)` 浮点值选取 2 高 5 中，分别以 240、60 为严格上限及缺项值。效率 best 及其独立年/周字段一起写库，无成绩时为 NULL；GSC 和竞速 best 保留原整数编码及 MAX_TOURNAMENT_BEST 哨兵。各类型保存信号只比较当前成绩；删除信号从现存已颁奖 participant 重建 best。数据库 best 更新在当前事务完成，效率赛的 Redis 发布延至提交后；批量结算不触发保存信号，使用独立 best 任务。日志沿用 tournament logger。
+效率赛只统计 OFFICIAL、标准模式的中高级录像，用原始 `timems * cl² / (1000 * bv²)` 浮点值选取 2 高 5 中，分别以 240、60 为严格上限及缺项值。效率 best 及其独立年/周字段一起写库，无成绩时为 NULL；GSC 和竞速 best 保留原整数编码及 MAX_TOURNAMENT_BEST 哨兵。各类型保存信号只比较当前成绩；删除信号从现存已颁奖 participant 重建 best。数据库 best 更新在当前事务完成，效率赛的 Redis 发布延至提交后；批量结算不触发保存信号，使用独立 best 任务。日志沿用 tournament logger。
 
 `refresh_tournament_user_stats` 重建三类 total 与 best（包括效率 best 年/周），不修改 score_current；`rebuild_tournament_user_cache` 重建全部积分 zset。`refresh_tournament_scores` 支持三类已颁奖比赛，从现存录像按各赛种规则重算，并修正积分差额和 best；不会恢复已删除报名。
 

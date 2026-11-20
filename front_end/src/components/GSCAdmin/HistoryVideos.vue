@@ -1,20 +1,21 @@
 <template>
     <div class="history-video-controls">
-        <label>用户 ID <input v-model.number="userId" type="number" min="1" :disabled="busy || participantId !== undefined" data-cy="history-user-id"></label>
-        <label data-cy="history-upload-anchor">上传时间锚点 <ElDatePicker v-model="anchor" type="datetime" :disabled="busy || participantId !== undefined" /></label>
-        <input type="file" accept=".avf,.evf,.rmv,.mvf" multiple :disabled="busy || participantId !== undefined" aria-label="选择录像" data-cy="history-video-files" @change="selectFiles">
-        <ElSelect v-model="selectedIdentifiers" multiple :disabled="busy || participantId !== undefined" placeholder="录像标识" aria-label="录像标识" data-cy="history-identifiers">
-            <ElOption v-for="identifier in identifiers" :key="identifier" :label="identifier || '(空标识)'" :value="identifier" />
+        <label>{{ t('local.userId') }} <input v-model.number="userId" type="number" min="1" :disabled="busy || participantId !== undefined" data-cy="history-user-id"></label>
+        <label data-cy="history-upload-anchor">{{ t('local.anchor') }} <ElDatePicker v-model="anchor" type="datetime" :disabled="busy || participantId !== undefined" /></label>
+        <input type="file" accept=".avf,.evf,.rmv,.mvf" multiple :disabled="busy || participantId !== undefined" :aria-label="t('local.chooseFiles')" data-cy="history-video-files" @change="selectFiles">
+        <ElSelect v-model="selectedIdentifiers" multiple :disabled="busy || participantId !== undefined" :placeholder="t('local.identifiers')" :aria-label="t('local.identifiers')" data-cy="history-identifiers">
+            <ElOption v-for="identifier in identifiers" :key="identifier" :label="identifier || t('local.emptyIdentifier')" :value="identifier" />
         </ElSelect>
         <BaseButton :loading="busy" :disabled="!userId || !selectedIdentifiers.length || !anchor" data-cy="history-videos-submit" @click="upload">
-            {{ participantId === undefined ? '绑定标识并上传' : bindings.length < selectedIdentifiers.length ? '继续绑定并上传' : '重试失败录像' }}
+            {{ participantId === undefined ? t('local.bindAndUpload') : bindings.length < selectedIdentifiers.length ? t('local.resumeBinding') : t('local.retry') }}
         </BaseButton>
         <BaseButton :disabled="busy" @click="reset">
-            清空
+            {{ t('local.clear') }}
         </BaseButton>
     </div>
     <p v-if="error" role="alert">
-        {{ error }}
+        {{ error }}<br>
+        {{ t('local.retryPending') }}
     </p>
     <ul>
         <li v-for="issue in parseIssues" :key="issue">
@@ -23,16 +24,16 @@
     </ul>
     <ul data-cy="history-binding-results">
         <li v-for="binding in bindings" :key="binding.identifier">
-            {{ binding.identifier || '(空标识)' }}：{{ binding.bound ? '已绑定' : '归属冲突，跳过绑定' }}
+            {{ binding.identifier || t('local.emptyIdentifier') }}：{{ binding.bound ? t('local.bound') : t('local.conflict') }}
         </li>
     </ul>
     <BaseTable v-if="uploads.length" data-cy="history-video-results">
         <template #head>
-            <tr><th>文件</th><th>标识</th><th>上传时间</th><th>结果</th></tr>
+            <tr><th>{{ t('local.file') }}</th><th>{{ t('local.identifier') }}</th><th>{{ t('local.uploadTime') }}</th><th>{{ t('local.result') }}</th></tr>
         </template>
         <tr v-for="entry in uploads" :key="entry.index">
             <td>{{ entry.file.name }}</td><td>{{ entry.identifier }}</td><td>{{ entry.uploadTime.toISOString() }}</td>
-            <td>{{ entry.result ? `录像 #${entry.result.id} / ${entry.result.state}` : entry.error || '待上传' }}</td>
+            <td>{{ entry.result ? t('local.replayResult', { id: entry.result.id, state: entry.result.state }) : entry.error || t('local.pending') }}</td>
         </tr>
     </BaseTable>
 </template>
@@ -42,15 +43,83 @@ import '@/styles/vendors/element-plus.css';
 import '@/styles/vendors/element-plus-select.css';
 import { ElDatePicker, ElOption, ElSelect } from 'element-plus';
 import { computed, onBeforeUnmount, ref, shallowRef } from 'vue';
+import { useI18n } from 'vue-i18n';
 
 import { assignHistoryUploadTimes } from './history';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
+import { historyErrorText } from '@/i18n/historyErrorText';
 import { bindGSCHistoryIdentifier, prepareGSCHistory, uploadGSCHistoryVideo } from '@/services/gscHistoryService';
 import type { IdentifierBinding } from '@/services/gscHistoryService';
 import { extract_stat, load_video_file } from '@/utils/fileIO';
 import type { VideoAbstractData } from '@/utils/videoabstract';
+
+const props = defineProps({ order: { type: Number, required: true }, endTime: { type: Date, required: true } });
+const emit = defineEmits<{ imported: [] }>();
+const i18nMessages = {
+    'zh-cn': { local: {
+        replayResult: '录像 #{id} / {state}',
+        retryPending: '已完成步骤已保留，请重试未完成步骤。',
+        conflict: '归属冲突，跳过绑定',
+        bindAndUpload: '绑定标识并上传',
+        resumeBinding: '继续绑定并上传',
+        anchor: '上传时间锚点',
+        retry: '重试失败录像',
+        userId: '用户 ID',
+        emptyIdentifier: '(空标识)',
+        chooseFiles: '选择录像',
+        identifiers: '录像标识',
+        uploadTime: '上传时间',
+        bound: '已绑定',
+        pending: '待上传',
+        clear: '清空',
+        file: '文件',
+        identifier: '标识',
+        result: '结果',
+    } },
+    en: { local: {
+        replayResult: 'Replay #{id} / {state}',
+        retryPending: 'Completed steps were saved. Retry the remaining steps.',
+        conflict: 'Ownership conflict, skipped',
+        bindAndUpload: 'Link identifiers and upload',
+        resumeBinding: 'Continue linking and upload',
+        anchor: 'Reference upload time',
+        retry: 'Retry failed uploads',
+        userId: 'User ID',
+        emptyIdentifier: '(empty identifier)',
+        chooseFiles: 'Choose replay files',
+        identifiers: 'Replay identifiers',
+        uploadTime: 'Upload time',
+        bound: 'Linked',
+        pending: 'Pending upload',
+        clear: 'Clear',
+        file: 'File',
+        identifier: 'Identifier',
+        result: 'Result',
+    } },
+    es: { local: {
+        replayResult: 'Repetición #{id} / {state}',
+        retryPending: 'Se han guardado los pasos completados. Reintenta los pendientes.',
+        conflict: 'Conflicto de titularidad. Se omitió la vinculación',
+        bindAndUpload: 'Vincular identificadores y subir',
+        resumeBinding: 'Continuar la vinculación y subir',
+        anchor: 'Fecha de referencia para la subida',
+        retry: 'Reintentar las subidas fallidas',
+        userId: 'ID de usuario',
+        emptyIdentifier: '(identificador vacío)',
+        chooseFiles: 'Seleccionar repeticiones',
+        identifiers: 'Identificadores de las repeticiones',
+        uploadTime: 'Fecha de subida',
+        bound: 'Vinculado',
+        pending: 'Pendiente de subida',
+        clear: 'Vaciar',
+        file: 'Archivo',
+        identifier: 'Identificador',
+        result: 'Resultado',
+    } },
+};
+const { t } = useI18n({ messages: i18nMessages });
 
 interface Replay {
     index: number;
@@ -65,8 +134,6 @@ interface Upload extends Replay {
     error?: string;
 }
 
-const props = defineProps({ order: { type: Number, required: true }, endTime: { type: Date, required: true } });
-const emit = defineEmits<{ imported: [] }>();
 const userId = ref<number>();
 const anchor = ref<Date | null>(new Date(props.endTime));
 const replays = shallowRef<Replay[]>([]);
@@ -145,11 +212,11 @@ async function upload() {
                 entry.result = await uploadGSCHistoryVideo(participantId.value, entry.file, entry.uploadTime);
                 entry.error = undefined;
             } catch (reason) {
-                entry.error = String(reason);
+                entry.error = historyErrorText(reason);
             }
         }
     } catch (reason) {
-        error.value = `${String(reason)}。已完成步骤已保留，请重试未完成步骤。`;
+        error.value = historyErrorText(reason);
     } finally {
         busy.value = false;
         emit('imported');

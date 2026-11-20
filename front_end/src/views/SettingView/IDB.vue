@@ -93,6 +93,19 @@ const i18nMessages = {
         cacheUnpublished: 'Cache unpublished video information (fetch live when disabled)',
         tooltip: "The webpage uses Indexed Database for caching to improve loading experience. The webpage needs to request for data updates occasionally, which is controlled by \"@:{'local.updateInterval'}\", in milliseconds. If a large amount of data needs to be updated, they need to be splitted into batches due to the URL length limits. \"@:{'local.batchSize'}\" is the number of items in each batch, and \"@:{'local.batchDelay'}\" is the time interval between consecutive batches, in milliseconds.", // eslint-disable-line @stylistic/quotes
     } },
+    es: { local: {
+        batchDelay: 'Pausa entre lotes',
+        batchSize: 'Tamaño del lote',
+        lastUpdate: 'Última actualización',
+        tableName: 'Tabla de datos',
+        updateInterval: 'Intervalo de actualización',
+        userInfo: 'Información del usuario',
+        userInfoTooltip: 'Excluyendo avatar, identificadores, enlaces de cuenta, registros y videos',
+        videoInfo: 'Datos del archivo de video',
+        videoVersion: 'Se borra al cambiar la versión del campo; no hay caducidad periódica',
+        cacheUnpublished: 'Caché de información de videos no publicados (se obtiene en vivo cuando está desactivado)',
+        tooltip: 'La página web utiliza Indexed Database para el caché con el fin de mejorar la experiencia de carga. La página necesita solicitar actualizaciones de datos ocasionalmente, lo cual está controlado por "@:{\'local.updateInterval\'}", en milisegundos. Si se necesitan actualizar grandes cantidades de datos, deben dividirse en lotes debido a los límites de longitud de URL. "@:{\'local.batchSize\'}" es el número de elementos por lote, y "@:{\'local.batchDelay\'}" es el intervalo de tiempo entre lotes consecutivos, en milisegundos.',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

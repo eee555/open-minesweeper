@@ -75,6 +75,10 @@ const i18nMessages = {
         loading: 'Loading repository link',
         failed: 'Could not load the link. Click again to retry.',
     } },
+    es: { local: {
+        loading: 'Cargando el enlace al repositorio',
+        failed: 'No se pudo cargar el enlace. Haz clic para reintentar.',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

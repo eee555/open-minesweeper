@@ -167,6 +167,13 @@ const i18nMessages = {
         moderationUnavailable: 'Username moderation is temporarily unavailable. Please try again later.',
         invalidRegistration: 'Registration details are invalid or already in use. Please check and try again.',
     } },
+    es: { local: {
+        agreeTAC1: 'Acepto los',
+        agreeTAC2: 'Términos y condiciones',
+        usernameRejected: 'Este nombre de usuario no pasó la moderación de contenido. Por favor, elige otro nombre de usuario.',
+        moderationUnavailable: 'La moderación del nombre de usuario está temporalmente inactiva. Por favor, inténtalo de nuevo más tarde.',
+        invalidRegistration: 'Los detalles de registro son inválidos o ya están en uso. Por favor, revísalos y vuelve a intentarlo.',
+    } },
     de: { local: {
         confirm: 'bestätigen',
         agreeTAC1: 'Zustimmen',
