@@ -852,14 +852,14 @@ describe('Efficiency Weekly tournament', () => {
         cy.contains('[data-cy=tournament-data-tabs] .el-tabs__item', '即时成绩').click();
         cy.get('[data-cy=personal-score-refresh]').click();
         cy.wait('@effVideos');
-        cy.get('[data-cy=weekly-eff-personal-total]').should('contain.text', '615.000');
+        cy.get('[data-cy=weekly-eff-personal-total]').should('contain.text', '547.500');
         cy.then(() => cy.dangerzonePost('finish_weekly_eff_tournament', { id: tournamentId }));
         cy.intercept('GET', '**/api/tournament/weekly-eff/results*').as('effResults');
         cy.reload();
         cy.wait('@effResults');
         cy.get('[data-cy=weekly-eff-results] tbody').extractTableData().should((rows) => {
             expect(rows).to.have.length(1);
-            expect(rows[0][rows[0].length - 1]).to.equal('615.000');
+            expect(rows[0][rows[0].length - 1]).to.equal('547.500');
         });
     });
 });

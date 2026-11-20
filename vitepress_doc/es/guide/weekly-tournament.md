@@ -25,7 +25,7 @@ El formato clásico 2E+5I suma los tiempos más rápidos de 2 jugadores Expertos
 
 ### Eficiencia Semanal
 
-Cada partida se califica por `Time / IOE`, equivalente a `clicks / 3BV/s`; menor es mejor. Suma las puntuaciones más bajas de 2 partidas Expert y 5 partidas Intermedia. Las puntuaciones Intermedia deben ser inferiores a 60, Expert inferiores a 240, sin límite adicional de IOE. Las partidas ausentes se cuentan como 60 y 240 respectivamente.
+Cada partida se califica por `Time / IOE²` (tiempo dividido por el cuadrado de IOE); menor es mejor. Suma las puntuaciones más bajas de 2 partidas Expert y 5 partidas Intermedia. Las puntuaciones Intermedia deben ser inferiores a 60, Expert inferiores a 240, sin límite adicional de IOE. Las partidas ausentes se cuentan como 60 y 240 respectivamente.
 
 ## Cálculo de resultados y descalificación
 
