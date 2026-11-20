@@ -192,6 +192,8 @@ export const VideoScatterConfig = useLocalStorage(
     { mergeDefaults: true },
 );
 
+export const databaseVideoQuery = useLocalStorage<string | null>('database-video-query', null);
+
 export const VideoListConfig = useLocalStorage(
     'video-list-config',
     {

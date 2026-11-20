@@ -140,8 +140,9 @@ import '@/styles/cards.css';
 import 'primeicons/primeicons.css';
 
 import { vLoading } from 'element-plus';
-import { computed, onUnmounted, ref, watch } from 'vue';
+import { computed, onActivated, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRoute, useRouter } from 'vue-router';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import VideoList from '@/components/VideoList/App.vue';
@@ -150,10 +151,13 @@ import SoftwareIcon from '@/components/widgets/SoftwareIcon.vue';
 import VideoStateIcon from '@/components/widgets/VideoStateIcon.vue';
 import { fetchVideoQuery } from '@/services/videoService';
 import type { VideoQueryFilter, VideoQuerySort } from '@/services/videoService';
-import { VideoListConfig } from '@/store';
+import { databaseVideoQuery, VideoListConfig } from '@/store';
 import { ColumnChoices } from '@/utils/ms_const';
 import type { ColumnChoice, MS_Software, MS_State } from '@/utils/ms_const';
 import type { VideoAbstract } from '@/utils/videoabstract';
+
+const route = useRoute();
+const router = useRouter();
 
 type FieldKind = 'enum' | 'number' | 'datetime';
 type SortDirection = 'asc' | 'desc';
@@ -450,9 +454,11 @@ function syncUrl(): void {
             page: currentPage.value,
             ps: pageSize.value,
         };
-        const url = new URL(window.location.href);
-        url.searchParams.set('q', JSON.stringify(state));
-        window.history.replaceState(null, '', url.toString());
+        const raw = JSON.stringify(state);
+        databaseVideoQuery.value = raw;
+        if (route?.name !== 'database-videos') return;
+        if (route.query.q === raw) return;
+        void router?.replace({ path: route.path, query: { ...route.query, q: raw } });
     } catch {
         return;
     }
@@ -460,7 +466,8 @@ function syncUrl(): void {
 
 function restoreUrl(): void {
     try {
-        const raw = new URLSearchParams(window.location.search).get('q');
+        const fromRoute = route?.query.q;
+        const raw = typeof fromRoute === 'string' ? fromRoute : databaseVideoQuery.value;
         if (raw === null) return;
         const state = JSON.parse(raw) as QueryState;
         if (!Array.isArray(state.filters) || !Array.isArray(state.sorts)) return;
@@ -514,6 +521,9 @@ watch([filterTags, sortRules], () => {
     scheduleQuery();
 }, { deep: true });
 watch([pageSize, currentPage], () => {
+    syncUrl();
+});
+onActivated(() => {
     syncUrl();
 });
 onUnmounted(() => {
