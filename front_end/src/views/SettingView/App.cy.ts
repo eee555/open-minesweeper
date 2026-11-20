@@ -1,3 +1,5 @@
+import { nextTick } from 'vue';
+
 import Settings from './App.vue';
 
 import { videoColumnStore, videoDescriptionStore } from '@/components/VideoList/columnStore';
@@ -24,9 +26,13 @@ describe('<Settings /> replay configuration', () => {
     const originalDescription = videoDescriptionStore.columns.value;
 
     afterEach(() => {
-        player.columns.value = originalPlayer;
-        mixed.columns.value = originalMixed;
-        videoDescriptionStore.columns.value = originalDescription;
+        cy.get<ComponentWrapper<typeof Settings>>('@vue').then(async (wrapper) => {
+            wrapper.unmount();
+            player.columns.value = originalPlayer;
+            mixed.columns.value = originalMixed;
+            videoDescriptionStore.columns.value = originalDescription;
+            await nextTick();
+        });
     });
 
     it('edits the two shared table groups and tooltip independently in settings cards', () => {
@@ -51,8 +57,7 @@ describe('<Settings /> replay configuration', () => {
             cy.get('[data-cy=column-preset]').last().select('bvs');
             cy.get('[data-cy=column-insert]').eq(1).click();
             cy.get('[data-cy=column-item]').should('have.length', 3);
-            cy.get('[data-cy=column-key]').eq(1).clear();
-            cy.get('[data-cy=column-key]').eq(1).type('Time');
+            cy.get('[data-cy=column-key]').eq(1).invoke('val', 'Time').trigger('input');
             cy.get('[role=alert]').should('be.visible');
             cy.then(() => {
                 expect(player.columns.value[1]).to.have.property('key', 'custom1');

@@ -27,7 +27,7 @@
                     </th>
                 </tr>
             </template>
-            <tr v-for="(item, index) in draft" :key="`${item.type}:${item.id}`" data-cy="column-item">
+            <tr v-for="(item, index) in draft" :key="hasExpression(item) ? `expression:${item.id}` : `fixed:${item.type}`" data-cy="column-item">
                 <td>
                     <span class="video-columns-editor__actions">
                         <BaseButton size="small" class="square-button" :title="t('local.insert')" :aria-label="t('local.insert')" data-cy="column-insert" @click="insert(index)">
