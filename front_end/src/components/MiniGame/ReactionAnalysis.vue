@@ -76,6 +76,17 @@ const i18nMessages = {
         hold: 'Press to release',
         total: 'Total interval',
     } },
+    es: { local: {
+        reactions: 'Tiempos de reacción',
+        adjacent: 'Intervalos entre clics consecutivos (s)',
+        jump: 'Intervalos entre clics alternos (s)',
+        previousUp: 'Liberación anterior',
+        down: 'Pulsación actual',
+        up: 'Liberación actual',
+        wait: 'De soltar a pulsar',
+        hold: 'De pulsar a soltar',
+        total: 'Intervalo total',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

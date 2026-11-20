@@ -173,6 +173,10 @@ const i18nMessages = {
         empty: 'No videos',
         filterOff: 'Filter disabled',
     } },
+    es: { local: {
+        empty: 'Sin repeticiones',
+        filterOff: 'Filtro desactivado',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

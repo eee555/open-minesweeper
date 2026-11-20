@@ -30,6 +30,9 @@ const i18nMessages = {
     en: { local: {
         schedule: 'Schedule',
     } },
+    es: { local: {
+        schedule: 'Calendario',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

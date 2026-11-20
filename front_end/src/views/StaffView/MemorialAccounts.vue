@@ -1,64 +1,64 @@
 <template>
     <section class="memorial-upload">
-        <h1>纪念账号补录像</h1>
-        <p>账号建档、旧数据清理及资料修改在服务器上通过管理命令或 Django shell 完成。</p>
+        <h1>{{ t('local.memorialTitle') }}</h1>
+        <p>{{ t('local.memorialHint') }}</p>
         <p v-if="error" role="alert" class="text-danger">
             {{ error }}
         </p>
         <fieldset :disabled="busy || uploads.length > 0">
-            <legend>目标账号</legend>
-            <label>本站用户 ID <input v-model.number="queryId" type="number" min="1" data-cy="memorial-query-id"></label>
+            <legend>{{ t('local.target') }}</legend>
+            <label>{{ t('local.siteId') }} <input v-model.number="queryId" type="number" min="1" data-cy="memorial-query-id"></label>
             <BaseButton :disabled="!positiveId(queryId)" @click="loadTarget">
-                加载纪念账号
+                {{ t('local.loadMemorial') }}
             </BaseButton>
         </fieldset>
         <template v-if="access">
             <h2>{{ access.user.realname || access.user.username }} #{{ access.user.id }}（UserMS #{{ access.user.userms_id }}）</h2>
             <RouterLink :to="`/player/${access.user.id}`" class="link">
-                查看公开主页
+                {{ t('local.publicProfile') }}
             </RouterLink>
             <fieldset :disabled="busy || linkBusy" data-cy="memorial-links">
-                <legend>账号关联</legend>
-                <p>纪念账号无法登录，由站长直接指定扫雷网、MSGames、Minesweeper.Online 的外部账号。指定后该账号参与对应平台的排行与勋章计算。</p>
+                <legend>{{ t('local.links') }}</legend>
+                <p>{{ t('local.memorialLinks') }}</p>
                 <label>
-                    平台
+                    {{ t('local.platform') }}
                     <select v-model="linkPlatform" data-cy="memorial-link-platform">
                         <option v-for="platform in assignablePlatforms" :key="platform.value" :value="platform.value">{{ platform.label }}</option>
                     </select>
                 </label>
                 <label>
-                    平台 ID
+                    {{ t('local.platformId') }}
                     <input v-model.trim="linkIdentifier" inputmode="numeric" data-cy="memorial-link-identifier">
                 </label>
                 <BaseButton :disabled="!canAssignLink" data-cy="memorial-link-assign" @click="assignLink">
-                    设置关联
+                    {{ t('local.assign') }}
                 </BaseButton>
                 <ul data-cy="memorial-link-list">
                     <li v-for="link in links" :key="link.platform">
                         {{ platformLabel(link.platform) }} #{{ link.identifier }}{{ link.name ? `（${link.name}）` : '' }}
                         <BaseButton :disabled="linkBusy" data-cy="memorial-link-remove" @click="removeLink(link.platform)">
-                            解除
+                            {{ t('local.unlink') }}
                         </BaseButton>
                     </li>
                 </ul>
                 <p v-if="!links.length">
-                    尚未设置任何账号关联。
+                    {{ t('local.noLinks') }}
                 </p>
             </fieldset>
-            <p>所选标识随首个文件请求提交，后端先逐个尝试绑定，再上传录像；绑定失败仍继续上传。录入错误请使用站长删除录像页面后重传。</p>
+            <p>{{ t('local.bindingHint') }}</p>
             <fieldset :disabled="busy" data-cy="memorial-upload-controls">
-                <legend>选择文件和标识</legend>
-                <input type="file" accept=".avf,.evf,.rmv,.mvf" multiple :disabled="uploads.length > 0" aria-label="选择纪念录像" data-cy="memorial-files" @change="selectFiles">
-                <label data-cy="memorial-upload-anchor">上传时间锚点 <ElDatePicker v-model="anchor" type="datetime" :disabled="uploads.length > 0" /></label>
-                <p>所有标识默认不选，请逐个勾选。最后一局采用锚点时间，之前各局按耗时倒推。</p>
+                <legend>{{ t('local.filesAndIds') }}</legend>
+                <input type="file" accept=".avf,.evf,.rmv,.mvf" multiple :disabled="uploads.length > 0" :aria-label="t('local.chooseMemorial')" data-cy="memorial-files" @change="selectFiles">
+                <label data-cy="memorial-upload-anchor">{{ t('local.anchor') }} <ElDatePicker v-model="anchor" type="datetime" :disabled="uploads.length > 0" /></label>
+                <p>{{ t('local.anchorHint') }}</p>
                 <label v-for="identifier in identifiers" :key="identifier" class="identifier-option">
-                    <input v-model="selectedIdentifiers" type="checkbox" :value="identifier" :disabled="uploads.length > 0" data-cy="memorial-identifier">{{ identifier || '（空标识）' }}
+                    <input v-model="selectedIdentifiers" type="checkbox" :value="identifier" :disabled="uploads.length > 0" data-cy="memorial-identifier">{{ identifier || t('local.emptyId') }}
                 </label>
                 <BaseButton :disabled="!canUpload" data-cy="memorial-upload-submit" @click="upload">
-                    {{ uploads.length ? '重试未成功的录像' : '绑定标识并上传所选录像' }}
+                    {{ uploads.length ? t('local.retryUploads') : t('local.bindSelected') }}
                 </BaseButton>
                 <BaseButton @click="resetBatch">
-                    清空本批文件和标识
+                    {{ t('local.clearBatch') }}
                 </BaseButton>
             </fieldset>
             <ul>
@@ -68,31 +68,31 @@
             </ul>
             <ul data-cy="memorial-bindings">
                 <li v-for="binding in bindings" :key="binding.identifier">
-                    {{ binding.identifier || '（空标识）' }}：{{ binding.bound ? '已绑定' : binding.error || '归属冲突，未绑定；录像仍会上传' }}
+                    {{ binding.identifier || t('local.emptyId') }}：{{ binding.bound ? t('local.bound') : t(binding.error ? 'local.bindFailed' : 'local.bindConflict') }}
                 </li>
             </ul>
             <p v-if="completed">
-                本批录像已全部上传。单独修正标识可在服务器上使用既有绑定服务处理。
+                {{ t('local.batchDone') }}
             </p>
             <fieldset v-if="saoleiAccountId" data-cy="memorial-saolei-import">
-                <legend>扫雷网录像导入</legend>
-                <p>同步与导入由管理员代为执行；资料刷新与自动同步开关仍由站长在纪念账号页管理。</p>
+                <legend>{{ t('local.importSaolei') }}</legend>
+                <p>{{ t('local.syncHint') }}</p>
                 <VideoImportQueue :saolei-id="saoleiAccountId" owner />
             </fieldset>
             <p v-else>
-                先在“账号关联”中设置扫雷网账号，之后可以在这里同步并导入其录像。
+                {{ t('local.linkFirst') }}
             </p>
             <BaseTable v-if="uploads.length" data-cy="memorial-upload-results">
                 <template #head>
-                    <tr><th>文件</th><th>标识</th><th>计划上传时间</th><th>实际上传时间</th><th>结果</th></tr>
+                    <tr><th>{{ t('local.file') }}</th><th>{{ t('local.identifier') }}</th><th>{{ t('local.planned') }}</th><th>{{ t('local.actual') }}</th><th>{{ t('local.result') }}</th></tr>
                 </template>
                 <tr v-for="entry in uploads" :key="entry.index">
-                    <td>{{ entry.file.name }}</td><td>{{ entry.identifier }}</td><td>{{ entry.uploadTime.toISOString() }}</td><td>{{ entry.result?.upload_time ?? '—' }}</td><td>{{ entry.result ? `录像 #${entry.result.id} / ${entry.result.state}` : entry.error || '待上传' }}</td>
+                    <td>{{ entry.file.name }}</td><td>{{ entry.identifier }}</td><td>{{ entry.uploadTime.toISOString() }}</td><td>{{ entry.result?.upload_time ?? '—' }}</td><td>{{ entry.result ? t('local.replayResult', { id: entry.result.id, state: entry.result.state }) : t(entry.errorCode ? `memorialError.${entry.errorCode}` : 'local.pending') }}</td>
                 </tr>
             </BaseTable>
         </template>
         <p v-if="busy" role="status">
-            正在处理，请等待本次请求完成。
+            {{ t('local.working') }}
         </p>
     </section>
 </template>
@@ -101,20 +101,150 @@
 import '@/styles/vendors/element-plus.css';
 import { ElDatePicker } from 'element-plus';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { RouterLink, useRoute } from 'vue-router';
 
 import VideoImportQueue from '@/components/accountlinks/VideoImportQueue.vue';
 import BaseButton from '@/components/common/BaseButton.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
-import { assignMemorialLink, fetchMemorialAccess, fetchMemorialLinks, memorialErrorText, planMemorialUploads, removeMemorialLink, uploadMemorialBatch } from '@/services/memorialService';
+import { historyErrorText } from '@/i18n/historyErrorText';
+import { assignMemorialLink, fetchMemorialAccess, fetchMemorialLinks, memorialErrorCode, planMemorialUploads, removeMemorialLink, uploadMemorialBatch } from '@/services/memorialService';
 import type { MemorialAccess, MemorialAccountLink, MemorialBinding, MemorialReplay, MemorialUpload } from '@/services/memorialService';
 import { extract_stat, load_video_file } from '@/utils/fileIO';
+import { HistoryImportError } from '@/utils/historyImportError';
 
-const assignablePlatforms = [
-    { value: 'c', label: '扫雷网' },
+const i18nMessages = {
+    'zh-cn': { local: {
+        replayResult: '录像 #{id} / {state}',
+        memorialLinks: '纪念账号无法登录，由站长直接指定扫雷网、MSGames、Minesweeper.Online 的外部账号。指定后该账号参与对应平台的排行与勋章计算。',
+        bindingHint: '所选标识随首个文件请求提交，后端先逐个尝试绑定，再上传录像；绑定失败仍继续上传。录入错误请使用站长删除录像页面后重传。',
+        memorialHint: '账号建档、旧数据清理及资料修改在服务器上通过管理命令或 Django shell 完成。',
+        syncHint: '同步与导入由管理员代为执行；资料刷新与自动同步开关仍由站长在纪念账号页管理。',
+        anchorHint: '所有标识默认不选，请逐个勾选。最后一局采用锚点时间，之前各局按耗时倒推。',
+        batchDone: '本批录像已全部上传。单独修正标识可在服务器上使用既有绑定服务处理。',
+        linkFirst: '先在“账号关联”中设置扫雷网账号，之后可以在这里同步并导入其录像。',
+        invalidReplay: '录像未完成，或完成时间、耗时无效',
+        bindConflict: '归属冲突，未绑定；录像仍会上传',
+        bindFailed: '标识绑定失败，录像仍会上传',
+        working: '正在处理，请等待本次请求完成。',
+        noLinks: '尚未设置任何账号关联。',
+        bindSelected: '绑定标识并上传所选录像',
+        clearBatch: '清空本批文件和标识',
+        retryUploads: '重试未成功的录像',
+        memorialTitle: '纪念账号补录像',
+        siteId: '本站用户 ID',
+        filesAndIds: '选择文件和标识',
+        importSaolei: '扫雷网录像导入',
+        anchor: '上传时间锚点',
+        loadMemorial: '加载纪念账号',
+        publicProfile: '查看公开主页',
+        chooseMemorial: '选择纪念录像',
+        planned: '计划上传时间',
+        actual: '实际上传时间',
+        platformId: '平台 ID',
+        emptyId: '（空标识）',
+        target: '目标账号',
+        links: '账号关联',
+        assign: '设置关联',
+        saolei: '扫雷网',
+        bound: '已绑定',
+        pending: '待上传',
+        file: '文件',
+        identifier: '标识',
+        result: '结果',
+        platform: '平台',
+        unlink: '解除',
+    } },
+    en: { local: {
+        replayResult: 'Replay #{id} / {state}',
+        memorialLinks: 'Memorial accounts cannot sign in. A superuser assigns their Saolei.wang, MSGames or Minesweeper.Online accounts. Linked accounts count toward that platform’s rankings and medals.',
+        bindingHint: 'Selected identifiers are sent with the first file. Each link is attempted before upload. A failed link does not stop uploads. Correct mistakes by deleting the replay on the superuser page and uploading it again.',
+        memorialHint: 'Create accounts, clean up old data and edit profiles on the server using management commands or the Django shell.',
+        syncHint: 'Moderators perform synchronization and imports. The superuser manages profile refreshes and automatic synchronization on the memorial account page.',
+        anchorHint: 'Select identifiers individually. The last replay uses the reference time. Earlier times are calculated backwards from game durations.',
+        batchDone: 'All replays in this batch were uploaded. Individual identifiers can be corrected on the server using the binding service.',
+        linkFirst: 'Link a Saolei.wang account under Account links before synchronizing and importing its replays here.',
+        invalidReplay: 'Unfinished replay or invalid finish time or duration',
+        bindConflict: 'Ownership conflict. Replay uploads will continue without linking.',
+        bindFailed: 'Could not link the identifier. Replay uploads will continue.',
+        working: 'Processing. Wait for this request to finish.',
+        noLinks: 'No accounts linked yet.',
+        bindSelected: 'Link identifiers and upload selected replays',
+        clearBatch: 'Clear this batch of files and identifiers',
+        retryUploads: 'Retry unsuccessful uploads',
+        memorialTitle: 'Add replays to a memorial account',
+        siteId: 'Site user ID',
+        filesAndIds: 'Select files and identifiers',
+        importSaolei: 'Import Saolei.wang replays',
+        anchor: 'Reference upload time',
+        loadMemorial: 'Load memorial account',
+        publicProfile: 'View public profile',
+        chooseMemorial: 'Choose memorial replays',
+        planned: 'Planned upload time',
+        actual: 'Actual upload time',
+        platformId: 'Platform ID',
+        emptyId: '(empty identifier)',
+        target: 'Target account',
+        links: 'Account links',
+        assign: 'Link account',
+        saolei: 'Saolei.wang',
+        bound: 'Linked',
+        pending: 'Pending upload',
+        file: 'File',
+        identifier: 'Identifier',
+        result: 'Result',
+        platform: 'Platform',
+        unlink: 'Unlink',
+    } },
+    es: { local: {
+        replayResult: 'Repetición #{id} / {state}',
+        memorialLinks: 'Las cuentas conmemorativas no pueden iniciar sesión. El superusuario asigna sus cuentas de Saolei.wang, MSGames o Minesweeper.Online para que cuenten en las clasificaciones y medallas de la plataforma correspondiente.',
+        bindingHint: 'Los identificadores se envían con el primer archivo. Se intenta vincular cada uno antes de la subida, que continúa aunque alguna vinculación falle. Si te equivocas, elimina la repetición en la página de superusuario y vuelve a subirla.',
+        memorialHint: 'Para crear cuentas, limpiar datos antiguos o modificar perfiles, usa los comandos de administración o la consola de Django en el servidor.',
+        syncHint: 'Los moderadores se encargan de sincronizar e importar. El superusuario gestiona la actualización del perfil y la sincronización automática en la página de la cuenta conmemorativa.',
+        anchorHint: 'Marca los identificadores uno a uno. La última partida recibe la fecha de referencia. Las anteriores se calculan hacia atrás a partir de su duración.',
+        batchDone: 'Se han subido todas las repeticiones del lote. Puedes corregir identificadores individuales con el servicio de vinculación del servidor.',
+        linkFirst: 'Vincula primero la cuenta de Saolei.wang en «Cuentas vinculadas». Después podrás sincronizar e importar sus repeticiones aquí.',
+        invalidReplay: 'Partida sin terminar, fecha de finalización o duración no válidas',
+        bindConflict: 'Conflicto de titularidad. Las repeticiones se subirán sin vincular el identificador.',
+        bindFailed: 'No se pudo vincular el identificador. Las repeticiones se seguirán subiendo.',
+        working: 'Procesando. Espera a que termine la solicitud.',
+        noLinks: 'Aún no hay cuentas vinculadas.',
+        bindSelected: 'Vincular los identificadores y subir las repeticiones seleccionadas',
+        clearBatch: 'Vaciar los archivos e identificadores del lote',
+        retryUploads: 'Reintentar las subidas fallidas',
+        memorialTitle: 'Añadir repeticiones a una cuenta conmemorativa',
+        siteId: 'ID de usuario del sitio',
+        filesAndIds: 'Seleccionar archivos e identificadores',
+        importSaolei: 'Importar repeticiones de Saolei.wang',
+        anchor: 'Fecha de referencia para la subida',
+        loadMemorial: 'Cargar cuenta conmemorativa',
+        publicProfile: 'Ver perfil público',
+        chooseMemorial: 'Seleccionar repeticiones conmemorativas',
+        planned: 'Fecha de subida prevista',
+        actual: 'Fecha de subida real',
+        platformId: 'ID en la plataforma',
+        emptyId: '(identificador vacío)',
+        target: 'Cuenta de destino',
+        links: 'Cuentas vinculadas',
+        assign: 'Vincular cuenta',
+        saolei: 'Saolei.wang',
+        bound: 'Vinculado',
+        pending: 'Pendiente de subida',
+        file: 'Archivo',
+        identifier: 'Identificador',
+        result: 'Resultado',
+        platform: 'Plataforma',
+        unlink: 'Desvincular',
+    } },
+};
+const { t } = useI18n({ messages: i18nMessages });
+
+const assignablePlatforms = computed(() => [
+    { value: 'c', label: t('local.saolei') },
     { value: 'a', label: 'MSGames' },
     { value: 'w', label: 'Minesweeper.Online' },
-] as const;
+] as const);
 
 const route = useRoute();
 const busy = ref(false);
@@ -129,7 +259,7 @@ const bindings = ref<MemorialBinding[]>([]);
 const uploads = ref<MemorialUpload[]>([]);
 const links = ref<MemorialAccountLink[]>([]);
 const linkToken = ref('');
-const linkPlatform = ref<string>(assignablePlatforms[0]?.value ?? '');
+const linkPlatform = ref<string>(assignablePlatforms.value[0]?.value ?? '');
 const linkIdentifier = ref('');
 const linkBusy = ref(false);
 const saoleiAccountId = ref<number>();
@@ -155,7 +285,7 @@ watch(queryId, () => {
     links.value = []; linkToken.value = ''; linkIdentifier.value = ''; saoleiAccountId.value = undefined;
 });
 
-const platformLabel = (value: string) => assignablePlatforms.find((platform) => platform.value === value)?.label ?? value;
+const platformLabel = (value: string) => assignablePlatforms.value.find((platform) => platform.value === value)?.label ?? value;
 
 async function act(callback: () => Promise<void>) {
     if (busy.value) return;
@@ -164,7 +294,7 @@ async function act(callback: () => Promise<void>) {
     try {
         await callback();
     } catch (reason) {
-        error.value = memorialErrorText(reason);
+        error.value = reason instanceof HistoryImportError ? historyErrorText(reason) : t(`memorialError.${memorialErrorCode(reason)}`);
     } finally {
         busy.value = false;
     }
@@ -195,7 +325,7 @@ async function assignLink() {
         links.value = (await fetchMemorialLinks(id)).links;
         linkIdentifier.value = '';
     } catch (reason) {
-        error.value = memorialErrorText(reason);
+        error.value = t(`memorialError.${memorialErrorCode(reason)}`);
     } finally {
         linkBusy.value = false;
     }
@@ -211,7 +341,7 @@ async function removeLink(platform: string) {
         links.value = (await fetchMemorialLinks(id)).links;
         if (platform === 'c') saoleiAccountId.value = undefined;
     } catch (reason) {
-        error.value = memorialErrorText(reason);
+        error.value = t(`memorialError.${memorialErrorCode(reason)}`);
     } finally {
         linkBusy.value = false;
     }
@@ -227,7 +357,7 @@ async function selectFiles(event: Event) {
                 const video = load_video_file(await file.arrayBuffer(), file.name.toLowerCase());
                 try {
                     const stat = extract_stat(video);
-                    if (!video.is_completed || !stat.end_time || !Number.isFinite(stat.end_time.getTime()) || !Number.isSafeInteger(stat.timems) || stat.timems <= 0) throw new Error('录像未完成，或完成时间、耗时无效');
+                    if (!video.is_completed || !stat.end_time || !Number.isFinite(stat.end_time.getTime()) || !Number.isSafeInteger(stat.timems) || stat.timems <= 0) throw new Error(t('local.invalidReplay'));
                     replays.value.push({ index, file, identifier: video.player_identifier, endTime: stat.end_time, timems: stat.timems });
                 } finally {
                     video.free();

@@ -99,6 +99,9 @@ const i18nMessages = {
     en: { local: {
         confirm: 'Update password',
     } },
+    es: { local: {
+        confirm: 'Actualizar contraseña',
+    } },
     de: { local: {
         confirm: 'bestätigen',
     } },

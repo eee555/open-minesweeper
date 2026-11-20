@@ -206,6 +206,18 @@ const i18nMessages = {
         empty: 'No matching users',
         loadFailed: 'Unable to load users',
     } },
+    es: { local: {
+        site: 'Este sitio',
+        dateJoined: 'Fecha de registro',
+        accounts: 'Cuentas vinculadas',
+        videoCount: 'Número de repeticiones',
+        videoSize: 'Espacio ocupado por las repeticiones',
+        ordinary: 'Fuera de torneo',
+        search: 'Buscar',
+        reset: 'Borrar',
+        empty: 'No se encontraron usuarios',
+        loadFailed: 'Imposible cargar los usuarios',
+    } },
 };
 const { t, locale } = useI18n({ messages: i18nMessages });
 const numberFormatter = computed(() => new Intl.NumberFormat(locale.value));

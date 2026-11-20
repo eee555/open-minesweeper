@@ -212,6 +212,25 @@ const i18nMessages = {
         batchFormat: 'The batch needs add_edges, remove_edges and set_verified arrays with integer IDs and boolean values.',
         submitBatch: 'Submit complete batch',
     } },
+    es: { local: {
+        superuserOnly: 'Solo un superusuario puede mantener el grafo de verificación.',
+        maintenance: 'Sesión de mantenimiento',
+        unknown: 'No cargado',
+        inactive: 'Inactiva',
+        owned: 'Propiedad tuya',
+        notOwned: 'Propiedad de otro superusuario',
+        duration: 'Segundos de sesión (1–3600)',
+        invalidDuration: 'Los segundos de sesión deben ser un entero entre 1 y 3600',
+        startMaintenance: 'Iniciar mantenimiento',
+        endMaintenance: 'Finalizar mantenimiento',
+        maintenanceStarted: 'Mantenimiento iniciado. La verificación ordinaria y la verificación establecida por administrador se han suspendido.',
+        maintenanceEnded: 'Sesión de mantenimiento finalizada.',
+        loadGraph: 'Leer el grafo actual',
+        batch: 'Enviar lote completo (JSON)',
+        jsonError: 'Error JSON',
+        batchFormat: 'El lote necesita arrays de add_edges, remove_edges y set_verified con IDs enteros y valores booleanos.',
+        submitBatch: 'Enviar lote completo',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

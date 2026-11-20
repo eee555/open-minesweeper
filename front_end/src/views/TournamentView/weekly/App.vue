@@ -80,6 +80,11 @@ const i18nMessages = {
         supported: 'Supported tournament videos',
         scoreRefreshing: 'Score-improving videos',
     } },
+    es: { local: {
+        tournament: 'Todos los videos del torneo',
+        supported: 'Videos del torneo compatibles',
+        scoreRefreshing: 'Videos que mejoran los puntajes',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

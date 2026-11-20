@@ -172,6 +172,15 @@ const i18nMessages = {
         freezeVideo: 'Freeze video / update reason',
         unfreezeVideo: 'Unfreeze video',
     } },
+    es: { local: {
+        removeNewest: 'Eliminar de las últimas repeticiones',
+        field: 'Campo',
+        selectField: 'Seleccionar un campo',
+        videoModel: 'Información del video (VideoModel)',
+        freezeReason: 'Razón de congelación',
+        freezeVideo: 'Congelar video / actualizar razón',
+        unfreezeVideo: 'Descongelar video',
+    } },
 };
 
 const { t, locale } = useI18n({ messages: i18nMessages });

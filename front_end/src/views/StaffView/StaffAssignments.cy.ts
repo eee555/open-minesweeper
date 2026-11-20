@@ -1,9 +1,11 @@
 import StaffAssignments from './StaffAssignments.vue';
 
+import i18n from '@/i18n';
+
 const endpoint = '**/api/userprofile/admin/staff';
 
 function mountPage() {
-    cy.mount(StaffAssignments);
+    cy.mount(StaffAssignments, { global: { plugins: [i18n] } });
     cy.wait('@access');
 }
 
@@ -11,7 +13,7 @@ describe('<StaffAssignments />', () => {
     it('hides permission controls when the backend denies superuser access', () => {
         cy.intercept('GET', endpoint, { statusCode: 401, body: { detail: 'Unauthorized' } }).as('access');
         mountPage();
-        cy.get('[data-cy=staff-assignment-access-error]').should('contain.text', '普通管理员无权访问');
+        cy.get('[data-cy=staff-assignment-access-error]').should('contain.text', 'Only superusers');
         cy.get('[data-cy=staff-assignment-controls]').should('not.exist');
     });
 
@@ -31,10 +33,10 @@ describe('<StaffAssignments />', () => {
         cy.get('[data-cy=staff-assignment-user-id]').type('42');
         cy.get('[data-cy=staff-assignment-grant]').click();
         cy.wait('@assign').its('request.body').should('deep.equal', { user_id: 42, is_staff: true });
-        cy.get('[data-cy=staff-assignment-result]').should('contain.text', '用户 #42：已设为管理员');
+        cy.get('[data-cy=staff-assignment-result]').should('contain.text', 'User #42: staff access granted');
         cy.get('[data-cy=staff-assignment-revoke]').click();
         cy.wait('@assign').its('request.body').should('deep.equal', { user_id: 42, is_staff: false });
-        cy.get('[data-cy=staff-assignment-result]').should('contain.text', '已取消管理员权限');
+        cy.get('[data-cy=staff-assignment-result]').should('contain.text', 'staff access revoked');
     });
 
     it('reports rejected assignments without displaying a successful result', () => {
@@ -44,7 +46,7 @@ describe('<StaffAssignments />', () => {
         cy.get('[data-cy=staff-assignment-user-id]').type('42');
         cy.get('[data-cy=staff-assignment-grant]').click();
         cy.wait('@assign');
-        cy.get('[data-cy=staff-assignment-error]').should('contain.text', '纪念账号不能拥有管理员权限');
+        cy.get('[data-cy=staff-assignment-error]').should('contain.text', 'Memorial accounts cannot have staff permissions');
         cy.get('[data-cy=staff-assignment-result]').should('not.exist');
         cy.get('[data-cy=staff-assignment-grant]').should('not.be.disabled');
     });

@@ -46,6 +46,10 @@ const i18nMessages = {
         choose: 'Choose color',
         clear: 'No color',
     } },
+    es: { local: {
+        choose: 'Elegir color',
+        clear: 'Sin color',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

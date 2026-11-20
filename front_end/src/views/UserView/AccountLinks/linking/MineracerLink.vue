@@ -132,6 +132,36 @@ const i18nMessages = {
         },
         userId: 'Mineracer User ID',
     } },
+    es: { local: {
+        expiresIn: 'Caduca en',
+        generateLink: 'Generar enlace',
+        generateNewLink: 'Generar enlace nuevo',
+        msg: {
+            account_not_found: 'Mineracer no pudo encontrar la cuenta asociada a este enlace.',
+            already_linked: 'Una cuenta de Mineracer ya está vinculada.',
+            expired: 'El enlace ha expirado.',
+            identifier_conflict: 'Esta cuenta de Mineracer ya está vinculada a otro usuario.',
+            invalid_device_code: 'Mineracer ya no reconoce este enlace. Por favor, genera uno nuevo.',
+            linkSuccess: 'Cuenta de Mineracer vinculada.',
+            link_superseded: 'Este enlace de Mineracer fue reemplazado por uno más reciente. Por favor, genera un nuevo enlace.',
+            not_configured: 'La vinculación de Mineracer no está configurada.',
+            pending_start: 'Ya se está creando un enlace de Mineracer. Por favor, inténtalo de nuevo en breve.',
+            remote_failed: 'Mineracer no pudo confirmar el enlace.',
+            requestexception: 'Falló la solicitud a Mineracer.',
+            response: 'Mineracer devolvió una respuesta no reconocida.',
+            timeout: 'Mineracer no respondió a tiempo.',
+            unknown: 'La vinculación de Mineracer falló.',
+        },
+        openLink: 'Abrir enlace',
+        refreshStatus: 'Actualizar estado',
+        status: {
+            confirmed: 'Vinculado',
+            expired: 'Expirado',
+            failed: 'Fallido',
+            pending: 'Esperando respuesta de Mineracer',
+        },
+        userId: 'ID de usuario de Mineracer',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

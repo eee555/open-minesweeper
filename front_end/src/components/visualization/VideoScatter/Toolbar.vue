@@ -137,6 +137,17 @@ const i18nMessages = {
         intersect: 'Intersection',
         union: 'Union',
     } },
+    es: { local: {
+        assign: 'Nuevo',
+        select: 'Seleccionar puntos',
+        colorBy: 'Colorear por',
+        cursor: 'Cursor',
+        diff: 'Diferencia',
+        hideNonSelected: 'Ocultar no seleccionados',
+        highlightSelected: 'Resaltar seleccionados',
+        intersect: 'Intersección',
+        union: 'Unión',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

@@ -103,8 +103,8 @@
                             </div>
                         </th>
                         <th v-if="isStaff" scope="col" :aria-sort="sortState(sortOrder, sortField === 'safe')">
-                            <BaseButton size="small" text aria-label="safe" data-cy="sort-safe" @click="toggleSort('safe')">
-                                safe
+                            <BaseButton size="small" text :aria-label="t('local.safe')" data-cy="sort-safe" @click="toggleSort('safe')">
+                                {{ t('local.safe') }}
                                 <SortIcon :state="sortState(sortOrder, sortField === 'safe')" />
                             </BaseButton>
                         </th>
@@ -366,6 +366,7 @@ watch(isStaff, () => {
 
 const i18nMessages = {
     'zh-cn': { local: {
+        safe: '安全标记',
         playerId: '玩家 ID',
         bindUser: '绑定用户',
         setSafe: '设置 safe = {value}',
@@ -406,6 +407,7 @@ const i18nMessages = {
         unbound: '未绑定玩家',
     } },
     en: { local: {
+        safe: 'safe',
         playerId: 'Player ID',
         bindUser: 'Bind user',
         setSafe: 'Set safe = {value}',
@@ -444,6 +446,47 @@ const i18nMessages = {
         owner: 'Owner',
         empty: 'No identifiers found',
         unbound: 'Unbound',
+    } },
+    es: { local: {
+        safe: 'Seguro',
+        playerId: 'ID del jugador',
+        bindUser: 'Vincular usuario',
+        setSafe: 'Establecer seguro = {value}',
+        bindHint: 'Introduce un ID de usuario; 0 desvincula al propietario actual.',
+        unbindFirst: 'Introduce 0 en \'Vincular usuario\' para desvincular antes de establecer seguro en falso.',
+        approveFirst: 'Establece seguro en verdadero antes de vincular un usuario',
+        identifier: 'Identificador / patrón',
+        mode: 'Tipo de coincidencia',
+        ignoreCase: 'Ignorar mayúsculas y minúsculas',
+        rateLimits: 'Límites de consultas',
+        limitGroup: 'Grupo',
+        matchingOptions: 'Opciones de coincidencia',
+        quota: 'Cuota',
+        limitHint: 'Los límites se aplican por IP. Los grupos tienen cuotas independientes; todas las opciones que coinciden dentro de un grupo comparten su cuota. La paginación, el ordenamiento y el filtrado por propietario se ejecutan localmente sin usar cuotas de solicitud.',
+        matchLimit: 'Las consultas de identificador que devuelven más de 1000 resultados son rechazadas. Todos los resultados coincidentes se devuelven en una sola respuesta.',
+        tooManyMatches: 'Más de 1000 identificadores coinciden. Por favor, enfoque su búsqueda y vuelva a intentarlo.',
+        matchHint: 'Los modos simples coinciden con texto literal; los expresiones regulares usan la sintaxis de MySQL ICU, con (?i) para coincidencias insensibles a mayúsculas/minúsculas.',
+        filterOwner: 'Filtrar por titular',
+        clearFilter: 'Borrar',
+        ownerId: 'Jugador #{id}',
+        groups: {
+            exact: { name: 'Grupo exacto', matches: 'Exacto, sensible a mayúsculas y minúsculas' },
+            prefix: { name: 'Grupo de prefijo', matches: 'Prefijo, sensible a mayúsculas y minúsculas' },
+            text: { name: 'Grupo de texto', matches: 'Contiene y sufijo (cualquiera de los dos ajustes de mayúsculas/minúsculas); exacto y prefijo (ignora mayúsculas/minúsculas)' },
+            regex: { name: 'Grupo de expresión regular', matches: 'Expresión regular (cualquiera de los dos ajustes de mayúsculas/minúsculas)' },
+        },
+        modes: {
+            exact: 'Exacto',
+            contains: 'Contiene',
+            startswith: 'Prefijo',
+            endswith: 'Sufijo',
+            regex: 'Expresión regular',
+        },
+        byPlayer: 'Buscar identificadores de jugador',
+        byIdentifier: 'Buscar propietario de identificador',
+        owner: 'Dueño',
+        empty: 'No se encontraron identificadores',
+        unbound: 'Sin vincular',
     } },
 };
 const { t } = useI18n({ messages: i18nMessages });

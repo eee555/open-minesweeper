@@ -103,6 +103,15 @@ const i18nMessages = {
         unlinkFailed: 'Could not unlink the account. Please retry later.',
         confirm: 'Unlink GitHub? You can authorize again later. This does not revoke the application authorization on GitHub.',
     } },
+    es: { local: {
+        username: 'Nombre de usuario',
+        refresh: 'Cargar / refrescar perfil de GitHub',
+        unlink: 'Desvincular cuenta',
+        profileHint: 'Tu navegador carga directamente la información del perfil público desde GitHub. OpenMS no la almacena.',
+        profileFailed: 'No se pudo cargar los datos del perfil de GitHub. Esto no afecta al ID numérico verificado.',
+        unlinkFailed: 'No se pudo desvincular la cuenta. Por favor, inténtalo más tarde.',
+        confirm: '¿Desvincular GitHub? Puedes autorizar nuevamente más adelante. Esto no revoca la autorización de la aplicación en GitHub.',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

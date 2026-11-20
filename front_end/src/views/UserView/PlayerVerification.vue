@@ -128,6 +128,21 @@ const i18nMessages = {
         verifyDone: 'The user is now verified.',
         verifyDuplicate: 'You have already verified this user.',
     } },
+    es: { local: {
+        title: 'Verificación del jugador',
+        current: 'Estado',
+        verified: 'Verificado',
+        unverified: 'No verificado',
+        access: 'Acceso a repetición y torneo',
+        allowed: 'Concedido',
+        blocked: 'Bloqueado',
+        hint: 'Debe completar la verificación de nombre real o ser verificado por un jugador verificado para subir repeticiones y participar en torneos. Los jugadores verificados pueden verificar a otro usuario mediante el ID del sitio; no existen solicitudes, aprobaciones ni desvinculaciones autónomas.',
+        targetId: 'ID de usuario objetivo',
+        verify: 'Verificar usuario',
+        maintenance: 'Un superusuario está manteniendo las relaciones de verificación. Las nuevas verificaciones se han suspendido.',
+        verifyDone: 'El usuario ahora está verificado.',
+        verifyDuplicate: 'Ya has verificado a este usuario.',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

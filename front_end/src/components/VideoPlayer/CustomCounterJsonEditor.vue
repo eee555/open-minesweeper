@@ -38,6 +38,10 @@ const i18nMessages = {
         invalidConfig: 'Config must be a two-dimensional string array like [["label", "expression"]].',
         jsonParseFailed: 'Failed to parse JSON: {message}',
     } },
+    es: { local: {
+        invalidConfig: 'La configuración debe ser una matriz bidimensional de cadenas, como [["etiqueta", "expresión"]].',
+        jsonParseFailed: 'No se pudo interpretar el JSON: {message}',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

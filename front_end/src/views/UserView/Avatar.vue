@@ -138,6 +138,24 @@ const i18nMessages = {
         qualificationLoading: 'Checking avatar eligibility',
         qualificationError: 'Could not check avatar eligibility. Please retry',
     } },
+    es: { local: {
+        errorTitle: 'Actualización del avatar fallida',
+        errorMsg: {
+            avatar: {
+                oversize: 'El archivo del avatar es demasiado grande. Por favor, suba un archivo menor a 300 KB',
+                validation: 'El archivo fue rechazado por la base de datos. Por favor, revise el formato del archivo o contacte a un moderador',
+            },
+            censorship: {
+                unknown: 'Ocurrió un error desconocido en la censura. Por favor, contacte a un moderador',
+                illegal: 'El contenido fue bloqueado por censura. Por favor, use otro archivo o contacte a un moderador para revisión manual',
+            },
+        },
+        tooltipBase: 'Haga clic para cambiar el avatar ({0} veces restantes)',
+        tooltipCooldown: 'El avatar puede cambiarse una vez al año. Próxima fecha disponible: ',
+        tooltipExpTime: 'Logra sub200 experto para establecer el avatar',
+        qualificationLoading: 'Verificando la elegibilidad del avatar',
+        qualificationError: 'No se pudo verificar la elegibilidad del avatar. Por favor, intente nuevamente',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

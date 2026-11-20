@@ -259,6 +259,25 @@ const i18nMessages = {
         'cursor-ring': 'Ring',
         'cursor-crosshair': 'Crosshair',
     } },
+    es: { local: {
+        board: 'Tablero',
+        loading: 'Cargando repetición…',
+        loadFailed: 'No se pudo cargar la repetición',
+        global: 'Global',
+        probability: 'Probabilidad',
+        mouseTrace: 'Trayectoria del ratón',
+        events: 'Eventos personalizados',
+        tailLength: 'Longitud de cola (s)',
+        maskOpacity: 'Opacidad de la máscara',
+        infinite: 'Infinito',
+        cursor: 'Cursor',
+        showCursor: 'Mostrar cursor',
+        cursorSize: 'Tamaño del SVG',
+        'cursor-dot': 'Punto',
+        'cursor-windows': 'Cursor predeterminado de Windows',
+        'cursor-ring': 'Anillo',
+        'cursor-crosshair': 'Mira',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

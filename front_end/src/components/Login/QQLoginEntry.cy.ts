@@ -1,4 +1,5 @@
 import { ElMessage } from 'element-plus';
+import { createI18n } from 'vue-i18n';
 
 import QQLoginEntry from './QQLoginEntry.vue';
 
@@ -24,6 +25,16 @@ describe('<QQLoginEntry />', () => {
         cy.wait('@start').its('request.body').should('deep.equal', { mode: 'login' });
         cy.contains('.el-message', 'QQ application credentials are not configured').should('be.visible');
         cy.get('.qq-login-entry').should('not.be.disabled');
+    });
+
+    it('reports unavailable QQ credentials in Spanish with the official badge text', () => {
+        const spanish = createI18n({ legacy: false, locale: 'es', messages: { es: i18n.global.getLocaleMessage('es') } });
+        cy.intercept('POST', '/api/userprofile/qq/start', { statusCode: 503, body: { category: 'not_configured' } }).as('start');
+        cy.mount(QQLoginEntry, { global: { plugins: [spanish] } });
+        cy.get('.qq-login-entry').click();
+        cy.wait('@start');
+        cy.contains('.el-message', 'Las credenciales de la aplicación QQ aún no están configuradas').should('be.visible');
+        cy.get('.qq-login-label').should('have.text', 'QQ登录');
     });
 
     it('drops the form divider in compact menu mode', () => {

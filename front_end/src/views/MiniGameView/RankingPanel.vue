@@ -126,6 +126,11 @@ const i18nMessages = {
         count: '{count} players',
         unranked: 'You are not ranked in this mode yet',
     } },
+    es: { local: {
+        loading: 'Cargando la clasificación…',
+        count: '{count} jugadores',
+        unranked: 'Aún no estás clasificado en este modo',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

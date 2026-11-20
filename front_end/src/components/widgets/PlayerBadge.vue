@@ -31,6 +31,7 @@ const props = defineProps({
 const i18nMessages = {
     'zh-cn': { anonymous: '匿名', local: { user: '用户' } },
     en: { anonymous: 'Anonymous', local: { user: 'User' } },
+    es: { anonymous: 'Anónimo', local: { user: 'Usuario' } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 

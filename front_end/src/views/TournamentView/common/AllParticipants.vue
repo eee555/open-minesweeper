@@ -73,6 +73,10 @@ const i18nMessages = {
         ranking: 'Ranking',
         closeTab: 'Close participant tab',
     } },
+    es: { local: {
+        ranking: 'Clasificación',
+        closeTab: 'Cerrar la pestaña de participante',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

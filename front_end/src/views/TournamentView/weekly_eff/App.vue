@@ -80,6 +80,12 @@ const i18nMessages = {
         supported: 'Supported tournament videos',
         scoreRefreshing: 'Score-improving videos',
     } },
+    es: { local: {
+        description: 'Modo estándar: suma el tiempo más bajo / IOE de 2 juegos expertos y 5 juegos intermedios. Los juegos intermedios deben estar por debajo de 60 y los expertos por debajo de 240; los juegos faltantes se cuentan como estos límites.',
+        tournament: 'Todos los videos del torneo',
+        supported: 'Videos del torneo compatibles',
+        scoreRefreshing: 'Videos que mejoran los puntajes',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

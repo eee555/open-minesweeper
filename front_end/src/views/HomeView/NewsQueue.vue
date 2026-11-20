@@ -163,6 +163,21 @@ const i18nMessages = {
         lsfOfPlayer: '\'s LSF: {oldLsf}({oldRank}) → {newLsf}({newRank})',
         lsfFirstOfPlayer: '\'s LSF entered the board: {newLsf}({newRank})',
     } },
+    es: { local: {
+        news: 'Noticias',
+        pb: 'PB',
+        lsf: 'LSF',
+        eff: 'Ef',
+        nfIOE: 'NF IOE',
+        empty: 'Aún no hay noticias',
+        pbImproved: ' superó su marca personal de {field}: ',
+        pbFirst: ' consiguió su primera marca personal de {field}: ',
+        effImproved: ' batió su récord de {field}: ',
+        effFirst: ' estableció su primer récord de {field}: ',
+        lsfRaised: ' mejoró el LSF de ',
+        lsfOfPlayer: ': {oldLsf} ({oldRank}) → {newLsf} ({newRank})',
+        lsfFirstOfPlayer: ' entró en la clasificación LSF: {newLsf} ({newRank})',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

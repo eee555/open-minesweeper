@@ -241,6 +241,26 @@ const i18nMessages = {
         duplicateKey: 'Row keys must be unique',
         integerOffset: 'Offset must be an integer',
     } },
+    es: { local: {
+        counter: 'Contadores',
+        rowMenu: 'Acciones de fila',
+        addAbove: 'Añadir encima',
+        addBelow: 'Añadir debajo',
+        move: 'Mover',
+        sendToSlot: 'Enviar al gráfico',
+        settings: 'Configuración general',
+        import: 'Importar configuración',
+        export: 'Copiar configuración',
+        labelWidth: 'Ancho de la clave (px)',
+        valueWidth: 'Ancho del valor (px)',
+        offset: 'Desplazamiento',
+        json: 'Configuración en JSON',
+        apply: 'Aplicar',
+        invalidJson: 'JSON no válido',
+        invalidConfig: 'Estructura de configuración inválida',
+        duplicateKey: 'Las claves de las filas deben ser únicas',
+        integerOffset: 'El desplazamiento debe ser un entero',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

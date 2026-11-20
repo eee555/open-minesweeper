@@ -45,11 +45,23 @@ import type { StrictNgField, StrictNgPlayerRecord, StrictNgRankingName } from '@
 const props = defineProps({
     userId: { type: Number, required: true },
 });
+const i18nMessages = {
+    'zh-cn': { local: {
+        loadFailed: '强无猜竞速纪录加载失败',
+    } },
+    en: { local: {
+        loadFailed: 'Could not load Strict NG speed records',
+    } },
+    es: { local: {
+        loadFailed: 'No se pudieron cargar los récords de velocidad sin azar estricto',
+    } },
+};
+const { t } = useI18n({ messages: i18nMessages });
+
 const records = ref<Partial<Record<StrictNgRankingName, StrictNgPlayerRecord>>>({});
 const loading = ref(false);
 const rankingNames: StrictNgRankingName[] = ['strict_ng', 'strict_ng_nf'];
 const levels = [...StrictNgLevels, 'sum'] as const;
-const { t } = useI18n();
 
 watch([() => props.userId, () => profileDataRevision(props.userId)], async ([userId], _, onCleanup) => {
     let active = true;
@@ -64,7 +76,7 @@ watch([() => props.userId, () => profileDataRevision(props.userId)], async ([use
         const data = await fetchProfileStrictNgRecords(userId);
         if (active) records.value = data;
     } catch {
-        if (active) ElMessage.error({ message: '强无猜竞速纪录加载失败', offset: 68 });
+        if (active) ElMessage.error({ message: t('local.loadFailed'), offset: 68 });
     } finally {
         if (active) loading.value = false;
     }

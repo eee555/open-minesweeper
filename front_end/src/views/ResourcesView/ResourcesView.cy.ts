@@ -134,5 +134,9 @@ describe('<ResourcesView /> browser extension', () => {
             i18n.global.locale.value = 'en';
         });
         cy.contains(`${BROWSER_EXTENSION_PANEL} a`, 'Guide').should('have.attr', 'href', getDocsUrl('en/guide/tools/browser-extension'));
+        cy.then(() => {
+            i18n.global.locale.value = 'es';
+        });
+        cy.contains(`${BROWSER_EXTENSION_PANEL} a`, 'Guía de uso').should('have.attr', 'href', getDocsUrl('es/guide/tools/browser-extension'));
     });
 });

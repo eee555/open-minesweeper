@@ -65,6 +65,10 @@ const i18nMessages = {
         description: 'Open Minesweeper’s offline replay analyzer, supporting EVF / AVF / MVF / RMV files.',
         openOffline: 'Extract the ZIP and open index.html in Chrome or Edge to analyze local replays. No internet connection is required.',
     } },
+    es: { local: {
+        description: 'Analizador de replays offline de Open Minesweeper, que soporta archivos EVF / AVF / MVF / RMV',
+        openOffline: 'Extrae el ZIP y abre index.html en Chrome o Edge para analizar repeticiones locales. No se requiere conexión a internet.',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

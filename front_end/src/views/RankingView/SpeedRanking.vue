@@ -134,6 +134,39 @@ const i18nMessages = {
             strict_ng: 'Strict NG mode only. 3BV must be present and at least 2 for Beginner; Intermediate and Expert have no lower bound. The ordinary ranking includes NF replays.',
         },
     } },
+    es: { local: {
+        rankingName: 'Clasificación',
+        howToImprove: 'Cómo mejorar',
+        improveEligibility: 'Sube tus propios replays completados (algunas clasificaciones requieren modo Estándar; consulta las notas de clasificación), vincula sus identificadores de jugador y obtén su aprobación. Los replays ocultos para un torneo se cuentan después de que se revelen.',
+        improveNF: 'Las clasificaciones ordinarias incluyen replays de NF. Para mejorar una categoría de NF, el replay debe tener cero clics efectivos a la derecha.',
+        improve: {
+            lsf: 'Mejora tus cinco mejores resultados para aumentar la fuerza de nivel, la fuerza general y el LSF. Sube resultados con tiempo más bajo, Bvs más altos o Stnb más altos, con al menos 10 3BV en Principiante, 30 en Intermedio o 100 en Experto. Con cinco resultados, supera tu propio quinto mejor; con menos, rellena los espacios vacíos.',
+            top: 'Sube resultados con tiempo más bajo, Bvs más altos o Stnb más altos, con al menos 10 3BV en Principiante, 30 en Intermedio o 100 en Experto. Cada métrica elige sus cinco mejores: supera tu propio quinto mejor, o rellena los espacios vacíos si tienes menos de cinco. Valores repetidos de 3BV están permitidos.',
+            pb: 'Sube un replay con exactamente el nivel y el 3BV seleccionados, y un tiempo menor que tu propio PB en esa categoría. Si no tienes resultado en esa categoría, un replay válido establece tu PB.',
+            collection: 'Establece PBs en más intervalos de Bvs para aumentar el conteo de Bvs; los Bvs frecuentes contribuyen más a la probabilidad de Bvs; los PBs más rápidos mejoran el ASB. Los intervalos faltantes se cuentan como cero, así que no necesitas todos los Bvs.',
+            skill_tt: 'La habilidad pondera los Bvs de tus PBs mediante frecuencias fijas de Bvs, con Bvs faltantes contados como cero. Cualquier nuevo PB con peso positivo y Bvs positivos mejora la habilidad, y mejorar un PB existente mejora la habilidad al reducir el tiempo típico del segmento.',
+            saolei: 'Sube un replay con tiempo más bajo o Bvs más altos que tu mejor resultado personal. Mínimo 3BV: Principiante (Tiempo 2, Bvs 4), Intermedio (30), Experto (100). Mejorar un récord de nivel actualiza automáticamente su tiempo o suma de Bvs; no se necesita un replay separado de puntuación total.',
+            strict_ng: 'Sube replays estrictos de NG con un 3BV no nulo y un tiempo más bajo o Bvs más altos que tu mejor resultado personal; en Principiante se requiere 3BV ≥ 2, mientras que en Intermedio y Experto no hay límite inferior. Mejorar un récord de nivel actualiza automáticamente su tiempo o suma de Bvs; no se necesita un replay separado de puntuación total.',
+        },
+        label: {
+            lsf: 'LSF',
+            top: 'Arriba',
+            pb: 'PB',
+            collection: 'Colección',
+            skill_tt: 'Habilidad / Tiempo típico',
+            saolei: 'Reglas históricas de @:website.saolei',
+            strict_ng: 'Sin azar estricto',
+        },
+        tooltip: {
+            lsf: 'La fuerza de nivel, la fuerza general y el LSF se calculan a partir de los cinco mejores récords y los puntos de referencia.',
+            top: 'Media de los cinco mejores replays oficiales y públicos en modo Estándar. Mínimo 3BV: Principiante 10, Intermedio 30, Experto 100. Los tiempos faltantes se cuentan como 999.999 segundos; otros valores faltantes se cuentan como cero.',
+            pb: 'Modo Estándar, agrupado por nivel y 3BV. El NF requiere además cero clics efectivos a la derecha.',
+            collection: 'Conteo de Bvs, probabilidad de Bvs y ASB sumados sobre los PBs que posees en cada nivel. La categoría ordinaria incluye replays de NF; el NF requiere además cero clics efectivos a la derecha.',
+            skill_tt: 'Habilidad y Tiempo Típico calculados a partir de tus PBs y frecuencias fijas de Bvs. Mayor habilidad es mejor; menor tiempo típico es mejor. Los segmentos de habilidad cero usan 999.999 segundos.',
+            saolei: '@:mode.std solo en modo Estándar. @:level.b @:prop.time requiere @:prop.bv ≥ 2. @:level.b @:prop.bvs requiere @:prop.bv ≥ 4. @:level.i requiere @:prop.bv ≥ 30. @:level.e requiere @:prop.bv ≥ 100.',
+            strict_ng: 'Solo en modo estricto de NG. El 3BV debe estar presente y tener al menos 2 en Principiante; en Intermedio y Experto no hay límite inferior. La clasificación ordinaria incluye replays de NF.',
+        },
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

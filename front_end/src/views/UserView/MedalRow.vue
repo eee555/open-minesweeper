@@ -154,6 +154,25 @@ const i18nMessages = {
         reached: '✓ Reached',
         unreached: 'Not reached',
     } },
+    es: { local: {
+        current: 'Actualmente alcanzado',
+        locked: 'No conseguido',
+        next: 'Objetivo siguiente',
+        maximum: 'Nivel más alto alcanzado',
+        details: 'Detalles',
+        add: 'Añadir a los marcadores',
+        remove: 'Quitar del marcador',
+        preview: 'Vista previa',
+        granted: 'Concedido en',
+        video: 'ID de repetición',
+        tournament: 'ID de torneo',
+        count: 'Cuenta actual',
+        close: 'Cerrar detalles',
+        once: 'Completado',
+        currentStage: 'Nivel actual',
+        reached: '✓ Alcanzado',
+        unreached: 'No alcanzado',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 const { locale } = useI18n({ useScope: 'global' });

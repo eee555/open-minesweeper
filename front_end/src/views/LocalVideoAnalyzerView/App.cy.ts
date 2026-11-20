@@ -39,7 +39,7 @@ describe('<LocalVideoAnalyzerView />', () => {
         mountLocalAnalyzer();
         cy.get('.local-analyzer__file input').selectFile('cypress/fixtures/52200.evf', { force: true });
         cy.get('.analyzer-progress-bar__slider', { timeout: 10000 }).should('have.attr', 'max', '10732').invoke('val', 5000).trigger('input');
-        cy.get('.video-analyzer-info .local-analyzer__language').should('have.text', '中文').click();
+        cy.get('.video-analyzer-info .local-analyzer__language').select('zh-cn');
         cy.get('.local-analyzer__file').should('contain.text', '选择或拖入');
         cy.get('.analyzer-progress-bar__play').should('have.attr', 'aria-label', '播放');
         cy.get('.local-analyzer__readme summary').should('contain.text', '使用说明');
@@ -49,7 +49,12 @@ describe('<LocalVideoAnalyzerView />', () => {
             expect(JSON.parse(win.localStorage.getItem('local') ?? '{}')).to.have.property('language', 'zh-cn');
         });
         cy.get('.analyzer-progress-bar__slider').should('have.value', '5000');
-        cy.get('.local-analyzer__language').should('have.text', 'English').click();
+        cy.get('.local-analyzer__language').select('es');
+        cy.get('.analyzer-progress-bar__play').should('have.attr', 'aria-label', 'Reproducir');
+        cy.get('.local-analyzer__version').should('have.text', `Versión v${analyzerVersion.version}`);
+        cy.document().its('documentElement.lang').should('eq', 'es');
+        cy.get('.analyzer-progress-bar__slider').should('have.value', '5000');
+        cy.get('.local-analyzer__language').select('en');
         cy.get('.local-analyzer__file').should('contain.text', 'Choose or drop');
         cy.get('.local-analyzer__version').should('have.text', `Version v${analyzerVersion.version}`);
         cy.get('.analyzer-progress-bar__play').should('have.attr', 'aria-label', 'Play');

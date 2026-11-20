@@ -42,7 +42,7 @@
             <a class="link text" href="http://openms.top">
                 开源扫雷网 openms.top
             </a>
-            <span>　版权所有</span>
+            <span> {{ t('local.rights') }} </span>
             <a class="link text" href="https://beian.miit.gov.cn/">
                 苏ICP备2023056839号-1
             </a>
@@ -67,9 +67,15 @@ import { useI18n } from 'vue-i18n';
 const i18nMessage = {
     'zh-cn': { local: {
         links: '友链',
+        rights: '版权所有',
     } },
     en: { local: {
         links: 'Links',
+        rights: 'All rights reserved',
+    } },
+    es: { local: {
+        links: 'Enlaces',
+        rights: 'Todos los derechos reservados',
     } },
 };
 

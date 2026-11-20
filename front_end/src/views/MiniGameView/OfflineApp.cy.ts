@@ -5,6 +5,7 @@ import version from '../../../local-minigame/version.json';
 
 import type MiniGameBoard from '@/components/MiniGame/Board.vue';
 import en from '@/i18n/locales/en';
+import es from '@/i18n/locales/es';
 import zhCn from '@/i18n/locales/zh-cn';
 import { loadReplayArchiveCodec } from '@/utils/minigame/archive';
 import { flagChordModes } from '@/utils/minigame/flagChordTraining';
@@ -17,7 +18,7 @@ import { defaultMinigameSettings, minigameSettings } from '@/utils/minigame/sett
 import { isolateMinigameHistory, mouseAt, rightAt, savedMinigameResults } from '@cy/support/minigame';
 
 function mountOfflineApp() {
-    const i18n = createI18n({ legacy: false, locale: 'en', messages: { en, 'zh-cn': zhCn } });
+    const i18n = createI18n({ legacy: false, locale: 'en', messages: { en, es, 'zh-cn': zhCn } });
     cy.mount(App, { global: { plugins: [i18n], stubs: { transition: false } } });
 }
 
@@ -145,7 +146,7 @@ describe('offline minigames', () => {
         cy.get('[data-cy="training-level"] input:checked').should('have.length', 1).and('have.value', 'b');
         cy.get('[data-cy="training-density"]').select('87.5');
         cy.get('[data-cy="training-remaining"]').should('have.attr', 'aria-label', '008');
-        cy.get('[data-cy="offline-language"]').click();
+        cy.get('[data-cy="offline-language"]').select('zh-cn');
         cy.get('.training-page').should('have.attr', 'aria-label', '左键训练');
         cy.get('.training-page header, .training-page h1, [data-cy="training-restart"]').should('not.exist');
         cy.get('[data-cy="training-remaining"]').should('have.attr', 'aria-label', '008');
@@ -220,7 +221,10 @@ describe('offline minigames', () => {
         cy.get('.training-page').should('have.attr', 'data-replay', 'false').and('have.attr', 'data-phase', 'ready');
         cy.get('[data-cy=minigame-history-panel]').should('contain.text', 'No matching local results');
         cy.get('[data-cy=offline-theme]').select('dark');
-        cy.get('[data-cy=offline-language]').click();
+        cy.get('[data-cy=offline-language]').select('es');
+        cy.get('.el-drawer').should('have.attr', 'aria-label', 'Historial local');
+        cy.document().its('documentElement.lang').should('eq', 'es');
+        cy.get('[data-cy=offline-language]').select('zh-cn');
         cy.get('.el-drawer').should('have.attr', 'aria-label', '本地历史');
         cy.get('.el-drawer__close-btn').click();
         cy.get('[data-cy=minigame-history-toggle]').should('be.visible');

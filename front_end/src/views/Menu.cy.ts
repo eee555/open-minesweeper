@@ -222,6 +222,10 @@ describe('<Menu /> navigation layouts', () => {
         mountMenu(1440);
         cy.get('[data-cy=languagePicker]').click();
         cy.get('[data-navigation-id=language-en] button:visible').should('have.attr', 'aria-pressed', 'true');
+        cy.get('[data-navigation-id=language-es] button:visible').contains('Español').click();
+        cy.document().its('documentElement.lang').should('eq', 'es');
+        cy.title().should('eq', 'OpenMS - Inicio');
+        cy.get('[data-cy=languagePicker]').click();
         cy.get('[data-navigation-id=language-zh-cn] button:visible').click();
         cy.title().should('eq', '开源扫雷网 - 首页');
         cy.get('[data-navigation-id=docs] a').should('have.attr', 'href').and('match', /\/docs\/$/);

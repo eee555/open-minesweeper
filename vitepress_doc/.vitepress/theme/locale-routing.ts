@@ -1,19 +1,17 @@
-export type LocalizedPages = Record<'zh' | 'en', string[]>;
+import { docLocales, isDocLocale, type LocalizedPages } from '../locales.ts';
 
 export function getLocaleRedirect(url: URL, base: string, pages: LocalizedPages, browserLanguage: string): string | undefined {
     const basePath = base.replace(/\/$/, '');
     if (url.pathname !== basePath && !url.pathname.startsWith(`${basePath}/`)) return;
     const path = url.pathname.slice(basePath.length).replace(/^\//, '').replace(/\.html$/, '').replace(/(^|\/)index$/, '$1');
-    const explicitLocale = /^(zh|en)(?:\/|$)/.exec(path)?.[1] as 'zh' | 'en' | undefined;
-    if (explicitLocale) return;
-    const requestedLanguage = url.searchParams.get('lang');
-    const language = requestedLanguage === 'zh' || requestedLanguage === 'en' ? requestedLanguage : browserLanguage;
-    const preferredLocale = language.toLowerCase().startsWith('zh') ? 'zh' : 'en';
+    if (isDocLocale(path.split('/')[0])) return;
+    const requested = url.searchParams.get('lang');
+    const language = isDocLocale(requested) ? requested : browserLanguage.toLowerCase().split('-')[0];
+    const locale = isDocLocale(language) ? language : 'en';
     const page = path.replace(/\/$/, '');
-    const availablePath = (locale: 'zh' | 'en') => pages[locale].find((entry) => entry.replace(/\/$/, '') === page);
-    const preferredPath = availablePath(preferredLocale);
-    const fallbackLocale = preferredLocale === 'zh' ? 'en' : 'zh';
-    const targetPath = preferredPath ?? availablePath(fallbackLocale);
-    if (targetPath === undefined) return;
-    return `${basePath}/${preferredLocale}/${targetPath}${url.search}${url.hash}`;
+    // Aliases also exist for known pages that have no translation in the preferred language.
+    for (const candidate of [locale, ...docLocales]) {
+        const target = pages[candidate].find((entry) => entry.replace(/\/$/, '') === page);
+        if (target !== undefined) return `${basePath}/${locale}/${target}${url.search}${url.hash}`;
+    }
 }

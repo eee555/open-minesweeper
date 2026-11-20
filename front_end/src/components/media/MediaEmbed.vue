@@ -22,6 +22,7 @@ const visible = ref(false);
 const i18nMessages = {
     'zh-cn': { local: { hide: '收起' } },
     en: { local: { hide: 'Collapse' } },
+    es: { local: { hide: 'Contraer' } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

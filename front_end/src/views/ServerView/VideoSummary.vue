@@ -132,6 +132,13 @@ const i18nMessages = {
         mode08: 'Partial No Guessing',
         mode09: 'Strong Guessing',
     } },
+    es: { local: {
+        title: 'Estadísticas de video',
+        dimension: 'Dimensión de estadísticas',
+        mode07: 'Sin azar débil',
+        mode08: 'Sin azar parcial',
+        mode09: 'Conjeturas obligatorias',
+    } },
 };
 const { t, locale } = useI18n({ messages: i18nMessages });
 </script>

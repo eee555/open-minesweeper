@@ -35,6 +35,9 @@ const i18nMessages = {
     en: { local: {
         unlinkHint: 'To unlink, remove this app from the honours page of the 95 Classic Minesweeper mini game.',
     } },
+    es: { local: {
+        unlinkHint: 'Para desvincular, elimina esta aplicación de la página de honores del juego mini 95 Classic Minesweeper.',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

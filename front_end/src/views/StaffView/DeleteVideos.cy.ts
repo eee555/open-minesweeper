@@ -12,7 +12,7 @@ describe('superuser video deletion page', () => {
     it('hides deletion controls when the backend denies superuser access', () => {
         cy.intercept('GET', '/api/video/admin/delete', { statusCode: 401, body: { detail: 'Unauthorized' } }).as('access');
         mountPage();
-        cy.get('[data-cy=delete-access-error]').should('contain.text', '普通管理员无权访问');
+        cy.get('[data-cy=delete-access-error]').should('contain.text', 'requires a signed-in superuser');
         cy.get('[data-cy=delete-ids]').should('not.exist');
         cy.get('[data-cy=delete-start]').should('not.exist');
     });
@@ -33,15 +33,15 @@ describe('superuser video deletion page', () => {
             }
         }).as('deleteOne');
         mountPage();
-        cy.get('[data-cy=delete-warning]').should('contain.text', '不会自动重算比赛');
+        cy.get('[data-cy=delete-warning]').should('contain.text', 'not recalculated automatically');
         cy.get('[data-cy=delete-ids]').type('11,22,11,33');
         cy.get('[data-cy=delete-start]').should('be.disabled');
         cy.get('[data-cy=delete-confirm]').check();
         cy.get('[data-cy=delete-start]').click();
         cy.wait('@deleteOne');
         cy.wait('@deleteOne');
-        cy.get('[data-cy=delete-error]').should('contain.text', '录像 22').and('contain.text', '后续请求已停止');
-        cy.get('[data-cy=delete-progress]').should('contain.text', '已确认 1 / 3');
+        cy.get('[data-cy=delete-error]').should('contain.text', 'replay 22').and('contain.text', 'Further requests have stopped');
+        cy.get('[data-cy=delete-progress]').should('contain.text', 'Confirmed 1 / 3');
         cy.then(() => {
             expect(requests).to.deep.equal([11, 22]);
         });
@@ -50,7 +50,7 @@ describe('superuser video deletion page', () => {
         cy.get('[data-cy=delete-start]').click();
         cy.wait('@deleteOne');
         cy.wait('@deleteOne');
-        cy.get('[data-cy=delete-progress]').should('contain.text', '已确认 3 / 3').and('contain.text', '已不存在 1');
+        cy.get('[data-cy=delete-progress]').should('contain.text', 'Confirmed 3 / 3').and('contain.text', '1 already absent');
         cy.then(() => {
             expect(requests).to.deep.equal([11, 22, 22, 33]);
         });
@@ -64,7 +64,7 @@ describe('superuser video deletion page', () => {
         cy.get('[data-cy=delete-ids]').type('11,0,22');
         cy.get('[data-cy=delete-confirm]').check();
         cy.get('[data-cy=delete-start]').should('be.disabled');
-        cy.get('form [role=alert]').should('contain.text', '任意一项无效');
+        cy.get('form [role=alert]').should('contain.text', 'all IDs are valid');
     });
 
     it('finishes the current request before stopping the remaining queue', () => {
@@ -89,8 +89,8 @@ describe('superuser video deletion page', () => {
             release?.();
         });
         cy.wait('@deleteOne');
-        cy.get('[data-cy=delete-progress]').should('contain.text', '已确认 1 / 2');
-        cy.get('[data-cy=delete-start]').should('contain.text', '继续删除剩余 1').and('not.be.disabled');
+        cy.get('[data-cy=delete-progress]').should('contain.text', 'Confirmed 1 / 2');
+        cy.get('[data-cy=delete-start]').should('contain.text', 'Continue deleting the remaining 1').and('not.be.disabled');
         cy.then(() => {
             expect(requests).to.deep.equal([11]);
         });

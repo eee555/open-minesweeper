@@ -1,6 +1,6 @@
 <template>
     <Tippy class="marker-setting-tippy" trigger="click" placement="bottom-start" interactive :append-to="appendTo">
-        <BaseButton class="square-button" :aria-label="label">
+        <BaseButton class="square-button" :aria-label="t('local.markerSetting')">
             <svg class="marker-setting__icon" viewBox="0 0 24 24" aria-hidden="true">
                 <circle
                     v-if="shape === 'circle'"
@@ -20,7 +20,7 @@
                         </span>
                         <select v-model="shape" class="base-select" :aria-label="t('prop.shape')">
                             <option value="circle">
-                                Circle
+                                {{ t('local.circle') }}
                             </option>
                         </select>
                     </div>
@@ -71,7 +71,6 @@ const radius = defineModel<number>('radius', { default: 3 });
 const opacity = defineModel<number>('opacity', { default: 1 });
 const strokeWidth = defineModel<number>('strokeWidth', { default: 0 });
 
-const label = 'Marker setting';
 const optionSet = computed(() => new Set(props.options.split(/\s+/).filter(Boolean)));
 const iconRadius = computed(() => Math.min(8, Math.max(2, radius.value)));
 const iconStrokeWidth = computed(() => Math.min(5, Math.max(0, strokeWidth.value)));
@@ -91,14 +90,25 @@ function appendTo(element: Element) {
 
 const i18nMessages = {
     'zh-cn': { local: {
+        markerSetting: '标记设置',
+        circle: '圆形',
         opacity: '透明度',
         radius: '半径',
         strokeWidth: '描边宽度',
     } },
     en: { local: {
+        markerSetting: 'Marker setting',
+        circle: 'Circle',
         opacity: 'Opacity',
         radius: 'Radius',
         strokeWidth: 'Stroke width',
+    } },
+    es: { local: {
+        markerSetting: 'Configuración del marcador',
+        circle: 'Círculo',
+        opacity: 'Opacidad',
+        radius: 'Radio',
+        strokeWidth: 'Anchura del trazo',
     } },
 };
 

@@ -31,6 +31,10 @@ const i18nMessages = {
     en: { local: {
         localCache: 'Local Cache',
     } },
+    es: { local: {
+        localCache: 'Caché local',
+        stnbConst: 'Constantes STNB',
+    } },
 };
 
 const { t } = useI18n({

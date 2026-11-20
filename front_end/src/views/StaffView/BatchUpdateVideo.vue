@@ -68,6 +68,11 @@ const i18nMessages = {
         endId: 'Ending video ID',
         failedIds: 'Failed video IDs: {ids}',
     } },
+    es: { local: {
+        startId: 'ID de video de inicio',
+        endId: 'ID de video de final',
+        failedIds: 'IDs de videos fallidos: {ids}',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

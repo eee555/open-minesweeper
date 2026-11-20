@@ -8,6 +8,7 @@ import { useI18n } from 'vue-i18n';
 const i18nMessages = {
     'zh-cn': { local: { memorial: '纪念账号' } },
     en: { local: { memorial: 'Memorial account' } },
+    es: { local: { memorial: 'Cuenta memorial' } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

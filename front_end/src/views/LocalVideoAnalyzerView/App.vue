@@ -1,38 +1,44 @@
 <template>
-    <VideoAnalyzer v-model:config="config" v-model:probability-color-scheme="probabilityColorScheme" v-model:exporting="exporting" :source="source" :loading="loading" :error-message="displayError">
-        <template #info>
-            <BaseFileInput class="local-analyzer__file" accept=".avf,.evf,.mvf,.rmv,.AVF,.EVF,.MVF,.RMV" :multiple="false" :disabled="exporting" @add="selectFiles">
-                <span>{{ t('local.choose') }}</span>
-                <span v-if="filename" class="local-analyzer__filename">{{ filename }}</span>
-            </BaseFileInput>
-            <div class="local-analyzer__info-actions">
-                <div class="local-analyzer__notices">
-                    <details class="local-analyzer__readme">
-                        <summary>README · {{ t('local.readme') }}</summary>
-                        <pre>{{ offlineReadme }}</pre>
-                    </details>
-                    <details class="local-analyzer__copyright">
-                        <summary>COPYRIGHT · {{ t('local.copyright') }}</summary>
-                        <pre>{{ offlineCopyright }}</pre>
-                    </details>
-                </div>
-                <div class="local-analyzer__meta">
-                    <div class="local-analyzer__identity">
-                        <img class="local-analyzer__icon" :src="analyzerIcon" alt="" width="24" height="24">
-                        <span class="local-analyzer__version">{{ t('software.version') }} v{{ analyzerVersion.version }}</span>
+    <ElConfigProvider :locale="globalLocale === 'es' ? es : undefined">
+        <VideoAnalyzer v-model:config="config" v-model:probability-color-scheme="probabilityColorScheme" v-model:exporting="exporting" :source="source" :loading="loading" :error-message="displayError">
+            <template #info>
+                <BaseFileInput class="local-analyzer__file" accept=".avf,.evf,.mvf,.rmv,.AVF,.EVF,.MVF,.RMV" :multiple="false" :disabled="exporting" @add="selectFiles">
+                    <span>{{ t('local.choose') }}</span>
+                    <span v-if="filename" class="local-analyzer__filename">{{ filename }}</span>
+                </BaseFileInput>
+                <div class="local-analyzer__info-actions">
+                    <div class="local-analyzer__notices">
+                        <details class="local-analyzer__readme">
+                            <summary>README · {{ t('local.readme') }}</summary>
+                            <pre>{{ offlineReadme }}</pre>
+                        </details>
+                        <details class="local-analyzer__copyright">
+                            <summary>COPYRIGHT · {{ t('local.copyright') }}</summary>
+                            <pre>{{ offlineCopyright }}</pre>
+                        </details>
                     </div>
-                    <BaseButton class="local-analyzer__language" size="small" :title="t('local.switchLanguage')" :aria-label="t('local.switchLanguage')" @click="toggleLanguage">
-                        {{ globalLocale.startsWith('zh') ? 'English' : '中文' }}
-                    </BaseButton>
+                    <div class="local-analyzer__meta">
+                        <div class="local-analyzer__identity">
+                            <img class="local-analyzer__icon" :src="analyzerIcon" alt="" width="24" height="24">
+                            <span class="local-analyzer__version">{{ t('software.version') }} v{{ analyzerVersion.version }}</span>
+                        </div>
+                        <select v-model="globalLocale" class="local-analyzer__language" :aria-label="t('media.language')">
+                            <option v-for="option in offlineLanguages" :key="option.lang" :value="option.lang">
+                                {{ option.text }}
+                            </option>
+                        </select>
+                    </div>
                 </div>
-            </div>
-        </template>
-    </VideoAnalyzer>
+            </template>
+        </VideoAnalyzer>
+    </ElConfigProvider>
 </template>
 
 <script setup lang="ts">
 import { useLocalStorage } from '@vueuse/core';
-import { computed, ref } from 'vue';
+import { ElConfigProvider } from 'element-plus';
+import es from 'element-plus/es/locale/lang/es';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import offlineCopyright from '../../../local-analyzer/COPYRIGHT.txt?raw';
@@ -42,9 +48,9 @@ import analyzerVersion from '../../../local-analyzer/version.json';
 import { useLocalReplaySource } from './useLocalReplaySource';
 
 import analyzerIcon from '@/assets/video-analyzer.svg?inline';
-import BaseButton from '@/components/common/BaseButton.vue';
 import BaseFileInput from '@/components/common/BaseFileInput.vue';
 import VideoAnalyzer, { defaultAnalyzerConfig } from '@/components/VideoAnalyzer';
+import { offlineLanguages } from '@/i18n/language';
 import { local } from '@/store/local';
 
 const { locale: globalLocale } = useI18n({ useScope: 'global' });
@@ -59,19 +65,17 @@ function selectFiles(files: File[]) {
     if (!exporting.value) void readFiles(files);
 }
 
-function toggleLanguage() {
-    const language = globalLocale.value.startsWith('zh') ? 'en' : 'zh-cn';
-    globalLocale.value = language;
+watch(globalLocale, (language) => {
     local.value.language = language;
     document.documentElement.lang = language;
-}
+});
 
 const i18nMessages = {
     'zh-cn': { local: {
         choose: '选择或拖入一份录像文件（EVF / AVF / MVF / RMV）',
         readme: '使用说明',
         copyright: '版权声明',
-        switchLanguage: '切换到英文',
+
         oneFileOnly: '每次只能选择一份录像文件',
         unsupportedFormat: '不支持的录像格式，请选择 EVF、AVF、MVF 或 RMV',
     } },
@@ -79,9 +83,17 @@ const i18nMessages = {
         choose: 'Choose or drop one replay file (EVF / AVF / MVF / RMV)',
         readme: 'Usage',
         copyright: 'Copyright',
-        switchLanguage: 'Switch to Chinese',
+
         oneFileOnly: 'Select only one replay file at a time',
         unsupportedFormat: 'Unsupported replay format. Choose EVF, AVF, MVF or RMV',
+    } },
+    es: { local: {
+        choose: 'Selecciona o arrastra un archivo de repetición (EVF, AVF, MVF o RMV)',
+        readme: 'Instrucciones de uso',
+        copyright: 'Derechos de autor',
+
+        oneFileOnly: 'Selecciona solo un archivo de repetición a la vez',
+        unsupportedFormat: 'Formato de repetición no compatible. Elige EVF, AVF, MVF o RMV',
     } },
 };
 const { t } = useI18n({ messages: i18nMessages });

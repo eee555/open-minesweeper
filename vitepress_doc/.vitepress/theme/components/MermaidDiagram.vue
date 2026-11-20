@@ -29,7 +29,7 @@ const props = defineProps({
     },
 });
 
-const { isDark } = useData();
+const { isDark, lang } = useData();
 const container = ref<HTMLElement>();
 const error = ref('');
 
@@ -132,7 +132,8 @@ async function renderDiagram() {
         error.value = '';
     } catch (err) {
         container.value.innerHTML = '';
-        error.value = err instanceof Error ? err.message : '图示渲染失败';
+        const fallback = lang.value === 'es' ? 'No se pudo mostrar el diagrama' : lang.value.startsWith('zh') ? '图示渲染失败' : 'Could not render the diagram';
+        error.value = err instanceof Error ? err.message : fallback;
     }
 }
 

@@ -264,6 +264,28 @@ const i18nMessages = {
         identityConfirmed: 'The author was already verified on submission; no external author id is needed',
         missingVerifyFields: 'A degraded submission requires both a title and an external author id',
     } },
+    es: { local: {
+        pending: 'Pendiente',
+        rejected: 'Rechazado',
+        verified: 'Verificado',
+        refresh: 'Actualizar',
+        forbidden: 'Solo para moderadores',
+        actions: 'Acciones',
+        select: 'Seleccionar',
+        titleField: 'Título',
+        externalAuthorId: 'ID del autor externo',
+        verify: 'Verificar',
+        reject: 'Rechazar',
+        reopen: 'Reabrir',
+        ban: 'Banea las contribuciones',
+        unban: 'Desbanea',
+        delete: 'Eliminar definitivamente',
+        confirmDelete: 'Confirmar eliminación definitiva',
+        degraded: 'Metadatos pendientes',
+        idHint: 'El ID del autor externo se utiliza únicamente para verificar el enlace del autor, nunca se almacena',
+        identityConfirmed: 'El autor ya estaba verificado al enviar la contribución; no es necesario un ID de autor externo',
+        missingVerifyFields: 'Una contribución degradada requiere tanto un título como un ID de autor externo',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

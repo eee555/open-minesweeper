@@ -148,6 +148,11 @@ const i18nMessages = {
         ordinaryAnchor: 'Top anchor',
         nfAnchor: 'NF Top anchor',
     } },
+    es: { local: {
+        personal: 'Jugador',
+        ordinaryAnchor: 'Top anchor',
+        nfAnchor: 'Top anchor NF',
+    } },
 };
 const { t } = useI18n({ messages: i18nMessages });
 </script>

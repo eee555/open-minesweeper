@@ -5,3 +5,12 @@ https://openms.top
 
 项目完整 MIT 声明见 LICENSE；第三方依赖声明见 THIRD_PARTY_LICENSES.txt / .json，CSS 和字体声明见 licenses/。
 See LICENSE for the full project MIT notice, THIRD_PARTY_LICENSES.txt / .json for bundled dependency notices, and licenses/ for CSS and font notices.
+
+Español
+
+Copyright (c) 2023 eee555
+Sitio web de Open Minesweeper
+https://github.com/eee555/saolei_website
+https://openms.top
+
+La licencia MIT del proyecto se encuentra en LICENSE. Los avisos de las dependencias incluidas se encuentran en THIRD_PARTY_LICENSES.txt y THIRD_PARTY_LICENSES.json. La carpeta licenses/ contiene los avisos de los estilos y las fuentes.

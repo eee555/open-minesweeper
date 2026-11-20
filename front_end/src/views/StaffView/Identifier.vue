@@ -77,6 +77,13 @@ const i18nMessages = {
         true: 'Approved',
         false: 'Pending approval',
     } },
+    es: { local: {
+        linkUserId: 'Enlazar a ID de usuario (0 para desvincular)',
+        summary: 'ID de usuario: {userId}, estado: {status}',
+        unknown: 'Desconocido',
+        true: 'Aprobado',
+        false: 'Pendiente de aprobación',
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });

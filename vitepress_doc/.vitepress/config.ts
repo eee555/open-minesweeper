@@ -2,6 +2,7 @@ import { defineConfig } from 'vitepress';
 import type MarkdownIt from 'markdown-it';
 import { graphvizMarkdownPlugin } from 'vitepress-plugin-graphviz';
 import { getLocalizedPages } from './localized-pages';
+import { isDocLocale, missingTitles } from './locales';
 
 const mainSiteLink = process.env.VITEPRESS_MAIN_SITE_URL
     ?? (process.env.NODE_ENV === 'development' ? 'http://localhost:8080/' : 'https://openms.top/');
@@ -57,11 +58,11 @@ export default defineConfig({
     ],
     transformPageData(pageData) {
         if (!pageData.frontmatter.localeRedirect) return;
-        const locale = /^(zh|en)\//.exec(pageData.relativePath)?.[1];
-        if (locale) pageData.title = locale === 'zh' ? '此页面暂无中文版本' : 'This page is not available in English';
+        const locale = pageData.relativePath.split('/')[0];
+        if (isDocLocale(locale)) pageData.title = missingTitles[locale];
     },
     transformHead({ pageData, siteConfig }) {
-        if (pageData.frontmatter.localeRedirect || !/^(zh|en|es)\//.test(pageData.relativePath)) return;
+        if (pageData.frontmatter.localeRedirect || !isDocLocale(pageData.relativePath.split('/')[0])) return;
         const path = pageData.relativePath.replace(/(^|\/)index\.md$/, '$1').replace(/\.md$/, '');
         const url = `https://openms.top${siteConfig.site.base}${path}`;
         return [['link', { rel: 'canonical', href: url }], ['meta', { property: 'og:url', content: url }]];
@@ -70,18 +71,6 @@ export default defineConfig({
         config: configureDiagramFences,
     },
     locales: {
-        es: {
-            label: 'Español',
-            lang: 'es',
-            title: 'Guía de Open Minesweeper',
-            description: 'Guía de usuario de Open Minesweeper',
-            link: '/es/guide/account-links',
-            themeConfig: {
-                nav: [{ text: 'Cuentas vinculadas', link: '/es/guide/account-links' }],
-                sidebar: [{ text: 'Guía', items: [{ text: 'Cuentas vinculadas', link: '/es/guide/account-links' }] }],
-                outline: { label: 'En esta página' },
-            },
-        },
         zh: {
             label: '简体中文',
             lang: 'zh-CN',
@@ -161,6 +150,101 @@ export default defineConfig({
                             items: [
                                 { text: '元神工具箱', link: '/zh/guide/tools/yuanshen-toolbox' },
                                 { text: '浏览器扩展', link: '/zh/guide/tools/browser-extension' },
+                            ],
+                        },
+                    ],
+                },
+            },
+        },
+        es: {
+            label: 'Español',
+            lang: 'es',
+            title: 'Guía de Open Minesweeper',
+            description: 'Guía de usuario de Open Minesweeper',
+            themeConfig: {
+                outline: { label: 'En esta página' },
+                docFooter: { prev: 'Página anterior', next: 'Página siguiente' },
+                sidebarMenuLabel: 'Menú',
+                returnToTopLabel: 'Volver arriba',
+                darkModeSwitchLabel: 'Tema',
+                lightModeSwitchTitle: 'Cambiar al tema claro',
+                darkModeSwitchTitle: 'Cambiar al tema oscuro',
+                langMenuLabel: 'Cambiar de idioma',
+                skipToContentLabel: 'Saltar al contenido',
+                editLink: {
+                    pattern: 'https://github.com/eee555/saolei_website/edit/main/vitepress_doc/:path',
+                    text: 'Editar esta página',
+                },
+                footer: {
+                    copyright: '© 2023–2026 Open Minesweeper · openms.top',
+                },
+                lastUpdated: {
+                    text: 'Última actualización',
+                    formatOptions: {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                        forceLocale: true,
+                    },
+                },
+                nav: [
+                    { text: 'Volver al sitio principal', link: mainSiteLink, target: '_self', rel: '' },
+                ],
+                sidebar: {
+                    '/es/': [
+                        {
+                            text: 'Guía de usuario',
+                            items: [
+                                { text: 'Cuentas vinculadas', link: '/es/guide/account-links' },
+                                { text: 'Cuentas conmemorativas', link: '/es/guide/memorial-accounts' },
+                                { text: 'Obras de la comunidad', link: '/es/guide/works' },
+                                { text: 'Programas de Buscaminas', link: '/es/guide/software' },
+                                { text: 'Reproductor de repeticiones', link: '/es/guide/video-player' },
+                                { text: 'Expresiones de repetición', link: '/es/guide/replay-expressions' },
+                                { text: 'Identificadores de jugador', link: '/es/guide/identifier' },
+                                { text: 'Verificación de jugadores', link: '/es/guide/player-verification' },
+                                { text: 'Clasificaciones top y LSF', link: '/es/guide/top-lsf' },
+                                { text: 'Medallas', link: '/es/guide/medals' },
+                                { text: 'Minijuegos', link: '/es/guide/minigames' },
+                                {
+                                    text: 'Torneos',
+                                    link: '/es/guide/tournament',
+                                    items: [
+                                        { text: 'Copa de la Oveja de Oro', link: '/es/guide/gsc' },
+                                        { text: 'Torneo semanal', link: '/es/guide/weekly-tournament' },
+                                    ],
+                                },
+                                { text: 'Cómo contribuir', link: '/es/guide/contribute' },
+                                { text: 'Finanzas del sitio', link: '/es/guide/balance' },
+                            ],
+                        },
+                        {
+                            text: 'Tutoriales de Buscaminas',
+                            items: [
+                                { text: 'Controles y reglas', link: '/es/guide/minesweeper/mouse-event' },
+                                { text: 'Guía de MetaSweeper', link: '/es/guide/minesweeper/metasweeper' },
+                                { text: 'Glosario', link: '/es/guide/minesweeper/terminology' },
+                                { text: 'Estadísticas', link: '/es/guide/minesweeper/stat' },
+                                { text: 'Formato EVF', link: '/es/guide/minesweeper/evf-standard' },
+                            ],
+                        },
+                        {
+                            text: 'Desarrollo',
+                            items: [
+                                { text: 'Señales de Django', link: '/es/guide/development/signals' },
+                                { text: 'Estructura de la caché', link: '/es/guide/development/cache' },
+                                { text: 'Imágenes de las medallas', link: '/es/guide/development/medal-art' },
+                                { text: 'Ajustes de las medallas', link: '/es/guide/development/medal-overrides' },
+                                { text: 'Extracción de datos', link: '/es/guide/development/data-crawling' },
+                                { text: 'Importación histórica de la GSC', link: '/es/guide/development/gsc-history-import' },
+                                { text: 'Comandos de administración', link: '/es/guide/development/management-commands' },
+                                { text: 'Formato de repetición de los minijuegos', link: '/es/guide/development/minigame-replay-format' },
+                            ],
+                        },
+                        {
+                            text: 'Herramientas',
+                            items: [
+                                { text: 'Yuanshen Toolbox', link: '/es/guide/tools/yuanshen-toolbox' },
+                                { text: 'Extensión del navegador', link: '/es/guide/tools/browser-extension' },
                             ],
                         },
                     ],
@@ -250,6 +334,19 @@ export default defineConfig({
         logo: '/logo.png',
         search: {
             provider: 'local',
+            options: {
+                locales: {
+                    es: { translations: {
+                        button: { buttonText: 'Buscar', buttonAriaLabel: 'Buscar en la documentación' },
+                        modal: {
+                            displayDetails: 'Mostrar detalles', resetButtonTitle: 'Borrar búsqueda',
+                            noResultsText: 'No se encontraron resultados para',
+                            backButtonTitle: 'Cerrar búsqueda',
+                            footer: { selectText: 'seleccionar', navigateText: 'navegar', closeText: 'cerrar' },
+                        },
+                    } },
+                },
+            },
         },
         socialLinks: [
             { icon: 'github', link: 'https://github.com/eee555/saolei_website' },
