@@ -118,6 +118,7 @@ describe('<VideoList />', () => {
         cy.get(TABLE).contains('th', 'Upload Time').should('have.attr', 'aria-sort', 'ascending').and('have.class', 'video-list__th--sorted');
         cy.get('[data-cy=video-sort-upload_time] i').should('have.class', 'pi-sort-amount-down-alt').and('not.have.class', 'video-list__sort-icon--inactive');
         cy.then(() => {
+            expect(sortField.value).to.equal(columnKey(presetColumn('upload_time')));
             expect(sortOrder.value).to.equal(1);
         });
     });

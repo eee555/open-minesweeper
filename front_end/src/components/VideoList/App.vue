@@ -135,7 +135,8 @@ const showSort = computed(() => props.sortable && !props.displayOnly);
 const hasLocalVideos = computed(() => props.includeLocal ?? props.videos.some((video) => video.isLocal));
 const activeSortField = computed(() => (showSort.value && sortOrder.value !== undefined && sortOrder.value !== 0 ? sortField.value ?? '' : ''));
 const filtersActive = computed(() => Object.keys(filters.value.bool).length > 0 || (['state', 'software', 'mode', 'level'] as const).some((field) => isColumnFilterActive(field, filters.value, hasLocalVideos.value)));
-const activeColumn = computed(() => columnConfigs.value.find((entry) => entry.config.sortable && entry.id === activeSortField.value));
+const sortColumn = computed(() => columnConfigs.value.find((entry) => entry.config.sortable && entry.id === sortField.value));
+const activeColumn = computed(() => (activeSortField.value === '' ? undefined : sortColumn.value));
 const filtered = computed(() => (props.displayOnly || props.externalFiltering ? [...props.videos] : filterVideos(props.videos, filters.value)));
 const sortValues = computed(() => {
     const entry = activeColumn.value;
@@ -157,7 +158,7 @@ const visibleValues = computed(() => new Map(pageRows.value.map((video) => {
     return [video, new Map(columnConfigs.value.filter((entry) => !isFixedColumn(entry.column)).map((entry) => [entry.id, entry.id === activeSortField.value ? sortValues.value.get(video) ?? invalidValue : evaluateVideoColumn(entry, context)]))];
 })));
 
-watch(() => (activeColumn.value === undefined ? undefined : { id: activeColumn.value.id, expr: 'expr' in activeColumn.value.column ? activeColumn.value.column.expr : '' }), (next, previous) => {
+watch(() => (sortColumn.value === undefined ? undefined : { id: sortColumn.value.id, expr: 'expr' in sortColumn.value.column ? sortColumn.value.column.expr : '' }), (next, previous) => {
     if (previous === undefined) return;
     if (next === undefined) {
         sortField.value = ''; sortOrder.value = 0; first.value = 0;
