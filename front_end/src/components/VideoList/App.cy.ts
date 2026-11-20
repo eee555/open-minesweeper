@@ -1,4 +1,4 @@
-import { defineComponent, h, ref } from 'vue';
+import { defineComponent, h, nextTick, ref } from 'vue';
 
 import VideoList from './App.vue';
 import { columnKey } from './columns';
@@ -226,11 +226,10 @@ describe('<VideoList />', () => {
         cy.get(TABLE).extractTableData().should((rows) => {
             expect(rows[1]).to.deep.equal(['-159.0']);
         });
-        cy.then(() => {
+        cy.then(async () => {
             expect(filters.value.bool).to.deep.equal({});
             columns.value = [];
-        });
-        cy.then(() => {
+            await nextTick();
             expect(sortField.value).to.equal('');
             expect(sortOrder.value).to.equal(0);
         });
