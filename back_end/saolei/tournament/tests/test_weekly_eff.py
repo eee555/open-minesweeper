@@ -62,7 +62,7 @@ class TestWeeklyEff(TournamentTestCaseBase):
         self.participant.refresh_from_db()
         self.assertEqual([item[0] for item in self.participant.et], [expert[1].id, expert[2].id])
         self.assertEqual([item[0] for item in self.participant.it[:3]], [intermediate[0].id, intermediate[2].id, intermediate[1].id])
-        expected = sum(value * 3 / 7000 for value in (80003, 90007, 10003, 11009, 12001)) + 120
+        expected = sum(value * 9 / 49000 for value in (80003, 90007, 10003, 11009, 12001)) + 120
         self.assertAlmostEqual(self.participant.score, expected)
         self.assertIsInstance(self.participant.et[0][1], float)
         expert[1].delete()
@@ -82,8 +82,8 @@ class TestWeeklyEff(TournamentTestCaseBase):
         nf = self.video('e', timems=150000, bv=6, right_ce=0)
         refresh_weekly_eff_scores(self.eff)
         self.participant.refresh_from_db()
-        self.assertEqual(self.participant.it, [[accepted.id, 45.0], [0, 60.0], [0, 60.0], [0, 60.0], [0, 60.0]])
-        self.assertEqual(self.participant.et, [[nf.id, 75.0], [0, 240.0]])
+        self.assertEqual(self.participant.it, [[accepted.id, 22.5], [0, 60.0], [0, 60.0], [0, 60.0], [0, 60.0]])
+        self.assertEqual(self.participant.et, [[nf.id, 37.5], [0, 240.0]])
 
     def test_registration_is_independent_and_caps_window(self):
         weekly = self.create_weekly_tournament()
@@ -129,15 +129,15 @@ class TestWeeklyEff(TournamentTestCaseBase):
         self.assertEqual(record.weekly_eff_total, 50)
         self.assertEqual(record.weekly_total, 0)
         self.assertEqual(record.score_total, 50)
-        self.assertEqual(record.weekly_eff_best, 765.0)
+        self.assertEqual(record.weekly_eff_best, 742.5)
         self.assertEqual((record.weekly_eff_best_year, record.weekly_eff_best_week), (2026, 1))
-        self.assertEqual(cache.zscore(TOURNAMENT_USER_CACHE_KEYS['weekly_eff_best'], self.user.id), 765.0)
+        self.assertEqual(cache.zscore(TOURNAMENT_USER_CACHE_KEYS['weekly_eff_best'], self.user.id), 742.5)
         self.assertEqual(self.eff.state, Tournament_TextChoices.State.AWARDED)
         self.assertFalse(self.eff.videos.filter(ongoing_tournament=True).exists())
         self.client.force_login(self.user)
         results = self.client.get('/api/tournament/weekly-eff/results', {'tournament_id': self.eff.id})
         self.assertEqual(results.status_code, 200)
-        self.assertEqual(results.json()[0]['score'], 765.0)
+        self.assertEqual(results.json()[0]['score'], 742.5)
 
     def test_disqualification_after_award_does_not_restore_scores(self):
         self.video()

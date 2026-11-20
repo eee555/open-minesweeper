@@ -26,7 +26,8 @@ def refresh_weekly_eff_scores(tournament: WeeklyEffTournament, *, batch_size=100
         state=MS_TextChoices.State.OFFICIAL, mode=MS_TextChoices.Mode.STD,
         timems__gt=0, cl__gt=0, bv__gt=0,
     ).annotate(eff_score=ExpressionWrapper(
-        Cast(F('timems'), FloatField()) * F('cl') / (Value(1000.0) * F('bv')),
+        Cast(F('timems'), FloatField()) * F('cl') ** 2
+        / (Value(1000.0) * F('bv') ** 2),
         output_field=FloatField(),
     ))
     # 两个级别独立选取；直接使用原始浮点比值，不用显示精度量化成绩。

@@ -25,7 +25,7 @@ The classic 2E+5I format adds the fastest 2 Expert and 5 Intermediate times. Int
 
 ### Efficiency Weekly
 
-Each game is scored by `Time / IOE`, equivalently `clicks / 3BV/s`; lower is better. Add the lowest scores from 2 Expert and 5 Intermediate games. Intermediate scores must be below 60, Expert below 240, with no additional IOE cap. Missing games count as 60 and 240 respectively.
+Each game is scored by `Time / IOE²` (time divided by the square of IOE); lower is better. Add the lowest scores from 2 Expert and 5 Intermediate games. Intermediate scores must be below 60, Expert below 240, with no additional IOE cap. Missing games count as 60 and 240 respectively.
 
 ## Settlement and Disqualification
 

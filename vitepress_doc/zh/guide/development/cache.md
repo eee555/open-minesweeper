@@ -560,7 +560,7 @@ digraph cache {
 
     tournament_db -> task_weekly_eff_finish [label="read/state write"];
     participant_db -> task_weekly_eff_finish [label="read/delete empty"];
-    video_db -> task_weekly_eff_finish [label="OFFICIAL STD query time/IOE; reveal"];
+    video_db -> task_weekly_eff_finish [label="OFFICIAL STD query time/IOE²; reveal"];
     tournament_user_db -> task_weekly_eff_finish [label="ensure users"];
     task_weekly_eff_finish -> participant_db [label="float scores/ranks"];
     task_weekly_eff_finish -> tournament_db [label="AWARDED"];
@@ -771,7 +771,7 @@ digraph cache {
 
 GSC、竞速及效率 finish 任务先补齐用户汇总，再清理无录像参赛者、刷新成绩和名次、设为 AWARDED、批量公开录像，并排队独立的积分和 best 任务。结束任务不早于原 end_time 后一小时，个人时间窗口和积分衰减仍使用原结束时间。worker 单进程串行，后续两项任务没有顺序依赖；人工重算、缓存重建避免与其重叠。积分按新旧 rank_score 差额修正，批量写库，提交后批量刷新相关 zset。
 
-效率赛只统计 OFFICIAL、标准模式的中高级录像，用原始 `timems * cl / (1000 * bv)` 浮点值选取 2 高 5 中，分别以 240、60 为严格上限及缺项值。效率 best 及其独立年/周字段一起写库，无成绩时为 NULL；GSC 和竞速 best 保留原整数编码及 MAX_TOURNAMENT_BEST 哨兵。各类型保存信号只比较当前成绩；删除信号从现存已颁奖 participant 重建 best。数据库 best 更新在当前事务完成，效率赛的 Redis 发布延至提交后；批量结算不触发保存信号，使用独立 best 任务。日志沿用 tournament logger。
+效率赛只统计 OFFICIAL、标准模式的中高级录像，用原始 `timems * cl² / (1000 * bv²)` 浮点值选取 2 高 5 中，分别以 240、60 为严格上限及缺项值。效率 best 及其独立年/周字段一起写库，无成绩时为 NULL；GSC 和竞速 best 保留原整数编码及 MAX_TOURNAMENT_BEST 哨兵。各类型保存信号只比较当前成绩；删除信号从现存已颁奖 participant 重建 best。数据库 best 更新在当前事务完成，效率赛的 Redis 发布延至提交后；批量结算不触发保存信号，使用独立 best 任务。日志沿用 tournament logger。
 
 `refresh_tournament_user_stats` 重建三类 total 与 best（包括效率 best 年/周），不修改 score_current；`rebuild_tournament_user_cache` 重建全部积分 zset。`refresh_tournament_scores` 支持三类已颁奖比赛，从现存录像按各赛种规则重算，并修正积分差额和 best；不会恢复已删除报名。
 

@@ -54,8 +54,8 @@ Al seleccionar por primera vez una carpeta, elige si subir solo repeticiones nue
 ### Torneos Semanales
 
 1. Todas las repeticiones de torneo: incluye tu [identificador de torneo](./identifier.md#tournament-token). No se soporta AVF.
-2. Vídeos de torneos compatibles: repeticiones de nivel Intermedio o Experto en modo Estándar. Efficiency Weekly también requiere `Time / IOE` por debajo de 60 para Intermedio o 240 para Experto.
-3. Vídeos para mejorar tu puntuación: la repetición mejora tus mejores 5 resultados Intermedio o 2 Expertos. Speed Weekly compara tiempos; Efficiency Weekly compara `Time / IOE`.
+2. Vídeos de torneos compatibles: repeticiones de nivel Intermedio o Experto en modo Estándar. Efficiency Weekly también requiere `Time / IOE²` por debajo de 60 para Intermedio o 240 para Experto.
+3. Vídeos para mejorar tu puntuación: la repetición mejora tus mejores 5 resultados Intermedio o 2 Expertos. Speed Weekly compara tiempos; Efficiency Weekly compara `Time / IOE²`.
 
 ### Copa de la Oveja de Oro
 

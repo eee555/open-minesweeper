@@ -69,19 +69,19 @@ function matchesFilter(video: AutoUploadVideo): boolean {
 
 const i18nMessages = {
     'zh-cn': { local: {
-        description: '标准模式，取 time / IOE 最低的 2 局高级和 5 局中级之和。中级须低于 60，高级须低于 240；缺项按该上限计分。',
+        description: '标准模式，取 time / IOE² 最低的 2 局高级和 5 局中级之和。中级须低于 60，高级须低于 240；缺项按该上限计分。',
         tournament: '所有比赛录像',
         supported: '有效的比赛录像',
         scoreRefreshing: '刷新成绩的比赛录像',
     } },
     en: { local: {
-        description: 'Standard mode: sum the lowest time / IOE from 2 Expert and 5 Intermediate games. Intermediate must be below 60, Expert below 240; missing games count as these limits.',
+        description: 'Standard mode: sum the lowest time / IOE² from 2 Expert and 5 Intermediate games. Intermediate must be below 60, Expert below 240; missing games count as these limits.',
         tournament: 'All tournament videos',
         supported: 'Supported tournament videos',
         scoreRefreshing: 'Score-improving videos',
     } },
     es: { local: {
-        description: 'Modo estándar: suma el tiempo más bajo / IOE de 2 juegos expertos y 5 juegos intermedios. Los juegos intermedios deben estar por debajo de 60 y los expertos por debajo de 240; los juegos faltantes se cuentan como estos límites.',
+        description: 'Modo estándar: suma los valores más bajos de tiempo / IOE² de 2 juegos expertos y 5 juegos intermedios. Los juegos intermedios deben estar por debajo de 60 y los expertos por debajo de 240; los juegos faltantes se cuentan como estos límites.',
         tournament: 'Todos los videos del torneo',
         supported: 'Videos del torneo compatibles',
         scoreRefreshing: 'Videos que mejoran los puntajes',

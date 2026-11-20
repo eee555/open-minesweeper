@@ -38,12 +38,12 @@ describe('<Efficiency Weekly App />', () => {
             cy.get('.auto-uploader select').select('scoreRefreshing');
             cy.then(() => {
                 expect(filter(replay)).to.equal(true);
-                replay.stat.timems = 120000;
+                replay.stat.timems = 240000;
                 expect(filter(replay)).to.equal(false);
             });
             cy.get('.auto-uploader select').select('supported');
             cy.then(() => {
-                replay.stat.timems = 120000;
+                replay.stat.timems = 240000;
                 expect(filter(replay)).to.equal(false);
                 replay.stat.mode = MS_Mode.SpeedNG;
                 expect(filter(replay)).to.equal(false);
