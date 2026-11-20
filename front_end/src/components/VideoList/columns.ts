@@ -11,7 +11,7 @@ export const fixedColumnTypes = ['state', 'software', 'level', 'mode', 'player']
 export type FixedColumnType = typeof fixedColumnTypes[number];
 export type DataColumnType = 'data' | `data.${number}f`;
 export type ExpressionColumnType = DataColumnType | 'date' | 'bool' | 'bytes';
-export type VideoColumn = { type: FixedColumnType } | { type: ExpressionColumnType; key: string; expr: string };
+export type VideoColumn = { type: FixedColumnType } | { id: string; type: ExpressionColumnType; key: string; expr: string };
 export type VideoDescriptionItem = VideoColumn & { width: 1 | 2 | 3 };
 export type VideoColumnScope = 'fixed-player' | 'mixed-players';
 
@@ -35,7 +35,7 @@ export function isExpressionColumnType(type: string): type is ExpressionColumnTy
 
 export function columnKey(column: VideoColumn): string {
     if (isFixedColumn(column)) return column.type;
-    return `${column.type.startsWith('data') ? 'data' : column.type}:${column.key}`;
+    return `${column.type.startsWith('data') ? 'data' : column.type}:${column.id}`;
 }
 
 export function videoColumnLabel(column: VideoColumn): string {
@@ -56,11 +56,14 @@ export function defaultVideoSortField(columns: readonly VideoColumn[]): string {
 export function isVideoColumns(value: unknown, description = false): value is VideoColumn[] {
     if (!Array.isArray(value)) return false;
     const keys = new Set<string>();
+    const ids = new Set<string>();
     for (const item of value as unknown[]) {
         if (typeof item !== 'object' || item === null || !('type' in item) || typeof item.type !== 'string') return false;
         let identity: string;
         if (isFixedColumnType(item.type)) identity = `fixed:${item.type}`;
         else {
+            if (!('id' in item) || typeof item.id !== 'string' || item.id.trim() === '' || ids.has(item.id)) return false;
+            ids.add(item.id);
             if (!isExpressionColumnType(item.type) || !('key' in item) || typeof item.key !== 'string' || item.key.trim() === '' || !('expr' in item) || typeof item.expr !== 'string') return false;
             identity = `expression:${item.key}`;
         }

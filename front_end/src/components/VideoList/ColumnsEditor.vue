@@ -27,7 +27,7 @@
                     </th>
                 </tr>
             </template>
-            <tr v-for="(item, index) in draft" :key="index" data-cy="column-item">
+            <tr v-for="(item, index) in draft" :key="`${item.type}:${item.id}`" data-cy="column-item">
                 <td>
                     <span class="video-columns-editor__actions">
                         <BaseButton size="small" class="square-button" :title="t('local.insert')" :aria-label="t('local.insert')" data-cy="column-insert" @click="insert(index)">
@@ -57,7 +57,7 @@
                         <option value="">
                             —
                         </option>
-                        <option v-for="field in videoColumnPresets" :key="field" :value="field">
+                        <option v-for="field in presetOptions" :key="field" :value="field">
                             {{ videoFieldLabel(field) }}
                         </option>
                     </select>
@@ -87,13 +87,14 @@
 
 <script setup lang="ts">
 import '@/styles/select.css';
+import { v4 as uuidv4 } from 'uuid';
 import type { PropType } from 'vue';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import { fixedColumnTypes, isFixedColumnType, isVideoColumns, videoFieldLabel } from './columns';
 import type { VideoColumn, VideoColumnScope } from './columns';
-import { defaultExpressionPreset, presetColumn, videoColumnPresets } from './presets';
+import { defaultExpressionPreset, presetExpressionColumn, videoColumnPresets, videoDescriptionPresets } from './presets';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
@@ -106,19 +107,20 @@ const props = defineProps({
     storageError: { type: String, default: '' },
 });
 const columns = defineModel<VideoColumn[]>({ required: true });
+const presetOptions = computed(() => (props.description ? videoDescriptionPresets : videoColumnPresets));
 const columnTypeOptions = [...fixedColumnTypes, 'data', ...Array.from({ length: 5 }, (_, digits) => `data.${digits}f`), 'date', 'bool', 'bytes'];
-interface DraftColumn { type: string; key: string; expr: string; width: number }
+interface DraftColumn { id: string; type: string; key: string; expr: string; width: number }
 const draft = ref<DraftColumn[]>([]);
 const invalid = ref(false);
 const expressionErrors = computed(() => draft.value.map((item) => (hasExpression(item) ? compileVideoExpression(item.expr).error : '')));
 watch(columns, (items) => {
-    draft.value = items.map((item) => ({ type: item.type, key: 'key' in item ? item.key : '', expr: 'expr' in item ? item.expr : '', width: 'width' in item && typeof item.width === 'number' ? item.width : 1 }));
+    draft.value = items.map((item) => ({ id: 'id' in item ? item.id : `fixed:${item.type}`, type: item.type, key: 'key' in item ? item.key : '', expr: 'expr' in item ? item.expr : '', width: 'width' in item && typeof item.width === 'number' ? item.width : 1 }));
     invalid.value = false;
 }, { immediate: true });
 
 function commit() {
     const items = draft.value.map((item) => ({
-        ...isFixedColumnType(item.type) ? { type: item.type } : { type: item.type, key: item.key, expr: item.expr },
+        ...isFixedColumnType(item.type) ? { type: item.type } : { id: item.id, type: item.type, key: item.key, expr: item.expr },
         ...props.description ? { width: item.width } : {},
     }));
     if (isVideoColumns(items, props.description)) {
@@ -130,7 +132,7 @@ function commit() {
 function insert(index: number) {
     let suffix = 1;
     while (draft.value.some((item) => item.key === `custom${suffix}`)) suffix++;
-    draft.value.splice(index, 0, { ...defaultExpressionPreset, key: `custom${suffix}`, width: 1 });
+    draft.value.splice(index, 0, { ...defaultExpressionPreset, id: uuidv4(), key: `custom${suffix}`, width: 1 });
     commit();
 }
 
@@ -140,9 +142,8 @@ function remove(index: number) {
 function choosePreset(index: number, event: Event) {
     const { target } = event;
     if (!(target instanceof HTMLSelectElement) || target.value === '') return;
-    const preset = presetColumn(target.value);
-    if ('expr' in preset) Object.assign(draft.value[index], preset);
-    else Object.assign(draft.value[index], { type: 'data', key: videoFieldLabel(target.value), expr: target.value });
+    const { type, key, expr } = presetExpressionColumn(target.value);
+    Object.assign(draft.value[index], { type, key, expr });
     target.value = '';
     commit();
 }

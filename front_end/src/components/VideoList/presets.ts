@@ -6,14 +6,19 @@ import { STNB_COEFFICIENTS } from '@/utils/stnb';
 import { VideoAbstract } from '@/utils/videoabstract';
 import { videoExpressionFields } from '@/utils/videoExpression';
 
-interface ExpressionPreset { type: ExpressionColumnType; expr?: string }
+interface ExpressionPreset { type: ExpressionColumnType; expr?: string; descriptionOnly?: boolean }
 
 export const defaultExpressionPreset = { type: 'data.3f', expr: 'timems / 1000' } satisfies ExpressionPreset;
 
 const expressionPresets: Record<string, ExpressionPreset> = {
+    state: { type: 'data', descriptionOnly: true },
+    software: { type: 'data', descriptionOnly: true },
+    level: { type: 'data', descriptionOnly: true },
+    mode: { type: 'data', descriptionOnly: true },
     isLocal: { type: 'bool', expr: `state == '${MS_State.Local}'` },
-    rowKey: { type: 'data', expr: `state == '${MS_State.Local}' ? 'local:' || floor(end_time / 1000) || ':' || timems : 'server:' || id` },
+    rowKey: { type: 'data', expr: `state == '${MS_State.Local}' ? 'local:' || floor(end_time / 1000) || ':' || timems : 'server:' || id`, descriptionOnly: true },
     isNF: { type: 'bool', expr: 'right_ce == 0' },
+    ongoing_tournament: { type: 'bool' },
     time: defaultExpressionPreset,
     bvs: { type: 'data.3f', expr: 'bv / (timems / 1000)' },
     qg: { type: 'data.3f', expr: '(timems / 1000) ^ 1.7 / bv' },
@@ -38,12 +43,17 @@ const expressionPresets: Record<string, ExpressionPreset> = {
     path: { type: 'data.0f' },
 };
 
-export const videoColumnPresets = [...new Set([...videoExpressionFields, ...Object.keys(expressionPresets)])].filter((field) => field !== 'timems');
+export const videoDescriptionPresets = [...new Set([...videoExpressionFields, ...Object.keys(expressionPresets)])].filter((field) => field !== 'timems');
+export const videoColumnPresets = videoDescriptionPresets.filter((field) => expressionPresets[field]?.descriptionOnly !== true);
 
 export function presetColumn(field: string): VideoColumn {
     if (isFixedColumnType(field)) return { type: field };
+    return presetExpressionColumn(field);
+}
+
+export function presetExpressionColumn(field: string): Extract<VideoColumn, { expr: string }> {
     const preset: ExpressionPreset = Object.hasOwn(expressionPresets, field) ? expressionPresets[field] : { type: 'data.3f' };
-    return { type: preset.type, key: videoFieldLabel(field), expr: preset.expr ?? field };
+    return { id: field, type: preset.type, key: videoFieldLabel(field), expr: preset.expr ?? field };
 }
 
 const defaultFields: Record<VideoColumnScope, readonly string[]> = {

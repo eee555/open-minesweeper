@@ -187,7 +187,7 @@ describe('<UserVideoView />', () => {
     it('shares boolean expression filters with the scatter plot and removes deleted-column filters', () => {
         mountUserVideos(100, [false, false]);
         cy.then(() => {
-            videoColumnStore('fixed-player').columns.value = [presetColumn('time'), { type: 'bool', key: 'First', expr: 'id == 101' }];
+            videoColumnStore('fixed-player').columns.value = [presetColumn('time'), { id: 'First', type: 'bool', key: 'First', expr: 'id == 101' }];
         });
         cy.get('[data-cy="video-filter-bool:First"]').click();
         cy.get('[data-tippy-root] [data-cy=video-filter-bool-options] input[value=true]').check();

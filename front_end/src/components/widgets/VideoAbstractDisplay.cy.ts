@@ -47,9 +47,9 @@ describe('<VideoAbstractDisplay />', () => {
 
     it('renders general data, typed booleans and clamps item widths in narrow containers', () => {
         videoDescriptionStore.columns.value = [
-            { type: 'data', key: 'time', expr: 'level', width: 3 },
-            { type: 'bool', key: 'NF', expr: 'right_ce == 0', width: 1 },
-            { type: 'data', key: 'Values', expr: '[bv, timems / 1000]', width: 2 },
+            { id: 'level', type: 'data', key: 'time', expr: 'level', width: 3 },
+            { id: 'nf', type: 'bool', key: 'NF', expr: 'right_ce == 0', width: 1 },
+            { id: 'values', type: 'data', key: 'Values', expr: '[bv, timems / 1000]', width: 2 },
         ];
         const video = new VideoAbstract({ id: 1, software: 'a', mode: '00', level: 'c16_30_150', bv: 100, timems: 12345, right_ce: 1 });
         cy.mount(defineComponent({ expose: [], render: () => h('div', { style: 'width: 180px' }, [h(VideoAbstractDisplay, { video })]) }), { global: { plugins: [i18n] } });

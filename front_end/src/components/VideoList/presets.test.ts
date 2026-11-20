@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { defaultVideoSortField, isVideoColumns, videoColumnLabel } from './columns';
-import { defaultVideoColumns, defaultVideoDescription, presetColumn, videoColumnPresets } from './presets';
+import { defaultVideoSortField, evaluateVideoColumn, isVideoColumns, prepareVideoColumn, videoColumnLabel } from './columns';
+import { defaultVideoColumns, defaultVideoDescription, presetColumn, presetExpressionColumn, videoColumnPresets, videoColumnPreview, videoDescriptionPresets } from './presets';
 
 import i18n from '@/i18n';
 import { VideoAbstract } from '@/utils/videoabstract';
@@ -20,9 +20,28 @@ describe('video column presets and defaults', () => {
         expect(isVideoColumns(defaultVideoDescription(), true)).toBe(true);
         expect(videoColumnPresets).not.toContain('timems');
         expect(presetColumn('file_size')).toMatchObject({ type: 'bytes', expr: 'file_size' });
+        for (const field of videoDescriptionPresets) {
+            const column = presetExpressionColumn(field);
+            expect(compileVideoExpression(column.expr).error, field).toBe('');
+        }
+    });
+
+    it('offers table presets that produce valid results and reserves string expressions for tooltips', () => {
+        const context = createVideoExpressionContext(videoColumnPreview);
         for (const field of videoColumnPresets) {
-            const column = presetColumn(field);
-            if ('expr' in column) expect(compileVideoExpression(column.expr).error, field).toBe('');
+            const result = evaluateVideoColumn(prepareVideoColumn(presetExpressionColumn(field)), context);
+            expect(result.error, field).toBe('');
+            expect(result.text, field).not.toBe('NaN');
+        }
+        expect(presetExpressionColumn('ongoing_tournament')).toMatchObject({ type: 'bool', expr: 'ongoing_tournament' });
+        expect(evaluateVideoColumn(prepareVideoColumn(presetExpressionColumn('ongoing_tournament')), context).bool).toBe(false);
+        for (const field of ['state', 'software', 'level', 'mode', 'rowKey'] as const) {
+            expect(videoColumnPresets).not.toContain(field);
+            expect(videoDescriptionPresets).toContain(field);
+            const column = presetExpressionColumn(field);
+            expect(column.type).toBe('data');
+            expect(evaluateVideoColumn(prepareVideoColumn(column), context, true)).toMatchObject({ text: String(videoColumnPreview[field]), error: '' });
+            if (field !== 'rowKey') expect(presetColumn(field)).toEqual({ type: field });
         }
     });
 
@@ -55,12 +74,13 @@ describe('video column presets and defaults', () => {
         try {
             i18n.global.locale.value = 'zh-cn';
             const column = presetColumn('upload_time');
-            expect(column).toEqual({ type: 'date', key: '上传时间', expr: 'upload_time' });
-            expect(defaultVideoSortField([column])).toBe('date:上传时间');
-            expect(videoColumnLabel({ type: 'data', key: 'time', expr: 'bv' })).toBe('time');
+            expect(column).toEqual({ id: 'upload_time', type: 'date', key: '上传时间', expr: 'upload_time' });
+            expect(defaultVideoSortField([column])).toBe('date:upload_time');
+            expect(videoColumnLabel({ id: 'literal', type: 'data', key: 'time', expr: 'bv' })).toBe('time');
             i18n.global.locale.value = 'en';
             expect(videoColumnLabel(column)).toBe('上传时间');
-            expect(defaultVideoSortField([column])).toBe('date:上传时间');
+            expect(defaultVideoSortField([column])).toBe('date:upload_time');
+            expect(defaultVideoSortField([presetColumn('upload_time')])).toBe(defaultVideoSortField([column]));
             expect(presetColumn('upload_time')).toMatchObject({ key: 'Upload Time' });
             expect(presetColumn('bv')).toMatchObject({ key: 'Bv', expr: 'bv' });
         } finally {
