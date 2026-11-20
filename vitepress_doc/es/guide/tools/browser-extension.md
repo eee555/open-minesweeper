@@ -1,6 +1,6 @@
 ---
 title: "Extensión del navegador (Yuanshen Helper)"
-description: "Instrucciones de instalación y uso para la extensión de navegador Yuanshen Helper, que incluye búsqueda de usuarios, análisis de resultados y subida automática de repeticiones."
+description: "Instrucciones de instalación y uso de Yuanshen Helper. Busca jugadores, analiza resultados, sube repeticiones automáticamente y crea clasificaciones personalizadas."
 ---
 
 # Extensión del navegador (Yuanshen Helper)
@@ -10,6 +10,7 @@ Yuanshen Helper es una extensión de navegador de terceros diseñada para los ju
 - **Búsqueda de usuarios**: Busca jugadores mediante su nombre real en chino, nombre de usuario, nombre en inglés, pinyin o ID numérico.
 - **Subida automática de repeticiones**: Monitorea la carpeta local de repeticiones y sube periódicamente los nuevos archivos.
 - **Análisis de resultados**: Muestra la tabla de marcas personales (PB), los resultados del frontend y el «Gran cuadro cibernético», también puede analizar archivos CSV locales.
+- **Clasificaciones personalizadas**. Carga repeticiones públicas por intervalo de ID y ordena a los jugadores con tus propios filtros y fórmulas.
 
 [Página del proyecto](https://github.com/LockhartANR/yuanshen-helper) · [Descargar la versión más reciente](https://github.com/LockhartANR/yuanshen-helper/releases/latest)
 
@@ -32,7 +33,8 @@ Al actualizar, reemplaza el contenido de la carpeta con la versión nueva, entra
 2. **Búsqueda de jugadores**: Introduce un fragmento de nombre o ID numérico, haz clic en el resultado para abrir la página principal del jugador. Se admiten `↑` / `↓` para seleccionar, `Enter` para abrir y `Esc` para cerrar.
 3. **Análisis de resultados**: Haz clic en el botón de gráfico a la derecha del resultado de búsqueda o en «Mis resultados» en la parte superior de la ventana. Si se analizan archivos locales, haz clic en «Análisis de CSV local».
 4. **Subida automática de repeticiones**: Inicia sesión en openms.top, abre la página de subida automática, haz clic en «Seleccionar carpeta» y permite el acceso a la carpeta de repeticiones. Elige entre «Solo subir nuevas repeticiones» o «Completar subida de repeticiones existentes», luego haz clic en «Empezar monitoreo».
-5. **Configuración**: Haz clic en el icono de engranaje en la esquina superior derecha para gestionar la sincronización, activar/desactivar el acceso al «Gran cuadro cibernético» en el sitio, introducir tu ID personal o borrar los datos locales.
+5. **Clasificaciones personalizadas**. Abre la herramienta desde la página de clasificaciones de OpenMS o desde el menú de la extensión. En «Conjunto de datos», indica los ID de la primera y la última repetición e inicia la carga. Después, configura los filtros y las métricas y pulsa el botón para calcular la clasificación.
+6. **Configuración**: Haz clic en el icono de engranaje en la esquina superior derecha para gestionar la sincronización, activar/desactivar el acceso al «Gran cuadro cibernético» en el sitio, introducir tu ID personal o borrar los datos locales.
 
 ## Notas importantes
 

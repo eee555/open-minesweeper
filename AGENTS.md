@@ -134,6 +134,8 @@ APP内引用链条：`utils -> models -> services -> api`
 ## 本地化
 本地化有两种模式：全局本地化位于`front_end\src\i18n`，用于可复用的messages。不可复用的messages放在vue SFC内部，示例`front_end\src\components\ExperimentalFeature.vue`。注意：SFC内部的本地化尽量往`script`块的末尾放。
 
+默认支持的语言为简体中文、英语和西班牙语；此前只有简体中文和英语，涉及默认语言列表的旧约定按此更新。
+
 SFC本地化的messages代码风格示例：
 ```ts
 const i18nMessages = {
@@ -143,10 +145,19 @@ const i18nMessages = {
     en: { local: {
         // 每条message占一行
     } },
+    es: { local: {
+        // 每条message占一行
+    } },
 };
 
 const { t } = useI18n({ messages: i18nMessages });
 ```
+
+### 本地化边界
+- 异常文本保持稳定错误码：utils、services 等层不要改用 `i18n.global.t(...)` 生成错误文案，避免异常文本随界面语言变化；文案只在展示层翻译。后端返回未知错误码时统一兜底，不把原始响应体直接展示给用户。
+- 用户协议只有中文版本，不提供其他语言译文，也不按界面语言切换协议链接。新增语言时不要新增协议译文或相关静态文件。
+- 不为单一语言追加 PrimeVue locale：项目当前未配置 PrimeVue locale，各语言均使用其默认文案。确需本地化时对所有语言统一处理，不单独覆盖新增语言。
+- 新增语言只翻译文案，不改变既有展示行为。日期、星期、月份等格式保持原实现，不顺带改用 `Intl.DateTimeFormat` 或带 locale 的 `toLocaleString`，除非需求明确要求并评估过所有语言。
 
 ## 管理员页面
 管理员页面位于`front_end\src\views\StaffView`。这部分页面设计需要考虑到管理员身份与能力的特殊性：

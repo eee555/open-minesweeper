@@ -8,12 +8,14 @@ from unittest.mock import patch
 from django.core.files.base import ContentFile
 from django.db import IntegrityError
 from django.test import override_settings, SimpleTestCase, TestCase
+from django_tasks_db.models import DBTaskResult
 import httpx
 from msgames_api import AccessDeniedError, Client as MSGamesClient, ParseError, RecordMetric, RequestError
 from msgames_api.parsers import parse_profile, parse_records
 
 from accountlink.models import AccountLinkQueue, AccountMinesweeperGames, Platform, VideoMSGames
 from accountlink.msgames.client import download_replay, fetch_profile, fetch_replays
+from accountlink.msgames.tasks import task_sync_msgames
 from accountlink.msgames.utils import normalize_profile, normalize_replays, supports_replay, upload_date_upper_bound
 from accountlink.services import msgames_video_import_one, update_msgames_account, update_msgames_video_list
 from config.text_choices import MS_TextChoices
@@ -136,8 +138,24 @@ class MSGamesMappingTests(SimpleTestCase):
         self.assertEqual(factory.call_args.kwargs['max_replay_bytes'], 5 * 1024 * 1024)
 
 
-@override_settings(RATELIMIT_ENABLE=False, STORAGES={'default': {'BACKEND': 'django.core.files.storage.InMemoryStorage'}})
-class MSGamesAccountTests(TestCase):
+class MSGamesTaskTestMixin:
+    def finish_task(self, response):
+        self.assertEqual(response.status_code, 202, response.content)
+        queued = DBTaskResult.objects.get(pk=response.json()['id'])
+        self.assertEqual(queued.status, 'READY')
+        result = task_sync_msgames.call(*queued.args_kwargs['args'])
+        DBTaskResult.objects.filter(pk=queued.pk).update(status='SUCCESSFUL', return_value=result)
+        status = self.client.get(f'/api/accountlink/msgames/tasks/{queued.pk}')
+        self.assertEqual(status.status_code, 200, status.content)
+        self.assertEqual(status.json()['status'], 'SUCCESSFUL')
+        return status.json()['return_value']
+
+
+TASK_SETTINGS = {'default': {'BACKEND': 'django_tasks_db.DatabaseBackend', 'QUEUES': ['default']}}
+
+
+@override_settings(RATELIMIT_ENABLE=False, TASKS=TASK_SETTINGS, STORAGES={'default': {'BACKEND': 'django.core.files.storage.InMemoryStorage'}})
+class MSGamesAccountTests(MSGamesTaskTestMixin, TestCase):
     def setUp(self):
         self.owner = UserProfile.objects.create(username='msgames-owner', email='msgames-owner@example.com')
         self.other = UserProfile.objects.create(username='msgames-other', email='msgames-other@example.com')
@@ -267,6 +285,32 @@ class MSGamesAccountTests(TestCase):
         self.link.save(update_fields=['verified'])
         self.assertEqual(self.client.post(path).status_code, 403)
 
+    def test_task_polling_requires_the_current_verified_owner_and_hides_tracebacks(self):
+        submitted = self.client.post('/api/accountlink/msgames/42/sync')
+        task_id = submitted.json()['id']
+        path = f'/api/accountlink/msgames/tasks/{task_id}'
+        self.assertEqual(self.client.get(path).json()['status'], 'READY')
+        self.client.force_login(self.other)
+        self.assertEqual(self.client.get(path).status_code, 403)
+        self.client.force_login(self.owner)
+        DBTaskResult.objects.filter(pk=task_id).update(status='FAILED', traceback='private internal details')
+        self.assertEqual(self.client.get(path).json(), {'id': task_id, 'status': 'FAILED', 'return_value': None})
+        self.assertNotEqual(self.client.post('/api/accountlink/msgames/42/sync').json()['id'], task_id)
+        self.link.verified = False
+        self.link.save(update_fields=['verified'])
+        self.assertEqual(self.client.get(path).status_code, 403)
+
+    @patch('accountlink.msgames.tasks.update_msgames_video_list')
+    def test_queued_task_does_not_follow_a_replaced_binding(self, sync):
+        submitted = self.client.post('/api/accountlink/msgames/42/sync')
+        queued = DBTaskResult.objects.get(pk=submitted.json()['id'])
+        AccountMinesweeperGames.objects.filter(pk=42).update(parent=self.other)
+        self.assertEqual(task_sync_msgames.call(*queued.args_kwargs['args'])['category'], 'not_found')
+        sync.assert_not_called()
+        self.client.force_login(self.other)
+        AccountLinkQueue.objects.create(platform=Platform.MSGAMES, identifier='42', userprofile=self.other, verified=True)
+        self.assertEqual(self.client.get(f'/api/accountlink/msgames/tasks/{submitted.json()["id"]}').status_code, 404)
+
     @patch('accountlink.services.fetch_msgames_replays')
     def test_sync_is_owner_only_and_does_not_import(self, fetch):
         fetch.return_value = normalize_replays(list(records()), 42)
@@ -276,10 +320,12 @@ class MSGamesAccountTests(TestCase):
         fetch.assert_not_called()
         self.client.force_login(self.owner)
         response = self.client.post(path)
-        self.assertEqual(response.status_code, 200, response.content)
-        self.assertEqual(response.json()['status'], 'SYNCED')
-        self.assertEqual(response.json()['count'], 2)
-        self.assertIsNotNone(response.json()['video_update_time'])
+        fetch.assert_not_called()
+        self.assertEqual(self.client.post(path).json()['id'], response.json()['id'])
+        result = self.finish_task(response)
+        self.assertEqual(result['status'], 'SYNCED')
+        self.assertEqual(result['count'], 2)
+        self.assertIsNotNone(result['video_update_time'])
         self.assertFalse(self.account.videos.filter(import_video__isnull=False).exists())
 
     @patch('accountlink.services.download_msgames_replay', return_value=b'replay')
@@ -290,6 +336,7 @@ class MSGamesAccountTests(TestCase):
         response = self.client.post(path)
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(response.json(), {'status': 'IMPORTED', 'import_video_id': video.id, 'video_state': video.state})
+        self.assertFalse(DBTaskResult.objects.exists())
         self.source.refresh_from_db()
         self.assertEqual(self.source.import_video_id, video.id)
         response = self.client.post(path)
@@ -302,8 +349,7 @@ class MSGamesAccountTests(TestCase):
     @patch('accountlink.services.fetch_msgames_replays', side_effect=ExceptionToResponse('import', 'timeout'))
     def test_api_sync_error_returns_failure_without_changing_catalogue(self, fetch):
         response = self.client.post('/api/accountlink/msgames/42/sync')
-        self.assertEqual(response.status_code, 502)
-        self.assertEqual(response.json(), {'type': 'error', 'object': 'import', 'category': 'timeout'})
+        self.assertEqual(self.finish_task(response), {'type': 'error', 'object': 'import', 'category': 'timeout'})
         self.assertEqual(self.account.videos.count(), 1)
         self.account.refresh_from_db()
         self.assertIsNone(self.account.video_update_time)
@@ -391,8 +437,8 @@ class MSGamesAccountTests(TestCase):
         self.assertTrue(VideoModel.objects.filter(pk=video.pk).exists())
 
 
-@override_settings(RATELIMIT_ENABLE=False)
-class MSGamesMemorialAdminTests(TestCase):
+@override_settings(RATELIMIT_ENABLE=False, TASKS=TASK_SETTINGS)
+class MSGamesMemorialAdminTests(MSGamesTaskTestMixin, TestCase):
     def setUp(self):
         self.memorial = UserProfile.objects.create_user(pk=2201, username='msgames-memorial', email='msgames-memorial@accounts.invalid', is_memorial=True, is_active=False, userms=UserMS.objects.create(pk=2202))
         self.staff = UserProfile.objects.create_user(username='msgames-staff', email='msgames-staff@example.com', is_staff=True)
@@ -404,8 +450,7 @@ class MSGamesMemorialAdminTests(TestCase):
     @patch('accountlink.services.fetch_msgames_replays', return_value=[])
     def test_staff_syncs_a_memorial_account(self, fetch):
         response = self.client.post('/api/accountlink/msgames/42/sync')
-        self.assertEqual(response.status_code, 200, response.content)
-        self.assertEqual(response.json()['status'], 'SYNCED')
+        self.assertEqual(self.finish_task(response)['status'], 'SYNCED')
         fetch.assert_called_once()
 
     @patch('accountlink.msgames.api.msgames_video_import_one')

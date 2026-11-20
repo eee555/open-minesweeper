@@ -320,6 +320,11 @@ export default {
             requestexception: 'Excepción desconocida en la solicitud',
             response: 'Respuesta no reconocida',
             timeout: 'Tiempo de espera del servidor remoto expirado',
+            task_failed: 'La tarea de sincronización en segundo plano falló. Inténtalo de nuevo más tarde.',
+        },
+        accountlink: {
+            title: 'Cuenta vinculada',
+            not_found: 'La cuenta vinculada ya no existe. Actualiza la página.',
         },
         saolei: {
             page_empty: '@:errorMsg.import.pageempty',

@@ -102,7 +102,7 @@ describe('<ResourcesView /> routing', () => {
 });
 
 describe('<ResourcesView /> browser extension', () => {
-    it('opens the browser extension and links its project, release and Chinese guide', () => {
+    it('opens the browser extension and links its project, release and English guide', () => {
         const router = mountResources('/resources/browser-extension');
         cy.wrap(router).its('currentRoute.value.path').should('eq', '/resources/browser-extension');
         tabOf('Browser Extension').should('have.attr', 'aria-selected', 'true');
@@ -111,7 +111,7 @@ describe('<ResourcesView /> browser extension', () => {
         const links = [
             ['Project', 'https://github.com/LockhartANR/yuanshen-helper'],
             ['GitHub Releases', 'https://github.com/LockhartANR/yuanshen-helper/releases/latest'],
-            ['Guide (Chinese)', getDocsUrl('zh/guide/tools/browser-extension')],
+            ['Guide', getDocsUrl('en/guide/tools/browser-extension')],
         ] as const;
         for (const [label, href] of links) {
             cy.contains(`${BROWSER_EXTENSION_PANEL} a`, label).should(($link) => {
@@ -122,9 +122,21 @@ describe('<ResourcesView /> browser extension', () => {
         }
     });
 
-    it('shows the Chinese extension description and guide', () => {
+    it('keeps the guide link in sync with the site language', () => {
         mountResources('/resources/browser-extension', 'zh-cn');
         cy.get(BROWSER_EXTENSION_PANEL).should('contain.text', '第三方').and('contain.text', '自动上传录像');
         cy.contains(`${BROWSER_EXTENSION_PANEL} a`, '使用说明').should('have.attr', 'href', getDocsUrl('zh/guide/tools/browser-extension'));
+        cy.then(() => {
+            i18n.global.locale.value = 'zh-tw';
+        });
+        cy.contains(`${BROWSER_EXTENSION_PANEL} a`, '使用说明').should('have.attr', 'href', getDocsUrl('zh/guide/tools/browser-extension'));
+        cy.then(() => {
+            i18n.global.locale.value = 'en';
+        });
+        cy.contains(`${BROWSER_EXTENSION_PANEL} a`, 'Guide').should('have.attr', 'href', getDocsUrl('en/guide/tools/browser-extension'));
+        cy.then(() => {
+            i18n.global.locale.value = 'es';
+        });
+        cy.contains(`${BROWSER_EXTENSION_PANEL} a`, 'Guía de uso').should('have.attr', 'href', getDocsUrl('es/guide/tools/browser-extension'));
     });
 });
