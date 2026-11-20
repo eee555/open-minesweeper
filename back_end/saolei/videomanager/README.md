@@ -22,6 +22,8 @@ python3 manage.py migrate
 
 对已有旧组合索引的数据库，Django 会生成移除旧索引、创建新索引的迁移。MySQL 后端在删除旧组合索引前按需补建独立的 `player_id` 索引，外键约束继续有效。可用 `SHOW INDEX FROM videomanager_videomodel` 确认两个索引的列顺序。
 
+`VideoModel` 已移除 `video_lmp_pluck_idx(level, mode, player_id, pluck)`，部署时由上述命令生成并执行删除索引的迁移。Pluck 回源查询继续利用保留的级别、玩家及状态组合索引缩小候选范围；`CustomPluckRecord` 自身的排行索引保留。
+
 ## 创建录像
 
 主要入口：
