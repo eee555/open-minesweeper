@@ -55,9 +55,6 @@ export const GSCDefaults = {
 export const ColorTemplateNames = ['time', 'bvs', 'stnb', 'ioe', 'thrp', 'path', 'custom'] as const;
 export type ColorTemplateName = typeof ColorTemplateNames[number];
 
-export const ColumnChoices = ['state', 'upload_time', 'end_time', 'player', 'software', 'mode', 'level', 'time', 'bv', 'bvs', 'stnb', 'ces', 'cls', 'corr', 'ioe', 'thrp', 'path', 'file_size'] as const;
-export type ColumnChoice = typeof ColumnChoices[number];
-
 export const CellChoices = ['time', 'bvs', 'stnb', 'ioe', 'thrp', 'path', 'cls', 'ces', 'iome', 'file_size'] as const;
 export type CellChoice = typeof CellChoices[number];
 

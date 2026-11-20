@@ -2,6 +2,8 @@ import { defineComponent, h } from 'vue';
 
 import VideoPreviewLink from './VideoPreviewLink.vue';
 
+import { videoDescriptionStore } from '@/components/VideoList/columnStore';
+import { defaultVideoDescription } from '@/components/VideoList/presets';
 import i18n from '@/i18n';
 import { videoplayerstore } from '@/store';
 import { local } from '@/store/local';
@@ -59,6 +61,7 @@ function expectLinkOnTextBaseline() {
 describe('<VideoPreviewLink />', () => {
     beforeEach(() => {
         videoplayerstore.visible = false;
+        videoDescriptionStore.columns.value = defaultVideoDescription();
     });
 
     afterEach(() => {
@@ -123,7 +126,8 @@ describe('<VideoPreviewLink />', () => {
         cy.get('.video-preview-link .video-preview-software').should('be.visible').and('have.attr', 'title', i18n.global.t('software.a'));
         cy.get('.descriptions').should('not.exist');
         cy.get('.video-preview-link').trigger('mouseenter');
-        cy.get('[role=tooltip]:visible').should('have.length', 1).and('contain.text', '12.345').and('not.contain.text', i18n.global.t('prop.upload_time'));
+        cy.get('[role=tooltip]:visible').should('have.length', 1).and('contain.text', '12.345');
+        cy.get('[role=tooltip]:visible .descriptions dd').first().should('have.text', '—');
         cy.wrap(videoplayerstore).its('visible').should('eq', false);
         cy.get('.video-preview-link').trigger('mouseleave');
         cy.get('[role=tooltip]:visible').should('not.exist');

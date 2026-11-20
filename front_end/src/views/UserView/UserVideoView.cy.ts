@@ -4,9 +4,11 @@ import { createMemoryHistory, createRouter } from 'vue-router';
 
 import UserVideoView from './UserVideoView.vue';
 
+import { videoColumnStore } from '@/components/VideoList/columnStore';
+import { presetColumn } from '@/components/VideoList/presets';
 import $axios from '@/http';
 import i18n from '@/i18n';
-import { activityCalendarConfig, BBBvSummaryConfig, store, VideoListConfig } from '@/store';
+import { activityCalendarConfig, BBBvSummaryConfig, store } from '@/store';
 import { pinia } from '@/store/create';
 import { MS_Mode } from '@/utils/ms_const';
 import { UserProfile } from '@/utils/userprofile';
@@ -22,7 +24,7 @@ const ScatterStub = defineComponent({
 
 function mountUserVideos(userId = 99, hiddenStates = [true, false], overrides: Record<string, unknown>[] = []) {
     store.login({ id: 99, username: 'player', realname: 'Player' });
-    VideoListConfig.value.profile = ['time'];
+    videoColumnStore('fixed-player').columns.value = [presetColumn('time')];
     BBBvSummaryConfig.value.softwareFilter = ['e', 'a', 'r', 'm'];
     BBBvSummaryConfig.value.template = 'time';
     activityCalendarConfig.value.useEndTime = false;
@@ -72,7 +74,7 @@ describe('<UserVideoView />', () => {
         cy.get('[data-cy=toggle-arbiter-csv]').should('have.attr', 'aria-expanded', 'false').click();
         cy.get('[data-cy=toggle-arbiter-csv]').should('have.attr', 'aria-expanded', 'true');
         cy.then(() => {
-            VideoListConfig.value.profile = ['state', 'time', 'bv', 'upload_time', 'file_size'];
+            videoColumnStore('fixed-player').columns.value = ['state', 'time', 'bv', 'upload_time', 'file_size'].map(presetColumn);
         });
         cy.fixture('stats_csv.csv', 'utf8').then((csv: string) => {
             const lines = csv.trim().split(/\r?\n/);
@@ -89,7 +91,7 @@ describe('<UserVideoView />', () => {
         cy.get(VIDEO_TABLE).contains('td', '35.090').click();
         cy.get(VIDEO_TABLE).contains('tr', '35.090').within(() => {
             cy.get('a, [data-cy=video-row-actions]').should('not.exist');
-            cy.get('td').filter(':contains("—")').should('have.length', 2);
+            cy.get('td').filter(':contains("NaN")').should('have.length', 1);
         });
         cy.get('@preview.all').should('have.length', 0);
         cy.get('[data-cy=video-shared-filters]').should('not.exist');
@@ -114,7 +116,7 @@ describe('<UserVideoView />', () => {
     it('keeps BV display filters independent while sharing selection and filters with the scatter plot', () => {
         mountUserVideos(100, [false, false, false, false], [{ software: 'a' }, { software: 'r' }, { level: 'i' }, { bv: 101 }]);
         cy.then(() => {
-            VideoListConfig.value.profile = ['state', 'software', 'time'];
+            videoColumnStore('fixed-player').columns.value = ['state', 'software', 'time'].map(presetColumn);
         });
         cy.get('[data-cy=video-overview]').select('bv');
         cy.then(() => {
@@ -182,18 +184,38 @@ describe('<UserVideoView />', () => {
         cy.get('@videos.all').should('have.length', 1);
     });
 
-    it('updates columns through checkboxes and selected tag removal without refetching videos', () => {
+    it('shares boolean expression filters with the scatter plot and removes deleted-column filters', () => {
         mountUserVideos(100, [false, false]);
-        cy.get('button[aria-label="Select columns"]').click();
-        cy.get('.checkbox-group input[value=bv]').should('not.be.checked');
-        cy.get('.checkbox-group').contains('label', /^Bv$/).click();
-        cy.get('.checkbox-group input[value=bv]').should('be.checked');
+        cy.then(() => {
+            videoColumnStore('fixed-player').columns.value = [presetColumn('time'), { type: 'bool', key: 'First', expr: 'id == 101' }];
+        });
+        cy.get('[data-cy="video-filter-bool:First"]').click();
+        cy.get('[data-tippy-root] [data-cy=video-filter-bool-options] input[value=true]').check();
+        cy.get(VIDEO_TABLE).getTable().should('have.length', 1);
+        cy.get('[data-cy="video-filter-bool:First"]').click();
+        cy.get('[data-cy=video-presentation]').select('scatter');
+        cy.get('[data-cy=scatter-videos]').should('have.text', '101');
+        cy.then(() => {
+            videoColumnStore('fixed-player').columns.value = [presetColumn('time')];
+        });
+        cy.get('[data-cy=video-presentation]').select('table');
+        cy.get(VIDEO_TABLE).getTable().should('have.length', 2);
+        cy.get('@videos.all').should('have.length', 1);
+    });
+
+    it('uses shared column changes without refetching videos', () => {
+        mountUserVideos(100, [false, false]);
+        cy.get('[data-cy=video-columns-editor]').should('not.exist');
+        cy.then(() => {
+            videoColumnStore('fixed-player').columns.value = [presetColumn('time'), presetColumn('bv')];
+        });
         cy.get(VIDEO_TABLE).contains('th', 'Bv').scrollIntoView();
         cy.get(VIDEO_TABLE).contains('th', 'Bv').should('be.visible');
-        cy.contains('.el-tag', /^Time$/).find('.el-tag__close').click();
-        cy.get('.checkbox-group input[value=time]').should('not.be.checked');
+        cy.then(() => {
+            videoColumnStore('fixed-player').columns.value = [presetColumn('bv')];
+        });
         cy.get(VIDEO_TABLE).contains('th', 'Time').should('not.exist');
-        cy.wrap(VideoListConfig).its('value.profile').should('deep.equal', ['bv']);
+        cy.wrap(videoColumnStore('fixed-player').columns).its('value').should('deep.equal', [presetColumn('bv')]);
         cy.get('@videos.all').should('have.length', 1);
     });
 

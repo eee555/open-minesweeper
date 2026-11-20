@@ -128,9 +128,6 @@
             </div>
         </section>
 
-        <div class="video-query__table-bar" data-cy="column-selector">
-            <MultiSelector v-model="selectedColumns" :options="ColumnChoices" :labels="columnLabels" />
-        </div>
         <VideoList v-loading="loading" class="video-query__table" :videos="pageRows" :columns="videoColumns" display-only />
     </div>
 </template>
@@ -146,14 +143,13 @@ import { useRoute, useRouter } from 'vue-router';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import VideoList from '@/components/VideoList/App.vue';
-import MultiSelector from '@/components/widgets/MultiSelector.vue';
+import { videoColumnStore } from '@/components/VideoList/columnStore';
 import SoftwareIcon from '@/components/widgets/SoftwareIcon.vue';
 import VideoStateIcon from '@/components/widgets/VideoStateIcon.vue';
 import { fetchVideoQuery } from '@/services/videoService';
 import type { VideoQueryFilter, VideoQuerySort } from '@/services/videoService';
-import { databaseVideoQuery, VideoListConfig } from '@/store';
-import { ColumnChoices } from '@/utils/ms_const';
-import type { ColumnChoice, MS_Software, MS_State } from '@/utils/ms_const';
+import { databaseVideoQuery } from '@/store';
+import type { MS_Software, MS_State } from '@/utils/ms_const';
 import type { VideoAbstract } from '@/utils/videoabstract';
 
 const route = useRoute();
@@ -271,13 +267,7 @@ const sortRules = ref<SortRule[]>([
 ]);
 let nextTagId = 5;
 
-const selectedColumns = computed<string[]>({
-    get: () => VideoListConfig.value.query,
-    set: (value) => {
-        VideoListConfig.value.query = value as ColumnChoice[];
-    },
-});
-const videoColumns = computed<ColumnChoice[]>(() => ColumnChoices.filter((choice) => selectedColumns.value.includes(choice)));
+const { columns: videoColumns } = videoColumnStore('mixed-players');
 
 const resultRows = ref<VideoAbstract[]>([]);
 const loading = ref(false);
@@ -630,8 +620,6 @@ const i18nMessages = {
 };
 
 const { t } = useI18n({ messages: i18nMessages });
-
-const columnLabels = computed(() => ColumnChoices.map((key) => t(`prop.${key}`)));
 </script>
 
 <style scoped>
@@ -839,13 +827,6 @@ const columnLabels = computed(() => ColumnChoices.map((key) => t(`prop.${key}`))
     flex-wrap: wrap;
     max-width: 100%;
     row-gap: 4px;
-}
-
-.video-query__table-bar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
 }
 
 .video-query__table {

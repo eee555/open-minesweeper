@@ -70,10 +70,6 @@ interface VideoQueryRow {
     player__realname: string;
 }
 
-function showPlayerColumn() {
-    cy.contains('[data-cy=column-selector] label', '玩家').find('input').check({ force: true });
-}
-
 function cachedName(id: number) {
     return cy.window().then((win) => new Cypress.Promise<string>((resolve, reject) => {
         const open = win.indexedDB.open('saolei-cache');
@@ -153,7 +149,6 @@ describe('Real name privacy against the backend', () => {
             expect(body).not.to.have.property('count');
             expect(body?.videos.find((row) => row.player_id === user.id)?.player__realname).to.eq('hidden');
         });
-        showPlayerColumn();
         cy.get(`.player-name a[href="#/player/${user.id}"]`).should('have.text', user.username).closest('.player-name').should('have.attr', 'title', `${user.username}#${user.id}`);
     });
 
@@ -202,7 +197,6 @@ describe('Real name privacy against the backend', () => {
         }).then((rows: VideoQueryRow[]) => {
             videos = rows;
         });
-        showPlayerColumn();
         cy.get(`.player-name a[href="#/player/${user.id}"]`).should('contain.text', user.username);
         cachedName(user.id).should('eq', user.realname);
         navigate(`#/player/${user.id}/settings`);

@@ -13,7 +13,7 @@
                 <BaseIconRefresh />
             </BaseTextButton>
         </template>
-        <VideoList :videos="queue" :columns="columnChoices" sortable paginator />
+        <VideoList :videos="queue" :columns="columns" sortable paginator />
     </ElTabPane>
 </template>
 
@@ -27,8 +27,8 @@ import { QueueRefreshStatus } from './utils';
 import BaseTextButton from '@/components/common/BaseTextButton.vue';
 import { BaseIconRefresh, BaseIconTick } from '@/components/common/icon';
 import VideoList from '@/components/VideoList/App.vue';
+import { videoColumnStore } from '@/components/VideoList/columnStore';
 import { fetchNewestQueue } from '@/services/videoService';
-import type { ColumnChoice } from '@/utils/ms_const';
 import type { VideoAbstract } from '@/utils/videoabstract';
 
 defineProps({
@@ -38,7 +38,7 @@ defineProps({
 const { t } = useI18n();
 
 const queue = ref<VideoAbstract[]>([]);
-const columnChoices = ['state', 'upload_time', 'player', 'software', 'mode', 'level', 'time', 'bv', 'bvs', 'ioe', 'thrp'] as ColumnChoice[];
+const { columns } = videoColumnStore('mixed-players');
 
 const loadingStatus = ref(QueueRefreshStatus.Refreshing);
 
