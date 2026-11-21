@@ -54,6 +54,7 @@ const colorScheme = computed<MinigameColorScheme | undefined>(() => {
     if (local.value.colored === false) return undefined;
     const theme = colorThemes[getPiecewiseColorSchemeName('ces')].value;
     return (rankingDefinition, score) => {
+        if (rankingDefinition.game !== 'left-click') return undefined;
         const ces = minigameCes(score, rankingDefinition.key);
         return ces === null ? undefined : theme.getStyle(ces);
     };

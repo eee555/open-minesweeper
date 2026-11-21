@@ -80,8 +80,8 @@ describe('minigame rankings', () => {
         cy.get('[data-cy=minigame-ranking-score-display]').should('not.exist');
     });
 
-    it('colors left-click scores by CES when coloring is enabled', () => {
-        mountRanking('/ranking/minigame/left-click');
+    it('colors only left-click scores by CES when coloring is enabled', () => {
+        const router = mountRanking('/ranking/minigame/left-click');
         cy.wait('@rank');
         const firstScoreCell = () => cy.get('.minigame-ranking-table tbody tr').first().find('td').eq(2);
         firstScoreCell().should(($cell) => {
@@ -92,7 +92,8 @@ describe('minigame rankings', () => {
         cy.get('[data-cy=minigame-ranking-color]').should('have.attr', 'aria-pressed', 'true');
         const ces = minigameCes(1234, 'left-click-b-50-v1') ?? 0;
         firstScoreCell().should('have.css', 'background-color', tinycolor(colorThemes.bvs.value.getColor(ces)).toRgbString());
-        cy.get('[data-cy=minigame-ranking-color]').click();
+        cy.then(() => router.push('/ranking/minigame/multi-touch'));
+        cy.wait('@rank');
         firstScoreCell().should(($cell) => {
             expect($cell[0].style.backgroundColor).to.equal('');
         });
