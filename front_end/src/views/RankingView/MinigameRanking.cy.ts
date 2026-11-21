@@ -1,3 +1,4 @@
+import tinycolor from 'tinycolor2';
 import { defineComponent, h } from 'vue';
 import { createMemoryHistory, createRouter, RouterView } from 'vue-router';
 
@@ -7,10 +8,13 @@ import { rankingRoutes } from './routes';
 import $axios from '@/http';
 import i18n from '@/i18n';
 import type { MinigameRankingGroup } from '@/services/minigameRankingService';
+import { colorThemes } from '@/store/color';
 import { pinia } from '@/store/create';
+import { local } from '@/store/local';
 import { trainingGames } from '@/utils/minigame/games';
 import { leftClickModes, multiTouchModes } from '@/utils/minigame/leftClickTraining';
 import { reactionModes } from '@/utils/minigame/reactionTraining';
+import { minigameCes } from '@/utils/minigame/scoreDisplay';
 import { defaultMinigameSettings, minigameSettings } from '@/utils/minigame/settings';
 
 const groups: MinigameRankingGroup[] = [
@@ -36,6 +40,7 @@ function mountRanking(path: string) {
 describe('minigame rankings', () => {
     beforeEach(() => {
         minigameSettings.value = defaultMinigameSettings();
+        local.value.colored = false;
         cy.mockPlayerNameFallback();
         cy.intercept('GET', '/api/minigame/rankings', groups).as('rankings');
         cy.intercept({ method: 'GET', pathname: '/api/minigame/*/rank' }, (request) => {
@@ -46,6 +51,7 @@ describe('minigame rankings', () => {
     });
     afterEach(() => {
         minigameSettings.value = defaultMinigameSettings();
+        local.value.colored = false;
     });
 
     it('switches both click-training rankings to CES locally without refetching scores', () => {
@@ -72,6 +78,18 @@ describe('minigame rankings', () => {
         cy.wait('@rank');
         cy.get('[data-cy=minigame-replay-link]').first().should('have.text', '1.234');
         cy.get('[data-cy=minigame-ranking-score-display]').should('not.exist');
+    });
+
+    it('colors left-click scores by CES when coloring is enabled', () => {
+        mountRanking('/ranking/minigame/left-click');
+        cy.wait('@rank');
+        const firstScoreCell = () => cy.get('.minigame-ranking-table tbody tr').first().find('td').eq(2);
+        firstScoreCell().should(($cell) => expect($cell[0].style.backgroundColor).to.equal(''));
+        cy.get('[data-cy=minigame-ranking-color]').should('have.attr', 'aria-pressed', 'false').click().should('have.attr', 'aria-pressed', 'true');
+        const ces = minigameCes(1234, 'left-click-b-50-v1') ?? 0;
+        firstScoreCell().should('have.css', 'background-color', tinycolor(colorThemes.bvs.value.getColor(ces)).toRgbString());
+        cy.get('[data-cy=minigame-ranking-color]').click();
+        firstScoreCell().should(($cell) => expect($cell[0].style.backgroundColor).to.equal(''));
     });
 
     it('groups six reaction columns by level, uses percentages and keeps time display under the CES setting', () => {
@@ -104,7 +122,7 @@ describe('minigame rankings', () => {
         cy.get('[data-cy=minigame-replay-link]').first().should('have.attr', 'href', '/minigame/left-click?player=42&key=b-50-v1');
         cy.get('.minigame-ranking-table tbody tr td').eq(3).find('a').should('not.exist');
         cy.get('.minigame-ranking-table [aria-pressed=true]').should('have.attr', 'aria-label', 'Expert 7/8');
-        cy.get('[data-cy=minigame-ranking-color]').should('be.disabled');
+        cy.get('[data-cy=minigame-ranking-color]').should('not.be.disabled');
         cy.get('.minigame-ranking-table [aria-label="Beginner 3/4"]').click();
         cy.wait('@rank').its('request.query').should('include', { sort: 'left-click-b-75-v1', start: '0', end: '20' });
         cy.wrap(router).its('currentRoute.value.query.page').should('equal', '1');
