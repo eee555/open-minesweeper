@@ -18,7 +18,7 @@
             <template #time>
                 <Counter :value="(frame?.timeMs ?? elapsed) / 1000" :fixed="3" :digits="3" :size="cellSize" :title="t('timeSeconds')" data-cy="reaction-time" />
             </template>
-            <MiniGameBoard :key="round" :board="frame?.board ?? board" :size="cellSize" :disabled="phase === 'won' || phase === 'lost'" :record-mouse="replay === null" :replay-press="frame?.pressed ?? null" :label="t('minigame.reaction')" @record="recorder.capture($event)" @action="onAction" />
+            <MiniGameBoard :key="round" :board="frame?.board ?? board" :size="cellSize" :disabled="phase === 'won' || phase === 'lost'" :record-mouse="replay === null" :replay-press="frame?.pressed ?? null" :label="t('minigame.reaction')" :touch-drag="minigameSettings.touchDrag" @record="recorder.capture($event)" @action="onAction" />
         </MiniGameFrame>
         <slot name="resultActions" />
         <template v-if="replay && frame">

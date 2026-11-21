@@ -1,9 +1,11 @@
 # 更新记录 / Changelog
 
-## 未发布 / Unreleased
+## 0.8.1 — 2026-11-21
 
 - 离线小游戏新增西班牙语界面。
 - Added a Spanish interface to the offline minigames.
+- 漏雷训练和反应训练新增触屏拖动设置，可选滑动选格或滚动页面。
+- Missing-cell and reaction training add a touch-drag setting to slide across cells or scroll the page.
 
 ## 0.8.0 — 2026-11-18
 
