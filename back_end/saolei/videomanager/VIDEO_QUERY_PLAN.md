@@ -64,7 +64,7 @@ filterTags / sortRules
 [{"field": "timems", "direction": "asc"}, {"field": "bv", "direction": "desc"}]
 ```
 
-`direction` 只接受 `asc` / `desc`，同一字段最多出现一次。排序键列表末尾自动追加一个 `id`（统一 asc）作为 tie-breaker，保证 1000 条顺序确定。
+`direction` 只接受 `asc` / `desc`，同一字段最多出现一次。有排序条件时仅按指定字段及顺序排序，不自动追加 `id`；没有排序条件时默认按 `id ASC`。指定字段全部相同时，记录之间的顺序不保证固定；需要确定顺序时可显式添加 `id` 排序。
 
 ### 3.2 响应
 
@@ -102,7 +102,7 @@ filterTags / sortRules
 | --- | --- |
 | `back_end/saolei/videomanager/utils.py` | `VideoQueryError`；白名单、算子、上限常量 |
 | `back_end/saolei/videomanager/schema.py` | `VideoQueryItemOut`（`create_schema`）与 `VideoQueryOut` |
-| `back_end/saolei/videomanager/services.py` | `query_videos()`：参数解析、类型校验、算子映射、`stnb` 换算、排序键与 `id` tie-breaker、`LIMIT 1000` |
+| `back_end/saolei/videomanager/services.py` | `query_videos()`：参数解析、类型校验、算子映射、`stnb` 换算、指定排序或默认 `id ASC`、`LIMIT 1000` |
 | `back_end/saolei/videomanager/api.py` | `video_query()`：限流、未知参数拒绝、可见性、姓名 getter、400 转换；装饰器在 docstring 开头注明 |
 | `front_end/src/services/videoService.ts` | `VideoQueryFilter` / `VideoQuerySort` / `fetchVideoQuery()`（含 `fetchVideoInfos` 补全） |
 | `front_end/src/views/DatabaseView/VideoView.vue` | 三板块控件、条件构造、防抖、URL 同步、分页、列选择、本地化 |

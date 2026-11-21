@@ -238,13 +238,23 @@ function enqueue(row: VideoInfoReference, value: Viewer): Promise<ParsedVideoInf
     return deferred.promise;
 }
 
-export async function fetchVideoInfos<Row extends VideoInfoReference>(rows: Row[]): Promise<(Row & ParsedVideoInfo)[]> {
+export async function fetchVideoInfos<Row extends VideoInfoReference>(rows: Row[], onBatch?: (batch: (Row & ParsedVideoInfo)[]) => void): Promise<(Row & ParsedVideoInfo)[]> {
     const value = viewer();
     const unique = [...new Map(rows.map((row) => [row.id, row])).values()];
     if (unique.some((row) => !Number.isSafeInteger(row.id) || row.id < 1)) throw new Error('Invalid server video ID.');
     let taskId: symbol | undefined;
     try {
         const found = await readCached(unique, value);
+        const emit = (ids: Set<number>): void => {
+            if (onBatch === undefined || ids.size === 0) return;
+            const batch: (Row & ParsedVideoInfo)[] = [];
+            for (const row of rows) {
+                const data = found.get(row.id);
+                if (data !== undefined && ids.has(row.id)) batch.push({ ...data, ...row });
+            }
+            if (batch.length > 0) onBatch(batch);
+        };
+        emit(new Set(found.keys()));
         const missing = unique.filter((row) => !found.has(row.id));
         if (missing.length > 0) {
             taskId = Symbol('video-download');
@@ -254,13 +264,15 @@ export async function fetchVideoInfos<Row extends VideoInfoReference>(rows: Row[
         }
         const batchSize = videoInfoBatchSize();
         for (let offset = 0; offset < missing.length; offset += batchSize) {
-            const settled = await Promise.allSettled(missing.slice(offset, offset + batchSize).map(async (row) => {
+            const slice = missing.slice(offset, offset + batchSize);
+            const settled = await Promise.allSettled(slice.map(async (row) => {
                 const data = await enqueue(row, value);
                 found.set(row.id, data);
                 if (taskId !== undefined) downloads.get(taskId)?.items.set(`${scope(row, value)}:${row.id}`, true);
             }));
             const failure = settled.find((result) => result.status === 'rejected');
             if (failure?.status === 'rejected') throw failure.reason instanceof Error ? failure.reason : new Error(String(failure.reason));
+            emit(new Set(slice.filter((row) => found.has(row.id)).map((row) => row.id)));
         }
         if (unique.some((row) => row.ongoing_tournament === true) && !sameViewer(value)) throw new Error('Login session changed.');
         return rows.map((row) => {

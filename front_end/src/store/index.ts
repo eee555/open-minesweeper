@@ -11,7 +11,7 @@ import { deepMutableCopy } from '@/utils';
 import type { PiecewiseColorSchemeInterface } from '@/utils/colors';
 import { LoginStatus } from '@/utils/common/structInterface';
 import { colorSchemeTemplates } from '@/utils/config';
-import type { CellChoice, ColorTemplateName, ColumnChoice, MS_Software } from '@/utils/ms_const';
+import type { CellChoice, ColorTemplateName, MS_Software } from '@/utils/ms_const';
 import { MS_Softwares } from '@/utils/ms_const';
 import { UserProfile } from '@/utils/userprofile';
 import type { UserProfileData } from '@/utils/userprofile';
@@ -192,12 +192,4 @@ export const VideoScatterConfig = useLocalStorage(
     { mergeDefaults: true },
 );
 
-export const VideoListConfig = useLocalStorage(
-    'video-list-config',
-    {
-        profile: ['state', 'upload_time', 'software', 'level', 'mode', 'time', 'bv', 'bvs', 'ioe', 'thrp', 'path', 'file_size'] as ColumnChoice[],
-        tournament: ['state', 'upload_time', 'software', 'level', 'mode', 'time', 'bv', 'bvs', 'ioe', 'thrp', 'path'] as ColumnChoice[],
-        query: ['state', 'upload_time', 'time', 'bv', 'bvs', 'stnb', 'file_size'] as ColumnChoice[],
-    },
-    { mergeDefaults: true },
-);
+export const databaseVideoQuery = useLocalStorage<string | null>('database-video-query', null);

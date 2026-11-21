@@ -146,7 +146,7 @@ ZRANK 可以用于定点排名校验或修复，而不是作为用户全部 PB �
 
 管理员重建需要能清理目标桶中该用户的多余旧 member，而非只相信可能已经不同步的用户 hash；可以在修复路径扫描该小榜，不让正常更新承担全榜扫描成本。
 
-数据库查询先复用现有 QuerySet、窗口函数和分段刷新方案，不增加通用查询框架。现有 `(level, mode, player, pluck)` 索引不是 PB 专用索引；针对 `(player, level, bv)`、资格筛选及 `timems/upload_time` 的补位查询，先在 MySQL 8.4 用 EXPLAIN 验证，再决定是否新增联合索引。需要模型变更时使用 makemigrations。
+数据库查询先复用现有 QuerySet、窗口函数和分段刷新方案，不增加通用查询框架。针对 `(player, level, bv)`、资格筛选及 `timems/upload_time` 的补位查询，先在 MySQL 8.4 用 EXPLAIN 验证，再决定是否新增联合索引。需要模型变更时使用 makemigrations。
 
 ## 配套工具与实施状态
 

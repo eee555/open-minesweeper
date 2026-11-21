@@ -141,10 +141,6 @@ export class VideoAbstract {
         return this.isLocal ? `local:${Math.floor((this.end_time ?? this.upload_time).getTime() / 1000)}:${this.timems}` : `server:${this.id}`;
     }
 
-    public get isNF(): boolean {
-        return this.right_ce === 0;
-    }
-
     public get time(): number {
         return this.timems / 1000;
     }

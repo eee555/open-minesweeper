@@ -22,9 +22,11 @@ describe('Main navigation', () => {
         cy.visit('/#/video');
         cy.location('hash').should('eq', '#/database/videos');
         cy.wait('@videoQuery');
-        cy.get('[data-cy=column-selector]').should('exist');
+        cy.get('[data-cy=video-list-table]').should('exist');
+        cy.get('[data-cy=video-columns-editor]').should('not.exist');
         cy.get('[data-cy=app-header] [data-navigation-id=settings] a').click();
         cy.location('hash').should('eq', '#/settings');
+        cy.get('[data-cy=video-columns-editor]').should('have.length', 3);
     });
 
     it('loads shared game control styles on a direct visit and after reloading', () => {

@@ -1,5 +1,6 @@
 """隔离原生录像解析的内部进程入口，不加载 Django 应用或访问数据库。"""
 
+import base64
 import json
 import os
 from pathlib import Path
@@ -17,9 +18,13 @@ if os.name == 'posix':
 def main():
     if os.name == 'posix':
         resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
-    suffix, result_path = sys.argv[1:]
+    args = sys.argv[1:]
+    skip_pluck = '--skip-pluck' in args
+    if skip_pluck:
+        args.remove('--skip-pluck')
+    suffix, result_path = args
     try:
-        parser = MSVideoParser(ContentFile(sys.stdin.buffer.read(), name=f'replay{suffix}'))
+        parser = MSVideoParser(ContentFile(sys.stdin.buffer.read(), name=f'replay{suffix}'), skip_pluck=skip_pluck)
     except ExceptionToResponse as exc:
         payload = {'error': {'obj': exc.obj, 'category': exc.category, 'status_code': exc.status_code}}
     except BaseException as exc:
@@ -29,6 +34,7 @@ def main():
     else:
         metadata = {key: value for key, value in vars(parser).items() if key != 'file'}
         metadata['end_time'] = metadata['end_time'].isoformat()
+        metadata['board'] = base64.b64encode(metadata['board']).decode('ascii')
         payload = {'metadata': metadata}
     # 原生库可能向 stdout 输出诊断；结果使用独立文件，避免污染 JSON。
     Path(result_path).write_text(json.dumps(payload), encoding='utf-8')

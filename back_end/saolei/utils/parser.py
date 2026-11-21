@@ -1,3 +1,4 @@
+import base64
 from datetime import datetime, timezone
 import json
 import logging
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 PARSER_TIMEOUT_SECONDS = 60
 
 
-def _parse_isolated(file: File) -> dict:
+def _parse_isolated(file: File, *, skip_pluck=False) -> dict:
     """只在子进程中执行原生解析；不继承调用者的数据库连接或事务。"""
     file.seek(0)
     try:
@@ -27,9 +28,12 @@ def _parse_isolated(file: File) -> dict:
         file.seek(0)
     with TemporaryDirectory(prefix='replay-parser-') as directory:
         result_path = Path(directory) / 'result.json'
+        command = [sys.executable, '-X', 'faulthandler', '-m', 'utils.parser_process', Path(file.name).suffix, str(result_path)]
+        if skip_pluck:
+            command.append('--skip-pluck')
         try:
             result = subprocess.run(
-                [sys.executable, '-X', 'faulthandler', '-m', 'utils.parser_process', Path(file.name).suffix, str(result_path)],
+                command,
                 cwd=Path(__file__).resolve().parents[1], input=data, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 timeout=PARSER_TIMEOUT_SECONDS, check=False,
             )
@@ -41,6 +45,8 @@ def _parse_isolated(file: File) -> dict:
             raise ExceptionToResponse('rust', 'panic', 500)
         try:
             payload = json.loads(result_path.read_text(encoding='utf-8'))
+            if 'metadata' in payload:
+                payload['metadata']['board'] = base64.b64decode(payload['metadata']['board'])
         except (OSError, ValueError):
             logger.exception('Replay parser returned an invalid result: filename=%r', file.name)
             raise ExceptionToResponse('rust', 'panic', 500) from None
@@ -55,6 +61,22 @@ def pack_custom_level(rows, columns, mines) -> str:
     if rows is None or columns is None or mines is None:
         raise ExceptionToResponse(obj='file', category='level')
     return f'c{rows}_{columns}_{mines}'
+
+
+def pack_board_bitmap(board: list[list[int]]) -> bytes:
+    rows = len(board)
+    if rows == 0:
+        raise ExceptionToResponse(obj='file', category='level')
+    columns = len(board[0])
+    if columns == 0 or any(len(row) != columns for row in board):
+        raise ExceptionToResponse(obj='file', category='level')
+    bitmap = bytearray((rows * columns + 7) // 8)
+    for row_index, row in enumerate(board):
+        for column_index, cell in enumerate(row):
+            if cell == -1:
+                index = row_index * columns + column_index
+                bitmap[index // 8] |= 1 << (index % 8)
+    return bytes(bitmap)
 
 
 def create_video_from_data(file_name: str, data: bytes):
@@ -105,6 +127,7 @@ class MSVideoParser:
     file: File
 
     software: MS_TextChoices.Software
+    version: str
     level: MS_TextChoices.Level
     mode: MS_TextChoices.Mode
 
@@ -126,6 +149,8 @@ class MSVideoParser:
     double_ce: int
 
     path: float
+    cpath: float
+    epath: float
     flag: int
     op: int
     isl: int
@@ -140,12 +165,14 @@ class MSVideoParser:
     cell7: int
     cell8: int
 
+    board: bytes
+
     pluck: float | None
 
-    def __init__(self, file: File, *, isolate=False):
+    def __init__(self, file: File, *, isolate=False, skip_pluck=False):
         self.file = file
         if isolate:
-            self.__dict__.update(_parse_isolated(file))
+            self.__dict__.update(_parse_isolated(file, skip_pluck=skip_pluck))
             self.tournament_identifiers = self.tournament_identifier
             return
 
@@ -157,9 +184,10 @@ class MSVideoParser:
             raise ExceptionToResponse(obj='file', category='incomplete')
         v.current_time = 1e8
 
+        self.version = v.software
         self.level = MSVideoParser.get_level_from_BaseVideo(v)
         self.mode = MSVideoParser.get_mode_from_BaseVideo(v, self.software)
-        self.pluck = calculate_pluck_from_video(v, self.level, self.mode)
+        self.pluck = None if skip_pluck else calculate_pluck_from_video(v, self.level, self.mode)
 
         try:
             self.state = MSVideoParser.get_state_from_review_code(v.is_valid())
@@ -189,6 +217,8 @@ class MSVideoParser:
         self.double_ce = v.dce
 
         self.path = v.path
+        self.cpath = v.c_path
+        self.epath = v.e_path
         self.flag = v.flag
         self.op = v.op
         self.isl = v.isl
@@ -202,6 +232,8 @@ class MSVideoParser:
         self.cell6 = v.cell6
         self.cell7 = v.cell7
         self.cell8 = v.cell8
+
+        self.board = pack_board_bitmap(v.board)
 
     @staticmethod
     def read_file(file: File):
@@ -243,7 +275,7 @@ class MSVideoParser:
             raise ExceptionToResponse(obj='file', category='review')
 
     @staticmethod
-    def parse_video_metadata(file: File):
+    def parse_video_metadata(file: File, *, skip_pluck=False):
         data = file.read()
         v, software = create_video_from_data(file.name, data)
 
@@ -255,7 +287,7 @@ class MSVideoParser:
 
         level = MSVideoParser.get_level_from_BaseVideo(v)
         mode = MSVideoParser.get_mode_from_BaseVideo(v, software)
-        pluck = calculate_pluck_from_video(v, level, mode)
+        pluck = None if skip_pluck else calculate_pluck_from_video(v, level, mode)
 
         review_code = v.is_valid()
         state = MSVideoParser.get_state_from_review_code(review_code)
@@ -272,6 +304,7 @@ class MSVideoParser:
             'tournament_identifier': tournament_identifiers,
             'end_time': datetime.fromtimestamp(v.end_time / 1000000, tz=timezone.utc),
             'software': software,
+            'version': v.software,
             'level': level,
             'mode': mode,
             'state': state,
@@ -284,6 +317,8 @@ class MSVideoParser:
             'right_ce': v.rce,
             'double_ce': v.dce,
             'path': v.path,
+            'cpath': v.c_path,
+            'epath': v.e_path,
             'pluck': pluck,
             'flag': v.flag,
             'op': v.op,
@@ -297,4 +332,5 @@ class MSVideoParser:
             'cell6': v.cell6,
             'cell7': v.cell7,
             'cell8': v.cell8,
+            'board': pack_board_bitmap(v.board),
         }

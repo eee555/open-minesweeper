@@ -227,6 +227,8 @@ describe('real replay snapshots', () => {
                     expect(Number.isInteger(snapshot.values.mouse_state)).toBe(true);
                     expect(snapshot.values.mouse_state).toBeGreaterThanOrEqual(1);
                     expect(snapshot.values.mouse_state).toBeLessThanOrEqual(8);
+                    expect(snapshot.values.bbbv_solved_left + snapshot.values.bbbv_solved_chord).toBe(snapshot.values.bbbv_solved);
+                    expect(snapshot.values.luck).toBeCloseTo(10 ** -snapshot.values.pluck, 12);
                     expect(snapshot.timeMs).toBe(Math.round((snapshot.values.time + video.video_start_time) * 1000));
                     expect(Number.isInteger(snapshot.timeMs)).toBe(true);
                 }
@@ -255,6 +257,11 @@ describe('real replay snapshots', () => {
                 expect(progress.error).toBe('');
                 expect(progress.samples[progress.samples.length - 1].value).toBe(last.values.bbbv_solved / last.values.bbbv);
                 expect(prepareCounter(row('pluck'), events).samples.at(-1)?.value).toBe(last.values.pluck);
+                video.current_time = Infinity;
+                for (const key of ['c_path', 'e_path', 'bbbv_solved_left', 'bbbv_solved_chord', 'luck', 'expected_bbbv_solved_per_attempt', 'expected_bbbv_solved_per_win', 'expected_time_per_attempt', 'expected_time_per_win'] as const) {
+                    expect(last.values[key]).toBeCloseTo(video[key], 10);
+                    expect(prepareCounter(row(key), events).samples.at(-1)?.value).toBe(last.values[key]);
+                }
             } finally {
                 video.free();
             }
@@ -291,15 +298,21 @@ describe('real replay snapshots', () => {
             vi.spyOn(video, 'zini', 'get').mockReturnValue(NaN);
             vi.spyOn(video, 'hzini', 'get').mockReturnValue(Infinity);
             vi.spyOn(KeyDynamicParams.prototype, 'pluck', 'get').mockReturnValue(Number.MAX_VALUE);
+            vi.spyOn(KeyDynamicParams.prototype, 'luck', 'get').mockReturnValue(NaN);
+            vi.spyOn(KeyDynamicParams.prototype, 'expected_time_per_win', 'get').mockReturnValue(Infinity);
             const events = readCounterEvents(video);
             for (const snapshot of events) {
                 expect(snapshot.values.zini).toBeNaN();
                 expect(snapshot.values.hzini).toBe(Infinity);
                 expect(snapshot.values.pluck).toBe(Number.MAX_VALUE);
+                expect(snapshot.values.luck).toBeNaN();
+                expect(snapshot.values.expected_time_per_win).toBe(Infinity);
             }
             expect(prepareCounter(row('zini'), events).samples[0].value).toBeNaN();
             expect(prepareCounter(row('hzini'), events).samples[0].value).toBe(Infinity);
             expect(prepareCounter(row('pluck'), events).samples.at(-1)?.value).toBe(Number.MAX_VALUE);
+            expect(prepareCounter(row('luck'), events).samples[0].value).toBeNaN();
+            expect(prepareCounter(row('expected_time_per_win'), events).samples.at(-1)?.value).toBe(Infinity);
         } finally {
             video.free();
         }

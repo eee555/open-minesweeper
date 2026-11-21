@@ -68,7 +68,11 @@ New configurations enable the board custom-event layer with `pluck` selected. Ho
 | --- | --- | --- | --- | --- |
 | `time` | Original sampled event time in seconds; may be negative before the game timer starts and differs from page playback progress | — | Yes | Yes |
 | `path` | Cumulative mouse path length, retaining the library's value regardless of displayed cell size | Yes | Yes | Yes |
+| `c_path` | Cumulative straight-line distance between effective clicks, normalized to 16 pixels per cell | Yes | Yes | Yes |
+| `e_path` | Cumulative Euclidean distance between the cells of effective clicks; adjacent cells are 16 units apart | Yes | Yes | Yes |
 | `bbbv_solved` | 3BV solved so far | Yes | Yes | Yes |
+| `bbbv_solved_left` | 3BV solved by effective left clicks | Yes | Yes | Yes |
+| `bbbv_solved_chord` | 3BV solved by chords and other solving actions | Yes | Yes | Yes |
 | `left` | Cumulative left clicks | Yes | Yes | Yes |
 | `right` | Cumulative right clicks | Yes | Yes | Yes |
 | `double` | Cumulative double clicks | Yes | Yes | Yes |
@@ -96,6 +100,11 @@ New configurations enable the board custom-event layer with `pluck` selected. Ho
 | `thrp` | Throughput efficiency metric | Yes | — | — |
 | `ioe` | Index of efficiency | Yes | — | — |
 | `pluck` | Cumulative Pluck metric | Yes | Yes | Yes |
+| `luck` | Cumulative safety probability, equal to `10 ^ (-pluck)` | Yes | Yes | Yes |
+| `expected_bbbv_solved_per_attempt` | Expected cumulative 3BV solved per attempt | Yes | Yes | Yes |
+| `expected_bbbv_solved_per_win` | Expected cumulative 3BV solved per win | Yes | Yes | Yes |
+| `expected_time_per_attempt` | Expected cumulative time per attempt, in seconds | Yes | Yes | Yes |
+| `expected_time_per_win` | Expected cumulative time per win, in seconds | Yes | Yes | Yes |
 | `current_event_id` | Current native event array index, not a time value | Yes | — | — |
 | `game_board_state` | Game board state code | Yes | — | — |
 | `video_start_time` | Replay start time offset in seconds | Yes | — | — |
@@ -103,7 +112,9 @@ New configurations enable the board custom-event layer with `pluck` selected. Ho
 
 The analyzer does not expose `bbbv_s`, `cl` or `ce` directly. You can combine supported fields, for example `bbbv_solved / time`, `left + right + double` or `lce + rce + dce`. Such formulas are not guaranteed to match player getter algorithms in every special state.
 
-The Analyzer computes per-event `pluck` when loading a replay. Raw values are preserved: unavailable values may be `NaN`, and the mine-hit failure value is `Number.MAX_VALUE`, without replacement by zero or infinity.
+`bbbv_solved` equals `bbbv_solved_left + bbbv_solved_chord`. The split describes solving actions, not the replay's NF/FL classification. `c_path` and `e_path` connect only clicks that increase `lce`, `rce` or `dce`, including preflags counted as effective clicks. Divide by 16 to express distances in cells.
+
+The player computes probability metrics once when an expression first reads `pluck`, `luck` or an expectation. The Analyzer computes them on load and reads event snapshots. Expectations weight progress and time by cumulative safety; time excludes pre-game waiting. `per_win` includes the cumulative cost of failed attempts before a win. Raw values are preserved: unavailable values may be `NaN`; hitting a mine sets `pluck` to `Number.MAX_VALUE`, `luck` to 0 and both `per_win` metrics to positive infinity.
 
 ### mouse_state Codes
 

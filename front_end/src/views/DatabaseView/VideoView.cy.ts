@@ -1,15 +1,16 @@
 import VideoView from './VideoView.vue';
 
+import { videoColumnStore } from '@/components/VideoList/columnStore';
+import { presetColumn } from '@/components/VideoList/presets';
 import $axios from '@/http';
 import i18n from '@/i18n';
-import { VideoListConfig } from '@/store';
 import { pinia } from '@/store/create';
 
-const DEFAULT_COLUMNS: typeof VideoListConfig.value.query = ['state', 'upload_time', 'time', 'bv', 'bvs', 'stnb', 'file_size'];
+const DEFAULT_COLUMNS = ['state', 'upload_time', 'time', 'bv', 'bvs', 'stnb', 'file_size'].map(presetColumn);
 
 function mountView(): void {
     cy.mockPlayerNameFallback();
-    VideoListConfig.value.query = [...DEFAULT_COLUMNS];
+    videoColumnStore('mixed-players').columns.value = [...DEFAULT_COLUMNS];
     cy.intercept({ method: 'GET', pathname: '/api/video/query' }, { videos: [] }).as('videos');
     cy.mount(VideoView, {
         global: {
@@ -27,7 +28,7 @@ describe('<VideoView />', () => {
         cy.get('section[aria-label=Pagination]').should('exist');
         cy.get('[data-cy=filter-tag]').should('have.length', 2);
         cy.get('[data-cy=sort-tag]').should('have.length', 2);
-        cy.get('[data-cy=column-selector]').should('exist');
+        cy.get('[data-cy=video-columns-editor]').should('not.exist');
         cy.get('[data-cy=video-list-table]').should('exist');
         cy.wait('@videos').its('request.query').should((query: Record<string, string>) => {
             expect(JSON.parse(query.filters)).to.deep.equal([
@@ -102,13 +103,14 @@ describe('<VideoView />', () => {
         cy.get('[data-cy=filter-tag]').first().find('[data-cy=enum-option]').should('not.exist');
     });
 
-    it('customizes VideoList columns with MultiSelector', () => {
+    it('uses changes to the shared column configuration', () => {
         mountView();
-        cy.get('[data-cy=column-selector] input[type=checkbox]').should('have.length', 18);
-        cy.get('[data-cy=column-selector] input[type=checkbox]:checked').should('have.length', 7);
-        cy.get('[data-cy=column-selector] input[type=checkbox]').eq(2).check({ force: true });
-        cy.get('[data-cy=column-selector] input[type=checkbox]:checked').should('have.length', 8);
-        cy.get('[data-cy=video-list-table]').should('exist');
+        cy.then(() => {
+            videoColumnStore('mixed-players').columns.value = [presetColumn('bv')];
+        });
+        cy.get('[data-cy=video-list-table] table').extractTableData().should((rows) => {
+            expect(rows[0]).to.deep.equal(['Bv']);
+        });
     });
 
     it('pages with a full range button group', () => {

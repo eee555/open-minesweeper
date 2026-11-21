@@ -25,6 +25,7 @@ import { Parser } from 'expr-eval';
 import type { PropType } from 'vue';
 import { computed } from 'vue';
 
+import { createEvaluationContext } from './counter';
 import { videoNumericParamKeys } from './types';
 import type { CustomCounterConfig } from './types';
 
@@ -113,17 +114,6 @@ function evaluateExpression(expression: string, values: DynamicParamValues) {
 function formatError(error: unknown) {
     if (error instanceof Error && error.message !== '') return error.message;
     return String(error);
-}
-
-function createEvaluationContext(video: AnyVideo) {
-    const values: DynamicParamValues = {};
-    for (const key of videoNumericParamKeys) {
-        Object.defineProperty(values, key, {
-            enumerable: true,
-            get: () => video[key],
-        });
-    }
-    return values;
 }
 </script>
 
