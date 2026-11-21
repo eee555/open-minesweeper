@@ -227,6 +227,7 @@ class SaoleiImportTests(TestCase):
         with patch('videomanager.signals.newest_cache', queue):
             source = self.source()
             self.assertEqual(import_saolei_video(source, self.remote_client(source, uploadTime=1681657187)), 'imported')
+            source.refresh_from_db()
             video_id = source.import_video_id
             self.assertIsNotNone(queue_cache.hget(queue.key, video_id))
 
