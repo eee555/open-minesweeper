@@ -12,10 +12,11 @@ export interface MinigameSettings {
     leftClickScoreDisplay: ClickScoreDisplay;
     multiTouchOrientation: 'horizontal' | 'vertical';
     scrollThreshold: number;
+    touchDrag: 'cells' | 'scroll';
 }
 
 export function defaultMinigameSettings(): MinigameSettings {
-    return { restartHotkey: null, cellSize: 32, leftClickMineOpacity: 0.5, leftClickMinePressed: false, leftClickScoreDisplay: 'time', multiTouchOrientation: 'horizontal', scrollThreshold: 0 };
+    return { restartHotkey: null, cellSize: 32, leftClickMineOpacity: 0.5, leftClickMinePressed: false, leftClickScoreDisplay: 'time', multiTouchOrientation: 'horizontal', scrollThreshold: 0, touchDrag: 'cells' };
 }
 
 export const minigameSettings = useLocalStorage<MinigameSettings>('minigame-settings', defaultMinigameSettings(), { mergeDefaults: true });
