@@ -27,7 +27,7 @@ NF 是独立维度，由 `VideoModel.right_ce == 0` 判断，不再使用模式 
 
 录像删除时，`videomanager.signals.delete_video_expansion` 在当前事务内清理扩展记录；从扩展记录发起的删除沿用 Django 级联，避免重复处理。`customranking.signals.refresh_custom_pluck_rank_on_video_delete` 在提交后从剩余录像补选数据库纪录并更新 Redis；`CustomPluckRecord` 删除后的缓存同步提交后重读当前纪录，回滚不发布删除或补位结果。
 
-最新录像队列明确保留现状：删除录像不清理 `newest_queue` 快照，查询仍可能返回已删除 ID，只由既有裁剪和管理员移除功能维护。
+最新录像队列明确保留现状：删除录像不清理 `newest_queue` 快照，查询仍可能返回已删除 ID，只由既有裁剪和管理员移除功能维护。录像状态或比赛状态变化时按既有规则加入或移除队列；仅修改 `upload_time`、`player_id` 等快照字段时只更新已在队列中的条目，不会让已存在或被移除的录像重新入队。
 
 纪念账号补录与 GSC 分别编排导入流程，复用现有标识绑定、文件比较及 `set_import_upload_time`，沿用原有统计、排行、勋章和比赛标识维护链；`is_memorial`、`is_active=False` 不排除合法录像的计分。
 

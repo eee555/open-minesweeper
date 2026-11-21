@@ -107,8 +107,13 @@ def refresh_state_queue_on_video_save(sender, instance: VideoModel, created, upd
         return
 
     if any(field_changed(instance, field) for field in QUEUE_PAYLOAD_FIELDS):
-        remove_from_state_queue(instance, instance.state)
-        add_to_state_queue(instance)
+        # 只更新已在队列中的快照：已有录像的时间修正不应让它重新入队。
+        queue_cache = STATE_QUEUE_NAMES.get(instance.state)
+        if queue_cache is not None:
+            if instance.ongoing_tournament:
+                queue_cache.remove(instance)
+            else:
+                queue_cache.update_bulk([instance])
 
 
 @receiver(post_delete, sender=VideoModel, dispatch_uid='videomanager.delete_video_expansion')
