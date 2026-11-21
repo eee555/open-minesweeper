@@ -24,7 +24,7 @@ from msuser.models import UserMS
 from userprofile.models import UserProfile
 from utils.exceptions import ExceptionToResponse
 from utils.parser import MSVideoParser
-from videomanager.cache import VideoQueueCache, cache as queue_cache
+from videomanager.cache import cache as queue_cache, VideoQueueCache
 from videomanager.files import original_file
 from videomanager.models import ExpandVideoModel, VideoModel
 from .models import AccountLinkQueue, AccountSaolei, Platform, SaoleiApiVideo
