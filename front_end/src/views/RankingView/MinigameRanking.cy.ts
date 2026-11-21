@@ -84,12 +84,18 @@ describe('minigame rankings', () => {
         mountRanking('/ranking/minigame/left-click');
         cy.wait('@rank');
         const firstScoreCell = () => cy.get('.minigame-ranking-table tbody tr').first().find('td').eq(2);
-        firstScoreCell().should(($cell) => expect($cell[0].style.backgroundColor).to.equal(''));
-        cy.get('[data-cy=minigame-ranking-color]').should('have.attr', 'aria-pressed', 'false').click().should('have.attr', 'aria-pressed', 'true');
+        firstScoreCell().should(($cell) => {
+            expect($cell[0].style.backgroundColor).to.equal('');
+        });
+        cy.get('[data-cy=minigame-ranking-color]').should('have.attr', 'aria-pressed', 'false');
+        cy.get('[data-cy=minigame-ranking-color]').click();
+        cy.get('[data-cy=minigame-ranking-color]').should('have.attr', 'aria-pressed', 'true');
         const ces = minigameCes(1234, 'left-click-b-50-v1') ?? 0;
         firstScoreCell().should('have.css', 'background-color', tinycolor(colorThemes.bvs.value.getColor(ces)).toRgbString());
         cy.get('[data-cy=minigame-ranking-color]').click();
-        firstScoreCell().should(($cell) => expect($cell[0].style.backgroundColor).to.equal(''));
+        firstScoreCell().should(($cell) => {
+            expect($cell[0].style.backgroundColor).to.equal('');
+        });
     });
 
     it('groups six reaction columns by level, uses percentages and keeps time display under the CES setting', () => {

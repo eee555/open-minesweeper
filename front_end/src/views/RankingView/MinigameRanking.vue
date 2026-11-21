@@ -11,7 +11,7 @@
             </RouterLink>
             <div class="ranking-actions">
                 <BaseButton class="square-button" data-cy="minigame-ranking-color" :type="local.colored ? 'primary' : 'default'" :aria-label="t('prop.color')" :title="t('prop.color')" :aria-pressed="local.colored" @click="local.colored = !local.colored">
-                    <i class="ranking-color-icon pi pi-palette" aria-hidden="true" />
+                    <i class="pi pi-palette ranking-color-icon" aria-hidden="true" />
                 </BaseButton>
                 <BaseButton class="square-button" data-cy="minigame-ranking-refresh" :disabled="!ranking" :aria-label="t('action.refresh')" :title="t('action.refresh')" @click="ranking?.refresh()">
                     <BaseIconRefresh :loading="ranking?.loading ?? false" aria-hidden="true" />
@@ -51,10 +51,10 @@ const selectedGame = computed<TrainingGame>({
     },
 });
 const colorScheme = computed<MinigameColorScheme | undefined>(() => {
-    if (!local.colored) return undefined;
+    if (local.value.colored === false) return undefined;
     const theme = colorThemes[getPiecewiseColorSchemeName('ces')].value;
-    return (ranking, score) => {
-        const ces = minigameCes(score, ranking.key);
+    return (rankingDefinition, score) => {
+        const ces = minigameCes(score, rankingDefinition.key);
         return ces === null ? undefined : theme.getStyle(ces);
     };
 });
