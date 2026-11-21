@@ -18,9 +18,13 @@ if os.name == 'posix':
 def main():
     if os.name == 'posix':
         resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
-    suffix, result_path = sys.argv[1:]
+    args = sys.argv[1:]
+    skip_pluck = '--skip-pluck' in args
+    if skip_pluck:
+        args.remove('--skip-pluck')
+    suffix, result_path = args
     try:
-        parser = MSVideoParser(ContentFile(sys.stdin.buffer.read(), name=f'replay{suffix}'))
+        parser = MSVideoParser(ContentFile(sys.stdin.buffer.read(), name=f'replay{suffix}'), skip_pluck=skip_pluck)
     except ExceptionToResponse as exc:
         payload = {'error': {'obj': exc.obj, 'category': exc.category, 'status_code': exc.status_code}}
     except BaseException as exc:

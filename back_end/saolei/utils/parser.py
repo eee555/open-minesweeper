@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 PARSER_TIMEOUT_SECONDS = 60
 
 
-def _parse_isolated(file: File) -> dict:
+def _parse_isolated(file: File, *, skip_pluck=False) -> dict:
     """只在子进程中执行原生解析；不继承调用者的数据库连接或事务。"""
     file.seek(0)
     try:
@@ -28,9 +28,12 @@ def _parse_isolated(file: File) -> dict:
         file.seek(0)
     with TemporaryDirectory(prefix='replay-parser-') as directory:
         result_path = Path(directory) / 'result.json'
+        command = [sys.executable, '-X', 'faulthandler', '-m', 'utils.parser_process', Path(file.name).suffix, str(result_path)]
+        if skip_pluck:
+            command.append('--skip-pluck')
         try:
             result = subprocess.run(
-                [sys.executable, '-X', 'faulthandler', '-m', 'utils.parser_process', Path(file.name).suffix, str(result_path)],
+                command,
                 cwd=Path(__file__).resolve().parents[1], input=data, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 timeout=PARSER_TIMEOUT_SECONDS, check=False,
             )
@@ -166,10 +169,10 @@ class MSVideoParser:
 
     pluck: float | None
 
-    def __init__(self, file: File, *, isolate=False):
+    def __init__(self, file: File, *, isolate=False, skip_pluck=False):
         self.file = file
         if isolate:
-            self.__dict__.update(_parse_isolated(file))
+            self.__dict__.update(_parse_isolated(file, skip_pluck=skip_pluck))
             self.tournament_identifiers = self.tournament_identifier
             return
 
@@ -184,7 +187,7 @@ class MSVideoParser:
         self.version = v.software
         self.level = MSVideoParser.get_level_from_BaseVideo(v)
         self.mode = MSVideoParser.get_mode_from_BaseVideo(v, self.software)
-        self.pluck = calculate_pluck_from_video(v, self.level, self.mode)
+        self.pluck = None if skip_pluck else calculate_pluck_from_video(v, self.level, self.mode)
 
         try:
             self.state = MSVideoParser.get_state_from_review_code(v.is_valid())
@@ -272,7 +275,7 @@ class MSVideoParser:
             raise ExceptionToResponse(obj='file', category='review')
 
     @staticmethod
-    def parse_video_metadata(file: File):
+    def parse_video_metadata(file: File, *, skip_pluck=False):
         data = file.read()
         v, software = create_video_from_data(file.name, data)
 
@@ -284,7 +287,7 @@ class MSVideoParser:
 
         level = MSVideoParser.get_level_from_BaseVideo(v)
         mode = MSVideoParser.get_mode_from_BaseVideo(v, software)
-        pluck = calculate_pluck_from_video(v, level, mode)
+        pluck = None if skip_pluck else calculate_pluck_from_video(v, level, mode)
 
         review_code = v.is_valid()
         state = MSVideoParser.get_state_from_review_code(review_code)

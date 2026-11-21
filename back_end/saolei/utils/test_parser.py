@@ -53,6 +53,27 @@ class BoardBitmapTests(SimpleTestCase):
         self.assertEqual(parser.board, b'\x09')
 
 
+class SkipPluckParserTests(SimpleTestCase):
+    def test_skip_pluck_avoids_expensive_analysis_in_both_entry_points(self):
+        for metadata_only in [False, True]:
+            with self.subTest(metadata_only=metadata_only):
+                video = Mock(is_completed=True, level=3, mode=10, software='Arbiter 0.52.3', player_identifier='', race_identifier='', end_time=0, board=[[-1]])
+                video.is_valid.return_value = 0
+                parser_method = MSVideoParser.parse_video_metadata if metadata_only else MSVideoParser
+                read_path = 'utils.parser.create_video_from_data' if metadata_only else 'utils.parser.MSVideoParser.read_file'
+                with patch(read_path, return_value=(video, MS_TextChoices.Software.EVF)), patch('utils.parser.calculate_pluck_from_video') as pluck:
+                    result = parser_method(ContentFile(b'replay', name='replay'), skip_pluck=True)
+                pluck.assert_not_called()
+                self.assertIsNone(result['pluck'] if metadata_only else result.pluck)
+
+    def test_isolated_skip_pluck_preserves_metadata_and_null_pluck(self):
+        name = 'expert_personal.evf'
+        file = ContentFile((FIXTURES / name).read_bytes(), name=name)
+        parser = MSVideoParser(file, isolate=True, skip_pluck=True)
+        self.assertIsNone(parser.pluck)
+        self.assertEqual(sum(byte.bit_count() for byte in parser.board), 99)
+
+
 class IncompleteVideoParserTests(SimpleTestCase):
     def test_both_parser_entry_points_normalize_modes_by_file_format(self):
         for metadata_only in [False, True]:

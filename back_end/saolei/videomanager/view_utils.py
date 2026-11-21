@@ -8,11 +8,11 @@ from .utils import VideoParseError
 
 
 @ranking_access(operation='videomanager.refresh_video')
-def refresh_video(video: VideoModel):
+def refresh_video(video: VideoModel, *, skip_pluck=False):
     try:
         replay = original_file(video.file.name, video.compression_format, video.original_filename) if video.compression_format else video.file
         try:
-            parser = MSVideoParser(replay)
+            parser = MSVideoParser(replay, skip_pluck=skip_pluck)
             new_size = replay.size
         finally:
             replay.close()
@@ -28,6 +28,8 @@ def refresh_video(video: VideoModel):
         'cell5', 'cell6', 'cell7', 'cell8',
         'board',
     ]
+    if skip_pluck:
+        parser_fields.remove('pluck')
 
     updated_fields = []
 
