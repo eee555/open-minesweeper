@@ -5,6 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
+from uuid import uuid4
 
 from django.core.files.base import ContentFile
 from django.core.management import call_command, CommandError
@@ -23,6 +24,7 @@ from msuser.models import UserMS
 from userprofile.models import UserProfile
 from utils.exceptions import ExceptionToResponse
 from utils.parser import MSVideoParser
+from videomanager.cache import VideoQueueCache, cache as queue_cache
 from videomanager.files import original_file
 from videomanager.models import ExpandVideoModel, VideoModel
 from .models import AccountLinkQueue, AccountSaolei, Platform, SaoleiApiVideo
@@ -216,6 +218,28 @@ class SaoleiImportTests(TestCase):
         video = VideoModel.objects.get()
         with original_file(video.file.name, video.compression_format, video.original_filename) as recording:
             self.assertEqual(recording.read(), self.content)
+
+    def test_reused_video_time_correction_does_not_reenter_newest_queue(self):
+        parser = MSVideoParser(ContentFile(self.content, FIXTURE.name))
+        Identifier.objects.create(identifier=parser.identifier, userms=None, safe=True)
+        queue = VideoQueueCache(f'test:newest_queue:{uuid4().hex}')
+        self.addCleanup(queue_cache.delete, queue.key)
+        with patch('videomanager.signals.newest_cache', queue):
+            source = self.source()
+            self.assertEqual(import_saolei_video(source, self.remote_client(source, uploadTime=1681657187)), 'imported')
+            video_id = source.import_video_id
+            self.assertIsNotNone(queue_cache.hget(queue.key, video_id))
+
+            queue_cache.hdel(queue.key, video_id)
+            self.assertIsNone(queue_cache.hget(queue.key, video_id))
+
+            source.import_video = None
+            source.save(update_fields=['import_video'])
+            earlier = 1681657187 - 86400
+            self.assertEqual(import_saolei_video(source, self.remote_client(source, uploadTime=earlier)), 'imported')
+            source.refresh_from_db()
+            self.assertEqual(int(source.import_video.upload_time.timestamp()), earlier)
+            self.assertIsNone(queue_cache.hget(queue.key, video_id))
 
     def test_whitelist_is_exact_and_latest_detail_is_checked_before_download(self):
         for number, software in enumerate(('Saolei.wang', 'Other', '', 'clone', '元3.3.4', '元扫雷3.3.4', '元扫雷3.3.5'), 1):
