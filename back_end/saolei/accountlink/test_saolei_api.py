@@ -224,7 +224,11 @@ class SaoleiImportTests(TestCase):
         Identifier.objects.create(identifier=parser.identifier, userms=None, safe=True)
         queue = VideoQueueCache(f'test:newest_queue:{uuid4().hex}')
         self.addCleanup(queue_cache.delete, queue.key)
-        with patch('videomanager.signals.newest_cache', queue):
+        state_queues = {
+            MS_TextChoices.State.IDENTIFIER: queue,
+            MS_TextChoices.State.OFFICIAL: queue,
+        }
+        with patch('videomanager.signals.STATE_QUEUE_NAMES', state_queues):
             source = self.source()
             self.assertEqual(import_saolei_video(source, self.remote_client(source, uploadTime=1681657187)), 'imported')
             source.refresh_from_db()
