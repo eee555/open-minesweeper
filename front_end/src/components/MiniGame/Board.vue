@@ -1,6 +1,6 @@
 <template>
     <div
-        ref="surface" class="minigame-board" role="group" tabindex="-1" :aria-label="label" :aria-disabled="disabled"
+        ref="surface" class="minigame-board" :class="{ 'minigame-board--touch-scroll': touchScrolls }" role="group" tabindex="-1" :aria-label="label" :aria-disabled="disabled"
         data-cy="minigame-board" @contextmenu.prevent @dragstart.prevent
         @pointerdown="pointerDown" @lostpointercapture="touchCancel"
     >
@@ -49,6 +49,7 @@ const props = defineProps({
     replayPress: { type: Object as PropType<BoardPress | null>, default: null },
     recordMouse: { type: Boolean, default: false },
     input: { type: String as PropType<'classic' | 'mouse' | 'touch'>, default: 'classic' },
+    touchDrag: { type: String as PropType<'cells' | 'scroll'>, default: 'cells' },
     recordTouch: { type: Boolean, default: false },
     transposed: { type: Boolean, default: false },
 });
@@ -59,10 +60,12 @@ const mouse = new ClassicMouseAutomaton();
 const pressed = shallowRef<BoardPress | null>(null);
 let heldButtons = 0;
 let touchId: number | null = null;
+let touchOrigin: { x: number; y: number } | null = null;
 let lastPosition: { row: number; column: number } | null = null;
 let suppressMouse = false;
 const contacts = shallowRef(new Map<number, { row: number; column: number }>());
 const touchScroll = new SingleTouchScroll();
+const touchScrolls = computed(() => props.input === 'classic' && props.touchDrag === 'scroll');
 const displayBoard = computed(() => (props.transposed ? transpose(props.board) : props.board));
 const displayCursor = computed(() => (props.transposed && props.cursorPosition !== undefined ? { rowIndex: props.cursorPosition.columnIndex, columnIndex: props.cursorPosition.rowIndex } : props.cursorPosition));
 
@@ -110,6 +113,7 @@ function resetInput() {
     mouse.reset();
     heldButtons = 0;
     pressed.value = null;
+    touchOrigin = null;
     if (props.recordMouse && lastPosition !== null) emit('record', { ...lastPosition, now: performance.now(), action: null, cellSize: props.size });
     const id = touchId;
     touchId = null;
@@ -170,7 +174,7 @@ function pointerDown(event: PointerEvent) {
         suppressMouse = false;
         return;
     }
-    event.preventDefault(); // 阻止兼容 mouse 事件造成重复操作。
+    if (!touchScrolls.value) event.preventDefault(); // 阻止兼容 mouse 事件造成重复操作。
     suppressMouse = true;
     if (props.disabled) return;
     if (props.input === 'mouse') {
@@ -194,7 +198,8 @@ function pointerDown(event: PointerEvent) {
     if (cellAt(event) === null) return;
     surface.value?.focus({ preventScroll: true });
     touchId = event.pointerId;
-    surface.value?.setPointerCapture(event.pointerId);
+    if (touchScrolls.value) touchOrigin = { x: event.clientX, y: event.clientY };
+    else surface.value?.setPointerCapture(event.pointerId);
     step('lc', event);
 }
 
@@ -206,7 +211,7 @@ useEventListener(window, 'pointermove', (event) => {
     }
     // Resolve board coordinates after scrolling so traces stay aligned.
     if (contacts.value.has(event.pointerId)) recordContact(event, 'move');
-    if (event.pointerId === touchId) step('mv', event);
+    if (event.pointerId === touchId && !(touchScrolls.value && event.pointerType === 'touch')) step('mv', event);
 });
 
 function touchUp(event: PointerEvent) {
@@ -218,6 +223,12 @@ function touchUp(event: PointerEvent) {
         return;
     }
     if (event.pointerId !== touchId) return;
+    const origin = touchOrigin;
+    touchOrigin = null;
+    if (touchScrolls.value && origin !== null && Math.hypot(event.clientX - origin.x, event.clientY - origin.y) >= 10) {
+        reset();
+        return;
+    }
     step('lr', event);
     reset();
 }
@@ -260,6 +271,10 @@ onBeforeUnmount(reset);
     cursor: default;
     user-select: none;
     touch-action: none;
+}
+
+.minigame-board--touch-scroll {
+    touch-action: auto;
 }
 
 .minigame-board-highlight {
