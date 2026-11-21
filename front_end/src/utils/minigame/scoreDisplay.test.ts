@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { minigameDensityLabel } from './games';
-import { clickCes, formatMinigameScore } from './scoreDisplay';
+import { clickCes, formatMinigameScore, minigameCes } from './scoreDisplay';
 
 describe('click training score display', () => {
     it('shows zero before starting and excludes the first successful click', () => {
@@ -19,6 +19,13 @@ describe('click training score display', () => {
             }
         }
         expect(formatMinigameScore(1234, 'left-click-b-50-v1', 'ces')).toBe('25.122');
+    });
+
+    it('resolves CES from the ranking key only for click-training games', () => {
+        expect(minigameCes(1234, 'left-click-b-50-v1')).toBeCloseTo(25.122, 3);
+        expect(minigameCes(2000, 'multi-touch-i-75-v1')).toBe(31.5);
+        expect(minigameCes(2000, 'reaction-b-50-v1')).toBeNull();
+        expect(minigameCes(2000, 'flag-chord-b-v1')).toBeNull();
     });
 
     it('keeps time display and other games in seconds', () => {
