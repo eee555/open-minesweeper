@@ -1,3 +1,4 @@
+import base64
 from datetime import datetime, timezone
 import json
 import logging
@@ -41,6 +42,8 @@ def _parse_isolated(file: File) -> dict:
             raise ExceptionToResponse('rust', 'panic', 500)
         try:
             payload = json.loads(result_path.read_text(encoding='utf-8'))
+            if 'metadata' in payload:
+                payload['metadata']['board'] = base64.b64decode(payload['metadata']['board'])
         except (OSError, ValueError):
             logger.exception('Replay parser returned an invalid result: filename=%r', file.name)
             raise ExceptionToResponse('rust', 'panic', 500) from None
@@ -55,6 +58,22 @@ def pack_custom_level(rows, columns, mines) -> str:
     if rows is None or columns is None or mines is None:
         raise ExceptionToResponse(obj='file', category='level')
     return f'c{rows}_{columns}_{mines}'
+
+
+def pack_board_bitmap(board: list[list[int]]) -> bytes:
+    rows = len(board)
+    if rows == 0:
+        raise ExceptionToResponse(obj='file', category='level')
+    columns = len(board[0])
+    if columns == 0 or any(len(row) != columns for row in board):
+        raise ExceptionToResponse(obj='file', category='level')
+    bitmap = bytearray((rows * columns + 7) // 8)
+    for row_index, row in enumerate(board):
+        for column_index, cell in enumerate(row):
+            if cell == -1:
+                index = row_index * columns + column_index
+                bitmap[index // 8] |= 1 << (index % 8)
+    return bytes(bitmap)
 
 
 def create_video_from_data(file_name: str, data: bytes):
@@ -143,6 +162,8 @@ class MSVideoParser:
     cell7: int
     cell8: int
 
+    board: bytes
+
     pluck: float | None
 
     def __init__(self, file: File, *, isolate=False):
@@ -208,6 +229,8 @@ class MSVideoParser:
         self.cell6 = v.cell6
         self.cell7 = v.cell7
         self.cell8 = v.cell8
+
+        self.board = pack_board_bitmap(v.board)
 
     @staticmethod
     def read_file(file: File):
@@ -306,4 +329,5 @@ class MSVideoParser:
             'cell6': v.cell6,
             'cell7': v.cell7,
             'cell8': v.cell8,
+            'board': pack_board_bitmap(v.board),
         }

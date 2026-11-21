@@ -26,6 +26,7 @@ def refresh_video(video: VideoModel):
         'path', 'cpath', 'epath', 'pluck', 'flag', 'op', 'isl',
         'cell0', 'cell1', 'cell2', 'cell3', 'cell4',
         'cell5', 'cell6', 'cell7', 'cell8',
+        'board',
     ]
 
     updated_fields = []
