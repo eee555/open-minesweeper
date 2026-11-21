@@ -14,9 +14,11 @@ class Command(BaseCommand):
         parser.add_argument('--start', type=int, default=0, help='起始录像 ID，包含此 ID，默认 0')
         parser.add_argument('--end', type=int, help='结束录像 ID，不包含此 ID，默认不限制')
         parser.add_argument('--step', type=int, default=100, help='每处理多少条录像输出一次进度，默认 100')
+        parser.add_argument('--skip-pluck', action='store_true', help='跳过 pluck 计算，保留原有 pluck 值')
 
     def handle(self, *args, **options):
         start, end, step = options['start'], options['end'], options['step']
+        skip_pluck = options['skip_pluck']
         if start < 0 or (end is not None and end < start):
             raise CommandError('start 必须非负，end 必须大于或等于 start')
         if step <= 0:
@@ -35,7 +37,7 @@ class Command(BaseCommand):
             try:
                 with ranking_access(operation='refresh_videos'), transaction.atomic():
                     video = VideoModel.objects.select_for_update().get(pk=video_id)
-                    refresh_video(video)
+                    refresh_video(video, skip_pluck=skip_pluck)
             except VideoParseError as exc:
                 skipped += 1
                 self.stderr.write(self.style.WARNING(f'录像#{video_id}解析失败，已跳过：{exc}'))

@@ -1,5 +1,5 @@
 from io import StringIO
-from unittest.mock import call, patch
+from unittest.mock import call, MagicMock, patch
 
 from django.core.management import call_command, CommandError
 from django.db import OperationalError
@@ -46,7 +46,12 @@ class RefreshVideosCommandTests(SimpleTestCase):
                 call_command('refresh_videos', stdout=StringIO(), **options)
 
                 queryset.filter.assert_called_once_with(**bounds)
-                self.assertEqual(self.refresh.call_args_list, [call(video) for video in selected])
+                self.assertEqual(self.refresh.call_args_list, [call(video, skip_pluck=False) for video in selected])
+
+    def test_skip_pluck_is_forwarded_to_refresh_video(self):
+        call_command('refresh_videos', skip_pluck=True, stdout=StringIO())
+
+        self.assertEqual(self.refresh.call_args_list, [call(video, skip_pluck=True) for video in self.videos])
 
     def test_progress_counts_parse_failures_and_reports_current_id(self):
         self.videos.append(VideoModel(pk=5))
@@ -79,7 +84,7 @@ class RefreshVideosCommandTests(SimpleTestCase):
         self.assertEqual(self.manager.select_for_update.call_count, len(self.videos))
         self.assertEqual(self.manager.select_for_update.return_value.get.call_args_list, [call(pk=video.pk) for video in self.videos])
         self.assertEqual(self.atomic.call_count, len(self.videos))
-        self.assertEqual(self.refresh.call_args_list, [call(video) for video in self.videos])
+        self.assertEqual(self.refresh.call_args_list, [call(video, skip_pluck=False) for video in self.videos])
         self.manager.filter.assert_not_called()
         self.manager.update.assert_not_called()
         self.manager.bulk_update.assert_not_called()
@@ -92,7 +97,7 @@ class RefreshVideosCommandTests(SimpleTestCase):
 
         call_command('refresh_videos', stdout=output, stderr=errors)
 
-        self.assertEqual(self.refresh.call_args_list, [call(video) for video in self.videos])
+        self.assertEqual(self.refresh.call_args_list, [call(video, skip_pluck=False) for video in self.videos])
         self.assertIn('录像#1解析失败，已跳过：parse failed', errors.getvalue())
         self.assertIn('已刷新 1 条录像，跳过 1 条', output.getvalue())
 
@@ -105,7 +110,7 @@ class RefreshVideosCommandTests(SimpleTestCase):
 
                 with self.assertRaisesMessage(CommandError, f'录像#1刷新失败，已完成 0 条：{error}'):
                     call_command('refresh_videos', stdout=StringIO())
-                self.refresh.assert_called_once_with(self.videos[0])
+                self.refresh.assert_called_once_with(self.videos[0], skip_pluck=False)
 
     def test_locks_and_refreshes_inside_each_independent_transaction(self):
         events = []
@@ -117,7 +122,7 @@ class RefreshVideosCommandTests(SimpleTestCase):
             return VideoModel(pk=pk, state='b')
 
         self.manager.select_for_update.return_value.get.side_effect = get_locked_video
-        self.refresh.side_effect = lambda video: events.append(('refresh', video.pk, video.state))
+        self.refresh.side_effect = lambda video, **kwargs: events.append(('refresh', video.pk, video.state))
 
         call_command('refresh_videos', stdout=StringIO())
 
@@ -136,6 +141,38 @@ class RefreshVideosCommandTests(SimpleTestCase):
             call(VideoParseError, error, error.__traceback__),
             call(None, None, None),
         ])
+
+
+class RefreshVideoSkipPluckTests(SimpleTestCase):
+    def test_skip_pluck_keeps_existing_value_and_skips_expensive_analysis(self):
+        from types import SimpleNamespace
+
+        video = MagicMock()
+        video.pluck = 3.5
+        video.file.name = 'a.evf'
+        video.file.size = 0
+        video.compression_format = 0
+        video.video.identifier = ''
+        video.video.tournament_identifier = []
+        video.player.userms.identifiers = []
+
+        fields = [
+            'level', 'mode', 'software', 'version', 'end_time', 'timems', 'bv',
+            'left', 'right', 'double', 'left_ce', 'right_ce', 'double_ce',
+            'path', 'cpath', 'epath', 'flag', 'op', 'isl', 'board',
+            'cell0', 'cell1', 'cell2', 'cell3', 'cell4',
+            'cell5', 'cell6', 'cell7', 'cell8',
+        ]
+        values = {field: getattr(video, field) for field in fields}
+        parser = SimpleNamespace(**values, pluck=None, identifier='', tournament_identifier=[])
+
+        with patch('videomanager.view_utils.MSVideoParser', return_value=parser) as parser_class:
+            refresh_video(video, skip_pluck=True)
+
+        parser_class.assert_called_once_with(video.file, skip_pluck=True)
+        video.save.assert_called_once()
+        self.assertNotIn('pluck', video.save.call_args.kwargs['update_fields'])
+        self.assertEqual(video.pluck, 3.5)
 
 
 class RefreshVideoParseErrorTests(SimpleTestCase):

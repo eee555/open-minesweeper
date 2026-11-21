@@ -166,6 +166,8 @@ class VideoModel(models.Model):
     cell7 = models.PositiveSmallIntegerField(null=True)
     cell8 = models.PositiveSmallIntegerField(null=True)
 
+    board = models.BinaryField(null=True, blank=True)
+
     @property
     def stnb(self):
         coefficient = STNB_COEFFICIENTS.get(self.level)
@@ -248,6 +250,7 @@ class VideoModel(models.Model):
             cell0=parser.cell0, cell1=parser.cell1, cell2=parser.cell2,
             cell3=parser.cell3, cell4=parser.cell4, cell5=parser.cell5,
             cell6=parser.cell6, cell7=parser.cell7, cell8=parser.cell8,
+            board=parser.board,
         )
         video.save()  # noqa: DJM100
         return video
