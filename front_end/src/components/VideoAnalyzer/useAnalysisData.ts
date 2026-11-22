@@ -75,13 +75,13 @@ export function useAnalysisData(config: MaybeRefOrGetter<AnalyzerConfig>, durati
 
     function refreshPrepared(): Promise<void> {
         const token = ++runId;
-        return execute(token, 2, () => runPrepared(token, 1, 2));
+        return execute(token, 2, () => runPrepared(token, 1, 2), false);
     }
 
-    async function execute(token: number, steps: number, operation: () => Promise<void>): Promise<void> {
+    async function execute(token: number, steps: number, operation: () => Promise<void>, showProgress = true): Promise<void> {
         errorMessage.value = '';
         progress.value = initialAnalysisProgress(steps);
-        progressVisible.value = true;
+        progressVisible.value = showProgress;
         isRunning.value = true;
         try {
             await operation();
@@ -90,8 +90,10 @@ export function useAnalysisData(config: MaybeRefOrGetter<AnalyzerConfig>, durati
             errorMessage.value = error instanceof Error ? error.message : String(error);
         } finally {
             if (token === runId) {
-                progress.value = { ...progress.value, done: progress.value.total, percent: 100 };
-                progressVisible.value = false;
+                if (showProgress) {
+                    progress.value = { ...progress.value, done: progress.value.total, percent: 100 };
+                    progressVisible.value = false;
+                }
                 isRunning.value = false;
                 if (pendingConfigRefresh) {
                     pendingConfigRefresh = false;
