@@ -2,6 +2,9 @@
 
 ## 未发布 / Unreleased
 
+- 加载录像时显示进度弹窗，依次反馈鼠标轨迹、计数器事件、计数器采样和自定义事件的生成进度。
+- Show a progress dialog while loading a replay, reporting generation of mouse traces, counter events, counter samples and custom events in sequence.
+
 ## 0.2.4 — 2026-11-22
 
 - 升级录像解析依赖 ms-toollib 至 1.6.3。

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { defaultAnalyzerConfig } from './config';
 import { counterVariables } from './counter';
 import type { CounterEvent, CounterValues } from './counter';
-import { defaultCustomEvent, eventLineDash, eventOccurs, prepareCustomEvents } from './customEvents';
+import { defaultCustomEvent, eventLineDash, eventOccurs, prepareCustomEvents, prepareCustomEventsAsync } from './customEvents';
 import type { CustomEventDefinition } from './customEvents';
 
 function event(eventIndex: number, timeMs: number, left: number): CounterEvent {
@@ -109,5 +109,16 @@ describe('custom events', () => {
         expect(defaultCustomEvent().marker.size).toBe(8);
         expect(defaultCustomEvent().line.width).toBe(2);
         expect(['solid', 'dash', 'dot'].map((style) => eventLineDash(style as CustomEventDefinition['line']['style']))).toEqual(['none', '6 3', '1 3']);
+    });
+
+    it('prepares custom events asynchronously with the same results and progress', async () => {
+        const events = [event(0, 0, 0), event(1, 1, 1)];
+        const definitions = [definition('left')];
+        const progress: [number, number][] = [];
+        const prepared = await prepareCustomEventsAsync(definitions, events, 2, async (done, total) => {
+            progress.push([done, total]);
+        });
+        expect(prepared.get('clicks')).toEqual(prepareCustomEvents(definitions, events, 2).get('clicks'));
+        expect(progress.at(-1)).toEqual([1, 1]);
     });
 });

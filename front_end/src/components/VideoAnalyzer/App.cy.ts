@@ -28,31 +28,33 @@ describe('<VideoAnalyzer /> raw-source interface', () => {
                 mixins: [captureAnalyzerState((value) => {
                     state = value;
                 })] } }).then(() => {
-                const counters = state.preparedCounters.value;
-                const events = state.preparedEvents.value;
-                const frame = state.frame.value;
-                cy.get('.video-analyzer-board__global-toggle').click();
-                cy.get('.video-analyzer-board__global-toggle').should('have.attr', 'aria-pressed', 'true');
-                cy.get('.video-analyzer-board__probability-toggle').click();
-                cy.get('.video-analyzer-board__probability-toggle').should('have.attr', 'aria-pressed', 'false');
-                cy.get('.video-analyzer-board__cursor-toggle').click();
-                cy.get('.video-analyzer-board__cursor-toggle').should('have.attr', 'aria-pressed', 'false');
-                cy.get('.video-analyzer-board__trace-toggle').click();
-                cy.get('.video-analyzer-board__trace-toggle').should('have.attr', 'aria-pressed', 'true');
-                cy.get('.video-analyzer-board__global-control .board-settings-control__handle').click();
-                cy.get('.board-layer-control__opacity:visible').invoke('val', 0.4).trigger('input');
-                cy.get('.board-layer-control__opacity:visible').trigger('keydown', { key: 'Escape' });
-                cy.then(() => {
-                    expect(config.value).to.eq(originalConfig);
-                    expect(config.value.globalVisible).to.eq(true);
-                    expect(config.value.probabilityVisible).to.eq(false);
-                    expect(config.value.traceVisible).to.eq(true);
-                    expect(config.value.cursorVisible).to.eq(false);
-                    expect(config.value.globalOpacity).to.eq(0.4);
-                    expect(state.preparedCounters.value).to.eq(counters);
-                    expect(state.preparedEvents.value).to.eq(events);
-                    expect(state.frame.value).to.eq(frame);
-                    expect(state.config.value).to.eq(originalConfig);
+                cy.get('.analyzer-analysis-progress').should('not.exist').then(() => {
+                    const counters = state.preparedCounters.value;
+                    const events = state.preparedEvents.value;
+                    const frame = state.frame.value;
+                    cy.get('.video-analyzer-board__global-toggle').click();
+                    cy.get('.video-analyzer-board__global-toggle').should('have.attr', 'aria-pressed', 'true');
+                    cy.get('.video-analyzer-board__probability-toggle').click();
+                    cy.get('.video-analyzer-board__probability-toggle').should('have.attr', 'aria-pressed', 'false');
+                    cy.get('.video-analyzer-board__cursor-toggle').click();
+                    cy.get('.video-analyzer-board__cursor-toggle').should('have.attr', 'aria-pressed', 'false');
+                    cy.get('.video-analyzer-board__trace-toggle').click();
+                    cy.get('.video-analyzer-board__trace-toggle').should('have.attr', 'aria-pressed', 'true');
+                    cy.get('.video-analyzer-board__global-control .board-settings-control__handle').click();
+                    cy.get('.board-layer-control__opacity:visible').invoke('val', 0.4).trigger('input');
+                    cy.get('.board-layer-control__opacity:visible').trigger('keydown', { key: 'Escape' });
+                    cy.then(() => {
+                        expect(config.value).to.eq(originalConfig);
+                        expect(config.value.globalVisible).to.eq(true);
+                        expect(config.value.probabilityVisible).to.eq(false);
+                        expect(config.value.traceVisible).to.eq(true);
+                        expect(config.value.cursorVisible).to.eq(false);
+                        expect(config.value.globalOpacity).to.eq(0.4);
+                        expect(state.preparedCounters.value).to.eq(counters);
+                        expect(state.preparedEvents.value).to.eq(events);
+                        expect(state.frame.value).to.eq(frame);
+                        expect(state.config.value).to.eq(originalConfig);
+                    });
                 });
             });
         });

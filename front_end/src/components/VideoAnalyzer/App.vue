@@ -42,6 +42,7 @@
                 </ElSplitterPanel>
             </ElSplitter>
         </div>
+        <AnalysisProgressDialog :visible="progressVisible" :progress="progress" />
     </div>
 </template>
 
@@ -52,21 +53,20 @@ import { computed, reactive, ref, useTemplateRef, watch } from 'vue';
 import type { PropType, VNode } from 'vue';
 import { useI18n } from 'vue-i18n';
 
+import AnalysisProgressDialog from './AnalysisProgressDialog.vue';
 import AnalyzerLayoutControl from './AnalyzerLayoutControl.vue';
 import type { BoardFrame } from './board';
 import BoardPanel from './BoardPanel.vue';
 import { defaultAnalyzerConfig } from './config';
 import type { AnalyzerConfig, AnalyzerLayout } from './config';
-import { readCounterEvents } from './counter';
 import CounterPanel from './CounterPanel.vue';
 import { adjacentKeyframe } from './keyframes';
-import { readMouseTrace } from './mouseTrace';
 import type { ReplaySource } from './replayParser';
 import type { TimeWindow } from './timeline';
 import TimelinePanel from './TimelinePanel.vue';
+import { useAnalysisData } from './useAnalysisData';
 import { provideAnalyzerState } from './useAnalyzerState';
 import { usePlayback } from './usePlayback';
-import { usePreparedAnalysis } from './usePreparedAnalysis';
 import { useReplayPosition } from './useReplayPosition';
 import { useReplaySource } from './useReplaySource';
 
@@ -86,7 +86,9 @@ const probabilityColorScheme = defineModel<PiecewiseColorSchemeInterface>('proba
 const exporting = defineModel('exporting', { type: Boolean, default: false });
 const replay = useReplaySource(() => props.source);
 const { video, durationMs, globalBoard, createExportVideo } = replay;
-const errorMessage = computed(() => props.errorMessage || replay.errorMessage.value);
+const analysis = useAnalysisData(analyzerConfig, durationMs);
+const { traceEvents, counterEvents, preparedCounters, preparedEvents, progress, progressVisible, errorMessage: analysisErrorMessage } = analysis;
+const errorMessage = computed(() => props.errorMessage || replay.errorMessage.value || analysisErrorMessage.value);
 const clock = usePlayback(durationMs);
 const { gameBoard, probabilityBoard, mouseState, currentEventIndex, cursorPosition, selectKeyframe, clearKeyframe } = useReplayPosition(video, clock.currentMs);
 const boardFrame = computed<BoardFrame>(() => ({
@@ -115,9 +117,18 @@ watch(playback.playbackRate, (rate) => {
 watch(playback.loopMode, (mode) => {
     analyzerConfig.value.loopMode = mode;
 }, { flush: 'sync' });
-const traceEvents = computed(() => (video.value === null ? [] : readMouseTrace(video.value)));
-const counterEvents = computed(() => (video.value === null ? [] : readCounterEvents(video.value)));
-const { preparedCounters, preparedEvents } = usePreparedAnalysis(analyzerConfig, counterEvents, durationMs);
+watch(video, (current, _previous, onCleanup) => {
+    analysis.cancel();
+    onCleanup(() => analysis.cancel());
+    if (current === null) {
+        analysis.clear();
+        return;
+    }
+    void analysis.load(current);
+}, { immediate: true, flush: 'sync' });
+watch(() => [analyzerConfig.value.counter.rows, analyzerConfig.value.customEvents], () => {
+    if (video.value !== null) void analysis.refreshPrepared();
+}, { deep: true });
 const timeWindow = ref<TimeWindow>({ startMs: 0, endMs: 0 });
 watch(durationMs, (duration) => {
     timeWindow.value = { startMs: 0, endMs: duration };

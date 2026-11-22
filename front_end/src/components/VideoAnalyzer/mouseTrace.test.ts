@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { effectScope, nextTick, ref } from 'vue';
 
-import { defaultMouseTraceAppearance, mouseTraceAppearanceProps, mouseTraceRange, readMouseTrace, sliderToTailSeconds, tailSecondsToSlider } from './mouseTrace';
+import { defaultMouseTraceAppearance, mouseTraceAppearanceProps, mouseTraceRange, readMouseTrace, readMouseTraceAsync, sliderToTailSeconds, tailSecondsToSlider } from './mouseTrace';
 import type { ReplayMouseTraceEvent } from './mouseTrace';
 import { parseReplay } from './replayParser';
 import type { ReplayVideo } from './replayParser';
@@ -104,6 +104,22 @@ describe('replay mouse trace', () => {
         });
         expect(nonMouse.free).toHaveBeenCalledOnce();
         expect(nonMouse.event.free).toHaveBeenCalledOnce();
+    });
+
+    it('reports progress while building the trace asynchronously', async () => {
+        const records = ['mv', 'lc', 'pf'].map((mouse, index) => {
+            const payload = { mouse, x: 16, y: 32, free: vi.fn() };
+            const event = { is_mouse: () => true, unwrap_mouse: () => payload, free: vi.fn() };
+            return { event, time: index, mouse_state: 4, free: vi.fn() };
+        });
+        const video = { events: records, pix_size: 16, video_start_time: 0 } as unknown as ReplayVideo;
+        const progress: [number, number][] = [];
+        const trace = await readMouseTraceAsync(video, async (done, total) => {
+            progress.push([done, total]);
+        });
+        expect(trace).toHaveLength(2);
+        expect(progress.at(-1)).toEqual([3, 3]);
+        for (const record of records) expect(record.free).toHaveBeenCalledOnce();
     });
 
     it('frees all record wrappers when extraction fails', () => {
