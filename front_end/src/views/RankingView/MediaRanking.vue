@@ -1,27 +1,23 @@
 <template>
     <section class="media-ranking">
-        <div class="media-toolbar">
-            <BaseTextButton underline="never" :aria-pressed="sortBy === 'hot'" @click="sortBy = 'hot'">
-                {{ t('media.sortHot') }}
-            </BaseTextButton>
-            <BaseTextButton underline="never" :aria-pressed="sortBy === 'likes'" @click="sortBy = 'likes'">
-                {{ t('media.sortLikes') }}
-            </BaseTextButton>
-        </div>
         <BaseTable :empty="rows.length === 0" :empty-text="t('media.empty')" :column-count="4">
             <template #head>
                 <tr>
                     <th scope="col" class="table-col-rank">
                         #
                     </th>
-                    <th scope="col">
+                    <th scope="col" class="table-col-player">
                         {{ t('media.player') }}
                     </th>
-                    <th scope="col">
-                        {{ t('media.sortHot') }}
+                    <th scope="col" class="table-col-number" :aria-sort="sortBy === 'hot' ? 'descending' : 'none'">
+                        <BaseTextButton data-field="hot" :type="sortBy === 'hot' ? 'primary' : 'default'" :aria-pressed="sortBy === 'hot'" @click="sortBy = 'hot'">
+                            {{ t('media.sortHot') }}
+                        </BaseTextButton>
                     </th>
-                    <th scope="col">
-                        {{ t('media.sortLikes') }}
+                    <th scope="col" class="table-col-number" :aria-sort="sortBy === 'likes' ? 'descending' : 'none'">
+                        <BaseTextButton data-field="likes" :type="sortBy === 'likes' ? 'primary' : 'default'" :aria-pressed="sortBy === 'likes'" @click="sortBy = 'likes'">
+                            {{ t('media.sortLikes') }}
+                        </BaseTextButton>
                     </th>
                 </tr>
             </template>
@@ -29,9 +25,9 @@
                 <td class="table-col-rank">
                     {{ start + index + 1 }}
                 </td>
-                <td><PlayerName :user-id="row.user_id" /></td>
-                <td>{{ realHot(row).toFixed(2) }}</td>
-                <td>{{ row.likes }}</td>
+                <td class="table-col-player"><PlayerName :user-id="row.user_id" /></td>
+                <td class="table-col-number">{{ realHot(row).toFixed(2) }}</td>
+                <td class="table-col-number">{{ row.likes }}</td>
             </tr>
         </BaseTable>
         <ElPagination v-model:current-page="page" v-model:page-size="pageSize" layout="total, prev, pager, next" :total="total" />
@@ -52,8 +48,6 @@ import { httpErrorNotification } from '@/components/Notifications';
 import PlayerName from '@/components/PlayerName.vue';
 import type { MediaUserRankRow } from '@/services/mediaService';
 import { fetchUserMediaRanking } from '@/services/mediaService';
-
-import '@/components/media/media.css';
 
 const { t } = useI18n();
 
