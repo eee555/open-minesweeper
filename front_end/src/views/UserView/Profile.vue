@@ -117,8 +117,8 @@ const { t } = useI18n({ messages: i18nMessages });
 /* 横向布局：窄屏顶部栏 */
 .horizontal-profile {
     display: grid;
-    grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
-    gap: 8px 12px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
     align-items: center;
     justify-content: space-between;
     background-color: var(--ui-bg-color);
@@ -126,22 +126,15 @@ const { t } = useI18n({ messages: i18nMessages });
     box-sizing: border-box;
 
     .profile {
-        grid-column: 1;
-        grid-row: 1;
         display: flex;
         align-items: center;
         gap: 8px;
         flex-wrap: wrap;
-        max-width: clamp(140px, 36vw, 260px);
         min-width: 0;
         overflow-wrap: anywhere;
     }
 
-    > :not(.profile):not(.profile-pins) {
-        grid-column: 1 / -1;
-    }
     .profile-pins {
-        grid-column: 1 / -1;
         min-width: 0;
         width: 100%;
         max-height: 64px;
