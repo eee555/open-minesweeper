@@ -23,10 +23,10 @@
                     {{ formatName(user.firstname, user.lastname, local.nameFormat) }}
                 </div>
             </template>
-        </div>
-        <div class="profile-badges">
-            <MemorialBadge v-if="user.is_memorial" />
-            <span v-if="user.verified" class="verification-badge" data-cy="verification-badge">{{ t('local.verified') }}</span>
+            <div class="profile-badges">
+                <MemorialBadge v-if="user.is_memorial" />
+                <span v-if="user.verified" class="verification-badge" data-cy="verification-badge">{{ t('local.verified') }}</span>
+            </div>
         </div>
         <RouterLink v-if="user.is_memorial && store.user.is_superuser" :to="{ path: '/superuser/memorial', query: { id: user.id } }" class="link">
             {{ t('local.uploadMemorial') }}
@@ -126,6 +126,8 @@ const { t } = useI18n({ messages: i18nMessages });
     box-sizing: border-box;
 
     .profile {
+        grid-column: 1;
+        grid-row: 1;
         display: flex;
         align-items: center;
         gap: 8px;
@@ -135,14 +137,11 @@ const { t } = useI18n({ messages: i18nMessages });
         overflow-wrap: anywhere;
     }
 
-    > :not(.profile):not(.profile-pins):not(.profile-badges) {
+    > :not(.profile):not(.profile-pins) {
         grid-column: 1 / -1;
     }
-    .profile-badges {
-        grid-column: 2;
-        grid-row: 1;
-    }
     .profile-pins {
+        grid-column: 1 / -1;
         min-width: 0;
         width: 100%;
         max-height: 64px;
