@@ -72,7 +72,8 @@ describe('staff task table', () => {
     it('requests arbitrary starting indices, changes capacity and resets on server sort/filter', () => {
         const tasks = Array.from({ length: 27 }, (_, index) => task(`task-${String(index + 1).padStart(2, '0')}`));
         mountTasks(tasks);
-        cy.get('[data-cy=task-pagination] [data-cy=jump]').clear().type('13{enter}');
+        cy.get('[data-cy=task-pagination] [data-cy=jump]').clear();
+        cy.get('[data-cy=task-pagination] [data-cy=jump]').type('13{enter}');
         cy.wait('@tasks').its('request.query').should('include', { start: '13', count: '10' });
         expectTaskIds(tasks.slice(12, 22).map((row) => row.id));
         cy.get('[data-cy=task-pagination] [data-cy=report]').should('have.text', '13-22 / 27');
@@ -100,11 +101,13 @@ describe('staff task table', () => {
         const tasks = Array.from({ length: 11 }, (_, index) => task(`task-${String(index + 1).padStart(2, '0')}`));
         let rejectDeletion = true;
         cy.intercept('POST', '/api/common/tasks/delete', (req) => {
-            const { task_id: id } = req.body as { task_id: string };
+            const id = new URLSearchParams(req.body as string).get('task_id');
             if (id === 'task-11' && rejectDeletion) {
                 req.reply({ statusCode: 409, body: 'Task is locked.' });
             } else {
-                tasks.splice(tasks.findIndex((row) => row.id === id), 1);
+                const index = tasks.findIndex((row) => row.id === id);
+                expect(index, 'requested task exists').to.be.at.least(0);
+                tasks.splice(index, 1);
                 req.reply({ body: null });
             }
         }).as('delete');
@@ -115,7 +118,9 @@ describe('staff task table', () => {
         cy.wait('@tasks');
         cy.get('[data-cy=select-page]').check();
         cy.get('[data-cy=delete-tasks]').click();
-        cy.wait('@delete').its('request.body').should('deep.equal', { task_id: 'task-01' });
+        cy.wait('@delete').its('request.body').then((body: string) => {
+            expect(Object.fromEntries(new URLSearchParams(body))).to.deep.equal({ task_id: 'task-01' });
+        });
         cy.wait('@delete').its('response.statusCode').should('eq', 409);
         cy.wait('@tasks').its('request.query').should('include', { start: '11' });
         cy.wait('@tasks').its('request.query').should('include', { start: '10' });
@@ -127,7 +132,9 @@ describe('staff task table', () => {
             rejectDeletion = false;
         });
         cy.get('[data-cy=delete-tasks]').click();
-        cy.wait('@delete').its('request.body').should('deep.equal', { task_id: 'task-11' });
+        cy.wait('@delete').its('request.body').then((body: string) => {
+            expect(Object.fromEntries(new URLSearchParams(body))).to.deep.equal({ task_id: 'task-11' });
+        });
         cy.wait('@tasks');
         cy.wait('@tasks').its('request.query').should('include', { start: '9' });
         expectTaskIds(['task-10']);
@@ -153,7 +160,9 @@ describe('staff task table', () => {
         cy.get('@traceback').should('have.been.calledWith', 'example traceback');
         cy.get('[data-cy=restart-task]').first().click();
         cy.get('[data-cy=restart-task]').first().should('be.disabled');
-        cy.wait('@restart').its('request.body').should('deep.equal', { task_id: 'task-failed' });
+        cy.wait('@restart').its('request.body').then((body: string) => {
+            expect(Object.fromEntries(new URLSearchParams(body))).to.deep.equal({ task_id: 'task-failed' });
+        });
         cy.wait('@tasks');
         expectTaskIds(['task-failed', 'task-blocked', 'task-restarted']);
         cy.get('[data-cy=cleanup-tasks]').click();
