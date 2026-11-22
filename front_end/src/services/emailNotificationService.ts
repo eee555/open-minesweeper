@@ -1,0 +1,20 @@
+import $axios from '@/http';
+
+export const emailNotificationTypes = [
+    { type: 'staff_media_review', flag: 1 },
+    { type: 'staff_video_frozen', flag: 2 },
+    { type: 'staff_video_plain', flag: 4 },
+    { type: 'staff_account_link_review', flag: 8 },
+    { type: 'staff_identifier_unsafe', flag: 16 },
+] as const;
+
+export type EmailNotificationType = typeof emailNotificationTypes[number]['type'];
+export interface EmailNotificationChange {
+    type: EmailNotificationType;
+    enabled: boolean;
+}
+
+export async function saveEmailNotifications(changes: EmailNotificationChange[]): Promise<number> {
+    const { data } = await $axios.patch<{ email_notification_mask: number }>('/api/userprofile/email-notifications', { changes }, { headers: { 'Content-Type': 'application/json' } });
+    return data.email_notification_mask;
+}

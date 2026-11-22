@@ -5,6 +5,14 @@ description: 开源扫雷网Redis/Django缓存结构详解，包括录像队列�
 
 # 缓存结构
 
+## 邮件通知额度
+
+邮件额度不放在 Redis，使用 `userprofile.EmailSentQuota` 的固定主键 `1`，只保存 `quota_date` 与当日保守占额数 `count`。通知与验证码共用 2000 封上限，跨日原地重置，不保存历史行。日期按 `EMAIL_QUOTA_TIME_ZONE` 计算，默认 `Asia/Shanghai`（UTC+8），已对齐确认的供应商重置时区。
+
+并发首次创建先单独提交唯一主键插入，避免 MySQL 重复键共享锁与随后行锁升级产生死锁；随后在独立事务中锁行，重新读取日期、检查限额并加一，提交后才连接 SMTP。失败或超时不退额，同日重启不清零。首次部署应先同步平台当日已用量，之后不重复初始化。
+
+订阅位保存在 `UserProfile.email_notification_mask`，只随本人登录及资料响应返回，不进入公开用户缓存。通知复用现有 Django Tasks 数据库队列，没有通知项或摘要表，也不使用 Redis 待发缓存。
+
 ## QQ 登录临时状态
 
 `userprofile/qqconnect/cache.py` 使用 Django 默认 cache，键前缀 `userprofile:qq:`，TTL 统一为 600 秒：`flow:{state}` 保存模式、appid、会话 HMAC 与绑定用户 ID；`active:{session_hmac}` 和 `user:{user_id}` 标识当前有效授权；`used:{state}` 一次性占用或标记撤销。原始 Session key 不进入这些缓存值。
