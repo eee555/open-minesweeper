@@ -37,7 +37,7 @@ NF 是独立维度，由 `VideoModel.right_ce == 0` 判断，不再使用模式 
 
 效率榜由独立 `effranking.signals` 监听录像保存和删除，复用 `_old_values` 及 `update_fields` 分别判断三榜影响范围：Thrp 监控有效点击、BV 和上传时间；NF IOE、TPE 系列监控实际 `left/right/double`、BV 和用时，仅 NF IOE 另用 `right_ce=0` 判断 NF 资格。提交后只读取一次持久化录像，三榜共用 Redis 读取/写入 pipeline，各自处理选优和必要补位。Thrp 的高级 NF 项重建满分录像 ID 列表或最佳一局；NF IOE 满分单项比较用时，满分 sum 只比较高级用时；TPE 系列按各自公式独立选优，合计要求对应中高级均有纪录。回滚不更新 Redis。绑定/解绑标识和比赛公开显式调用批量 service。异常记录上下文和堆栈后继续抛出，见 `back_end/saolei/effranking/README.md`。仅 Thrp、NF IOE 在单录像与批量加入路径发布成绩变优的 `eff` 分区新闻，TPE 系列不发布；补位变差、批量移除、管理员单项修复和全量重建不发送该信号。
 
-录像删除时，`videomanager.signals.delete_video_expansion` 在当前事务内清理扩展记录；从扩展记录发起的删除沿用 Django 级联，避免重复处理。`customranking.signals.refresh_custom_pluck_rank_on_video_delete` 在提交后从剩余录像补选数据库纪录并更新 Redis；`CustomPluckRecord` 删除后的缓存同步提交后重读当前纪录，回滚不发布删除或补位结果。
+录像删除时，`videomanager.signals.delete_video_expansion` 在当前事务内清理扩展记录；从扩展记录发起的删除沿用 Django 级联，避免重复处理。`customranking` 不再维护数据库纪录模型；录像保存、删除信号均注册 `on_commit(..., robust=True)` 回调，读取当前录像与 Redis 纪录，仅对失效的最佳录像查库补位。复用捕获的旧玩家、级别处理分类迁移，回滚不发布变化；错误记录日志，不阻断其他提交回调，不新增并发锁或自动重试。批量状态更新显式调用 `customranking.services` 的 add/remove 入口。
 
 最新录像队列明确保留现状：删除录像不清理 `newest_queue` 快照，查询仍可能返回已删除 ID，只由既有裁剪和管理员移除功能维护。录像状态或比赛状态变化时按既有规则加入或移除队列；仅修改 `upload_time`、`player_id` 等快照字段时只更新已在队列中的条目，不会让已存在或被移除的录像重新入队。
 
@@ -50,9 +50,6 @@ flowchart LR
     video_pre_save[VideoModel pre_save]
     video_post_save[VideoModel post_save]
     video_pre_delete[VideoModel pre_delete]
-    pluck_pre_save[CustomPluckRecord pre_save]
-    pluck_post_save[CustomPluckRecord post_save]
-    pluck_post_delete[CustomPluckRecord post_delete]
     tournament_post_save[Tournament post_save]
     tournament_post_delete[Tournament post_delete]
     gsc_post_save[GSCTournament post_save]
@@ -89,11 +86,8 @@ flowchart LR
 
 
 
-    refresh_custom_pluck_rank_on_video_save --> pluck_pre_save
-    refresh_custom_pluck_rank_on_video_save --> pluck_post_delete
-    pluck_pre_save --> pluck_post_save
-    pluck_post_save --> update_custom_pluck_cache_on_record_save[更新pluck榜缓存]
-    pluck_post_delete --> update_custom_pluck_cache_on_record_delete[提交后同步pluck榜缓存]
+    refresh_custom_pluck_rank_on_video_save --> pluck_redis[提交后更新Redis纪录与必要补位]
+    refresh_custom_pluck_rank_on_video_delete --> pluck_redis
     minigame_post_delete[MiniGameBestScore post_delete] --> delete_cached_score[删除小游戏排行成绩]
 
     add_created_video_to_checked_tournaments -. m2m_changed .-> no_video_signal[无]
@@ -122,9 +116,6 @@ flowchart LR
 
     click video_pre_save "#signal-function-map" "VideoModel 保存前触发"
     click video_post_save "#signal-function-map" "VideoModel 保存后触发"
-    click pluck_pre_save "#signal-function-map" "CustomPluckRecord 保存前触发"
-    click pluck_post_save "#signal-function-map" "CustomPluckRecord 保存后触发"
-    click pluck_post_delete "#signal-function-map" "CustomPluckRecord 删除后触发"
     click delete_cached_score "#signal-function-map" "提交后删除小游戏 ZSET 和明细 Hash 中的玩家"
     click tournament_post_save "#signal-function-map" "Tournament 保存后触发"
     click tournament_post_delete "#signal-function-map" "Tournament 删除后触发"
@@ -149,8 +140,7 @@ flowchart LR
     click profile_post_delete "#signal-function-map" "用户删除后触发关联扫雷资料清理"
     click delete_user_ms "#signal-function-map" "同一事务内按真实外键删除 UserMS，UserMS 发起的级联跳过重复清理"
     click delete_derived_records "#signal-function-map" "提交后清理 PB 衍生榜成绩 hash 与全部小榜 member"
-    click update_custom_pluck_cache_on_record_save "#signal-function-map" "pluck 纪录保存后同步排行缓存"
-    click update_custom_pluck_cache_on_record_delete "#signal-function-map" "pluck 纪录删除提交后按当前数据库纪录同步缓存"
+    click pluck_redis "#signal-function-map" "通过 customranking.services.sync_video 提交后更新 Redis"
     click update_cache_on_tournament_save "#signal-function-map" "比赛保存后同步 NORMAL 比赛缓存"
     click update_cache_on_tournament_delete "#signal-function-map" "比赛删除后移除比赛缓存和相关参赛缓存"
     click update_cache_on_participant_save "#signal-function-map" "参赛关系保存后同步用户参赛缓存"
@@ -197,8 +187,7 @@ GSC 历史补录沿用默认 TournamentUser 创建和 best 保存信号，允许
 | 清理录像扩展记录 | `videomanager.signals.delete_video_expansion` |
 | 提交后更新效率纪录与必要补位 | `effranking.signals.refresh_ranks_on_video_save` |
 | 提交后补位效率纪录 | `effranking.signals.refresh_ranks_on_video_delete` |
-| 更新pluck榜缓存 | `update_custom_pluck_cache_on_record_save` |
-| 删除后提交同步pluck榜缓存 | `update_custom_pluck_cache_on_record_delete` → `sync_custom_pluck_top_cache` |
+| 提交后更新pluck榜缓存与必要补位 | `customranking.services.sync_video` |
 | 更新比赛缓存 | `update_cache_on_tournament_save` |
 | 删除比赛缓存 | `update_cache_on_tournament_delete` |
 | 更新参赛缓存 | `update_cache_on_participant_save` |

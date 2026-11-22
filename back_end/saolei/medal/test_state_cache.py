@@ -308,7 +308,7 @@ class MedalStateCacheTests(MedalStateFixture, MedalTestCase):
         row = DBTaskResult.objects.get(task_path=task_refresh_player_medals.module_path)
         DBTaskResult.objects.filter(pk=row.pk).update(run_after=timezone.now().replace(year=9999))
         faster = self.make_video(timems=2484, upload_time=self.later)
-        with patch('speedranking.signals.sync_video'), patch('effranking.signals.sync_video'), patch('videomanager.signals.newest_cache'), patch('customranking.signals.remove_from_custom_pluck_rank'):
+        with patch('speedranking.signals.sync_video'), patch('effranking.signals.sync_video'), patch('videomanager.signals.newest_cache'), patch('customranking.signals.sync_video'):
             with self.captureOnCommitCallbacks(execute=True):
                 faster.save(update_fields=['timems'])
         row.refresh_from_db()

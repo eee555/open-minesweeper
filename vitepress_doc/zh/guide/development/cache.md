@@ -265,7 +265,6 @@ digraph cache {
         accountlinkqueue_db [label="AccountLinkQueue\nplatform accounts"];
         accountlinkplatform_db [label="AccountSaolei\nAccountMinesweeperGames\nAccountBilibili\nAccountWorldOfMinesweeper\nAccountQQ", width=3.0, height=1.4];
         videosaolei_db [label="VideoSaolei"];
-        custom_pluck_db [label="CustomPluckRecord"];
         minigame_db [label="MiniGameBestScore"];
         identifier_db [label="Identifier"];
         userms_db [label="UserMS", width=3, height=3, fontsize=30];
@@ -316,8 +315,6 @@ digraph cache {
         update_video_count_on_video_delete [label="update_video_count_on_video_delete"];
         refresh_custom_pluck_rank_on_video_save [label="refresh_custom_pluck_rank_on_video_save"];
         refresh_custom_pluck_rank_on_video_delete [label="refresh_custom_pluck_rank_on_video_delete"];
-        update_custom_pluck_cache_on_record_save [label="update_custom_pluck_cache_on_record_save"];
-        update_custom_pluck_cache_on_record_delete [label="update_custom_pluck_cache_on_record_delete"];
         checkin_video_before_create [label="checkin_video_before_create"];
         add_created_video_to_checked_tournaments [label="add_created_video_to_checked_tournaments"];
         update_cache_on_tournament_delete [label="update_cache_on_tournament_delete"];
@@ -391,12 +388,14 @@ digraph cache {
     video_db -> add_identifier;
     add_identifier -> identifier_db;
     add_identifier -> userms_db;
-    add_identifier -> custom_pluck_db;
+    add_identifier -> pluck_rank_cache [label="on_commit"];
+    add_identifier -> pluck_detail_cache [label="on_commit"];
     userms_db -> del_identifier;
     video_db -> del_identifier;
     del_identifier -> identifier_db;
     del_identifier -> userms_db;
-    del_identifier -> custom_pluck_db;
+    del_identifier -> pluck_rank_cache [label="on_commit"];
+    del_identifier -> pluck_detail_cache [label="on_commit"];
 
 
     // tournament API
@@ -628,24 +627,14 @@ digraph cache {
 
     // customranking signals
     video_db -> refresh_custom_pluck_rank_on_video_save [label="post_save"];
-    video_db -> refresh_custom_pluck_rank_on_video_save [label="read best"];
-    userprofile_db -> refresh_custom_pluck_rank_on_video_save [label="FK read"];
-    custom_pluck_db -> refresh_custom_pluck_rank_on_video_save [label="read"];
-    refresh_custom_pluck_rank_on_video_save -> custom_pluck_db [label="write/delete"];
+    video_db -> refresh_custom_pluck_rank_on_video_save [label="on_commit read current / backfill"];
+    pluck_rank_cache -> refresh_custom_pluck_rank_on_video_save [label="read current record"];
+    pluck_detail_cache -> refresh_custom_pluck_rank_on_video_save [label="read current record"];
+    refresh_custom_pluck_rank_on_video_save -> pluck_rank_cache [label="on_commit write/delete"];
+    refresh_custom_pluck_rank_on_video_save -> pluck_detail_cache [label="on_commit write/delete"];
     video_db -> refresh_custom_pluck_rank_on_video_delete [label="post_delete / on_commit read remaining"];
-    refresh_custom_pluck_rank_on_video_delete -> custom_pluck_db [label="on_commit backfill/write/delete"];
     refresh_custom_pluck_rank_on_video_delete -> pluck_rank_cache [label="on_commit write/delete"];
     refresh_custom_pluck_rank_on_video_delete -> pluck_detail_cache [label="on_commit write/delete"];
-
-    custom_pluck_db -> update_custom_pluck_cache_on_record_save [label="post_save"];
-    video_db -> update_custom_pluck_cache_on_record_save [label="FK read"];
-    update_custom_pluck_cache_on_record_save -> pluck_rank_cache [label="write"];
-    update_custom_pluck_cache_on_record_save -> pluck_detail_cache [label="write"];
-
-    custom_pluck_db -> update_custom_pluck_cache_on_record_delete [label="post_delete"];
-    custom_pluck_db -> update_custom_pluck_cache_on_record_delete [label="on_commit read current"];
-    update_custom_pluck_cache_on_record_delete -> pluck_rank_cache [label="on_commit write/delete"];
-    update_custom_pluck_cache_on_record_delete -> pluck_detail_cache [label="on_commit write/delete"];
 
     // tournament signals
     video_db -> checkin_video_before_create [label="pre_save"];
@@ -739,7 +728,7 @@ digraph cache {
 
 三个赛种的结束任务最早在原 `end_time + 1 小时` 执行，期间保留 NORMAL 和报名缓存；GSC 重启同样遵守该下限。这里只缓冲截止前已经进入保存流程的上传，不延长比赛/个人窗口，不改变积分衰减时间。异常保存超过一小时仍可能交错；个人窗口过后重置报名也不额外等待在途上传，本次不增加在途计数或结算锁。
 
-自定义 pluck 录像删除后，在事务提交时从剩余合格录像补位 `CustomPluckRecord` 和对应 Redis 项；纪录删除后的缓存同步也提交后重读当前数据库状态，回滚不发布这两项更新。
+自定义 pluck 纪录仅存 Redis。录像保存、删除和批量状态更新在事务提交后比较当前缓存；只有失效录像保持的分类才从剩余合格 `VideoModel` 补位，回滚不发布。更新失败记录日志，不阻断其他提交回调；不加 WATCH、锁或自动重试，异常纪录由管理员修复。
 
 比赛录像普通删除不立即重算，暂时保留已结算成绩、名次、积分和历史最好成绩，不刷新对应比赛积分与 best 排行。显式重算按赛种及成绩来源处理：打卡赛和 GSC 录像来源排除已删除录像，GSC 手工来源保留输入成绩，但两种来源均参与全场排名及积分更新。各新赛种须定义自己的删除、重算及 best 维护规则。站长 API 已返回受影响比赛 ID 并记录日志警告，隐藏中文页面已提供删除警告和确认；未来通知主办方的私信尚未实现，方案见仓库 `back_end/saolei/tournament/VIDEO_DELETION_PLAN.md`。
 
@@ -854,7 +843,7 @@ Redis 连接和读写异常记录日志，计算及数据库摘要不回滚，�
 | --- | --- | --- |
 | 录像状态队列 | `videomanager.signals.refresh_state_queue_on_video_save` | `videomanager.cache.add_videos_to_state_queues_bulk` 可按状态批量恢复普通队列。 |
 | 效率 Thrp / NF IOE / TPE 排行 | `effranking.signals` 与批量 services，提交后更新 | `rebuild_eff_ranks --ranking-name thrp/nf_ioe/tpe` 指定大榜重建；管理员对应大榜的 `admin/rebuild_record` 修复单项，sum 仅从个人 hash 重算。 |
-| 自定义 pluck 排行 | 保存时 `update_custom_pluck_top_cache`；录像删除提交后 `refresh_custom_pluck_rank` 补位，纪录删除提交后 `sync_custom_pluck_top_cache` 同步当前状态 | `manage.py rebuild_custom_pluck_cache` 从 `CustomPluckRecord` 全量重建，不补建缺失的数据库纪录。 |
+| 自定义 pluck 排行 | `customranking.services.sync_video` 提交后增量更新或按需补位；批量状态变更显式调用 add/remove service | `manage.py rebuild_custom_pluck_cache` 从 `VideoModel` 直接选优重建；正常部署保留原有 Redis 数据，无需重建。 |
 | NORMAL 比赛 | `TournamentCache.update_tournament` | `manage.py rebuild_tournament_cache` 显式查询 `NORMAL` GSC、竞速及效率打卡赛并重建。 |
 | NORMAL 参赛关系 | `TournamentCache.update_participant` / `remove_participant` | `manage.py rebuild_tournament_cache` 按 `user_id` 分组重建。 |
 | 比赛积分排行 | `TournamentCache.update_tournament_user` / `update_tournament_users`；APScheduler 年度锚点更新 | `manage.py rebuild_tournament_user_cache` 重建全部 9 个 zset；`manage.py rebuild_tournament_current_score_cache` 原子重算当前积分 zset 和年度锚点。 |
