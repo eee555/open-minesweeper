@@ -2,6 +2,8 @@
 
 ## 未发布 / Unreleased
 
+## 0.2.4 — 2026-11-22
+
 - 升级录像解析依赖 ms-toollib 至 1.6.3。
 - Upgrade the replay parsing dependency ms-toollib to 1.6.3.
 - 计数器及自定义事件表达式支持有效点击路径、左击/双击解决的 3BV、Luck 和期望解决量/用时指标。
