@@ -89,12 +89,11 @@ export function useAnalysisData(config: MaybeRefOrGetter<AnalyzerConfig>, durati
         const token = ++runId;
         const steps = Math.max(1, Number(counters) + Number(customEvents));
         return execute(token, steps, async () => {
-            let step = 1;
             if (counters) {
-                await prepareCounters(token, step++, steps);
+                await prepareCounters(token, 1, steps);
                 if (token !== runId) return;
             }
-            if (customEvents) await prepareCustomEvents(token, step++, steps);
+            if (customEvents) await prepareCustomEvents(token, counters ? 2 : 1, steps);
         }, false);
     }
 
