@@ -119,7 +119,9 @@ watch(playback.loopMode, (mode) => {
 }, { flush: 'sync' });
 watch(video, (current, _previous, onCleanup) => {
     analysis.cancel();
-    onCleanup(() => analysis.cancel());
+    onCleanup(() => {
+        analysis.cancel();
+    });
     if (current === null) {
         analysis.clear();
         return;

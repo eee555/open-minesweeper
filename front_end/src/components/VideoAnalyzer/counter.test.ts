@@ -112,8 +112,9 @@ describe('counter expressions', () => {
     it('prepares counters asynchronously with the same samples and progress', async () => {
         const events = [event(0, 1), event(1, 2)];
         const progress: [number, number][] = [];
-        const prepared = await prepareCountersAsync([row()], events, undefined, async (done, total) => {
+        const prepared = await prepareCountersAsync([row()], events, undefined, (done, total) => {
             progress.push([done, total]);
+            return Promise.resolve();
         });
         expect(prepared.get('bvs')?.samples).toEqual(prepareCounter(row(), events).samples);
         expect(progress.at(-1)).toEqual([1, 1]);

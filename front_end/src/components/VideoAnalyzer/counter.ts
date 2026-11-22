@@ -232,10 +232,11 @@ export async function selectCounterEventsAsync(events: CounterEvent[], samplingM
     }
     const endMs = Math.max(snapshots[snapshots.length - 1].timeMs, Math.floor(durationMs ?? 0));
     const [first] = snapshots;
-    const total = events.length + endMs - first.timeMs + 1;
+    let { timeMs } = first;
+    const total = events.length + endMs - timeMs + 1;
     const samples: CounterEvent[] = [];
     let index = 0;
-    for (let timeMs = first.timeMs; timeMs <= endMs; timeMs++) {
+    for (; timeMs <= endMs; timeMs++) {
         while (index + 1 < snapshots.length && snapshots[index + 1].timeMs <= timeMs) index++;
         const snapshot = snapshots[index];
         samples.push(timeMs === snapshot.timeMs ? snapshot : { ...snapshot, timeMs });

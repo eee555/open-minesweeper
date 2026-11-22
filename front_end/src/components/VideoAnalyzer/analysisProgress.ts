@@ -17,7 +17,7 @@ export interface AnalysisProgressSnapshot {
 export type ProgressReport = (done: number, total: number) => Promise<void>;
 
 export class AnalysisCancelled extends Error {
-    constructor() {
+    public constructor() {
         super('Analysis cancelled');
     }
 }
@@ -27,7 +27,9 @@ export function initialAnalysisProgress(steps = 4): AnalysisProgressSnapshot {
 }
 
 export function yieldToBrowser(): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, 0));
+    return new Promise((resolve) => {
+        setTimeout(resolve, 0);
+    });
 }
 
 export function createProgressReporter(progress: Ref<AnalysisProgressSnapshot>, isCancelled: () => boolean): ProgressReport {

@@ -114,10 +114,11 @@ describe('replay mouse trace', () => {
         });
         const video = { events: records, pix_size: 16, video_start_time: 0 } as unknown as ReplayVideo;
         const progress: [number, number][] = [];
-        const trace = await readMouseTraceAsync(video, async (done, total) => {
+        const trace = await readMouseTraceAsync(video, (done, total) => {
             progress.push([done, total]);
+            return Promise.resolve();
         });
-        expect(trace).toHaveLength(2);
+        expect(trace).toHaveLength(3);
         expect(progress.at(-1)).toEqual([3, 3]);
         for (const record of records) expect(record.free).toHaveBeenCalledOnce();
     });

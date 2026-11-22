@@ -115,10 +115,11 @@ describe('custom events', () => {
         const events = [event(0, 0, 0), event(1, 1, 1)];
         const definitions = [definition('left')];
         const progress: [number, number][] = [];
-        const prepared = await prepareCustomEventsAsync(definitions, events, 2, async (done, total) => {
+        const prepared = await prepareCustomEventsAsync(definitions, events, 2, (done, total) => {
             progress.push([done, total]);
+            return Promise.resolve();
         });
         expect(prepared.get('clicks')).toEqual(prepareCustomEvents(definitions, events, 2).get('clicks'));
-        expect(progress.at(-1)).toEqual([1, 1]);
+        expect(progress.at(-1)).toEqual([3, 3]);
     });
 });

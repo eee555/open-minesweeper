@@ -4,7 +4,7 @@ import type { MaybeRefOrGetter, Ref } from 'vue';
 import { AnalysisCancelled, createProgressReporter, initialAnalysisProgress, yieldToBrowser } from './analysisProgress';
 import type { AnalysisProgressSnapshot, AnalysisStepKey, ProgressReport } from './analysisProgress';
 import type { AnalyzerConfig } from './config';
-import { readCounterEventsAsync, prepareCountersAsync } from './counter';
+import { prepareCountersAsync, readCounterEventsAsync } from './counter';
 import type { CounterEvent, PreparedCounter } from './counter';
 import { prepareCustomEventsAsync } from './customEvents';
 import type { PreparedCustomEvent } from './customEvents';
@@ -57,8 +57,8 @@ export function useAnalysisData(config: MaybeRefOrGetter<AnalyzerConfig>, durati
     }
 
     async function runPrepared(token: number, firstStep: number, steps: number): Promise<void> {
-        const rows = toValue(config).counter.rows;
-        const definitions = toValue(config).customEvents;
+        const { rows } = toValue(config).counter;
+        const { customEvents: definitions } = toValue(config);
         const events = counterEvents.value;
         const duration = toValue(durationMs);
         const counters = await runStep(token, 'counters', firstStep, steps, rows.length, (report) => prepareCountersAsync(rows, events, duration, report));
@@ -96,11 +96,12 @@ export function useAnalysisData(config: MaybeRefOrGetter<AnalyzerConfig>, durati
         errorMessage,
         load: (video) => {
             const token = ++runId;
+            const eventCount = (video.events as unknown[]).length;
             return execute(token, 4, async () => {
-                const trace = await runStep(token, 'trace', 1, 4, video.events.length, (report) => readMouseTraceAsync(video, report));
+                const trace = await runStep(token, 'trace', 1, 4, eventCount, (report) => readMouseTraceAsync(video, report));
                 if (token !== runId) return;
                 traceEvents.value = trace;
-                const events = await runStep(token, 'counter', 2, 4, video.events.length, (report) => readCounterEventsAsync(video, report));
+                const events = await runStep(token, 'counter', 2, 4, eventCount, (report) => readCounterEventsAsync(video, report));
                 if (token !== runId) return;
                 counterEvents.value = events;
                 await runPrepared(token, 3, 4);

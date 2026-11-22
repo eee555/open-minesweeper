@@ -1,10 +1,14 @@
 <template>
     <ElDialog :model-value="visible" class="analyzer-analysis-progress" width="340px" align-center :show-close="false" :close-on-click-modal="false" :close-on-press-escape="false" append-to-body>
         <template #header>
-            <div class="text text-regular analyzer-analysis-progress__title">{{ t('title') }}</div>
+            <div class="analyzer-analysis-progress__title text text-regular">
+                {{ t('title') }}
+            </div>
         </template>
         <div class="analyzer-analysis-progress__body" role="status" aria-live="polite">
-            <div class="analyzer-analysis-progress__label">{{ t(progress.key) }}</div>
+            <div class="analyzer-analysis-progress__label">
+                {{ t(progress.key) }}
+            </div>
             <div class="analyzer-analysis-progress__track" role="progressbar" :aria-valuenow="progress.percent" aria-valuemin="0" aria-valuemax="100" :aria-label="t('title')">
                 <div class="analyzer-analysis-progress__fill" :style="{ width: `${progress.percent}%` }" />
             </div>
@@ -18,11 +22,15 @@
 
 <script setup lang="ts">
 import { ElDialog } from 'element-plus';
+import type { PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import type { AnalysisProgressSnapshot } from './analysisProgress';
 
-defineProps<{ visible: boolean; progress: AnalysisProgressSnapshot }>();
+defineProps({
+    visible: { type: Boolean, required: true },
+    progress: { type: Object as PropType<AnalysisProgressSnapshot>, required: true },
+});
 
 const i18nMessages = {
     'zh-cn': { local: {
