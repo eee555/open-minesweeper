@@ -27,14 +27,17 @@ describe('<MediaRanking />', () => {
         cy.get('table thead').extractTableData().should((data) => {
             expect(data[0]).to.deep.equal(['#', 'Player', 'Current heat', 'Total likes']);
         });
+        cy.get('table thead th[aria-sort=descending]').should('contain.text', 'Current heat');
         cy.get('table tbody').extractTableData().should((data) => {
             expect(data[0]?.[0]).to.equal('1');
             expect(data[0]?.[2]).to.equal('9.87');
             expect(data[0]?.[3]).to.equal('12');
         });
         cy.get('table a[href="#/player/42"]').should('exist');
-        cy.contains('button', 'Total likes').click();
+        cy.get('table thead [data-field=likes]').click();
         cy.wait('@ranking').its('request.query').should('include', { sort: 'likes' });
+        cy.get('table thead [data-field=likes]').should('have.attr', 'aria-pressed', 'true');
+        cy.get('table thead th[aria-sort=descending]').should('contain.text', 'Total likes');
     });
 
     it('decays the anchor-based score to the current heat', () => {
