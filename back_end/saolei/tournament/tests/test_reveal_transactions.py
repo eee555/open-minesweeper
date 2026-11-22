@@ -9,7 +9,6 @@ from django_tasks_db.models import DBTaskResult
 from redis.exceptions import TimeoutError as RedisTimeoutError
 
 from config.text_choices import MS_TextChoices, Tournament_TextChoices
-from customranking.models import CustomPluckRecord
 from medal.tasks import enqueue_player_refresh, task_refresh_player_medals
 from userprofile.models import UserProfile
 from videomanager.models import ExpandVideoModel, VideoModel
@@ -23,7 +22,8 @@ class TournamentRevealTransactionTests(TransactionTestCase):
         self.addCleanup(directory.cleanup)
         self.enterContext(override_settings(TOP_RANKING_LOCK_PATH=Path(directory.name) / 'top.sqlite3'))
         self.queue_redis = self.enterContext(patch('videomanager.cache.cache'))
-        self.pluck_redis = self.enterContext(patch('customranking.cache.cache'))
+        self.pluck_redis = self.enterContext(patch('customranking.cache.PLuckRankingCache.pipeline')).return_value.__enter__.return_value
+        self.enterContext(patch('customranking.services.read_records', side_effect=dict.fromkeys))
         self.speed_refresh = self.enterContext(patch('speedranking.services._update_videos'))
         self.eff_refresh = self.enterContext(patch('effranking.services._update_videos'))
         self.user = UserProfile.objects.create_user(username='reveal_transaction', email='reveal-transaction@example.com')
@@ -64,12 +64,10 @@ class TournamentRevealTransactionTests(TransactionTestCase):
                 self.queue_redis.hset.assert_not_called()
                 self.pluck_redis.zadd.assert_not_called()
                 self.pluck_redis.hset.assert_not_called()
-                self.assertFalse(CustomPluckRecord.objects.exists())
                 self.assertEqual(self.ready_medal_players(), [])
                 raise RuntimeError('rollback reveal')
         self.video.refresh_from_db()
         self.assertTrue(self.video.ongoing_tournament)
-        self.assertFalse(CustomPluckRecord.objects.exists())
         self.assertEqual(self.ready_medal_players(), [])
         self.queue_redis.hset.assert_not_called()
         self.pluck_redis.zadd.assert_not_called()
@@ -90,12 +88,10 @@ class TournamentRevealTransactionTests(TransactionTestCase):
             self.pluck_redis.hset.assert_not_called()
             self.speed_refresh.assert_not_called()
             self.eff_refresh.assert_not_called()
-            self.assertFalse(CustomPluckRecord.objects.exists())
             self.assertEqual(self.ready_medal_players(), [])
         self.assert_public()
         self.assertEqual(queue_transaction_states, [False])
         self.assert_queue_contains(self.video.pk)
-        self.assertTrue(CustomPluckRecord.objects.filter(video=self.video).exists())
         self.pluck_redis.zadd.assert_called_once()
         self.pluck_redis.hset.assert_called_once()
         self.speed_refresh.assert_called_once()
@@ -103,7 +99,7 @@ class TournamentRevealTransactionTests(TransactionTestCase):
         self.assertEqual(self.ready_medal_players(), [self.user.pk])
 
     def test_custom_rank_cache_timeout_keeps_reveal_and_other_callbacks(self):
-        self.pluck_redis.hset.side_effect = RedisTimeoutError('custom ranking cache unavailable')
+        self.pluck_redis.execute.side_effect = RedisTimeoutError('custom ranking cache unavailable')
         with self.assertLogs('django.db.backends.base', level='ERROR') as logs:
             self.assertEqual(reveal_videos_for_tournament(self.tournament), 1)
         self.assertIn('custom ranking cache unavailable', '\n'.join(logs.output))
@@ -121,7 +117,6 @@ class TournamentRevealTransactionTests(TransactionTestCase):
             self.assertEqual(reveal_videos_for_tournament(self.tournament), 1)
         self.assertIn('newest queue unavailable', '\n'.join(logs.output))
         self.assert_public()
-        self.assertTrue(CustomPluckRecord.objects.filter(video=self.video).exists())
         self.pluck_redis.hset.assert_called_once()
         self.speed_refresh.assert_called_once()
         self.eff_refresh.assert_called_once()
@@ -134,7 +129,6 @@ class TournamentRevealTransactionTests(TransactionTestCase):
         self.assertIn('speed ranking cache unavailable', '\n'.join(logs.output))
         self.assert_public()
         self.assert_queue_contains(self.video.pk)
-        self.assertTrue(CustomPluckRecord.objects.filter(video=self.video).exists())
         self.pluck_redis.hset.assert_called_once()
         self.eff_refresh.assert_called_once()
         self.assertEqual(self.ready_medal_players(), [self.user.pk])
@@ -155,8 +149,8 @@ class TournamentRevealTransactionTests(TransactionTestCase):
         other_video.refresh_from_db()
         self.assertFalse(other_video.ongoing_tournament)
         self.assert_queue_contains(self.video.pk, other_video.pk)
-        self.assertEqual(CustomPluckRecord.objects.count(), 2)
-        self.assertEqual(self.pluck_redis.hset.call_count, 2)
+        self.pluck_redis.hset.assert_called_once()
+        self.assertEqual(set(self.pluck_redis.hset.call_args.kwargs['mapping']), {str(self.user.pk), str(other.pk)})
         self.speed_refresh.assert_called_once()
         self.eff_refresh.assert_called_once()
         self.assertEqual(self.ready_medal_players(), [other.pk])

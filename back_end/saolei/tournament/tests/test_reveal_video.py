@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 from django.test import override_settings
 
-from customranking.models import CustomPluckRecord
+from customranking.cache import get_player_pluck_records
 from videomanager.cache import cache, newest_cache
 from .base import GSCParticipant, MS_TextChoices, refresh_gsc_scores, Tournament_TextChoices, TournamentTestCaseBase, VideoModel
 
@@ -88,7 +88,8 @@ class TestRevealVideo(TournamentTestCaseBase):
     def test_reveal_updates_custom_pluck_record(self):
         video = self.create_video(level=MS_TextChoices.Level.CUSTOM_8_8_40)
         VideoModel.objects.filter(pk=video.pk).update(pluck=5)
-        self.assertFalse(CustomPluckRecord.objects.filter(video=video).exists())
-        response = self.client.post(f'/api/tournament/video/{video.pk}/reveal')
+        self.assertEqual(get_player_pluck_records(video.player_id, [video.level]), {})
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(f'/api/tournament/video/{video.pk}/reveal')
         self.assertEqual(response.status_code, 204)
-        self.assertTrue(CustomPluckRecord.objects.filter(video=video).exists())
+        self.assertEqual(get_player_pluck_records(video.player_id, [video.level])[video.level]['video_id'], video.pk)

@@ -357,7 +357,7 @@ python manage.py rebuild_tournament_current_score_cache
 
 位置：`customranking/management/commands/rebuild_custom_pluck_cache.py`
 
-重建自定义 pLuck 排行的 Redis 缓存。
+直接从 `VideoModel` 按玩家、配置选取最佳录像，重建自定义 pLuck 排行的 Redis 缓存，不维护额外的数据库纪录表。命令先清空指定配置的缓存再分批写入，执行时暂停相关写入；失败后排查并重跑。正常部署保留现有 Redis 数据，无需执行本命令。
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |

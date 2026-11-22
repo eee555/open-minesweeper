@@ -5,10 +5,9 @@ from django.core.cache import caches
 from django.test import override_settings, TestCase
 from django_redis import get_redis_connection
 
-from config.customranking import CUSTOM_PLUCK_LEVELS, CUSTOM_PLUCK_MODES
+from config.customranking import CUSTOM_PLUCK_LEVELS
 from config.text_choices import MS_TextChoices
 from customranking.cache import PLuckRankingCache
-from customranking.models import CustomPluckRecord
 from msuser.models import UserMS
 from userprofile.models import UserProfile
 from videomanager.models import ExpandVideoModel, VideoModel
@@ -305,11 +304,12 @@ class BindIdentifierServiceTest(TestCase):
             pluck=pluck,
         )
 
-    def test_bind_and_unbind_identifier_bulk_update_video_states(self):
-        identifier = Identifier.objects.create(identifier='classic-id', safe=True)
-        video = self.create_video('classic-id')
+    def test_bind_and_unbind_bulk_update_video_state_and_pluck_record(self):
+        identifier = Identifier.objects.create(identifier='custom-id', safe=True)
+        video = self.create_video('custom-id', level=next(iter(CUSTOM_PLUCK_LEVELS)), pluck=0.25)
 
-        changed_count = bind_identifier(identifier, self.userms)
+        with self.captureOnCommitCallbacks(execute=True):
+            changed_count = bind_identifier(identifier, self.userms)
 
         identifier.refresh_from_db()
         video.refresh_from_db()
@@ -318,37 +318,20 @@ class BindIdentifierServiceTest(TestCase):
         self.assertEqual(identifier.userms_id, self.userms.id)
         self.assertIn(identifier.identifier, self.userms.identifiers)
         self.assertEqual(video.state, MS_TextChoices.State.OFFICIAL)
+        ranking = PLuckRankingCache(video.level)
+        record = ranking.get_rank_range(0, 1)[0]
+        self.assertEqual(record['video_id'], video.id)
+        self.assertEqual(record['pluck'], video.pluck)
 
-        changed_count = unbind_identifier(identifier, self.userms)
+        with self.captureOnCommitCallbacks(execute=True):
+            changed_count = unbind_identifier(identifier, self.userms)
 
         video.refresh_from_db()
         self.userms.refresh_from_db()
         self.assertEqual(changed_count, 1)
         self.assertEqual(video.state, MS_TextChoices.State.IDENTIFIER)
         self.assertNotIn(identifier.identifier, self.userms.identifiers)
-
-    def test_bind_identifier_bulk_updates_custom_pluck_record(self):
-        identifier = Identifier.objects.create(identifier='custom-id', safe=True)
-        video = self.create_video(
-            'custom-id',
-            level=next(iter(CUSTOM_PLUCK_LEVELS)),
-            mode=next(iter(CUSTOM_PLUCK_MODES)),
-            pluck=0.25,
-        )
-
-        bind_identifier(identifier, self.userms)
-
-        video.refresh_from_db()
-        self.assertEqual(video.state, MS_TextChoices.State.OFFICIAL)
-        record = CustomPluckRecord.objects.get(player=self.user, level=video.level)
-        self.assertEqual(record.video_id, video.id)
-        self.assertEqual(record.pluck, video.pluck)
-
-        unbind_identifier(identifier, self.userms)
-
-        video.refresh_from_db()
-        self.assertEqual(video.state, MS_TextChoices.State.IDENTIFIER)
-        self.assertFalse(CustomPluckRecord.objects.filter(player=self.user, level=video.level).exists())
+        self.assertEqual(ranking.get_rank_range(0, 1), [])
 
     def test_set_safe_updates_unbound_identifier(self):
         identifier = Identifier.objects.create(identifier='review-id', safe=False)

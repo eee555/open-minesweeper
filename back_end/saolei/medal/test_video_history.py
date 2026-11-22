@@ -42,7 +42,7 @@ class MedalVideoHistoryTests(tests.MedalTestCase):
 
     def change_upload_time(self, video, at, *, imported=False):
         # 保留真实保存信号和勋章任务，隔离其他排行及最新录像队列的 Redis 写入。
-        with patch('speedranking.signals.sync_video'), patch('effranking.signals.sync_video'), patch('videomanager.signals.newest_cache'), patch('customranking.signals.remove_from_custom_pluck_rank'):
+        with patch('speedranking.signals.sync_video'), patch('effranking.signals.sync_video'), patch('videomanager.signals.newest_cache'), patch('customranking.signals.sync_video'):
             with self.captureOnCommitCallbacks(execute=True):
                 if imported:
                     set_import_upload_time(video, at)

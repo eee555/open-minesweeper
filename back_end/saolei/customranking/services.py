@@ -1,253 +1,179 @@
-from django.db.models import F, Max, Min, Window
+from functools import partial
+from itertools import batched
+
+from django.db import transaction
+from django.db.models import F, Q, Window
 from django.db.models.functions import RowNumber
 from django.db.models.query import QuerySet
-from django.utils import timezone
 
 from config.customranking import CUSTOM_PLUCK_LEVELS, CUSTOM_PLUCK_MODES
 from config.text_choices import MS_TextChoices
+from utils.querysets import player_batches
 from videomanager.models import VideoModel
-from .cache import PLuckRankingCache
-from .models import CustomPluckRecord
+from .cache import PLuckRankingCache, read_records
+from .utils import log_update_errors
+
+VIDEO_FIELDS = ('id', 'player_id', 'level', 'mode', 'state', 'ongoing_tournament', 'pluck', 'timems', 'upload_time')
 
 
-def update_custom_pluck_top_cache(record: CustomPluckRecord | None, level: str, player_id: int):
-    """更新或移除单个玩家的 pluck 排行缓存。"""
-    ranking_cache = PLuckRankingCache(level)
-    if record is not None:
-        ranking_cache.add_record(record)
-    else:
-        ranking_cache.remove_record(player_id)
+def eligible_videos(videos):
+    return videos.filter(
+        level__in=CUSTOM_PLUCK_LEVELS, mode__in=CUSTOM_PLUCK_MODES,
+        state=MS_TextChoices.State.OFFICIAL, ongoing_tournament=False, pluck__isnull=False,
+    ).select_related(None).only(*VIDEO_FIELDS)
 
 
-def sync_custom_pluck_top_cache(player_id: int, level: str):
-    """按提交后的当前纪录刷新缓存，兼容同一事务内删除后重建纪录。"""
-    record = CustomPluckRecord.objects.filter(player_id=player_id, level=level).first()
-    update_custom_pluck_top_cache(record, level, player_id)
+def best_videos(videos):
+    return eligible_videos(videos).order_by().annotate(
+        rn=Window(
+            expression=RowNumber(), partition_by=[F('player_id'), F('level')],
+            order_by=[F('pluck').asc(), F('timems').asc(), F('upload_time').asc()],
+        ),
+    ).filter(rn=1)
 
 
-def refresh_custom_pluck_rank(player_id: int, level: str):
-    """重新计算单个玩家在某个自定义级别下的最佳 pluck 纪录。"""
-    video = (
-        VideoModel.objects
-        .filter(
-            player_id=player_id,
-            level=level,
-            mode__in=CUSTOM_PLUCK_MODES,
-            state=MS_TextChoices.State.OFFICIAL,
-            ongoing_tournament=False,
-            pluck__isnull=False,
-        )
-        .order_by('pluck', 'timems', 'upload_time')
-        .first()
+def is_eligible(video):
+    return (
+        video is not None and video.level in CUSTOM_PLUCK_LEVELS and video.mode in CUSTOM_PLUCK_MODES
+        and video.state == MS_TextChoices.State.OFFICIAL and not video.ongoing_tournament and video.pluck is not None
     )
 
-    if video is None:
-        CustomPluckRecord.objects.filter(player_id=player_id, level=level).delete()
-        return None
 
-    record, _ = CustomPluckRecord.objects.update_or_create(
-        player_id=video.player_id,
-        level=video.level,
-        defaults={
-            'video_id': video.id,
-            'pluck': video.pluck,
-            'timems': video.timems,
-            'upload_time': video.upload_time,
-        },
-    )
-    return record
+def better_than(video, record):
+    return record is None or (video.pluck, video.timems, video.upload_time) < (record['pluck'], record['timems'], record['upload_time'])
 
 
-def add_to_custom_pluck_rank(video: VideoModel):
-    """尝试将一条录像加入 pluck 排行，并在优于原纪录时刷新玩家纪录。"""
-    record, created = CustomPluckRecord.objects.get_or_create(
-        player=video.player,
-        level=video.level,
-        defaults={
-            'video': video,
-            'pluck': video.pluck,
-            'timems': video.timems,
-            'upload_time': video.upload_time,
-        },
-    )
-    if not created:
-        if record.video_id == video.id:
-            return refresh_custom_pluck_rank(video.player_id, video.level)
-        record.add_video(video)
-    return record
+def _write_records(records):
+    if not records:
+        return
+    with PLuckRankingCache.pipeline() as pipe:
+        for level in CUSTOM_PLUCK_LEVELS:
+            ranking = PLuckRankingCache(level)
+            videos = []
+            for (player_id, record_level), video in records.items():
+                if record_level != level:
+                    continue
+                if video is None:
+                    ranking.remove_record(player_id, pipe=pipe)
+                else:
+                    videos.append(video)
+            ranking.add_record_batch(videos, pipe=pipe)
+        pipe.execute()
+
+
+def _replacement_records(categories):
+    records = dict.fromkeys(categories)
+    if not records:
+        return records
+    query = Q()
+    for level in CUSTOM_PLUCK_LEVELS:
+        players = [player for player, category_level in records if category_level == level]
+        if players:
+            query |= Q(player_id__in=players, level=level)
+    for video in best_videos(VideoModel.objects.filter(query)):
+        records[video.player_id, video.level] = video
+    return records
+
+
+def _sync_video(video_id, previous_category):
+    with log_update_errors('sync_video', video_id=video_id, previous_category=previous_category):
+        video = VideoModel.objects.only(*VIDEO_FIELDS).filter(pk=video_id).first()
+        category = (video.player_id, video.level) if video is not None else None
+        categories = {item for item in (previous_category, category) if item is not None and item[1] in CUSTOM_PLUCK_LEVELS}
+        previous = read_records(categories)
+        replacements = set()
+        for key, record in previous.items():
+            if record is None or record['video_id'] != video_id:
+                continue
+            if key != category or not is_eligible(video) or (video.pluck, video.timems, video.upload_time) > (record['pluck'], record['timems'], record['upload_time']):
+                replacements.add(key)
+        updates = _replacement_records(replacements)
+        if is_eligible(video) and category not in replacements and better_than(video, previous.get(category)):
+            updates[category] = video
+        _write_records(updates)
+
+
+def sync_video(video_id: int, previous_category: tuple[int, str], *, using=None):
+    transaction.on_commit(partial(_sync_video, video_id, previous_category), using=using, robust=True)
+
+
+def _update_videos(videos, remove):
+    with log_update_errors('remove_videos' if remove else 'add_videos'):
+        videos = videos.filter(level__in=CUSTOM_PLUCK_LEVELS)
+        for players in player_batches(videos, 100):
+            subset = videos.filter(player_id__in=players)
+            if remove:
+                rows = list(subset.values_list('id', 'player_id', 'level'))
+                previous = read_records({(player, level) for _, player, level in rows})
+                video_ids = {pk for pk, _, _ in rows}
+                categories = {key for key, record in previous.items() if record is not None and record['video_id'] in video_ids}
+                updates = _replacement_records(categories)
+            else:
+                candidates = list(best_videos(subset))
+                previous = read_records({(video.player_id, video.level) for video in candidates})
+                updates = {}
+                for video in candidates:
+                    key = (video.player_id, video.level)
+                    if better_than(video, previous[key]):
+                        updates[key] = video
+            _write_records(updates)
 
 
 def add_videos_to_custom_pluck_ranks(videos: QuerySet[VideoModel]):
-    """将一批录像按 (player, level) 分组后，把每组最佳录像吸收到 pluck 个人纪录。"""
-    best_videos = (
-        videos
-        .filter(
-            level__in=CUSTOM_PLUCK_LEVELS,
-            mode__in=CUSTOM_PLUCK_MODES,
-            state=MS_TextChoices.State.OFFICIAL,
-            ongoing_tournament=False,
-            pluck__isnull=False,
-        )
-        .annotate(
-            rn=Window(
-                expression=RowNumber(),
-                partition_by=[F('player_id'), F('level')],
-                order_by=[F('pluck').asc(), F('timems').asc(), F('upload_time').asc()],
-            ),
-        )
-        .filter(rn=1)
-    )
-
-    count = 0
-    for video in best_videos.iterator(chunk_size=1000):
-        add_to_custom_pluck_rank(video)
-        count += 1
-
-    return count
+    """提交后分组吸收录像；queryset 应使用固定 id 或稳定的范围。"""
+    transaction.on_commit(partial(_update_videos, videos.all(), False), using=videos.db, robust=True)
 
 
-def remove_videos_from_custom_pluck_ranks(video_ids: set[int]):
-    """移除一批录像对 pluck 个人纪录的影响，并刷新受影响的 (player, level)。"""
-    if not video_ids:
-        return 0
-
-    records = list(CustomPluckRecord.objects.filter(video_id__in=video_ids))
-    for record in records:
-        refresh_custom_pluck_rank(record.player_id, record.level)
-
-    return len(records)
-
-
-def remove_from_custom_pluck_rank(video: VideoModel):
-    """从 pluck 排行中移除录像影响，并用该玩家剩余录像重新计算纪录。"""
-    if video.level not in CUSTOM_PLUCK_LEVELS:
-        return None
-    return refresh_custom_pluck_rank(video.player_id, video.level)
+def remove_videos_from_custom_pluck_ranks(videos: QuerySet[VideoModel]):
+    """批量失效后的补位，传入固定录像 id 定位、仍有录像行的 queryset。"""
+    transaction.on_commit(partial(_update_videos, videos.all(), True), using=videos.db, robust=True)
 
 
 def refresh_custom_pluck_rank_range(startid: int, endid: int):
-    """逐条确认并刷新指定玩家 id 闭区间内的自定义 pluck 排行数据库纪录。"""
-    refresh_started_at = timezone.now()
+    """重算玩家 id 闭区间；也清除区间内已无候选的缓存纪录。"""
+    with log_update_errors('refresh_range', startid=startid, endid=endid):
+        records = {}
+        # 管理员修复需同时扫描两侧，才能清掉半缺失和已删用户的陈旧项。
+        with PLuckRankingCache.pipeline() as pipe:
+            for level in CUSTOM_PLUCK_LEVELS:
+                ranking = PLuckRankingCache(level)
+                pipe.zrange(ranking.rank_key, 0, -1)
+                pipe.hkeys(ranking.detail_key)
+            cached = pipe.execute()
+        for index, level in enumerate(CUSTOM_PLUCK_LEVELS):
+            for member in cached[index * 2] + cached[index * 2 + 1]:
+                player_id = int(member)
+                if startid <= player_id <= endid:
+                    records.setdefault(player_id, {})[player_id, level] = None
+        for video in best_videos(VideoModel.objects.filter(player_id__gte=startid, player_id__lte=endid)):
+            records.setdefault(video.player_id, {})[video.player_id, video.level] = video
 
-    best_videos = (
-        VideoModel.objects
-        .filter(
-            player_id__gte=startid,
-            player_id__lte=endid,
-            level__in=CUSTOM_PLUCK_LEVELS,
-            mode__in=CUSTOM_PLUCK_MODES,
-            state=MS_TextChoices.State.OFFICIAL,
-            ongoing_tournament=False,
-            pluck__isnull=False,
-        )
-        .annotate(
-            rn=Window(
-                expression=RowNumber(),
-                partition_by=[F('player_id'), F('level')],
-                order_by=[F('pluck').asc(), F('timems').asc(), F('upload_time').asc()],
-            ),
-        )
-        .filter(rn=1)
-    )
-
-    error_list = []
-    success_count = 0
-    for video in best_videos.iterator(chunk_size=1000):
-        try:
-            CustomPluckRecord.objects.update_or_create(
-                player_id=video.player_id,
-                level=video.level,
-                defaults={
-                    'video_id': video.id,
-                    'pluck': video.pluck,
-                    'timems': video.timems,
-                    'upload_time': video.upload_time,
-                },
-            )
-            success_count += 1
-        except Exception:
-            error_list.append(video.player_id)
-
-    stale_records = CustomPluckRecord.objects.filter(
-        player_id__gte=startid,
-        player_id__lte=endid,
-        updated_at__lt=refresh_started_at,
-    )
-    if error_list:
-        stale_records = stale_records.exclude(player_id__in=error_list)
-    stale_records.delete()
-
-    return {
-        'errorList': error_list,
-        'successCount': success_count,
-    }
-
-
-def refresh_all_custom_pluck_ranks(player_batch_size: int = 1000):
-    """按玩家 id 分段逐条确认并刷新全部自定义 pluck 排行数据库纪录。"""
-    if player_batch_size <= 0:
-        raise ValueError('player_batch_size must be positive')
-
-    base_videos = (
-        VideoModel.objects
-        .filter(
-            level__in=CUSTOM_PLUCK_LEVELS,
-            mode__in=CUSTOM_PLUCK_MODES,
-            state=MS_TextChoices.State.OFFICIAL,
-            ongoing_tournament=False,
-            pluck__isnull=False,
-        )
-    )
-    player_bounds = base_videos.aggregate(
-        min_player_id=Min('player_id'),
-        max_player_id=Max('player_id'),
-    )
-    min_player_id = player_bounds['min_player_id']
-    max_player_id = player_bounds['max_player_id']
-
-    count = 0
-    if min_player_id is not None and max_player_id is not None:
-        player_id_start = min_player_id
-        while player_id_start <= max_player_id:
-            player_id_end = player_id_start + player_batch_size - 1
-            result = refresh_custom_pluck_rank_range(player_id_start, player_id_end)
-            count += result['successCount']
-            player_id_start = player_id_end + 1
-
-    return count
+        errors = []
+        count = 0
+        for player_id, updates in records.items():
+            try:
+                with log_update_errors('refresh_player', player_id=player_id):
+                    _write_records(updates)
+                count += sum(video is not None for video in updates.values())
+            except Exception:
+                errors.append(player_id)
+        return {'errorList': errors, 'successCount': count}
 
 
 def rebuild_custom_pluck_cache(levels=None, batch_size: int = 1000):
-    """用数据库中的 CustomPluckRecord 全量重建 Redis 排行缓存。"""
+    """直接从录像库重建排行；仅主动修复时使用，不在部署时自动调用。"""
     if batch_size <= 0:
         raise ValueError('batch_size must be positive')
-
     levels = CUSTOM_PLUCK_LEVELS if levels is None else levels
     counts = {}
-    for level in levels:
-        ranking_cache = PLuckRankingCache(level)
-        ranking_cache.flush()
-
-        batch = []
-        count = 0
-        records = (
-            CustomPluckRecord.objects
-            .filter(level=level)
-            .select_related('video')
-            .order_by('pluck', 'timems', 'upload_time')
-            .iterator(chunk_size=batch_size)
-        )
-        for record in records:
-            batch.append(record)
-            if len(batch) < batch_size:
-                continue
-            ranking_cache.add_record_batch(batch)
-            count += len(batch)
-            batch = []
-
-        if batch:
-            ranking_cache.add_record_batch(batch)
-            count += len(batch)
-        counts[level] = count
-
+    with log_update_errors('rebuild'):
+        for level in levels:
+            ranking = PLuckRankingCache(level)
+            ranking.flush()
+            count = 0
+            videos = best_videos(VideoModel.objects.filter(level=level)).iterator(chunk_size=batch_size)
+            for batch in batched(videos, batch_size):
+                ranking.add_record_batch(batch)
+                count += len(batch)
+            counts[level] = count
     return counts

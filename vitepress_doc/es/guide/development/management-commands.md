@@ -321,7 +321,7 @@ python manage.py rebuild_tournament_current_score_cache
 
 Ubicación: `customranking/management/commands/rebuild_custom_pluck_cache.py`
 
-Reconstruye en Redis la caché de la clasificación pLuck de niveles personalizados.
+Reconstruye la clasificación pLuck directamente desde `VideoModel`, seleccionando la mejor repetición por jugador y configuración, sin una tabla adicional de récords. Borra primero las claves seleccionadas y escribe por lotes: pausa las escrituras relacionadas durante la reconstrucción y repite el comando si falla. Un despliegue normal conserva los datos existentes de Redis y no requiere ejecutar este comando.
 
 | Parámetros | Valor predeterminado | Descripción |
 | --- | --- | --- |
