@@ -42,7 +42,7 @@
                 </ElSplitterPanel>
             </ElSplitter>
         </div>
-        <AnalysisProgressDialog :visible="progressVisible" :progress="progress" />
+        <AnalysisProgressDialog v-if="progressVisible" :visible="progressVisible" :progress="progress" />
     </div>
 </template>
 
@@ -129,7 +129,7 @@ watch(video, (current, _previous, onCleanup) => {
     void analysis.load(current);
 }, { immediate: true, flush: 'sync' });
 watch(() => [analyzerConfig.value.counter.rows, analyzerConfig.value.customEvents], () => {
-    if (video.value !== null) void analysis.refreshPrepared();
+    if (video.value !== null) analysis.notifyConfigChanged();
 }, { deep: true });
 const timeWindow = ref<TimeWindow>({ startMs: 0, endMs: 0 });
 watch(durationMs, (duration) => {

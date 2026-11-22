@@ -19,9 +19,11 @@ export interface AnalysisDataState {
     preparedEvents: Ref<Map<string, PreparedCustomEvent>>;
     progress: Ref<AnalysisProgressSnapshot>;
     progressVisible: Ref<boolean>;
+    isRunning: Ref<boolean>;
     errorMessage: Ref<string>;
     load: (video: ReplayVideo) => Promise<void>;
     refreshPrepared: () => Promise<void>;
+    notifyConfigChanged: () => void;
     cancel: () => void;
     clear: () => void;
 }
@@ -33,8 +35,10 @@ export function useAnalysisData(config: MaybeRefOrGetter<AnalyzerConfig>, durati
     const preparedEvents = shallowRef<Map<string, PreparedCustomEvent>>(new Map());
     const progress = shallowRef<AnalysisProgressSnapshot>(initialAnalysisProgress());
     const progressVisible = ref(false);
+    const isRunning = ref(false);
     const errorMessage = ref('');
     let runId = 0;
+    let pendingConfigRefresh = false;
 
     function reporterFor(token: number): ProgressReport {
         return createProgressReporter(progress, () => token !== runId);
@@ -69,10 +73,16 @@ export function useAnalysisData(config: MaybeRefOrGetter<AnalyzerConfig>, durati
         preparedEvents.value = custom;
     }
 
+    function refreshPrepared(): Promise<void> {
+        const token = ++runId;
+        return execute(token, 2, () => runPrepared(token, 1, 2));
+    }
+
     async function execute(token: number, steps: number, operation: () => Promise<void>): Promise<void> {
         errorMessage.value = '';
         progress.value = initialAnalysisProgress(steps);
         progressVisible.value = true;
+        isRunning.value = true;
         try {
             await operation();
         } catch (error) {
@@ -82,6 +92,11 @@ export function useAnalysisData(config: MaybeRefOrGetter<AnalyzerConfig>, durati
             if (token === runId) {
                 progress.value = { ...progress.value, done: progress.value.total, percent: 100 };
                 progressVisible.value = false;
+                isRunning.value = false;
+                if (pendingConfigRefresh) {
+                    pendingConfigRefresh = false;
+                    void refreshPrepared();
+                }
             }
         }
     }
@@ -93,6 +108,7 @@ export function useAnalysisData(config: MaybeRefOrGetter<AnalyzerConfig>, durati
         preparedEvents,
         progress,
         progressVisible,
+        isRunning,
         errorMessage,
         load: (video) => {
             const token = ++runId;
@@ -107,17 +123,25 @@ export function useAnalysisData(config: MaybeRefOrGetter<AnalyzerConfig>, durati
                 await runPrepared(token, 3, 4);
             });
         },
-        refreshPrepared: () => {
-            const token = ++runId;
-            return execute(token, 2, () => runPrepared(token, 1, 2));
+        refreshPrepared,
+        notifyConfigChanged: () => {
+            if (isRunning.value) {
+                pendingConfigRefresh = true;
+                return;
+            }
+            void refreshPrepared();
         },
         cancel: () => {
             runId++;
             progressVisible.value = false;
+            isRunning.value = false;
+            pendingConfigRefresh = false;
         },
         clear: () => {
             runId++;
             progressVisible.value = false;
+            isRunning.value = false;
+            pendingConfigRefresh = false;
             errorMessage.value = '';
             traceEvents.value = [];
             counterEvents.value = [];
