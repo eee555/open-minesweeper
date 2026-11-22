@@ -15,6 +15,6 @@ export interface EmailNotificationChange {
 }
 
 export async function saveEmailNotifications(changes: EmailNotificationChange[]): Promise<number> {
-    const { data } = await $axios.patch<{ email_notification_mask: number }>('/api/userprofile/email-notifications', { changes });
+    const { data } = await $axios.patch<{ email_notification_mask: number }>('/api/userprofile/email-notifications', { changes }, { headers: { 'Content-Type': 'application/json' } });
     return data.email_notification_mask;
 }

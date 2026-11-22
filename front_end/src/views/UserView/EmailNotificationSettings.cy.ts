@@ -18,6 +18,7 @@ describe('<EmailNotificationSettings />', () => {
     it('reads login preferences and saves only changed types while preserving high bits', () => {
         const mask = 2 ** 31 + 1;
         cy.intercept('PATCH', '/api/userprofile/email-notifications', (request) => {
+            expect(request.headers['content-type']).to.include('application/json');
             expect(request.body).to.deep.equal({ changes: [{ type: 'staff_video_plain', enabled: true }] });
             request.reply({ email_notification_mask: mask + 4 });
         }).as('save');
