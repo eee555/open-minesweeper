@@ -326,8 +326,6 @@ export default defineConfig({
         'src/bootstrap.ts',
         'src/components/VideoPlayer/NativePlayer.cy.ts',
         'src/components/common/SelectStyles.cy.ts',
-        'src/views/StaffView/Task.cy.ts',
-        'src/views/StaffView/Task.vue',
     ],
     rules: {
         'no-restricted-imports': ['error', {

@@ -156,11 +156,11 @@ def query_tasks_page(filters: TaskQuery):
         tasks = tasks.order_by(F(filters.sort).desc(), 'id')
     else:
         tasks = tasks.order_by(filters.sort, 'id')
-    count = tasks.count()
-    start = (filters.page - 1) * filters.page_size
+    total = tasks.count()
+    offset = filters.start - 1
     return {
-        'count': count, 'page': filters.page, 'page_size': filters.page_size,
-        'items': list(tasks[start:start + filters.page_size]),
+        'total': total, 'start': filters.start, 'count': filters.count,
+        'items': list(tasks[offset:offset + filters.count]),
     }
 
 

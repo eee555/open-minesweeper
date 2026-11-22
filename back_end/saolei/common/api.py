@@ -168,9 +168,9 @@ TaskDetailOut = create_schema(
 
 
 class TaskPageOut(Schema):
+    total: int
+    start: int
     count: int
-    page: int
-    page_size: int
     items: list[TaskDetailOut]
 
 
@@ -253,8 +253,9 @@ def task_detail(request, filters: Query[TaskQuery]):
     """
     - staff_required
 
-    Return one page of background tasks, newest first by default. Filter by exact status or by a
-    task path substring; task ID breaks ties so that paging stays stable.
+    Return up to count background tasks starting at the 1-based record index start, newest first
+    by default. Filter by exact status or by a task path substring; task ID breaks sorting ties.
+    total is the filtered record count; start and count echo the requested range, including when empty.
     """
     return query_tasks_page(filters)
 

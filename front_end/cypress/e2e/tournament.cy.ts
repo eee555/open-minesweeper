@@ -61,6 +61,8 @@ interface BackgroundTaskRow {
 }
 
 interface TaskPage {
+    total: number;
+    start: number;
     count: number;
     items: BackgroundTaskRow[];
 }
@@ -871,14 +873,13 @@ describe('Tournament background tasks', () => {
         cy.intercept('GET', '**/api/common/tasks/detail*').as('taskDetail');
         cy.login(STAFF.username, STAFF.password);
         cy.visit('/#/staff/task');
-        cy.contains('button', '加载任务').click();
         cy.wait<unknown, TaskPage>('@taskDetail').then(({ response }) => {
             expect(response?.statusCode).to.eq(200);
             expectedTasks = response?.body.items ?? [];
             expect(expectedTasks).to.have.length.greaterThan(0);
         });
-        cy.get('.p-datatable').find('.el-loading-mask:visible').should('not.exist');
-        cy.get('.p-datatable table:visible').getTable().should((tableData) => {
+        cy.get('[data-cy=load-tasks]').should('not.be.disabled');
+        cy.get('[data-cy=task-table] table').getTable().should((tableData) => {
             expect(tableData).to.have.length(expectedTasks.length);
 
             const weeklyTask = tableData.find((row) => row.任务路径 === 'tournament.weekly.tasks.task_weekly_finish');

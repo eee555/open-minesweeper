@@ -21,6 +21,8 @@ interface TaskDetail {
 }
 
 interface TaskPage {
+    total: number;
+    start: number;
     count: number;
     items: TaskDetail[];
 }
@@ -144,8 +146,12 @@ describe('Staff requests against the backend', () => {
             cy.intercept('POST', '**/api/common/tasks/restart').as('restartTask');
             cy.intercept('POST', '**/api/common/tasks/delete').as('deleteTask');
             cy.visit('/#/staff/task');
-            cy.contains('button', '加载任务').click();
-            cy.wait('@loadTasks').its('response.statusCode').should('eq', 200);
+            cy.wait('@loadTasks').then(({ request, response }) => {
+                expect(response?.statusCode).to.eq(200);
+                const query = new URL(request.url).searchParams;
+                expect(query.get('start')).to.eq('1');
+                expect(query.get('count')).to.eq('10');
+            });
             cy.contains('tr', failedTask.id).contains('button', '重启').click();
             cy.wait<unknown, TaskDetail>('@restartTask').then(({ response }) => {
                 expect(response?.statusCode).to.eq(200);
