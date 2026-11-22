@@ -55,6 +55,28 @@ describe('<VideoAnalyzer /> raw-source interface', () => {
                         expect(state.frame.value).to.eq(frame);
                         expect(state.config.value).to.eq(originalConfig);
                     });
+                    cy.then(() => {
+                        config.value.customEvents[0].color = '#123456';
+                        config.value.customEvents[0].marker.size = 12;
+                        config.value.counter.thWidth = 100;
+                    });
+                    cy.get('@analyzer').should(() => {
+                        expect(state.preparedCounters.value).to.eq(counters);
+                        expect(state.preparedEvents.value).to.eq(events);
+                    });
+                    cy.then(() => {
+                        config.value.counter.rows[0].expression = 'time';
+                    });
+                    cy.get('@analyzer').should(() => {
+                        expect(state.preparedCounters.value).not.to.eq(counters);
+                        expect(state.preparedEvents.value).to.eq(events);
+                    });
+                    cy.then(() => {
+                        config.value.customEvents[0].expression = 'true';
+                    });
+                    cy.get('@analyzer').should(() => {
+                        expect(state.preparedEvents.value).not.to.eq(events);
+                    });
                 });
             });
         });

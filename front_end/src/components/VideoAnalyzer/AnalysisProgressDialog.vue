@@ -2,18 +2,18 @@
     <ElDialog :model-value="visible" class="analyzer-analysis-progress" width="340px" align-center :show-close="false" :close-on-click-modal="false" :close-on-press-escape="false" append-to-body>
         <template #header>
             <div class="analyzer-analysis-progress__title text text-regular">
-                {{ t('title') }}
+                {{ t('local.title') }}
             </div>
         </template>
         <div class="analyzer-analysis-progress__body" role="status" aria-live="polite">
             <div class="analyzer-analysis-progress__label">
-                {{ t(progress.key) }}
+                {{ t(`local.${progress.key}`) }}
             </div>
-            <div class="analyzer-analysis-progress__track" role="progressbar" :aria-valuenow="progress.percent" aria-valuemin="0" aria-valuemax="100" :aria-label="t('title')">
+            <div class="analyzer-analysis-progress__track" role="progressbar" :aria-valuenow="progress.percent" aria-valuemin="0" aria-valuemax="100" :aria-label="t('local.title')">
                 <div class="analyzer-analysis-progress__fill" :style="{ width: `${progress.percent}%` }" />
             </div>
             <div class="analyzer-analysis-progress__meta text text-small">
-                <span>{{ t('step', { current: progress.step, total: progress.steps }) }}</span>
+                <span>{{ t('local.step', { current: progress.step, total: progress.steps }) }}</span>
                 <span>{{ progress.percent }}%</span>
             </div>
         </div>

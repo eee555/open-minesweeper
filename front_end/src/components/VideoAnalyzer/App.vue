@@ -128,8 +128,11 @@ watch(video, (current, _previous, onCleanup) => {
     }
     void analysis.load(current);
 }, { immediate: true, flush: 'sync' });
-watch(() => [analyzerConfig.value.counter.rows, analyzerConfig.value.customEvents], () => {
-    if (video.value !== null) analysis.notifyConfigChanged();
+watch(() => analyzerConfig.value.counter.rows.map(({ key, expression, format, samplingMode }) => ({ key, expression, format, samplingMode })), () => {
+    if (video.value !== null) analysis.notifyCountersChanged();
+}, { deep: true });
+watch(() => analyzerConfig.value.customEvents.map(({ key, expression, type }) => ({ key, expression, type })), () => {
+    if (video.value !== null) analysis.notifyCustomEventsChanged();
 }, { deep: true });
 const timeWindow = ref<TimeWindow>({ startMs: 0, endMs: 0 });
 watch(durationMs, (duration) => {

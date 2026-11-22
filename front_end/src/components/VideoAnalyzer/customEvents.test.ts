@@ -120,6 +120,6 @@ describe('custom events', () => {
             return Promise.resolve();
         });
         expect(prepared.get('clicks')).toEqual(prepareCustomEvents(definitions, events, 2).get('clicks'));
-        expect(progress.at(-1)).toEqual([3, 3]);
+        expect(progress.at(-1)).toEqual([1, 1]);
     });
 });

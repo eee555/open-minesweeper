@@ -32,6 +32,13 @@ export function yieldToBrowser(): Promise<void> {
     });
 }
 
+export function createSubReporter(report: ProgressReport, offset: number, scale: number): ProgressReport {
+    return async (done, total) => {
+        const fraction = total > 0 ? Math.min(1, done / total) : 1;
+        await report(offset + fraction * scale, 1);
+    };
+}
+
 export function createProgressReporter(progress: Ref<AnalysisProgressSnapshot>, isCancelled: () => boolean): ProgressReport {
     let lastUpdate = 0;
     return async (done, total) => {

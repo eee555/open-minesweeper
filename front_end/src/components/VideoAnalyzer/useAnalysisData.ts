@@ -22,8 +22,8 @@ export interface AnalysisDataState {
     isRunning: Ref<boolean>;
     errorMessage: Ref<string>;
     load: (video: ReplayVideo) => Promise<void>;
-    refreshPrepared: () => Promise<void>;
-    notifyConfigChanged: () => void;
+    notifyCountersChanged: () => void;
+    notifyCustomEventsChanged: () => void;
     cancel: () => void;
     clear: () => void;
 }
@@ -38,7 +38,8 @@ export function useAnalysisData(config: MaybeRefOrGetter<AnalyzerConfig>, durati
     const isRunning = ref(false);
     const errorMessage = ref('');
     let runId = 0;
-    let pendingConfigRefresh = false;
+    let pendingCounterRefresh = false;
+    let pendingCustomEventRefresh = false;
 
     function reporterFor(token: number): ProgressReport {
         return createProgressReporter(progress, () => token !== runId);
@@ -60,22 +61,41 @@ export function useAnalysisData(config: MaybeRefOrGetter<AnalyzerConfig>, durati
         return result;
     }
 
-    async function runPrepared(token: number, firstStep: number, steps: number): Promise<void> {
+    async function prepareCounters(token: number, step: number, steps: number): Promise<void> {
         const { rows } = toValue(config).counter;
+        const events = counterEvents.value;
+        const duration = toValue(durationMs);
+        const counters = await runStep(token, 'counters', step, steps, 1, (report) => prepareCountersAsync(rows, events, duration, report));
+        if (token !== runId) return;
+        preparedCounters.value = counters;
+    }
+
+    async function prepareCustomEvents(token: number, step: number, steps: number): Promise<void> {
         const { customEvents: definitions } = toValue(config);
         const events = counterEvents.value;
         const duration = toValue(durationMs);
-        const counters = await runStep(token, 'counters', firstStep, steps, rows.length, (report) => prepareCountersAsync(rows, events, duration, report));
-        if (token !== runId) return;
-        preparedCounters.value = counters;
-        const custom = await runStep(token, 'customEvents', firstStep + 1, steps, definitions.length, (report) => prepareCustomEventsAsync(definitions, events, duration, report));
+        const custom = await runStep(token, 'customEvents', step, steps, 1, (report) => prepareCustomEventsAsync(definitions, events, duration, report));
         if (token !== runId) return;
         preparedEvents.value = custom;
     }
 
-    function refreshPrepared(): Promise<void> {
+    async function runPrepared(token: number, firstStep: number, steps: number): Promise<void> {
+        await prepareCounters(token, firstStep, steps);
+        if (token !== runId) return;
+        await prepareCustomEvents(token, firstStep + 1, steps);
+    }
+
+    function refresh(counters: boolean, customEvents: boolean): Promise<void> {
         const token = ++runId;
-        return execute(token, 2, () => runPrepared(token, 1, 2), false);
+        const steps = Math.max(1, Number(counters) + Number(customEvents));
+        return execute(token, steps, async () => {
+            let step = 1;
+            if (counters) {
+                await prepareCounters(token, step++, steps);
+                if (token !== runId) return;
+            }
+            if (customEvents) await prepareCustomEvents(token, step++, steps);
+        }, false);
     }
 
     async function execute(token: number, steps: number, operation: () => Promise<void>, showProgress = true): Promise<void> {
@@ -95,9 +115,12 @@ export function useAnalysisData(config: MaybeRefOrGetter<AnalyzerConfig>, durati
                     progressVisible.value = false;
                 }
                 isRunning.value = false;
-                if (pendingConfigRefresh) {
-                    pendingConfigRefresh = false;
-                    void refreshPrepared();
+                if (pendingCounterRefresh || pendingCustomEventRefresh) {
+                    const counters = pendingCounterRefresh;
+                    const customEvents = pendingCustomEventRefresh;
+                    pendingCounterRefresh = false;
+                    pendingCustomEventRefresh = false;
+                    void refresh(counters, customEvents);
                 }
             }
         }
@@ -114,36 +137,43 @@ export function useAnalysisData(config: MaybeRefOrGetter<AnalyzerConfig>, durati
         errorMessage,
         load: (video) => {
             const token = ++runId;
-            const eventCount = (video.events as unknown[]).length;
             return execute(token, 4, async () => {
-                const trace = await runStep(token, 'trace', 1, 4, eventCount, (report) => readMouseTraceAsync(video, report));
+                const trace = await runStep(token, 'trace', 1, 4, 1, (report) => readMouseTraceAsync(video, report));
                 if (token !== runId) return;
                 traceEvents.value = trace;
-                const events = await runStep(token, 'counter', 2, 4, eventCount, (report) => readCounterEventsAsync(video, report));
+                const events = await runStep(token, 'counter', 2, 4, 1, (report) => readCounterEventsAsync(video, report));
                 if (token !== runId) return;
                 counterEvents.value = events;
                 await runPrepared(token, 3, 4);
             });
         },
-        refreshPrepared,
-        notifyConfigChanged: () => {
+        notifyCountersChanged: () => {
             if (isRunning.value) {
-                pendingConfigRefresh = true;
+                pendingCounterRefresh = true;
                 return;
             }
-            void refreshPrepared();
+            void refresh(true, false);
+        },
+        notifyCustomEventsChanged: () => {
+            if (isRunning.value) {
+                pendingCustomEventRefresh = true;
+                return;
+            }
+            void refresh(false, true);
         },
         cancel: () => {
             runId++;
             progressVisible.value = false;
             isRunning.value = false;
-            pendingConfigRefresh = false;
+            pendingCounterRefresh = false;
+            pendingCustomEventRefresh = false;
         },
         clear: () => {
             runId++;
             progressVisible.value = false;
             isRunning.value = false;
-            pendingConfigRefresh = false;
+            pendingCounterRefresh = false;
+            pendingCustomEventRefresh = false;
             errorMessage.value = '';
             traceEvents.value = [];
             counterEvents.value = [];

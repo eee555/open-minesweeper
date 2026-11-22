@@ -4,7 +4,7 @@ import { Parser } from 'expr-eval';
 import type { Expression } from 'expr-eval';
 import type { VideoActionStateRecorder } from 'ms-toollib';
 
-import { ANALYSIS_CHUNK_SIZE, AnalysisCancelled } from './analysisProgress';
+import { ANALYSIS_CHUNK_SIZE, AnalysisCancelled, createSubReporter } from './analysisProgress';
 import type { ProgressReport } from './analysisProgress';
 import { createDifferenceEvaluator } from './counterDifference';
 import type { ReplayVideo } from './replayParser';
@@ -278,8 +278,10 @@ export async function prepareCounterAsync(row: CounterRow, events: CounterEvent[
         if (!samplingModes.includes(row.samplingMode)) throw new Error(`Unknown sampling mode: ${row.samplingMode}`);
         const parsed = parseCounterExpression(row.expression);
         const formatter = format(row.format);
-        const snapshots = await selectCounterEventsAsync(events, row.samplingMode, durationMs, report);
+        const selectionReporter = createSubReporter(report, 0, 0.5);
+        const snapshots = await selectCounterEventsAsync(events, row.samplingMode, durationMs, selectionReporter);
         const evaluate = createCounterEvaluator(parsed, snapshots);
+        const sampleReporter = createSubReporter(report, 0.5, 0.5);
         const samples: CounterSample[] = [];
         let done = 0;
         for (const [index, event] of snapshots.entries()) {
@@ -287,9 +289,9 @@ export async function prepareCounterAsync(row: CounterRow, events: CounterEvent[
             if (typeof value !== 'number') throw new Error('Expression must return a single number');
             samples.push({ timeMs: event.timeMs, eventIndex: event.eventIndex, value });
             done++;
-            if (done % ANALYSIS_CHUNK_SIZE === 0) await report(done, snapshots.length);
+            if (done % ANALYSIS_CHUNK_SIZE === 0) await sampleReporter(done, snapshots.length);
         }
-        await report(snapshots.length, snapshots.length);
+        await sampleReporter(snapshots.length, snapshots.length);
         return { samples, formatter, error: '' };
     } catch (error) {
         if (error instanceof AnalysisCancelled) throw error;
@@ -300,8 +302,8 @@ export async function prepareCounterAsync(row: CounterRow, events: CounterEvent[
 export async function prepareCountersAsync(rows: CounterRow[], events: CounterEvent[], durationMs: number | undefined, report: ProgressReport): Promise<Map<string, PreparedCounter>> {
     const result = new Map<string, PreparedCounter>();
     for (let index = 0; index < rows.length; index++) {
-        result.set(rows[index].key, await prepareCounterAsync(rows[index], events, durationMs, report));
-        await report(index + 1, rows.length);
+        const rowReporter = createSubReporter(report, index / rows.length, 1 / rows.length);
+        result.set(rows[index].key, await prepareCounterAsync(rows[index], events, durationMs, rowReporter));
     }
     if (rows.length === 0) await report(1, 1);
     return result;

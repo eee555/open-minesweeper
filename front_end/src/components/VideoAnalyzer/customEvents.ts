@@ -1,4 +1,4 @@
-import { ANALYSIS_CHUNK_SIZE } from './analysisProgress';
+import { ANALYSIS_CHUNK_SIZE, createSubReporter } from './analysisProgress';
 import type { ProgressReport } from './analysisProgress';
 import { createCounterEvaluator, parseCounterExpression, selectCounterEvents, selectCounterEventsAsync } from './counter';
 import type { CounterEvent } from './counter';
@@ -112,16 +112,14 @@ export function prepareCustomEvents(definitions: CustomEventDefinition[], events
 }
 
 export async function prepareCustomEventsAsync(definitions: CustomEventDefinition[], events: CounterEvent[], durationMs: number, report: ProgressReport): Promise<Map<string, PreparedCustomEvent>> {
-    const snapshots = await selectCounterEventsAsync(events, 'continuous', durationMs, report);
+    const snapshots = await selectCounterEventsAsync(events, 'continuous', durationMs, createSubReporter(report, 0, 0.2));
     const result = new Map<string, PreparedCustomEvent>();
-    const total = Math.max(1, definitions.length * snapshots.length);
-    let done = 0;
-    for (const definition of definitions) {
-        result.set(definition.key, await prepareCustomEventAsync(definition, snapshots, durationMs, (current) => report(done + current, total)));
-        done += snapshots.length;
-        await report(done, total);
+    const scale = definitions.length === 0 ? 0 : 0.8 / definitions.length;
+    for (let index = 0; index < definitions.length; index++) {
+        const definitionReporter = createSubReporter(report, 0.2 + index * scale, scale);
+        result.set(definitions[index].key, await prepareCustomEventAsync(definitions[index], snapshots, durationMs, definitionReporter));
     }
-    await report(total, total);
+    if (definitions.length === 0) await report(1, 1);
     return result;
 }
 
