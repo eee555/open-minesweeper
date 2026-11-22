@@ -321,6 +321,7 @@ export default defineConfig({
                         {
                             text: 'Tools',
                             items: [
+                                { text: 'Yuanshen Toolbox', link: '/en/guide/tools/yuanshen-toolbox' },
                                 { text: 'Browser Extension', link: '/en/guide/tools/browser-extension' },
                             ],
                         },
