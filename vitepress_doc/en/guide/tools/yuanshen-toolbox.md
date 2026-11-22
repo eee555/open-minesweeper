@@ -13,7 +13,7 @@ The interface is currently Chinese only; this page shows the Chinese labels with
 
 ## Download
 
-Download the latest `YuanshenToolbox.exe` (single file, about 27 MB) from [Releases](https://github.com/Corday-nkusky/yuanshen-toolbox/releases/latest). No installation, no Python — double-click to run.
+Download the latest `YuanshenToolbox.exe` (single file, about 34 MB) from [Releases](https://github.com/Corday-nkusky/yuanshen-toolbox/releases/latest). No installation — double-click to run.
 
 The file name is fixed and carries no version number: to update, overwrite the file in place and desktop shortcuts keep working. The current version is shown in the window title.
 
@@ -23,18 +23,18 @@ The file name is fixed and carries no version number: to update, overwrite the f
 2. **Run it**: double-click. The program first reads the `replay` folder next to the exe; if absent, it searches every `Metasweeper*` under `%APPDATA%` and `%LOCALAPPDATA%`; only if nothing is found does it ask you to pick a folder once, which it then remembers.
 3. **Wait for the first scan**: the first scan replays every game — about 3 minutes for 20,000 games, with progress and remaining time at the bottom. Later scans use the cache and finish in seconds. Scanning runs in the background; the window stays responsive.
 
-Arbiter's replay folder is **not added automatically** — its install directory often holds other players' replays downloaded for study, and counting those would credit their results to you. Add it manually via 路径 (Paths), and make sure every replay inside is your own.
+Arbiter's replay folder is **not added automatically**; add it manually via 路径 (Paths), and make sure every replay inside is your own.
 
 ## The six tabs
 
-| Tab | What it shows |
+| Tab | What it does |
 | --- | --- |
 | 概览 (Overview) | Games per level, best time / 3BV/s / Stnb; recent games compared with your PBs |
 | 每日 (Daily) | One row per day: game count, session span, time / 3BV/s / Stnb distribution; right-click to copy a summary image |
 | PB 表 (PB table) | The fastest game for every (level × 3BV), as one 3BV grid |
 | lsf | Top 5 per level per metric, plus your personal LSF card |
 | 上传 (Upload) | Pick scopes and upload local results manually |
-| 自动上传 (Auto upload) | Uploads new results automatically while you play |
+| 自动上传 (Auto upload) | Uploads new replays automatically |
 
 ### Daily
 
@@ -55,7 +55,7 @@ Arbiter's replay folder is **not added automatically** — its install directory
 - Top 5 per level for time / 3BV/s / Stnb, filtered by the official 3BV thresholds by default (Beginner 10 / Intermediate 30 / Expert 100, adjustable on the page); see [top and LSF Rankings](../top-lsf.md) for the ranking rules.
 - The card at the top shows your LSF, tier and equivalent et. 明细 (Details) shows which five games back each entry, plus LSF computed from only your best 1 / 5 / 25 games — the closer the three, the more consistent your play.
 - After login the tables merge in the site's top rankings, with a source column marking local / site / both.
-- The LSF reference follows the site's live anchors by default; to reproduce the offline spreadsheet, switch to 固定基准 (fixed baseline, a built-in season anchor) in 设置 (Settings).
+- The LSF reference follows the site's live anchors by default; you can switch to 固定基准 (fixed baseline, the built-in S6 season anchor) in 设置 (Settings).
 
 ## What counts
 
@@ -78,7 +78,7 @@ The first time, click 登录… (Log in) on the Upload tab and enter your Open M
 
 ## Auto upload
 
-Keep this tab open while you play: new results are noticed within a second or two of landing in the folder and uploaded if they match the enabled scopes. No popups and no focus stealing — a single dialog can ruin a game while MetaSweeper is in the foreground.
+New results are noticed within a second or two of landing in the folder and uploaded if they match the enabled scopes. No popups and no focus stealing.
 
 - Three independent switches: ranking games (games that would improve your site top rankings; requires login), overall PB, NF PB. The first two are on by default.
 - Results from **before** a switch was enabled are not back-filled; games played while the computer was off are caught up on the next launch.
@@ -96,7 +96,7 @@ The password and session cookie are stored encrypted with Windows DPAPI, bound t
 
 | Situation | What to do |
 | --- | --- |
-| Stats look wrong, or you just played new games | Click 重新扫描 (Rescan); if still wrong, clear the scan cache in 设置 → 诊断 (Settings → Diagnostics) and rescan |
+| Stats look wrong | Click 重新扫描 (Rescan); if still wrong, clear the scan cache in 设置 → 诊断 (Settings → Diagnostics) and rescan |
 | The site shows `d` (identifier mismatch) after upload | Make the replay identifier match your account registration per [Player Identifiers](../identifier.md), then upload again |
 | An upload stopped midway | Successes are unaffected; click 重试失败 (Retry failed) to upload only the rest |
 | The program crashed | The data folder's `logs\crash-<time>.txt` holds the full error; attach it when reporting |

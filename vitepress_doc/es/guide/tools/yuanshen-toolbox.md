@@ -13,7 +13,7 @@ La interfaz está actualmente solo en chino; esta página muestra las etiquetas 
 
 ## Descarga
 
-Descarga la última versión de `YuanshenToolbox.exe` (archivo único, unos 27 MB) desde [Releases](https://github.com/Corday-nkusky/yuanshen-toolbox/releases/latest). Sin instalación y sin Python: haz doble clic para usarlo.
+Descarga la última versión de `YuanshenToolbox.exe` (archivo único, unos 34 MB) desde [Releases](https://github.com/Corday-nkusky/yuanshen-toolbox/releases/latest). Sin instalación: haz doble clic para usarlo.
 
 El nombre del archivo es fijo y no lleva número de versión: para actualizar, sobrescribe el archivo en su sitio y los accesos directos del escritorio siguen funcionando. La versión actual aparece en el título de la ventana.
 
@@ -23,18 +23,18 @@ El nombre del archivo es fijo y no lleva número de versión: para actualizar, s
 2. **Ejecútalo**: haz doble clic. El programa lee primero la carpeta `replay` junto al exe; si no existe, busca todos los `Metasweeper*` en `%APPDATA%` y `%LOCALAPPDATA%`; solo si no encuentra nada te pide elegir una carpeta una vez, y la recuerda.
 3. **Espera el primer escaneo**: el primer escaneo reproduce cada partida — unos 3 minutos para 20 000 partidas, con progreso y tiempo restante en la parte inferior. Los escaneos posteriores usan la caché y terminan en segundos. El escaneo se ejecuta en segundo plano y la ventana no se congela.
 
-La carpeta de repeticiones de Arbiter **no se añade automáticamente**: su directorio de instalación suele acumular repeticiones de otros jugadores descargadas para estudiarlas, y contarlas atribuiría sus resultados a tu cuenta. Añádela manualmente en 路径 (Rutas) y asegúrate de que todas las repeticiones dentro sean tuyas.
+La carpeta de repeticiones de Arbiter **no se añade automáticamente**; añádela manualmente en 路径 (Rutas) y asegúrate de que todas las repeticiones dentro sean tuyas.
 
 ## Las seis pestañas
 
-| Pestaña | Qué muestra |
+| Pestaña | Función |
 | --- | --- |
 | 概览 (Resumen) | Partidas por nivel, mejor tiempo / 3BV/s / Stnb; las partidas recientes comparadas con tus PB |
 | 每日 (Diario) | Una fila por día: número de partidas, horario de la sesión, distribución de tiempo / 3BV/s / Stnb; clic derecho para copiar una imagen de resumen |
 | PB 表 (Tabla de PB) | La partida más rápida de cada (nivel × 3BV), en una cuadrícula de 3BV |
 | lsf | Top 5 por nivel e indicador, más tu tarjeta personal de LSF |
 | 上传 (Subida) | Elige los alcances y sube los resultados locales manualmente |
-| 自动上传 (Subida automática) | Sube los resultados nuevos automáticamente mientras juegas |
+| 自动上传 (Subida automática) | Sube las repeticiones nuevas automáticamente |
 
 ### Diario
 
@@ -55,7 +55,7 @@ La carpeta de repeticiones de Arbiter **no se añade automáticamente**: su dire
 - Top 5 por nivel de tiempo / 3BV/s / Stnb, filtrado por los umbrales oficiales de 3BV por defecto (Principiante 10 / Intermedio 30 / Experto 100, ajustables en la página); las reglas de las clasificaciones están en [Clasificaciones top y LSF](../top-lsf.md).
 - La tarjeta superior muestra tu LSF, tu categoría y el et equivalente. 明细 (Detalles) muestra qué cinco partidas sustentan cada entrada, además del LSF calculado con solo tus mejores 1 / 5 / 25 partidas: cuanto más cerca estén los tres valores, más constante es tu juego.
 - Tras iniciar sesión, las tablas incorporan las clasificaciones top del sitio, con una columna de origen que marca local / sitio / ambos.
-- La referencia del LSF sigue por defecto los anclajes en vivo del sitio; para reproducir la hoja de cálculo sin conexión, cambia a 固定基准 (base fija, un anclaje de temporada integrado) en 设置 (Ajustes).
+- La referencia del LSF sigue por defecto los anclajes en vivo del sitio; puedes cambiar a 固定基准 (base fija, el anclaje integrado de la temporada S6) en 设置 (Ajustes).
 
 ## Qué se cuenta
 
@@ -78,7 +78,7 @@ La primera vez, haz clic en 登录… (Iniciar sesión) en la pestaña de Subida
 
 ## Subida automática
 
-Deja esta pestaña abierta mientras juegas: los resultados nuevos se detectan en uno o dos segundos tras caer en la carpeta y se suben si encajan en los alcances activados. Sin ventanas emergentes y sin robar el foco: un solo diálogo puede arruinar una partida mientras MetaSweeper está en primer plano.
+Los resultados nuevos se detectan en uno o dos segundos tras caer en la carpeta y se suben si encajan en los alcances activados. Sin ventanas emergentes y sin robar el foco.
 
 - Tres interruptores independientes: partidas de clasificación (partidas que mejorarían tus clasificaciones top del sitio; requiere sesión iniciada), PB general y PB NF. Los dos primeros están activados por defecto.
 - Los resultados **anteriores** a activar un interruptor no se suben retroactivamente; las partidas jugadas con el equipo apagado se recuperan en el siguiente inicio.
@@ -96,7 +96,7 @@ La contraseña y la cookie de sesión se guardan cifradas con Windows DPAPI, vin
 
 | Situación | Qué hacer |
 | --- | --- |
-| Las estadísticas parecen mal, o acabas de jugar partidas nuevas | Haz clic en 重新扫描 (Reescanear); si sigue mal, borra la caché de escaneo en 设置 → 诊断 (Ajustes → Diagnóstico) y reescanea |
+| Las estadísticas parecen mal | Haz clic en 重新扫描 (Reescanear); si sigue mal, borra la caché de escaneo en 设置 → 诊断 (Ajustes → Diagnóstico) y reescanea |
 | El sitio muestra `d` (identificador no coincidente) tras subir | Haz que el identificador de la repetición coincida con el registro de tu cuenta según [Identificadores de jugador](../identifier.md) y vuelve a subir |
 | Una subida se detuvo a mitad | Lo ya subido no se afecta; haz clic en 重试失败 (Reintentar fallidas) para subir solo el resto |
 | El programa se cerró de golpe | El archivo `logs\crash-<hora>.txt` de la carpeta de datos contiene el error completo; adjúntalo al informar |
