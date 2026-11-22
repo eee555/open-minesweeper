@@ -57,6 +57,23 @@
                     <span>px</span>
                 </dd>
             </div>
+            <div :class="descriptionLayout ? 'description-item' : 'minigame-settings-row'">
+                <dt :id="touchDragId">
+                    {{ t('local.touchDrag') }}
+                </dt>
+                <dd class="minigame-settings-controls">
+                    <div class="checkbox-buttons" role="radiogroup" :aria-labelledby="touchDragId" data-cy="minigame-touch-drag">
+                        <label class="checkbox-button">
+                            <input v-model="minigameSettings.touchDrag" class="checkbox-button-input" type="radio" :name="touchDragId" value="cells" data-cy="minigame-touch-drag-cells">
+                            <span class="checkbox-button-content">{{ t('local.touchDragCells') }}</span>
+                        </label>
+                        <label class="checkbox-button">
+                            <input v-model="minigameSettings.touchDrag" class="checkbox-button-input" type="radio" :name="touchDragId" value="scroll" data-cy="minigame-touch-drag-scroll">
+                            <span class="checkbox-button-content">{{ t('local.touchDragScroll') }}</span>
+                        </label>
+                    </div>
+                </dd>
+            </div>
         </dl>
         <p :id="hintId" class="minigame-settings-hint text text-info text-small">
             {{ t('local.hint') }}
@@ -83,6 +100,7 @@ const opacityId = useId();
 const mineStateId = useId();
 const scoreDisplayId = useId();
 const scrollThresholdId = useId();
+const touchDragId = useId();
 
 function recordHotkey(event: KeyboardEvent) {
     if (event.key === 'Tab') return;
@@ -103,6 +121,9 @@ const i18nMessages = {
         scoreDisplay: '左键／多指训练 · 成绩显示',
         cesHint: 'CES = 成功点击次数（不含首次）÷ 用时（秒）。影响右上角计数器和完整排行榜。',
         scrollThreshold: '多指训练 · 滚动阈值',
+        touchDrag: '漏雷／反应训练 · 按下拖动',
+        touchDragCells: '滑动选格',
+        touchDragScroll: '滚动页面',
         up: '弹起',
         down: '按下',
     } },
@@ -116,6 +137,9 @@ const i18nMessages = {
         scoreDisplay: 'Left-click / multi-touch training · Score display',
         cesHint: 'CES = successful clicks (excluding the first) / elapsed seconds. Applies to the top-right counter and full rankings.',
         scrollThreshold: 'Multi-touch training · Scroll threshold',
+        touchDrag: 'Missing-cell / reaction training · Touch drag',
+        touchDragCells: 'Slide across cells',
+        touchDragScroll: 'Scroll page',
         up: 'Raised',
         down: 'Pressed',
     } },
@@ -129,6 +153,9 @@ const i18nMessages = {
         scoreDisplay: 'Clic izquierdo y multitáctil · Visualización de la puntuación',
         cesHint: 'CES = clics exitosos (excluyendo el primero) / segundos transcurridos. Se aplica al contador superior derecho y a las clasificaciones completas.',
         scrollThreshold: 'Práctica multitáctil · Umbral de desplazamiento',
+        touchDrag: 'Casilla faltante y reacción · Arrastrar',
+        touchDragCells: 'Deslizar entre casillas',
+        touchDragScroll: 'Desplazar la página',
         up: 'En relieve',
         down: 'Hundida',
     } },

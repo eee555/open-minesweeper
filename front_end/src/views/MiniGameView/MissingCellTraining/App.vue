@@ -22,7 +22,7 @@
             </template>
             <MiniGameBoard
                 :key="round" :board="preview?.board ?? board" :highlight="preview?.target ?? null" :size="minigameSettings.cellSize" :disabled="phase === 'won' || phase === 'lost'"
-                :label="t('local.boardLabel')" @action="onAction"
+                :label="t('local.boardLabel')" :touch-drag="minigameSettings.touchDrag" @action="onAction"
             />
         </MiniGameFrame>
         <slot name="resultActions" />

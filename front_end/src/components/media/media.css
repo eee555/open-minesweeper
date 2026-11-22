@@ -114,6 +114,10 @@
     color: var(--ui-text-color-secondary);
 }
 
+.media-works-table .media-col-title {
+    min-width: 16em;
+}
+
 .media-works-table .media-col-likes {
     width: 10em;
     text-align: right;

@@ -38,7 +38,7 @@ export interface MinigameRankingGroup {
     rankings: MinigameRanking[];
 }
 
-// Supply a scheme here when score colors have been defined for these games.
+/** Colors a score by its CES value, or returns undefined when CES is not defined. */
 export type MinigameColorScheme = (ranking: MinigameRanking, score: number) => CSSProperties | undefined;
 
 let definitions: Promise<MinigameRankingGroup[]> | undefined;
