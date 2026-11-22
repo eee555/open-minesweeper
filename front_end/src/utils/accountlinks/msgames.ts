@@ -56,7 +56,7 @@ export interface MSGamesVideo {
 export type MSGamesImportBlocker = 'mvr' | 'format' | 'configuration';
 
 export function msgamesVideoImportBlocker(video: Pick<MSGamesVideo, 'filename' | 'category' | 'score'>): MSGamesImportBlocker | null {
-    if (/\.mvr$/i.test(video.filename)) return 'mvr';
+    if ((/\.mvr$/i).test(video.filename)) return 'mvr';
     if (!(/\.(avf|mvf|rmv)$/i).test(video.filename)) return 'format';
     const categories = video.category.split('\n').filter((line) => line.split(' / ', 1)[0] === 'Density');
     if (categories.length === 0) return null;
