@@ -8,6 +8,10 @@ on:
       - '!front_end/cypress/support/e2e.ts'
       - 'front_end/src/**'
       - '!front_end/src/**/*.test.ts'
+      - 'front_end/package.json'
+      - 'front_end/package-lock.json'
+      - 'front_end/scripts/**'
+      - 'front_end/local-analyzer/**'
       - '.github/workflows/frontend.yml'
 
 jobs:
