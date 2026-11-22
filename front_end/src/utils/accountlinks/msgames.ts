@@ -53,14 +53,17 @@ export interface MSGamesVideo {
     import_video: number | null;
 }
 
-export function canImportMSGamesVideo(video: Pick<MSGamesVideo, 'filename' | 'category' | 'score'>): boolean {
-    if (!(/\.(avf|mvf|rmv)$/i).test(video.filename)) return false;
+export type MSGamesImportBlocker = 'mvr' | 'format' | 'configuration';
+
+export function msgamesVideoImportBlocker(video: Pick<MSGamesVideo, 'filename' | 'category' | 'score'>): MSGamesImportBlocker | null {
+    if (/\.mvr$/i.test(video.filename)) return 'mvr';
+    if (!(/\.(avf|mvf|rmv)$/i).test(video.filename)) return 'format';
     const categories = video.category.split('\n').filter((line) => line.split(' / ', 1)[0] === 'Density');
-    if (categories.length === 0) return true;
+    if (categories.length === 0) return null;
     const scores = video.score.split('\n').filter((line) => line.startsWith('Density: '));
-    if (scores.length === 0) return false;
+    if (scores.length === 0) return 'configuration';
     const boards = categories.flatMap((line) => (line.split(' / ')[1] ?? '').split(', '));
-    return scores.every((score) => {
+    const supported = scores.every((score) => {
         const mines = (/(?:^|;\s*)Mines:\s*(\d+)\s*(?:;|$)/).exec(score.slice('Density: '.length));
         if (!mines) return false;
         return boards.every((board) => {
@@ -68,6 +71,11 @@ export function canImportMSGamesVideo(video: Pick<MSGamesVideo, 'filename' | 'ca
             return dimensions !== null && isDensityCustomLevel(Number(dimensions[2]), Number(dimensions[1]), Number(mines[1]));
         });
     });
+    return supported ? null : 'configuration';
+}
+
+export function canImportMSGamesVideo(video: Pick<MSGamesVideo, 'filename' | 'category' | 'score'>): boolean {
+    return msgamesVideoImportBlocker(video) === null;
 }
 
 export interface MSGamesImportSummary {

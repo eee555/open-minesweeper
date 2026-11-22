@@ -78,7 +78,7 @@
                     <VideoPreviewLink v-if="row.import_video !== null" :id="row.import_video">
                         #{{ row.import_video }}
                     </VideoPreviewLink>
-                    <span v-else-if="row.import_status === 'unsupported'">{{ t('local.unsupported') }}</span>
+                    <span v-else-if="row.import_status === 'unsupported'">{{ unsupportedText(row) }}</span>
                     <BaseButton v-else-if="owner" size="small" :disabled="sending" data-cy="msgames-import-row" @click="importOne(row)">
                         {{ row.import_status === 'failed' ? t('button.retry') : t('button.import') }}
                     </BaseButton>
@@ -117,7 +117,7 @@ import { generalErrorNotification, httpErrorNotification } from '@/components/No
 import VideoPreviewLink from '@/components/VideoPreviewLink.vue';
 import { fetchMSGamesImportSummary, fetchMSGamesVideos, importMSGamesVideo, MSGamesTaskError, syncMSGamesVideos } from '@/services/accountLinkService';
 import type { MSGamesImportSummary, MSGamesVideo } from '@/utils/accountlinks';
-import { canImportMSGamesVideo } from '@/utils/accountlinks';
+import { canImportMSGamesVideo, msgamesVideoImportBlocker } from '@/utils/accountlinks';
 
 const props = defineProps({
     msgamesId: { type: Number, required: true },
@@ -225,6 +225,13 @@ function errorDescription(error: unknown): string {
     return t('local.requestFailed');
 }
 
+function unsupportedText(video: MSGamesVideo): string {
+    const blocker = msgamesVideoImportBlocker(video);
+    if (blocker === 'mvr') return t('local.unsupportedMvr');
+    if (blocker === 'format') return t('local.unsupportedFormat');
+    return t('local.unsupportedConfiguration');
+}
+
 async function importVideo(video: MSGamesVideo, current: number): Promise<boolean | undefined> {
     importingId.value = video.id;
     failures.value[video.id] = '';
@@ -316,6 +323,9 @@ const { t } = useI18n({ messages: {
         category: '分类',
         score: '成绩',
         unsupported: '暂不支持此配置或格式',
+        unsupportedMvr: '暂不支持 MVR 格式录像',
+        unsupportedFormat: '暂不支持此录像格式',
+        unsupportedConfiguration: '暂不支持此棋盘配置',
         empty: '暂无已同步录像',
         categoryQuery: '查询分类',
         statusFilter: '筛选导入状态',
@@ -338,6 +348,9 @@ const { t } = useI18n({ messages: {
         category: 'Category',
         score: 'Score',
         unsupported: 'Unsupported board or format',
+        unsupportedMvr: 'MVR format not supported',
+        unsupportedFormat: 'Unsupported replay format',
+        unsupportedConfiguration: 'Unsupported board configuration',
         empty: 'No synced videos',
         categoryQuery: 'Search category',
         statusFilter: 'Filter import status',
@@ -359,6 +372,9 @@ const { t } = useI18n({ messages: {
         category: 'Categoría',
         score: 'Puntuación',
         unsupported: 'Tablero o formato no soportado',
+        unsupportedMvr: 'Formato MVR no soportado',
+        unsupportedFormat: 'Formato de repetición no soportado',
+        unsupportedConfiguration: 'Tablero no soportado',
         empty: 'No hay videos sincronizados',
         categoryQuery: 'Buscar categoría',
         statusFilter: 'Filtrar por estado de importación',
