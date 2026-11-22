@@ -60,7 +60,7 @@ interface CounterProgress {
     total: number;
 }
 
-function* selectCounterEventsSteps(events: CounterEvent[], samplingMode: SamplingMode, durationMs: number | undefined): Generator<CounterProgress, CounterEvent[], void> {
+function *selectCounterEventsSteps(events: CounterEvent[], samplingMode: SamplingMode, durationMs: number | undefined): Generator<CounterProgress, CounterEvent[], void> {
     const selected = new Map<number, CounterEvent>();
     let done = 0;
     for (const event of events) {
@@ -91,7 +91,7 @@ function* selectCounterEventsSteps(events: CounterEvent[], samplingMode: Samplin
     return samples;
 }
 
-function* evaluateCounterSteps(evaluate: (index: number) => unknown, snapshots: CounterEvent[]): Generator<CounterProgress, CounterSample[], void> {
+function *evaluateCounterSteps(evaluate: (index: number) => unknown, snapshots: CounterEvent[]): Generator<CounterProgress, CounterSample[], void> {
     const samples: CounterSample[] = [];
     let done = 0;
     for (const [index, event] of snapshots.entries()) {
@@ -107,13 +107,13 @@ function* evaluateCounterSteps(evaluate: (index: number) => unknown, snapshots: 
 
 function drainCounterSteps<T>(steps: Generator<CounterProgress, T, void>): T {
     let step = steps.next();
-    while (!step.done) step = steps.next();
+    while (step.done !== true) step = steps.next();
     return step.value;
 }
 
 async function drainCounterStepsAsync<T>(steps: Generator<CounterProgress, T, void>, report: ProgressReport): Promise<T> {
     let step = steps.next();
-    while (!step.done) {
+    while (step.done !== true) {
         await report(step.value.done, step.value.total);
         step = steps.next();
     }
