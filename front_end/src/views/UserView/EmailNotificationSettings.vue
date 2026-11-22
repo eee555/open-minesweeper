@@ -1,26 +1,28 @@
 <template>
     <section class="email-notifications">
-        <h2 class="text-large">
+        <h2 class="text text-large">
             {{ t('local.title') }}
         </h2>
         <template v-if="store.user.is_staff">
-            <p class="text-regular text-small">
+            <p class="text text-secondary text-small">
                 {{ t('local.description') }}
             </p>
             <fieldset :disabled="saving" class="email-notifications__options">
-                <legend class="text-small">
+                <legend class="text text-secondary text-small">
                     {{ t('local.staffNotifications') }}
                 </legend>
-                <label v-for="item in emailNotificationTypes" :key="item.type">
-                    <input v-model="selected[item.type]" type="checkbox" :name="item.type">
-                    {{ t(`local.${item.type}`) }}
-                </label>
+                <div class="checkbox-group">
+                    <label v-for="item in emailNotificationTypes" :key="item.type" class="checkbox">
+                        <input v-model="selected[item.type]" class="checkbox-input" type="checkbox" :name="item.type">
+                        <span>{{ t(`local.${item.type}`) }}</span>
+                    </label>
+                </div>
             </fieldset>
             <BaseButton size="small" :loading="saving" :disabled="!hasChanges" @click="save">
                 {{ t('button.save') }}
             </BaseButton>
         </template>
-        <p v-else class="text-regular text-small">
+        <p v-else class="text text-secondary text-small">
             {{ t('local.unavailable') }}
         </p>
     </section>
@@ -75,16 +77,18 @@ async function save(): Promise<void> {
     }
 }
 
-onScopeDispose(() => { requestVersion++; });
+onScopeDispose(() => {
+    requestVersion++;
+});
 
 const i18nMessages = {
     'zh-cn': { local: {
         title: '邮件通知',
-        description: '通知发送至账号邮箱。邮件包含中文、英文和西班牙语，可能偶发漏发；待办请以网站为准。',
+        description: '通知发送至账号邮箱。可能偶发漏发；待办请以网站为准。',
         staffNotifications: '管理员通知',
         staff_media_review: '作品待审核',
-        staff_video_frozen: '录像冻结（FROZEN）',
-        staff_video_plain: '录像需要审核（PLAIN）',
+        staff_video_frozen: '录像冻结',
+        staff_video_plain: '录像需要审核',
         staff_account_link_review: '账号关联申请',
         staff_identifier_unsafe: '新标识自动审核未通过',
         unavailable: '暂无可订阅的邮件通知类型。',
@@ -93,11 +97,11 @@ const i18nMessages = {
     } },
     en: { local: {
         title: 'Email notifications',
-        description: 'Notifications go to your account email and include Chinese, English and Spanish. Delivery may occasionally fail; check the website for pending items.',
+        description: 'Notifications go to your account email. Delivery may occasionally fail; check the website for pending items.',
         staffNotifications: 'Staff notifications',
         staff_media_review: 'Media awaiting review',
-        staff_video_frozen: 'Video frozen (FROZEN)',
-        staff_video_plain: 'Video awaiting review (PLAIN)',
+        staff_video_frozen: 'Video frozen',
+        staff_video_plain: 'Video awaiting review',
         staff_account_link_review: 'Account link requests',
         staff_identifier_unsafe: 'New identifier failed automatic review',
         unavailable: 'No email notification types are available yet.',
@@ -106,11 +110,11 @@ const i18nMessages = {
     } },
     es: { local: {
         title: 'Notificaciones por correo',
-        description: 'Las notificaciones se envían al correo de tu cuenta e incluyen chino, inglés y español. Puede haber fallos ocasionales; consulta los pendientes en el sitio web.',
+        description: 'Las notificaciones se envían al correo de tu cuenta. Puede haber fallos ocasionales; consulta los pendientes en el sitio web.',
         staffNotifications: 'Notificaciones de administración',
         staff_media_review: 'Obra pendiente de revisión',
-        staff_video_frozen: 'Vídeo congelado (FROZEN)',
-        staff_video_plain: 'Vídeo pendiente de revisión (PLAIN)',
+        staff_video_frozen: 'Vídeo congelado',
+        staff_video_plain: 'Vídeo pendiente de revisión',
         staff_account_link_review: 'Solicitudes de vinculación de cuentas',
         staff_identifier_unsafe: 'Nuevo identificador rechazado en la revisión automática',
         unavailable: 'Todavía no hay tipos de notificación disponibles.',
@@ -122,26 +126,18 @@ const { t } = useI18n({ messages: i18nMessages });
 </script>
 
 <style scoped>
-.email-notifications h2 {
-    margin: 0 0 0.5rem;
+.email-notifications {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
 }
 
 .email-notifications__options {
-    display: grid;
-    gap: 0.35rem;
-    margin: 0 0 0.5rem;
-    padding: 0.5rem;
-    border: 1px solid var(--el-border-color);
-}
-
-.email-notifications__options label {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-}
-
-.email-notifications__options input {
+    align-self: stretch;
+    min-width: 0;
     margin: 0;
-    accent-color: var(--el-color-primary);
+    border: 1px solid var(--ui-border-color);
+    padding: 4px 8px 8px;
 }
 </style>

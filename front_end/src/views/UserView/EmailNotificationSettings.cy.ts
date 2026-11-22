@@ -6,7 +6,9 @@ import { store } from '@/store';
 import { pinia } from '@/store/create';
 
 function mountSettings(mask = 0, staff = true) {
-    cy.then(() => { store.login({ id: 42, username: 'self', is_staff: staff, email_notification_mask: mask }); });
+    cy.then(() => {
+        store.login({ id: 42, username: 'self', is_staff: staff, email_notification_mask: mask });
+    });
     cy.mount(EmailNotificationSettings, {
         global: { plugins: [i18n, pinia], config: { globalProperties: { $axios } } },
     });
@@ -25,7 +27,9 @@ describe('<EmailNotificationSettings />', () => {
         cy.get('input[name=staff_video_plain]').check();
         cy.contains('button', 'Save').click();
         cy.wait('@save');
-        cy.then(() => { expect(store.user.email_notification_mask).to.equal(mask + 4); });
+        cy.then(() => {
+            expect(store.user.email_notification_mask).to.equal(mask + 4);
+        });
         cy.contains('button', 'Save').should('be.disabled');
     });
 
@@ -39,7 +43,9 @@ describe('<EmailNotificationSettings />', () => {
         cy.wait('@failed');
         cy.get('input[name=staff_video_frozen]').should('be.checked');
         cy.contains('button', 'Save').should('be.enabled');
-        cy.then(() => { expect(store.user.email_notification_mask).to.equal(0); });
+        cy.then(() => {
+            expect(store.user.email_notification_mask).to.equal(0);
+        });
         cy.closeElNotifications();
     });
 
@@ -52,7 +58,9 @@ describe('<EmailNotificationSettings />', () => {
         cy.get('input[name=staff_video_plain]').check();
         cy.contains('button', 'Save').click();
         cy.wait('@previous');
-        cy.then(() => { expect(store.user.email_notification_mask).to.equal(16); });
+        cy.then(() => {
+            expect(store.user.email_notification_mask).to.equal(16);
+        });
         cy.get('input[name=staff_video_plain]').should('not.be.checked');
         cy.get('input[name=staff_identifier_unsafe]').should('be.checked');
     });
