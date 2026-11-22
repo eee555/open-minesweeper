@@ -6,7 +6,7 @@
         >
             <template #head>
                 <tr>
-                    <th scope="col">
+                    <th scope="col" class="media-col-title">
                         {{ t('media.title') }}
                     </th>
                     <th scope="col" class="table-col-player">
@@ -39,7 +39,7 @@
                 </tr>
             </template>
             <tr v-for="item in items" :key="item.id" :data-cy="`media-row-${item.id}`">
-                <td>
+                <td class="media-col-title">
                     <span class="media-title-cell">
                         <span
                             v-if="platformIsMasked(item.format)" class="media-platform-icon media-platform-mask" data-cy="media-platform-icon"
