@@ -56,6 +56,7 @@ function mountAnalyzer(width = 1100, fixture: { filename: string; durationMs: nu
     cy.wait('@parsedVideoInfo').its('request.query.ids').should('eq', '123');
     cy.wait('@getReplay').its('request.query.id').should('eq', '123');
     cy.get('.analyzer-progress-bar__slider', { timeout: 10000 }).should('have.attr', 'max', String(fixture.durationMs)).and('not.be.disabled');
+    cy.get('.analyzer-analysis-progress', { timeout: 10000 }).should('not.exist');
 }
 
 function selectLayout(layout: string) {

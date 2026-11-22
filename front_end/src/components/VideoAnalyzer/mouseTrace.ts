@@ -31,7 +31,7 @@ export function mouseTraceAppearanceProps(appearance: MouseTraceAppearance): { l
     };
 }
 
-export { mouseTraceRange, readMouseTrace } from './replayMouseTrace';
+export { mouseTraceRange, readMouseTrace, readMouseTraceAsync } from './replayMouseTrace';
 
 export function sliderToTailSeconds(value: number): number {
     return value === 1 ? Infinity : value / (1 - value);
