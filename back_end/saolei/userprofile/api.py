@@ -14,11 +14,12 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.cache import cache_control
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django_ratelimit.decorators import ratelimit
-from ninja import File, Form, Query, Router, Schema, UploadedFile
+from ninja import Field, File, Form, Query, Router, Schema, UploadedFile
 from ninja.decorators import decorate_view
 from ninja.errors import HttpError
 from ninja.orm import create_schema
 from ninja.security import django_auth, django_auth_superuser
+from pydantic import StrictBool
 
 from common.services import query_user_directory_page
 from utils import verify_image
@@ -29,8 +30,8 @@ from videomanager.schema import VIDEO_METADATA_FIELDS, VideoMetadataOut
 from .decorators import banned_blocked, login_required_error, staff_required
 from .models import UserProfile
 from .schema import PUBLIC_NAME_FIELDS, RawUserNames, SelfUserInfoOut, UserDirectoryPageOut, UserDirectoryQuery, UserInfoOut
-from .services import clear_profile_info, has_sub200_expert_video, refresh_avatar_chance, register_user, try_update_user_signature, update_admin_profile, update_user_names, user_metadata
-from .utils import NAME_FIELDS
+from .services import clear_profile_info, has_sub200_expert_video, refresh_avatar_chance, register_user, try_update_user_signature, update_admin_profile, update_email_notifications, update_user_names, user_metadata
+from .utils import EmailNotificationType, NAME_FIELDS
 from .verification.api import admin_router as verification_admin_router, router as verification_router
 
 router = Router()
@@ -38,6 +39,38 @@ router.add_router('/verification', verification_router)
 router.add_router('/admin/verification', verification_admin_router)
 logger = logging.getLogger('userprofile')
 AVATAR_ACCEL_REDIRECT_PREFIX = '/internal-media/'
+
+
+class EmailNotificationChange(Schema):
+    type: EmailNotificationType
+    enabled: StrictBool
+
+
+class EmailNotificationChanges(Schema):
+    changes: list[EmailNotificationChange] = Field(..., min_length=1, max_length=32)
+
+
+EmailNotificationSettingsOut = create_schema(UserProfile, name='EmailNotificationSettingsOut', fields=['email_notification_mask'])
+
+
+@router.patch('/email-notifications', response=EmailNotificationSettingsOut)
+@decorate_view(login_required_error, ratelimit(key='user', rate='30/m'), cache_control(no_store=True, private=True))
+def save_email_notifications(request, data: EmailNotificationChanges):
+    """
+    - login_required_error
+    - ratelimit(key='user', rate='30/m')
+    - cache_control(no_store=True, private=True)
+
+    Store the current user's preferences regardless of staff status.
+    Recipient eligibility is checked by the mail worker.
+    """
+    changes = {change.type: change.enabled for change in data.changes}
+    if len(changes) != len(data.changes):
+        raise HttpError(422, 'Duplicate notification type.')
+    if any(changes.values()):
+        if not request.user.email or request.user.email.lower().endswith('@accounts.invalid'):
+            raise HttpError(409, 'A deliverable account email is required.')
+    return update_email_notifications(request.user.pk, changes)
 
 
 class RegisterIn(Schema):

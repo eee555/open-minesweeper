@@ -39,7 +39,7 @@ UserInfoOut = create_schema(
 
 
 SelfUserInfoOut = create_schema(
-    UserProfile, name='SelfUserInfoOut', fields=[*USER_INFO_FIELDS, 'hide_realname', 'is_superuser'],
+    UserProfile, name='SelfUserInfoOut', fields=[*USER_INFO_FIELDS, 'hide_realname', 'is_superuser', 'email_notification_mask'],
     custom_fields=PUBLIC_NAME_FIELDS, base_class=RawUserNames,
 )
 

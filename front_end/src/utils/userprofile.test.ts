@@ -15,6 +15,11 @@ describe('UserProfile', () => {
     });
 
     describe('constructor', () => {
+        it('keeps all unsigned notification bits from the login response', () => {
+            expect(new UserProfile({ email_notification_mask: 2 ** 32 - 1 }).email_notification_mask).toBe(4294967295);
+            expect(new UserProfile().email_notification_mask).toBe(0);
+        });
+
         it('Empty initialization', () => {
             const profile = new UserProfile();
 

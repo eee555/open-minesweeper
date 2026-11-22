@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="{{ language }}">
+<body>
+    <h1>{{ title }}</h1>
+    <p>{{ objects_label }}: {{ count }}</p>
+    <p>{% for object_id in object_ids %}#{{ object_id }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+    <p><a href="{{ review_url }}">{{ review_label }}</a></p>
+    <p><a href="{{ settings_url }}">{{ settings_label }}</a></p>
+</body>
+</html>

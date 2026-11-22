@@ -23,6 +23,7 @@ export interface UserProfileData {
     is_superuser?: boolean;
     is_memorial?: boolean;
     verified?: boolean;
+    email_notification_mask?: number;
     country?: string;
     signature?: string;
     last_change_avatar?: string | Date | null;
@@ -45,6 +46,7 @@ export class UserProfile {
     public is_superuser = false;
     public is_memorial = false;
     public verified = false;
+    public email_notification_mask = 0;
     public country = '';
     public signature = '';
     public last_change_avatar: Date = new Date();
@@ -73,6 +75,7 @@ export class UserProfile {
         this.is_superuser = data.is_superuser ?? false;
         this.is_memorial = data.is_memorial ?? false;
         this.verified = data.verified ?? false;
+        this.email_notification_mask = data.email_notification_mask ?? 0;
         this.country = data.country ?? '';
         this.signature = data.signature ?? '';
 

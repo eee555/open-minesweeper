@@ -5,6 +5,18 @@ description: 开源扫雷网后端Django信号触发关系详解，包括录像�
 
 # 信号触发关系
 
+## 管理员邮件通知
+
+`common.apps.CommonConfig.ready()` 注册 `common/email_notifications/signals.py` 的四个 `post_save` 接收器：新作品 `PENDING`；录像创建或实际转入 `FROZEN` / `PLAIN`；新建未验证关联；新建 `safe=False` 标识。录像旧值复用 `videomanager.signals` 的捕获，不为通知新增事务内查询。fixture 的 `raw` 保存跳过；相同状态保存、修改冻结原因或重复遇到旧标识不通知。
+
+接收器只注册 `transaction.on_commit(..., robust=True)`，回调只写入现有 Tasks 队列。回滚不入队，提交后入队失败不改变 API 成功结果，也不回退为同步发信。收件人查询、源对象复查、模板构造、额度锁与 SMTP 均在独立 worker 中执行。
+
+worker 跳过已处理或删除的对象，以及已退订、失去管理资格或无可用邮箱的用户。自动完成验证的关联不会发信；如果先创建未验证行后在同一事务验证，任务复查时也会跳过。每位接收人只尝试一次，失败记日志后继续下一位，不自动重试或补发。`EMAIL_NOTIFICATIONS_ENABLED` 默认关闭，`EMAIL_SKIP` / `E2E_TEST` 也会跳过。
+
+`QuerySet.update()`、`bulk_create()` 与 `bulk_update()` 不触发保存信号。当前进入 `FROZEN` / `PLAIN` 的写入走实例保存；新增批量入口时需显式发布等价通知，不能假定信号会覆盖。
+
+## 模型信号概览
+
 `userprofile.signals.revoke_qq_login` 接收 `QQConnectIdentity.pre_delete`，在删除事务内锁定对应 `UserProfile` 并立即撤销当前 QQ 绑定 state。它与绑定回调使用同一行锁，不能改成提交后撤销，否则在途回调可能重建刚删除的身份。覆盖本人解绑、QuerySet 删除及用户级联删除；删除回滚时身份保留，但需重新授权。昵称／头像不会写入公共资料，也不保留 access token。
 
 `accountlink.signals.invalidate_github_authorizations_on_delete` 接收 `AccountGitHub.pre_delete`，显式读取并锁定对应 `UserProfile`，在删除事务内、释放用户行锁之前立即撤销当前 GitHub state，不使用 `on_commit`，避免解绑提交后、提交钩子执行前的在途回调重新建立关联。删除回滚时数据库关联保留，但授权仍失效，用户需重新发起授权。该用户行锁与 OAuth 提交共用，串行化依赖生产 MySQL 的行锁，SQLite 不提供该保证。本人专用解绑、旧通用解绑、管理员解绑、QuerySet 删除和用户级联删除均经过此信号。只影响未完成的 GitHub 授权，不撤销 GitHub 网站上的应用授权；相关临时键见 [缓存结构](./cache.md#github-授权临时状态)。

@@ -20,6 +20,28 @@ python manage.py migrate --database default
 
 原生参数照常使用，部署脚本无需改动。迁移前关闭已有连接，以新超时重新连接；命令成功或异常退出时都恢复原配置并关闭迁移连接。非 MySQL 数据库沿用原行为。此处设置的是客户端读写等待时间，不是整个迁移任务的总时限，也不调整数据库服务器的锁等待超时。
 
+## 邮件额度首次初始化
+
+部署和 CI 自动生成迁移。首次部署邮件额度表后，在恢复请求和 worker 前核实供应商今日已用量；默认重置时区已配置为 UTC+8。然后通过现有 `python manage.py shell` 初始化单条记录：
+
+```python
+from zoneinfo import ZoneInfo
+from django.conf import settings
+from django.utils import timezone
+from userprofile.models import EmailSentQuota
+
+used_today = 123  # 示例：替换为供应商当日已使用量
+EmailSentQuota.objects.update_or_create(
+    pk=1,
+    defaults={
+        'quota_date': timezone.localdate(timezone.now(), ZoneInfo(settings.EMAIL_QUOTA_TIME_ZONE)),
+        'count': used_today,
+    },
+)
+```
+
+也可以等待新的供应商额度日期开始后再恢复发信。初始化仅用于首次切换，不能在正常重启时重置已有计数；执行期间保持请求与 worker 停止，避免覆盖并发占额。通知开关 `EMAIL_NOTIFICATIONS_ENABLED` 默认关闭，启用后仍需管理员在本人设置中主动订阅。
+
 ## 纪念账号建档
 
 ### `create_memorial_account`

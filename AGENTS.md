@@ -25,7 +25,6 @@
 - **后端风格由 flake8 强制**，配置在 `back_end/saolei/setup.cfg`。除 flake8 本体外还启用了 bugbear、builtins、commas、comprehensions、datetimez、encodings、import-order（google 风格）、multiline-containers、print、quotes 等插件；已忽略 `E501`、`A003`、`DJ08`、`W504`、`W503`。修改后端前请先读该文件。
 - **仓库自带一个本地 flake8 插件** `flake8_plugins.django_save_update_fields`，规则号 `DJM100`：任何 Django 模型实例的 `save()` 调用都必须显式传入 `update_fields=`（`form.save(commit=False)` 除外）。这是硬性要求。
 - **前端**必须通过 ESLint 与 `vue-tsc` 类型检查，不要用 `any` 或 `@ts-ignore` 绕过。
-- 迁移文件（`*/migrations/*`）被 flake8 排除，但仍需提交。
 
 ## 不要提交的内容
 
@@ -36,7 +35,6 @@
 - MySQL：数据库 `saolei`，用户 `root`，密码 `123456`，`127.0.0.1:3306`（见 `back_end/saolei/saolei/settings.py` 的 `DATABASES`）。
 - Redis：`127.0.0.1:6379`（见同文件的 `CACHES`）。
 - 后端首次运行前需在 `back_end/saolei/` 下创建 `logs/` 与 `assets/` 目录。
-- 前端播放器 `flop-player` 需要单独下载并解压到 `front_end/public/flop/`，否则录像播放相关页面不可用。
 - 依赖版本在 `requirements.txt` / `requirements-wheels.txt` / `package.json` 中固定，升级请单独走 PR。
 
 ## 分支管理
