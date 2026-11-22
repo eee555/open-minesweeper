@@ -25,9 +25,15 @@
                 <td class="table-col-rank">
                     {{ start + index + 1 }}
                 </td>
-                <td class="table-col-player"><PlayerName :user-id="row.user_id" /></td>
-                <td class="table-col-number">{{ realHot(row).toFixed(2) }}</td>
-                <td class="table-col-number">{{ row.likes }}</td>
+                <td class="table-col-player">
+                    <PlayerName :user-id="row.user_id" />
+                </td>
+                <td class="table-col-number">
+                    {{ realHot(row).toFixed(2) }}
+                </td>
+                <td class="table-col-number">
+                    {{ row.likes }}
+                </td>
             </tr>
         </BaseTable>
         <ElPagination v-model:current-page="page" v-model:page-size="pageSize" layout="total, prev, pager, next" :total="total" />
