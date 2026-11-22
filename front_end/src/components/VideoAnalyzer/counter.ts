@@ -55,6 +55,76 @@ const parser = new Parser({ operators: { assignment: false } });
 const byTime = bisector<CounterSample, number>((sample) => sample.timeMs);
 const buttonActions = new Set(['lc', 'lr', 'rc', 'rr', 'mc', 'mr', 'cc', 'cr']);
 
+interface CounterProgress {
+    done: number;
+    total: number;
+}
+
+function* selectCounterEventsSteps(events: CounterEvent[], samplingMode: SamplingMode, durationMs: number | undefined): Generator<CounterProgress, CounterEvent[], void> {
+    const selected = new Map<number, CounterEvent>();
+    let done = 0;
+    for (const event of events) {
+        if (samplingMode === 'continuous' || (samplingMode === 'button' ? event.button : event.boardChanged)) selected.set(event.timeMs, event);
+        done++;
+        if (done % ANALYSIS_CHUNK_SIZE === 0) yield { done, total: events.length };
+    }
+    const snapshots = [...selected.values()];
+    if (samplingMode !== 'continuous' || snapshots.length === 0) {
+        yield { done, total: events.length };
+        return snapshots;
+    }
+    const endMs = Math.max(snapshots[snapshots.length - 1].timeMs, Math.floor(durationMs ?? 0));
+    const [first] = snapshots;
+    let { timeMs } = first;
+    const total = events.length + endMs - timeMs + 1;
+    const samples: CounterEvent[] = [];
+    let index = 0;
+    for (; timeMs <= endMs; timeMs++) {
+        while (index + 1 < snapshots.length && snapshots[index + 1].timeMs <= timeMs) index++;
+        const snapshot = snapshots[index];
+        // Keep every source field, including time, unchanged when filling an event-free millisecond.
+        samples.push(timeMs === snapshot.timeMs ? snapshot : { ...snapshot, timeMs });
+        done++;
+        if (done % ANALYSIS_CHUNK_SIZE === 0) yield { done, total };
+    }
+    yield { done: total, total };
+    return samples;
+}
+
+function* evaluateCounterSteps(evaluate: (index: number) => unknown, snapshots: CounterEvent[]): Generator<CounterProgress, CounterSample[], void> {
+    const samples: CounterSample[] = [];
+    let done = 0;
+    for (const [index, event] of snapshots.entries()) {
+        const value = evaluate(index);
+        if (typeof value !== 'number') throw new Error('Expression must return a single number');
+        samples.push({ timeMs: event.timeMs, eventIndex: event.eventIndex, value });
+        done++;
+        if (done % ANALYSIS_CHUNK_SIZE === 0) yield { done, total: snapshots.length };
+    }
+    yield { done: snapshots.length, total: snapshots.length };
+    return samples;
+}
+
+function drainCounterSteps<T>(steps: Generator<CounterProgress, T, void>): T {
+    let step = steps.next();
+    while (!step.done) step = steps.next();
+    return step.value;
+}
+
+async function drainCounterStepsAsync<T>(steps: Generator<CounterProgress, T, void>, report: ProgressReport): Promise<T> {
+    let step = steps.next();
+    while (!step.done) {
+        await report(step.value.done, step.value.total);
+        step = steps.next();
+    }
+    return step.value;
+}
+
+function createCounterSetup(row: CounterRow): { parsed: Expression; formatter: (value: number) => string } {
+    if (!samplingModes.includes(row.samplingMode)) throw new Error(`Unknown sampling mode: ${row.samplingMode}`);
+    return { parsed: parseCounterExpression(row.expression), formatter: format(row.format) };
+}
+
 export function defaultCounterConfig(): CounterConfig {
     return { thWidth: 80,
         tdWidth: 96,
@@ -198,53 +268,11 @@ export async function readCounterEventsAsync(video: ReplayVideo, report: Progres
 }
 
 export function selectCounterEvents(events: CounterEvent[], samplingMode: SamplingMode, durationMs?: number): CounterEvent[] {
-    const selected = new Map<number, CounterEvent>();
-    for (const event of events) {
-        if (samplingMode === 'continuous' || (samplingMode === 'button' ? event.button : event.boardChanged)) selected.set(event.timeMs, event);
-    }
-    const snapshots = [...selected.values()];
-    if (samplingMode !== 'continuous' || snapshots.length === 0) return snapshots;
-    const endMs = Math.max(snapshots[snapshots.length - 1].timeMs, Math.floor(durationMs ?? 0));
-    const samples: CounterEvent[] = [];
-    let index = 0;
-    const [first] = snapshots;
-    for (let { timeMs } = first; timeMs <= endMs; timeMs++) {
-        while (index + 1 < snapshots.length && snapshots[index + 1].timeMs <= timeMs) index++;
-        const snapshot = snapshots[index];
-        // Keep every source field, including time, unchanged when filling an event-free millisecond.
-        samples.push(timeMs === snapshot.timeMs ? snapshot : { ...snapshot, timeMs });
-    }
-    return samples;
+    return drainCounterSteps(selectCounterEventsSteps(events, samplingMode, durationMs));
 }
 
 export async function selectCounterEventsAsync(events: CounterEvent[], samplingMode: SamplingMode, durationMs: number | undefined, report: ProgressReport): Promise<CounterEvent[]> {
-    const selected = new Map<number, CounterEvent>();
-    let done = 0;
-    for (const event of events) {
-        if (samplingMode === 'continuous' || (samplingMode === 'button' ? event.button : event.boardChanged)) selected.set(event.timeMs, event);
-        done++;
-        if (done % ANALYSIS_CHUNK_SIZE === 0) await report(done, events.length);
-    }
-    const snapshots = [...selected.values()];
-    if (samplingMode !== 'continuous' || snapshots.length === 0) {
-        await report(events.length, events.length);
-        return snapshots;
-    }
-    const endMs = Math.max(snapshots[snapshots.length - 1].timeMs, Math.floor(durationMs ?? 0));
-    const [first] = snapshots;
-    let { timeMs } = first;
-    const total = events.length + endMs - timeMs + 1;
-    const samples: CounterEvent[] = [];
-    let index = 0;
-    for (; timeMs <= endMs; timeMs++) {
-        while (index + 1 < snapshots.length && snapshots[index + 1].timeMs <= timeMs) index++;
-        const snapshot = snapshots[index];
-        samples.push(timeMs === snapshot.timeMs ? snapshot : { ...snapshot, timeMs });
-        done++;
-        if (done % ANALYSIS_CHUNK_SIZE === 0) await report(done, total);
-    }
-    await report(total, total);
-    return samples;
+    return drainCounterStepsAsync(selectCounterEventsSteps(events, samplingMode, durationMs), report);
 }
 
 export function createCounterEvaluator(expression: Expression, events: CounterEvent[]): (index: number) => unknown {
@@ -253,16 +281,10 @@ export function createCounterEvaluator(expression: Expression, events: CounterEv
 
 export function prepareCounter(row: CounterRow, events: CounterEvent[], durationMs?: number): PreparedCounter {
     try {
-        if (!samplingModes.includes(row.samplingMode)) throw new Error(`Unknown sampling mode: ${row.samplingMode}`);
-        const parsed = parseCounterExpression(row.expression);
-        const formatter = format(row.format);
+        const { parsed, formatter } = createCounterSetup(row);
         const snapshots = selectCounterEvents(events, row.samplingMode, durationMs);
         const evaluate = createCounterEvaluator(parsed, snapshots);
-        const samples: CounterSample[] = snapshots.map((event, index) => {
-            const value = evaluate(index);
-            if (typeof value !== 'number') throw new Error('Expression must return a single number');
-            return { timeMs: event.timeMs, eventIndex: event.eventIndex, value };
-        });
+        const samples = drainCounterSteps(evaluateCounterSteps(evaluate, snapshots));
         return { samples, formatter, error: '' };
     } catch (error) {
         return { samples: [], formatter: String, error: counterError(error) };
@@ -275,23 +297,10 @@ export function prepareCounters(rows: CounterRow[], events: CounterEvent[], dura
 
 export async function prepareCounterAsync(row: CounterRow, events: CounterEvent[], durationMs: number | undefined, report: ProgressReport): Promise<PreparedCounter> {
     try {
-        if (!samplingModes.includes(row.samplingMode)) throw new Error(`Unknown sampling mode: ${row.samplingMode}`);
-        const parsed = parseCounterExpression(row.expression);
-        const formatter = format(row.format);
-        const selectionReporter = createSubReporter(report, 0, 0.5);
-        const snapshots = await selectCounterEventsAsync(events, row.samplingMode, durationMs, selectionReporter);
+        const { parsed, formatter } = createCounterSetup(row);
+        const snapshots = await drainCounterStepsAsync(selectCounterEventsSteps(events, row.samplingMode, durationMs), createSubReporter(report, 0, 0.5));
         const evaluate = createCounterEvaluator(parsed, snapshots);
-        const sampleReporter = createSubReporter(report, 0.5, 0.5);
-        const samples: CounterSample[] = [];
-        let done = 0;
-        for (const [index, event] of snapshots.entries()) {
-            const value = evaluate(index);
-            if (typeof value !== 'number') throw new Error('Expression must return a single number');
-            samples.push({ timeMs: event.timeMs, eventIndex: event.eventIndex, value });
-            done++;
-            if (done % ANALYSIS_CHUNK_SIZE === 0) await sampleReporter(done, snapshots.length);
-        }
-        await sampleReporter(snapshots.length, snapshots.length);
+        const samples = await drainCounterStepsAsync(evaluateCounterSteps(evaluate, snapshots), createSubReporter(report, 0.5, 0.5));
         return { samples, formatter, error: '' };
     } catch (error) {
         if (error instanceof AnalysisCancelled) throw error;

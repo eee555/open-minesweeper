@@ -65,6 +65,13 @@ describe('<VideoAnalyzer /> raw-source interface', () => {
                         expect(state.preparedEvents.value).to.eq(events);
                     });
                     cy.then(() => {
+                        config.value = { ...config.value, cursorSize: 20 };
+                    });
+                    cy.get('@vue').should(() => {
+                        expect(state.preparedCounters.value).to.eq(counters);
+                        expect(state.preparedEvents.value).to.eq(events);
+                    });
+                    cy.then(() => {
                         config.value.counter.rows[0].expression = 'time';
                     });
                     cy.get('@vue').should(() => {
