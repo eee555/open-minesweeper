@@ -61,6 +61,8 @@ interface BackgroundTaskRow {
 }
 
 interface TaskPage {
+    total: number;
+    start: number;
     count: number;
     items: BackgroundTaskRow[];
 }
@@ -871,25 +873,26 @@ describe('Tournament background tasks', () => {
         cy.intercept('GET', '**/api/common/tasks/detail*').as('taskDetail');
         cy.login(STAFF.username, STAFF.password);
         cy.visit('/#/staff/task');
-        cy.contains('button', '加载任务').click();
         cy.wait<unknown, TaskPage>('@taskDetail').then(({ response }) => {
             expect(response?.statusCode).to.eq(200);
             expectedTasks = response?.body.items ?? [];
             expect(expectedTasks).to.have.length.greaterThan(0);
         });
-        cy.get('.p-datatable').find('.el-loading-mask:visible').should('not.exist');
-        cy.get('.p-datatable table:visible').getTable().should((tableData) => {
-            expect(tableData).to.have.length(expectedTasks.length);
+        cy.get('[data-cy=load-tasks]').should('not.be.disabled');
+        // Header text includes filter options; read the fixed task columns from tbody instead.
+        cy.get('[data-cy=task-table] tbody').extractTableData().should((rows) => {
+            expect(rows).to.have.length(expectedTasks.length);
+            expect(rows.map((row) => row[8])).to.deep.equal(expectedTasks.map((task) => task.task_path));
 
-            const weeklyTask = tableData.find((row) => row.任务路径 === 'tournament.weekly.tasks.task_weekly_finish');
+            const weeklyTask = rows.find((row) => row[8] === 'tournament.weekly.tasks.task_weekly_finish');
             if (expectedTasks.some((task) => task.task_path === 'tournament.weekly.tasks.task_weekly_finish')) {
-                expect(weeklyTask?.状态).to.equal('就绪');
-                expect(weeklyTask?.最早执行时间).to.equal(weeklyFinishTaskRunAfter);
+                expect(weeklyTask?.[2]).to.equal('就绪');
+                expect(weeklyTask?.[12]).to.equal(weeklyFinishTaskRunAfter);
             }
 
-            const gscTask = tableData.find((row) => row.任务路径 === 'tournament.gsc.tasks.task_gsc_finish');
+            const gscTask = rows.find((row) => row[8] === 'tournament.gsc.tasks.task_gsc_finish');
             if (expectedTasks.some((task) => task.task_path === 'tournament.gsc.tasks.task_gsc_finish')) {
-                expect(gscTask?.状态).to.equal('就绪');
+                expect(gscTask?.[2]).to.equal('就绪');
             }
         });
     });

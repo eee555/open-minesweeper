@@ -1,8 +1,8 @@
 # 前端 UI 风格渐进重构计划
 
-制定日期：2026-10-03。现状核对与计划更新：2026-11-15。
+制定日期：2026-10-03。现状核对与计划更新：2026-11-22。
 
-本计划只列剩余工作与持续适用的约束。已提交或已验收的批次不再列为实施或测试待办，也不再重复其迁移细节；已完成控件的模板、参数与复用约定以 [`src/styles/README.md`](src/styles/README.md) 与代码为准。原有批次编号保留，避免后续交流中混淆。
+本计划只列剩余工作与持续适用的约束。已实现、已提交或已验收的批次不再列为实施或测试待办，也不再重复其迁移细节；已完成控件的模板、参数与复用约定以 [`src/styles/README.md`](src/styles/README.md) 与代码为准。原有批次编号保留，避免后续交流中混淆。
 
 新增 UI 和业务维护优先遵守[根目录前端规范](../AGENTS.md)。管理员页面只承接必要的功能与主题兼容，不安排专门的精细视觉改版。
 
@@ -28,6 +28,8 @@
 | 有色数据单元格 | [`PiecewiseColorScheme`](src/utils/colors.ts) 按背景明暗引用浅色 / 深色模式的默认文字色；透明背景继承父容器颜色。两套来源为 `--ui-text-color-regular-light` / `--ui-text-color-regular-dark` |
 | 布局、卡片与操作 | `layout.css`、`cards.css`、`link.css`、`button.css` / `buttons/`；`BaseButton`、`BaseTextButton`、确认/取消按钮、`BaseFileInput` 等已有原生实现 |
 | 描述列表 | [`descriptions.css`](src/styles/descriptions.css) 提供 dl / dt / dd 模板，支持边框、跨列和容器宽度适配，无独立 Vue 组件 |
+| 原生分页器 | [`BasePagination.vue`](src/components/common/BasePagination.vue) 与 [`pagination.ts`](src/components/common/pagination.ts) 提供区间按钮、任意起始索引跳转和页容量；模型为 `current-start` / `page-size`，`change` 返回从 1 开始、包含端点的 `{ start, end }`，空结果为 `{ start: 0, end: 0 }`；组件不切片数据或请求 API |
+| 录像列表 | [`VideoList/README.md`](src/components/VideoList/README.md) 维护原生表格、表达式列、设置页预览、持久化和调用方分工；后续直接复用，不再安排迁移批次 |
 | 展示表格 | [`BaseTable`](src/components/common/BaseTable.vue) 封装原生表格、滚动容器、空状态和插槽；`table.css` 提供行悬停高亮，`table-columns.css` 提供排名、玩家、数值、时间等公共列样式 |
 | 表头排序图标与状态 | [`SortIcon`](src/components/common/SortIcon.vue) 按 `aria-sort` 三态统一 PrimeIcons 类名；[`sortState.ts`](src/components/common/sortState.ts) 提供 `SortState`、`sortState(order, active)` 与 `nextSortOrder(order, active, clearedOrder)`，由 `<th :aria-sort>`、`SortIcon :state` 和表头按钮共用。根元素仍为 `<i>`，支持父级 `class` 合并，供 BaseTable 调用方复用，不接管排序状态或请求；`aria-sort` 仍由列头维护，字段写入、分页重置和后端请求仍由调用方负责；`clearedOrder` 传 `-1` 时可承接仅升 / 降两态切换的表 |
 | 保留表格的视觉 | `theme/tables.css` 为 BaseTable、ElTable、PrimeVue DataTable 提供统一参数；`vendors/element-plus-table.css`、`primevue-table.css`、`primevue-table-controls.css` 已接入 |
@@ -44,7 +46,7 @@
 
 当前源码事实，后续批次以此为起点：
 
-- BaseTable 已有 44 个 `.vue` 使用方，覆盖排行榜、个人纪录、软件版本列表、导入队列、上传队列、管理员与数据库页面；[`DatabaseView/VideoView.vue`](src/views/DatabaseView/VideoView.vue) 的录像列表由 [`VideoList/App.vue`](src/components/VideoList/App.vue) 用 BaseTable 渲染，已退出 PrimeVue DataTable，也不再使用 ElTable。
+- BaseTable 已有 49 个 `.vue` 使用方，覆盖排行榜、个人纪录、软件版本列表、导入队列、上传队列、管理员与数据库页面；[`DatabaseView/VideoView.vue`](src/views/DatabaseView/VideoView.vue) 的录像列表由 [`VideoList/App.vue`](src/components/VideoList/App.vue) 用 BaseTable 渲染，已退出 PrimeVue DataTable，也不再使用 ElTable。
 - 应用模板中 ElButton、ElCheckbox、ElRadio、ElSwitch、ElText、ElDivider 已归零；ElCard 仅 [`NormalTournamentQueue.vue`](src/views/HomeView/NormalTournamentQueue.vue) 1 处，ElLink 同文件 3 处；仍有 4 处 ElDescriptions、4 个 ElTable 使用方和 4 处 ElSelect，分别见第 2 节、第 3 节与 4.2 开头。
 - 目前的尺寸是后续评审的起点：基础文字 14px，普通原生按钮内边距 4px × 8px、行高 1.4；表格单元格内边距 4px × 8px、行高 1.4；普通卡片内边距 10px。这些现值已生效，后续按组件类别调整，不再安排“先抄参数但不接入运行时”的步骤。
 
@@ -56,7 +58,7 @@
 | 3 | 剩余表格核对 | 其余 4 个 ElTable 根据实际排序、编辑等依赖决定是否保留 |
 | 7 | 图标注册迁移 | 剩余 7.2：取消 bootstrap.ts 的 7 个全局注册，同步清理 Cypress 注入与 ESLint 豁免 |
 | 4 | 其他控件换肤与尺寸细化 | 4.2.5 剩余 Slider、4.2.6 输入与表单、4.2.7 Tabs、4.2.8 弹窗通知与加载，继续分批推进 |
-| 5 | PrimeVue 退出 | 5.0 独立分页器与 5.1 VideoList 原生表格已实现；5.2 已细化为准备、外围控件、逐表迁移、测试与最终清理五段，按表推进 |
+| 5 | PrimeVue 退出 | 业务表格迁移已实现；剩余 5.2.3 测试残留与 5.2.4 注册、样式和包依赖清理 |
 | 6 | 局部收尾 | 随每批删除失效导入、重复样式和已无使用方的兼容项，更新本计划 |
 
 4.2.5 的不透明度原生迁移及剩余轨道、提示样式，以及图标 7.2 仍可独立推进；首页比赛卡片和 PrimeVue 全部退出不作为前置条件。
@@ -87,7 +89,7 @@ BaseTable 的迁移边界保持如下：
 | [`weekly/AllSummary.vue`](src/views/TournamentView/weekly/AllSummary.vue) | 使用内部排序及自定义比较函数、嵌套表头，暂留 |
 | [`TournamentList.vue`](src/views/TournamentView/TournamentList.vue) | 使用默认排序和可排序列，暂留；保留原因包含排序，简单行点击本身不是障碍 |
 
-`DatabaseView/VideoView.vue` 已改为查询构建器加 `VideoList`（BaseTable 原生表格）渲染，纳入第 5 节，不再属于 ElTable 迁移范围。其余表格继续使用已统一的视觉样式，不在本批顺带重写内部排序或编辑逻辑。未来按实际使用能力重新评估，而不以表格名称或是否包含按钮作决定。
+`DatabaseView/VideoView.vue` 已由查询构建器加原生 VideoList 渲染，不再列入表格迁移待办。其余表格继续使用已统一的视觉样式，不在本批顺带重写内部排序或编辑逻辑。未来按实际使用能力重新评估，而不以表格名称或是否包含按钮作决定。
 
 ### 7. 剩余图标注册迁移
 
@@ -129,14 +131,14 @@ BaseTable 的迁移边界保持如下：
 
 ### 4. 简单选择控件迁移与复杂组件换肤
 
-本阶段继续小批推进，每类先选择代表实例验收，再推广。4.2.2 曾用于导航重做，不复用其编号；4.2.5 的沙漏滑块外形已落地，其余工作及后续批次尚未实施。仍保留的 ElSelect 调用点为 `UserVideoView.vue` 的模式多选、`GSCAdmin/HistoryVideos.vue` 的录像标识多选、`StaffView/Logs.vue` 的文件搜索和 `StaffView/Medal.vue` 的勋章搜索，分页器内部选择器也保留；它们共用已落地的 --ui-select-* 参数，适配由使用方按需导入。
+本阶段继续小批推进，每类先选择代表实例验收，再推广。4.2.2 曾用于导航重做，不复用其编号；已落地控件按样式 README 复用，下面只列剩余工作。仍保留的 ElSelect 调用点为 `UserVideoView.vue` 的模式多选、`GSCAdmin/HistoryVideos.vue` 的录像标识多选、`StaffView/Logs.vue` 的文件搜索和 `StaffView/Medal.vue` 的勋章搜索，分页器内部选择器也保留；它们共用已落地的 --ui-select-* 参数，适配由使用方按需导入。
 
 | 子批次 | 当前范围 | 实施边界 |
 | --- | --- | --- |
 | 4.2.5 Slider | 3 个文件、3 处 ElSlider；与 Analyzer 原生进度滑块共用的沙漏外形已由 slider.css 提供 | 简单不透明度单独迁移；双滑块及播放器拖动保留组件交互，继续细化轨道和提示样式 |
-| 4.2.6 输入与表单 | ElInput 为 17 个文件、33 处，ElInputNumber 为 17 个文件、27 处；另有 5 处 ElForm、19 处 ElFormItem | 先盘点能力和校验依赖，再以登录/注册为换肤试点；不批量替换表单和数值处理 |
+| 4.2.6 输入与表单 | ElInput 为 17 个文件、33 处，ElInputNumber 为 16 个文件、24 处；另有 6 处 ElForm、20 处 ElFormItem | 先盘点能力和校验依赖，再以登录/注册为换肤试点；不批量替换表单和数值处理 |
 | 4.2.7 Tabs | 11 个业务文件、12 处 ElTabs；另有 1 个测试包装组件 | 先验收已有水平换行与逐项选中指示，再细化高度、间距、边框；保留纵向布局和路由状态 |
-| 4.2.8 弹窗、通知与加载 | 20 处 ElDialog、2 处 ElDrawer，以及通知和加载调用 | 以 BaseOverlay、登录弹窗、Notifications 为代表，逐类调整内部间距、边角与浮层 |
+| 4.2.8 弹窗、通知与加载 | 21 处 ElDialog、2 处 ElDrawer，以及通知和加载调用 | 以 BaseOverlay、登录弹窗、Notifications 为代表，逐类调整内部间距、边角与浮层 |
 
 以上数量按 src 下 Vue 模板声明统计，循环产生的实例不重复计数，组件库内部调用不计入。Radio 和 Switch 优先复用原生表单行为，不新增 BaseRadio / BaseSwitch 状态层；输入与表单是否原生迁移，以逐项盘点结果为准。
 
@@ -174,139 +176,53 @@ Slider 使用方涉及公共播放器；实施前检查 Analyzer 与离线入口
 
 以上各批的新参数继续使用项目 --ui-*；vendors 样式由实际使用方按需导入，不回到 setup.ts 全局加载。样式文件仍受 100 个非空行限制；代码变更完成后按现有跨轮流程执行检查，Cypress 命令随各批实际改动提供。
 
-### 5. PrimeVue 退出
+### 5. PrimeVue 退出：剩余最终清理
 
-不新增 PrimeVue 使用范围。当前依赖仍包含以下内容，表内分页器之外的实际行为也必须保留：
+原生分页器、VideoList、Listbox、InputText，以及账号关联管理、两类录像导入队列、标识查询和上传队列表格均已实现迁移，相关实施步骤与历史测试明细从计划移除。组件维护直接参考当前代码与样式 README，不重新建立迁移批次。
 
-| 依赖 | 当前使用方 |
+当前仍有依赖如下，PrimeIcons 单独保留：
+
+| 依赖 | 剩余使用方 |
 | --- | --- |
-| DataTable / Column | `views/StaffView/Task.vue`，仅剩 1 个表格入口；VideoList、AccountLink、VideoImportQueue、MSGamesVideoImportQueue、IdentifierView 与 VideoUpload/Table 已退出 |
-| Listbox | 5.2.1.1 规则已重订：3 个文件共 6 个实例统一改为原生 table 的 `BaseListbox`，纵向按钮组不再是迁移目标，无剩余使用方；VideoList 的 4 个列筛选此前已改为原生控件 |
-| Toolbar | 仅 `views/StaffView/Task.vue` 的 1 处；账号关联旧 Toolbar 已随卡片删除 |
-| InputText | 5.2.1.2 已把 2 处换成原生 `<input>`，无剩余使用方 |
-| 注册、主题与类型 | [`bootstrap.ts`](src/bootstrap.ts) 中的 PrimeVue / Aura preset，`@primevue/core/api`、DataTable 事件类型及仍使用 PrimeVue 表格的 Cypress 测试注册；VideoList 调用链已清理 |
+| 业务组件 | 已无 DataTable / Column / Toolbar / FilterMatchMode 使用方 |
+| 应用注册与主题 | `bootstrap.ts` 中 PrimeVue / Aura preset |
+| 组件测试注册 | `components/VideoPlayer/NativePlayer.cy.ts`、`components/common/SelectStyles.cy.ts`；NativePlayer 的注册已无对应业务组件依赖 |
+| 过渡样式 | `vendors/primevue-table.css`、`primevue-table-controls.css`、`primevue-select.css`；汇总入口仅由 SelectStyles.cy.ts 导入 |
+| 包依赖 | `primevue`、`@primevue/core`、`@primeuix/themes` 及锁文件 |
 
-#### 5.0 独立原生分页器（已实现，接口供 5.1 复用）
+5.0、5.1、5.2.0、5.2.1 与 5.2.2-a～e 不再列为待办，保留下列未完成编号。
 
-已新增 [`components/common/BasePagination.vue`](src/components/common/BasePagination.vue)，用原生 HTML / CSS 与已有 BaseButton 实现，不依赖 PrimeVue、Element Plus 或 VideoAbstract；区间计算集中在 [`components/common/pagination.ts`](src/components/common/pagination.ts)，样式见 `styles/pagination.css`。已有页面未在本批切换，现有 DataTable 分页器保持原样。以下保留公开接口作为 5.1 的接入契约。
+#### 5.2.2-f 管理员任务页（已实现，待人工验收）
 
-分页器只管理分页控件与记录索引区间，接收总记录数，不接收或切片数据、不排序、不筛选、不请求 API、不维护路由或持久化状态。本地分页与后端分页均由调用方承接，BaseTable 保持原有展示职责。界面与公开接口均使用从 1 开始、两端包含的记录索引；索引表示当前结果集合中的位置，不是录像 ID。
+Task.vue 已使用 BaseTable、BasePagination、SortIcon 与原生筛选控件，Toolbar 已替换为紧凑操作行。状态筛选即时提交，路径筛选按 Enter 提交；保留跨区间多选、当前区间全选 / 半选、批量删除、重启限制、错误查看、统计刷新和过期清理。批量删除中途失败仅移除已成功删除的选择，剩余可重试；结果缩小时重新请求合法起点，避免显示区间与记录不一致。
 
-公开接口与行为约定：
+`GET /api/common/tasks/detail` 改用 `start`（从 1 开始、允许任意起点）与 `count`（1～100，默认 20），响应为 `{ total, start, count, items }`，其中 total 是筛选后总数；原 `page/page_size` 已移除，其他排序 / 筛选与管理员权限保持不变。页面默认 count=10，选项为 `[10,25,50,100]`。
 
-| 接口 | 约定 |
-| --- | --- |
-| `v-model:current-start` | 当前区间的第一个记录索引，默认 1；其值不是页码，允许任意合法起始索引。VideoList 的零基 `first = currentStart - 1`，不按页容量取整 |
-| `v-model:page-size` | 正整数，默认 25；用户切换页容量时同步将起始索引重置为 1 |
-| `total` | 非负总记录数；本地分页传过滤后数量，后端分页传服务端总数 |
-| `page-size-options` | 默认 `[5, 10, 25, 50, 100]`，允许调用方配置；当前有效页容量不在选项中时仍能正确显示 |
-| `disabled` | 禁止分页操作，供加载期或业务限制使用，保持控件尺寸与位置 |
-| `change` | 一次有效用户操作只发出一次 `{ start, end }`，两者均为从 1 开始且包含端点的记录索引；非空时 `start = currentStart`、`end = Math.min(start + pageSize - 1, total)`，空结果为 `{ start: 0, end: 0 }`。调用方不与模型监听重复绑定同一请求 |
+后端定向测试与 Task.cy.ts 已同步维护，E2E 的任务页定位及响应类型已调整；浏览器测试由用户运行。应用级依赖与主题清理仍留在 5.2.4，本批不卸载包。验收后移除此小节。
 
-- 提供上一页、下一页、有限数量的区间按钮与省略号、页容量、按起始索引跳转和当前记录区间 / 总数；上一页 / 下一页并排放在所有区间按钮之前，首段与末段区间按钮始终显示，承担跳到开头 / 结尾，不另设首页 / 末页按钮。常规按钮按页容量分段，显示 `1-25`、`26-50` 等索引范围，末段截断到总数；点击后将起始索引设为该段首个索引。总数很大时不创建全部区间按钮。
-- 跳转输入的是目标区间第一个记录索引，不要求对齐常规分段。例如页容量 25、总数至少 37 时输入 13，模型值为 13，显示 `13-37`，`change` 发出 `{ start: 13, end: 37 }`。非对齐区间也需明确显示为当前选中区间，不把它标记成 `1-25` 或悄悄取整。
-- 上一页 / 下一页以当前起始索引减 / 加页容量，向前越界时取 1，当前区间已包含最后一条记录时禁用下一页；已在起点时禁用上一页。跳到开头 / 结尾改为点击首段 / 末段区间按钮。
-- 零记录时模型保留 1 作为起始索引哨兵，实际区间为 `0-0`，区间 / 总数显示 `0-0 / 0`，翻页与跳转禁用；调用方按空结果处理，不将 0 转成数组负索引。
-- 总数缩小或外部模型越界时，将非空结果的起始索引约束到 `[1, total]` 并按需同步模型，保持任意合法起点，不对齐常规分段，不发出用户 `change`；外部模型同步不重复回发相同值。外部总数 / 页容量联动更新时以最终有效状态计算，避免中间状态造成重复通知。
-- 跳转输入允许编辑中的空值，提交时处理非整数、非法值和越界值；Enter 与失焦不重复提交，跳到当前起始索引不发出无效事件。
-- 采用带可访问名称的 `nav`、原生按钮 / select / input，当前区间使用 `aria-current="page"`，跳转输入明确标注“起始索引”；复用项目按钮、Select、文字和主题参数，支持焦点、禁用、深浅主题与紧凑布局。按组件自身宽度线性估算区间按钮数量：先扣除导航按钮、设置区与省略号的估算占用 180px，再按每 100px 增加一个区间预算，限制在 1~17，覆盖 1920×1080 及更宽屏幕；始终保留首段 / 当前段 / 末段与省略号，仍允许控件组换行，不引入全站视口断点。
+#### 5.2.3 剩余迁移的测试与验收
 
-验证范围包括零 / 单段、多段和大总数、首末段、页容量重置、常规区间按钮、任意起始索引跳转及连续翻页、末端截断、总数变化、外部模型更新、`start` / `end` 端点与事件次数，由 `pagination.test.ts` 覆盖计算边界、`BasePagination.cy.ts` 覆盖实际交互，避免两套测试重复验证全部用例。Cypress 由用户运行。样式按实际需要拆分，每个文件不超过 100 个非空行。
+仅随剩余改动更新测试，不将已实现的表格重新列入回归批次：
 
-5.1 已直接复用该组件，VideoList 的 DataTable 分页器已随之退出；数据库查询页仍保留页面自有分页。
+1. Task.cy.ts 的原生表格覆盖已实现，本批人工验收运行该 spec；复用其中的请求参数、任意起点、容量重置、筛选 / 排序、跨区间选择、部分删除失败、越界修正、重启限制和清理覆盖，不重复建立同类测试。
+2. `NativePlayer.cy.ts` 删除残留 PrimeVue 注册，不改播放器业务断言；`SelectStyles.cy.ts` 删除仅针对 PrimeVue 的挂载及断言，保留真实仍用到的 Element Plus 复杂选择器与分页器样式覆盖，避免整份删除。
+3. 如涉及任务 API 或页面定位变更，同步维护实际受影响的 E2E；Cypress 与 E2E 由用户运行。本轮文档整理不代表既有浏览器测试或生产验证通过。
+4. Task 迁移验收关注加载、空状态、筛选清除、默认 / 切换排序、索引区间与实际记录、页容量 / 跳转、选择 / 删除、重启与独立操作，以及深浅主题和窄容器。已落地公共分页器与 Listbox 的独立边界测试继续复用。
 
-#### 5.1 VideoList：VideoAbstract 专用原生表格（已实现）
+#### 5.2.4 最终清理（业务组件已退出，可独立推进）
 
-录像列表已使用 BaseTable、BasePagination 和原生表头交互。BaseTable 只提供展示容器，筛选、稳定排序和分页由 VideoList 或页面按职责处理。
+按注册与代码 → 样式 → 文档 → 依赖的顺序完成：
 
-两组表格列配置及全站 tooltip 配置集中在设置页，使用项目卡片样式，并共用固定 VideoAbstract 预览。字段支持、预设与默认配置、持久化及调用方分工统一维护在 [组件说明](src/components/VideoList/README.md)。数据库页保持后端筛选排序及分页，表头不提供筛选排序；个人主页与散点图共享筛选状态。
+1. 删除 `bootstrap.ts` 的 `definePreset` / `Aura` / `PrimeVue` 与 `app.use(PrimeVue, ...)`，保留其他启动逻辑。清理 `App.vue` 的 `.p-datatable-filter-overlay-popover` / `.p-select-overlay` 层级补丁，配合 5.2.3 删除测试残留注册。
+2. 删除 `vendors/primevue-table.css`、`primevue-table-controls.css`、`primevue-select.css` 及失效导入；清理已无使用方的 `.checkbox-buttons--vertical` 与对应说明，保留仍使用的 Checkbox / Radio 公共样式。
+3. 更新 `docs/development.md`、`src/styles/README.md` 等受版本控制的维护文档：启动入口实际为 bootstrap.ts，PrimeVue 退出后删除过渡适配说明。`styles/parameters/` 是 Git 忽略的本地存档，不作为交付物，也不为清理它建立构建依赖。
+4. 从 package.json / package-lock.json 删除 `primevue`、`@primevue/core`、`@primeuix/themes` 与仅由它们引入的传递依赖；保留 PrimeIcons、其样式导入、离线打包与 CDN 检查。
+5. 删除 ESLint 中剩余 3 个文件的导入豁免，保留禁止新增 PrimeVue 的规则；检索源码、测试、样式和构建脚本确认无运行时库导入、注册或失效 `.p-*` 选择器，再做生产构建与产物依赖检查。静态检查与构建不代替浏览器验证。
+6. 完成后移除本节剩余待办，并更新依赖清单。
 
-浏览器验证由用户执行，命令及覆盖范围见组件说明。其他 PrimeVue 表格继续按 5.2 独立迁移。
+`VideoUpload/ToolBar.vue` 与 `visualization/VideoScatter/Toolbar.vue` 是项目组件，不属于 PrimeVue 清理范围。
 
-#### 5.2 其他使用方与最终清理（a / b / c / d / e 已实施，运行验证待用户）
-
-5.2 把 PrimeVue DataTable 使用方按「一表一批」退出；a / b / c / d / e 已实施，运行验证待用户，当前剩 1 个表格，全部退出后才删除依赖。每批独立审查、合并与回退；不新增 PrimeVue 使用范围，不把 [`VideoList/videoListData.ts`](src/components/VideoList/videoListData.ts) 的 VideoAbstract 专用逻辑推广为通用表格引擎，也不预先批量改写尚未轮到的表格。PrimeIcons、5.0 的 BasePagination 与 5.1 的公共基础继续保留；BaseTable 只负责展示，交互状态由各调用方维护。
-
-##### 5.2.0 准备与准入
-
-1. 复核下方的起点事实表并固定 a→f 顺序；注册点现为 4 处（`bootstrap.ts`、3 个 `.cy.ts`），`accountlinks/testUtils.ts` 已随 c 批次、`DatabaseView/IdentifierView.cy.ts` 已随 d 批次、`VideoUpload/Table.cy.ts` 与 `VideoUpload/App.cy.ts` 已随 e 批次移除 PrimeVue 注册，任何使用方的能力发生变化，先更新该表再开始对应批次。
-2. `eslint.config.js` 已按文件清单风格禁止新增 `primevue/*` / `@primevue/*` / `@primeuix/*` 导入，现有直接依赖文件按批退出后逐条删除豁免；规则不扩展到 `primeicons`。
-3. 固定替代分工：BaseTable 提供 `head` / `default` 插槽、滚动容器与空状态，表头排序按钮、筛选控件、选择 / 展开状态与分页请求均留在调用方；分页统一复用 BasePagination，不新建通用表格组件或递归列注册体系。
-4. 固定每批验收清单：保留原有排序（前端 / 后端）、筛选、分页、选择、展开、行操作与请求参数；数据处理顺序为筛选 → 排序 → 分页；筛选或页容量变化后重置起始索引；保留 `data-cy` 定位、键盘与禁用行为；深浅主题与窄容器人工检查。
-
-起点事实与迁移顺序（2026-11-14 核对的迁移起点：6 个 DataTable / Column 使用方、3 个文件共 6 个 Listbox 实例、2 处 InputText、1 处 Toolbar；其中 Listbox、InputText 已分别由 5.2.1.1、5.2.1.2 替换，AccountLink 表格已由 5.2.2-a 替换，VideoImportQueue 表格已由 5.2.2-b 替换，MSGamesVideoImportQueue 表格已由 5.2.2-c 替换，IdentifierView 表格已由 5.2.2-d 替换，VideoUpload/Table 表格已由 5.2.2-e 替换，当前剩 1 个 DataTable / Column 使用方）：
-
-| 批次 | 使用方 | 现有能力 | 迁移重点 |
-| --- | --- | --- | --- |
-| a | `StaffView/AccountLink.vue` | 5.2.2-a 已改为后端分页 + 固定列交互（见下方契约） | 已退出 PrimeVue DataTable，运行验证待用户；重点验证 BaseTable + BasePagination 与后端分页请求的衔接 |
-| b | `accountlinks/VideoImportQueue.vue` | 5.2.2-b 已改为 BaseTable + BasePagination 与本地筛选 / 排序 / 分页 | 已退出 PrimeVue DataTable，运行验证待用户；重点验证筛选 → 稳定排序 → 分页顺序、表头三态排序、筛选后页码重置与单元格预览 / 导入；等级与导入状态两个 BaseListbox 筛选已从表格上方移入各自列头的 Tippy 弹层（触发器 `data-cy=filter-*-trigger`），列头排版参照 VideoList 用原生按钮把列名与 `SortIcon` 编组、图标按 `0.75em` 相对表头字体缩放，表头文本与 `extractTableData()` 键名不变 |
-| c | `accountlinks/MSGamesVideoImportQueue.vue` | 5.2.2-c 已改为 BaseTable + BasePagination 与本地筛选 / 排序 / 分页 | 已退出 PrimeVue DataTable，运行验证待用户；数据处理在 `msgamesImportQueueData.ts`，保留表头内分类输入与状态 select、仅 `upload_date` 的两态排序（`-1` ↔ `1`）、默认降序、页容量 `[10,25,50,100]`、筛选 / 排序后起始索引重置与导入 / 重试；局部 `:deep(.p-*)` 覆盖已删除 |
-| d | `DatabaseView/IdentifierView.vue` | 5.2.2-d 已改为 BaseTable + BasePagination 与本地筛选 / 排序 / 分页 | 已退出 PrimeVue DataTable，运行验证待用户；数据处理在 `identifierViewData.ts`，保留 `null` 无筛选与空数组筛空的区分、归属多选 + 内置搜索 + 清除按钮的 Tippy 表头弹层、Escape 关闭、`identifier` / `safe` 两列两态排序及默认升序、页容量 `[10,25,50,100]` 默认 25、staff 行菜单与 ElDialog 不动；`:pt` / `:deep(.p-*)` 覆盖与 `primevue-table.css` 导入已删除 |
-| e | `VideoUpload/Table.vue` | 5.2.2-e 已改为 BaseTable + BasePagination 与本地筛选 / 排序 / 分页 | 已退出 PrimeVue DataTable，运行验证待用户；数据处理在 `uploadTableData.ts`，保留三字段等值筛选（`status` / `stat.level` / `stat.mode`）、4 列两态排序与 `aria-sort`、页容量 `[5,10,25,50,100]` 默认 25、`filteredData` 与 `selectedRows` 联动及表头半选、跨页全选、Space 键盘行为、展开行描述列表；三组筛选改为对应 `<th>` 内的纯图标 Tippy 触发器（不增加表头文本，不影响 `getTable()` 键名），模式筛选项改用模式代码；表头参照 [`VideoList/App.vue`](src/components/VideoList/App.vue) 与 `styles/videoList.css`，每个 `<th>` 用 `.upload-head` 的 inline-flex（`gap: 2px`）把列名、排序图标与筛选图标排成一组：可排序列把列名与 `SortIcon` 放进同一个原生按钮（列名单独包一层无属性 `<span>`，避免换行空白污染 `getTable()` 键名），筛选触发器是紧随其后的原生图标按钮；按钮用 `font: inherit` / `color: inherit` 跟随表头字体，图标按 `0.75em` 相对缩放、未排序列的排序图标 `opacity: 0.45`，保留 focus-visible 与 hover；首列展开按钮仍用 `.upload-icon-button` 的 `font: inherit` / `color: inherit` 跟随所在行字体；展开列与多选框列由 `<colgroup>` 固定宽度；新增软件 / pLuck / thrp 三列，软件列用 `SoftwareIcon` 图标、无表头文字，位于多选列与状态列之间并固定窄列宽，pLuck 在上传解析时按需执行一次 `analyse_for_features(['pluck'])`；`FilterMatchMode` / `DataTableFilterEvent` / `:deep(.p-*)` 与 `primevue-table.css` 导入已删除 |
-| f | `StaffView/Task.vue` | 唯一 lazy 后端排序 / 筛选 / 分页、多选行批量删除、InputText 筛选、Toolbar、失败任务重启 | 排在最后并随管理员任务页维护处理；`@page/@sort/@filter` 改为显式请求函数 |
-
-**a 批次的列交互契约（5.2.2-a 已实施，运行验证待用户）**：迁移前 `GET /api/accountlink/admin/queue` 返回 `AccountLinkQueue` 全量（`id` / `platform` / `identifier` / `userprofile` / `verified`），页面用 `PrDataTable` 做 rows=10 本地分页、4 列前端排序、无筛选。现在按下表实现，不沿用「前端排序 + 本地切片」：
-
-| 列 | 交互 |
-| --- | --- |
-| 《用户 ID》（表头 `prop.userId`，字段 `userprofile`） | 仅排序，走后端 |
-| 《平台》（`platform`） | 仅筛选，选项取自 `AccountLinkPlatform` 全部现有支持的平台（含自动绑定平台），随平台常量维护，不写死列表；页面顶部手动绑定表单的 `manualAccountLinkPlatforms` 只列 6 个手动绑定平台，两者用途不同 |
-| 《已验证》（`verified`） | 仅筛选 |
-| 《平台 ID》（`identifier`） | 不提供排序、筛选等交互 |
-
-绑定分手动与自动：页面顶部表单只用 `manualAccountLinkPlatforms` 的 6 个手动绑定平台；`AccountLinkQueue.platform` 的取值来自后端 `Platform` 枚举（9 个），因此筛选选项按 `AccountLinkPlatform` 全集维护，不复用表单列表。两者范围不同属于既有设计。
-
-后端分页：`/admin/queue` 按[根目录后端规范](../AGENTS.md)扩展为接收页容量、起始索引 / 页码、`platform` / `verified` 筛选与《用户 ID》排序参数，并返回当前页数据与总数；沿用 Ninja API、`staff_required`、`create_schema` 和 docstring 装饰器说明，权限与参数校验留在 API 层，管理员 API 不加限流。前端把后端 `total` 交给 BasePagination，由 `change` 及筛选 / 排序变化触发重新请求，不再对全量结果本地切片；筛选或排序变化后重置起始索引且不重复发请求，空结果、越界起始索引、请求中的 loading 与禁用态按 5.0 / 5.1 约定处理。两列筛选优先复用 `.base-select` / 原生按钮组，不新增重置按钮。该接口还被 `cypress/e2e/accountlink.cy.ts` 的 intercept 使用，响应结构与 pathname 匹配已同步。两列筛选放在表格上方的紧凑筛选行，表头保持纯文本列名以免污染 E2E 表头断言；用户 ID 列为三态排序（未排序 → 升序 → 降序 → 清除），平台 ID 列无交互；`AccountLink.cy.ts` 新增排序 / 筛选 / 翻页的请求参数断言。
-
-##### 5.2.1.1 Listbox → 原生 table Listbox（规则已重订，运行验证待用户）
-
-原规则把 6 个 Listbox 换成纵向按钮组（`.checkbox-buttons--vertical`）：按钮内容 `width: 100%` 会撑满行宽，弹层只能固定 `16rem` 容器，短选项也留大片空白。规则改为统一使用 [`BaseListbox.vue`](src/components/common/BaseListbox.vue) + [`listbox.css`](src/styles/listbox.css)：原生 `<table>/<tbody>/<tr>/<td>` 呈现选项，`<td>` 内放可聚焦的原生 radio / checkbox 与 `<label>`，整行点击即选中、选中行高亮；`table { width: auto; table-layout: auto; }` 让宽度按内容自动收紧，弹层只保留 `width: fit-content` 与 `max-width`，超过 12rem 由外层滚动容器承接。
-
-1. 组件契约：泛型 `TValue` / `TModel` 让单选（`T | null`）与多选（`T[] | null`）共用同一组件；`options` 为 `{ value, label, disabled? }`，`#option` 插槽可替换选项内容，`emptyText` 提供空状态。单选 radio 由组件内 `useId()` 分组，Tab / 方向键 / Space 全部交给原生 input；根容器单选为 `role=radiogroup`、多选为 `role=group`，不引入自定义 listbox role。组件只负责选项展示与选中值，搜索、清除按钮、筛选值存储与分页重置仍由调用方负责；弹层宽度不再固定。
-2. 6 个实例：`VideoUpload/Table.vue` 的 status / stat.level / stat.mode 与 `accountlinks/VideoImportQueue.vue` 的 level / import_status 共 5 个单选改用 `v-model` 或 `:model-value` + `@update:model-value`（VideoImportQueue 的两个已随 b 批次收进对应列头 Tippy 弹层）；`DatabaseView/IdentifierView.vue` 的 ownerKey 多选保留自有 `ownerSearch` / `visibleOwnerOptions` 与 `null` 表示无筛选的语义，`#option` 插槽继续渲染 `PlayerName`，空数组由调用方归约为 `null`。调用方的 `useId()` 组名、`radio-button` / `checkbox-button` 标记与固定宽度弹层样式已删除；公共 `checkbox-buttons.css` / `choice-buttons.css` 保留给原有原生按钮组，`.checkbox-buttons--vertical` 已无使用方，留到 5.2.4 最后清理时再删。
-3. 契约不变：保留 `EQUALS / CONTAINS / IN` 的匹配语义、`filters.*` 的 null / 数组 / 字符串值类型、筛选触发时机、清除筛选与 `currentStart=1` 重置；多选的空数组与 null 不合并，`filterIdentifiersByOwner` / `filterUploadTable` 的严格相等语义不变。测试定位改为 `input[data-listbox-value=*]`、`input[aria-label=*]` 的 label 点击与 `input:checked`；新增 `common/BaseListbox.cy.ts` 覆盖单选 / 多选 / 键盘 / 禁用 / 空状态与按内容收紧宽度。
-
-##### 5.2.1.2 InputText → 原生输入（已实施，运行验证待用户）
-
-2 处 `PrInputText` 已换成原生 `<input type="text">`：
-
-1. `StaffView/Task.vue` 的任务路径筛选用 `class="base-select"`，保留 `v-model="filterModel.value"` 和 `@keydown.enter="filterCallback()"` 只在回车提交的行为；`MSGamesVideoImportQueue.vue` 的分类筛选用局部 `.msgames-filter-control`，与同表头的原生 select 共用样式，保留分类 `contains` 匹配语义、筛选后起始索引重置与 `placeholder` / `aria-label`。c 批次已把 `filters.category.value` 改为组件自有的 `filters.category`，`watch(filters)` 将 `currentStart` 重置为 1。
-2. `styles/select.css` 增加 `input.base-select { cursor: text; }`，避免原生 select 的手型光标落到文本输入框上；`.base-select` 的直角、主题变量与焦点态不变。
-3. `MSGamesVideoImportQueue.vue` 的 `:deep(.p-inputtext)` / `:deep(.p-select)` 直角覆盖与 `vendors/primevue-table.css` 导入已删除；c 批次分页器改用 BasePagination 的 `.base-select`，不再依赖 `vendors/primevue-select.css` 的 `--p-select-border-radius`。两个组件的 `PrInputText` 导入已删除；`Task.cy.ts` 只覆盖 status select，无需改定位，`MSGamesVideoImportQueue.cy.ts` 现用 `[data-cy=filter-category]` 与 `[data-cy=filter-import-status]` 定位。
-
-同一文件先只换控件、不同时重写表格状态；即将进入 5.2.2 的表可合并为一批。`StaffView/Task.vue` 的 PrToolbar 与账号关联卡片按[根目录规范](../AGENTS.md)暂缓，不复制整套 Toolbar API；`VideoUpload/ToolBar.vue` 与 `components/visualization/VideoScatter/Toolbar.vue` 是项目组件，不能仅凭名称列入 PrimeVue 移除清单。
-
-##### 5.2.2 逐表迁移（每表一批，按 a→f）
-
-每批固定执行以下六步，前一批验收通过后再开下一批：
-
-1. 模板换 BaseTable 的 `head` / `default` 插槽，列宽与对齐复用 `table-columns.css`；表内 paginator 换成页面自有 BasePagination，按 `currentStart = first + 1`、`pageSize = rows` 换算，并按各表现值传 `page-size-options`（`[5,10,25,50,100]` 或 `[10,25,50,100]`），不统一回落到默认值；自定义 `paginator-template` / `JumpToPageInput` / `currentPageReportTemplate` 用 BasePagination 的区间按钮、跳转输入与记录数报告承接。
-2. 排序改为表头按钮 + `aria-sort`（参照 `VideoList/App.vue`），前端排序提取为纯函数并用 Vitest 覆盖边界；a 改为、f 保留服务端排序，只给契约允许的列挂排序按钮，其余列不新增交互。`Task.vue` 按 `page = Math.floor((currentStart - 1) / pageSize) + 1` 换算请求参数，`page/page_size/status/task_path/sort/reverse` 不变。
-3. 删除该文件的 `FilterMatchMode` / `DataTableFilterEvent` 引用，换成自有常量、比较函数与 `filteredValue` 类型；保留默认排序、稳定顺序、缺失值排末尾等既有语义。
-4. 选择 / 展开 / 行操作留在调用方：`VideoUpload/Table.vue` 的 checkbox 半选、`#expansion` 描述列表和 `@filter` 后裁剪 `selectedRows`；`Task.vue` 的多选批量删除与请求参数；`IdentifierView.vue` 的 staff 行菜单与 ElDialog 表单；其余表的单元格预览 / 导入 / 重试按钮。
-5. 同步删除该文件的 `primevue-table.css` 导入、`primevue/*` 与 `@primevue/core/api` 导入、局部 `--p-*` / `:deep(.p-*)` 覆盖；仍服务其他表格的 vendors 文件不动。
-6. 更新第 5 节依赖表与剩余使用方清单，再开始下一表。
-
-##### 5.2.3 测试与验证（随每批同步，Cypress 由用户运行）
-
-1. 删除对应 `.cy.ts` 的 PrimeVue 插件注册，把 `.p-listbox-option` / `.p-paginator-next` / `.p-datatable-*` 等定位改为 `data-cy`；表格文本复用 `cy.getTable` / `cy.extractTableData`，并覆盖 `change` 事件、页码与排序状态双向同步。`VideoImportQueue.cy.ts` 已改用 `[data-cy=saolei-import-table] table` 与列头筛选触发器 `data-cy=filter-*-trigger`，覆盖默认排序、三态排序、等级 / 状态筛选、页容量 / 跳页、筛选后页码重置与单元格导入。`MSGamesVideoImportQueue.cy.ts` 已改用 `[data-cy=msgames-import-table] table`、`[data-cy=msgames-import-pagination]` 与表头控件 `data-cy`，覆盖空状态、两态排序 `aria-sort`、分类 / 状态筛选、首末段 / 页容量 / 跳页、筛选后起始索引重置与一次 `@videos` 请求。`IdentifierView.cy.ts` 已改用 `[data-cy=identifier-table] table`、`[data-cy=identifier-pagination]` 与 `[data-cy=filter-owner-*]` 定位，表格文本统一走 `cy.extractTableData()`；覆盖默认 / 切换排序与两列 `aria-sort`、归属多选与清除、Escape 关闭弹层、页容量 / 跳页、空状态与一次 `@matches` 请求，staff 行菜单与 ElDialog 断言保持不变。`VideoUpload/Table.cy.ts` 与 `VideoUpload/App.cy.ts` 已移除 PrimeVue 插件注册；前者改用 `[data-cy=upload-table] table`、`[data-cy=upload-pagination]` 与 `[data-cy=filter-*]` 定位，覆盖跨页全选、Space 键盘行为、筛选后裁剪已选行、表头半选、页容量 / 跳页、单列排序 `aria-sort`、展开描述列表与空状态，并断言表头为 VideoList 式 inline-flex 分组、图标按表头字体相对缩放、未排序列图标淡色及排序列图标激活；后者保留 `getTable()` 的精确表头键名与单元格文本断言。组件 spec 为 `StaffView/AccountLink.cy.ts`、`StaffView/Task.cy.ts`、`DatabaseView/IdentifierView.cy.ts`、`VideoUpload/Table.cy.ts`、`VideoUpload/App.cy.ts`、`accountlinks/VideoImportQueue.cy.ts`、`accountlinks/MSGamesVideoImportQueue.cy.ts`、`common/BaseListbox.cy.ts`。
-2. `accountlinks/testUtils.ts` 影响 12 个账号关联 spec，共享的 `plugins: [i18n, pinia, PrimeVue]` 已随 c 批次改为 `[i18n, pinia]` 并删除导入；`VideoPlayer/NativePlayer.cy.ts` 的残留注册随 7.2 清理；`common/SelectStyles.cy.ts` 带 Aura preset 并注册真实 DataTable，随最后一个 Paginator Select 退出后改写成 `.base-select` 样式检查。
-3. E2E 复用 `cypress/e2e/accountlink.cy.ts`、`profile.cy.ts`、`bugfix/staff-requests.cy.ts`、`tournament.cy.ts`；e 批次已在 `profile.cy.ts` 的「上传录像」用例内补上选择、筛选 / 清除、排序 `aria-sort` 与分页报告断言，不增加额外的初始化与上传次数；跨页选择由 `VideoUpload/Table.cy.ts` 的 27 行数据覆盖。a 的 `/admin/queue` 响应结构变化需同步调整 `cypress/e2e/accountlink.cy.ts` 的 intercept 与表格断言。
-4. 每批验收：空数据、加载、默认排序与切换、筛选清除、页容量与跳页、筛选后页码重置、选择 / 展开与独立单元格操作、请求参数与提交次数、深浅主题与窄容器。分页替代至少覆盖首末页、页容量、跳页、总数、过滤后页码处理和数据变化；原生 HTML / CSS 只负责展示，不能替代这些数据和状态逻辑。
-
-##### 5.2.4 最终清理（最后一个使用方退出后）
-
-按代码 → 样式 → 文档 → 依赖的顺序完成：
-
-1. 删除 `bootstrap.ts` 的 `definePreset` / `Aura` / `PrimeVue` 导入与 `app.use(PrimeVue, ...)`；`main.ts` 本身不注册插件，无需改动。清理 `App.vue` 的 `.p-datatable-filter-overlay-popover` / `.p-select-overlay` z-index 补丁。
-2. 删除 `vendors/primevue-table.css`、`primevue-table-controls.css`、`primevue-select.css` 及 2 处导入（1 个使用方 + `SelectStyles.cy.ts`）。`styles/parameters/primevue.less` 属 Git 忽略的本地参考存档，只核对无构建依赖，不作为交付物。
-3. 从 `package.json` / `package-lock.json` 删除 `primevue`、`@primevue/core`、`@primeuix/themes` 及仅由它们引入的传递依赖；保留 `primeicons` 7.0.0、全部 `primeicons/primeicons.css` 导入点、离线打包脚本与 CDN 样式检查。
-4. 同步修正仍称 `main.ts` 注册 PrimeVue / Aura 的 `docs/development.md`、`src/styles/parameters/README.md`，把第 5 节依赖表与「剩余工作」表中的批次 5 标为完成。
-5. 全库检索确认 `primevue` / `@primevue` / `@primeuix` 导入与 `.p-*` 选择器归零（`primeicons` 除外），再做生产构建与产物检查；不把局部迁移视为整个项目已退出 PrimeVue。
-
-**顺序与边界**：5.2.4 必须等 `StaffView/Task.vue` 这最后 1 个使用方退出；若 `Task.vue` 长期随管理员任务页维护而暂缓，e 批次后先保留最小注册与依赖，不提前删除。现有 `vendors/primevue-table*.css` 已完成必要的表格过渡适配，不再重复建立这些文件，也不建设完整的 PrimeVue 主题体系；是否提取 `bootstrap.ts` 中的 preset 按实际维护需要决定。a 含后端 API 扩展，前后端改动同批验收；b 已先行实施，a 的列交互契约仍不可跳过。复杂交互确需组件库时，再核对项目现有 Element Plus 组合，不引入新的表格库。
-
-### 6. 暂缓范围、独立页面计划与局部收尾
+### 6. 暂缓范围与局部收尾
 
 以下范围保持暂缓：
 
@@ -316,8 +232,8 @@ Slider 使用方涉及公共播放器；实施前检查 Analyzer 与离线入口
 当前 `eslint.config.js` 的相关规则：
 
 - 基础规则对所有 `**/*.{js,ts,vue}` 禁止新增 ElText、Element Plus 布局组件、ElCard、ElDivider 及 ElCheckbox / ElCheckboxGroup / ElCheckboxButton。
-- `src/**/*.vue` 追加禁止 ElButton / ElLink；`ignores` 仅保留 `views/HomeView/NormalTournamentQueue.vue` 一个文件级例外，不扩展为目录豁免。该文件仍有 ElCard 1 处、ElLink 3 处，并靠文件首行的整文件 `eslint-disable vue/no-restricted-html-elements` 放行；`VideoImportQueue.vue` 的失效例外已随 b 批次移除。
-- `no-restricted-imports` 按文件清单禁止新增 `primevue/*` / `@primevue/*` / `@primeuix/*` 导入；当前仍直接依赖 PrimeVue 的 5 个文件保留豁免，随最后一批退出逐条删除，不扩展到 `primeicons`。c 批次已移除 `MSGamesVideoImportQueue.vue` 与 `accountlinks/testUtils.ts`，d 批次已移除 `IdentifierView.vue` 与 `IdentifierView.cy.ts`，e 批次已移除 `VideoUpload/Table.vue`、`VideoUpload/Table.cy.ts` 与 `VideoUpload/App.cy.ts` 三条豁免。
+- `src/**/*.vue` 追加禁止 ElButton / ElLink；`ignores` 仅保留 `views/HomeView/NormalTournamentQueue.vue` 一个文件级例外，不扩展为目录豁免。该文件仍有 ElCard 1 处、ElLink 3 处，并靠文件首行的整文件 `eslint-disable vue/no-restricted-html-elements` 放行。
+- `no-restricted-imports` 按文件清单禁止新增 `primevue/*` / `@primevue/*` / `@primeuix/*` 导入；仅 `bootstrap.ts`、`NativePlayer.cy.ts`、`SelectStyles.cy.ts` 共 3 个文件保留豁免，随 5.2 剩余工作清理，不扩展到 `primeicons`。
 - 另有两组文件清单把 ElDescriptions / ElDescriptionsItem 一并加入禁止，含 `views/DatabaseView/VideoView.vue`；第 2 节的 4 个现存调用点不在清单内。
 - `vue/no-undef-components` 的图标名称豁免（除 `router-view` 外）随 7.2 清理；全局 `ignores` 中的 `**/GuideView.vue` 已无对应文件，随收尾删除。
 
@@ -328,7 +244,7 @@ Slider 使用方涉及公共播放器；实施前检查 Analyzer 与离线入口
 - CSS / Less 的选型、styles 下的文件命名及目录组织由实施代理自行决定。每个项目样式目录文件不超过 100 个非空行，注释计入，不通过压缩声明规避限制。
 - `src/styles/parameters/` 是 Git 忽略的本地参考存档，应用、测试、其他样式及构建脚本不得依赖它；需要参数时提取到正式样式文件。新检出项目应不需要该目录也能构建。
 - 项目参数流向原生组件与库适配。库需要的 `--el-*` / `--p-*` 声明集中在 vendors，由项目变量赋值，不反向读取库变量。
-- vendors 样式由实际使用方按需导入，不在 setup.ts、应用启动入口或 Cypress support 全局加载；同时核对库内部的隐式依赖。Select、PrimeVue 表格使用各自的汇总入口，独立路由和组件测试不依赖其他页面预先加载样式。主题及 --ui-* 参数仍全局提供，浮层适配仍用普通全局选择器。
+- vendors 样式由实际使用方按需导入，不在 setup.ts、应用启动入口或 Cypress support 全局加载；同时核对库内部的隐式依赖。保留的 Select、表格适配使用各自的汇总入口，独立路由和组件测试不依赖其他页面预先加载样式。主题及 --ui-* 参数仍全局提供，浮层适配仍用普通全局选择器。
 - 优先使用公开 CSS 变量、组件样式接口，再使用局部内部选择器；覆盖集中在适配文件，避免业务页面散落大量覆盖或 `!important`。
 - 保持现有文件路径、props、事件、slots 和调用方依赖的 attrs 稳定。按钮保留原生语义、键盘操作、disabled、loading、防重复点击及已有事件透传。
 - 每个 PR 限定一个结果和一小组相关文件。共享样式与业务模块迁移可拆开；不同时做本地化调整、搬目录、整文件格式重排或无关逻辑抽离。
@@ -356,4 +272,4 @@ Codex 不主动运行 Cypress，每批提供实际受影响的 spec 命令，优
 
 复用项目现有表格提取、通知关闭和 `cy.shouldBeAbsentOrHidden()` 断言命令；不为低影响样式调整编写重复实现的测试，也不靠修改预期值掩盖实际行为变化。
 
-提交或明确验收后按约定移除对应实施与验收待办；下一批建议始终以本计划的剩余范围及当时实际代码为准。
+实现、提交或明确验收后按约定移除对应实施与验收待办；下一批始终以本计划的剩余范围及当时实际代码为准。
