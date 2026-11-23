@@ -311,8 +311,6 @@ export default defineConfig({
     },
 }, {
     files: ['src/**/*.vue'],
-    // Deferred components keep the existing layout, text and card restrictions.
-    ignores: ['src/views/HomeView/NormalTournamentQueue.vue'],
     rules: {
         'vue/no-restricted-html-elements': [
             'error', ...restrictedHtmlElements, ...restrictedActionElements,

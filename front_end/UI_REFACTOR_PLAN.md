@@ -33,7 +33,7 @@
 | 展示表格 | [`BaseTable`](src/components/common/BaseTable.vue) 封装原生表格、滚动容器、空状态和插槽；`table.css` 提供行悬停高亮，`table-columns.css` 提供排名、玩家、数值、时间等公共列样式 |
 | 表头排序图标与状态 | [`SortIcon`](src/components/common/SortIcon.vue) 按 `aria-sort` 三态统一 PrimeIcons 类名；[`sortState.ts`](src/components/common/sortState.ts) 提供 `SortState`、`sortState(order, active)` 与 `nextSortOrder(order, active, clearedOrder)`，由 `<th :aria-sort>`、`SortIcon :state` 和表头按钮共用。根元素仍为 `<i>`，支持父级 `class` 合并，供 BaseTable 调用方复用，不接管排序状态或请求；`aria-sort` 仍由列头维护，字段写入、分页重置和后端请求仍由调用方负责；`clearedOrder` 传 `-1` 时可承接仅升 / 降两态切换的表 |
 | 保留表格的视觉 | `theme/tables.css` 为 BaseTable 与 ElTable 提供统一参数，`vendors/element-plus-table.css` 适配保留的 ElTable |
-| Element Plus 按钮兼容 | `vendors/element-plus.css` 提供直角覆盖；应用模板中 ElButton 已归零，ElLink 仅首页比赛卡片仍有 3 处，不重复安排按钮整体迁移 |
+| Element Plus 按钮兼容 | `vendors/element-plus.css` 为消息确认框、日期与颜色选择器等隐式按钮提供直角覆盖；应用模板中 ElButton / ElLink 已归零 |
 | 图标注册 | [`bootstrap.ts`](src/bootstrap.ts) 显式全局注册剩余的 7 个图标；导航已改用 PrimeIcons；组件测试按挂载链注册，7.2 其余范围仍待迁移 |
 | 导航布局 | [`Menu.vue`](src/views/Menu.vue) 提供顶栏 / 侧栏设置、单行顶栏溢出菜单与窄容器抽屉；App.vue 将唯一的页面主体放入其插槽，切换布局保留页面实例 |
 | 原生 Checkbox | [`checkbox.css`](src/styles/checkbox.css) 与 [`checkbox-buttons.css`](src/styles/checkbox-buttons.css) 由 setup.ts 为应用与 Cypress 加载；原生 input / label + 共用 class，提供直角、主题、选中、半选、悬停、键盘焦点和禁用样式，支持数组多选与按钮外观，无 BaseCheckbox 组件 |
@@ -47,30 +47,19 @@
 当前源码事实，后续批次以此为起点：
 
 - BaseTable 已有 50 个 `.vue` 使用方，覆盖排行榜、个人纪录、软件版本列表、导入队列、上传队列、管理员与数据库页面；[`DatabaseView/VideoView.vue`](src/views/DatabaseView/VideoView.vue) 的录像列表由 [`VideoList/App.vue`](src/components/VideoList/App.vue) 用 BaseTable 渲染。
-- 应用模板中 ElButton、ElCheckbox、ElRadio、ElSwitch、ElText、ElDivider、ElDescriptions 已归零；ElCard 仅 [`NormalTournamentQueue.vue`](src/views/HomeView/NormalTournamentQueue.vue) 1 处，ElLink 同文件 3 处；仍有 4 个 ElTable 使用方和 4 处 ElSelect，分别见第 3 节与 4.2 开头。
+- 应用模板中 ElButton、ElLink、ElCard、ElCheckbox、ElRadio、ElSwitch、ElText、ElDivider、ElDescriptions 已归零；仍有 4 个 ElTable 使用方和 4 处 ElSelect，分别见第 3 节与 4.2 开头。
 - 目前的尺寸是后续评审的起点：基础文字 14px，普通原生按钮内边距 4px × 8px、行高 1.4；表格单元格内边距 4px × 8px、行高 1.4；普通卡片内边距 10px。这些现值已生效，后续按组件类别调整，不再安排“先抄参数但不接入运行时”的步骤。
 
 ## 剩余工作与建议顺序
 
 | 批次 | 工作 | 范围与边界 |
 | --- | --- | --- |
-| 2 | 剩余描述布局 | 4 处已改为原生描述列表，待人工验收 |
 | 3 | 剩余表格核对 | 其余 4 个 ElTable 根据实际排序、编辑等依赖决定是否保留 |
 | 7 | 图标注册迁移 | 剩余 7.2：取消 bootstrap.ts 的 7 个全局注册，同步清理 Cypress 注入与 ESLint 豁免 |
 | 4 | 其他控件换肤与尺寸细化 | 4.2.5 剩余 Slider、4.2.6 输入与表单、4.2.7 Tabs、4.2.8 弹窗通知与加载，继续分批推进 |
 | 6 | 局部收尾 | 随每批删除失效导入、重复样式和已无使用方的兼容项，更新本计划 |
 
-4.2.5 的不透明度原生迁移及剩余轨道、提示样式，以及图标 7.2 仍可独立推进；首页比赛卡片不作为前置条件。
-
-### 2. 剩余描述布局（已实施，待人工验收）
-
-`GSCAdmin/GeneralInfo.vue`、`StaffView/Task.vue`、`VideoModel.vue`、`WeeklyTournament.vue` 已全部改为原生 section / dl / dt / dd，直接复用 descriptions.css；未新增基础组件，也未改变请求和业务逻辑。
-
-保留任务统计循环、概览加载与刷新按钮、录像动态字段和周赛结果条件显示；原有边框 / 无边框区别不变。GSC 与周赛结果使用两列、任务概览使用五列，宽容器列数由 `--ui-description-columns` 指定，窄容器继续按公共规则减为两列 / 一列；未指定参数的既有描述列表保持默认三列。
-
-ElDescriptions / ElDescriptionsItem 模板与导入已归零，ESLint 已改为统一禁止新增，删除原有两组按文件重复配置。比赛 E2E 的周赛结果取值已改为在 `weekly-result` 中读取 dt 相邻的 dd。
-
-人工验收复用 `GSCAdmin/GeneralInfo.cy.ts`、`StaffView/Task.cy.ts`、`StaffView/VideoModel.cy.ts`，以及 `cypress/e2e/tournament.cy.ts` 中的周赛创建结果；Cypress 与 E2E 均由用户运行。验收后移除此节与批次 2。
+4.2.5 的不透明度原生迁移及剩余轨道、提示样式，以及图标 7.2 仍可独立推进。
 
 ### 3. 剩余展示表格
 
@@ -177,16 +166,14 @@ Slider 使用方涉及公共播放器；实施前检查 Analyzer 与离线入口
 
 以上各批的新参数继续使用项目 --ui-*；vendors 样式由实际使用方按需导入，不回到 setup.ts 全局加载。样式文件仍受 100 个非空行限制；代码变更完成后按现有跨轮流程执行检查，Cypress 命令随各批实际改动提供。
 
-### 6. 暂缓范围与局部收尾
+### 6. 局部收尾
 
-以下范围保持暂缓：
-
-- 首页比赛卡片 `views/HomeView/NormalTournamentQueue.vue`：当前唯一 ElCard，带 header；按既定范围保留。
+首页比赛卡片 `NormalTournamentQueue.vue` 已改为原生 section + card / card-title；标题与比赛入口使用原生链接，刷新使用 BaseTextButton，保留加载遮罩、禁用状态、倒计时和请求行为。该文件的整文件 ESLint disable 及 ElButton / ElLink 文件例外已删除，HomeView.cy.ts 已同步定位。本轮待用户运行首页组件测试并人工验收，完成后移除此段。
 
 当前 `eslint.config.js` 的相关规则：
 
 - 基础规则对所有 `**/*.{js,ts,vue}` 禁止新增 ElText、Element Plus 布局组件、ElCard、ElDivider、ElCheckbox / ElCheckboxGroup / ElCheckboxButton 及 ElDescriptions / ElDescriptionsItem。
-- `src/**/*.vue` 追加禁止 ElButton / ElLink；`ignores` 仅保留 `views/HomeView/NormalTournamentQueue.vue` 一个文件级例外，不扩展为目录豁免。该文件仍有 ElCard 1 处、ElLink 3 处，并靠文件首行的整文件 `eslint-disable vue/no-restricted-html-elements` 放行。
+- `src/**/*.vue` 追加禁止 ElButton / ElLink，不保留文件例外。
 - `no-restricted-imports` 禁止所有 src 下 TS / Vue 文件导入 `primevue`、`primevue/*`、`@primevue/*`、`@primeuix/*`，不保留文件豁免；规则不扩展到 `primeicons`。
 - `vue/no-undef-components` 的图标名称豁免（除 `router-view` 外）随 7.2 清理；全局 `ignores` 中的 `**/GuideView.vue` 已无对应文件，随收尾删除。
 
