@@ -1,6 +1,6 @@
 # Analyzer 更新记录 / Analyzer changelog
 
-## 未发布 / Unreleased
+## 0.2.6 — 2026-11-23
 
 - 计数器每项的行操作菜单新增删除选项，可删除最后一项；已有 plot 轨道保留并按失效 key 处理。
 - Add Delete to each counter's row menu, including the last counter. Existing plot tracks retain their configuration and use the missing-key state.
