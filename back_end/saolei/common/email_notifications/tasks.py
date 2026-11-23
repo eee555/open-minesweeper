@@ -28,7 +28,7 @@ SOURCES = {
 
 
 def notifications_enabled() -> bool:
-    return settings.EMAIL_NOTIFICATIONS_ENABLED and not settings.EMAIL_SKIP and not settings.E2E_TEST
+    return not settings.EMAIL_SKIP and not settings.E2E_TEST
 
 
 def enqueue_notification(notification_type: EmailNotificationType, object_id: int, *, using: str = 'default'):

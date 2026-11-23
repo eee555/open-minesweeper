@@ -34,7 +34,7 @@ def mock_enqueue(**kwargs):
 
 
 @override_settings(
-    EMAIL_NOTIFICATIONS_ENABLED=True, EMAIL_SKIP=False, E2E_TEST=False, RATELIMIT_ENABLE=False,
+    EMAIL_SKIP=False, E2E_TEST=False, RATELIMIT_ENABLE=False,
     EMAIL_DAILY_LIMIT=2000, EMAIL_QUOTA_TIME_ZONE='UTC', EMAIL_WEBSITE_URL='https://example.com',
     EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend', DEFAULT_FROM_EMAIL='mail@example.com',
 )
@@ -175,8 +175,8 @@ class StaffEmailNotificationTests(TestCase):
         self.assertEqual(send.call_count, 2)
         self.assertEqual(send.call_args.args[0].to, [second.email])
 
-    def test_disabled_global_switch_does_not_enqueue_or_send(self):
-        with override_settings(EMAIL_NOTIFICATIONS_ENABLED=False), mock_enqueue() as queued:
+    def test_email_skip_does_not_enqueue_or_send(self):
+        with override_settings(EMAIL_SKIP=True), mock_enqueue() as queued:
             enqueue_notification(EmailNotificationType.STAFF_MEDIA_REVIEW, 1)
             self.assertEqual(task_send_staff_notification.call('staff_media_review', [1]), 0)
         queued.assert_not_called()

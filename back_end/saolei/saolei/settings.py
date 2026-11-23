@@ -270,7 +270,6 @@ DEFAULT_FROM_EMAIL = _read_project_secret('email_from', EMAIL_HOST_USER)
 EMAIL_DAILY_LIMIT = 2000
 # The provider's daily quota resets at UTC+8 midnight.
 EMAIL_QUOTA_TIME_ZONE = os.environ.get('EMAIL_QUOTA_TIME_ZONE', 'Asia/Shanghai')
-EMAIL_NOTIFICATIONS_ENABLED = os.environ.get('EMAIL_NOTIFICATIONS_ENABLED') == 'True'
 EMAIL_WEBSITE_URL = os.environ.get('EMAIL_WEBSITE_URL', 'https://openms.top').rstrip('/')
 
 SESSION_COOKIE_NAME = 'session_id'        # Session的cookie保存在浏览器上时的key
