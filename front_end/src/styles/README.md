@@ -72,7 +72,7 @@ npx.cmd cypress run --component --browser chrome --headless --spec "src/componen
 
 `descriptions.css` 提供原生描述列表模板，无独立 Vue 组件：外层 `.description-layout` 为命名查询容器，内部 `<dl class="descriptions">` 每项使用 `<div class="description-item"><dt>标签</dt><dd>值或控件</dd></div>`。调用方直接导入 `@/styles/descriptions.css`，保持条件显示、v-model 与事件绑定。
 
-默认最多三列，随容器宽度低于 48rem / 32rem 减为两列 / 一列；`.description-wide` 始终占整行，`.description-span-2` 在三列布局中跨两列，其余布局中占一列。无边框项内部可换行，避免标签与控件挤压。`.descriptions-bordered` 提供直角网格和标签背景；`.descriptions-small` 保留 12px 统计展示字号，在小于 20rem / 12rem 时减为两列 / 一列。颜色均来自项目变量，不影响子控件的交互与样式。
+默认最多三列，可在 dl 上用 `--ui-description-columns` 设置宽容器下的列数（例如 GSC / 周赛结果为两列，任务概览为五列）；仍随容器宽度低于 48rem / 32rem 减为两列 / 一列。`.description-wide` 始终占整行，`.description-span-2` 在默认三列布局中跨两列，其余布局中占一列。无边框项内部可换行，避免标签与控件挤压。`.descriptions-bordered` 提供直角网格和标签背景；`.descriptions-small` 保留 12px 统计展示字号，在小于 20rem / 12rem 时减为两列 / 一列。颜色均来自项目变量，不影响子控件的交互与样式。
 
 录像信息浮层的查询容器显式设置 32em 宽度并以 `max-width: 100%` 限制，避免 inline-size containment 在浮层按内容计算宽度时丢失列表的固有宽度。模板和局部响应参考 [MDN 描述列表](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/dl) 与 [CSS 容器查询](https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Containment/Container_queries)。
 

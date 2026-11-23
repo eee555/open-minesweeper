@@ -25,6 +25,9 @@ const restrictedHtmlElements = [{
 }, {
     element: ['ElCheckbox', 'el-checkbox', 'ElCheckboxGroup', 'el-checkbox-group', 'ElCheckboxButton', 'el-checkbox-button'],
     message: 'Use a native checkbox and associated label with "@/styles/checkbox.css" or "@/styles/checkbox-buttons.css" instead.',
+}, {
+    element: ['ElDescriptions', 'el-descriptions', 'ElDescriptionsItem', 'el-descriptions-item'],
+    message: 'Use native dl/dt/dd with "@/styles/descriptions.css" instead.',
 }];
 
 const restrictedActionElements = [{
@@ -33,11 +36,6 @@ const restrictedActionElements = [{
 }, {
     element: ['ElLink', 'el-link'],
     message: 'Use a native link with "@/styles/link.css" for navigation, or BaseTextButton for actions.',
-}];
-
-const restrictedDescriptionsElements = [{
-    element: ['ElDescriptions', 'el-descriptions', 'ElDescriptionsItem', 'el-descriptions-item'],
-    message: 'Use native dl/dt/dd with "@/styles/descriptions.css" instead.',
 }];
 
 export default defineConfig({
@@ -329,44 +327,6 @@ export default defineConfig({
                 message: 'PrimeVue has been removed; use project base components instead.',
             }],
         }],
-    },
-}, {
-    files: [
-        'src/components/widgets/VideoAbstractDisplay.vue',
-        'src/views/ResourcesView/ArbiterHelper.vue',
-        'src/views/ResourcesView/MetasweeperHelper.vue',
-        'src/views/ResourcesView/ViennaSweeperHelper.vue',
-        'src/views/SettingView/Appearance.vue',
-        'src/views/SettingView/App.vue',
-        'src/views/DatabaseView/VideoView.vue',
-        'src/components/VideoUpload/Table.vue',
-    ],
-    rules: {
-        'vue/no-restricted-html-elements': [
-            'error', ...restrictedHtmlElements, ...restrictedActionElements, ...restrictedDescriptionsElements,
-        ],
-    },
-}, {
-    files: [
-        'src/views/RankingView/SaoleiRanking.vue',
-        'src/views/RankingView/PBRanking.vue',
-        'src/components/Login/LoginForm.vue',
-        'src/components/Login/RegisterForm.vue',
-        'src/views/SettingView/App.vue',
-        'src/components/VideoPlayer/NativePlayer.vue',
-        'src/components/VideoPlayer/CustomCounterSettings.vue',
-        'src/components/VideoPlayer/PlayerMainSettings.vue',
-        'src/components/visualization/ColorSchemeSetting.vue',
-        'src/components/VideoUpload/FileInputOptions.vue',
-        'src/components/widgets/MultiSelector.vue',
-        'src/components/Filters/SoftwareFilter.vue',
-        'src/components/Filters/VideoStateFilter.vue',
-        'src/components/Filters/MSLevelFilter.vue',
-    ],
-    rules: {
-        'vue/no-restricted-html-elements': [
-            'error', ...restrictedHtmlElements, ...restrictedActionElements, ...restrictedDescriptionsElements,
-        ],
     },
 }, {
     files: ['**/*.cy.ts'],
