@@ -1,5 +1,4 @@
 import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
-import PrimeVue from 'primevue/config';
 
 import NativePlayer from './NativePlayer.vue';
 import { customCounterConfig } from './store';
@@ -18,7 +17,7 @@ function mountOptions(src: string) {
     return {
         props: { src },
         global: {
-            plugins: [i18n, PrimeVue],
+            plugins: [i18n],
             components: { ArrowLeft, ArrowRight },
         },
     };

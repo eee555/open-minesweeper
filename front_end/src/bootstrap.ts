@@ -1,9 +1,6 @@
 import './setup';
 import { ArrowLeft, ArrowRight, Key, Lock, Message, QuestionFilled, User } from '@element-plus/icons-vue';
-import { definePreset } from '@primeuix/themes';
-import Aura from '@primeuix/themes/aura';
 import type { AxiosInstance } from 'axios';
-import PrimeVue from 'primevue/config';
 import { createApp } from 'vue';
 
 import App from './App.vue';
@@ -36,28 +33,6 @@ for (const [key, component] of Object.entries(globalIcons)) {
     app.component(key, component);
 }
 
-const myTheme = definePreset(Aura, {
-    components: {
-        datatable: {
-            // bodyCell: {
-            //     padding: '1px 5px',
-            // },
-            // headerCell: {
-            //     padding: '1px 5px',
-            // },
-        },
-    },
-});
-
-app.use(PrimeVue, {
-    theme: {
-        preset: myTheme,
-        options: {
-            darkModeSelector: '.dark',
-        },
-    },
-    autoImport: false,
-});
 app.use(pinia).use(router).use(i18n);
 updateStartupStatus('3/3 正在准备页面…', '3/3 Preparing page…', '3/3 Preparando la página…');
 

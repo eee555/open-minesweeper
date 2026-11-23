@@ -222,7 +222,7 @@ function getVisibleToken() {
 }
 
 function readDescriptionValue(label: string) {
-    return cy.contains('.el-descriptions__label', label).next().invoke('text').
+    return cy.contains('[data-cy=weekly-result] dt', label).next('dd').invoke('text').
         then((text) => text.trim());
 }
 

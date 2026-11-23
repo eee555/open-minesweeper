@@ -23,24 +23,34 @@
             </BaseButton>
         </ElFormItem>
     </ElForm>
-    <ElDescriptions v-if="createdWeekly" :title="t('local.result')" border :column="2">
-        <ElDescriptionsItem :label="t('prop.tournamentId')">
-            {{ createdWeekly.data.id }}
-        </ElDescriptionsItem>
-        <ElDescriptionsItem :label="t('local.weekly')">
-            {{ createdWeekly.data.year }}W{{ createdWeekly.data.week }}
-        </ElDescriptionsItem>
-        <ElDescriptionsItem :label="t('prop.start_time')">
-            {{ formatDateTime(createdWeekly.data.start_time) }}
-        </ElDescriptionsItem>
-        <ElDescriptionsItem :label="t('prop.end_time')">
-            {{ formatDateTime(createdWeekly.data.end_time) }}
-        </ElDescriptionsItem>
-    </ElDescriptions>
+    <section v-if="createdWeekly" class="description-layout" data-cy="weekly-result">
+        <h3 class="description-title">
+            {{ t('local.result') }}
+        </h3>
+        <dl class="descriptions descriptions-bordered" style="--ui-description-columns: 2">
+            <div class="description-item">
+                <dt>{{ t('prop.tournamentId') }}</dt>
+                <dd>{{ createdWeekly.data.id }}</dd>
+            </div>
+            <div class="description-item">
+                <dt>{{ t('local.weekly') }}</dt>
+                <dd>{{ createdWeekly.data.year }}W{{ createdWeekly.data.week }}</dd>
+            </div>
+            <div class="description-item">
+                <dt>{{ t('prop.start_time') }}</dt>
+                <dd>{{ formatDateTime(createdWeekly.data.start_time) }}</dd>
+            </div>
+            <div class="description-item">
+                <dt>{{ t('prop.end_time') }}</dt>
+                <dd>{{ formatDateTime(createdWeekly.data.end_time) }}</dd>
+            </div>
+        </dl>
+    </section>
 </template>
 
 <script setup lang="ts">
-import { ElDescriptions, ElDescriptionsItem, ElForm, ElFormItem } from 'element-plus';
+import '@/styles/descriptions.css';
+import { ElForm, ElFormItem } from 'element-plus';
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 

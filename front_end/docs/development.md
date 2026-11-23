@@ -9,7 +9,7 @@
 - Vue Router，使用 hash 路由
 - Pinia
 - vue-i18n
-- Element Plus + PrimeVue
+- 原生 HTML / CSS、项目基础组件与 Element Plus；图标使用 PrimeIcons 和 Element Plus 图标
 - Axios
 - Vitest
 - Cypress
@@ -92,7 +92,8 @@ src/
 
 入口文件：
 
-- [src/main.ts](../src/main.ts)：创建 Vue 应用，注册 Element Plus 图标、PrimeVue、Pinia、Router 和 i18n。
+- [src/main.ts](../src/main.ts)：检测浏览器能力，通过后按需加载应用启动模块。
+- [src/bootstrap.ts](../src/bootstrap.ts)：创建 Vue 应用，注册当前使用的 Element Plus 图标、Pinia、Router 和 i18n，等待路由及 CDN 样式就绪后挂载。
 - [src/App.vue](../src/App.vue)：应用根组件。
 - [src/router/index.ts](../src/router/index.ts)：主路由表。
 - [src/http.ts](../src/http.ts)：Axios 实例与全局 API 地址配置。

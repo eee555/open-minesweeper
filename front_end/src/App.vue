@@ -111,16 +111,3 @@ body {
     padding: 1rem;
 }
 </style>
-
-<style lang="less">
-// 傻逼PrimeVue的bug，开发者还不当回事
-// https://github.com/primefaces/primevue/issues/4093
-// ElementPlus也不支持表格分页，只能先吃着PrimeVue这坨屎
-.p-datatable-filter-overlay-popover {
-    z-index: 3000 !important;
-}
-
-.p-select-overlay {
-    z-index: 3000 !important;
-}
-</style>

@@ -5,7 +5,7 @@
 
 .descriptions {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(var(--ui-description-columns, 3), minmax(0, 1fr));
     margin: 0;
     padding: 0;
     color: var(--ui-text-color-regular);

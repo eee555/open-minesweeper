@@ -1,17 +1,24 @@
 <template>
-    <ElDescriptions v-loading="summaryLoading" :title="t('local.overview')" border :column="5">
-        <template #extra>
+    <section v-loading="summaryLoading" class="description-layout" data-cy="task-summary">
+        <header class="description-title layout-row" style="align-items: center; justify-content: space-between; gap: 8px;">
+            <h3 style="margin: 0; font: inherit;">
+                {{ t('local.overview') }}
+            </h3>
             <BaseButton :loading="summaryLoading" @click="refreshSummary">
                 {{ t('action.refresh') }}
             </BaseButton>
-        </template>
-        <ElDescriptionsItem :label="t('score.total')">
-            {{ taskSummary.total }}
-        </ElDescriptionsItem>
-        <ElDescriptionsItem v-for="status in DjangoTaskResultStatusOptions" :key="status" :label="t(`local.status.${status}`)">
-            {{ taskSummary.status[status] ?? 0 }}
-        </ElDescriptionsItem>
-    </ElDescriptions>
+        </header>
+        <dl class="descriptions descriptions-bordered" style="--ui-description-columns: 5">
+            <div class="description-item">
+                <dt>{{ t('score.total') }}</dt>
+                <dd>{{ taskSummary.total }}</dd>
+            </div>
+            <div v-for="status in DjangoTaskResultStatusOptions" :key="status" class="description-item">
+                <dt>{{ t(`local.status.${status}`) }}</dt>
+                <dd>{{ taskSummary.status[status] ?? 0 }}</dd>
+            </div>
+        </dl>
+    </section>
     <div class="layout-row task-toolbar">
         <BaseButton :loading="loading" :disabled="busy" data-cy="load-tasks" @click="refresh">
             {{ t('local.load') }}
@@ -104,8 +111,9 @@
 
 <script setup lang="ts">
 import '@/styles/layout.css';
+import '@/styles/descriptions.css';
 
-import { ElDescriptions, ElDescriptionsItem, vLoading } from 'element-plus';
+import { vLoading } from 'element-plus';
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 

@@ -11,7 +11,7 @@
     <span v-else-if="loadingGSCInfo">
         {{ t('local.loading') }}
     </span>
-    <span v-else>
+    <div v-else>
         <span>{{ t('local.startLabel') }}{{ gscInfo.start_time ? toISODateTimeString(gscInfo.start_time) : t('local.notSet') }}</span>
         &nbsp;
         <span>{{ t('local.setStart') }}</span>
@@ -37,26 +37,37 @@
         </label>
         <br>
         <br>
-        <ElDescriptions :title="t('local.finishTask')" border :column="2">
-            <ElDescriptionsItem :label="t('local.taskId')">
-                {{ taskInfo?.id ?? t('local.none') }}
-            </ElDescriptionsItem>
-            <ElDescriptionsItem :label="t('local.status')">
-                <DjangoTaskResultStatusBadge :status="taskInfo?.status ?? 'NULL'" />
-            </ElDescriptionsItem>
-            <ElDescriptionsItem :label="t('local.created')">
-                {{ formatTaskTime(taskInfo?.enqueued_at) }}
-            </ElDescriptionsItem>
-            <ElDescriptionsItem :label="t('local.start')">
-                {{ formatTaskTime(taskInfo?.started_at) }}
-            </ElDescriptionsItem>
-            <ElDescriptionsItem :label="t('local.end')">
-                {{ formatTaskTime(taskInfo?.finished_at) }}
-            </ElDescriptionsItem>
-            <ElDescriptionsItem :label="t('local.exception')">
-                {{ taskInfo?.exception_class_path || t('local.none') }}
-            </ElDescriptionsItem>
-        </ElDescriptions>
+        <section class="description-layout" data-cy="gsc-finish-task">
+            <h3 class="description-title">
+                {{ t('local.finishTask') }}
+            </h3>
+            <dl class="descriptions descriptions-bordered" style="--ui-description-columns: 2">
+                <div class="description-item">
+                    <dt>{{ t('local.taskId') }}</dt>
+                    <dd>{{ taskInfo?.id ?? t('local.none') }}</dd>
+                </div>
+                <div class="description-item">
+                    <dt>{{ t('local.status') }}</dt>
+                    <dd><DjangoTaskResultStatusBadge :status="taskInfo?.status ?? 'NULL'" /></dd>
+                </div>
+                <div class="description-item">
+                    <dt>{{ t('local.created') }}</dt>
+                    <dd>{{ formatTaskTime(taskInfo?.enqueued_at) }}</dd>
+                </div>
+                <div class="description-item">
+                    <dt>{{ t('local.start') }}</dt>
+                    <dd>{{ formatTaskTime(taskInfo?.started_at) }}</dd>
+                </div>
+                <div class="description-item">
+                    <dt>{{ t('local.end') }}</dt>
+                    <dd>{{ formatTaskTime(taskInfo?.finished_at) }}</dd>
+                </div>
+                <div class="description-item">
+                    <dt>{{ t('local.exception') }}</dt>
+                    <dd>{{ taskInfo?.exception_class_path || t('local.none') }}</dd>
+                </div>
+            </dl>
+        </section>
         <BaseButton :loading="loadingTaskInfo" @click="refreshTaskInfo">
             {{ t('local.refreshTask') }}
         </BaseButton>
@@ -66,13 +77,14 @@
         <BaseButton v-if="taskInfo?.status === 'FAILED'" @click="console.log(taskInfo.traceback)">
             {{ t('local.printError') }}
         </BaseButton>
-    </span>
+    </div>
 </template>
 
 <script setup lang="ts">
 import '@/styles/vendors/element-plus.css';
+import '@/styles/descriptions.css';
 import { isAxiosError } from 'axios';
-import { ElDatePicker, ElDescriptions, ElDescriptionsItem, ElInput } from 'element-plus';
+import { ElDatePicker, ElInput } from 'element-plus';
 import { ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
