@@ -2,42 +2,31 @@ from datetime import datetime
 import json
 from typing import Iterable
 
-from django.db.models import Manager, QuerySet
 from django_redis import get_redis_connection
 from redis.client import Pipeline, Redis
 
-from customranking.models import CustomPluckRecord
-from videomanager.models import MAX_TIMEMS
+from videomanager.models import MAX_TIMEMS, VideoModel
 
 cache = get_redis_connection('saolei_website')
 
 
 class PLuckRankingCache:
     level: str
-    pipe: Pipeline | None
     rank_key: str
     detail_key: str
 
     def __init__(self, level: str):
-        self.pipe = None
         self.level = level
         self.rank_key = get_custom_pluck_rank_key(level)
         self.detail_key = get_custom_pluck_detail_key(level)
 
     @property
-    def client(self) -> Redis | Pipeline:
-        return self.pipe or cache
+    def client(self) -> Redis:
+        return cache
 
-    def open(self):
-        self.pipe = cache.pipeline()
-        return self
-
-    def close(self):
-        if self.pipe is None:
-            return None
-        result = self.pipe.execute()
-        self.pipe = None
-        return result
+    @staticmethod
+    def pipeline():
+        return cache.pipeline()
 
     def __len__(self):
         return cache.zcard(self.rank_key)
@@ -66,36 +55,27 @@ class PLuckRankingCache:
             players.append(cache_to_dict(member, score, json.loads(detail)))
         return players
 
-    def add_record(self, record: CustomPluckRecord):
-        member = str(record.player_id)
-        self.client.zadd(self.rank_key, {member: record_to_score(record)})
-        self.client.hset(self.detail_key, member, json.dumps(record_to_detail(record)))
-
-    def remove_record(self, player_id: int):
+    def remove_record(self, player_id: int, *, pipe: Pipeline):
         member = str(player_id)
-        self.client.zrem(self.rank_key, member)
-        self.client.hdel(self.detail_key, member)
+        pipe.zrem(self.rank_key, member)
+        pipe.hdel(self.detail_key, member)
 
-    def add_record_batch(self, records: Iterable[CustomPluckRecord]):
-        # 准备批量数据
-        rank_mapping = {}  # {member: score}
-        detail_mapping = {}  # {member: detail_json}
-
-        if isinstance(records, Manager):
-            _records = list(records.all())
-        elif isinstance(records, QuerySet):
-            _records = list(records)
-        else:
-            _records = records
-
-        for record in _records:
-            member = str(record.player_id)
-            rank_mapping[member] = record_to_score(record)
-            detail_mapping[member] = json.dumps(record_to_detail(record))
+    def add_record_batch(self, videos: Iterable[VideoModel], *, pipe: Pipeline | None = None):
+        if pipe is None:
+            with self.pipeline() as pipe:
+                self.add_record_batch(videos, pipe=pipe)
+                pipe.execute()
+            return
+        rank_mapping = {}
+        detail_mapping = {}
+        for video in videos:
+            member = str(video.player_id)
+            rank_mapping[member] = video_to_score(video)
+            detail_mapping[member] = json.dumps(video_to_detail(video))
 
         if rank_mapping:
-            self.client.zadd(self.rank_key, rank_mapping)  # 批量ZADD
-            self.client.hset(self.detail_key, mapping=detail_mapping)  # 批量HSET (某些客户端库支持)
+            pipe.zadd(self.rank_key, rank_mapping)
+            pipe.hset(self.detail_key, mapping=detail_mapping)
 
     def flush(self):
         self.client.delete(
@@ -132,31 +112,27 @@ def get_legacy_custom_pluck_player_key(level: str) -> str:
 # Data Conversion #
 ###################
 
-def record_to_score(record: CustomPluckRecord):
-    """将数据库纪录转换为 Redis zset score。"""
-    if record.pluck > 0:
-        return record.pluck
-    return record.timems - MAX_TIMEMS
+def video_to_score(video: VideoModel):
+    if video.pluck > 0:
+        return video.pluck
+    return video.timems - MAX_TIMEMS
 
 
-def record_to_detail(record: CustomPluckRecord):
-    """将数据库纪录转换为 Redis detail hash 中保存的展示信息。"""
+def video_to_detail(video: VideoModel):
     return {
-        'video_id': record.video_id,
-        'timems': record.timems,
-        'upload_time': record.upload_time.isoformat(),
+        'video_id': video.pk,
+        'timems': video.timems,
+        'upload_time': video.upload_time.isoformat(),
     }
 
 
 def cache_to_dict(member: str, score: float, detail: dict):
     """将 Redis 排行缓存中的数据转换为字典。"""
-    data = {**detail}
-    upload_time = data.pop('upload_time')
     return {
-        **data,
+        **detail,
         'player_id': int(member),
         'pluck': max(0, score),
-        'upload_time': datetime.fromisoformat(upload_time),
+        'upload_time': datetime.fromisoformat(detail['upload_time']),
     }
 
 
@@ -188,3 +164,23 @@ def get_player_pluck_records(player_id: int, levels: Iterable[str]):
             json.loads(detail),
         )
     return records_by_level
+
+
+def read_records(categories: Iterable[tuple[int, str]]):
+    """供更新使用；只有两侧均缺失才表示无纪录，半缺失需管理员修复。"""
+    categories = list(categories)
+    if not categories:
+        return {}
+    with PLuckRankingCache.pipeline() as pipe:
+        for player_id, level in categories:
+            ranking = PLuckRankingCache(level)
+            pipe.zscore(ranking.rank_key, player_id)
+            pipe.hget(ranking.detail_key, player_id)
+        results = pipe.execute()
+    records = {}
+    for index, category in enumerate(categories):
+        score, detail = results[index * 2:index * 2 + 2]
+        if (score is None) != (detail is None):
+            raise ValueError(f'Incomplete Pluck record: {category}')
+        records[category] = None if score is None else cache_to_dict(str(category[0]), score, json.loads(detail))
+    return records

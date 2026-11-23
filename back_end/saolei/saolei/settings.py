@@ -267,6 +267,11 @@ EMAIL_HOST_PASSWORD = _read_project_secret('email_host_password', '')
 EMAIL_USE_SSL = True
 EMAIL_TIMEOUT = 10              # 避免 SMTP 无响应时请求一直挂起
 DEFAULT_FROM_EMAIL = _read_project_secret('email_from', EMAIL_HOST_USER)
+EMAIL_DAILY_LIMIT = 2000
+# The provider's daily quota resets at UTC+8 midnight.
+EMAIL_QUOTA_TIME_ZONE = os.environ.get('EMAIL_QUOTA_TIME_ZONE', 'Asia/Shanghai')
+EMAIL_NOTIFICATIONS_ENABLED = os.environ.get('EMAIL_NOTIFICATIONS_ENABLED') == 'True'
+EMAIL_WEBSITE_URL = os.environ.get('EMAIL_WEBSITE_URL', 'https://openms.top').rstrip('/')
 
 SESSION_COOKIE_NAME = 'session_id'        # Session的cookie保存在浏览器上时的key
 SESSION_COOKIE_PATH = '/'                # Session的cookie保存的路径(默认)

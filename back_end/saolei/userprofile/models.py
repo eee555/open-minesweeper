@@ -26,6 +26,7 @@ class UserProfile(AbstractUser):
     is_memorial = models.BooleanField(default=False)
     # 当前有效的玩家认证结果。不表示已实名，也不表示管理身份。
     verified = models.BooleanField(default=False)
+    email_notification_mask = models.PositiveIntegerField(default=0)
 
     username = models.CharField(
         _('username'),
@@ -145,6 +146,17 @@ class UserProfile(AbstractUser):
     @lastname.setter
     def lastname(self, value):
         self._lastname = value
+
+
+class EmailSentQuota(models.Model):
+    """Only the current provider day is retained; count reserved send attempts."""
+
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    quota_date = models.DateField()
+    count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [models.CheckConstraint(condition=models.Q(pk=1), name='email_sent_quota_singleton')]
 
 
 # 邮箱验证

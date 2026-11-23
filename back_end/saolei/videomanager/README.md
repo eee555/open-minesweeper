@@ -23,7 +23,7 @@ python3 manage.py migrate
 
 对已有旧组合索引的数据库，Django 会生成移除旧索引、创建新索引的迁移。MySQL 后端在删除旧组合索引前按需补建独立的 `player_id` 索引，外键约束继续有效。可用 `SHOW INDEX FROM videomanager_videomodel` 确认两个索引的列顺序。
 
-`VideoModel` 已移除 `video_lmp_pluck_idx(level, mode, player_id, pluck)`，部署时由上述命令生成并执行删除索引的迁移。Pluck 回源查询继续利用保留的级别、玩家及状态组合索引缩小候选范围；`CustomPluckRecord` 自身的排行索引保留。
+`VideoModel` 已移除 `video_lmp_pluck_idx(level, mode, player_id, pluck)`，部署时由上述命令生成并执行删除索引的迁移。Pluck 回源查询继续利用保留的级别、玩家及状态组合索引缩小候选范围；个人纪录仅存 Redis，不再维护 `CustomPluckRecord` 表及其索引。
 
 ## 创建录像
 
@@ -53,7 +53,7 @@ python3 manage.py migrate
 - `videomanager`：创建后需要进入对应审核队列或最新队列；队列副作用应由 `videomanager.signals` 统一处理。
 - `msuser`：创建时按普通录像计数，并按符合条件的高级成绩提升上传额度。旧竞速纪录信号已移除。
 - `effranking`：提交后读取数据库生成的 Thrp，尝试刷新对应级别的个人最佳及 sum；录像须为 STD、OFFICIAL、非隐藏比赛录像。
-- `customranking`：自定义 pluck 排行需要录像满足 `OFFICIAL`、非比赛、合法自定义配置、`pluck is not None`。当前通过 `VideoModel` 保存后的信号维护 `CustomPluckRecord`。
+- `customranking`：自定义 pluck 排行需要录像满足 `OFFICIAL`、非隐藏比赛录像、合法自定义配置、`pluck is not None`。`VideoModel` 保存后的信号在事务提交后直接维护 Redis 纪录。
 - `utils.parser.MSVideoParser`：标准三等级和当前支持的自定义 `pluck` 场景都会在解析时前台计算，保存 `VideoModel` 后触发 `customranking`。
 - `videomanager.tasks`：`task_video_pluck` 入口保留，供未来重新需要后台计算时复用。
 
@@ -84,12 +84,12 @@ python3 manage.py migrate
 每个请求都有独立事务，后续请求失败不会恢复此前成功删除的录像。文件清理和排行提交回调仍在该单次请求内同步执行；拆成单个请求降低每次工作量，不保证生产环境每次都能在 Nginx 超时前完成。
 
 - `videomanager.signals.delete_video_expansion` 在录像删除事务内清理对应 `ExpandVideoModel`；事务回滚会一起恢复。若删除源本来就是扩展记录实例或 QuerySet，则交给原有级联处理，避免重复删除。
-- `customranking.signals.refresh_custom_pluck_rank_on_video_delete` 在事务提交后复用 `refresh_custom_pluck_rank`，按玩家和级别从剩余合格录像补选 pluck 最佳纪录，并更新数据库和 Redis。批量待删录像不会被重新选入；没有候选时保留无纪录状态。`CustomPluckRecord` 删除后的缓存同步也延后到提交时，并重读当前纪录，兼容同一事务内删除后重建；删除回滚不发布这两项更新。
+- `customranking.signals.refresh_custom_pluck_rank_on_video_delete` 在事务提交后检查该录像是否保持缓存纪录，仅对受影响分类从剩余合格录像补位 Redis。批量待删录像不会被重新选入；没有候选时同时移除 zset/hash 项，删除回滚不发布变化。用户级联删除同样清理缓存，不重建已删除用户的纪录。
 - 文件继续由 `django-cleanup` 在事务提交后删除；计数、竞速与效率榜、外站导入引用沿用各自已有逻辑。
 - **最新录像队列保持现状**：数据库删除不移除 `newest_queue` 快照，最新录像接口仍可能返回已删除的 ID。队列只按既有规则裁剪或由管理员单独移除，不增加删除信号清理或读取时查库过滤。
 - **比赛普通删除不立即重算。** 删除录像会清除比赛的多对多关联，暂时保留已结算成绩、名次、积分和历史最好成绩。显式重算按赛种及成绩来源处理：打卡赛和 GSC 录像来源不再计入已删除录像，GSC 手工来源保留录入成绩但仍参与全场排名及积分更新。新赛种须提供自己的删除及重算规则。站长 API 已提供比赛 ID 和日志警告，隐藏页面已增加删除警告和确认；未来通知主办方的私信尚未实现，详见 [比赛录像删除与成绩一致性](../tournament/VIDEO_DELETION_PLAN.md)。
 
-删除流程本身不修改模型字段，也不自动扫描清理历史孤立扩展行。旧的 pluck 缺失纪录可通过既有 `refresh_all_custom_pluck_ranks` 业务服务重建；仅重建 Redis 缓存不能补回缺失的数据库纪录。
+删除流程本身不修改模型字段，也不自动扫描清理历史孤立扩展行。Pluck 缺失纪录通过管理员范围刷新或 `rebuild_custom_pluck_cache` 直接从 `VideoModel` 重建，不再需要补建数据库纪录表。
 
 删除源判定和提交后回调沿用 Django 的 [删除信号 `origin`](https://docs.djangoproject.com/en/6.0/ref/signals/#post-delete) 与 [`transaction.on_commit`](https://docs.djangoproject.com/en/6.0/topics/db/transactions/#performing-actions-after-commit)。
 
@@ -135,7 +135,7 @@ video.save(update_fields=['ongoing_tournament'])
 
 影响：
 
-- `customranking`：保存 `pluck` 后，如果录像满足 density 排行条件，应刷新对应玩家的 `CustomPluckRecord` 和 Redis 全榜缓存。
+- `customranking`：保存 `pluck` 后，如果录像满足 density 排行条件，在提交后尝试刷新对应玩家的 Redis 纪录；当前纪录变差或失效时查库补位。
 - `utils.parser.MSVideoParser`：普通三等级和当前支持的自定义录像都会在解析时直接计算 `pluck`。
 
 推荐写法：
@@ -149,7 +149,7 @@ video.save(update_fields=['pluck'])
 
 旧经典排行的字段比较、分类迁移和补位逻辑已移除，恢复要求见 `../msuser/refactor.md`。录像本身的 `timems`、`bvs`、`iqg`、`ioe`、`path` 和只读 `stnb` 仍保留。
 
-`customranking` 的数据库个人最佳纪录仍按 `pluck`、`timems`、`upload_time` 比较；Redis 使用简化 score 保存全榜。
+`customranking` 的个人最佳纪录仍按 `pluck`、`timems`、`upload_time` 比较；纪录只存 Redis，zset 使用简化 score 保存全榜排序。
 
 `effranking` 使用数据库生成的 `thrp = bv / (left_ce + right_ce + double_ce)`。`CAPTURE_FIELDS` 已包含 `bv` 和三个有效点击数字段；其中 `right_ce` 在效率榜中参与分母计算，不用于区分 NF。保存后先判断影响范围，提交后再读取持久化的 Thrp，避免使用实例上的旧派生值。原纪录变差或失效时只查询受影响玩家、级别的补位。
 
@@ -215,13 +215,13 @@ video.save(update_fields=['pluck'])
 职责：
 
 - 维护pluck自定义排行榜。
-- 每个玩家、每个支持的自定义配置只保留一条最佳 `CustomPluckRecord`。
+- 每个玩家、每个支持的自定义配置在 Redis 中只保留一条最佳录像。
 - Redis 缓存保存所有用户的纪录。
 
 互动方式：
 
-- `customranking.signals` 监听 `VideoModel` 的 `state`、`ongoing_tournament`、`pluck`、`timems`、`upload_time`；不监听 `right_ce`，pluck 排行不需要 NF 信息。
-- `CustomPluckRecord` 保存或删除后，同步更新 Redis 排行缓存。
+- `customranking.signals` 监听 `VideoModel` 的 `player_id`、`level`、`mode`、`state`、`ongoing_tournament`、`pluck`、`timems`、`upload_time`；不监听 `right_ce`，pluck 排行不需要 NF 信息。
+- 提交后通过 service 直接比较、更新或补位 Redis；批量状态更新显式调用对应的批量 service。
 
 ### `common`
 

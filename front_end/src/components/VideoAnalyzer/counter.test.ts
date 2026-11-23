@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { AvfVideo, Event as ReplayEvent, EvfVideo, GameBoard, KeyDynamicParams, MvfVideo, RmvVideo, VideoActionStateRecorder } from 'ms-toollib';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { counterStaticVariables, counterValue, counterVariables, defaultCounterConfig, displayCounter, moveCounterRow, parseCounterConfig, parseCounterExpression, prepareCounter, readCounterEvents } from './counter';
+import { counterStaticVariables, counterValue, counterVariables, defaultCounterConfig, displayCounter, moveCounterRow, parseCounterConfig, parseCounterExpression, prepareCounter, prepareCountersAsync, readCounterEvents } from './counter';
 import type { CounterEvent, CounterRow, CounterValues } from './counter';
 import { parseReplay } from './replayParser';
 
@@ -107,6 +107,17 @@ describe('counter expressions', () => {
     it('reports a removed sampling mode instead of silently using another mode', () => {
         const prepared = prepareCounter({ ...row(), samplingMode: 'event' as CounterRow['samplingMode'] }, [event(0, 1)]);
         expect(displayCounter(prepared, 0)).toEqual({ value: 'Unknown sampling mode: event', error: true });
+    });
+
+    it('prepares counters asynchronously with the same samples and progress', async () => {
+        const events = [event(0, 1), event(1, 2)];
+        const progress: [number, number][] = [];
+        const prepared = await prepareCountersAsync([row()], events, undefined, (done, total) => {
+            progress.push([done, total]);
+            return Promise.resolve();
+        });
+        expect(prepared.get('bvs')?.samples).toEqual(prepareCounter(row(), events).samples);
+        expect(progress.at(-1)).toEqual([1, 1]);
     });
 });
 

@@ -92,6 +92,9 @@ describe('minigame rankings', () => {
         cy.get('[data-cy=minigame-ranking-color]').should('have.attr', 'aria-pressed', 'true');
         const ces = minigameCes(1234, 'left-click-b-50-v1') ?? 0;
         firstScoreCell().should('have.css', 'background-color', tinycolor(colorThemes.bvs.value.getColor(ces)).toRgbString());
+        firstScoreCell().find('[data-cy=minigame-replay-link]').should(($link) => {
+            expect($link.css('color')).to.equal($link.closest('td').css('color'));
+        });
         cy.then(() => router.push('/ranking/minigame/multi-touch'));
         cy.wait('@rank');
         firstScoreCell().should(($cell) => {

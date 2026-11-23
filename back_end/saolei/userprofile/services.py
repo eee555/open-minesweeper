@@ -6,7 +6,7 @@ import uuid
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.mail import send_mail
+from django.core.mail import EmailMessage
 from django.db import transaction
 
 from msuser.models import UserMS
@@ -15,8 +15,9 @@ from utils import generate_code, verify_text
 from utils.exceptions import ExceptionToResponse
 from videomanager.models import VideoModel
 from .forms import UserRegisterForm
+from .mail import send_budgeted_email
 from .models import EmailVerifyRecord, UserProfile
-from .utils import count_new_avatar_chance, count_new_signature_chance, NAME_FIELDS, validate_name
+from .utils import count_new_avatar_chance, count_new_signature_chance, EMAIL_NOTIFICATION_FLAGS, EmailNotificationType, NAME_FIELDS, validate_name
 
 logger = logging.getLogger('userprofile')
 
@@ -234,7 +235,7 @@ def send_email(email: str, send_type='register'):
     if '<' not in from_email:
         from_email = f'开源扫雷网 <{from_email}>'
     try:
-        send_status = send_mail(email_title, email_body, from_email, [email])
+        send_status = send_budgeted_email(EmailMessage(email_title, email_body, from_email, [email]))
     except Exception:
         logger.exception('邮件发送失败：type=%s, email=%s', send_type, email)
         return None
@@ -261,7 +262,7 @@ def user_metadata(user: UserProfile, client):
     if client != user:
         queryset = queryset.filter(ongoing_tournament=False)
     videos = queryset.values('id', 'upload_time', 'level', 'mode', 'timems', 'bv', 'state', 'software', 'cl', 'ce', 'right_ce', 'file_size', 'end_time', 'ongoing_tournament', 'path')
-    return {
+    data = {
         'id': user.id,
         'username': user.username,
         'realname': user._realname,
@@ -279,6 +280,22 @@ def user_metadata(user: UserProfile, client):
         'country': user.country,
         'videos': list(videos),
     }
+    if client == user:
+        data['email_notification_mask'] = user.email_notification_mask
+    return data
+
+
+@transaction.atomic
+def update_email_notifications(user_id: int, changes: dict[EmailNotificationType, bool]) -> UserProfile:
+    user = UserProfile.objects.select_for_update().get(pk=user_id)
+    mask = user.email_notification_mask
+    for notification_type, enabled in changes.items():
+        flag = EMAIL_NOTIFICATION_FLAGS[notification_type]
+        mask = mask | flag if enabled else mask & ~flag
+    if user.email_notification_mask != mask:
+        user.email_notification_mask = mask
+        user.save(update_fields=['email_notification_mask', 'date_updated'])
+    return user
 
 
 def refresh_avatar_chance(user: UserProfile):

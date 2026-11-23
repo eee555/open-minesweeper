@@ -54,7 +54,7 @@ const exporting = ref(false);
 - 根组件通过 `provideAnalyzerState` 提供实例级状态，棋盘、计数器、时间轴、进度条和导出控件通过 `useAnalyzerState` 读取相同的配置、当前帧、播放控制及采样结果，不逐层透传。未提供上下文时明确报错，不使用模块级状态单例；多个 Analyzer 的播放、区间、导出和采样互不影响。
 - 配置、概率配色和导出状态继续由根组件的公开绑定连接调用方，持久化仍在外层，保存格式不变。内部配置使用原地字段更新；`BoardFrame` 聚合当前棋盘等数据，不复制底层矩阵。通用图层、plot、行编辑器和格子大小控件保持显式 props；导出控件只额外接收所属棋盘的实际尺寸和渲染器。
 - `useReplayPosition` 是可见录像的唯一定位入口，关键帧保留“先时间、后索引、前置局面”的 workaround；上游同步接口修复前，不在图层、计数器或 plot 中另行定位。
-- `usePreparedAnalysis` 只根据对应配置、原生事件和时长更新缓存。无关图层设置使用原地修改，保留 VueUse `toRefs(..., { replaceRef: false })`，避免重新采样。
+- `useAnalysisData` 串行生成鼠标轨迹、计数器事件、计数器采样和自定义事件，分块上报进度弹窗；配置中的表达式变更只重算对应采样，无关图层设置保留已有结果。`usePreparedAnalysis` 保留为同步采样工具。
 - `pluck` 随录像加载通过 `analyse_for_features(['pluck'])` 分析一次，按库的逐事件返回值采样；不假定未完成录像使用固定失败值，也不把特殊值（如 `NaN`、无穷或 `Number.MAX_VALUE`）归零或替换。读取事件快照和参数后必须释放 WASM 包装对象，不遍历修改页面索引来提取字段。
 - `counterDifference.ts` 适配 `expr-eval@2.0.2` 的内部 `Expression.tokens` 和 `IEXPREVAL` 指令，以保留差分参数及条件分支的惰性求值；其他运算仍交给原库，不另写表达式解析器或使用 eval。公共自定义函数会先求值参数，不能直接替代此适配；升级依赖时复查模块并运行差分测试，若上游提供公开接口则优先替换。[求值源码](https://github.com/silentmatt/expr-eval/blob/v2.0.2/src/evaluate.js)、[Expression 源码](https://github.com/silentmatt/expr-eval/blob/v2.0.2/src/expression.js)。字段、步长及采样语义只在 VitePress 各语言的表达式参考中维护。
 - 棋盘绘制使用 minesweeper-board 的公开组件和独立 render，时间轴使用 vue3-plots；通用能力缺口先请求上游，棋盘自定义事件的原生 SVG 是已确认的独立图层。

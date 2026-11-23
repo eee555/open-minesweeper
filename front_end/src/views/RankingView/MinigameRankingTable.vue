@@ -40,7 +40,7 @@
                 <PlayerName :user-id="row.player_id" />
             </td>
             <td v-for="ranking in rankings" :key="ranking.key" class="table-col-number" :style="cellStyle(row, ranking)" :title="row.records[ranking.key] == null ? undefined : toISODateTimeString(new Date(row.records[ranking.key]!.achieved_at))">
-                <RouterLink v-if="row.records[ranking.key] != null" class="link" data-cy="minigame-replay-link" :to="{ name: `minigame-${game}`, query: { player: row.player_id, key: ranking.key.slice(game.length + 1) } }">
+                <RouterLink v-if="row.records[ranking.key] != null" class="link score-link" data-cy="minigame-replay-link" :to="{ name: `minigame-${game}`, query: { player: row.player_id, key: ranking.key.slice(game.length + 1) } }">
                     {{ formatMinigameScore(row.records[ranking.key]!.score, ranking.key, minigameSettings.leftClickScoreDisplay) }}
                 </RouterLink>
                 <template v-else>
@@ -166,6 +166,14 @@ const { t } = useI18n({ messages: i18nMessages });
 
 .stat-header[aria-pressed="true"] {
     color: var(--ui-color-primary);
+}
+
+.score-link {
+    color: inherit;
+    display: inline;
+    font: inherit;
+    overflow-wrap: anywhere;
+    vertical-align: baseline;
 }
 
 .pagination {

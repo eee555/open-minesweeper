@@ -322,9 +322,9 @@ class TaskDeletionTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         page = response.json()
-        self.assertEqual(page['count'], 1)
-        self.assertEqual(page['page'], 1)
-        self.assertEqual(page['page_size'], 20)
+        self.assertEqual(page['total'], 1)
+        self.assertEqual(page['start'], 1)
+        self.assertEqual(page['count'], 20)
         [data] = page['items']
         self.assertEqual(data['id'], str(task.id))
         self.assertEqual(data['status'], TaskResultStatus.FAILED)
@@ -348,15 +348,40 @@ class TaskDeletionTests(TestCase):
         task_ids = {str(self.create_task().id) for _ in range(5)}
 
         pages = [
-            self.client.get('/api/common/tasks/detail', {'page': page, 'page_size': 2}).json()
-            for page in (1, 2, 3)
+            self.client.get('/api/common/tasks/detail', {'start': start, 'count': 2}).json()
+            for start in (1, 3, 5)
         ]
 
-        self.assertEqual([page['count'] for page in pages], [5, 5, 5])
+        self.assertEqual([page['total'] for page in pages], [5, 5, 5])
+        self.assertEqual([page['start'] for page in pages], [1, 3, 5])
         self.assertEqual([len(page['items']) for page in pages], [2, 2, 1])
         returned_ids = [item['id'] for page in pages for item in page['items']]
         self.assertEqual(len(returned_ids), len(set(returned_ids)))
         self.assertSetEqual(set(returned_ids), task_ids)
+
+    def test_task_detail_accepts_unaligned_start_and_out_of_range(self):
+        for _ in range(5):
+            self.create_task()
+        all_tasks = self.client.get('/api/common/tasks/detail').json()['items']
+        partial = self.client.get('/api/common/tasks/detail', {'start': 2, 'count': 3}).json()
+        self.assertEqual(partial['items'], all_tasks[1:4])
+        self.assertEqual(partial['total'], 5)
+        self.assertEqual(partial['start'], 2)
+        self.assertEqual(partial['count'], 3)
+        empty = self.client.get('/api/common/tasks/detail', {'start': 6, 'count': 3}).json()
+        self.assertEqual(empty['items'], [])
+        self.assertEqual(empty['total'], 5)
+        self.assertEqual(empty['start'], 6)
+
+    def test_task_detail_stable_sort_and_empty_result(self):
+        tasks = [self.create_task(priority=1) for _ in range(3)]
+        expected = sorted(str(task.id) for task in tasks)
+        for reverse in ('true', 'false'):
+            response = self.client.get('/api/common/tasks/detail', {'sort': 'priority', 'reverse': reverse, 'start': 2, 'count': 1})
+            self.assertEqual([item['id'] for item in response.json()['items']], expected[1:2])
+        empty = self.client.get('/api/common/tasks/detail', {'status': 'FAILED'}).json()
+        self.assertEqual(empty['total'], 0)
+        self.assertEqual(empty['items'], [])
 
     def test_task_detail_orders_by_enqueued_at_by_default(self):
         now = timezone.now()
@@ -384,14 +409,14 @@ class TaskDeletionTests(TestCase):
             {'status': 'FAILED', 'task_path': 'task_saolei_video_import'},
         ).json()
 
-        self.assertEqual(filtered['count'], 1)
+        self.assertEqual(filtered['total'], 1)
         self.assertEqual([item['id'] for item in filtered['items']], [str(failed.id)])
 
     def test_task_detail_rejects_invalid_query(self):
         self.assertEqual(self.client.get('/api/common/tasks/detail', {'status': 'UNKNOWN'}).status_code, 422)
         self.assertEqual(self.client.get('/api/common/tasks/detail', {'sort': 'traceback'}).status_code, 422)
-        self.assertEqual(self.client.get('/api/common/tasks/detail', {'page': 0}).status_code, 422)
-        self.assertEqual(self.client.get('/api/common/tasks/detail', {'page_size': 101}).status_code, 422)
+        for query in ({'start': 0}, {'start': -1}, {'start': 1.5}, {'count': 0}, {'count': 101}):
+            self.assertEqual(self.client.get('/api/common/tasks/detail', query).status_code, 422)
 
     def test_cleanup_tasks_deletes_only_one_batch_per_config(self):
         old_finished_at = timezone.now() - TASK_CLEANUP_CONFIGS[0]['expires'] - timedelta(days=1)

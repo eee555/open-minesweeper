@@ -29,7 +29,7 @@ Tras confirmar la transacción, las tres clasificaciones leen la repetición una
 
 Al vincular o desvincular identificadores o al publicar un torneo, se llama explícitamente al servicio por lotes. Las excepciones se registran con su contexto y traza, y vuelven a lanzarse. Solo las mejoras de Thrp y NF IOE al añadir repeticiones individuales o en lote generan noticias en la sección `eff`. La familia TPE, los reemplazos por un resultado peor, las eliminaciones en lote, las reparaciones administrativas y las reconstrucciones completas no emiten esa señal. Los detalles están en `back_end/saolei/effranking/README.md`.
 
-Al eliminar un video, `videomanager.signals.delete_video_expansion` limpia los registros extendidos dentro de la transacción actual; al eliminar desde registros extendidos, se sigue la cascada de Django para evitar procesos duplicados. `customranking.signals.refresh_custom_pluck_rank_on_video_delete` realiza un reemplazo de registros en la base de datos y actualiza Redis tras la confirmación; después de eliminar un `CustomPluckRecord`, se sincroniza el caché y se vuelve a leer el registro actual; en caso de deshacerse, no se publican los resultados de eliminación ni de ajuste.
+Al eliminar un video, `videomanager.signals.delete_video_expansion` limpia los registros extendidos dentro de la transacción actual; la eliminación desde la tabla extendida sigue la cascada de Django. `customranking` ya no mantiene una tabla de récords: las señales de guardado y eliminación registran callbacks `on_commit(..., robust=True)` que comparan Redis con la repetición actual y consultan reemplazos solo para récords invalidados. Los valores anteriores de jugador y nivel permiten mover categorías. Un rollback no publica cambios; los errores se registran sin bloquear otros callbacks, sin nuevos bloqueos ni reintentos. Los cambios masivos llaman a los servicios add/remove.
 
 La cola de videos más recientes mantiene su estado actual: al eliminar un video, no se limpia el snapshot de `newest_queue`, y las consultas pueden devolver aún IDs eliminados; solo se mantiene mediante funciones de corte existentes y la funcionalidad de eliminación por parte del administrador.
 
@@ -42,9 +42,6 @@ flowchart LR
     video_pre_save[VideoModel pre_save]
     video_post_save[VideoModel post_save]
     video_pre_delete[VideoModel pre_delete]
-    pluck_pre_save[CustomPluckRecord pre_save]
-    pluck_post_save[CustomPluckRecord post_save]
-    pluck_post_delete[CustomPluckRecord post_delete]
     tournament_post_save[Tournament post_save]
     tournament_post_delete[Tournament post_delete]
     gsc_post_save[GSCTournament post_save]
@@ -81,11 +78,8 @@ flowchart LR
 
 
 
-    refresh_custom_pluck_rank_on_video_save --> pluck_pre_save
-    refresh_custom_pluck_rank_on_video_save --> pluck_post_delete
-    pluck_pre_save --> pluck_post_save
-    pluck_post_save --> update_custom_pluck_cache_on_record_save[Actualizar la caché de clasificación pLuck]
-    pluck_post_delete --> update_custom_pluck_cache_on_record_delete[Sincronizar la caché pLuck tras la confirmación]
+    refresh_custom_pluck_rank_on_video_save --> pluck_redis[Actualizar Redis y reemplazar récords tras confirmar]
+    refresh_custom_pluck_rank_on_video_delete --> pluck_redis
     minigame_post_delete[MiniGameBestScore post_delete] --> delete_cached_score[Eliminar el resultado de la clasificación del minijuego]
 
     add_created_video_to_checked_tournaments -. m2m_changed .-> no_video_signal[Ninguna]
@@ -114,9 +108,6 @@ flowchart LR
 
     click video_pre_save "#signal-function-map" "Antes de guardar VideoModel"
     click video_post_save "#signal-function-map" "Después de guardar VideoModel"
-    click pluck_pre_save "#signal-function-map" "Antes de guardar CustomPluckRecord"
-    click pluck_post_save "#signal-function-map" "Después de guardar CustomPluckRecord"
-    click pluck_post_delete "#signal-function-map" "Después de eliminar CustomPluckRecord"
     click delete_cached_score "#signal-function-map" "Tras la confirmación se elimina al jugador del ZSET del minijuego y del hash de detalles"
     click tournament_post_save "#signal-function-map" "Después de guardar Tournament"
     click tournament_post_delete "#signal-function-map" "Después de eliminar Tournament"
@@ -141,8 +132,7 @@ flowchart LR
     click profile_post_delete "#signal-function-map" "Eliminar el perfil asociado de Buscaminas después de borrar al usuario"
     click delete_user_ms "#signal-function-map" "Eliminar UserMS por su clave foránea en la misma transacción. Evitar limpieza duplicada si la cascada procede de UserMS"
     click delete_derived_records "#signal-function-map" "Tras confirmar, limpiar el hash de resultados derivados de PB y los miembros de todas sus clasificaciones"
-    click update_custom_pluck_cache_on_record_save "#signal-function-map" "Sincronizar la caché de la clasificación después de guardar la marca pLuck"
-    click update_custom_pluck_cache_on_record_delete "#signal-function-map" "Tras confirmar la eliminación de la marca pLuck, sincronizar la caché con los registros actuales de la base de datos"
+    click pluck_redis "#signal-function-map" "Actualizar Redis mediante customranking.services.sync_video tras confirmar"
     click update_cache_on_tournament_save "#signal-function-map" "Sincronizar la caché de torneos NORMAL después de guardar el torneo"
     click update_cache_on_tournament_delete "#signal-function-map" "Al eliminar el torneo, eliminar también sus datos y sus inscripciones de la caché"
     click update_cache_on_participant_save "#signal-function-map" "Sincronizar la caché de inscripciones del usuario después de guardar la inscripción"
@@ -189,8 +179,7 @@ Solo modificar `upload_time` también activará la señal de guardado de repetic
 | Limpiar los registros extendidos de la repetición | `videomanager.signals.delete_video_expansion` |
 | Actualizar el registro de eficiencia y completar posiciones necesarias tras la publicación | `effranking.signals.refresh_ranks_on_video_save` |
 | Completar el registro de eficiencia tras la publicación | `effranking.signals.refresh_ranks_on_video_delete` |
-| Actualizar el caché de la lista de pluck | `update_custom_pluck_cache_on_record_save` |
-| Eliminar y sincronizar el caché de la lista de pluck tras la eliminación | `update_custom_pluck_cache_on_record_delete` → `sync_custom_pluck_top_cache` |
+| Actualizar Redis y reemplazar récords pLuck tras confirmar | `customranking.services.sync_video` |
 | Actualizar el caché del evento | `update_cache_on_tournament_save` |
 | Eliminar el caché del evento | `update_cache_on_tournament_delete` |
 | Actualizar el caché de los participantes | `update_cache_on_participant_save` |

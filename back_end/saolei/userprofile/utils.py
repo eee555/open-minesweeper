@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import StrEnum
 
 from captcha.models import CaptchaStore
 from django.core.exceptions import ValidationError
@@ -7,6 +8,23 @@ from django.utils import timezone
 
 HIDDEN_NAME = 'hidden'
 NAME_FIELDS = {'realname': '_realname', 'firstname': '_firstname', 'lastname': '_lastname'}
+
+
+class EmailNotificationType(StrEnum):
+    STAFF_MEDIA_REVIEW = 'staff_media_review'
+    STAFF_VIDEO_FROZEN = 'staff_video_frozen'
+    STAFF_VIDEO_PLAIN = 'staff_video_plain'
+    STAFF_ACCOUNT_LINK_REVIEW = 'staff_account_link_review'
+    STAFF_IDENTIFIER_UNSAFE = 'staff_identifier_unsafe'
+
+
+EMAIL_NOTIFICATION_FLAGS = {
+    EmailNotificationType.STAFF_MEDIA_REVIEW: 1,
+    EmailNotificationType.STAFF_VIDEO_FROZEN: 2,
+    EmailNotificationType.STAFF_VIDEO_PLAIN: 4,
+    EmailNotificationType.STAFF_ACCOUNT_LINK_REVIEW: 8,
+    EmailNotificationType.STAFF_IDENTIFIER_UNSAFE: 16,
+}
 
 
 def has_identity_access(user) -> bool:

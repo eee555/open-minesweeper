@@ -257,7 +257,6 @@ digraph cache {
         accountlinkqueue_db [label="AccountLinkQueue\nplatform accounts"];
         accountlinkplatform_db [label="AccountSaolei\nAccountMinesweeperGames\nAccountBilibili\nAccountWorldOfMinesweeper\nAccountQQ", width=3.0, height=1.4];
         videosaolei_db [label="VideoSaolei"];
-        custom_pluck_db [label="CustomPluckRecord"];
         minigame_db [label="MiniGameBestScore"];
         identifier_db [label="Identifier"];
         userms_db [label="UserMS", width=3, height=3, fontsize=30];
@@ -308,8 +307,6 @@ digraph cache {
         update_video_count_on_video_delete [label="update_video_count_on_video_delete"];
         refresh_custom_pluck_rank_on_video_save [label="refresh_custom_pluck_rank_on_video_save"];
         refresh_custom_pluck_rank_on_video_delete [label="refresh_custom_pluck_rank_on_video_delete"];
-        update_custom_pluck_cache_on_record_save [label="update_custom_pluck_cache_on_record_save"];
-        update_custom_pluck_cache_on_record_delete [label="update_custom_pluck_cache_on_record_delete"];
         checkin_video_before_create [label="checkin_video_before_create"];
         add_created_video_to_checked_tournaments [label="add_created_video_to_checked_tournaments"];
         update_cache_on_tournament_delete [label="update_cache_on_tournament_delete"];
@@ -383,12 +380,14 @@ digraph cache {
     video_db -> add_identifier;
     add_identifier -> identifier_db;
     add_identifier -> userms_db;
-    add_identifier -> custom_pluck_db;
+    add_identifier -> pluck_rank_cache [label="on_commit"];
+    add_identifier -> pluck_detail_cache [label="on_commit"];
     userms_db -> del_identifier;
     video_db -> del_identifier;
     del_identifier -> identifier_db;
     del_identifier -> userms_db;
-    del_identifier -> custom_pluck_db;
+    del_identifier -> pluck_rank_cache [label="on_commit"];
+    del_identifier -> pluck_detail_cache [label="on_commit"];
 
 
     // tournament API
@@ -620,24 +619,14 @@ digraph cache {
 
     // customranking signals
     video_db -> refresh_custom_pluck_rank_on_video_save [label="post_save"];
-    video_db -> refresh_custom_pluck_rank_on_video_save [label="read best"];
-    userprofile_db -> refresh_custom_pluck_rank_on_video_save [label="FK read"];
-    custom_pluck_db -> refresh_custom_pluck_rank_on_video_save [label="read"];
-    refresh_custom_pluck_rank_on_video_save -> custom_pluck_db [label="write/delete"];
+    video_db -> refresh_custom_pluck_rank_on_video_save [label="on_commit read current / backfill"];
+    pluck_rank_cache -> refresh_custom_pluck_rank_on_video_save [label="read current record"];
+    pluck_detail_cache -> refresh_custom_pluck_rank_on_video_save [label="read current record"];
+    refresh_custom_pluck_rank_on_video_save -> pluck_rank_cache [label="on_commit write/delete"];
+    refresh_custom_pluck_rank_on_video_save -> pluck_detail_cache [label="on_commit write/delete"];
     video_db -> refresh_custom_pluck_rank_on_video_delete [label="post_delete / on_commit read remaining"];
-    refresh_custom_pluck_rank_on_video_delete -> custom_pluck_db [label="on_commit backfill/write/delete"];
     refresh_custom_pluck_rank_on_video_delete -> pluck_rank_cache [label="on_commit write/delete"];
     refresh_custom_pluck_rank_on_video_delete -> pluck_detail_cache [label="on_commit write/delete"];
-
-    custom_pluck_db -> update_custom_pluck_cache_on_record_save [label="post_save"];
-    video_db -> update_custom_pluck_cache_on_record_save [label="FK read"];
-    update_custom_pluck_cache_on_record_save -> pluck_rank_cache [label="write"];
-    update_custom_pluck_cache_on_record_save -> pluck_detail_cache [label="write"];
-
-    custom_pluck_db -> update_custom_pluck_cache_on_record_delete [label="post_delete"];
-    custom_pluck_db -> update_custom_pluck_cache_on_record_delete [label="on_commit read current"];
-    update_custom_pluck_cache_on_record_delete -> pluck_rank_cache [label="on_commit write/delete"];
-    update_custom_pluck_cache_on_record_delete -> pluck_detail_cache [label="on_commit write/delete"];
 
     // tournament signals
     video_db -> checkin_video_before_create [label="pre_save"];
@@ -731,7 +720,7 @@ La finalización, el cálculo de puntos, los mejores resultados y la cancelació
 
 Las tareas finales de los tres tipos de competencia se ejecutan primero en el original `end_time + 1 小时`, manteniendo NORMAL y el caché de inscripción durante este periodo; al reiniciar GSC se respetará este límite inferior. Aquí se bufferan solo las subidas ya en proceso antes de la fecha límite, sin extender los períodos de competencia o de inscripción individual ni modificar el tiempo de degradación de puntos. Un guardado anómalo que dure más de una hora puede seguir intersectándose; al finalizar el periodo individual de inscripción, se reinicia la inscripción sin esperar a las subidas en tránsito, y en esta ocasión no se incrementa el contador de subidas en tránsito ni se aplica bloqueo de cierre.
 
-Después de eliminar un video personalizado, se reemplaza en la transacción el registro `CustomPluckRecord` y el elemento correspondiente en Redis desde los registros restantes válidos; al sincronizar el caché tras la eliminación, se vuelve a leer el estado actual de la base de datos tras la confirmación de la transacción, y en caso de rollback, no se publican estas dos actualizaciones.
+Los récords pLuck solo se guardan en Redis. Tras confirmar guardados, eliminaciones o cambios masivos, se compara el récord en caché y solo se buscan reemplazos en `VideoModel` si la repetición invalidada lo mantenía. Un rollback no publica cambios. Los fallos se registran sin bloquear otros callbacks; no hay WATCH, bloqueos ni reintentos automáticos, y la reparación es administrativa.
 
 La eliminación normal de un video de competencia no realiza inmediatamente un cálculo de nuevo, manteniendo temporalmente los resultados ya calculados, clasificaciones, puntos y mejor resultado histórico. El cálculo explícito se maneja según el tipo de competencia y la fuente de los resultados: para competencias de check-in y videos de GSC, se excluyen los videos eliminados; para fuentes manuales de GSC, se conservan los resultados ingresados, pero ambos tipos participan en el ranking general y en la actualización de puntos. Cada nuevo tipo de competencia debe definir sus propias reglas para eliminación, recálculo y mantenimiento de los mejores resultados. El API del administrador ya devuelve el ID de la competencia afectada y registra una advertencia en el log; la página oculta ya muestra advertencias y confirmaciones de eliminación; aún no se ha implementado la notificación privada a los organizadores, ver el plan en el repositorio `back_end/saolei/tournament/VIDEO_DELETION_PLAN.md`.
 
@@ -846,7 +835,7 @@ Dentro de la misma pestaña del navegador, tras un pedido exitoso de otorgamient
 | --- | --- | --- |
 | Cola de estado de repetición | `videomanager.signals.refresh_state_queue_on_video_save` | La función `videomanager.cache.add_videos_to_state_queues_bulk` puede agregar en bloque a las colas comunes según el estado. |
 | Eficiencia Thrp / NF IOE / TPE clasificación | Los señales `effranking.signals` y los servicios en bloque, se actualizan tras la entrega | La orden `rebuild_eff_ranks --ranking-name thrp/nf_ioe/tpe` especifica la reconstrucción de grandes clasificaciones; el administrador corrige el ítem correspondiente de la gran clasificación mediante `admin/rebuild_record`, y la suma se recalcula solo desde el hash individual. |
-| Clasificación personalizada de pluck | Se guarda al actualizar `update_custom_pluck_top_cache`; al eliminar una repetición se llama `refresh_custom_pluck_rank` para rellenar, y al eliminar un registro se llama `sync_custom_pluck_top_cache` para sincronizar el estado actual | La orden `manage.py rebuild_custom_pluck_cache` reconstruye completamente desde `CustomPluckRecord`, sin crear registros faltantes en la base de datos. |
+| Clasificación personalizada de pluck | `customranking.services.sync_video` actualiza o busca reemplazos tras confirmar; los cambios masivos llaman explícitamente a los servicios add/remove | `manage.py rebuild_custom_pluck_cache` selecciona directamente desde `VideoModel`; un despliegue normal conserva Redis sin reconstruirlo. |
 | Competencia NORMAL | `TournamentCache.update_tournament` | `manage.py rebuild_tournament_cache` Consulta explícita `NORMAL` GSC, competencias de velocidad y registros de eficiencia y reconstrucción. |
 | Relación de participación en competencia NORMAL | `TournamentCache.update_participant` / `remove_participant` | La orden `manage.py rebuild_tournament_cache` reconstruye agrupando por `user_id`. |
 | Clasificación de puntos de competencia | Los métodos `TournamentCache.update_tournament_user` / `update_tournament_users`; el actualizador de APScheduler actualiza los puntos anuales como punto de referencia | `manage.py rebuild_tournament_user_cache` reconstruye todos los 9 zset; `manage.py rebuild_tournament_current_score_cache` recalcula de forma atómica el zset de puntuaciones actuales y el punto anual de referencia. |

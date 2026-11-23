@@ -102,9 +102,25 @@ describe('<MSGamesVideoImportQueue />', () => {
         cy.get(`${PAGINATION} [data-cy=segment]`).last().click();
         cy.get(`${PAGINATION} [data-cy=report]`).should('have.text', '21-21 / 21');
         cy.contains('tbody a', 'legacy.mvr').should('have.attr', 'href', 'https://minesweepergame.com/member/file/42/legacy.mvr');
-        cy.contains('tbody', 'Unsupported board or format');
+        cy.contains('tbody', 'MVR format not supported');
         cy.get(`${PAGINATION} [data-cy=next]`).should('be.disabled');
         cy.get('@videos.all').should('have.length', 1);
+    });
+
+    it('shows the MVR reason instead of blaming the category for 3BVS FL replays', () => {
+        cy.intercept('GET', '**/api/accountlink/msgames/videos?*', {
+            body: [catalogueVideo(1, {
+                filename: 'legacy.mvr',
+                category: '3BVS / expert / FL / Official',
+                score: '3BVS: Time: 35.090; 3BV: 132; 3BVS: 3.760',
+            })],
+        }).as('videos');
+        cy.intercept('GET', '**/api/accountlink/msgames/summary?*', summary).as('summary');
+        mountAccountLink(MSGamesVideoImportQueue, { msgamesId: 42, owner: true });
+        cy.wait(['@videos', '@summary']);
+        cy.contains('tbody', '3BVS / expert / FL / Official');
+        cy.contains('tbody', 'MVR format not supported');
+        cy.get('tbody button').should('not.exist');
     });
 
     it('shows the empty state and resets the start index after filters or page size changes', () => {
@@ -160,7 +176,7 @@ describe('<MSGamesVideoImportQueue />', () => {
         cy.contains('tbody tr', 'density-unsupported.avf').within(() => {
             cy.get('a').should('have.attr', 'href', 'https://minesweepergame.com/member/file/42/density-unsupported.avf');
             cy.contains('Mines: 41');
-            cy.contains('Unsupported board or format');
+            cy.contains('Unsupported board configuration');
             cy.get('button').should('not.exist');
         });
         cy.get('thead tr').should('have.length', 1);
