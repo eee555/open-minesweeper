@@ -4,11 +4,11 @@
 
 ## 运行配置
 
-- `EMAIL_NOTIFICATIONS_ENABLED`：默认关闭；环境变量设置为 `True` 后启用。入队和 worker 执行时都会检查，关闭后已排队任务也跳过。
+- 通知随全站邮件开关 `EMAIL_SKIP` 启用：`EMAIL_SKIP=False` 时入队并发送，`True` 时入队和 worker 执行都会跳过。
 - `EMAIL_QUOTA_TIME_ZONE`：每日额度日期的时区，默认 `Asia/Shanghai`（UTC+8），已按确认的供应商时区设置；不受项目 UTC 或浏览器时区影响。
 - `EMAIL_WEBSITE_URL`：默认 `https://openms.top`，用于生成后台与本人设置链接。
 - `EMAIL_DAILY_LIMIT`：固定 2000，通知和验证码共用单条 `EmailSentQuota` 记录；失败不退额，不保存历史日期。
-- `EMAIL_SKIP` 或 `E2E_TEST` 为真时不入队或发送通知。测试使用内存邮件后端，不发送真实邮件。
+- `E2E_TEST` 为真时 `EMAIL_SKIP` 也随之生效，不入队或发送通知。测试使用内存邮件后端，不发送真实邮件。
 
 部署与 CI 沿用现有自动生成迁移流程；本地已自动生成迁移用于校验，不单独提交依赖本地历史链的迁移文件。运行现有 `db_worker` 即可处理任务，无需新增 scheduler。账号默认关闭所有订阅，由管理员在本人主页设置中开启。
 
