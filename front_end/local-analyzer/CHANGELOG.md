@@ -1,5 +1,16 @@
 # Analyzer 更新记录 / Analyzer changelog
 
+## 未发布 / Unreleased
+
+- 计数器每项的行操作菜单新增删除选项，可删除最后一项；已有 plot 轨道保留并按失效 key 处理。
+- Add Delete to each counter's row menu, including the last counter. Existing plot tracks retain their configuration and use the missing-key state.
+
+- 计数器和自定义事件新增鼠标原始像素坐标 `x`、`y`；除以 `pix_size` 可换算格子坐标。非鼠标事件沿用最近位置，棋盘外坐标保留原值。
+- Counters and custom events expose original mouse pixel coordinates `x` and `y`; divide by `pix_size` for cell coordinates. Non-mouse events retain the latest position and out-of-board coordinates preserve their original values.
+
+- 计数器和自定义事件支持按采样数组索引累加：`s(expr)` 从数组开头累加到当前项，`s(expr, n)` 累加包含当前项的最近 n 项；忽略 `NaN` 项，全为 `NaN` 时返回 0。支持嵌套、条件分支和跳转。
+- Counters and custom events support sums by sample-array index: `s(expr)` sums from the start through the current item, while `s(expr, n)` sums the most recent n items including the current one. NaN items are skipped; an all-NaN range returns 0. Nesting, conditional branches and seeking are supported.
+
 ## 0.2.5 — 2026-11-22
 
 - 加载录像时显示进度弹窗，依次反馈鼠标轨迹、计数器事件、计数器采样和自定义事件的生成进度。

@@ -79,7 +79,7 @@ describe('<CounterRowEditor />', () => {
         cy.get('@save').should('not.have.been.called');
     });
 
-    it('previews and saves differences and nested differences at the shared playback position', () => {
+    it('previews and saves sample expressions at the shared playback position', () => {
         const [row] = singleCounterConfig().rows;
         const events: CounterEvent[] = [1, 3, 8].map((value, index) => ({ timeMs: index * 1000,
             eventIndex: index,
@@ -97,6 +97,16 @@ describe('<CounterRowEditor />', () => {
             cy.get('.counter-row-editor__preview').should('have.text', 'NaN').and('not.have.class', 'text-danger');
             cy.then(() => wrapper.setProps({ currentMs: 2000 }));
             cy.get('.counter-row-editor__preview').should('have.text', '3.000');
+            cy.get('.counter-row-editor__expression').clear();
+            cy.get('.counter-row-editor__expression').type('s(left)');
+            cy.get('.counter-row-editor__preview').should('have.text', '12.000');
+            cy.get('.counter-row-editor__expression').clear();
+            cy.get('.counter-row-editor__expression').type('s(left, 2)');
+            cy.get('.counter-row-editor__preview').should('have.text', '11.000');
+            cy.then(() => wrapper.setProps({ currentMs: 0 }));
+            cy.get('.counter-row-editor__preview').should('have.text', '1.000');
+            cy.then(() => wrapper.setProps({ currentMs: 2000 }));
+            cy.get('.counter-row-editor__preview').should('have.text', '11.000');
             cy.get('.counter-row-editor__expression').clear();
             cy.get('.counter-row-editor__expression').type('d(left, 0)');
             cy.get('.counter-row-editor__preview').should('have.class', 'text-danger').and('contain.text', 'positive integer sample step');

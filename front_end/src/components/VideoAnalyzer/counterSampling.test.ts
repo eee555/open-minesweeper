@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { counterVariables, defaultCounterConfig, displayCounter, prepareCounter } from './counter';
 import type { CounterEvent, CounterValues } from './counter';
-import { createDifferenceEvaluator } from './counterDifference';
+import { createSampleEvaluator } from './counterSampling';
 
 function events(): CounterEvent[] {
     return [1, 3, 8, 16].map((value, index) => ({ timeMs: index * 1000,
@@ -16,6 +16,114 @@ function events(): CounterEvent[] {
 function prepare(expression: string, snapshots = events()) {
     return prepareCounter({ ...defaultCounterConfig().rows[0], expression, samplingMode: 'button' }, snapshots);
 }
+
+describe('counter sums', () => {
+    it.each([
+        ['s(left)', [1, 4, 12, 28]],
+        ['s(1)', [1, 2, 3, 4]],
+        ['s(left + right)', [2, 8, 24, 56]],
+        ['s(left, 1)', [1, 3, 8, 16]],
+        ['s(left, 2)', [1, 4, 11, 24]],
+        ['s(left, 100)', [1, 4, 12, 28]],
+        ['s(left, time < 2 ? 1 : 2)', [1, 3, 11, 24]],
+        ['s(left, s(1))', [1, 4, 12, 28]],
+        ['s(s(left))', [1, 5, 17, 45]],
+        ['s(s(left, 2), 2)', [1, 5, 15, 35]],
+        ['d(s(left))', [NaN, 3, 8, 16]],
+        ['s(d(left), 2)', [0, 2, 7, 13]],
+        ['s(d(left))', [0, 2, 7, 15]],
+        ['s(d(d(left)))', [0, 0, 3, 6]],
+        ['s(d(left) != d(left) ? 0 : d(left))', [0, 2, 7, 15]],
+    ] as const)('evaluates %s using array indices and a zero initial accumulator', (expression, expected) => {
+        const snapshots = events();
+        const original = structuredClone(snapshots);
+        const prepared = prepare(expression, snapshots);
+        expect(prepared.error).toBe('');
+        expect(prepared.samples.map((sample) => sample.value)).toEqual(expected);
+        expect(snapshots).toEqual(original);
+    });
+
+    it('uses the selected, deduplicated sample array before interpolation', () => {
+        const snapshots = [events()[0], { ...events()[1], timeMs: 1, button: false }, { ...events()[2], timeMs: 1 }, { ...events()[3], timeMs: 4 }];
+        for (const [samplingMode, expected] of [['button', [1, 9, 25]], ['board', [1, 9, 25]], ['continuous', [1, 9, 17, 25, 41]]] as const) {
+            const prepared = prepareCounter({ ...defaultCounterConfig().rows[0], expression: 's(left)', samplingMode }, snapshots);
+            expect(prepared.samples.map((sample) => sample.value)).toEqual(expected);
+        }
+    });
+
+    it('preserves lazy branches and includes samples where the sum call was skipped', () => {
+        expect(prepare('time == 3 ? s(left) : 0').samples.map((sample) => sample.value)).toEqual([0, 0, 0, 28]);
+        expect(prepare('time == 3 ? s(left == 1 ? "bad" : left, 2) : 0').samples.map((sample) => sample.value)).toEqual([0, 0, 0, 24]);
+        expect(prepare('time < 0 ? s(left, 0) : s(left)').error).toBe('');
+        expect(prepare('(0 and s("bad")) ? 1 : 0').samples.map((sample) => sample.value)).toEqual([0, 0, 0, 0]);
+        expect(prepare('s(left - 1) ? 1 : 0').samples.map((sample) => sample.value)).toEqual([0, 1, 1, 1]);
+    });
+
+    it('ignores NaN items without extending the window or changing differences and source values', () => {
+        for (const [values, cumulative, rolling] of [
+            [[NaN, 2, NaN, 4], [0, 2, 2, 6], [0, 2, 2, 4]],
+            [[NaN, NaN, NaN, NaN], [0, 0, 0, 0], [0, 0, 0, 0]],
+            [[Infinity, -Infinity, NaN, 4], [Infinity, NaN, NaN, NaN], [Infinity, NaN, -Infinity, 4]],
+        ]) {
+            const snapshots = events();
+            snapshots.forEach((snapshot, index) => {
+                snapshot.values.left = values[index];
+            });
+            expect(prepare('s(left)', snapshots).samples.map((sample) => sample.value)).toEqual(cumulative);
+            expect(prepare('s(left, 2)', snapshots).samples.map((sample) => sample.value)).toEqual(rolling);
+            expect(prepare('d(left)', snapshots).samples.map((sample) => sample.value)).toEqual(values.map((value, index) => (index === 0 ? NaN : value - values[index - 1])));
+            expect(snapshots.map((snapshot) => snapshot.values.left)).toEqual(values);
+        }
+    });
+
+    it('confines infinities, overflow and cancellation to the selected window', () => {
+        for (const [values, expected] of [
+            [[NaN, 2, 3, 4], [0, 2, 5, 7]],
+            [[Infinity, 2, 3, 4], [Infinity, Infinity, 5, 7]],
+            [[-Infinity, Infinity, 3, 4], [-Infinity, NaN, Infinity, 7]],
+            [[Number.MAX_VALUE, Number.MAX_VALUE, 3, 4], [Number.MAX_VALUE, Infinity, Number.MAX_VALUE, 7]],
+            [[1e20, 1, 1, 1], [1e20, 1e20, 2, 2]],
+        ]) {
+            const snapshots = events();
+            snapshots.forEach((snapshot, index) => {
+                snapshot.values.left = values[index];
+            });
+            expect(prepare('s(left, 2)', snapshots).samples.map((sample) => sample.value)).toEqual(expected);
+            expect(prepare('s(left, 1)', snapshots).samples.map((sample) => sample.value)).toEqual(values.map((value) => (Number.isNaN(value) ? 0 : value)));
+        }
+    });
+
+    it.each(['s()', 's(left, 1, 2)'])('rejects wrong arity for %s', (expression) => {
+        expect(prepare(expression).error).toBe('s expects one expression and an optional sample count');
+    });
+
+    it.each(['0', '-1', '1.5', '0 / 0', '1 / 0', '"2"', '[2]', 'left > 0'])('rejects invalid sample count %s', (count) => {
+        expect(prepare(`s(left, ${count})`).error).toBe('s expects a positive integer sample count');
+    });
+
+    it.each(['s("2")', 's([left])', 's(left > 0)', 's(roundTo)'])('rejects nonnumeric operands in %s', (expression) => {
+        expect(prepare(expression).error).toBe('s expects a numeric expression');
+    });
+
+    it('retains variable, assignment and callback restrictions', () => {
+        expect(prepare('s(unknown)').error).toBe('Unknown variable: unknown');
+        expect(prepare('s(left = 3)').error).not.toBe('');
+        expect(prepare('map(s, [left])').error).toBe('s requires a direct call in a sampling context');
+    });
+
+    it.each(['s(probe(left))', 's(probe(left), 3)', 's(probe(left), 20000)'])('caches operands and handles large, repeated and out-of-order queries for %s', (source) => {
+        const parser = new Parser();
+        const probe = vi.fn((value: number) => value);
+        (parser.functions as Record<string, (value: number) => number>).probe = probe;
+        const expression = parser.parse(source);
+        const values = Array.from({ length: 20000 }, () => ({ left: 1 }));
+        const evaluate = createSampleEvaluator(parser, expression, values);
+        const rolling = source.includes(', 3');
+        for (const index of [19999, 0, 10000, ...values.keys(), 19999]) expect(evaluate(index)).toBe(rolling ? Math.min(index + 1, 3) : index + 1);
+        expect(probe).toHaveBeenCalledTimes(values.length);
+        expect(expression.variables()).toEqual(['s', 'left']);
+    });
+});
 
 describe('counter differences', () => {
     it('evaluates the default rates over 1000 continuous samples, including non-button events', () => {
@@ -170,11 +278,11 @@ describe('counter differences', () => {
         const probe = vi.fn((value: number) => value);
         (parser.functions as Record<string, (value: number) => number>).probe = probe;
         const expression = parser.parse('d(d(probe(left)))');
-        const evaluate = createDifferenceEvaluator(parser, expression, events().map((snapshot) => snapshot.values));
+        const evaluate = createSampleEvaluator(parser, expression, events().map((snapshot) => snapshot.values));
         expect([3, 1, 2, 0, 3].map(evaluate)).toEqual([3, NaN, 3, NaN, 3]);
         expect(probe).toHaveBeenCalledTimes(4);
         probe.mockClear();
-        const stepped = createDifferenceEvaluator(parser, parser.parse('d(d(probe(left), 2), 1)'), events().map((snapshot) => snapshot.values));
+        const stepped = createSampleEvaluator(parser, parser.parse('d(d(probe(left), 2), 1)'), events().map((snapshot) => snapshot.values));
         expect([3, 1, 2, 0, 3].map(stepped)).toEqual([6, NaN, NaN, NaN, 6]);
         expect(probe).toHaveBeenCalledTimes(4);
         expect(expression.variables()).toEqual(['d', 'left']);

@@ -100,6 +100,22 @@ describe('custom events', () => {
         expect(prepared.get('state')?.pulses).toEqual([{ timeMs: 2, eventIndex: 3 }]);
     });
 
+    it('shares cumulative and rolling sums between synchronous and asynchronous event preparation', async () => {
+        const events = [event(0, 0, 99), event(1, 0, 1), event(2, 2, 3), event(3, 3, 8)];
+        const definitions = [definition('s(left)'), { ...definition('s(left, 2)'), key: 'rolling' }];
+        const prepared = prepareCustomEvents(definitions, events, 3);
+        expect(prepared.get('clicks')?.pulses.map((pulse) => pulse.value)).toEqual([1, 2, 5, 13]);
+        expect(prepared.get('rolling')?.pulses.map((pulse) => pulse.value)).toEqual([1, 2, 4, 11]);
+        expect(await prepareCustomEventsAsync(definitions, events, 3, () => Promise.resolve())).toEqual(prepared);
+    });
+
+    it('uses raw mouse coordinates for cell-based conditions and carries them through event-free milliseconds', () => {
+        const events = [event(0, 0, 0), event(1, 2, 0), event(2, 4, 0)];
+        for (const [index, [x, y]] of [[0, 0], [24, 47], [65535, 65535]].entries()) Object.assign(events[index].values, { x, y, pix_size: 16 });
+        const prepared = prepareCustomEvents([definition('floor(x / pix_size) == 1 and floor(y / pix_size) == 2')], events, 5).get('clicks');
+        expect(prepared?.pulses).toEqual([{ timeMs: 2, eventIndex: 1 }, { timeMs: 3, eventIndex: 1 }]);
+    });
+
     it('does not fabricate events before a replay loads and provides independent style defaults', () => {
         expect(prepareCustomEvents([definition('true')], [], 0).get('clicks')).toEqual({ pulses: [], spans: [] });
         expect(prepareCustomEvents([], [event(0, 0, 1)], 1).size).toBe(0);

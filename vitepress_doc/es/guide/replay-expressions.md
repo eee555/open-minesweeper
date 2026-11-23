@@ -1,6 +1,6 @@
 ---
 title: "Expresiones de repetición - Open Minesweeper"
-description: "Campos, operadores, funciones y diferencias de muestreo para el reproductor nativo, los contadores de análisis y los eventos personalizados."
+description: "Campos, operadores, funciones, diferencias y sumas de muestras para el reproductor nativo, los contadores de análisis y los eventos personalizados."
 ---
 
 # Expresiones de repetición
@@ -19,6 +19,7 @@ Esta referencia abarca el reproductor nativo y los contadores y eventos personal
 | Formato de visualización | Uso de `toFixed`, `roundTo` o concatenación de cadenas dentro de la expresión | Entrada separada de formato `d3-format`, predeterminado `.3f` | Colores y estilos del marcador y la línea; sin formato numérico |
 | Errores | Muestra el texto de error | Muestra el error en la celda de valor | Errores de análisis o tipos de resultado inválidos significan que el evento no ocurre |
 | Función de diferencia `d` | No se admite | Se admite; los eventos previos siguen el modo de muestreo de la fila | Se admite; los eventos previos siguen el muestreo continuo |
+| Suma `s` | No se admite | Se admite; utiliza los índices del arreglo de muestras de la fila | Se admite; utiliza los índices del muestreo continuo |
 
 Los eventos personalizados usan la verdad nativa de JavaScript: `true`, números distintos de cero y cadenas no vacías indican ocurrencia; `false`, `0`, `-0`, `NaN` y cadenas vacías indican ausencia de ocurrencia. El infinito positivo o negativo indica ocurrencia. Las cadenas `"false"`, `"0"` y con solo espacios también indican ocurrencia. Otros tipos, incluyendo arrays y funciones, indican ausencia de ocurrencia.
 
@@ -67,6 +68,8 @@ Las variables `cell0` hasta `cell8` son nueve variables separadas. `cell0-8` no 
 | Campo | Significado y unidad | Reproductor de repeticiones | Contador de análisis | Evento personalizado |
 | --- | --- | --- | --- | --- |
 | `time` | Tiempo original del evento muestreado en segundos; puede ser negativo antes de que comience el temporizador del juego y difiere del progreso de reproducción de la página | — | Sí | Sí |
+| `x` | Coordenada original en píxeles del último evento del ratón respecto al borde izquierdo del tablero; aumenta hacia la derecha | — | Sí | Sí |
+| `y` | Coordenada original en píxeles del último evento del ratón respecto al borde superior del tablero; aumenta hacia abajo | — | Sí | Sí |
 | `path` | Longitud acumulada del recorrido del ratón, manteniendo el valor de la biblioteca independientemente del tamaño de la casilla mostrada | Sí | Sí | Sí |
 | `bbbv_solved` | 3BV resueltos hasta ahora | Sí | Sí | Sí |
 | `left` | Clicks izquierdos acumulados | Sí | Sí | Sí |
@@ -100,6 +103,8 @@ Las variables `cell0` hasta `cell8` son nueve variables separadas. `cell0-8` no 
 | `game_board_state` | Código de estado del tablero de juego | Sí | — | — |
 | `video_start_time` | Desplazamiento de inicio de repetición en segundos | Sí | — | — |
 | `video_end_time` | Coordenada de finalización de repetición en segundos | Sí | — | — |
+
+El origen de `x` e `y` es la esquina superior izquierda del tablero; no cambian con el zoom ni con el tamaño mostrado. Los eventos sin ratón y los milisegundos sin eventos conservan la última posición; antes del primer evento del ratón, ambos campos son `NaN`. Las coordenadas fuera del tablero conservan los valores originales sin limitarlos ni sustituirlos. `x / pix_size` e `y / pix_size` dan coordenadas fraccionarias de casilla; `floor(x / pix_size)` y `floor(y / pix_size)` dan los índices de columna y fila desde 0. Antes de localizar una casilla, comprueba `x >= 0 and x < column * pix_size and y >= 0 and y < row * pix_size` para excluir posiciones fuera del tablero.
 
 El analizador no expone directamente `bbbv_s`, `cl` o `ce`. Puedes combinar campos soportados, por ejemplo `bbbv_solved / time`, `left + right + double` o `lce + rce + dce`. Esas fórmulas no se garantizan que coincidan con los algoritmos de obtención del jugador en cada estado especial.
 
@@ -217,10 +222,12 @@ Usa `toFixed` en el jugador para conservar los ceros finales. Devuelve texto; `r
 | `not(x)` | Negación lógica, también escrita como `not x`; devuelve un booleano | Sí | Sí | Sí |
 | `d(expr)` | Expresión numérica en la muestra actual menos su valor en la muestra anterior | — | Sí | Sí |
 | `d(expr, n)` | Resta el valor n muestras antes; n debe ser un entero positivo | — | Sí | Sí |
+| `s(expr)` | Suma desde el inicio del arreglo de muestras hasta la muestra actual incluida, con un acumulador inicial de 0 | — | Sí | Sí |
+| `s(expr, n)` | Suma las últimas n muestras incluida la actual, sin rebasar el inicio del arreglo; n debe ser un entero positivo | — | Sí | Sí |
 
 <!-- /functions -->
 
-Los argumentos de función para `map`, `filter` y `fold` pueden usar built-ins compatibles, no funciones de flecha de JavaScript ni definiciones de nuevas funciones. No existen funciones generales `String`, `Number`, `isNaN`, `isFinite` ni `Math.*`. Utiliza `+` para la conversión numérica, `"" || value` para la concatenación de texto y `value != value` para probar por `NaN`, reemplazando el valor por un campo o expresión real. `d` requiere una llamada directa y no puede utilizarse como callback de función de array.
+Los argumentos de función para `map`, `filter` y `fold` pueden usar built-ins compatibles, no funciones de flecha de JavaScript ni definiciones de nuevas funciones. No existen funciones generales `String`, `Number`, `isNaN`, `isFinite` ni `Math.*`. Utiliza `+` para la conversión numérica, `"" || value` para la concatenación de texto y `value != value` para probar por `NaN`, reemplazando el valor por un campo o expresión real. `d` y `s` requieren llamadas directas y no pueden utilizarse como callbacks de funciones de array.
 
 ### Reglas de diferencia
 
@@ -234,6 +241,22 @@ Los argumentos de función para `map`, `filter` y `fold` pueden usar built-ins c
 | Sin normalización automática | No divide por el paso ni por el tiempo transcurrido; divide explícitamente por `d(time)` para obtener una tasa |
 | Orden de evaluación | Filtrar y eliminar duplicados de muestras en milisegundos, luego evaluar diferencias; la interpolación y formato de contadores ocurren después |
 | Ramificaciones condicionales | Saltar una llamada de diferencia no cambia cuál muestra es el predecesor |
+
+### Reglas de suma
+
+| Regla | Explicación |
+| --- | --- |
+| Operando | Un campo o expresión numérica; convierte una condición booleana con `condition ? 1 : 0` |
+| Rango predeterminado | `s(expr)` suma desde el índice 0 hasta el índice actual del arreglo de muestras. El acumulador empieza en 0; si la primera muestra es `NaN`, devuelve 0 |
+| Ventana | `s(expr, n)` incluye los índices desde `max(0, i - n + 1)` hasta el índice actual i; `s(expr, 1)` devuelve la muestra actual, o 0 si es `NaN` |
+| Parámetro de ventana | n se evalúa en la muestra actual, por ejemplo `s(left, time > 1 ? 10 : 2)`; los valores no enteros o no positivos son errores |
+| Muestreo | Utiliza los índices tras filtrar, eliminar duplicados y rellenar huecos, sin ponderar por fotogramas, eventos nativos o tiempo. En muestreo continuo, `s(condition ? 1 : 0)` cuenta las muestras de milisegundos que cumplen la condición |
+| Anidamiento y navegación | Admite `s(s(left))`, `d(s(left))` y `s(d(left), 2)`. Retroceder o saltar una llamada en una condición externa no cambia su rango |
+| Valores NaN | Omite los resultados `NaN`; devuelve 0 si todas las muestras son `NaN`. Estas muestras siguen ocupando índices y no se añaden muestras anteriores a la ventana |
+| Infinitos | No omite los infinitos positivos ni negativos. El `NaN` producido al sumar infinitos opuestos se conserva como resultado acumulado. Los infinitos fuera de la ventana no la afectan |
+| Combinación con diferencias | `s(d(left))` omite los valores `NaN` iniciales y suma los incrementos válidos; recuperar el valor original también requiere añadir el valor de la primera muestra |
+
+Para los valores muestreados `[1, 3, 8]`, `s(expr)` produce `[1, 4, 12]` y `s(expr, 2)` produce `[1, 4, 11]`. Las sumas de contadores se evalúan antes de interpolar y formatear; los eventos personalizados usan las mismas reglas.
 
 ## Contadores predeterminados
 

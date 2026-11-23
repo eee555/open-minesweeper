@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 
-import { AvfVideo, Event as ReplayEvent, EvfVideo, GameBoard, KeyDynamicParams, MvfVideo, RmvVideo, VideoActionStateRecorder } from 'ms-toollib';
+import { AvfVideo, Event as ReplayEvent, EvfVideo, GameBoard, KeyDynamicParams, MouseEvent as ReplayMouseEvent, MvfVideo, RmvVideo, VideoActionStateRecorder } from 'ms-toollib';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { counterStaticVariables, counterValue, counterVariables, defaultCounterConfig, displayCounter, moveCounterRow, parseCounterConfig, parseCounterExpression, prepareCounter, prepareCountersAsync, readCounterEvents } from './counter';
+import { counterStaticVariables, counterValue, counterVariables, defaultCounterConfig, displayCounter, moveCounterRow, parseCounterConfig, parseCounterExpression, prepareCounter, prepareCountersAsync, readCounterEvents, readCounterEventsAsync } from './counter';
 import type { CounterEvent, CounterRow, CounterValues } from './counter';
 import { parseReplay } from './replayParser';
 
@@ -30,6 +30,19 @@ describe('counter expressions', () => {
         }
         for (const forbidden of ['bbbv_s', 'rtime_ms', 'etime', 'current_time', 'cl', 'unknown']) expect(() => parseCounterExpression(forbidden)).toThrow(`Unknown variable: ${forbidden}`);
         expect(() => parseCounterExpression('left = 2')).toThrow();
+    });
+
+    it('uses pixel coordinates in differences, cell formulas and interpolated counter displays', () => {
+        const snapshots = [event(0, 0), event(1, 0), event(2, 0)];
+        snapshots.forEach((snapshot, index) => {
+            Object.assign(snapshot.values, { x: index * 24, y: index * 32, pix_size: 16 });
+        });
+        const distance = prepareCounter(row('sqrt(d(x)^2 + d(y)^2) / pix_size'), snapshots);
+        expect(distance.error).toBe('');
+        expect(distance.samples.map((sample) => sample.value)).toEqual([NaN, 2.5, 2.5]);
+        expect(prepareCounter(row('floor(x / pix_size)'), snapshots).samples.map((sample) => sample.value)).toEqual([0, 1, 3]);
+        expect(prepareCounter(row('s(y, 2)'), snapshots).samples.map((sample) => sample.value)).toEqual([0, 32, 96]);
+        expect(displayCounter(prepareCounter(row('x'), snapshots), 500).value).toBe('12.000');
     });
 
     it.each(['"3"', '[left, right]', 'left > right', 'roundTo'])('shows a type error for nonnumeric result %s', (expression) => {
@@ -216,6 +229,9 @@ describe('real replay snapshots', () => {
                 const freeParams = vi.spyOn(KeyDynamicParams.prototype, 'free');
                 const freeEvent = vi.spyOn(ReplayEvent.prototype, 'free');
                 const freeBoard = vi.spyOn(GameBoard.prototype, 'free');
+                const freeMouse = vi.spyOn(ReplayMouseEvent.prototype, 'free');
+                const mouseX = vi.spyOn(ReplayMouseEvent.prototype, 'x', 'get');
+                const mouseY = vi.spyOn(ReplayMouseEvent.prototype, 'y', 'get');
                 const mouseState = vi.spyOn(VideoActionStateRecorder.prototype, 'mouse_state', 'get');
                 const pluck = vi.spyOn(KeyDynamicParams.prototype, 'pluck', 'get');
                 const events = readCounterEvents(video);
@@ -230,6 +246,35 @@ describe('real replay snapshots', () => {
                 expect(freeParams).toHaveBeenCalledTimes(events.length);
                 expect(freeEvent).toHaveBeenCalledTimes(events.length);
                 expect(freeBoard).toHaveBeenCalledTimes(events.length * 2);
+                let mouseIndex = 0;
+                let cursor = { x: NaN, y: NaN };
+                const sourceRecords = video.events as VideoActionStateRecorder[];
+                try {
+                    for (const [index, record] of sourceRecords.entries()) {
+                        const { event: sourceEvent } = record;
+                        try {
+                            if (sourceEvent.is_mouse()) {
+                                const mouse = sourceEvent.unwrap_mouse();
+                                try {
+                                    const { x } = mouse;
+                                    const { y } = mouse;
+                                    expect(mouseX.mock.results[mouseIndex].value).toBe(x);
+                                    expect(mouseY.mock.results[mouseIndex].value).toBe(y);
+                                    mouseIndex++;
+                                    cursor = { x, y };
+                                } finally {
+                                    mouse.free();
+                                }
+                            }
+                        } finally {
+                            sourceEvent.free();
+                        }
+                        expect(events[index].values).toMatchObject(cursor);
+                    }
+                    expect(freeMouse).toHaveBeenCalledTimes(mouseIndex * 2);
+                } finally {
+                    for (const record of sourceRecords) record.free();
+                }
                 expect(video.current_event_id).toBe(position);
                 expect(video.game_board).toEqual(board);
                 expect(events.length).toBeGreaterThan(0);
@@ -278,6 +323,33 @@ describe('real replay snapshots', () => {
             }
         });
     }
+
+    it('carries raw cursor positions across non-mouse events and resets them for each sync or async read', async () => {
+        const bytes = Uint8Array.from(readFileSync(new URL('../../../cypress/fixtures/52200.evf', import.meta.url))).buffer;
+        const video = parseReplay(bytes, '52200.evf', 'e');
+        try {
+            const position = video.current_event_id;
+            let recordIndex = 0;
+            vi.spyOn(ReplayEvent.prototype, 'is_mouse').mockImplementation(() => [1, 3, 4].includes(recordIndex++));
+            const xs = [0, 24, 65535];
+            const ys = [0, 47, 65535];
+            let mouseIndex = 0;
+            vi.spyOn(ReplayMouseEvent.prototype, 'x', 'get').mockImplementation(() => xs[mouseIndex]);
+            vi.spyOn(ReplayMouseEvent.prototype, 'y', 'get').mockImplementation(() => ys[mouseIndex++]);
+            const sync = readCounterEvents(video);
+            expect(sync.slice(0, 6).map(({ values: { x, y } }) => ({ x, y }))).toEqual([
+                { x: NaN, y: NaN }, { x: 0, y: 0 }, { x: 0, y: 0 }, { x: 24, y: 47 }, { x: 65535, y: 65535 }, { x: 65535, y: 65535 },
+            ]);
+            recordIndex = 0;
+            mouseIndex = 0;
+            expect(await readCounterEventsAsync(video, () => Promise.resolve())).toEqual(sync);
+            expect(video.current_event_id).toBe(position);
+            const sampling = prepareCounter({ ...row('x / pix_size'), samplingMode: 'continuous' }, sync);
+            expect(sampling.error).toBe('');
+        } finally {
+            video.free();
+        }
+    });
 
     it('preserves the library pluck value in incomplete replay counter samples', () => {
         const filename = 'c_10_39.832_24_0.477_Pu Tian Yi(Hu Bei)_fail.evf';

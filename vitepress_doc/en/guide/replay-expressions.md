@@ -1,6 +1,6 @@
 ---
 title: "Replay Expressions - Open Minesweeper"
-description: "Fields, operators, functions and sample differences for the native video player, analyzer counters and custom events."
+description: "Fields, operators, functions, sample differences and cumulative sums for the native video player, analyzer counters and custom events."
 ---
 
 # Replay Expressions
@@ -19,6 +19,7 @@ This reference covers the native video player and the counters and custom events
 | Display format | `toFixed`, `roundTo` or string concatenation inside the expression | Separate `d3-format` format input, default `.3f` | Color and marker/line styles; no numeric format |
 | Errors | Displays the error text | Displays the error in the value cell | Parse/evaluation errors or invalid result types mean the event does not occur |
 | Difference function `d` | Not supported | Supported; predecessors follow the row's sampling mode | Supported; predecessors follow continuous sampling |
+| Sum function `s` | Not supported | Supported; uses indices in the row's sample array | Supported; uses indices in the continuous sample array |
 
 Custom events use native JavaScript truthiness: `true`, nonzero numbers and nonempty strings mean occurrence; `false`, `0`, `-0`, `NaN` and empty strings mean no occurrence. Positive/negative infinity mean occurrence. `"false"`, `"0"` and whitespace-only strings also mean occurrence. Other types, including arrays and functions, mean no occurrence.
 
@@ -67,6 +68,8 @@ New configurations enable the board custom-event layer with `pluck` selected. Ho
 | Field | Meaning and unit | Video player | Analyzer counter | Custom event |
 | --- | --- | --- | --- | --- |
 | `time` | Original sampled event time in seconds; may be negative before the game timer starts and differs from page playback progress | — | Yes | Yes |
+| `x` | Original pixel coordinate of the latest mouse event relative to the board's left edge, increasing to the right | — | Yes | Yes |
+| `y` | Original pixel coordinate of the latest mouse event relative to the board's top edge, increasing downwards | — | Yes | Yes |
 | `path` | Cumulative mouse path length, retaining the library's value regardless of displayed cell size | Yes | Yes | Yes |
 | `c_path` | Cumulative straight-line distance between effective clicks, normalized to 16 pixels per cell | Yes | Yes | Yes |
 | `e_path` | Cumulative Euclidean distance between the cells of effective clicks; adjacent cells are 16 units apart | Yes | Yes | Yes |
@@ -109,6 +112,8 @@ New configurations enable the board custom-event layer with `pluck` selected. Ho
 | `game_board_state` | Game board state code | Yes | — | — |
 | `video_start_time` | Replay start time offset in seconds | Yes | — | — |
 | `video_end_time` | Replay end time coordinate in seconds | Yes | — | — |
+
+`x` and `y` use the board's top-left corner as their origin and do not change with page zoom or displayed cell size. Non-mouse events and event-free milliseconds retain the latest mouse position; both fields are `NaN` before the first mouse event. Out-of-board coordinates retain the replay's original values without clamping or substitution. `x / pix_size` and `y / pix_size` give fractional cell coordinates; `floor(x / pix_size)` and `floor(y / pix_size)` give zero-based column and row indices. Before locating a cell, check `x >= 0 and x < column * pix_size and y >= 0 and y < row * pix_size` to exclude positions outside the board.
 
 The analyzer does not expose `bbbv_s`, `cl` or `ce` directly. You can combine supported fields, for example `bbbv_solved / time`, `left + right + double` or `lce + rce + dce`. Such formulas are not guaranteed to match player getter algorithms in every special state.
 
@@ -228,10 +233,12 @@ Use `toFixed` in the player to retain trailing zeros. It returns text; `roundTo`
 | `not(x)` | Logical NOT, also written `not x`; returns a boolean | Yes | Yes | Yes |
 | `d(expr)` | Numeric expression at the current sample minus its value at the preceding sample | — | Yes | Yes |
 | `d(expr, n)` | Subtract the value n samples earlier; n must be a positive integer | — | Yes | Yes |
+| `s(expr)` | Sum from the start of the sample array through the current item, starting with an accumulator of 0 | — | Yes | Yes |
+| `s(expr, n)` | Sum the most recent n items including the current item, truncated at the array start; n must be a positive integer | — | Yes | Yes |
 
 <!-- /functions -->
 
-Function arguments to `map`, `filter` and `fold` may use compatible built-ins, not JavaScript arrow functions or new function definitions. There are no general `String`, `Number`, `isNaN`, `isFinite` or `Math.*` functions. Use unary `+` for numeric conversion, `"" || value` for text concatenation and `value != value` to test for `NaN`, replacing value with an actual field or expression. `d` requires a direct call and cannot be used as an array-function callback.
+Function arguments to `map`, `filter` and `fold` may use compatible built-ins, not JavaScript arrow functions or new function definitions. There are no general `String`, `Number`, `isNaN`, `isFinite` or `Math.*` functions. Use unary `+` for numeric conversion, `"" || value` for text concatenation and `value != value` to test for `NaN`, replacing value with an actual field or expression. `d` and `s` require direct calls and cannot be used as array-function callbacks.
 
 ### Difference Rules
 
@@ -245,6 +252,22 @@ Function arguments to `map`, `filter` and `fold` may use compatible built-ins, n
 | No automatic normalization | Does not divide by the step or elapsed time; explicitly divide by `d(time)` for a rate |
 | Evaluation order | Filter and deduplicate millisecond samples, then evaluate differences; counter interpolation and formatting happen afterwards |
 | Conditional branches | Skipping a difference call does not change which sample is the predecessor |
+
+### Sum Rules
+
+| Rule | Explanation |
+| --- | --- |
+| Operand | A numeric field or expression; convert a boolean condition with `condition ? 1 : 0` |
+| Default range | `s(expr)` sums from sample-array index 0 through the current index. The accumulator starts at 0; a first item of `NaN` produces 0 |
+| Window range | `s(expr, n)` includes indices `max(0, i - n + 1)` through the current index i; `s(expr, 1)` returns the current item, or 0 if it is `NaN` |
+| Window parameter | n is evaluated at the current sample, e.g. `s(left, time > 1 ? 10 : 2)`; nonpositive/noninteger counts are errors |
+| Sampling | Uses array indices after filtering, deduplication and gap filling, with no weighting by playback frames, native events or elapsed time. In continuous sampling, `s(condition ? 1 : 0)` counts matching millisecond samples |
+| Nesting and seeking | Supports `s(s(left))`, `d(s(left))` and `s(d(left), 2)`. Seeking backwards or skipping a call in an outer conditional does not change its range |
+| NaN items | Skips items whose expression result is `NaN`; returns 0 if all items are `NaN`. These items still occupy array indices, with no extra earlier items added to the window |
+| Infinities | Does not skip positive or negative infinity. A `NaN` produced by adding opposite infinities remains the accumulated result. Infinities outside the window do not affect it |
+| Combining with differences | `s(d(left))` skips initial `NaN` values and sums valid increments; restoring the original values also requires adding the first sample's value |
+
+For sampled expression values `[1, 3, 8]`, `s(expr)` produces `[1, 4, 12]` and `s(expr, 2)` produces `[1, 4, 11]`. Counter sums are evaluated before interpolation and formatting; custom events follow the same sum rules.
 
 ## Default Counters
 
