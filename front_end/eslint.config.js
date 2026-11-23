@@ -322,14 +322,11 @@ export default defineConfig({
     },
 }, {
     files: ['src/**/*.{ts,vue}'],
-    ignores: [
-        'src/bootstrap.ts',
-    ],
     rules: {
         'no-restricted-imports': ['error', {
             patterns: [{
-                group: ['primevue/*', '@primevue/*', '@primeuix/*'],
-                message: 'PrimeVue is being retired; use project base components instead.',
+                group: ['primevue', 'primevue/*', '@primevue/*', '@primeuix/*'],
+                message: 'PrimeVue has been removed; use project base components instead.',
             }],
         }],
     },

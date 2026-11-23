@@ -12,7 +12,7 @@
 - 同时支持浅色与深色主题。主要配色沿用已提取的 Element Plus 基准值，应用代码使用项目 `--ui-*`，不直接读取组件库颜色变量。
 - 组件根据自身可用宽度伸缩、换行或内部滚动；少数确需切换布局的组件单独制定策略，不设置全站宽窄屏布局分界。
 - 简单布局和展示采用原生 HTML + CSS，复用项目已有基础组件。复杂交互保留现有组件逻辑，主要调整样式。
-- vue-tippy 保持现有实现及样式导入方式。PrimeVue 按项目既定决定逐步退出，PrimeIcons 单独保留。
+- vue-tippy 保持现有实现及样式导入方式。PrimeVue 已弃用且不再引入，PrimeIcons 单独保留。
 - 禁止全局注册全量 Element Plus 图标；过渡期仅注册实际依赖全局解析的图标，最终不全局注册任何图标。图标选型继续优先 PrimeIcons，其次 Element Plus。
 - 每批围绕一个可独立审查、合并和回退的结果，避免与业务逻辑修改、文件搬迁或整页重写混在一起。
 
@@ -32,7 +32,7 @@
 | 录像列表 | [`VideoList/README.md`](src/components/VideoList/README.md) 维护原生表格、表达式列、设置页预览、持久化和调用方分工；后续直接复用，不再安排迁移批次 |
 | 展示表格 | [`BaseTable`](src/components/common/BaseTable.vue) 封装原生表格、滚动容器、空状态和插槽；`table.css` 提供行悬停高亮，`table-columns.css` 提供排名、玩家、数值、时间等公共列样式 |
 | 表头排序图标与状态 | [`SortIcon`](src/components/common/SortIcon.vue) 按 `aria-sort` 三态统一 PrimeIcons 类名；[`sortState.ts`](src/components/common/sortState.ts) 提供 `SortState`、`sortState(order, active)` 与 `nextSortOrder(order, active, clearedOrder)`，由 `<th :aria-sort>`、`SortIcon :state` 和表头按钮共用。根元素仍为 `<i>`，支持父级 `class` 合并，供 BaseTable 调用方复用，不接管排序状态或请求；`aria-sort` 仍由列头维护，字段写入、分页重置和后端请求仍由调用方负责；`clearedOrder` 传 `-1` 时可承接仅升 / 降两态切换的表 |
-| 保留表格的视觉 | `theme/tables.css` 为 BaseTable、ElTable、PrimeVue DataTable 提供统一参数；`vendors/element-plus-table.css`、`primevue-table.css`、`primevue-table-controls.css` 已接入 |
+| 保留表格的视觉 | `theme/tables.css` 为 BaseTable 与 ElTable 提供统一参数，`vendors/element-plus-table.css` 适配保留的 ElTable |
 | Element Plus 按钮兼容 | `vendors/element-plus.css` 提供直角覆盖；应用模板中 ElButton 已归零，ElLink 仅首页比赛卡片仍有 3 处，不重复安排按钮整体迁移 |
 | 图标注册 | [`bootstrap.ts`](src/bootstrap.ts) 显式全局注册剩余的 7 个图标；导航已改用 PrimeIcons；组件测试按挂载链注册，7.2 其余范围仍待迁移 |
 | 导航布局 | [`Menu.vue`](src/views/Menu.vue) 提供顶栏 / 侧栏设置、单行顶栏溢出菜单与窄容器抽屉；App.vue 将唯一的页面主体放入其插槽，切换布局保留页面实例 |
@@ -42,11 +42,11 @@
 | 原生进度滑块 | [`slider.css`](src/styles/slider.css) 由 setup.ts 加载，提供 12px × 20px 沙漏外形及主题参数，原生 range 与 ElSlider 共用；`vendors/element-plus-slider.css` 由使用方按需导入 |
 | 原生 Select | [`select.css`](src/styles/select.css) 由 setup.ts 加载，提供 .base-select / --ui-select-*；普通尺寸 28px / 14px，小尺寸 24px / 12px，直角及深浅主题共用，聚焦仅主色边框且优先于 hover，不叠加描边或阴影；无 BaseSelect 组件 |
 | 原生 Listbox | [`BaseListbox.vue`](src/components/common/BaseListbox.vue) 自行加载 [`listbox.css`](src/styles/listbox.css)：原生 table / tbody / tr / td + 可聚焦的 radio / checkbox，单选与多选共用同一组件，整行点击即选中、选中行高亮，支持 `#option` 插槽、禁用与空状态；`table` 用 `width:auto` 按内容自动收紧宽度，弹层不再固定 16rem；搜索、清除与分页重置由调用方负责 |
-| 保留选择器的视觉 | `vendors/element-plus-select.css` 汇总多选标签和浮层适配，`primevue-table.css` 汇总分页器 Select 适配，共用 --ui-select-* 参数，均由使用方按需导入 |
+| 保留选择器的视觉 | `vendors/element-plus-select.css` 汇总多选标签和浮层适配，带页容量选择的 ElPagination 使用同一入口，共用 --ui-select-* 参数，均由使用方按需导入 |
 
 当前源码事实，后续批次以此为起点：
 
-- BaseTable 已有 49 个 `.vue` 使用方，覆盖排行榜、个人纪录、软件版本列表、导入队列、上传队列、管理员与数据库页面；[`DatabaseView/VideoView.vue`](src/views/DatabaseView/VideoView.vue) 的录像列表由 [`VideoList/App.vue`](src/components/VideoList/App.vue) 用 BaseTable 渲染，已退出 PrimeVue DataTable，也不再使用 ElTable。
+- BaseTable 已有 50 个 `.vue` 使用方，覆盖排行榜、个人纪录、软件版本列表、导入队列、上传队列、管理员与数据库页面；[`DatabaseView/VideoView.vue`](src/views/DatabaseView/VideoView.vue) 的录像列表由 [`VideoList/App.vue`](src/components/VideoList/App.vue) 用 BaseTable 渲染。
 - 应用模板中 ElButton、ElCheckbox、ElRadio、ElSwitch、ElText、ElDivider 已归零；ElCard 仅 [`NormalTournamentQueue.vue`](src/views/HomeView/NormalTournamentQueue.vue) 1 处，ElLink 同文件 3 处；仍有 4 处 ElDescriptions、4 个 ElTable 使用方和 4 处 ElSelect，分别见第 2 节、第 3 节与 4.2 开头。
 - 目前的尺寸是后续评审的起点：基础文字 14px，普通原生按钮内边距 4px × 8px、行高 1.4；表格单元格内边距 4px × 8px、行高 1.4；普通卡片内边距 10px。这些现值已生效，后续按组件类别调整，不再安排“先抄参数但不接入运行时”的步骤。
 
@@ -58,10 +58,10 @@
 | 3 | 剩余表格核对 | 其余 4 个 ElTable 根据实际排序、编辑等依赖决定是否保留 |
 | 7 | 图标注册迁移 | 剩余 7.2：取消 bootstrap.ts 的 7 个全局注册，同步清理 Cypress 注入与 ESLint 豁免 |
 | 4 | 其他控件换肤与尺寸细化 | 4.2.5 剩余 Slider、4.2.6 输入与表单、4.2.7 Tabs、4.2.8 弹窗通知与加载，继续分批推进 |
-| 5 | PrimeVue 退出 | 剩余 5.2.3 测试残留与 5.2.4 注册、样式和包依赖清理 |
+| 5 | PrimeVue 退出 | 5.2.4 最终清理已实施，剩余本轮人工验收 |
 | 6 | 局部收尾 | 随每批删除失效导入、重复样式和已无使用方的兼容项，更新本计划 |
 
-4.2.5 的不透明度原生迁移及剩余轨道、提示样式，以及图标 7.2 仍可独立推进；首页比赛卡片和 PrimeVue 全部退出不作为前置条件。
+4.2.5 的不透明度原生迁移及剩余轨道、提示样式，以及图标 7.2 仍可独立推进；首页比赛卡片不作为前置条件。
 
 ### 2. 剩余描述布局
 
@@ -176,52 +176,25 @@ Slider 使用方涉及公共播放器；实施前检查 Analyzer 与离线入口
 
 以上各批的新参数继续使用项目 --ui-*；vendors 样式由实际使用方按需导入，不回到 setup.ts 全局加载。样式文件仍受 100 个非空行限制；代码变更完成后按现有跨轮流程执行检查，Cypress 命令随各批实际改动提供。
 
-### 5. PrimeVue 退出：剩余最终清理
+### 5.2.4 PrimeVue 最终清理（已实施，待人工验收）
 
-原生分页器、VideoList、Listbox、InputText，以及账号关联管理、两类录像导入队列、标识查询、上传队列和管理员任务表格均已完成迁移，相关实施步骤与历史测试明细从计划移除。组件维护直接参考当前代码与样式 README，不重新建立迁移批次。
+PrimeVue 及其 Aura 注册、三个过渡适配样式、App.vue 的库浮层补丁、无使用方的纵向按钮组样式已删除；包与锁文件不再包含 `primevue`、`@primevue/*`、`@primeuix/*`。PrimeIcons 与其样式、离线打包及 CDN 支持继续保留，Element Plus 图标注册仍按 7.2 单独推进。
 
-当前仍有依赖如下，PrimeIcons 单独保留：
+ESLint 不再有 PrimeVue 导入豁免，禁止规则继续防止重新引入。开发文档、样式 README 与根目录选型约定已同步更新；Git 忽略的参数存档不属于运行时或交付范围。
 
-| 依赖 | 剩余使用方 |
-| --- | --- |
-| 业务组件 | 已无 DataTable / Column / Toolbar / FilterMatchMode 使用方 |
-| 应用注册与主题 | `bootstrap.ts` 中 PrimeVue / Aura preset |
-| 过渡样式 | `vendors/primevue-table.css`、`primevue-table-controls.css`、`primevue-select.css`；已无源码导入，待 5.2.4 删除 |
-| 包依赖 | `primevue`、`@primevue/core`、`@primeuix/themes` 及锁文件 |
-
-5.0、5.1、5.2.0、5.2.1 与 5.2.2-a～f 不再列为待办，保留下列未完成编号。
-
-#### 5.2.3 测试残留清理与回归（已实施，待人工验收）
-
-NativePlayer.cy.ts 已删除 PrimeVue 注册，保留播放器业务断言；Element Plus 图标的测试注入仍留给 7.2 处理。SelectStyles.cy.ts 已删除 Aura / PrimeVue / DataTable / Column 和过渡样式导入，保留深浅主题下的多选标签、搜索、清空与禁用覆盖，以及 Element Plus 分页器页容量选择和传送到 body 的菜单主题检查。两份测试的 PrimeVue 导入豁免已移除，组件测试中不再注册 PrimeVue。
-
-本批由用户运行上述两个组件 spec，验收后移除此小节。最终依赖、主题与样式清理仍属 5.2.4，届时只核对实际受影响的覆盖，不为已验收的任务页重复增加验收待办。
-
-#### 5.2.4 最终清理（业务组件已退出，可独立推进）
-
-按注册与代码 → 样式 → 文档 → 依赖的顺序完成：
-
-1. 删除 `bootstrap.ts` 的 `definePreset` / `Aura` / `PrimeVue` 与 `app.use(PrimeVue, ...)`，保留其他启动逻辑。清理 `App.vue` 的 `.p-datatable-filter-overlay-popover` / `.p-select-overlay` 层级补丁；测试注册已在 5.2.3 移除，不重复安排。
-2. 删除 `vendors/primevue-table.css`、`primevue-table-controls.css`、`primevue-select.css` 及失效导入；清理已无使用方的 `.checkbox-buttons--vertical` 与对应说明，保留仍使用的 Checkbox / Radio 公共样式。
-3. 更新 `docs/development.md`、`src/styles/README.md` 等受版本控制的维护文档：启动入口实际为 bootstrap.ts，PrimeVue 退出后删除过渡适配说明。`styles/parameters/` 是 Git 忽略的本地存档，不作为交付物，也不为清理它建立构建依赖。
-4. 从 package.json / package-lock.json 删除 `primevue`、`@primevue/core`、`@primeuix/themes` 与仅由它们引入的传递依赖；保留 PrimeIcons、其样式导入、离线打包与 CDN 检查。
-5. 删除 ESLint 中 bootstrap.ts 的最后一项导入豁免，保留禁止新增 PrimeVue 的规则；检索源码、测试、样式和构建脚本确认无运行时库导入、注册或失效 `.p-*` 选择器，再做生产构建与产物依赖检查。静态检查与构建不代替浏览器验证。
-6. 完成后移除本节剩余待办，并更新依赖清单。
-
-`VideoUpload/ToolBar.vue` 与 `visualization/VideoScatter/Toolbar.vue` 是项目组件，不属于 PrimeVue 清理范围。
+本轮验收核对网站初始化、导航、保留选择器与表格的深浅主题及窄容器；复用 `Menu.cy.ts`、`HomeView/HomeView.cy.ts`、`common/SelectStyles.cy.ts` 等实际受影响的组件 spec，Cypress 由用户运行。生产构建与依赖审计不替代浏览器验收，验收后移除此节及批次 5。
 
 ### 6. 暂缓范围与局部收尾
 
 以下范围保持暂缓：
 
 - 首页比赛卡片 `views/HomeView/NormalTournamentQueue.vue`：当前唯一 ElCard，带 header；按既定范围保留。
-- PrimeVue 全量退出：按上一节独立推进，不阻塞本轮其他样式工作。
 
 当前 `eslint.config.js` 的相关规则：
 
 - 基础规则对所有 `**/*.{js,ts,vue}` 禁止新增 ElText、Element Plus 布局组件、ElCard、ElDivider 及 ElCheckbox / ElCheckboxGroup / ElCheckboxButton。
 - `src/**/*.vue` 追加禁止 ElButton / ElLink；`ignores` 仅保留 `views/HomeView/NormalTournamentQueue.vue` 一个文件级例外，不扩展为目录豁免。该文件仍有 ElCard 1 处、ElLink 3 处，并靠文件首行的整文件 `eslint-disable vue/no-restricted-html-elements` 放行。
-- `no-restricted-imports` 按文件清单禁止新增 `primevue/*` / `@primevue/*` / `@primeuix/*` 导入；仅 bootstrap.ts 保留豁免，随 5.2.4 清理，不扩展到 `primeicons`。
+- `no-restricted-imports` 禁止所有 src 下 TS / Vue 文件导入 `primevue`、`primevue/*`、`@primevue/*`、`@primeuix/*`，不保留文件豁免；规则不扩展到 `primeicons`。
 - 另有两组文件清单把 ElDescriptions / ElDescriptionsItem 一并加入禁止，含 `views/DatabaseView/VideoView.vue`；第 2 节的 4 个现存调用点不在清单内。
 - `vue/no-undef-components` 的图标名称豁免（除 `router-view` 外）随 7.2 清理；全局 `ignores` 中的 `**/GuideView.vue` 已无对应文件，随收尾删除。
 
@@ -231,7 +204,7 @@ NativePlayer.cy.ts 已删除 PrimeVue 注册，保留播放器业务断言；Ele
 
 - CSS / Less 的选型、styles 下的文件命名及目录组织由实施代理自行决定。每个项目样式目录文件不超过 100 个非空行，注释计入，不通过压缩声明规避限制。
 - `src/styles/parameters/` 是 Git 忽略的本地参考存档，应用、测试、其他样式及构建脚本不得依赖它；需要参数时提取到正式样式文件。新检出项目应不需要该目录也能构建。
-- 项目参数流向原生组件与库适配。库需要的 `--el-*` / `--p-*` 声明集中在 vendors，由项目变量赋值，不反向读取库变量。
+- 项目参数流向原生组件与库适配。库需要的 `--el-*` 声明集中在 vendors，由项目变量赋值，不反向读取库变量。
 - vendors 样式由实际使用方按需导入，不在 setup.ts、应用启动入口或 Cypress support 全局加载；同时核对库内部的隐式依赖。保留的 Select、表格适配使用各自的汇总入口，独立路由和组件测试不依赖其他页面预先加载样式。主题及 --ui-* 参数仍全局提供，浮层适配仍用普通全局选择器。
 - 优先使用公开 CSS 变量、组件样式接口，再使用局部内部选择器；覆盖集中在适配文件，避免业务页面散落大量覆盖或 `!important`。
 - 保持现有文件路径、props、事件、slots 和调用方依赖的 attrs 稳定。按钮保留原生语义、键盘操作、disabled、loading、防重复点击及已有事件透传。
