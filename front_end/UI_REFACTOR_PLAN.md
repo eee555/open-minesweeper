@@ -1,6 +1,6 @@
 # 前端 UI 风格渐进重构计划
 
-制定日期：2026-10-03。现状核对与计划更新：2026-11-22。
+制定日期：2026-10-03。现状核对与计划更新：2026-11-23。
 
 本计划只列剩余工作与持续适用的约束。已实现、已提交或已验收的批次不再列为实施或测试待办，也不再重复其迁移细节；已完成控件的模板、参数与复用约定以 [`src/styles/README.md`](src/styles/README.md) 与代码为准。原有批次编号保留，避免后续交流中混淆。
 
@@ -58,7 +58,7 @@
 | 3 | 剩余表格核对 | 其余 4 个 ElTable 根据实际排序、编辑等依赖决定是否保留 |
 | 7 | 图标注册迁移 | 剩余 7.2：取消 bootstrap.ts 的 7 个全局注册，同步清理 Cypress 注入与 ESLint 豁免 |
 | 4 | 其他控件换肤与尺寸细化 | 4.2.5 剩余 Slider、4.2.6 输入与表单、4.2.7 Tabs、4.2.8 弹窗通知与加载，继续分批推进 |
-| 5 | PrimeVue 退出 | 业务表格迁移已实现；剩余 5.2.3 测试残留与 5.2.4 注册、样式和包依赖清理 |
+| 5 | PrimeVue 退出 | 剩余 5.2.3 测试残留与 5.2.4 注册、样式和包依赖清理 |
 | 6 | 局部收尾 | 随每批删除失效导入、重复样式和已无使用方的兼容项，更新本计划 |
 
 4.2.5 的不透明度原生迁移及剩余轨道、提示样式，以及图标 7.2 仍可独立推进；首页比赛卡片和 PrimeVue 全部退出不作为前置条件。
@@ -178,7 +178,7 @@ Slider 使用方涉及公共播放器；实施前检查 Analyzer 与离线入口
 
 ### 5. PrimeVue 退出：剩余最终清理
 
-原生分页器、VideoList、Listbox、InputText，以及账号关联管理、两类录像导入队列、标识查询和上传队列表格均已实现迁移，相关实施步骤与历史测试明细从计划移除。组件维护直接参考当前代码与样式 README，不重新建立迁移批次。
+原生分页器、VideoList、Listbox、InputText，以及账号关联管理、两类录像导入队列、标识查询、上传队列和管理员任务表格均已完成迁移，相关实施步骤与历史测试明细从计划移除。组件维护直接参考当前代码与样式 README，不重新建立迁移批次。
 
 当前仍有依赖如下，PrimeIcons 单独保留：
 
@@ -186,38 +186,26 @@ Slider 使用方涉及公共播放器；实施前检查 Analyzer 与离线入口
 | --- | --- |
 | 业务组件 | 已无 DataTable / Column / Toolbar / FilterMatchMode 使用方 |
 | 应用注册与主题 | `bootstrap.ts` 中 PrimeVue / Aura preset |
-| 组件测试注册 | `components/VideoPlayer/NativePlayer.cy.ts`、`components/common/SelectStyles.cy.ts`；NativePlayer 的注册已无对应业务组件依赖 |
-| 过渡样式 | `vendors/primevue-table.css`、`primevue-table-controls.css`、`primevue-select.css`；汇总入口仅由 SelectStyles.cy.ts 导入 |
+| 过渡样式 | `vendors/primevue-table.css`、`primevue-table-controls.css`、`primevue-select.css`；已无源码导入，待 5.2.4 删除 |
 | 包依赖 | `primevue`、`@primevue/core`、`@primeuix/themes` 及锁文件 |
 
-5.0、5.1、5.2.0、5.2.1 与 5.2.2-a～e 不再列为待办，保留下列未完成编号。
+5.0、5.1、5.2.0、5.2.1 与 5.2.2-a～f 不再列为待办，保留下列未完成编号。
 
-#### 5.2.2-f 管理员任务页（已实现，待人工验收）
+#### 5.2.3 测试残留清理与回归（已实施，待人工验收）
 
-Task.vue 已使用 BaseTable、BasePagination、SortIcon 与原生筛选控件，Toolbar 已替换为紧凑操作行。状态筛选即时提交，路径筛选按 Enter 提交；保留跨区间多选、当前区间全选 / 半选、批量删除、重启限制、错误查看、统计刷新和过期清理。批量删除中途失败仅移除已成功删除的选择，剩余可重试；结果缩小时重新请求合法起点，避免显示区间与记录不一致。
+NativePlayer.cy.ts 已删除 PrimeVue 注册，保留播放器业务断言；Element Plus 图标的测试注入仍留给 7.2 处理。SelectStyles.cy.ts 已删除 Aura / PrimeVue / DataTable / Column 和过渡样式导入，保留深浅主题下的多选标签、搜索、清空与禁用覆盖，以及 Element Plus 分页器页容量选择和传送到 body 的菜单主题检查。两份测试的 PrimeVue 导入豁免已移除，组件测试中不再注册 PrimeVue。
 
-`GET /api/common/tasks/detail` 改用 `start`（从 1 开始、允许任意起点）与 `count`（1～100，默认 20），响应为 `{ total, start, count, items }`，其中 total 是筛选后总数；原 `page/page_size` 已移除，其他排序 / 筛选与管理员权限保持不变。页面默认 count=10，选项为 `[10,25,50,100]`。
-
-后端定向测试与 Task.cy.ts 已同步维护，E2E 的任务页定位及响应类型已调整；浏览器测试由用户运行。应用级依赖与主题清理仍留在 5.2.4，本批不卸载包。验收后移除此小节。
-
-#### 5.2.3 剩余迁移的测试与验收
-
-仅随剩余改动更新测试，不将已实现的表格重新列入回归批次：
-
-1. Task.cy.ts 的原生表格覆盖已实现，本批人工验收运行该 spec；复用其中的请求参数、任意起点、容量重置、筛选 / 排序、跨区间选择、部分删除失败、越界修正、重启限制和清理覆盖，不重复建立同类测试。
-2. `NativePlayer.cy.ts` 删除残留 PrimeVue 注册，不改播放器业务断言；`SelectStyles.cy.ts` 删除仅针对 PrimeVue 的挂载及断言，保留真实仍用到的 Element Plus 复杂选择器与分页器样式覆盖，避免整份删除。
-3. 如涉及任务 API 或页面定位变更，同步维护实际受影响的 E2E；Cypress 与 E2E 由用户运行。本轮文档整理不代表既有浏览器测试或生产验证通过。
-4. Task 迁移验收关注加载、空状态、筛选清除、默认 / 切换排序、索引区间与实际记录、页容量 / 跳转、选择 / 删除、重启与独立操作，以及深浅主题和窄容器。已落地公共分页器与 Listbox 的独立边界测试继续复用。
+本批由用户运行上述两个组件 spec，验收后移除此小节。最终依赖、主题与样式清理仍属 5.2.4，届时只核对实际受影响的覆盖，不为已验收的任务页重复增加验收待办。
 
 #### 5.2.4 最终清理（业务组件已退出，可独立推进）
 
 按注册与代码 → 样式 → 文档 → 依赖的顺序完成：
 
-1. 删除 `bootstrap.ts` 的 `definePreset` / `Aura` / `PrimeVue` 与 `app.use(PrimeVue, ...)`，保留其他启动逻辑。清理 `App.vue` 的 `.p-datatable-filter-overlay-popover` / `.p-select-overlay` 层级补丁，配合 5.2.3 删除测试残留注册。
+1. 删除 `bootstrap.ts` 的 `definePreset` / `Aura` / `PrimeVue` 与 `app.use(PrimeVue, ...)`，保留其他启动逻辑。清理 `App.vue` 的 `.p-datatable-filter-overlay-popover` / `.p-select-overlay` 层级补丁；测试注册已在 5.2.3 移除，不重复安排。
 2. 删除 `vendors/primevue-table.css`、`primevue-table-controls.css`、`primevue-select.css` 及失效导入；清理已无使用方的 `.checkbox-buttons--vertical` 与对应说明，保留仍使用的 Checkbox / Radio 公共样式。
 3. 更新 `docs/development.md`、`src/styles/README.md` 等受版本控制的维护文档：启动入口实际为 bootstrap.ts，PrimeVue 退出后删除过渡适配说明。`styles/parameters/` 是 Git 忽略的本地存档，不作为交付物，也不为清理它建立构建依赖。
 4. 从 package.json / package-lock.json 删除 `primevue`、`@primevue/core`、`@primeuix/themes` 与仅由它们引入的传递依赖；保留 PrimeIcons、其样式导入、离线打包与 CDN 检查。
-5. 删除 ESLint 中剩余 3 个文件的导入豁免，保留禁止新增 PrimeVue 的规则；检索源码、测试、样式和构建脚本确认无运行时库导入、注册或失效 `.p-*` 选择器，再做生产构建与产物依赖检查。静态检查与构建不代替浏览器验证。
+5. 删除 ESLint 中 bootstrap.ts 的最后一项导入豁免，保留禁止新增 PrimeVue 的规则；检索源码、测试、样式和构建脚本确认无运行时库导入、注册或失效 `.p-*` 选择器，再做生产构建与产物依赖检查。静态检查与构建不代替浏览器验证。
 6. 完成后移除本节剩余待办，并更新依赖清单。
 
 `VideoUpload/ToolBar.vue` 与 `visualization/VideoScatter/Toolbar.vue` 是项目组件，不属于 PrimeVue 清理范围。
@@ -233,7 +221,7 @@ Task.vue 已使用 BaseTable、BasePagination、SortIcon 与原生筛选控件�
 
 - 基础规则对所有 `**/*.{js,ts,vue}` 禁止新增 ElText、Element Plus 布局组件、ElCard、ElDivider 及 ElCheckbox / ElCheckboxGroup / ElCheckboxButton。
 - `src/**/*.vue` 追加禁止 ElButton / ElLink；`ignores` 仅保留 `views/HomeView/NormalTournamentQueue.vue` 一个文件级例外，不扩展为目录豁免。该文件仍有 ElCard 1 处、ElLink 3 处，并靠文件首行的整文件 `eslint-disable vue/no-restricted-html-elements` 放行。
-- `no-restricted-imports` 按文件清单禁止新增 `primevue/*` / `@primevue/*` / `@primeuix/*` 导入；仅 `bootstrap.ts`、`NativePlayer.cy.ts`、`SelectStyles.cy.ts` 共 3 个文件保留豁免，随 5.2 剩余工作清理，不扩展到 `primeicons`。
+- `no-restricted-imports` 按文件清单禁止新增 `primevue/*` / `@primevue/*` / `@primeuix/*` 导入；仅 bootstrap.ts 保留豁免，随 5.2.4 清理，不扩展到 `primeicons`。
 - 另有两组文件清单把 ElDescriptions / ElDescriptionsItem 一并加入禁止，含 `views/DatabaseView/VideoView.vue`；第 2 节的 4 个现存调用点不在清单内。
 - `vue/no-undef-components` 的图标名称豁免（除 `router-view` 外）随 7.2 清理；全局 `ignores` 中的 `**/GuideView.vue` 已无对应文件，随收尾删除。
 

@@ -324,8 +324,6 @@ export default defineConfig({
     files: ['src/**/*.{ts,vue}'],
     ignores: [
         'src/bootstrap.ts',
-        'src/components/VideoPlayer/NativePlayer.cy.ts',
-        'src/components/common/SelectStyles.cy.ts',
     ],
     rules: {
         'no-restricted-imports': ['error', {
