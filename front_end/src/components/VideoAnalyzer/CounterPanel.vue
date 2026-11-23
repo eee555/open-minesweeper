@@ -28,6 +28,9 @@
                                                 <BaseButton class="video-analyzer-counter__edit" @click="hide(); editKey = row.key">
                                                     <i class="pi pi-pencil" aria-hidden="true" />{{ t('button.edit') }}
                                                 </BaseButton>
+                                                <BaseButton class="video-analyzer-counter__delete" type="danger" plain @click="hide(); removeRow(row.key)">
+                                                    <i class="pi pi-trash" aria-hidden="true" />{{ t('button.delete') }}
+                                                </BaseButton>
                                             </div>
                                             <label>
                                                 {{ t('local.sendToSlot') }}
@@ -159,6 +162,10 @@ function saveRow(row: CounterRow) {
         rows.splice(index + Number(addTarget.value.after), 0, row);
         config.value = { ...config.value, rows };
     } else config.value = { ...config.value, rows: config.value.rows.map((entry) => (entry.key === row.key ? row : entry)) };
+}
+
+function removeRow(key: string) {
+    config.value = { ...config.value, rows: config.value.rows.filter((row) => row.key !== key) };
 }
 
 function openAdd(key: string, after: boolean) {
