@@ -28,7 +28,7 @@
     "@egjs/grid": "1.18.1",
     "@element-plus/icons-vue": "2.3.2",
     "@interactjs/types": "1.10.28",
-    "@intlify/core-base": "11.4.21",
+    "@intlify/core-base": "11.4.23",
     "@putianyi888/msrc": "0.2.0",
     "@putianyi888/vue3-minesweeper-board": "0.7.0",
     "@putianyi888/vue3-plots": "0.7.0",
@@ -51,7 +51,7 @@
     "jszip": "3.10.2",
     "jtcsv": "5.0.0",
     "lazy.js": "0.5.1",
-    "mediabunny": "1.66.0",
+    "mediabunny": "1.66.2",
     "ms-toollib": "1.6.3",
     "ordinal": "1.0.3",
     "papaparse": "5.7.1",
@@ -64,7 +64,7 @@
     "vue": "3.5.45",
     "vue-data-ui": "3.29.3",
     "vue-draggable-plus": "0.6.1",
-    "vue-i18n": "11.4.20",
+    "vue-i18n": "11.4.23",
     "vue-router": "5.5.1",
     "vue-tippy": "6.8.0"
   },
@@ -109,7 +109,7 @@
     "vite-plugin-compression": "0.5.1",
     "vite-plugin-singlefile": "2.3.4",
     "vite-plugin-wasm": "3.6.0",
-    "vitest": "5.1.0",
+    "vitest": "5.1.1",
     "vue-component-type-helpers": "3.3.14",
     "vue-tsc": "3.3.14"
   }
