@@ -31,7 +31,7 @@ from .decorators import banned_blocked, login_required_error, staff_required
 from .models import UserProfile
 from .schema import PUBLIC_NAME_FIELDS, RawUserNames, SelfUserInfoOut, UserDirectoryPageOut, UserDirectoryQuery, UserInfoOut
 from .services import clear_profile_info, has_sub200_expert_video, refresh_avatar_chance, register_user, try_update_user_signature, update_admin_profile, update_email_notifications, update_user_names, user_metadata
-from .utils import EmailNotificationType, NAME_FIELDS
+from .utils import EmailNotificationType, NAME_FIELDS, UserLanguage
 from .verification.api import admin_router as verification_admin_router, router as verification_router
 
 router = Router()
@@ -47,10 +47,11 @@ class EmailNotificationChange(Schema):
 
 
 class EmailNotificationChanges(Schema):
-    changes: list[EmailNotificationChange] = Field(..., min_length=1, max_length=32)
+    changes: list[EmailNotificationChange] = Field(default_factory=list, max_length=32)
+    language: UserLanguage | None = None
 
 
-EmailNotificationSettingsOut = create_schema(UserProfile, name='EmailNotificationSettingsOut', fields=['email_notification_mask'])
+EmailNotificationSettingsOut = create_schema(UserProfile, name='EmailNotificationSettingsOut', fields=['email_notification_mask', 'language'])
 
 
 @router.patch('/email-notifications', response=EmailNotificationSettingsOut)
@@ -65,12 +66,16 @@ def save_email_notifications(request, data: EmailNotificationChanges):
     Recipient eligibility is checked by the mail worker.
     """
     changes = {change.type: change.enabled for change in data.changes}
+    if 'language' in data.model_fields_set and data.language is None:
+        raise HttpError(422, 'Unknown notification language.')
+    if not changes and data.language is None:
+        raise HttpError(422, 'No notification settings supplied.')
     if len(changes) != len(data.changes):
         raise HttpError(422, 'Duplicate notification type.')
     if any(changes.values()):
         if not request.user.email or request.user.email.lower().endswith('@accounts.invalid'):
             raise HttpError(409, 'A deliverable account email is required.')
-    return update_email_notifications(request.user.pk, changes)
+    return update_email_notifications(request.user.pk, changes, data.language)
 
 
 class RegisterIn(Schema):

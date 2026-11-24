@@ -10,6 +10,12 @@ HIDDEN_NAME = 'hidden'
 NAME_FIELDS = {'realname': '_realname', 'firstname': '_firstname', 'lastname': '_lastname'}
 
 
+class UserLanguage(StrEnum):
+    ZH_CN = 'zh-cn'
+    EN = 'en'
+    ES = 'es'
+
+
 class EmailNotificationType(StrEnum):
     STAFF_MEDIA_REVIEW = 'staff_media_review'
     STAFF_VIDEO_FROZEN = 'staff_video_frozen'

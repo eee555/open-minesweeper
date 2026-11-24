@@ -14,7 +14,7 @@ from userprofile.mail import send_budgeted_email
 from userprofile.models import UserProfile
 from userprofile.utils import EMAIL_NOTIFICATION_FLAGS, EmailNotificationType
 from videomanager.models import VideoModel
-from .mail import MultilingualNotificationEmail
+from .mail import NotificationEmail
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ def task_send_staff_notification(notification_type: str, object_ids: list[int]) 
             return 0
         recipients = list(UserProfile.objects.filter(
             is_active=True, is_staff=True, is_memorial=False,
-        ).exclude(email='').exclude(email__iendswith='@accounts.invalid').only('pk', 'email', 'email_notification_mask').order_by('pk'))
+        ).exclude(email='').exclude(email__iendswith='@accounts.invalid').only('pk', 'email', 'email_notification_mask', 'language').order_by('pk'))
     except Exception:
         logger.exception('Notification preparation failed: type=%s object_ids=%s', notification_type, object_ids)
         return 0
@@ -65,7 +65,7 @@ def task_send_staff_notification(notification_type: str, object_ids: list[int]) 
             continue
         try:
             # No retry: a timeout can mean the provider already accepted it.
-            message = MultilingualNotificationEmail(kind, pending_ids, review_path, recipient)
+            message = NotificationEmail(kind, pending_ids, review_path, recipient)
             accepted = send_budgeted_email(message)
             sent += accepted
             logger.info('Notification send result: type=%s objects=%s recipient_id=%s accepted=%s', kind, pending_ids, recipient.pk, accepted)
