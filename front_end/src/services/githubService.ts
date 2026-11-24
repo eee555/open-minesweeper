@@ -55,7 +55,8 @@ function parseRepository(data: unknown, id: string): GitHubRepositoryInfo {
         || !(/^https:\/\/github\.com\/[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?\/[A-Za-z0-9_.-]{1,100}\/?$/).test(data.html_url)) throw new Error('Invalid GitHub repository');
     const path = new URL(data.html_url).pathname.split('/').filter(Boolean);
     if (path.length !== 2 || path[1] === '.' || path[1] === '..') throw new Error('Invalid GitHub repository');
-    const fullName = 'full_name' in data && typeof data.full_name === 'string' && data.full_name === path.join('/') ? data.full_name : path.join('/');
+    const fullName = path.join('/');
+    if ('full_name' in data && data.full_name !== fullName) throw new Error('Invalid GitHub repository');
     const description = 'description' in data && typeof data.description === 'string' ? data.description : '';
     return { id, fullName, description, htmlUrl: data.html_url };
 }
