@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Annotated
 from urllib.parse import quote
 
@@ -7,11 +8,11 @@ from django.core.files.storage import default_storage
 from django.db.models import F, Q
 from django.http import FileResponse, HttpRequest, HttpResponse
 from django.middleware.csrf import get_token
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
 from django.views.decorators.cache import cache_control
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django_ratelimit.decorators import ratelimit
-from ninja import Field, Form, Query, Router, Schema
+from ninja import Field, Form, NinjaAPI, Query, Router, Schema
 from ninja.decorators import decorate_view
 from ninja.errors import HttpError
 from ninja.orm import create_schema
@@ -22,13 +23,18 @@ from config.text_choices import MS_TextChoices
 from userprofile.decorators import staff_required
 from userprofile.models import UserProfile
 from .cache import cache, newest_cache
+from .config import SHARE_PREVIEW_SITE_URL, SHARE_PREVIEW_VERSION
 from .files import original_file
 from .models import ExpandVideoModel, VideoModel
 from .schema import ParsedVideoOut, PUBLIC_VIDEO_METADATA_FIELDS, PublicVideoMetadataOut, VIDEO_INFO_BATCH_LIMIT, VIDEO_METADATA_FIELDS, VideoBaseOut, VideoMetadataOut, VideoQueryOut
 from .services import delete_video_by_id, freeze_video_by_id, query_videos, unfreeze_video_by_id, VideoUnfreezeError
+from .share_preview import ensure_preview, preview_board
+from .tasks import enqueue_share_preview_cleanup
 from .utils import replay_filename, unpack_compression_format, VIDEO_QUERY_ALLOWED_PARAMS, VideoQueryError
 
 router = Router()
+share_page_api = NinjaAPI(title='Video share previews', urls_namespace='video-share', openapi_url=None, docs_url=None)
+logger = logging.getLogger('videomanager')
 VIDEO_ACCEL_REDIRECT_PREFIX = '/internal-media/'
 VideoDeleteIn = create_schema(VideoModel, name='VideoDeleteIn', fields=['id'], custom_fields=[('id', Annotated[StrictInt, Field(gt=0, le=2**63 - 1)], ...)])
 VideoFreezeIn = create_schema(
@@ -48,6 +54,65 @@ class VideoDeleteOut(Schema):
     id: int
     deleted: bool
     affected_tournament_ids: list[int]
+
+
+def _get_share_video(video_id: int, *, metadata=False):
+    if not 0 < video_id <= 2**63 - 1:
+        raise HttpError(404, 'Video not found.')
+    videos = VideoModel.objects.filter(pk=video_id, state__in=[MS_TextChoices.State.OFFICIAL, MS_TextChoices.State.IDENTIFIER], ongoing_tournament=False)
+    fields = ['id', 'level', 'board']
+    if metadata:
+        videos = videos.select_related('player', 'video')
+        fields.extend(['mode', 'timems', 'bv', 'upload_time', 'player__id', 'player___realname', 'player__verified', 'player__hide_realname', 'video__identifier'])
+    video = get_object_or_404(videos.only(*fields))
+    try:
+        board = preview_board(video.level, video.board)
+    except ValueError:
+        raise HttpError(404, 'Preview not available.') from None
+    return video, board
+
+
+@share_page_api.get('/{int:video_id}', include_in_schema=False)
+@decorate_view(ratelimit(group='video-share-page', key='ip', rate='30/m', block=True), cache_control(no_cache=True))
+def video_share_page(request: HttpRequest, video_id: int):
+    """
+    - ratelimit(group='video-share-page', key='ip', rate='30/m', block=True)
+    - cache_control(no_cache=True)
+
+    Anonymous share landing page, including for owners and staff. The first release has no website UI entry.
+    """
+    video, board = _get_share_video(video_id, metadata=True)
+    name = video.player.realname.strip() or video.video.identifier.strip() or f'玩家#{video.player_id}'
+    level = dict(MS_TextChoices.Level.choices).get(video.level, f'{board.rows}×{board.columns} / {board.mines}雷')
+    mode = dict(MS_TextChoices.Mode.choices).get(video.mode, video.mode)
+    duration = f'{video.timems // 1000}.{video.timems % 1000:03d}s'
+    width, height = board.image_size
+    return render(request, 'videomanager/share_preview.html', {
+        'title': f'{name} · {level} · {duration} | 元扫雷',
+        'description': f'{mode} · 3BV {video.bv} · 用时 {duration} · 上传日期 {video.upload_time.date().isoformat()}',
+        'share_url': f'{SHARE_PREVIEW_SITE_URL}/video/{video.pk}',
+        'image_url': f'{SHARE_PREVIEW_SITE_URL}/api/video/share/{SHARE_PREVIEW_VERSION}/{video.pk}.png',
+        'image_width': width, 'image_height': height, 'video_url': f'/#/video/{video.pk}',
+    })
+
+
+@router.get(f'/share/{SHARE_PREVIEW_VERSION}/{{int:video_id}}.png', include_in_schema=False)
+@decorate_view(ratelimit(group='video-share-image', key='ip', rate='60/m', block=True), cache_control(no_cache=True))
+def video_share_image(request: HttpRequest, video_id: int):
+    """
+    - ratelimit(group='video-share-image', key='ip', rate='60/m', block=True)
+    - cache_control(no_cache=True)
+
+    Always return an empty X-Accel-Redirect response, including in DEBUG. File races may fail at Nginx.
+    """
+    video, board = _get_share_video(video_id)
+    try:
+        filename, created = ensure_preview(video.pk, board)
+    except (OSError, ValueError):
+        logger.exception('Failed to prepare video share preview: id=%s', video_id)
+        raise HttpError(503, 'Preview is temporarily unavailable.') from None
+    enqueue_share_preview_cleanup(created=created)
+    return HttpResponse(content_type='image/png', headers={'X-Accel-Redirect': f'{VIDEO_ACCEL_REDIRECT_PREFIX}thumbnail/{filename}'})
 
 
 def _parse_video_ids(ids: str):

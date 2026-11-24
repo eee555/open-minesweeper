@@ -30,16 +30,55 @@ class EmailNotificationSettingsTests(TestCase):
         )
         self.client.force_login(self.user)
 
-    def update(self, changes):
-        return self.client.patch(URL, {'changes': changes}, content_type='application/json')
+    def update(self, changes=None, **settings):
+        if changes is not None:
+            settings['changes'] = changes
+        return self.client.patch(URL, settings, content_type='application/json')
 
     def test_merges_changes_preserving_high_bit_and_returns_number(self):
         UserProfile.objects.filter(pk=self.user.pk).update(email_notification_mask=(1 << 31) | 2)
         response = self.update([{'type': 'staff_video_plain', 'enabled': True}])
         self.assertEqual(response.status_code, 200, response.content)
-        self.assertEqual(response.json(), {'email_notification_mask': (1 << 31) | 6})
+        self.assertEqual(response.json(), {'email_notification_mask': (1 << 31) | 6, 'language': 'en'})
         self.user.refresh_from_db()
         self.assertEqual(self.user.email_notification_mask, (1 << 31) | 6)
+
+    def test_language_defaults_to_english(self):
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.language, 'en')
+
+    def test_nonstaff_can_change_only_language_without_email_or_mask_changes(self):
+        mask = (1 << 31) | 31
+        UserProfile.objects.filter(pk=self.user.pk).update(is_staff=False, email='', email_notification_mask=mask)
+        for language in ('zh-cn', 'es', 'en'):
+            with self.subTest(language=language):
+                response = self.update(language=language)
+                self.assertEqual(response.status_code, 200, response.content)
+                self.assertEqual(response.json(), {'email_notification_mask': mask, 'language': language})
+                self.user.refresh_from_db()
+                self.assertEqual(self.user.language, language)
+                self.assertEqual(self.user.email_notification_mask, mask)
+
+    def test_language_and_bits_can_be_saved_together(self):
+        response = self.update([{'type': 'staff_video_plain', 'enabled': True}], language='es')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json(), {'email_notification_mask': 4, 'language': 'es'})
+        self.user.refresh_from_db()
+        self.assertEqual((self.user.email_notification_mask, self.user.language), (4, 'es'))
+        response = self.update([{'type': 'staff_video_plain', 'enabled': False}])
+        self.assertEqual(response.json(), {'email_notification_mask': 0, 'language': 'es'})
+
+    def test_invalid_language_rejects_the_entire_update(self):
+        for language in ('fr', '', None, 1):
+            with self.subTest(language=language):
+                response = self.update([{'type': 'staff_video_plain', 'enabled': True}], language=language)
+                self.assertEqual(response.status_code, 422, response.content)
+        self.user.refresh_from_db()
+        self.assertEqual((self.user.email_notification_mask, self.user.language), (0, 'en'))
+
+    def test_empty_updates_are_rejected(self):
+        self.assertEqual(self.update().status_code, 422)
+        self.assertEqual(self.update([]).status_code, 422)
 
     def test_uint32_round_trip_and_validation(self):
         for mask in (0, 1 << 31, (1 << 32) - 1):
@@ -53,21 +92,28 @@ class EmailNotificationSettingsTests(TestCase):
 
     def test_login_and_self_responses_contain_private_preference(self):
         self.user.email_notification_mask = 31
-        self.user.save(update_fields=['email_notification_mask'])
+        self.user.language = 'es'
+        self.user.save(update_fields=['email_notification_mask', 'language'])
         self.assertEqual(user_metadata(self.user, self.user)['email_notification_mask'], 31)
+        self.assertEqual(user_metadata(self.user, self.user)['language'], 'es')
         with patch('common.api.TopRankingCache') as rankings:
             rankings.return_value.get_anchors.return_value = {}
             response = self.client.get('/api/common/loginauto')
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(response.json()['user']['email_notification_mask'], 31)
+        self.assertEqual(response.json()['user']['language'], 'es')
         self.assertEqual(self.client.get('/api/userprofile/info/0').json()['email_notification_mask'], 31)
+        self.assertEqual(self.client.get('/api/userprofile/info/0').json()['language'], 'es')
         self.assertNotIn('email_notification_mask', self.client.get(f'/api/userprofile/info/{self.user.pk}').json())
+        self.assertNotIn('language', self.client.get(f'/api/userprofile/info/{self.user.pk}').json())
         self.assertNotIn('email_notification_mask', user_metadata(self.user, object()))
+        self.assertNotIn('language', user_metadata(self.user, object()))
 
     def test_password_login_includes_preference(self):
         self.user.set_password('password123')
         self.user.email_notification_mask = 7
-        self.user.save(update_fields=['password', 'email_notification_mask'])
+        self.user.language = 'zh-cn'
+        self.user.save(update_fields=['password', 'email_notification_mask', 'language'])
         self.client.logout()
         with patch('userprofile.views.judge_captcha', return_value=True):
             response = self.client.post('/userprofile/login/', {
@@ -76,6 +122,7 @@ class EmailNotificationSettingsTests(TestCase):
             })
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(response.json()['user']['email_notification_mask'], 7)
+        self.assertEqual(response.json()['user']['language'], 'zh-cn')
 
     def test_no_separate_get_endpoint_and_anonymous_cannot_save(self):
         self.assertEqual(self.client.get(URL).status_code, 405)

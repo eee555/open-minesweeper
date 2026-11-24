@@ -1,8 +1,36 @@
+import logging
+
 from django.tasks import task
 
+from .cache import release_share_preview_cleanup, reserve_share_preview_cleanup, set_share_preview_count
 from .files import original_file
 from .models import VideoModel
+from .share_preview import prune_previews
 from .utils import calculate_pluck, is_custom_pluck_video, normalize_pluck
+
+logger = logging.getLogger('videomanager')
+
+
+def enqueue_share_preview_cleanup(*, created=False):
+    token = reserve_share_preview_cleanup(created=created)
+    if token is not None:
+        try:
+            task_cleanup_share_previews.enqueue(token=token)
+        except Exception:
+            release_share_preview_cleanup(token)
+            logger.exception('Failed to enqueue share preview cleanup')
+
+
+@task(priority=-1)
+def task_cleanup_share_previews(*, count_only=False, token=None):
+    """The existing single DB worker serializes every cleanup and count-only run."""
+    try:
+        result = prune_previews(count_only=count_only)
+        set_share_preview_count(result['remaining'])
+        logger.info('Share preview cleanup: count_only=%s result=%s', count_only, result)
+        return result
+    finally:
+        release_share_preview_cleanup(token)
 
 
 def helper_video_pluck(video: VideoModel):

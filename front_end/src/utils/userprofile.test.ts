@@ -25,6 +25,7 @@ describe('UserProfile', () => {
 
             expect(profile.id).toBe(0);
             expect(profile.username).toBe('');
+            expect(profile.language).toBe('en');
             expect(profile.realname).toBe('');
             expect(profile.firstname).toBe('');
             expect(profile.lastname).toBe('');

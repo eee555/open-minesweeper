@@ -72,7 +72,7 @@ describe('Personal Profile', () => {
         cy.url().should('include', `/player/${USER_ID}/settings`);
         cy.get('.user-settings').within(() => {
             cy.contains('本名').parent().next().find('input').type(REALNAME);
-            cy.contains('button', '保存').click();
+            cy.get('[data-cy=save-profile]').click();
         });
 
         cy.get('.user-settings').contains('修改成功');
@@ -225,7 +225,7 @@ describe('Personal Profile', () => {
 
         cy.get('.user-settings').within(() => {
             cy.contains('个性签名').parent().next().find('textarea').should('be.enabled').type('testSignature');
-            cy.contains('button', '保存').click();
+            cy.get('[data-cy=save-profile]').click();
         });
 
         cy.get('.user-settings').contains('修改成功');

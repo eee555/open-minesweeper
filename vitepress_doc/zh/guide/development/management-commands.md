@@ -6,6 +6,29 @@
 python manage.py <command> --help
 ```
 
+## 录像分享预览
+
+### `prepare_share_preview`
+
+位置：`videomanager/management/commands/prepare_share_preview.py`。使用随代码发布的棋盘图块生成固定的 `MEDIA_ROOT/thumbnail/placeholder-v1.png`，不读取录像、不扫描历史目录。
+
+```bash
+python manage.py prepare_share_preview
+```
+
+首次部署先安装 `requirements.txt` 中的 Pillow，再运行本命令，重启 Web 和现有单个 `db_worker_robust`。Nginx 复用现有 `/internal-media/` alias；需确保 worker 能遍历父目录、读取图片。DEBUG 也只返回 `X-Accel-Redirect`，图片验收通过 Nginx 入口进行。首版不暴露分享 UI，由维护者用 `/video/<id>` 手动验证 QQ 卡片后，再开放 UI。
+
+### `cleanup_share_previews`
+
+位置：`videomanager/management/commands/cleanup_share_previews.py`。只入队 `videomanager.tasks.task_cleanup_share_previews` 并输出任务 ID；目录扫描、删除及 Redis 回写都由现有单 worker 完成。
+
+```bash
+python manage.py cleanup_share_previews
+python manage.py cleanup_share_previews --count-only
+```
+
+默认按实际目录数量检查 2 万张阈值，达到后按 mtime 删除最旧文件，目标约 1.6 万张；不足阈值时只回写计数。`--count-only` 只重新计数，不删除文件。Redis 的 `video:share-preview:count` 只供触发参考，任务最后扫描剩余文件并覆盖；并发新增、删除造成的误差允许存在。命令不会额外启动 worker，不加文件锁，也不提供同步扫描路径。
+
 ## 数据库迁移
 
 ### `migrate`

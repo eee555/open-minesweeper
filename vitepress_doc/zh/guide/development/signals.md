@@ -5,11 +5,19 @@ description: 开源扫雷网后端Django信号触发关系详解，包括录像�
 
 # 信号触发关系
 
+## 录像分享图片清理
+
+`videomanager.signals.delete_video_share_preview` 监听 `VideoModel.post_delete`，通过 `transaction.on_commit(..., robust=True)` 尽力删除当前绘图版本、当前 board/level 摘要对应的已知缩略图，并扣减 Redis 参考计数。事务回滚不删除图片；图片不存在、文件无法删除或 Redis 出错只记录/跳过，不阻断其他提交回调。缺少 board 或删除实例没有加载 board/level 时不回源查询，残留图片由后台按冷数据回收。
+
+重新解析不新增清理信号：缓存文件名包含 board/level 内容摘要，新内容自动使用新文件名，旧请求的迟到写入不会覆盖新棋盘。旧摘要和旧绘图版本由同一后台任务回收；不在保存信号中扫描目录，也不增加并发锁。
+
 ## 管理员邮件通知
 
 `common.apps.CommonConfig.ready()` 注册 `common/email_notifications/signals.py` 的四个 `post_save` 接收器：新作品 `PENDING`；录像创建或实际转入 `FROZEN` / `PLAIN`；新建未验证关联；新建 `safe=False` 标识。录像旧值复用 `videomanager.signals` 的捕获，不为通知新增事务内查询。fixture 的 `raw` 保存跳过；相同状态保存、修改冻结原因或重复遇到旧标识不通知。
 
 接收器只注册 `transaction.on_commit(..., robust=True)`，回调只写入现有 Tasks 队列。回滚不入队，提交后入队失败不改变 API 成功结果，也不回退为同步发信。收件人查询、源对象复查、模板构造、额度锁与 SMTP 均在独立 worker 中执行。
+
+worker 使用收件人当前的 `UserProfile.language`（默认英文，可设简体中文或西班牙语），生成同一语言的主题、纯文本与 HTML 正文。任务参数不保存语言，排队期间修改偏好会在发送时生效；不再使用 `multipart/multilingual`。
 
 worker 跳过已处理或删除的对象，以及已退订、失去管理资格或无可用邮箱的用户。自动完成验证的关联不会发信；如果先创建未验证行后在同一事务验证，任务复查时也会跳过。每位接收人只尝试一次，失败记日志后继续下一位，不自动重试或补发。通知随全站邮件开关 `EMAIL_SKIP` 启用，`E2E_TEST` 为真时同样跳过。
 
