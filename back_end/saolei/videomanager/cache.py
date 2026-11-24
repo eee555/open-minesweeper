@@ -1,14 +1,69 @@
 import json
+import logging
+from uuid import uuid4
 
 from django.db.models import QuerySet
 from django_redis import get_redis_connection
+from redis.exceptions import RedisError
 
 from config.text_choices import MS_TextChoices
 from utils import ComplexEncoder
+from .config import SHARE_PREVIEW_CACHE_LIMIT, SHARE_PREVIEW_CLEANUP_TTL
 from .models import VideoModel
 
 cache = get_redis_connection('saolei_website')
 NEWEST_QUEUE_LIMIT = 1000
+logger = logging.getLogger('videomanager')
+SHARE_PREVIEW_COUNT_KEY = 'video:share-preview:count'
+SHARE_PREVIEW_PENDING_KEY = 'video:share-preview:cleanup-pending'
+
+
+def reserve_share_preview_cleanup(*, created=False):
+    """Approximate count and best-effort enqueue deduplication; never an execution lock."""
+    try:
+        raw = cache.get(SHARE_PREVIEW_COUNT_KEY)
+        try:
+            count = int(raw) if raw is not None else -1
+        except ValueError:
+            count = -1
+        needs_calibration = count < 0
+        if created:
+            if needs_calibration:
+                cache.set(SHARE_PREVIEW_COUNT_KEY, 1)
+                count = 1
+            else:
+                count = cache.incr(SHARE_PREVIEW_COUNT_KEY)
+        if needs_calibration or count >= SHARE_PREVIEW_CACHE_LIMIT:
+            token = uuid4().hex
+            if cache.set(SHARE_PREVIEW_PENDING_KEY, token, nx=True, ex=SHARE_PREVIEW_CLEANUP_TTL):
+                return token
+    except RedisError:
+        logger.exception('Failed to track share preview cache usage')
+    return None
+
+
+def release_share_preview_cleanup(token):
+    if token is None:
+        return
+    try:
+        if cache.get(SHARE_PREVIEW_PENDING_KEY) == token.encode('ascii'):
+            cache.delete(SHARE_PREVIEW_PENDING_KEY)
+    except RedisError:
+        logger.exception('Failed to clear share preview cleanup marker')
+
+
+def set_share_preview_count(count):
+    try:
+        cache.set(SHARE_PREVIEW_COUNT_KEY, count)
+    except RedisError:
+        logger.exception('Failed to calibrate share preview cache count')
+
+
+def decrement_share_preview_count():
+    try:
+        cache.decr(SHARE_PREVIEW_COUNT_KEY)
+    except RedisError:
+        logger.exception('Failed to decrement share preview cache count')
 
 
 def serialize_video_to_queue(video: VideoModel):
