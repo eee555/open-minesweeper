@@ -49,6 +49,7 @@ describe('<UserMediaView />', () => {
         cy.wait('@userMedia');
         cy.wait('@repository');
         cy.get('.base-table tbody tr a').should('have.attr', 'href', 'https://github.com/owner/project').
-            and('have.text', 'owner/project: Minesweeper client');
+            and('have.text', 'owner/project: Minesweeper client').
+            and('have.attr', 'title', 'owner/project: Minesweeper client');
     });
 });

@@ -106,7 +106,8 @@ describe('<MediaListPanel />', () => {
         cy.wait('@repository');
         cy.get('[data-cy=media-row-12] [data-cy=media-title-link]').
             should('have.attr', 'href', 'https://github.com/owner/project').
-            and('have.text', 'owner/project: Minesweeper client');
+            and('have.text', 'owner/project: Minesweeper client').
+            and('have.attr', 'title', 'owner/project: Minesweeper client');
     });
 
     it('switches the backend sort through the table headers', () => {

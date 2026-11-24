@@ -85,7 +85,8 @@ describe('<MediaSourceLink />', () => {
         mountLink('g_r', '42', true);
         cy.wait('@repository');
         cy.get('a[data-cy=source-link]').should('have.attr', 'href', repositoryUrl).
-            and('have.text', 'renamed-owner/renamed-project: Minesweeper client');
+            and('have.text', 'renamed-owner/renamed-project: Minesweeper client').
+            and('have.attr', 'title', 'renamed-owner/renamed-project: Minesweeper client');
         cy.get('@repository.all').should('have.length', 1);
     });
 

@@ -143,9 +143,13 @@
 }
 
 .media-title-control {
+    display: block;
     gap: 4px;
     min-width: 0;
-    overflow-wrap: anywhere;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .media-platform-icon {

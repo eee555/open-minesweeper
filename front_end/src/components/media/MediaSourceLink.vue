@@ -1,16 +1,16 @@
 <template>
     <span class="media-source">
-        <a v-if="url" v-bind="$attrs" class="link" :href="url" target="_blank" rel="noopener noreferrer"><template v-if="detailLabel">{{ detailLabel }}</template><slot v-else /></a>
-        <button v-else-if="format === 'g_r'" v-bind="$attrs" type="button" class="link media-text-button" :disabled="loading" :aria-busy="loading" @click="resolve">
+        <a v-if="url" v-bind="$attrs" class="link" :href="url" :title="tooltip" target="_blank" rel="noopener noreferrer"><template v-if="detailLabel">{{ detailLabel }}</template><slot v-else /></a>
+        <button v-else-if="format === 'g_r'" v-bind="$attrs" type="button" class="link media-text-button" :title="tooltip" :disabled="loading" :aria-busy="loading" @click="resolve">
             <template v-if="detailLabel">{{ detailLabel }}</template><slot v-else /><span v-if="loading"> · {{ t('local.loading') }}</span>
         </button>
-        <span v-else v-bind="$attrs"><template v-if="detailLabel">{{ detailLabel }}</template><slot v-else /></span>
+        <span v-else v-bind="$attrs" :title="tooltip"><template v-if="detailLabel">{{ detailLabel }}</template><slot v-else /></span>
         <span v-if="failed" class="text-danger text-small" role="alert"> {{ t('local.failed') }}</span>
     </span>
 </template>
 
 <script setup lang="ts">
-import { computed, onScopeDispose, ref, watch } from 'vue';
+import { computed, onScopeDispose, ref, useAttrs, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import { fetchGitHubRepositoryInfo } from '@/services/githubService';
@@ -30,6 +30,8 @@ const detailLabel = computed(() => {
     const { fullName, description } = repositoryInfo.value;
     return description ? `${fullName}: ${description}` : fullName;
 });
+const attrs = useAttrs();
+const tooltip = computed(() => detailLabel.value ?? (typeof attrs.title === 'string' ? attrs.title : undefined));
 let controller: AbortController | undefined;
 let detailController: AbortController | undefined;
 let popup: Window | null = null;
