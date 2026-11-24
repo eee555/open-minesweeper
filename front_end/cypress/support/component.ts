@@ -55,5 +55,14 @@ Cypress.on('test:before:run', () => {
     });
 });
 
+// Specs run in the same browser session; remove notifications left by a previous spec or test.
+beforeEach(() => {
+    cy.document().then((doc) => {
+        doc.querySelectorAll('.el-notification').forEach((element) => {
+            element.remove();
+        });
+    });
+});
+
 // Example use:
 // cy.mount(MyComponent)

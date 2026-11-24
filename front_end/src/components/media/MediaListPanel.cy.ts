@@ -2,6 +2,7 @@ import MediaListPanel from './MediaListPanel.vue';
 
 import $axios from '@/http';
 import i18n from '@/i18n';
+import { resetGitHubRepositoryCache } from '@/services/githubService';
 import { store } from '@/store';
 import { hashRouter, installHashHistoryCleanup } from '@cy/support/hashHistory';
 
@@ -37,6 +38,7 @@ describe('<MediaListPanel />', () => {
     installHashHistoryCleanup();
 
     beforeEach(() => {
+        resetGitHubRepositoryCache();
         cy.mockPlayerNameFallback();
         cy.intercept({ method: 'GET', pathname: '/api/media/ranking' }, { body: pageBody }).as('ranking');
         cy.intercept({ method: 'GET', pathname: '/api/media/latest' }, { body: pageBody }).as('latest');
@@ -90,6 +92,22 @@ describe('<MediaListPanel />', () => {
             and('have.attr', 'aria-label', 'GitHub').
             and('have.attr', 'style').
             and('contain', 'github.svg');
+    });
+
+    it('shows the repository owner/name and description for GitHub works', () => {
+        const githubWork = { ...mediaItem, id: 12, format: 'g_r', title: 'owner/project', suffix: '42' };
+        cy.intercept('GET', 'https://api.github.com/repositories/42', {
+            body: { id: 42, full_name: 'owner/project', description: 'Minesweeper client', html_url: 'https://github.com/owner/project' },
+        }).as('repository');
+        cy.intercept({ method: 'GET', pathname: '/api/media/ranking' }, {
+            body: { ...pageBody, items: [githubWork], total: 1 },
+        });
+        mountPanel();
+        cy.wait('@repository');
+        cy.get('[data-cy=media-row-12] [data-cy=media-title-link]').
+            should('have.attr', 'href', 'https://github.com/owner/project').
+            and('have.text', 'owner/project: Minesweeper client').
+            and('have.attr', 'title', 'owner/project: Minesweeper client');
     });
 
     it('switches the backend sort through the table headers', () => {
