@@ -72,7 +72,7 @@ def _get_share_video(video_id: int, *, metadata=False):
     return video, board
 
 
-@share_page_api.get('/{int:video_id}', include_in_schema=False)
+@share_page_api.api_operation(['GET', 'HEAD'], '/{int:video_id}', include_in_schema=False)
 @decorate_view(ratelimit(group='video-share-page', key='ip', rate='30/m', block=True), cache_control(no_cache=True))
 def video_share_page(request: HttpRequest, video_id: int):
     """
@@ -96,14 +96,14 @@ def video_share_page(request: HttpRequest, video_id: int):
     })
 
 
-@router.get(f'/share/{SHARE_PREVIEW_VERSION}/{{int:video_id}}.png', include_in_schema=False)
+@router.api_operation(['GET', 'HEAD'], f'/share/{SHARE_PREVIEW_VERSION}/{{int:video_id}}.png', include_in_schema=False)
 @decorate_view(ratelimit(group='video-share-image', key='ip', rate='60/m', block=True), cache_control(no_cache=True))
 def video_share_image(request: HttpRequest, video_id: int):
     """
     - ratelimit(group='video-share-image', key='ip', rate='60/m', block=True)
     - cache_control(no_cache=True)
 
-    Always return an empty X-Accel-Redirect response, including in DEBUG. File races may fail at Nginx.
+    GET and HEAD return an empty X-Accel-Redirect response, including in DEBUG. File races may fail at Nginx.
     """
     video, board = _get_share_video(video_id)
     try:

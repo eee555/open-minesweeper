@@ -262,6 +262,30 @@ class PreviewApiTests(TestCase):
         self.page_url = f'/video/{self.video.pk}'
         self.image_url = f'/api/video/share/v1/{self.video.pk}.png'
 
+    def test_head_probe_generates_missing_image_and_reuses_cached_file(self):
+        filename = preview_board(self.video.level, self.video.board).filename(self.video.pk)
+        path = preview_directory() / filename
+        self.assertFalse(path.exists())
+        response = self.client.head(self.image_url, HTTP_USER_AGENT='QQShareProxy')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b'')
+        self.assertEqual(response['Content-Type'], 'image/png')
+        self.assertIn('no-cache', response['Cache-Control'])
+        self.assertEqual(response['X-Accel-Redirect'], f'/internal-media/thumbnail/{filename}')
+        with Image.open(path) as image:
+            image.verify()
+        with patch('videomanager.share_preview.render_preview', side_effect=AssertionError('Cached HEAD rendered again')):
+            for method in ('head', 'get'):
+                with self.subTest(method=method):
+                    cached = getattr(self.client, method)(self.image_url)
+                    self.assertEqual(cached.status_code, 200)
+                    self.assertEqual(cached['X-Accel-Redirect'], response['X-Accel-Redirect'])
+                    self.assertEqual(cached.content, b'')
+        page = self.client.head(self.page_url)
+        self.assertEqual(page.status_code, 200)
+        self.assertEqual(page.content, b'')
+        self.assertIn('text/html', page['Content-Type'])
+
     def test_image_is_always_empty_accel_response_even_in_debug_and_never_scans(self):
         with patch('videomanager.share_preview._cached_files', side_effect=AssertionError('Request scanned directory')):
             for debug in (True, False):
@@ -307,11 +331,12 @@ class PreviewApiTests(TestCase):
             for state, ongoing in (('a', False), ('b', False), ('e', False), ('c', True), ('d', True)):
                 VideoModel.objects.filter(pk=self.video.pk).update(state=state, ongoing_tournament=ongoing)
                 for url in (self.page_url, self.image_url):
-                    with self.subTest(login=login, state=state, ongoing=ongoing, url=url):
-                        response = self.client.get(url)
-                        self.assertEqual(response.status_code, 404)
-                        self.assertNotContains(response, 'Fixture', status_code=404)
-                        self.assertNotIn('X-Accel-Redirect', response)
+                    for method in ('get', 'head'):
+                        with self.subTest(login=login, state=state, ongoing=ongoing, url=url, method=method):
+                            response = getattr(self.client, method)(url)
+                            self.assertEqual(response.status_code, 404)
+                            self.assertNotContains(response, 'Fixture', status_code=404)
+                            self.assertNotIn('X-Accel-Redirect', response)
         VideoModel.objects.filter(pk=self.video.pk).update(state='d', ongoing_tournament=False)
         self.assertEqual(self.client.get(self.image_url).status_code, 200)
 
@@ -375,9 +400,11 @@ class PreviewApiTests(TestCase):
         self.addCleanup(rate_cache.clear)
         for url, quota in ((self.page_url, 30), (self.image_url, 60)):
             with self.subTest(url=url), patch('django_ratelimit.core.time.time', return_value=1000000000):
-                for _ in range(quota):
-                    self.assertEqual(self.client.get(url, REMOTE_ADDR='192.0.2.1').status_code, 200)
-                self.assertEqual(self.client.get(url, REMOTE_ADDR='192.0.2.1').status_code, 429)
+                for index in range(quota):
+                    method = 'get' if index % 2 else 'head'
+                    self.assertEqual(getattr(self.client, method)(url, REMOTE_ADDR='192.0.2.1').status_code, 200)
+                for method in ('get', 'head'):
+                    self.assertEqual(getattr(self.client, method)(url, REMOTE_ADDR='192.0.2.1').status_code, 429)
                 self.assertEqual(self.client.get(url, REMOTE_ADDR='192.0.2.2').status_code, 200)
         with patch('django_ratelimit.core.time.time', return_value=1000000061):
             self.assertEqual(self.client.get(self.image_url, REMOTE_ADDR='192.0.2.1').status_code, 200)
