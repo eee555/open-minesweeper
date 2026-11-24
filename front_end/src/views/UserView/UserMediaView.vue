@@ -39,7 +39,7 @@
             </template>
             <tr v-for="item in items" :key="item.id">
                 <td>
-                    <MediaSourceLink :format="item.format" :suffix="item.suffix">
+                    <MediaSourceLink show-github-detail :format="item.format" :suffix="item.suffix">
                         {{ item.title || t('media.titleMissing') }}
                     </MediaSourceLink>
                 </td>

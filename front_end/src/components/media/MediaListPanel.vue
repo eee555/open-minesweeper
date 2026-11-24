@@ -56,7 +56,7 @@
                         >
                             {{ item.title || t('media.titleMissing') }}
                         </button>
-                        <MediaSourceLink v-else class="media-title-control" data-cy="media-title-link" :format="item.format" :suffix="item.suffix">{{ item.title || t('media.titleMissing') }}</MediaSourceLink>
+                        <MediaSourceLink v-else class="media-title-control" data-cy="media-title-link" show-github-detail :format="item.format" :suffix="item.suffix">{{ item.title || t('media.titleMissing') }}</MediaSourceLink>
                     </span>
                     <span v-if="item.metadata_pending" class="media-row-note text-secondary text-small">{{ t('media.titleMissing') }}</span>
                 </td>

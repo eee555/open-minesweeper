@@ -3,14 +3,19 @@ import { defineComponent, h } from 'vue';
 import MediaSourceLink from './MediaSourceLink.vue';
 
 import i18n from '@/i18n';
+import { resetGitHubRepositoryCache } from '@/services/githubService';
 
 const repositoryUrl = 'https://github.com/renamed-owner/renamed-project';
 
 describe('<MediaSourceLink />', () => {
-    function mountLink(format = 'g_r', suffix = '42') {
+    beforeEach(() => {
+        resetGitHubRepositoryCache();
+    });
+
+    function mountLink(format = 'g_r', suffix = '42', showGithubDetail = false) {
         cy.mount(defineComponent({
             expose: [],
-            render: () => h(MediaSourceLink, { format, suffix, 'data-cy': 'source-link' }, { default: () => 'Repository' }),
+            render: () => h(MediaSourceLink, { format, suffix, showGithubDetail, 'data-cy': 'source-link' }, { default: () => 'Repository' }),
         }), {
             global: { plugins: [i18n] },
         });
@@ -71,5 +76,44 @@ describe('<MediaSourceLink />', () => {
         cy.wait('@repository');
         cy.get('a[data-cy=source-link]').should('have.attr', 'href', repositoryUrl);
         cy.get('[role=alert]').should('not.exist');
+    });
+
+    it('shows the owner/repo and description when detail display is enabled', () => {
+        cy.intercept('GET', 'https://api.github.com/repositories/42', {
+            body: { id: 42, full_name: 'renamed-owner/renamed-project', description: 'Minesweeper client', html_url: repositoryUrl },
+        }).as('repository');
+        mountLink('g_r', '42', true);
+        cy.wait('@repository');
+        cy.get('a[data-cy=source-link]').should('have.attr', 'href', repositoryUrl).
+            and('have.text', 'renamed-owner/renamed-project: Minesweeper client');
+        cy.get('@repository.all').should('have.length', 1);
+    });
+
+    it('shows only the repo name when the description is empty', () => {
+        cy.intercept('GET', 'https://api.github.com/repositories/42', {
+            body: { id: 42, full_name: 'renamed-owner/renamed-project', description: '', html_url: repositoryUrl },
+        }).as('repository');
+        mountLink('g_r', '42', true);
+        cy.wait('@repository');
+        cy.get('a[data-cy=source-link]').should('have.text', 'renamed-owner/renamed-project');
+    });
+
+    it('falls back to the provided title and allows retry when detail loading fails', () => {
+        let attempts = 0;
+        cy.intercept('GET', 'https://api.github.com/repositories/42', (request) => {
+            attempts++;
+            request.reply(attempts === 1 ? { statusCode: 403 } : {
+                body: { id: 42, full_name: 'renamed-owner/renamed-project', description: 'Ready', html_url: repositoryUrl },
+            });
+        }).as('repository');
+        cy.window().then((win) => {
+            cy.stub(win, 'open').returns(null);
+        });
+        mountLink('g_r', '42', true);
+        cy.wait('@repository');
+        cy.get('[data-cy=source-link]').should('have.prop', 'tagName', 'BUTTON').and('have.text', 'Repository');
+        cy.get('[data-cy=source-link]').click();
+        cy.wait('@repository');
+        cy.get('a[data-cy=source-link]').should('have.text', 'renamed-owner/renamed-project: Ready');
     });
 });

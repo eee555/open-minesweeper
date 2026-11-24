@@ -145,6 +145,7 @@
 .media-title-control {
     gap: 4px;
     min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .media-platform-icon {
