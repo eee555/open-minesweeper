@@ -1,11 +1,14 @@
+from functools import partial
 import logging
 
+from django.db import transaction
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
 from config.text_choices import MS_TextChoices
-from .cache import newest_cache
+from .cache import decrement_share_preview_count, newest_cache
 from .models import ExpandVideoModel, VideoModel
+from .share_preview import delete_preview
 
 logger = logging.getLogger('videomanager')
 
@@ -122,3 +125,15 @@ def delete_video_expansion(sender, instance: VideoModel, using, origin, **kwargs
     if isinstance(origin, ExpandVideoModel) or getattr(origin, 'model', None) is ExpandVideoModel:
         return
     ExpandVideoModel.objects.using(using).filter(pk=instance.video_id).delete()
+
+
+def _delete_share_preview(video_id, level, bitmap):
+    if delete_preview(video_id, level, bitmap):
+        decrement_share_preview_count()
+
+
+@receiver(post_delete, sender=VideoModel, dispatch_uid='videomanager.delete_share_preview')
+def delete_video_share_preview(sender, instance: VideoModel, using, **kwargs):
+    if {'board', 'level'} & instance.get_deferred_fields() or instance.board is None:
+        return
+    transaction.on_commit(partial(_delete_share_preview, instance.pk, instance.level, bytes(instance.board)), using=using, robust=True)

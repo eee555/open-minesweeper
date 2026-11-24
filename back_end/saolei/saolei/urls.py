@@ -23,6 +23,7 @@ from django.http import FileResponse
 from django.urls import include, path
 from django.views.generic import TemplateView
 
+from videomanager.api import share_page_api
 from . import api
 
 
@@ -36,6 +37,7 @@ def serve_robots_txt(request):
 urlpatterns = [
     path('api/', api.api.urls),
     path('video/', include('videomanager.urls')),
+    path('video/', share_page_api.urls),
     path('userprofile/', include('userprofile.urls', namespace='userprofile')),
     path('admin/', admin.site.urls),
     # path('gsc/', include('gsc.urls')),
