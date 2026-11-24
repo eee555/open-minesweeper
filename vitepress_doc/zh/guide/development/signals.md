@@ -11,6 +11,8 @@ description: 开源扫雷网后端Django信号触发关系详解，包括录像�
 
 接收器只注册 `transaction.on_commit(..., robust=True)`，回调只写入现有 Tasks 队列。回滚不入队，提交后入队失败不改变 API 成功结果，也不回退为同步发信。收件人查询、源对象复查、模板构造、额度锁与 SMTP 均在独立 worker 中执行。
 
+worker 使用收件人当前的 `UserProfile.language`（默认英文，可设简体中文或西班牙语），生成同一语言的主题、纯文本与 HTML 正文。任务参数不保存语言，排队期间修改偏好会在发送时生效；不再使用 `multipart/multilingual`。
+
 worker 跳过已处理或删除的对象，以及已退订、失去管理资格或无可用邮箱的用户。自动完成验证的关联不会发信；如果先创建未验证行后在同一事务验证，任务复查时也会跳过。每位接收人只尝试一次，失败记日志后继续下一位，不自动重试或补发。通知随全站邮件开关 `EMAIL_SKIP` 启用，`E2E_TEST` 为真时同样跳过。
 
 `QuerySet.update()`、`bulk_create()` 与 `bulk_update()` 不触发保存信号。当前进入 `FROZEN` / `PLAIN` 的写入走实例保存；新增批量入口时需显式发布等价通知，不能假定信号会覆盖。

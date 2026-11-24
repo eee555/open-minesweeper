@@ -19,7 +19,8 @@ from msuser.models import UserMS
 from userprofile.models import EmailSentQuota, UserProfile
 from userprofile.utils import EmailNotificationType
 from videomanager.models import ExpandVideoModel, VideoModel
-from .email_notifications.mail import MultilingualNotificationEmail
+from .email_notifications.mail import NotificationEmail
+from .email_notifications.messages import MESSAGES
 from .email_notifications.tasks import enqueue_notification, task_send_staff_notification
 
 TASK = 'common.email_notifications.tasks.task_send_staff_notification'
@@ -62,7 +63,7 @@ class StaffEmailNotificationTests(TestCase):
 
     def test_request_enqueues_without_rendering_reserving_or_sending(self):
         self.client.force_login(self.owner)
-        with patch('common.email_notifications.tasks.MultilingualNotificationEmail') as message, patch('common.email_notifications.tasks.send_budgeted_email') as send:
+        with patch('common.email_notifications.tasks.NotificationEmail') as message, patch('common.email_notifications.tasks.send_budgeted_email') as send:
             with self.captureOnCommitCallbacks(execute=True):
                 response = self.client.post('/api/accountlink/create/', {'platform': Platform.QQ, 'identifier': '123456789'})
             self.assertEqual(response.status_code, 200, response.content)
@@ -128,7 +129,7 @@ class StaffEmailNotificationTests(TestCase):
             self.assertEqual(task_send_staff_notification.call('staff_account_link_review', [link.pk]), 0)
         send.assert_not_called()
 
-    def test_each_of_the_five_types_sends_multilingual_mail(self):
+    def test_each_of_the_five_types_sends_mail(self):
         with self.captureOnCommitCallbacks(execute=False):
             media = self.media()
             frozen = self.video(MS_TextChoices.State.FROZEN)
@@ -181,22 +182,38 @@ class StaffEmailNotificationTests(TestCase):
             self.assertEqual(task_send_staff_notification.call('staff_media_review', [1]), 0)
         queued.assert_not_called()
 
-    def test_mime_structure_and_language_headers_survive_serialization(self):
-        message = MultilingualNotificationEmail(EmailNotificationType.STAFF_MEDIA_REVIEW, [42], '/staff/media', self.staff)
-        parsed = BytesParser(policy=policy.default).parsebytes(message.message(policy=policy.SMTP).as_bytes())
-        self.assertEqual(parsed.get_content_type(), 'multipart/multilingual')
-        parts = list(parsed.iter_parts())
-        self.assertEqual(len(parts), 4)
-        self.assertEqual(parts[0].get_content_type(), 'text/plain')
-        self.assertIsNone(parts[0]['Content-Language'])
-        self.assertIn('中文', parts[0].get_content())
-        self.assertIn('español', parts[0].get_content().lower())
-        for part, language in zip(parts[1:], ('zh-CN', 'en', 'es'), strict=True):
-            self.assertEqual(part.get_content_type(), 'message/rfc822')
-            self.assertEqual(part['Content-Language'], language)
-            content = part.get_payload(0)
-            self.assertEqual(content['From'], parsed['From'])
-            self.assertTrue(content['Subject'])
-            self.assertEqual(content.get_content_type(), 'multipart/alternative')
-            self.assertEqual([body.get_content_type() for body in content.iter_parts()], ['text/plain', 'text/html'])
-            self.assertIn(f'/#/player/{self.staff.pk}/settings', content.get_body(preferencelist=('html',)).get_content())
+    def test_worker_uses_each_recipients_current_saved_language(self):
+        second = self.user('mail-staff-es', is_staff=True, email_notification_mask=31, language='es')
+        third = self.user('mail-staff-en', is_staff=True, email_notification_mask=31)
+        with self.captureOnCommitCallbacks(execute=False):
+            media = self.media()
+        self.client.force_login(self.staff)
+        self.assertEqual(self.client.patch('/api/userprofile/email-notifications', {'language': 'zh-cn'}, content_type='application/json').status_code, 200)
+        self.assertEqual(task_send_staff_notification.call('staff_media_review', [media.pk]), 3)
+        self.assertEqual([message.to for message in mail.outbox], [[self.staff.email], [second.email], [third.email]])
+        self.assertEqual([message.subject for message in mail.outbox], ['作品待审核', 'Obra pendiente de revisión', 'Media awaiting review'])
+        self.assertEqual(EmailSentQuota.objects.get().count, 3)
+
+    def test_single_language_text_and_html_survive_serialization(self):
+        for language, text in MESSAGES.items():
+            for kind in EmailNotificationType:
+                with self.subTest(language=language, kind=kind):
+                    self.staff.language = language
+                    message = NotificationEmail(kind, [42], '/staff/media', self.staff)
+                    parsed = BytesParser(policy=policy.default).parsebytes(message.message(policy=policy.SMTP).as_bytes())
+                    self.assertEqual(parsed.get_content_type(), 'multipart/alternative')
+                    self.assertEqual(parsed['Content-Language'], language)
+                    self.assertEqual(parsed['Subject'], text[kind])
+                    self.assertEqual(parsed['To'], self.staff.email)
+                    self.assertEqual(parsed['From'], 'mail@example.com')
+                    self.assertEqual([part.get_content_type() for part in parsed.iter_parts()], ['text/plain', 'text/html'])
+                    for part in parsed.iter_parts():
+                        body = part.get_content()
+                        self.assertIn(text[kind], body)
+                        self.assertIn('#42', body)
+                        self.assertIn('/#/staff/media', body)
+                        self.assertIn(f'/#/player/{self.staff.pk}/settings', body)
+                        for other_language, other_text in MESSAGES.items():
+                            if other_language != language:
+                                self.assertNotIn(other_text[kind], body)
+                    self.assertIn(f'lang="{language}"', parsed.get_body(preferencelist=('html',)).get_content())

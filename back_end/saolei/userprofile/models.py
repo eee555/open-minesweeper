@@ -10,7 +10,7 @@ from django_cleanup import cleanup
 from config.global_settings import DefaultChances, MaxSizes
 from msuser.models import UserMS
 from .fields import RestrictedImageField
-from .utils import HIDDEN_NAME
+from .utils import HIDDEN_NAME, UserLanguage
 
 username_validator = UnicodeUsernameValidator()
 
@@ -27,6 +27,7 @@ class UserProfile(AbstractUser):
     # 当前有效的玩家认证结果。不表示已实名，也不表示管理身份。
     verified = models.BooleanField(default=False)
     email_notification_mask = models.PositiveIntegerField(default=0)
+    language = models.CharField(max_length=5, choices=[(language.value, language.value) for language in UserLanguage], default=UserLanguage.EN)
 
     username = models.CharField(
         _('username'),

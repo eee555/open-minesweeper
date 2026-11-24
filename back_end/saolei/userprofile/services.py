@@ -17,7 +17,7 @@ from videomanager.models import VideoModel
 from .forms import UserRegisterForm
 from .mail import send_budgeted_email
 from .models import EmailVerifyRecord, UserProfile
-from .utils import count_new_avatar_chance, count_new_signature_chance, EMAIL_NOTIFICATION_FLAGS, EmailNotificationType, NAME_FIELDS, validate_name
+from .utils import count_new_avatar_chance, count_new_signature_chance, EMAIL_NOTIFICATION_FLAGS, EmailNotificationType, NAME_FIELDS, UserLanguage, validate_name
 
 logger = logging.getLogger('userprofile')
 
@@ -282,19 +282,26 @@ def user_metadata(user: UserProfile, client):
     }
     if client == user:
         data['email_notification_mask'] = user.email_notification_mask
+        data['language'] = user.language
     return data
 
 
 @transaction.atomic
-def update_email_notifications(user_id: int, changes: dict[EmailNotificationType, bool]) -> UserProfile:
+def update_email_notifications(user_id: int, changes: dict[EmailNotificationType, bool], language: UserLanguage | None = None) -> UserProfile:
     user = UserProfile.objects.select_for_update().get(pk=user_id)
     mask = user.email_notification_mask
     for notification_type, enabled in changes.items():
         flag = EMAIL_NOTIFICATION_FLAGS[notification_type]
         mask = mask | flag if enabled else mask & ~flag
+    update_fields = []
     if user.email_notification_mask != mask:
         user.email_notification_mask = mask
-        user.save(update_fields=['email_notification_mask', 'date_updated'])
+        update_fields.append('email_notification_mask')
+    if language is not None and user.language != language:
+        user.language = language
+        update_fields.append('language')
+    if update_fields:
+        user.save(update_fields=[*update_fields, 'date_updated'])
     return user
 
 

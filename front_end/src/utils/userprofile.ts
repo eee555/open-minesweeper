@@ -1,6 +1,10 @@
 import { VideoAbstract } from './videoabstract';
 import type { VideoAbstractData } from './videoabstract';
 
+import type { offlineLanguages } from '@/i18n/language';
+
+export type UserLanguage = typeof offlineLanguages[number]['lang'];
+
 export const HIDDEN_NAME = 'hidden';
 
 export function hasRealname(value: string): boolean {
@@ -24,6 +28,7 @@ export interface UserProfileData {
     is_memorial?: boolean;
     verified?: boolean;
     email_notification_mask?: number;
+    language?: UserLanguage;
     country?: string;
     signature?: string;
     last_change_avatar?: string | Date | null;
@@ -47,6 +52,7 @@ export class UserProfile {
     public is_memorial = false;
     public verified = false;
     public email_notification_mask = 0;
+    public language: UserLanguage = 'en';
     public country = '';
     public signature = '';
     public last_change_avatar: Date = new Date();
@@ -76,6 +82,7 @@ export class UserProfile {
         this.is_memorial = data.is_memorial ?? false;
         this.verified = data.verified ?? false;
         this.email_notification_mask = data.email_notification_mask ?? 0;
+        this.language = data.language ?? 'en';
         this.country = data.country ?? '';
         this.signature = data.signature ?? '';
 

@@ -1,4 +1,5 @@
 import $axios from '@/http';
+import type { UserLanguage } from '@/utils/userprofile';
 
 export const emailNotificationTypes = [
     { type: 'staff_media_review', flag: 1 },
@@ -14,7 +15,17 @@ export interface EmailNotificationChange {
     enabled: boolean;
 }
 
-export async function saveEmailNotifications(changes: EmailNotificationChange[]): Promise<number> {
-    const { data } = await $axios.patch<{ email_notification_mask: number }>('/api/userprofile/email-notifications', { changes }, { headers: { 'Content-Type': 'application/json' } });
-    return data.email_notification_mask;
+export interface EmailNotificationChanges {
+    changes?: EmailNotificationChange[];
+    language?: UserLanguage;
+}
+
+export interface EmailNotificationSettings {
+    email_notification_mask: number;
+    language: UserLanguage;
+}
+
+export async function saveEmailNotifications(settings: EmailNotificationChanges): Promise<EmailNotificationSettings> {
+    const { data } = await $axios.patch<EmailNotificationSettings>('/api/userprofile/email-notifications', settings, { headers: { 'Content-Type': 'application/json' } });
+    return data;
 }

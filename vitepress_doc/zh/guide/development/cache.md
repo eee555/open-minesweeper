@@ -11,7 +11,7 @@ description: 开源扫雷网Redis/Django缓存结构详解，包括录像队列�
 
 并发首次创建先单独提交唯一主键插入，避免 MySQL 重复键共享锁与随后行锁升级产生死锁；随后在独立事务中锁行，重新读取日期、检查限额并加一，提交后才连接 SMTP。失败或超时不退额，同日重启不清零。首次部署应先同步平台当日已用量，之后不重复初始化。
 
-订阅位保存在 `UserProfile.email_notification_mask`，只随本人登录及资料响应返回，不进入公开用户缓存。通知复用现有 Django Tasks 数据库队列，没有通知项或摘要表，也不使用 Redis 待发缓存。
+订阅位保存在 `UserProfile.email_notification_mask`，通知语言保存在 `UserProfile.language`（`zh-cn`、`en`、`es`，默认 `en`）。两者只随本人登录及资料响应返回，不进入公开用户缓存；可分别修改，保存时锁定用户行，仅更新提供的偏好。通知复用现有 Django Tasks 数据库队列，没有通知项或摘要表，也不使用 Redis 待发缓存。
 
 ## QQ 登录临时状态
 
