@@ -235,20 +235,20 @@ describe('HomeView components', () => {
         mountHomeView();
 
         cy.wait('@normalTournaments').its('request.query').should('deep.equal', { category: 'normal' });
-        cy.get('.normal-tournament-card .el-card__header .el-link').first().should('have.attr', 'href', '/#/tournament');
-        cy.contains('.normal-tournament-name .el-link', 'Upcoming Cup').
+        cy.get('.normal-tournament-card .card-title a').should('have.attr', 'href', '/#/tournament');
+        cy.contains('.normal-tournament-name a', 'Upcoming Cup').
             should('be.visible').
             and('have.attr', 'href', '/#/tournament/401');
-        cy.contains('.normal-tournament-name .el-link', 'Ongoing Cup').
+        cy.contains('.normal-tournament-name a', 'Ongoing Cup').
             should('be.visible').
             and('have.attr', 'href', '/#/tournament/402');
-        cy.contains('.normal-tournament-name .el-link', 'Finished Cup').
+        cy.contains('.normal-tournament-name a', 'Finished Cup').
             should('be.visible').
             and('have.attr', 'href', '/#/tournament/403');
         cy.contains('.normal-tournament-card .text-warning', 'starts in 2d 03:04:05').should('be.visible');
         cy.contains('.normal-tournament-card .text-danger', 'ends in 03:04:05').should('be.visible');
         cy.contains('.normal-tournament-card .text-success', 'ended 02:03:04 ago').should('be.visible');
-        cy.get('.normal-tournament-card .el-card__header .el-link').eq(1).click();
+        cy.get('[data-cy=refresh-normal-tournaments]').click();
         cy.wait('@normalTournaments').its('request.query').should('deep.equal', { category: 'normal' });
     });
 

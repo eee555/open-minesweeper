@@ -1,22 +1,20 @@
-<!-- eslint-disable vue/no-restricted-html-elements -->
 <template>
-    <ElCard v-loading="loading" class="normal-tournament-card" shadow="never">
-        <template #header>
-            <ElLink :underline="false" href="/#/tournament">
+    <section v-loading="loading" class="card normal-tournament-card">
+        <header class="card-title normal-tournament-heading">
+            <a class="link link--no-underline text-regular" href="/#/tournament">
                 {{ t('local.title') }}
-            </ElLink>
-            &nbsp;
-            <ElLink :underline="false" :disabled="loading" @click="refresh">
-                <BaseIconRefresh />
-            </ElLink>
-        </template>
+            </a>
+            <BaseTextButton size="small" :disabled="loading" :aria-label="t('action.refresh')" data-cy="refresh-normal-tournaments" @click="refresh">
+                <BaseIconRefresh :loading="loading" />
+            </BaseTextButton>
+        </header>
         <table v-if="tournaments.length > 0" class="normal-tournament-table">
             <tbody>
                 <tr v-for="(tournament, index) in tournaments" :key="tournament.id">
                     <td class="normal-tournament-name">
-                        <ElLink :underline="false" :href="`/#/tournament/${tournament.id}`">
+                        <a class="link link--no-underline text-regular" :href="`/#/tournament/${tournament.id}`">
                             {{ tournament.getLocalName(local.language) }}
-                        </ElLink>
+                        </a>
                     </td>
                     <td>
                         <span v-if="states[index] === TournamentState.Preparing" class="text-warning">
@@ -35,14 +33,17 @@
         <div v-else class="text-info">
             {{ t('local.empty') }}
         </div>
-    </ElCard>
+    </section>
 </template>
 
 <script setup lang="ts">
-import { ElCard, ElLink, vLoading } from 'element-plus';
+import '@/styles/cards.css';
+import '@/styles/link.css';
+import { vLoading } from 'element-plus';
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
+import BaseTextButton from '@/components/common/BaseTextButton.vue';
 import { BaseIconRefresh } from '@/components/common/icon';
 import { fetchTournamentList } from '@/services/tournamentService';
 import { local } from '@/store';
@@ -103,6 +104,13 @@ const { t } = useI18n({ messages: i18nMessages });
 <style scoped>
 .normal-tournament-card {
     height: 100%;
+}
+
+.normal-tournament-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
 }
 
 .normal-tournament-table {

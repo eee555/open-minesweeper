@@ -6,11 +6,11 @@ import type { VideoActionStateRecorder } from 'ms-toollib';
 
 import { ANALYSIS_CHUNK_SIZE, AnalysisCancelled, createSubReporter } from './analysisProgress';
 import type { ProgressReport } from './analysisProgress';
-import { createDifferenceEvaluator } from './counterDifference';
+import { createSampleEvaluator } from './counterSampling';
 import type { ReplayVideo } from './replayParser';
 
 export const counterStaticVariables = ['row', 'column', 'mine_num', 'pix_size', 'bbbv', 'op', 'isl', 'cell0', 'cell1', 'cell2', 'cell3', 'cell4', 'cell5', 'cell6', 'cell7', 'cell8', 'zini', 'hzini', 'rtime', 'level', 'mode'] as const;
-export const counterVariables = ['time', 'path', 'c_path', 'e_path', 'bbbv_solved', 'bbbv_solved_left', 'bbbv_solved_chord', 'left', 'right', 'double', 'lce', 'rce', 'dce', 'flag', 'op_solved', 'isl_solved', 'mouse_state', 'pluck', 'luck', 'expected_bbbv_solved_per_attempt', 'expected_bbbv_solved_per_win', 'expected_time_per_attempt', 'expected_time_per_win', ...counterStaticVariables] as const;
+export const counterVariables = ['time', 'x', 'y', 'path', 'c_path', 'e_path', 'bbbv_solved', 'bbbv_solved_left', 'bbbv_solved_chord', 'left', 'right', 'double', 'lce', 'rce', 'dce', 'flag', 'op_solved', 'isl_solved', 'mouse_state', 'pluck', 'luck', 'expected_bbbv_solved_per_attempt', 'expected_bbbv_solved_per_win', 'expected_time_per_attempt', 'expected_time_per_win', ...counterStaticVariables] as const;
 export type CounterValues = Record<typeof counterVariables[number], number>;
 export const samplingModes = ['continuous', 'button', 'board'] as const;
 export type SamplingMode = typeof samplingModes[number];
@@ -49,9 +49,11 @@ export interface PreparedCounter {
 }
 
 const parser = new Parser({ operators: { assignment: false } });
-(parser.functions as Record<string, () => never>).d = () => {
-    throw new Error('d requires a direct call in a sampling context');
-};
+for (const name of ['d', 's']) {
+    (parser.functions as Record<string, () => never>)[name] = () => {
+        throw new Error(`${name} requires a direct call in a sampling context`);
+    };
+}
 const byTime = bisector<CounterSample, number>((sample) => sample.timeMs);
 const buttonActions = new Set(['lc', 'lr', 'rc', 'rr', 'mc', 'mr', 'cc', 'cr']);
 
@@ -175,7 +177,7 @@ export function moveCounterRow(rows: CounterRow[], key: string, offset: number):
     return result;
 }
 
-function readCounterEvent(record: VideoActionStateRecorder, eventIndex: number, staticValues: Pick<CounterValues, typeof counterStaticVariables[number]>, startTime: number): CounterEvent {
+function readCounterEvent(record: VideoActionStateRecorder, eventIndex: number, staticValues: Pick<CounterValues, typeof counterStaticVariables[number]>, startTime: number, cursor: Pick<CounterValues, 'x' | 'y'>): CounterEvent {
     const params = record.key_dynamic_params;
     const { event } = record;
     try {
@@ -184,6 +186,8 @@ function readCounterEvent(record: VideoActionStateRecorder, eventIndex: number, 
             const mouse = event.unwrap_mouse();
             try {
                 button = buttonActions.has(mouse.mouse);
+                cursor.x = mouse.x;
+                cursor.y = mouse.y;
             } finally {
                 mouse.free();
             }
@@ -203,6 +207,8 @@ function readCounterEvent(record: VideoActionStateRecorder, eventIndex: number, 
                     values: {
                         ...staticValues,
                         time: record.time,
+                        x: cursor.x,
+                        y: cursor.y,
                         path: record.path,
                         c_path: record.c_path,
                         e_path: record.e_path,
@@ -243,8 +249,9 @@ export function readCounterEvents(video: ReplayVideo): CounterEvent[] {
     const staticValues = Object.fromEntries(counterStaticVariables.map((key) => [key, video[key]])) as Pick<CounterValues, typeof counterStaticVariables[number]>;
     const records = video.events as VideoActionStateRecorder[];
     const startTime = video.video_start_time;
+    const cursor = { x: NaN, y: NaN };
     try {
-        return records.map((record, eventIndex) => readCounterEvent(record, eventIndex, staticValues, startTime));
+        return records.map((record, eventIndex) => readCounterEvent(record, eventIndex, staticValues, startTime, cursor));
     } finally {
         for (const record of records) record.free();
     }
@@ -255,9 +262,10 @@ export async function readCounterEventsAsync(video: ReplayVideo, report: Progres
     const records = video.events as VideoActionStateRecorder[];
     const startTime = video.video_start_time;
     const events: CounterEvent[] = [];
+    const cursor = { x: NaN, y: NaN };
     try {
         for (let eventIndex = 0; eventIndex < records.length; eventIndex++) {
-            events.push(readCounterEvent(records[eventIndex], eventIndex, staticValues, startTime));
+            events.push(readCounterEvent(records[eventIndex], eventIndex, staticValues, startTime, cursor));
             if ((eventIndex + 1) % ANALYSIS_CHUNK_SIZE === 0) await report(eventIndex + 1, records.length);
         }
         await report(records.length, records.length);
@@ -276,7 +284,7 @@ export async function selectCounterEventsAsync(events: CounterEvent[], samplingM
 }
 
 export function createCounterEvaluator(expression: Expression, events: CounterEvent[]): (index: number) => unknown {
-    return createDifferenceEvaluator(parser, expression, events.map((event) => event.values));
+    return createSampleEvaluator(parser, expression, events.map((event) => event.values));
 }
 
 export function prepareCounter(row: CounterRow, events: CounterEvent[], durationMs?: number): PreparedCounter {

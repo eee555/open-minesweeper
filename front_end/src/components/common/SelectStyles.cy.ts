@@ -1,16 +1,11 @@
 import '@/styles/vendors/element-plus-select.css';
-import '@/styles/vendors/primevue-table.css';
 
-import Aura from '@primeuix/themes/aura';
 import { ElOption, ElPagination, ElSelect } from 'element-plus';
-import PrColumn from 'primevue/column';
-import PrimeVue from 'primevue/config';
-import PrDataTable from 'primevue/datatable';
 import { defineComponent, h, ref } from 'vue';
 import type { VNode } from 'vue';
 
 function mountControls(render: () => VNode) {
-    cy.mount(defineComponent({ expose: [], render }), { global: { plugins: [[PrimeVue, { theme: { preset: Aura, options: { darkModeSelector: '.dark' } } }]] } });
+    cy.mount(defineComponent({ expose: [], render }));
 }
 
 function matchesNative(control: string) {
@@ -93,9 +88,8 @@ describe('retained Select styles and interactions', () => {
         });
     }
 
-    it('keeps both paginator page-size menus usable and themes the teleported PrimeVue menu', () => {
+    it('keeps the Element Plus paginator page-size menu usable and themes its teleported menu', () => {
         const elRows = ref(10);
-        const primeRows = ref(10);
         mountControls(() => h('div', [
             h('select', { class: 'base-select', 'data-cy': 'native-select', 'aria-label': 'Native reference' }, [h('option', 'Native')]),
             h('div', { 'data-cy': 'overlay-reference', style: { backgroundColor: 'var(--ui-select-overlay-background)', color: 'var(--ui-select-color)' } }, 'Overlay reference'),
@@ -106,44 +100,22 @@ describe('retained Select styles and interactions', () => {
                 },
                 pageSizes: [10, 20],
                 layout: 'sizes, prev, pager, next' }),
-            h(PrDataTable, { value: Array.from({ length: 25 }, (_, id) => ({ id })),
-                paginator: true,
-                rows: primeRows.value,
-                'onUpdate:rows': (value: number) => {
-                    primeRows.value = value;
-                },
-                rowsPerPageOptions: [10, 20] }, {
-                default: () => h(PrColumn, { field: 'id', header: 'ID' }),
-            }),
         ]));
         matchesNative('.el-pagination .el-select__wrapper');
-        matchesNative('.p-paginator-rpp-dropdown');
-        // Test native keyboard focus before pointer selection queues PrimeVue's delayed blur.
-        cy.get('.p-datatable-tbody tr').should('have.length', 10);
-        cy.get('.p-paginator-rpp-dropdown [role=combobox]').realClick();
-        cy.document().invoke('hasFocus').should('be.true');
-        cy.get('.p-paginator-rpp-dropdown [role=combobox]').should('be.focused').and('have.attr', 'aria-expanded', 'true');
-        cy.realPress('End');
-        cy.contains('.p-select-overlay [role=option]', /^20$/).then(($option) => {
-            cy.get('.p-paginator-rpp-dropdown [role=combobox]').should('have.attr', 'aria-activedescendant', $option[0].id);
-        });
-        cy.realPress('Enter');
-        cy.get('.p-datatable-tbody tr').should('have.length', 20);
-        cy.shouldBeAbsentOrHidden('.p-select-overlay');
-
         cy.get('.el-pagination .el-select').click();
-        cy.contains('.el-select-dropdown__item:visible', '20').click();
-        cy.then(() => expect(elRows.value).to.equal(20));
-        cy.get('.p-paginator-rpp-dropdown').click();
-        cy.get('.p-select-overlay').should('be.visible').and('have.css', 'border-radius', '0px');
+        cy.get('.el-select__popper:visible').should('have.css', 'border-radius', '0px');
         for (const dark of [false, true]) {
             cy.document().then((document) => document.documentElement.classList.toggle('dark', dark));
             cy.get('[data-cy=overlay-reference]').then(($reference) => {
                 const expected = getComputedStyle($reference[0]);
-                cy.get('.p-select-overlay').should('have.css', 'background-color', expected.backgroundColor).and('have.css', 'color', expected.color);
+                cy.get('.el-select__popper:visible').should('have.css', 'background-color', expected.backgroundColor).and('have.css', 'color', expected.color);
             });
         }
-        cy.contains('.p-select-overlay .p-select-option', /^10$/).click();
-        cy.get('.p-datatable-tbody tr').should('have.length', 10);
+        cy.contains('.el-select-dropdown__item:visible', '20').click();
+        cy.then(() => expect(elRows.value).to.equal(20));
+        cy.shouldBeAbsentOrHidden('.el-select__popper');
+        cy.get('.el-pagination .el-select').click();
+        cy.contains('.el-select-dropdown__item:visible', '10').click();
+        cy.then(() => expect(elRows.value).to.equal(10));
     });
 });

@@ -7,7 +7,7 @@ from unittest.mock import patch
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import transaction
-from django.test import TestCase
+from django.test import override_settings, TestCase
 from django.utils import timezone
 from django_tasks_db.models import DBTaskResult
 from redis.exceptions import ConnectionError as RedisConnectionError
@@ -68,6 +68,7 @@ class MediaServiceTests(TestCase):
             self._create_media()
         self.assertEqual(caught.exception.status_code, 409)
 
+    @override_settings(EMAIL_SKIP=True)
     def test_create_waits_for_outer_commit_before_syncing_cache(self):
         with patch('media.services.sync_media_scores') as sync:
             with self.captureOnCommitCallbacks(execute=True) as callbacks:
@@ -77,6 +78,7 @@ class MediaServiceTests(TestCase):
             self.assertEqual(len(callbacks), 1)
             sync.assert_called_once_with(media.pk, self.user.pk)
 
+    @override_settings(EMAIL_SKIP=True)
     def test_create_rollback_discards_cache_sync(self):
         with patch('media.services.sync_media_scores') as sync:
             with self.captureOnCommitCallbacks(execute=True) as callbacks:

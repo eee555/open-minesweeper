@@ -45,16 +45,23 @@
             {{ t('local.unfreezeVideo') }}
         </BaseButton>
     </form>
-    <ElDescriptions :title="t('local.videoModel')" data-cy="video-detail">
-        <ElDescriptionsItem v-for="(value, field) in videomodel" :key="field" :label="videoFieldLabel(field)">
-            {{ value }}
-        </ElDescriptionsItem>
-    </ElDescriptions>
+    <section class="description-layout" data-cy="video-detail">
+        <h3 class="description-title">
+            {{ t('local.videoModel') }}
+        </h3>
+        <dl class="descriptions">
+            <div v-for="(value, field) in videomodel" :key="field" class="description-item">
+                <dt>{{ videoFieldLabel(field) }}</dt>
+                <dd>{{ value }}</dd>
+            </div>
+        </dl>
+    </section>
 </template>
 
 <script lang="ts" setup>
+import '@/styles/descriptions.css';
 import type { AxiosResponse } from 'axios';
-import { ElDescriptions, ElDescriptionsItem, ElInput, ElInputNumber } from 'element-plus';
+import { ElInput, ElInputNumber } from 'element-plus';
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 

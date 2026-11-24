@@ -206,6 +206,33 @@ describe('<CounterPanel />', () => {
         cy.get('@update').should('have.been.calledOnceWithExactly', { ...config, rows: [config.rows[0], { ...config.rows[1], expression: 'path' }] });
     });
 
+    it('deletes the selected stable key, closes its menu and allows deleting the last counter', () => {
+        const config = singleCounterConfig();
+        config.rows = ['a', 'b', 'c'].map((key) => ({ ...config.rows[0], key }));
+        mountCounter(config, ['First']).then(({ state }) => {
+            cy.then(() => {
+                state.config.value.timeline.slots[0].push({ key: 'b', color: '#4e79a7' });
+            });
+            openRowMenu('b');
+            cy.get('.video-analyzer-counter__delete:visible').should('have.text', 'Delete').click();
+            cy.get('.video-analyzer-counter__menu:visible').should('not.exist');
+            cy.get('@update').should('have.been.calledOnceWithExactly', { ...config, rows: [config.rows[0], config.rows[2]] });
+            cy.get('.video-analyzer-counter tr').should('have.length', 2);
+            cy.then(() => {
+                expect(state.preparedCounters.value.has('b')).to.eq(false);
+                expect(state.config.value.timeline.slots[0]).to.deep.eq([{ key: 'b', color: '#4e79a7' }]);
+                expect(config.rows.map((row) => row.key)).to.deep.eq(['a', 'b', 'c']);
+            });
+            for (const key of ['a', 'c']) {
+                openRowMenu(key);
+                cy.get('.video-analyzer-counter__delete:visible').click();
+            }
+            cy.get('.video-analyzer-counter tr').should('not.exist');
+            cy.get('.video-analyzer-counter__actions').should('be.visible');
+            cy.get('@update').should('have.been.calledThrice').and('have.been.calledWithExactly', { ...config, rows: [] });
+        });
+    });
+
     it('copies only ordered configuration, not live values or replay state', () => {
         mountCounter();
         cy.window().then((win) => {

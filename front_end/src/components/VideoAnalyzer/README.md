@@ -56,7 +56,7 @@ const exporting = ref(false);
 - `useReplayPosition` 是可见录像的唯一定位入口，关键帧保留“先时间、后索引、前置局面”的 workaround；上游同步接口修复前，不在图层、计数器或 plot 中另行定位。
 - `useAnalysisData` 串行生成鼠标轨迹、计数器事件、计数器采样和自定义事件，分块上报进度弹窗；配置中的表达式变更只重算对应采样，无关图层设置保留已有结果。`usePreparedAnalysis` 保留为同步采样工具。
 - `pluck` 随录像加载通过 `analyse_for_features(['pluck'])` 分析一次，按库的逐事件返回值采样；不假定未完成录像使用固定失败值，也不把特殊值（如 `NaN`、无穷或 `Number.MAX_VALUE`）归零或替换。读取事件快照和参数后必须释放 WASM 包装对象，不遍历修改页面索引来提取字段。
-- `counterDifference.ts` 适配 `expr-eval@2.0.2` 的内部 `Expression.tokens` 和 `IEXPREVAL` 指令，以保留差分参数及条件分支的惰性求值；其他运算仍交给原库，不另写表达式解析器或使用 eval。公共自定义函数会先求值参数，不能直接替代此适配；升级依赖时复查模块并运行差分测试，若上游提供公开接口则优先替换。[求值源码](https://github.com/silentmatt/expr-eval/blob/v2.0.2/src/evaluate.js)、[Expression 源码](https://github.com/silentmatt/expr-eval/blob/v2.0.2/src/expression.js)。字段、步长及采样语义只在 VitePress 各语言的表达式参考中维护。
+- `counterSampling.ts` 适配 `expr-eval@2.0.2` 的内部 `Expression.tokens` 和 `IEXPREVAL` 指令，以保留差分、累加参数及条件分支的惰性求值；其他运算仍交给原库，不另写表达式解析器或使用 eval。公共自定义函数会先求值参数，不能直接替代此适配；升级依赖时复查模块并运行采样运算测试，若上游提供公开接口则优先替换。[求值源码](https://github.com/silentmatt/expr-eval/blob/v2.0.2/src/evaluate.js)、[Expression 源码](https://github.com/silentmatt/expr-eval/blob/v2.0.2/src/expression.js)。无窗口累加缓存前缀结果，窗口累加按需缓存区间和，避免反复扫描完整窗口及窗口外非有限值的污染；索引查询与播放顺序无关。字段、步长及采样语义只在 VitePress 各语言的表达式参考中维护。
 - 棋盘绘制使用 minesweeper-board 的公开组件和独立 render，时间轴使用 vue3-plots；通用能力缺口先请求上游，棋盘自定义事件的原生 SVG 是已确认的独立图层。
 
 ## 视频导出
