@@ -102,9 +102,11 @@ describe('<MediaSourceLink />', () => {
         let attempts = 0;
         cy.intercept('GET', 'https://api.github.com/repositories/42', (request) => {
             attempts++;
-            request.reply(attempts === 1 ? { statusCode: 403 } : {
-                body: { id: 42, full_name: 'renamed-owner/renamed-project', description: 'Ready', html_url: repositoryUrl },
-            });
+            request.reply(attempts === 1
+                ? { statusCode: 403 }
+                : {
+                    body: { id: 42, full_name: 'renamed-owner/renamed-project', description: 'Ready', html_url: repositoryUrl },
+                });
         }).as('repository');
         cy.window().then((win) => {
             cy.stub(win, 'open').returns(null);
