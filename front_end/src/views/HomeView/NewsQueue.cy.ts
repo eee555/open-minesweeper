@@ -318,6 +318,23 @@ describe('<NewsQueue />', () => {
         cy.get('[data-cy=news-eff]').should('contain.text', 'set their first ThrP Expert NF record: 1.000(1)');
     });
 
+    it('labels Path metrics and sums without NF IOE formatting and preserves zero', () => {
+        const events: NewsEvent[] = ['e_cpath', 'sum_epath'].map((stat, index) => ({
+            id: `path-${index}`,
+            occurred_at: 1_000_000,
+            player_id: 9,
+            category: 'eff',
+            payload: {
+                field: `path:${stat}`,
+                old: { value: 197.53072, video_id: index === 0 ? 801 : null, rank: 2, count: null, timems: null },
+                new: { value: 0, video_id: index === 0 ? 802 : null, rank: 1, count: null, timems: null },
+            },
+        }));
+        mountNews(events);
+        cy.get('[data-cy=news-eff]').eq(0).should('contain.text', 'CPath Expert record: 12.346(2) → 0.000(1)').find('.video-preview-link').should('have.length', 2);
+        cy.get('[data-cy=news-eff]').eq(1).should('contain.text', 'EPath Sum record: 12.346(2) → 0.000(1)').find('.video-preview-link').should('not.exist');
+    });
+
     it('shows software icons and aligns player names, replay links and text on one baseline', () => {
         // 软件图标由 mountNews 预写入的缓存解析，不经过 staticdetailbatch 批量队列。
         const events: NewsEvent[] = [{

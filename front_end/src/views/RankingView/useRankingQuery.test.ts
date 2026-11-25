@@ -26,6 +26,29 @@ async function setup(url: string) {
 }
 
 describe('ranking URL options', () => {
+    it('supports arbitrary start indices and resets them on sorting without introducing page numbers', async () => {
+        const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/path', component: { render: () => null } }] });
+        await router.push('/path?sort=b_path&start=27&page_size=50');
+        const app = createSSRApp({ render: () => null });
+        app.use(router);
+        const scope = effectScope();
+        try {
+            const options = app.runWithContext(() => scope.run(() => useRankingQuery(
+                { sort: 'sum_epath', start: 1, page_size: 20 },
+                (query, defaults) => ({ sort: queryChoice(query.sort, ['b_path', 'sum_epath'], defaults.sort), start: queryInteger(query.start, defaults.start), page_size: queryChoice(query.page_size, [20, 50, 100], defaults.page_size) }),
+                ['sort', 'page_size'],
+            )));
+            if (!options) throw new Error('Ranking scope not initialized');
+            expect(options.fields.start.value).toBe(27);
+            await options.update({ sort: 'sum_epath' });
+            expect(options.fields.start.value).toBe(1);
+            await options.update({ start: 12, page_size: 100 });
+            expect(router.currentRoute.value.query).toEqual({ sort: 'sum_epath', start: '12', page_size: '100' });
+        } finally {
+            scope.stop();
+        }
+    });
+
     it('reads a deep link, batches related changes and restores pagination through history', async () => {
         const { router, scope, fields, update } = await setup('/top?sort=bt&detail=et&nf=1&page=3&page_size=50');
         try {

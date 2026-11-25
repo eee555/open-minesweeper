@@ -4,6 +4,7 @@
         <StrictNgCard :user-id="store.player.id" />
         <ThrpCard :user-id="store.player.id" />
         <TPECard :user-id="store.player.id" />
+        <PathCard :user-id="store.player.id" />
         <ElSkeleton v-show="loading" animated style="margin-top: 0px;" :rows="8" />
         <PLuckCard :records="pluckRecords" />
     </div>
@@ -14,6 +15,7 @@ import { ElMessage, ElSkeleton } from 'element-plus';
 import { nextTick, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
+import PathCard from './PathCard.vue';
 import PLuckCard from './PLuckCard.vue';
 import SaoleiCard from './SaoleiCard.vue';
 import StrictNgCard from './StrictNgCard.vue';

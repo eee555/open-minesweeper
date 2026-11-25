@@ -54,7 +54,7 @@ export type NewsCategory = 'all' | 'pb' | 'lsf' | 'eff';
 
 export function formatEffValue(record: EffNewsRecord, field: string): string {
     const [ranking, stat] = field.split(':');
-    const formatted = record.value.toFixed(3);
+    const formatted = (ranking === 'path' ? record.value / 16 : record.value).toFixed(3);
     if (ranking === 'thrp' && stat === 'e_nf' && (record.count ?? 0) > 1) return `1 x ${record.count}`;
     if (ranking === 'nf_ioe' && record.timems !== null && record.value === (stat === 'sum' ? 3 : 1)) {
         return `${formatted} (${ms_to_s(record.timems)})`;

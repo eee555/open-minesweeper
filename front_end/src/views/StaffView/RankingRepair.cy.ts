@@ -60,6 +60,41 @@ describe('<RankingRepair /> efficiency rankings', () => {
         cy.get('output').should('contain.text', 'Intermediate TPE3 0.000').and('contain.text', 'video ID 9002');
     });
 
+    it('repairs a Path record through its own endpoint', () => {
+        const record = {
+            player_id: 42,
+            b_path: { value: 20, video_id: 8001 },
+            i_path: null,
+            e_path: null,
+            b_cpath: { value: 8, video_id: 8002 },
+            i_cpath: { value: 4, video_id: 8003 },
+            e_cpath: { value: 2, video_id: 8004 },
+            b_epath: { value: 8, video_id: 8005 },
+            i_epath: { value: 4, video_id: 8006 },
+            e_epath: { value: 2, video_id: 8007 },
+        };
+        cy.intercept('POST', '/api/effranking/path/admin/rebuild_record', record).as('pathRepair');
+        cy.mount(RankingRepair, { global: { plugins: [i18n], config: { globalProperties: { $axios } } } });
+        cy.get('select[aria-label="Ranking"]').select('path');
+        cy.get('.ranking-repair .el-input-number input').type('42');
+        cy.get('select[aria-label="Statistic"] option').should('have.length', 12);
+        cy.get('select[aria-label="Statistic"]').select('sum_epath');
+        cy.get('.ranking-repair button[type=submit]').click();
+        cy.wait('@pathRepair').its('request.body').should((body: string) => {
+            expect(Object.fromEntries(new URLSearchParams(body))).to.deep.equal({ player_id: '42', stat: 'sum_epath' });
+        });
+        cy.get('output').should('contain.text', 'Sum EPath 0.875').and('not.contain.text', 'video ID');
+        cy.closeElNotifications();
+        cy.get('select[aria-label="Statistic"]').select('b_cpath');
+        cy.get('output').should('not.exist');
+        cy.get('.ranking-repair button[type=submit]').click();
+        cy.wait('@pathRepair').its('request.body').should((body: string) => {
+            expect(Object.fromEntries(new URLSearchParams(body))).to.deep.equal({ player_id: '42', stat: 'b_cpath' });
+        });
+        cy.get('output').should('contain.text', 'Beginner CPath 0.500').and('contain.text', 'video ID 8002');
+        cy.closeElNotifications();
+    });
+
     it('repairs a strict NG ranking through its own endpoint', () => {
         const record = {
             player_id: 42,

@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | top | `UserTopView.vue` | `TopSummary.vue` 请求完整 top 纪录、读取 Pinia 锚点；`TopRadar.vue`、`TopRecordTable.vue` 只渲染 props |
 | PB | `UserPBView.vue` | 一次获取原 PB 与三个衍生大榜的全部成绩/排名，`PBSummaryStackBars.vue` 绘制五条堆叠条，`PBRecordGrid.vue` 按等级展示网格与分段侧列 |
-| 纪录 | `UserRecordView/App.vue` | 扫雷网、强无猜、Thrp 及自定义 pluck 纪录 |
+| 纪录 | `UserRecordView/App.vue` | 扫雷网、强无猜、Thrp、TPE、Path 及自定义 pluck 纪录 |
 | 账号关联 | `UserAccountLinkView.vue` → `AccountLinks/App.vue` | 全平台图标网格、单个平台详情及内联关联入口；验证和人工导入流程按平台独立维护 |
 | 录像 | `UserVideoView.vue` | 全部可见录像、日历/BV 选择、表格/散点图 |
 | 上传、设置 | `UserUploadView.vue`、`UserSettingsView.vue` | 仅本人可见；设置包含资料编辑和标识管理 |
@@ -52,6 +52,10 @@ top 和 PB 的业务规则、缓存与接口统一见 [竞速排行榜 README](.
 ## TPE 纪录
 
 纪录 tab 的 `TPECard.vue` 接收用户 id，读取 `/api/effranking/tpe/player/{id}`，共用 `profileDataService` 的缓存、失效与过期响应隔离。按中级、高级、合计分三组，每组依次展示 TPE、TPE2、TPE3，格式为 `成绩(排名)`；缺项为 `--`，零值保留。每个公式独立选优，合计要求对应公式的两个级别齐备，无单一录像链接。成绩显示三位小数秒，title 保留原值；单项沿用对应 Time 色阶，合计不上色。组件测试为 `UserRecordView/TPECard.cy.ts`。
+
+## Path 纪录
+
+`UserRecordView/PathCard.vue` 复用个人页缓存失效机制，读取 `/api/effranking/path/player/{id}`，按初级、中级、高级、合计四组展示十二列 `成绩(排名)`。三个指标独立选优，0 有效、缺项为 `--`，每个合计要求对应三级别齐备。单项分别链接录像，合计没有录像链接。API 原值除以 16 换算为格，显示三位小数，title 保留换算后完整精度，不上色。组件测试为 `UserRecordView/PathCard.cy.ts`。
 
 ## 强无猜纪录
 

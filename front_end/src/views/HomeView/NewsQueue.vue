@@ -28,6 +28,7 @@ import VideoPreviewLink from '@/components/VideoPreviewLink.vue';
 import i18n from '@/i18n';
 import { fetchNews, formatEffValue } from '@/services/newsService';
 import type { NewsCategory, NewsEvent } from '@/services/newsService';
+import { pathColumns } from '@/services/pathRankingService';
 import { utc_to_local_format } from '@/utils/system/tools';
 
 const props = defineProps({
@@ -93,6 +94,10 @@ function formatField(field: string): string {
 function formatEffField(field: string): string {
     const [ranking, stat] = field.split(':');
     const separator = i18n.global.locale.value.startsWith('zh') ? '' : ' ';
+    if (ranking === 'path') {
+        const column = pathColumns.find((item) => item.stat === stat);
+        return column ? `${column.label}${separator}${i18n.global.t(`level.${column.level}`)}` : field;
+    }
     const rankingName = ranking === 'thrp' ? i18n.global.t('prop.thrp') : t('local.nfIOE');
     let statName = i18n.global.t(`level.${stat}`);
     if (stat === 'sum') statName = i18n.global.t('level.sum');

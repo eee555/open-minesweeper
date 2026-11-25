@@ -3,13 +3,20 @@
 from news.services import emit
 from .cache import pipeline
 from .nf_ioe.utils import record_scores as ioe_record_scores
+from .path.utils import record_scores as path_record_scores
 from .thrp.utils import NF_STAT, record_scores as thrp_record_scores
 
 CATEGORY = 'eff'
 
 
 def _scores(ranking, record):
-    return thrp_record_scores(record) if ranking.ranking_name == 'thrp' else ioe_record_scores(record)
+    if ranking.ranking_name == 'thrp':
+        return thrp_record_scores(record)
+    if ranking.ranking_name == 'nf_ioe':
+        return ioe_record_scores(record)
+    if ranking.ranking_name == 'path':
+        return path_record_scores(record)
+    raise ValueError('Unsupported efficiency news ranking')
 
 
 def _news_value(ranking, record, stat):
@@ -18,6 +25,11 @@ def _news_value(ranking, record, stat):
     count 是高级 NF 的满分局数，timems 是 NF IOE 满分单项（或满分总计的高级）用时。
     两者让 value 相同但成绩确有进步的纪录在新闻里仍可区分。
     """
+    if ranking.ranking_name == 'path':
+        value = path_record_scores(record)[stat]
+        if value is None:
+            return None
+        return {'value': value, 'video_id': None if stat.startswith('sum_') else record[stat]['video_id'], 'count': None, 'timems': None}
     if stat == 'sum':
         level_fields = (field for field in ranking.record_fields if field != NF_STAT)
         parts = [record[field] for field in level_fields if record.get(field) is not None]
@@ -39,7 +51,7 @@ def prepare_news(entries):
     """entries 为 (ranking, previous, records)；只保留成绩变优的单项，名次由调用方补全。"""
     candidates = []
     for ranking, previous, records in entries:
-        if ranking.ranking_name not in ('thrp', 'nf_ioe'):
+        if ranking.ranking_name not in ('thrp', 'nf_ioe', 'path'):
             continue
         for player_id, record in records.items():
             old = previous[player_id]
