@@ -10,13 +10,13 @@ python manage.py <command> --help
 
 ### `prepare_share_preview`
 
-位置：`videomanager/management/commands/prepare_share_preview.py`。使用随代码发布的棋盘图块生成固定的 `MEDIA_ROOT/thumbnail/placeholder-v1.png`，不读取录像、不扫描历史目录。
+位置：`videomanager/management/commands/prepare_share_preview.py`。使用随代码发布的棋盘图块生成固定的 `MEDIA_ROOT/thumbnail/placeholder-v2.png`，不读取录像、不扫描历史目录。
 
 ```bash
 python manage.py prepare_share_preview
 ```
 
-首次部署先安装 `requirements.txt` 中的 Pillow，再运行本命令，重启 Web 和现有单个 `db_worker_robust`。Nginx 复用现有 `/internal-media/` alias；需确保 worker 能遍历父目录、读取图片。DEBUG 也只返回 `X-Accel-Redirect`，图片验收通过 Nginx 入口进行。首版不暴露分享 UI，由维护者用 `/video/<id>` 手动验证 QQ 卡片后，再开放 UI。
+首次部署先安装 `requirements.txt` 中的 Pillow，再运行本命令；每次 `SHARE_PREVIEW_VERSION` 变更后也须重新运行，为新版本准备占位图。完成后重启 Web 和现有单个 `db_worker_robust`。Nginx 复用现有 `/internal-media/` alias；需确保 worker 能遍历父目录、读取图片。DEBUG 也只返回 `X-Accel-Redirect`，图片验收通过 Nginx 入口进行。首版不暴露分享 UI，由维护者用 `/video/<id>` 手动验证 QQ 卡片后，再开放 UI。
 
 ### `cleanup_share_previews`
 
