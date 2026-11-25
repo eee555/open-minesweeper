@@ -65,12 +65,14 @@ Las variables `cell0` hasta `cell8` son nueve variables separadas. `cell0-8` no 
 
 ### Campos dinámicos y exclusivos del jugador
 
+En las expresiones, `path` conserva la distancia original normalizada a **16px por casilla**, no una distancia en casillas. No cambia con el tamaño mostrado de las casillas. Usa `path / 16` para obtener casillas; la clasificación Path ya aplica esta conversión al mostrar los resultados.
+
 | Campo | Significado y unidad | Reproductor de repeticiones | Contador de análisis | Evento personalizado |
 | --- | --- | --- | --- | --- |
 | `time` | Tiempo original del evento muestreado en segundos; puede ser negativo antes de que comience el temporizador del juego y difiere del progreso de reproducción de la página | — | Sí | Sí |
 | `x` | Coordenada original en píxeles del último evento del ratón respecto al borde izquierdo del tablero; aumenta hacia la derecha | — | Sí | Sí |
 | `y` | Coordenada original en píxeles del último evento del ratón respecto al borde superior del tablero; aumenta hacia abajo | — | Sí | Sí |
-| `path` | Longitud acumulada del recorrido del ratón, manteniendo el valor de la biblioteca independientemente del tamaño de la casilla mostrada | Sí | Sí | Sí |
+| `path` | Longitud acumulada del recorrido del ratón, como valor original normalizado a 16px por casilla | Sí | Sí | Sí |
 | `bbbv_solved` | 3BV resueltos hasta ahora | Sí | Sí | Sí |
 | `left` | Clicks izquierdos acumulados | Sí | Sí | Sí |
 | `right` | Clicks derechos acumulados | Sí | Sí | Sí |

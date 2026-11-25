@@ -1,7 +1,7 @@
 import json
 import logging
 from typing import Annotated
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 from django.conf import settings
 from django.core.files.storage import default_storage
@@ -29,6 +29,7 @@ from .models import ExpandVideoModel, VideoModel
 from .schema import ParsedVideoOut, PUBLIC_VIDEO_METADATA_FIELDS, PublicVideoMetadataOut, VIDEO_INFO_BATCH_LIMIT, VIDEO_METADATA_FIELDS, VideoBaseOut, VideoMetadataOut, VideoQueryOut
 from .services import delete_video_by_id, freeze_video_by_id, query_videos, unfreeze_video_by_id, VideoUnfreezeError
 from .share_preview import ensure_preview, preview_board
+from .share_preview_text import parse_preview_stats, preview_text
 from .tasks import enqueue_share_preview_cleanup
 from .utils import replay_filename, unpack_compression_format, VIDEO_QUERY_ALLOWED_PARAMS, VideoQueryError
 
@@ -56,14 +57,15 @@ class VideoDeleteOut(Schema):
     affected_tournament_ids: list[int]
 
 
-def _get_share_video(video_id: int, *, metadata=False):
+def _get_share_video(video_id: int, *, metadata=False, stats=()):
     if not 0 < video_id <= 2**63 - 1:
         raise HttpError(404, 'Video not found.')
     videos = VideoModel.objects.filter(pk=video_id, state__in=[MS_TextChoices.State.OFFICIAL, MS_TextChoices.State.IDENTIFIER], ongoing_tournament=False)
     fields = ['id', 'level', 'board']
     if metadata:
-        videos = videos.select_related('player', 'video')
-        fields.extend(['mode', 'timems', 'bv', 'upload_time', 'player__id', 'player___realname', 'player__verified', 'player__hide_realname', 'video__identifier'])
+        videos = videos.select_related('player')
+        fields.extend(['mode', 'timems', 'bv', 'upload_time', 'player__username'])
+        fields.extend('iqg' if stat == 'stnb' else stat for stat in stats)
     video = get_object_or_404(videos.only(*fields))
     try:
         board = preview_board(video.level, video.board)
@@ -72,38 +74,45 @@ def _get_share_video(video_id: int, *, metadata=False):
     return video, board
 
 
-@share_page_api.get('/{int:video_id}', include_in_schema=False)
+@share_page_api.api_operation(['GET', 'HEAD'], '/{int:video_id}', include_in_schema=False)
 @decorate_view(ratelimit(group='video-share-page', key='ip', rate='30/m', block=True), cache_control(no_cache=True))
-def video_share_page(request: HttpRequest, video_id: int):
+def video_share_page(request: HttpRequest, video_id: int, stat: str = ''):
     """
     - ratelimit(group='video-share-page', key='ip', rate='30/m', block=True)
     - cache_control(no_cache=True)
 
-    Anonymous share landing page, including for owners and staff. The first release has no website UI entry.
+    Anonymous share landing page with language-independent text and optional stat fields.
+    Owners and staff share the same public visibility rules. The first release has no website UI entry.
     """
-    video, board = _get_share_video(video_id, metadata=True)
-    name = video.player.realname.strip() or video.video.identifier.strip() or f'玩家#{video.player_id}'
-    level = dict(MS_TextChoices.Level.choices).get(video.level, f'{board.rows}×{board.columns} / {board.mines}雷')
-    mode = dict(MS_TextChoices.Mode.choices).get(video.mode, video.mode)
-    duration = f'{video.timems // 1000}.{video.timems % 1000:03d}s'
+    try:
+        stats = parse_preview_stats(stat)
+    except ValueError:
+        raise HttpError(422, 'Invalid share preview stats.') from None
+    video, board = _get_share_video(video_id, metadata=True, stats=stats)
+    title, description = preview_text(video, board, stats)
     width, height = board.image_size
-    return render(request, 'videomanager/share_preview.html', {
-        'title': f'{name} · {level} · {duration} | 元扫雷',
-        'description': f'{mode} · 3BV {video.bv} · 用时 {duration} · 上传日期 {video.upload_time.date().isoformat()}',
-        'share_url': f'{SHARE_PREVIEW_SITE_URL}/video/{video.pk}',
+    share_url = f'{SHARE_PREVIEW_SITE_URL}/video/{video.pk}'
+    if stats:
+        share_url += '?' + urlencode({'stat': ','.join(stats)}, safe=',')
+    response = render(request, 'videomanager/share_preview.html', {
+        'title': title, 'description': description,
+        'image_alt': 'Board preview unavailable' if board.bitmap is None else 'Completed Minesweeper board',
+        'share_url': share_url,
         'image_url': f'{SHARE_PREVIEW_SITE_URL}/api/video/share/{SHARE_PREVIEW_VERSION}/{video.pk}.png',
         'image_width': width, 'image_height': height, 'video_url': f'/#/video/{video.pk}',
     })
+    response['Content-Language'] = 'en'
+    return response
 
 
-@router.get(f'/share/{SHARE_PREVIEW_VERSION}/{{int:video_id}}.png', include_in_schema=False)
+@router.api_operation(['GET', 'HEAD'], f'/share/{SHARE_PREVIEW_VERSION}/{{int:video_id}}.png', include_in_schema=False)
 @decorate_view(ratelimit(group='video-share-image', key='ip', rate='60/m', block=True), cache_control(no_cache=True))
 def video_share_image(request: HttpRequest, video_id: int):
     """
     - ratelimit(group='video-share-image', key='ip', rate='60/m', block=True)
     - cache_control(no_cache=True)
 
-    Always return an empty X-Accel-Redirect response, including in DEBUG. File races may fail at Nginx.
+    GET and HEAD return an empty X-Accel-Redirect response, including in DEBUG. File races may fail at Nginx.
     """
     video, board = _get_share_video(video_id)
     try:

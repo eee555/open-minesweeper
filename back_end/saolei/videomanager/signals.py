@@ -37,6 +37,8 @@ CAPTURE_FIELDS = {
     'right',
     'double',
     'path',
+    'cpath',
+    'epath',
 }
 
 QUEUE_PAYLOAD_FIELDS = {

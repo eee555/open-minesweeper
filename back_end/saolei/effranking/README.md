@@ -1,6 +1,6 @@
 # 效率排行榜
 
-独立的 Django app `effranking` 承载 Thrp、NF IOE、TPE 三个大榜，提供个人纪录查询、增量刷新、管理员修复和全量重建。
+独立的 Django app `effranking` 承载 Thrp、NF IOE、TPE、Path 四个大榜，提供个人纪录查询、增量刷新、管理员修复和全量重建。
 
 ## Thrp 规则
 
@@ -179,15 +179,16 @@ app 内使用 Ninja router，在项目 API 中挂载 `/api/effranking/`。接口
 python manage.py rebuild_eff_ranks
 python manage.py rebuild_eff_ranks --ranking-name nf_ioe
 python manage.py rebuild_eff_ranks --ranking-name tpe
+python manage.py rebuild_eff_ranks --ranking-name path
 ```
 
-首次部署和缓存丢失后显式执行。Thrp 使用 `thrp_idx` 索引；NF IOE 和 TPE 按用户、状态和级别缩小候选范围，并在数据库分桶选优，不新增数据库模型或索引迁移。执行时暂停相关写入。临时榜构建成功后原子替换对应大榜的正式 key（Thrp 六个、NF IOE 五个、TPE 十个），失败保留旧榜；不扫描 Redis keyspace。本地快照初始化重建三个大榜。
+首次部署和缓存丢失后显式执行。Thrp 使用 `thrp_idx` 索引；其他榜按用户、状态和级别缩小候选范围，并在数据库分桶选优，不新增数据库模型或索引迁移。执行时暂停相关写入。临时榜构建成功后原子替换对应大榜的正式 key（Thrp 六个、NF IOE 五个、TPE 十个、Path 十三个），失败保留旧榜；不扫描 Redis keyspace。本地快照初始化重建四个大榜。
 
 参数及暂停写入范围统一见[管理命令文档](../../../vitepress_doc/zh/guide/development/management-commands.md#rebuild-eff-ranks)。不提供自动回源、在线双写或定时重建。
 
 ## 首页新闻
 
-`effranking` 在单录像与批量加入路径发布 `eff` 分区新闻，仅覆盖 Thrp 的 `b/i/e/sum/e_nf` 和 NF IOE 的 `b/i/e/sum`；TPE 系列不发布新闻，前端忽略缓存中尚未过期的旧 TPE 新闻。格式与 PB 新闻一致：`field` 为 `{大榜}:{小榜}`，`old`/`new` 各含 `value`、`video_id`、`rank`、`count`、`timems`，首次取得纪录时 `old` 为 `null`。事件经 `news.services.emit` 与信号写入 `news` app 的分类 zset，键与回收规则见[缓存文档](../../../vitepress_doc/zh/guide/development/cache.md)。
+`effranking` 在单录像与批量加入路径发布 `eff` 分区新闻，覆盖 Thrp 的 `b/i/e/sum/e_nf`、NF IOE 的 `b/i/e/sum` 和 Path 十二项；TPE 系列不发布新闻，前端忽略缓存中尚未过期的旧 TPE 新闻。格式与 PB 新闻一致：`field` 为 `{大榜}:{小榜}`，`old`/`new` 各含 `value`、`video_id`、`rank`、`count`、`timems`，首次取得纪录时 `old` 为 `null`。事件经 `news.services.emit` 与信号写入 `news` app 的分类 zset，键与回收规则见[缓存文档](../../../vitepress_doc/zh/guide/development/cache.md)。
 
 - 只发布成绩变优的单项（比较写入前后的 score）；补位变差与批量移除不发布。单项变化引起 sum 同步变优时，sum 也单独发布一条事件。
 - `count` 是高级 NF 的满分局数：满分局数增加时 `value` 仍为 1、主录像也可能不变，前端沿用榜单的 `1 x N` 显示，避免新闻出现 `1.000 → 1.000`。
@@ -200,18 +201,22 @@ python manage.py rebuild_eff_ranks --ranking-name tpe
 
 - 根目录 `signals.py` 和 `services.py` 协调录像事件与批量操作，`cache.py` 提供连接及 hash/zset 基础读写，`utils.py` 记录更新异常，`api.py` 聚合大榜路由，`news.py` 负责效率新闻的候选判定、名次读取与发布。
 - `thrp/` 包含本榜的计算、基础缓存、选优与补位、修复、重建、API 和测试；`nf_services.py` 独立负责高级 NF 最佳及局数查询。
-- `nf_ioe/`、`tpe/` 独立处理各自选优和 score。三榜按各自字段变化决定是否处理，合并 Redis 读取和写入 pipeline，不合并业务判断；IOE 和 TPE 监控 `left/right/double/timems`，Thrp 监控有效点击及上传时间。
+- `nf_ioe/`、`tpe/`、`path/` 独立处理各自选优和 score。四榜按各自字段变化决定是否处理，合并 Redis 读取和写入 pipeline，不合并业务判断；IOE 和 TPE 监控 `left/right/double/timems`，Thrp 监控有效点击及上传时间，Path 监控 `path/cpath/epath`。
 - 按玩家分段的公共工具为 `utils.querysets.player_batches`，不依赖其他大榜的业务模块。
 
 ## 前端接入
 
-`EfficiencyRanking.vue` 提供三榜共用工具栏。`ThrpRanking.vue` 与个人纪录共用 `ThrpRecordValue.vue`，`NFIOERanking.vue` 展示四项 NF IOE，`TPERanking.vue` 按中级、高级、总计三组展示九项 TPE 系列成绩。管理员修复支持三榜全部小榜。
+`EfficiencyRanking.vue` 提供四榜共用工具栏。`ThrpRanking.vue` 与个人纪录共用 `ThrpRecordValue.vue`，`NFIOERanking.vue` 展示四项 NF IOE，`TPERanking.vue` 按中级、高级、总计三组展示九项 TPE 系列成绩，`PathRanking.vue` 按初级、中级、高级、总计四组展示十二项 Path。管理员修复支持四榜全部小榜。
 
 URL 约定见[排行榜 README](../../../front_end/src/views/RankingView/README.md)，Thrp 个人页职责见[个人主页 README](../../../front_end/src/views/UserView/README.md#thrp-纪录)。NF IOE 暂不增加个人页表格。
 
 ## NF IOE
 
 规则、分段 score 和 `{value, video_id, timems}` 缓存结构统一见 [NF IOE README](./nf_ioe/README.md)。查询位于 `/api/effranking/nf_ioe`，首次部署执行指定大榜的重建命令，纳入历史录像。
+
+## Path
+
+规则、缓存结构、按指标补位及不新增索引的测量依据统一见 [Path README](path/README.md)。查询位于 `/api/effranking/path`，首次部署执行指定大榜的重建命令，纳入历史录像。
 
 ## TPE
 

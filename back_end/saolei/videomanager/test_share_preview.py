@@ -1,9 +1,11 @@
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 from io import BytesIO, StringIO
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from threading import Barrier
+from types import SimpleNamespace
 from unittest.mock import ANY, Mock, patch
 
 from django.conf import settings
@@ -22,6 +24,7 @@ from .cache import reserve_share_preview_cleanup, SHARE_PREVIEW_COUNT_KEY, SHARE
 from .config import SHARE_PREVIEW_MAX_COLUMNS, SHARE_PREVIEW_MAX_ROWS
 from .models import ExpandVideoModel, VideoModel
 from .share_preview import completed_cells, ensure_preview, PLACEHOLDER_FILENAME, preview_board, preview_directory, prune_previews, render_preview, write_preview
+from .share_preview_text import preview_number, preview_text
 from .tasks import enqueue_share_preview_cleanup, task_cleanup_share_previews
 
 
@@ -237,6 +240,25 @@ class PreviewQueueTests(SimpleTestCase):
 
 
 @override_settings(RATELIMIT_ENABLE=False)
+class PreviewTextTests(SimpleTestCase):
+    def test_missing_and_nonfinite_numbers_are_na_while_zero_is_formatted(self):
+        for value in (None, float('nan'), float('inf'), float('-inf')):
+            for format_spec in ('d', '.3f', '.1f'):
+                with self.subTest(value=value, format_spec=format_spec):
+                    self.assertEqual(preview_number(value, format_spec), 'N/A')
+        self.assertEqual(preview_number(0, 'd'), '0')
+        self.assertEqual(preview_number(0.0, '.3f'), '0.000')
+        self.assertEqual(preview_number(0.0, '.1f'), '0.0')
+
+    def test_timestamp_is_converted_to_utc_before_formatting(self):
+        video = SimpleNamespace(
+            mode='00', timems=1250, bv=12, player=SimpleNamespace(username='username'),
+            upload_time=datetime(2026, 11, 25, 0, 30, 45, 123456, tzinfo=timezone(timedelta(hours=8))),
+        )
+        self.assertEqual(preview_text(video, preview_board('b', None), ()), ('STD 8x8/10 1.250/12 by username', '2026-11-24 16:30:45'))
+
+
+@override_settings(RATELIMIT_ENABLE=False)
 class PreviewApiTests(TestCase):
     def setUp(self):
         directory = TemporaryDirectory()
@@ -262,6 +284,30 @@ class PreviewApiTests(TestCase):
         self.page_url = f'/video/{self.video.pk}'
         self.image_url = f'/api/video/share/v1/{self.video.pk}.png'
 
+    def test_head_probe_generates_missing_image_and_reuses_cached_file(self):
+        filename = preview_board(self.video.level, self.video.board).filename(self.video.pk)
+        path = preview_directory() / filename
+        self.assertFalse(path.exists())
+        response = self.client.head(self.image_url, HTTP_USER_AGENT='QQShareProxy')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b'')
+        self.assertEqual(response['Content-Type'], 'image/png')
+        self.assertIn('no-cache', response['Cache-Control'])
+        self.assertEqual(response['X-Accel-Redirect'], f'/internal-media/thumbnail/{filename}')
+        with Image.open(path) as image:
+            image.verify()
+        with patch('videomanager.share_preview.render_preview', side_effect=AssertionError('Cached HEAD rendered again')):
+            for method in ('head', 'get'):
+                with self.subTest(method=method):
+                    cached = getattr(self.client, method)(self.image_url)
+                    self.assertEqual(cached.status_code, 200)
+                    self.assertEqual(cached['X-Accel-Redirect'], response['X-Accel-Redirect'])
+                    self.assertEqual(cached.content, b'')
+        page = self.client.head(self.page_url)
+        self.assertEqual(page.status_code, 200)
+        self.assertEqual(page.content, b'')
+        self.assertIn('text/html', page['Content-Type'])
+
     def test_image_is_always_empty_accel_response_even_in_debug_and_never_scans(self):
         with patch('videomanager.share_preview._cached_files', side_effect=AssertionError('Request scanned directory')):
             for debug in (True, False):
@@ -277,16 +323,119 @@ class PreviewApiTests(TestCase):
         self.assertFalse((preview_directory() / '.locks').exists())
         self.assertEqual(self.client.get(f'/api/video/share/v2/{self.video.pk}.png').status_code, 404)
 
-    def test_page_escapes_metadata_uses_public_name_and_dynamic_pixel_sizes(self):
-        UserProfile.objects.filter(pk=self.user.pk).update(_realname='A"><script>alert(1)</script>')
+    @override_settings(TIME_ZONE='Asia/Shanghai')
+    def test_page_uses_compact_title_and_utc_upload_time(self):
+        VideoModel.objects.filter(pk=self.video.pk).update(
+            upload_time=datetime(2026, 11, 25, 0, 30, 45, 123456, tzinfo=timezone(timedelta(hours=8))),
+            end_time=datetime(2000, 1, 1, tzinfo=timezone.utc),
+        )
+        with self.assertNumQueries(1):
+            response = self.client.get(self.page_url, HTTP_HOST='attacker.invalid')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Language'], 'en')
+        self.assertContains(response, '<html lang="en"')
+        self.assertContains(response, '<title>STD 8x8/10 1.234/12 by share-preview</title>')
+        self.assertContains(response, 'property="og:title" content="STD 8x8/10 1.234/12 by share-preview"')
+        self.assertContains(response, 'property="og:description" content="2026-11-24 16:30:45"')
+        self.assertContains(response, 'name="description" content="2026-11-24 16:30:45"')
+        self.assertContains(response, 'property="og:locale" content="en_US"')
+        self.assertContains(response, 'property="og:site_name" content="Open Minesweeper"')
+        self.assertContains(response, 'property="og:image:alt" content="Completed Minesweeper board"')
+        self.assertContains(response, f'property="og:url" content="https://openms.top{self.page_url}"')
+        self.assertContains(response, f'property="og:image" content="https://openms.top{self.image_url}"')
+        self.assertContains(response, f'href="/#/video/{self.video.pk}">Watch replay</a>')
+        self.assertNotContains(response, 'attacker.invalid')
+
+    def test_modes_use_abbreviations_or_prefixed_codes_and_missing_bv_uses_na(self):
+        for mode, label in (
+            ('00', 'STD'), ('05', 'SPNG'), ('06', 'HCNG'), ('10', 'LK'),
+            ('01', 'M01'), ('04', 'M04'), ('07', 'M07'), ('08', 'M08'),
+            ('09', 'M09'), ('11', 'M11'), ('99', 'M99'),
+        ):
+            with self.subTest(mode=mode):
+                VideoModel.objects.filter(pk=self.video.pk).update(mode=mode)
+                self.assertContains(self.client.get(self.page_url), f'<title>{label} 8x8/10 1.234/12 by share-preview</title>')
+        VideoModel.objects.filter(pk=self.video.pk).update(bv=None)
+        self.assertContains(self.client.get(self.page_url), '<title>M99 8x8/10 1.234/N/A by share-preview</title>')
+
+    def test_all_stats_use_stored_values_and_generated_columns_without_extra_queries(self):
+        VideoModel.objects.filter(pk=self.video.pk).update(
+            timems=1000, left=3, right=2, double=1, left_ce=2, right_ce=1, double_ce=1,
+            path=12.34567, cpath=23.45678, epath=34.56789, pluck=0.12345, op=2, isl=1,
+            **{f'cell{index}': index for index in range(9)},
+        )
+        stat = 'cl,ce,path,cpath,epath,pluck,op,isl,cell0,cell1,cell2,cell3,cell4,cell5,cell6,cell7,cell8,ioe,thrp,corr,cl_s,ce_s,bvs,stnb'
+        expected = (
+            'Cl 6, Ce 4, Path 12.346, cPath 23.457, ePath 34.568, pLuck 0.123, Op 2, Is 1, '
+            'Cell0 0, Cell1 1, Cell2 2, Cell3 3, Cell4 4, Cell5 5, Cell6 6, Cell7 7, Cell8 8, '
+            'IOE 2.000, ThrP 3.000, Corr 0.667, Cls 6.000, Ces 4.000, Bvs 12.000, STNB 432.0'
+        )
+        with self.assertNumQueries(1):
+            response = self.client.get(self.page_url, {'stat': stat})
+        self.assertEqual(response.status_code, 200)
+        description = response.context['description']
+        self.assertEqual(description.split('\n'), [self.video.upload_time.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'), expected])
+        self.assertContains(response, f'property="og:description" content="{description}"')
+        self.assertContains(response, f'name="description" content="{description}"')
+        self.assertContains(response, f'property="og:url" content="https://openms.top{self.page_url}?stat={stat}"')
+        self.assertContains(response, f'property="og:image" content="https://openms.top{self.image_url}"')
+
+    def test_stat_order_deduplication_and_legacy_language_produce_consistent_metadata(self):
+        UserProfile.objects.filter(pk=self.user.pk).update(language='es')
+        self.client.force_login(self.user)
+        for lang in ('zh-cn', 'en', 'es', 'fr', '', 'en"><script>'):
+            with self.subTest(lang=lang):
+                response = self.client.get(self.page_url, {'stat': ' thrp, ioe,thrp, cl ', 'lang': lang, 'unrelated': 'ignored'}, HTTP_ACCEPT_LANGUAGE='zh-CN')
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response['Content-Language'], 'en')
+                self.assertContains(response, f'property="og:url" content="https://openms.top{self.page_url}?stat=thrp,ioe,cl"')
+                self.assertTrue(response.context['description'].endswith('\nThrP N/A, IOE N/A, Cl N/A'))
+        response = self.client.head(self.page_url, {'stat': 'thrp,ioe,cl', 'lang': 'es'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Language'], 'en')
+        self.assertEqual(response.content, b'')
+        self.assertTrue(response.context['description'].endswith('\nThrP N/A, IOE N/A, Cl N/A'))
+        reordered = self.client.get(self.page_url, {'stat': 'ioe,thrp'})
+        self.assertTrue(reordered.context['description'].endswith('\nIOE N/A, ThrP N/A'))
+        self.assertContains(reordered, f'property="og:url" content="https://openms.top{self.page_url}?stat=ioe,thrp"')
+        for stat in ('', ' \t '):
+            response = self.client.get(self.page_url, {'stat': stat})
+            self.assertNotIn('\n', response.context['description'])
+            self.assertContains(response, f'property="og:url" content="https://openms.top{self.page_url}"')
+
+    def test_invalid_stats_are_rejected_without_reading_video_or_echoing_input(self):
+        for stat in ('cellx', 'cell9', 'IOE', 'ioe,,thrp', ',ioe', 'ioe,', 'player__email', '__dict__', 'file', 'realname', 'ioe,<script>'):
+            for method in ('get', 'head'):
+                with self.subTest(stat=stat, method=method), patch('videomanager.api._get_share_video', side_effect=AssertionError('Invalid stat reached database')):
+                    response = getattr(self.client, method)(self.page_url, {'stat': stat})
+                    self.assertEqual(response.status_code, 422)
+                    if method == 'get':
+                        self.assertEqual(response.json(), {'detail': 'Invalid share preview stats.'})
+
+    def test_missing_stats_zero_values_and_custom_stnb_keep_labels_and_placeholder_alt(self):
+        VideoModel.objects.filter(pk=self.video.pk).update(level='c24_30_200', board=None, bv=None, path=0.0, op=0, cell0=0)
+        stat = 'cl,ce,path,cpath,epath,pluck,op,cell0,ioe,thrp,corr,cl_s,ce_s,bvs,stnb'
+        response = self.client.get(self.page_url, {'stat': stat})
+        self.assertContains(response, '<title>STD 24x30/200 1.234/N/A by share-preview</title>')
+        self.assertEqual(response.context['description'].split('\n')[1], 'Cl N/A, Ce N/A, Path 0.000, cPath N/A, ePath N/A, pLuck N/A, Op 0, Cell0 0, IOE N/A, ThrP N/A, Corr N/A, Cls N/A, Ces N/A, Bvs N/A, STNB N/A')
+        self.assertContains(response, 'property="og:image:alt" content="Board preview unavailable"')
+        self.assertContains(response, 'property="og:image:width" content="192"')
+        VideoModel.objects.filter(pk=self.video.pk).update(bv=12, timems=1000)
+        response = self.client.get(self.page_url, {'stat': 'bvs,stnb'})
+        self.assertTrue(response.context['description'].endswith('\nBvs 12.000, STNB N/A'))
+
+    def test_page_escapes_username_hides_realname_and_identifier_and_uses_dynamic_pixel_sizes(self):
+        UserProfile.objects.filter(pk=self.user.pk).update(username='A"><script>alert(1)</script>', _realname='Private legal name', verified=True)
+        ExpandVideoModel.objects.filter(pk=self.video.video_id).update(identifier='Private replay identifier')
         response = self.client.get(self.page_url, HTTP_HOST='attacker.invalid')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'A&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;')
         self.assertNotContains(response, '<script>')
         self.assertContains(response, 'https://openms.top' + self.image_url)
         self.assertNotContains(response, 'attacker.invalid')
-        self.assertContains(response, '3BV 12')
-        self.assertContains(response, '1.234s')
+        self.assertNotContains(response, 'Private legal name')
+        self.assertNotContains(response, 'Private replay identifier')
+        self.assertContains(response, 'STD 8x8/10 1.234/12 by A&quot;')
         self.assertContains(response, 'content="0;url=/#/video/')
         for level, rows, columns, mines in (('b', 8, 8, 10), ('i', 16, 16, 40), ('e', 16, 30, 99), ('c24_30_200', 24, 30, 200)):
             with self.subTest(level=level):
@@ -294,8 +443,14 @@ class PreviewApiTests(TestCase):
                 response = self.client.get(self.page_url)
                 self.assertContains(response, f'property="og:image:width" content="{columns * 24}"')
                 self.assertContains(response, f'property="og:image:height" content="{rows * 24}"')
+                self.assertContains(response, f'STD {rows}x{columns}/{mines} 1.234/12 by A&quot;')
         UserProfile.objects.filter(pk=self.user.pk).update(_realname='Hidden legal name', verified=True, hide_realname=True)
-        self.assertNotContains(self.client.get(self.page_url), 'Hidden legal name')
+        for lang in ('zh-cn', 'en', 'es'):
+            with self.subTest(lang=lang):
+                response = self.client.get(self.page_url, {'lang': lang})
+                self.assertContains(response, 'A&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;')
+                self.assertNotContains(response, 'Hidden legal name')
+                self.assertNotContains(response, 'Private replay identifier')
 
     def test_owners_and_staff_cannot_share_private_states_or_unrevealed_tournaments(self):
         self.assertEqual(self.client.get(self.image_url).status_code, 200)
@@ -306,12 +461,13 @@ class PreviewApiTests(TestCase):
                 self.client.force_login(self.user)
             for state, ongoing in (('a', False), ('b', False), ('e', False), ('c', True), ('d', True)):
                 VideoModel.objects.filter(pk=self.video.pk).update(state=state, ongoing_tournament=ongoing)
-                for url in (self.page_url, self.image_url):
-                    with self.subTest(login=login, state=state, ongoing=ongoing, url=url):
-                        response = self.client.get(url)
-                        self.assertEqual(response.status_code, 404)
-                        self.assertNotContains(response, 'Fixture', status_code=404)
-                        self.assertNotIn('X-Accel-Redirect', response)
+                for url in (self.page_url, self.page_url + '?stat=path,pluck,stnb', self.image_url):
+                    for method in ('get', 'head'):
+                        with self.subTest(login=login, state=state, ongoing=ongoing, url=url, method=method):
+                            response = getattr(self.client, method)(url)
+                            self.assertEqual(response.status_code, 404)
+                            self.assertNotContains(response, 'Fixture', status_code=404)
+                            self.assertNotIn('X-Accel-Redirect', response)
         VideoModel.objects.filter(pk=self.video.pk).update(state='d', ongoing_tournament=False)
         self.assertEqual(self.client.get(self.image_url).status_code, 200)
 
@@ -375,9 +531,11 @@ class PreviewApiTests(TestCase):
         self.addCleanup(rate_cache.clear)
         for url, quota in ((self.page_url, 30), (self.image_url, 60)):
             with self.subTest(url=url), patch('django_ratelimit.core.time.time', return_value=1000000000):
-                for _ in range(quota):
-                    self.assertEqual(self.client.get(url, REMOTE_ADDR='192.0.2.1').status_code, 200)
-                self.assertEqual(self.client.get(url, REMOTE_ADDR='192.0.2.1').status_code, 429)
+                for index in range(quota):
+                    method = 'get' if index % 2 else 'head'
+                    self.assertEqual(getattr(self.client, method)(url, REMOTE_ADDR='192.0.2.1').status_code, 200)
+                for method in ('get', 'head'):
+                    self.assertEqual(getattr(self.client, method)(url, REMOTE_ADDR='192.0.2.1').status_code, 429)
                 self.assertEqual(self.client.get(url, REMOTE_ADDR='192.0.2.2').status_code, 200)
         with patch('django_ratelimit.core.time.time', return_value=1000000061):
             self.assertEqual(self.client.get(self.image_url, REMOTE_ADDR='192.0.2.1').status_code, 200)

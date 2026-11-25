@@ -254,5 +254,5 @@ class PublicSnapshotInitializationTests(SimpleTestCase):
                 initialize_local_data(root, 'admin-password', 'user-password', stdout=stdout, create_weekly=False)
                 self.assertEqual([item.args[0] for item in command.call_args_list], [
                     'flush', 'refresh_video_counts', 'rebuild_speed_ranks', 'rebuild_strict_ng_ranks',
-                    'rebuild_pb_ranks', 'rebuild_top_ranks', 'rebuild_eff_ranks', 'rebuild_eff_ranks', 'rebuild_eff_ranks',
+                    'rebuild_pb_ranks', 'rebuild_top_ranks', 'rebuild_eff_ranks', 'rebuild_eff_ranks', 'rebuild_eff_ranks', 'rebuild_eff_ranks',
                 ])

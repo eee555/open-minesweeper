@@ -2,14 +2,14 @@
 
 更新：2026-11-24。
 
-状态：首版后端及本地验证已完成；尚未部署，分享 UI 不开放。QQ 卡片、Nginx 文件转发及服务器容量由用户在秘密上线后验收。
+状态：首版后端已秘密上线，分享 UI 不开放。Discord 图文预览已实测通过；QQ 图文预览未通过，已根据日志补充 HEAD 支持，待发布后复测。统一文案及 stat 可选指标已完成本地实现与回归，待发布后验收；服务器容量仍需验收。
 
 ## 1. 目标与范围
 
 让录像链接在 QQ 聊天等场景中生成卡片预览：
 
 - **图片**：固定显示录像完成后的棋盘画面——所有非雷格翻开设邻雷数，雷格显示雷。由 `VideoModel.board` 位图与 `level` 推导，不重放录像，也不保留过程中的插旗/鼠标状态。
-- **文本**：卡片标题与说明包含本局元数据（玩家、难度、模式、3BV、用时等）。
+- **文本**：统一使用不区分语言的模式缩写、棋盘规格、`time/bv` 与 username；正文第一行为 UTC 上传时间，第二行为 URL 的 `stat` 参数选择的指标。标题示例：`STD 8x8/10 1.250/12 by username`。
 - **分享入口**：QQ 实测通过后，在录像页提供复制分享链接的按钮。首版秘密上线后端能力，不向用户暴露相关 UI，由维护者手动构造链接验收。
 
 不在本次范围：
@@ -35,26 +35,32 @@
 
 ### 3.1 分享链接与 OG 页面
 
-新增服务端路径，例如 `GET /video/<int:id>`：
+新增服务端路径，例如 `GET/HEAD /video/<int:id>`：
 
 1. 按 ID 读取 `VideoModel`，在 API/视图层校验 `state` 属于公开集合（`c`、`d`）且 `ongoing_tournament=False`；不满足条件时统一返回 404，不输出玩家、成绩、棋盘或其他录像元数据。即使访问者是本人或管理员，分享端点也不放宽匿名公开条件。
 2. 返回一段最小 HTML，包含：
 
-   - `og:type=website`、`og:url=<绝对 URL>`、`og:title`、`og:description`
+   - `og:type=website`、`og:url=<含有效 stat 参数的绝对 URL>`、`og:title`、`og:description`、`og:locale`、`og:site_name`
    - `og:image=<图片 API 的绝对 URL>`、`og:image:width`/`height`（服务端按 `level` 推导的行列数与 24px/格动态填写，例如 16×30 棋盘为 720×384；与绘图共用尺寸计算，缺少 board 时填写共用占位图的实际 192×192 尺寸）
    - `twitter:card=summary_large_image`
 3. 用 `<meta http-equiv="refresh" content="0;url=/#/video/<id>">` 跳转回站内页面；页面同时放一个普通链接作为兜底。
+4. 分享文案不区分语言；可选指标由 `stat` 查询参数决定，例如 `/video/1?stat=ioe,thrp`。不按请求头、登录状态或用户语言偏好切换文案，不再生成不同语言的分享链接。旧链接中的 `lang` 参数不影响文案，规范地址不保留它。
 
 注意点：
 
 - 新路径注册在 `saolei/urls.py` 的 catch-all 之前，使用不带尾斜杠的 `path('video/<int:id>', ...)`。
-- `og:image` 必须是绝对 URL 且爬虫可匿名访问。规范地址统一使用 `videomanager/config.py` 中的 `SHARE_PREVIEW_SITE_URL`（当前 `https://openms.top`），不从请求的 Host 或代理协议推断，避免错误域名及 HTTP 地址；替换公开站点域名时同步修改该配置。
+- `og:image` 必须是绝对 URL 且爬虫可匿名访问。规范地址统一使用 `videomanager/config.py` 中的 `SHARE_PREVIEW_SITE_URL`（当前 `https://openms.top`），不从请求的 Host 或代理协议推断，避免错误域名及 HTTP 地址；替换公开站点域名时同步修改该配置。`og:url` 保留规范化后非空的 `stat` 参数及其展示顺序，例如 `/video/1?stat=ioe,thrp`；没有可选指标时为 `/video/1`，不保留 `lang` 或无关参数，避免不同指标卡片被归到同一规范地址。
 - `og:image` 指向包含绘图版本的图片 API 路径（如 `/api/video/share/v1/<id>.png`），由后端检查缓存或按需生成文件，再通过 `X-Accel-Redirect` 交给 Nginx，无需提前预热录像缩略图；爬虫拿到的是不带 `#` 的普通 URL。绘图版本必须同时进入对外 URL 与内部缓存文件名，不能只修改内部文件名。
-- HTML 使用 Django 模板自动转义玩家名、标识等文本；秘密上线时核对 QQ 是否读取 OG 标签，以及零秒 `meta refresh` 是否影响抓取。实测通过前不开放分享 UI。
+- HTML 使用 Django 模板自动转义 username 等文本；分享页不读取或使用 realname、真实姓名隐藏设置或录像标识。秘密上线时核对 QQ 是否读取 OG 标签，以及零秒 `meta refresh` 是否影响抓取。实测通过前不开放分享 UI。
+- 所有级别统一显示 `{h}x{w}/{m}`，初级为 `8x8/10`，中级为 `16x16/40`，高级为 `16x30/99`，自定义同样按棋盘规格生成；不显示需要翻译的级别名称。`og:title` 与普通 HTML title 均使用第 3.3 节的统一格式，不追加站名；站点名称 `Open Minesweeper` 单独放在 `og:site_name`。
+- 模板固定 `html lang=en`、`og:locale=en_US`、`Content-Language: en`；普通 description 与 OG description 使用相同的正文。图片说明与打开录像链接使用固定英文，缺少 board 时显示 `Board preview unavailable`。正文用纯文本换行，不插入 `<br>`；平台是否保留两行布局须实测。
+- 不同 stat 组合使用同一图片 API、文件缓存与棋盘图；不因指标组合新增图片版本、PNG 或缓存计数。
 
 ### 3.2 图片 API
 
-新增 Ninja 端点，例如 `GET /api/video/share/v1/<int:id>.png`；只接受明确支持的版本，未知或已停用的版本返回 404：
+新增 Ninja 端点，例如 `GET/HEAD /api/video/share/v1/<int:id>.png`；只接受明确支持的版本，未知或已停用的版本返回 404：
+
+- 显式使用 Ninja 的 `api_operation(['GET', 'HEAD'], ...)` 注册两种方法，不能假设只注册 GET 时会自动接受 HEAD。QQShareProxy 会用 HEAD 探测图片；HEAD 与 GET 共用公开性校验、缓存生成及 IP 限流配额。冷缓存的 HEAD 也需生成文件并返回 `X-Accel-Redirect`，由 Nginx 给出实际文件的响应头且不发送图片响应体，不能对不存在或不可分享的图片直接返回 200。
 
 ```text
 请求 → 查录像 + state、ongoing_tournament、尺寸校验 → 按内容摘要定位缓存
@@ -79,18 +85,83 @@
 
 ### 3.3 文本元数据
 
-OG 标题与说明从 `VideoModel` 生成，不从棋盘或录像文件读取：
+OG 标题与说明使用录像元数据及由 `level` 解析的棋盘规格，不读取录像文件、不重新解析录像，也不在分享请求中触发 pLuck 等耗时计算。
 
-| 字段 | 来源 | 示例 |
+#### 标题
+
+固定格式：`{mode_abbr} {h}x{w}/{m} {time}/{bv} by {username}`。
+
+```text
+STD 8x8/10 1.250/12 by username
+```
+
+- 各项之间使用单个 ASCII 空格；`by` 固定为英文，username 使用 `player.username` 并由模板转义。
+- `h` 为行数、`w` 为列数、`m` 为雷数，沿用现有棋盘规格解析，不写初级/中级/高级等名称。
+- `time` 由整数 `timems` 转为秒，固定三位小数，不带 `s`；`bv` 使用模型的 3BV 整数，不加字段标签。
+- 四种指定模式使用约定缩写，其余模式显示为 `M{编码}`，保留模型 mode 编码的前导零，例如 UPK（`01`）显示为 `M01`；未知或将来新增的编码也使用这一规则，不默认为 STD。
+
+| mode | 模式 | 缩写 |
 | --- | --- | --- |
-| 玩家 | `player.realname` / identifier | 玩家名 |
-| 难度 | `level`（`config/text_choices.py` 的 Level） | 高级 / Expert |
-| 模式 | `mode` | 标准 |
-| 3BV | `bv` | 255 |
-| 用时 | `timems` | 68.320s |
-| 上传时间 | `upload_time` | 2026-11-24 |
+| `00` | 标准 | `STD` |
+| `01` | UPK | `M01` |
+| `04` | Win7 | `M04` |
+| `05` | 竞速无猜 | `SPNG` |
+| `06` | 强无猜 | `HCNG` |
+| `07` | 弱无猜 | `M07` |
+| `08` | 准无猜 | `M08` |
+| `09` | 强可猜 | `M09` |
+| `10` | 弱可猜 | `LK` |
+| `11` | 标准递归 | `M11` |
 
-说明文本不写入图片，只放在 OG 标签里。这样既满足“预览文本包含本局元数据”，又避免引入中文字体与跨平台文字排版，图片保持纯棋盘。
+#### 正文
+
+第一行固定为上传时间 `upload_time`，显式转换为 UTC 后按 `%Y-%m-%d %H:%M:%S` 输出；保留秒，不带日期标签、毫秒或时区后缀。不得使用录像自带的 `end_time` 替代上传时间。
+
+第二行可选，由 URL 中的 `stat` 参数指定指标，按请求顺序用 `, ` 连接。省略 `stat` 或规范化后没有指标时只输出第一行，不追加空行。例如 `/video/1?stat=ioe,thrp`：
+
+```text
+2026-11-24 20:00:00
+IOE 0.000, ThrP 0.000
+```
+
+每项为 `{label} {formatted_value}`。使用十进制点，不使用千分位或本地化数字；整数无小数部分，`.3f` 固定三位小数，`.1f` 固定一位小数。真实的 0 正常显示为 0 或 0.000；缺失值、无适用值以及非有限值（NaN、正负 Infinity）统一显示 `N/A`。选中的指标保留标签与原位置，不省略，例如 `cPath N/A`、`STNB N/A`；标题的 bv 缺失时显示为 `1.250/N/A`，不把缺失值当作 0。
+
+| stat 字段 | 文案 | 数字格式 | 来源 |
+| --- | --- | --- | --- |
+| `cl` | `Cl` | 整数 | `VideoModel.cl` |
+| `ce` | `Ce` | 整数 | `VideoModel.ce` |
+| `path` | `Path` | `.3f` | `VideoModel.path` |
+| `cpath` | `cPath` | `.3f` | `VideoModel.cpath` |
+| `epath` | `ePath` | `.3f` | `VideoModel.epath` |
+| `pluck` | `pLuck` | `.3f` | `VideoModel.pluck` |
+| `op` | `Op` | 整数 | `VideoModel.op` |
+| `isl` | `Is` | 整数 | `VideoModel.isl` |
+| `cell0` | `Cell0` | 整数 | `VideoModel.cell0` |
+| `cell1` | `Cell1` | 整数 | `VideoModel.cell1` |
+| `cell2` | `Cell2` | 整数 | `VideoModel.cell2` |
+| `cell3` | `Cell3` | 整数 | `VideoModel.cell3` |
+| `cell4` | `Cell4` | 整数 | `VideoModel.cell4` |
+| `cell5` | `Cell5` | 整数 | `VideoModel.cell5` |
+| `cell6` | `Cell6` | 整数 | `VideoModel.cell6` |
+| `cell7` | `Cell7` | 整数 | `VideoModel.cell7` |
+| `cell8` | `Cell8` | 整数 | `VideoModel.cell8` |
+| `ioe` | `IOE` | `.3f` | `VideoModel.ioe` |
+| `thrp` | `ThrP` | `.3f` | `VideoModel.thrp` |
+| `corr` | `Corr` | `.3f` | `VideoModel.corr` |
+| `cl_s` | `Cls` | `.3f` | `VideoModel.cl_s` |
+| `ce_s` | `Ces` | `.3f` | `VideoModel.ce_s` |
+| `bvs` | `Bvs` | `.3f` | `VideoModel.bvs` |
+| `stnb` | `STNB` | `.1f` | `VideoModel.stnb` 属性，依赖 `level`、`iqg` |
+
+#### 参数与查询
+
+- `stat` 使用逗号分隔，字段名使用上表的小写/下划线形式；各项去除首尾空白，同名项只保留第一次出现，保留展示顺序。空参数 `stat=` 等同省略；非空列表中的空项或未知字段返回 422，不回显任意字段值。
+- 使用显式白名单和字段依赖表，不允许通过请求参数任意访问模型属性、关系、数据库字段或调用计算方法。`cell0`–`cell8` 是九个独立参数，例如 `stat=cell0,cell8` 显示 `Cell0 12, Cell8 0`；`cellx` 只是这组字段的泛称，字面参数 `cellx`、越界字段 `cell9` 均返回 422。
+- 继续复用图片端点的匿名公开条件；选择可选指标不能绕过 state、比赛公开状态、棋盘尺寸等检查。
+- 元数据查询只补充标题、上传时间及所选指标的必要列；`cl`、`ce`、`ioe`、`thrp`、`corr`、`cl_s`、`ce_s`、`bvs` 直接读已有数据库生成列。`stnb` 复用现有属性并加载 `level`、`iqg`，不把它当成数据库列，也不重复实现公式。
+- `pluck` 读取 `VideoModel.pluck`，其他指标同样使用已有值；缺失时不启动录像解析、概率计算或数据修复。`cpath`、`epath`、`pluck` 等为空，以及自定义级别的 `stnb` 无值时，均显示 `N/A`。
+- 指标只改变 HTML 元数据及其规范 URL，不传入 PNG 缓存键或绘图函数；图片保持纯棋盘。
+- 服务端沿用完整输出、不主动截断的行为。长 username 或选择较多指标时，平台可能裁切文案；[Discord 官方限制](https://docs.discord.com/developers/link-previews/overview#limits)为标题 70 字节/3 行、说明 350 字节/20 行，QQ 的布局与截断情况需验收。标题将模式、棋盘规格及 time/bv 放在 username 前，保证它们优先出现。
 
 ### 3.4 缓存：静态文件 + Redis 参考计数 + 后台清理
 
@@ -199,14 +270,14 @@ OG 标题与说明从 `VideoModel` 生成，不从棋盘或录像文件读取：
 
 按项目规范分别维护：
 
-- **后端单元测试**：图片 API 的成功、文件缓存命中、公开/非公开 state、比赛未揭晓、录像不存在、`board` 缺失/尺寸不符、限流；覆盖 `state=c/d` 且 `ongoing_tournament=True`，包括已生成缓存、本人及管理员访问。验证生成文件的 PNG 魔数、尺寸与调色板模式、正常命中时 mtime 更新、唯一临时文件和原子写入；成功的 Django 响应包含正确 `X-Accel-Redirect` 且响应体为空，包括占位图及 `DEBUG=True`。并发同一 ID 可重复生成，不创建锁文件。
+- **后端单元测试**：图片 API 的成功、文件缓存命中、公开/非公开 state、比赛未揭晓、录像不存在、`board` 缺失/尺寸不符、限流；覆盖 `state=c/d` 且 `ongoing_tournament=True`，包括已生成缓存、本人及管理员访问。覆盖 HEAD 冷缓存生成、命中复用、分享页 HEAD、GET/HEAD 均拒绝非公开资源，以及两种方法共用限流配额。验证生成文件的 PNG 魔数、尺寸与调色板模式、正常命中时 mtime 更新、唯一临时文件和原子写入；成功的 Django 响应包含正确 `X-Accel-Redirect` 且响应体为空，包括占位图及 `DEBUG=True`。并发同一 ID 可重复生成，不创建锁文件。
 - **画面正确性测试**：构造已知雷分布的小棋盘，验证邻雷数计算、雷格显示、尺寸与位图解包一致（行主序、LSB-first）。
 - **尺寸边界测试**：24×30 可生成，25×30、24×31 及更大历史棋盘返回 404，即使位图长度正确或已有缓存也不能绕过；测试非法自定义尺寸与雷数，确保在创建画布前拒绝。
 - **缓存故障与竞态测试**：Django 检查时文件缺失则生成并落盘；目录无法创建、编码或写入/替换失败时返回错误，即使已生成 PNG 也不直返；mtime 更新、Redis 计数或入队失败时不切换为图片字节响应。覆盖两个请求并发原子替换及清理期间重复生成，不要求只生成一次或计数完全准确；不要求转发后文件被清理时仍能成功返回图片，也不为该窗口增加补偿测试。
 - **缓存清理测试**：请求及管理命令只入队，不扫描目录；阈值触发与任务去重、标记 TTL/失败恢复、计数缺失与高估/低估的校准、Redis 故障。后台按真实 PNG 数量决定是否删除，验证最旧优先、80% 目标、任务结束回写实际数量，以及跳过临时文件、非 PNG、符号链接和不可删除文件；覆盖文件在扫描、读取元数据和删除间消失的处理，允许计数偏差，不要求强一致。
 - **失效测试**：事务提交后尽力删除已知缓存；重新解析后内容摘要变化，旧请求的迟到写入不会覆盖新棋盘缓存；共用占位图不按录像 ID 留存；绘图版本改变时 `og:image` 的对外 URL 和内部文件名同时变化；未知/停用版本返回 404。
-- **OG 页面测试**：标签齐全、绝对 URL、跳转目标、玩家与标识文本转义；非公开录像不暴露图片、标题或成绩。
-- **Nginx 验证**：通过 Nginx 入口确认冷生成、缓存命中及共用占位图均通过 `X-Accel-Redirect` 返回完整 `image/png`，权限拒绝有效，`Cache-Control` 符合约定，外部无法直接访问内部文件路径。不配置缩略图读取失败后的 `error_page` 回跳；允许转发后的偶发文件竞态失败。Django 测试客户端不能替代这项验证。
+- **OG 页面测试**：标签齐全、绝对 URL、跳转目标、username 转义，realname 与录像标识不进入分享文案；非公开录像不暴露图片、标题或成绩。覆盖四种指定模式与其他/新增模式的 `M{编码}` 标题（含前导零）、标准/自定义棋盘规格、三位小数秒数与整数 bv、UTC 上传时间（含跨日转换）、有/无 stat 的正文行数、全部指标的标签与精度、请求顺序及去重、未知 stat/空项拒绝、stat 规范 URL、GET/HEAD 一致性，以及请求头/用户语言/旧 lang 参数不改变文案。覆盖九个 cell 字段、cellx/cell9 拒绝、bv 与指标缺失值、非有限值及自定义级别 STNB 均显示 N/A，并验证有效 0 不被替换、无值指标不被省略。
+- **Nginx 验证**：通过 Nginx 入口确认冷生成、缓存命中及共用占位图的 GET 均通过 `X-Accel-Redirect` 返回完整 `image/png`，HEAD 返回 200、正确 MIME 及实际文件的 Content-Length 且不发送图片响应体；权限拒绝有效，`Cache-Control` 符合约定，外部无法直接访问内部文件路径。不配置缩略图读取失败后的 `error_page` 回跳；允许转发后的偶发文件竞态失败。Django 测试客户端不能替代这项验证。
 - **前端组件测试**：第二阶段开放 UI 时，验证按钮仅出现在可分享的站内录像上，复制链接正确；Cypress 命令交用户执行。
 - **基准测试**：用真实 `board` 数据及 24×30 上限测生成耗时、峰值内存和清理期间请求延迟，核对第 4 节估算。
 - **秘密上线验收**：第一阶段只部署后端能力，不展示相关 UI；由用户手动构造分享链接，在目标 QQ 客户端中验证卡片、图片裁切、文字、点击后的跳转、`meta refresh` 对抓取的影响、缓存更新及容量变化。通过后再实施并开放 UI。
@@ -225,3 +296,20 @@ OG 标题与说明从 `VideoModel` 生成，不从棋盘或录像文件读取：
 - 本地绘图基准与样图已生成，见 4.5；无前端修改，无需本轮 lintfix/typecheck 或 Cypress。
 - 部署需安装新增 Pillow 依赖，运行 `python manage.py prepare_share_preview`，重启 Web 和现有 worker，再由用户通过 Nginx 入口、QQ 验收。无新增模型字段或迁移，不自动部署或开放 UI。
 - 所有检查日志、退出码及完整交付记录保存在 `.tmp/checks/share-preview-implementation-20261124/`。
+
+## 9. 秘密上线兼容性排查
+
+- 首次实测：电脑 QQ 显示文案但没有图片，手机 QQ 仅显示链接，Discord 显示文案和图片，手机及电脑微信均仅显示链接。QQ 图文目标尚未通过，不开放分享 UI。
+- 用户提供的服务器日志（2026-11-25，UTC+8）显示：QQUrlRichService 成功 GET 分享页，QQShareProxy 三次 HEAD 图片均为 405；另有 Referer 为 `http://xinan.qq.com` 及 User-Agent 为 Discordbot 的图片 GET 返回 200。确认需要显式支持 HEAD，但这些日志尚不能证明 HEAD 修复后 QQ 一定展示图片，也不能据此确定手机端或微信的原因。
+- 修复仅扩展分享页和图片端点支持 GET/HEAD，继续经 X-Accel-Redirect 转发；不调整图片尺寸、格式、跳转或新增客户端 SDK。部署后先用 `curl -I -A 'QQShareProxy' https://openms.top/api/video/share/v1/407499.png` 检查 HEAD，再在 QQ 重发链接并核对抓取日志与实际展示。
+- 本轮本地验证：新增回归先复现 HEAD 返回 405；修复后 `videomanager` 110 项测试成功完成，1 项符号链接测试因 Windows 权限跳过，修改文件的 flake8 通过。日志与退出码位于 `.tmp/checks/share-preview-head-20261124/`；本地测试不替代部署后的 Nginx 与 QQ 验收。
+
+## 10. 统一文案实现与交付
+
+- 第 3.3 节已实现：模式缩写及 M 编码、统一标题、UTC 上传时间、24 个可选指标、顺序去重、stat 规范 URL、缺失及非有限值 N/A；HTML title 与 og:title 一致，正文使用纯文本换行。旧 lang 参数不再影响文案。
+- 格式与白名单集中于 `videomanager/share_preview_text.py`；旧三语字典及分享 API 的 `UserLanguage` 参数依赖已移除。辅助文本统一英文，不读取或修改用户已保存的语言偏好。仅覆盖旧三语行为的测试已替换，保留 username 转义、不暴露真实姓名、URL 域名固定、公开性与图片端点等独立行为覆盖。
+- 元数据按所选 stat 加载必要列；STNB 复用现有属性并加载 iqg。测试断言匿名默认分享页查询一次，选择全部指标时也查询一次；没有按指标追加查询或请求中重算 pLuck。
+- 本地检查：`python manage.py test videomanager --keepdb --noinput` 共 118 项，117 项通过、1 项因 Windows 符号链接权限跳过；本次三个 Python 文件的 flake8 通过。日志与退出码在 `.tmp/checks/share-preview-copy-implementation-20261124/`。本轮无前端修改，不运行前端检查或 Cypress。
+- 发布需更新后端文件与模板并重启 Web；无新增依赖、数据库字段或迁移，不改图片版本、文件缓存及 Redis 计数逻辑。尚未部署，以上本地检查不代表 QQ 卡片已验收。
+- 分享 UI 继续不开放。QQ 验收通过后再提供复制 `/video/<id>` 绝对链接的按钮；不写入 lang 参数，stat 为可手动附加的可选参数，本次计划不新增指标选择 UI。
+- 发布后用带 stat 的新链接检查实际 HTML 及卡片，并复测 HEAD、纯文本换行、字段精度与平台截断行为。[Open Graph](https://ogp.me/) 定义规范地址与元数据；[Discord 官方文档](https://docs.discord.com/developers/link-previews/overview#caching-and-testing)说明卡片会被缓存。不同 stat 内容保留不同规范 URL，是本功能为避免缓存混用采用的策略，不代表所有平台的缓存与布局行为相同。

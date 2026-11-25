@@ -24,6 +24,9 @@ describe('video summary expressions', () => {
         expect(evaluateVideoExpression(expression, context).value).toBe(2.5);
         video.timems = 20000;
         expect(evaluateVideoExpression(expression, context).value).toBe(5);
+        video.path = 32;
+        expect(evaluateVideoExpression(compileVideoExpression('path'), context).value).toBe(32);
+        expect(evaluateVideoExpression(compileVideoExpression('path / 16'), context).value).toBe(2);
         Object.defineProperty(video, 'pluck', { get: () => {
             throw new Error('unavailable');
         } });

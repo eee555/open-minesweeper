@@ -10,6 +10,7 @@
                 <option value="thrp">{{ t('prop.thrp') }}</option>
                 <option value="nf_ioe">NF IOE</option>
                 <option value="tpe">TPE</option>
+                <option value="path">Path</option>
                 <option value="pb_derived">{{ t('local.pbDerived') }}</option>
             </select>
         </label>
@@ -23,6 +24,9 @@
             </select>
             <select v-else-if="rankingName === 'tpe'" v-model="tpeStat" class="base-select" :aria-label="t('local.stat')" :disabled="working">
                 <option v-for="column in tpeColumns" :key="column.stat" :value="column.stat">{{ t(`level.${column.level}`) }} {{ column.metric }}</option>
+            </select>
+            <select v-else-if="rankingName === 'path'" v-model="pathStat" class="base-select" :aria-label="t('local.stat')" :disabled="working">
+                <option v-for="column in pathColumns" :key="column.stat" :value="column.stat">{{ t(`level.${column.level}`) }} {{ column.label }}</option>
             </select>
             <span v-else-if="rankingName === 'pb_derived'" class="text-secondary">{{ t('local.allDerivedFields') }}</span>
             <select v-else v-model="stat" class="base-select" :aria-label="t('local.stat')" :disabled="working">
@@ -55,6 +59,8 @@ import BaseButton from '@/components/common/BaseButton.vue';
 import { actionSuccessNotification, httpErrorNotification } from '@/components/Notifications';
 import { formatNFIOEValue, nfIOEStats, nfIOEVideoId, rebuildNFIOERecord } from '@/services/nfIOERankingService';
 import type { NFIOEStat } from '@/services/nfIOERankingService';
+import { formatPathValue, pathColumns, pathVideoId, rebuildPathRecord } from '@/services/pathRankingService';
+import type { PathStat } from '@/services/pathRankingService';
 import { rebuildDerivedPlayer } from '@/services/pbDerivedService';
 import type { SaoleiField, SaoleiRankingName } from '@/services/saoleiRankingService';
 import { formatSaoleiValue, rebuildSaoleiRecord, saoleiFields, saoleiVideoId } from '@/services/saoleiRankingService';
@@ -65,11 +71,12 @@ import type { ThrpStat } from '@/services/thrpRankingService';
 import { formatTPEValue, rebuildTPERecord, tpeColumns, tpeVideoId } from '@/services/tpeRankingService';
 import type { TPEStat } from '@/services/tpeRankingService';
 
-const rankingName = ref<SaoleiRankingName | StrictNgRankingName | 'thrp' | 'nf_ioe' | 'tpe' | 'pb_derived'>('saolei');
+const rankingName = ref<SaoleiRankingName | StrictNgRankingName | 'thrp' | 'nf_ioe' | 'tpe' | 'path' | 'pb_derived'>('saolei');
 const stat = ref<SaoleiField>('bt');
 const thrpStat = ref<ThrpStat>('b');
 const ioeStat = ref<NFIOEStat>('b');
 const tpeStat = ref<TPEStat>('i');
+const pathStat = ref<PathStat>('sum_epath');
 const userId = ref<number>();
 const working = ref(false);
 const result = ref<{ value: string; videoId?: number }>();
@@ -79,6 +86,10 @@ const fields = computed(() => (isStrictNg.value ? strictNgFields : saoleiFields)
 const selectedLabel = computed(() => {
     if (rankingName.value === 'pb_derived') return t('local.pbDerived');
     if (rankingName.value === 'nf_ioe') return t(`level.${ioeStat.value}`);
+    if (rankingName.value === 'path') {
+        const column = pathColumns.find((item) => item.stat === pathStat.value);
+        return column ? `${t(`level.${column.level}`)} ${column.label}` : pathStat.value;
+    }
     if (rankingName.value === 'tpe') {
         const column = tpeColumns.find((item) => item.stat === tpeStat.value);
         return column ? `${t(`level.${column.level}`)} ${column.metric}` : tpeStat.value;
@@ -87,7 +98,7 @@ const selectedLabel = computed(() => {
     return t(`local.${stat.value}`);
 });
 
-watch([rankingName, stat, thrpStat, ioeStat, tpeStat, userId], () => {
+watch([rankingName, stat, thrpStat, ioeStat, tpeStat, pathStat, userId], () => {
     result.value = undefined;
 });
 
@@ -108,6 +119,9 @@ async function rebuild() {
         } else if (rankingName.value === 'tpe') {
             const record = await rebuildTPERecord(userId.value, tpeStat.value);
             result.value = { value: formatTPEValue(record, tpeStat.value), videoId: tpeVideoId(record, tpeStat.value) };
+        } else if (rankingName.value === 'path') {
+            const record = await rebuildPathRecord(userId.value, pathStat.value);
+            result.value = { value: formatPathValue(record, pathStat.value), videoId: pathVideoId(record, pathStat.value) };
         } else if (rankingName.value === 'strict_ng' || rankingName.value === 'strict_ng_nf') {
             const record = await rebuildStrictNgRecord(userId.value, rankingName.value, stat.value);
             result.value = { value: formatStrictNgValue(record, stat.value), videoId: strictNgVideoId(record, stat.value) };

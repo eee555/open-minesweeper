@@ -65,12 +65,14 @@ New configurations enable the board custom-event layer with `pluck` selected. Ho
 
 ### Dynamic and Player-Only Fields
 
+In expressions, `path` remains the raw distance normalized to **16px per cell**, not a distance in cells. It does not change with the displayed cell size. Use `path / 16` for cells; Path rankings already apply this conversion when displaying results.
+
 | Field | Meaning and unit | Video player | Analyzer counter | Custom event |
 | --- | --- | --- | --- | --- |
 | `time` | Original sampled event time in seconds; may be negative before the game timer starts and differs from page playback progress | — | Yes | Yes |
 | `x` | Original pixel coordinate of the latest mouse event relative to the board's left edge, increasing to the right | — | Yes | Yes |
 | `y` | Original pixel coordinate of the latest mouse event relative to the board's top edge, increasing downwards | — | Yes | Yes |
-| `path` | Cumulative mouse path length, retaining the library's value regardless of displayed cell size | Yes | Yes | Yes |
+| `path` | Cumulative mouse path length, as a raw value normalized to 16px per cell | Yes | Yes | Yes |
 | `c_path` | Cumulative straight-line distance between effective clicks, normalized to 16 pixels per cell | Yes | Yes | Yes |
 | `e_path` | Cumulative Euclidean distance between the cells of effective clicks; adjacent cells are 16 units apart | Yes | Yes | Yes |
 | `bbbv_solved` | 3BV solved so far | Yes | Yes | Yes |
