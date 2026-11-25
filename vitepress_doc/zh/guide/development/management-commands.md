@@ -115,7 +115,7 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 
 ### `refresh_media_rankings`
 
-位置：`media/management/commands/refresh_media_rankings.py`。低频人工命令，用于推进热度基准、从数据库全量重建四个作品排行 zset，以及只读巡检；**不加入部署流程，也不加入 `start.sh` / `stop.sh`**。原 `rebuild_media_rankings` 与 `check_media_rankings` 已合并进此命令，APScheduler 的月度 `refresh_media_hot_reference` 作业与 media 后台同步任务均已删除。
+位置：`media/management/commands/refresh_media_rankings.py`。低频人工维护数据库热度基准和作者聚合榜，不加入部署流程或调度器。作品列表已经直接使用 MySQL，此命令不再维护单件作品排行。
 
 ```bash
 python manage.py refresh_media_rankings --check
@@ -125,19 +125,17 @@ python manage.py refresh_media_rankings --reference 2026-12-01T00:00:00+00:00
 python manage.py refresh_media_rankings --batch-size 500
 ```
 
-`--check` 只读：按 `decay(T_db, T_r)` 把每个 `verified` 作品的 `hot_value` 折算成期望分数并累加出作者维度分数，与四个 zset 逐一比较（相对/绝对容差 `1e-6`）。一致时输出 `matches the database` 并正常退出；发现多余成员、缺失成员、分数不符或 `T_r` 缺失时抛 `CommandError`，以非零退出码报出漂移样例和修复建议，便于外部巡检按退出码告警。数据库始终是权威值；巡检不再输出 FAILED / 积压同步任务数（media 没有后台任务），也不需要避开月度刷新窗口。
+`--check` 按 `decay(T_db, T_r)` 汇总数据库的已审核作品，比较 `media:rank:user:hot`、`media:rank:user:likes` 与 Redis 基准，容差 `1e-6`。缺失或漂移时非零退出，并给出修复提示。`--max-examples` 默认 10，必须为正。
 
-`--rebuild-only` 不推进 `T`，只按当前 `T_r` 从数据库全量重建四个 zset，用于修复竞态或 Redis 故障造成的漂移；空库时删除旧的四个 zset。不带 `--check` 且不带 `--rebuild-only` 时，`--reference`（默认当前时刻，ISO 8601 UTC，不得早于当前 `T_db`）先在数据库事务内用 `F()` 把全表 `hot_value` 乘 `decay(T_db_old, T_new)` 并写入新 `T_db`，再全量重建并发布 `T_r`。对同一 `--reference` 重跑不会重复缩放数据库。`--batch-size`（默认 1000，必须为正）与 `--max-examples`（默认 10，必须为正）分别控制重建批量与巡检样例数。
+`--rebuild-only` 保持当前基准，只重建作者两榜。其他写入模式先把全表 `hot_value` 乘 `decay(T_db_old, T_new)` 并推进 `hot_value_updated_at`，再发布作者榜和新 `T_r`。`--reference` 默认当前时刻，不得早于 `T_db`；相同 reference 重跑不重复缩放。`--batch-size` 默认 1000，必须为正。
 
-全量重建只取 `status='verified'`，写入 `media:rebuild:<uuid>:*` 临时 key，最后在**一个 `MULTI/EXEC`** 里 `rename` 四个正式 zset 并 `SET media:hot:anchor`；失败时删除临时 key、旧榜保留。命令**不持锁、不阻塞请求写**：执行期间正式 key 上的增量可能被 `rename` 覆盖而短暂漂移，已确认接受；数据库始终正确，重跑或下一次请求路径写入即可收敛。Redis 发布失败时命令抛 `CommandError`，提示 `T_db` 已是权威值、重跑命令即可，不阻断服务。
-
-热度基准 `T` 仍需推进，理由是防止 `1 / decay(T, now)` 长期指数增长到浮点上溢；double 下至少以年为单位即可，因此按年人工执行一次 `--reference` 即可。`T_r` 在首次调用 `get_hot_reference()`（作者榜读取或请求路径缓存同步）时以 `T_db` 用 `SET NX` 初始化，空库时四个 zset 为空即正确，部署流程不需要全量重建。
+重建写入 `media:rebuild:<uuid>:*`，最后用一次 `MULTI/EXEC` 替换作者两榜和 anchor；空库时删除作者两榜。并发增量可能被覆盖，接受短暂漂移，失败时报 `CommandError`，数据库始终是事实来源，可重跑纠偏。推进基准是罕见事件，不为此兼容列表查询竞态；用户刷新即可开始新查询。
 
 ### 失败检测
 
-数据库是事实来源，Redis 是排序索引。请求路径的缓存同步异常只在 `logs/media.log` 留 `media` error 日志，不回滚数据库、不产生 FAILED 任务，也没有任务重启或积压统计。检测手段是 `refresh_media_rankings --check`：以非零退出码暴露四个 zset 与数据库的漂移（含 `T_r` 缺失），建议接入外部定时巡检告警；修复手段是 `--rebuild-only`（只纠偏）或带 `--reference` 的低频基准推进。
+作者榜同步失败会写入 `logs/media.log`，可使用 `--check` 检测，`--rebuild-only` 修复。单件作品的排序、筛选和滚动加载直接查 MySQL，不再使用 Redis 排行；排查应检查查询、索引、筛选条件和当前游标。
 
-审核通过的作品出现在发表时间排序却没出现在实时热度 / 累计投喂时，先运行 `--check`；报 `missing member` 说明四个 zset 尚未同步，执行 `--rebuild-only` 即可。表格的实时热度 / 累计投喂排序读 Redis zset，发表时间排序直接查数据库；`likes` / `hot_value` 为 0 的作品仍会入榜但排在末尾，作品数超过一页时需要翻页。点击表头会重新拉列表，也可用表格上方的刷新按钮手动重拉。
+全部旧进程退出后，只删除废弃的 `media:rank:hot`、`media:rank:likes`，不能清空作者两榜及 `media:hot:anchor`。
 
 ## 勋章补发
 

@@ -6,7 +6,6 @@ from unittest.mock import patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.db import transaction
 from django.test import override_settings, TestCase
 from django.utils import timezone
 from django_tasks_db.models import DBTaskResult
@@ -18,7 +17,7 @@ from . import cache
 from .models import Media, MediaLikes, UserMedia
 from .services import (
     create_media, get_balance, get_daily_likes_used, get_me_state, hard_delete_media, like_media, MediaServiceError,
-    reject_media, reopen_media, set_media_banned, sync_media_scores, verify_media,
+    reject_media, reopen_media, set_media_banned, sync_user_scores, verify_media,
 )
 from .utils import decay, MediaFormat, MediaStatus
 
@@ -69,25 +68,11 @@ class MediaServiceTests(TestCase):
         self.assertEqual(caught.exception.status_code, 409)
 
     @override_settings(EMAIL_SKIP=True)
-    def test_create_waits_for_outer_commit_before_syncing_cache(self):
-        with patch('media.services.sync_media_scores') as sync:
-            with self.captureOnCommitCallbacks(execute=True) as callbacks:
-                with transaction.atomic():
-                    media = self._create_media()
-                    sync.assert_not_called()
-            self.assertEqual(len(callbacks), 1)
-            sync.assert_called_once_with(media.pk, self.user.pk)
-
-    @override_settings(EMAIL_SKIP=True)
-    def test_create_rollback_discards_cache_sync(self):
-        with patch('media.services.sync_media_scores') as sync:
-            with self.captureOnCommitCallbacks(execute=True) as callbacks:
-                with transaction.atomic():
-                    self._create_media()
-                    transaction.set_rollback(True)
-            self.assertEqual(callbacks, [])
+    def test_pending_creation_does_not_sync_author_ranking(self):
+        with patch('media.services.sync_user_scores') as sync:
+            with self.captureOnCommitCallbacks(execute=True):
+                self._create_media()
             sync.assert_not_called()
-        self.assertFalse(Media.objects.exists())
 
     def test_like_pending_only_writes_db(self):
         media = self._create_media()
@@ -101,15 +86,13 @@ class MediaServiceTests(TestCase):
         for key in cache.MEDIA_RANK_KEYS:
             self.assertEqual(cache.cache.zcard(key), 0)
 
-    def test_verify_fills_four_zsets(self):
+    def test_verify_fills_author_zsets(self):
         media = self._create_media()
         self._like(media, 2)
         verify_media(media.pk, self.actor.pk)
         media.refresh_from_db()
         self.assertEqual(media.status, MediaStatus.VERIFIED)
-        self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_LIKES, media.pk), 2)
         self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_USER_LIKES, self.user.pk), 2)
-        self.assertAlmostEqual(cache.cache.zscore(cache.MEDIA_RANK_HOT, media.pk), media.hot_value)
         self.assertAlmostEqual(cache.cache.zscore(cache.MEDIA_RANK_USER_HOT, self.user.pk), media.hot_value)
         with self.assertRaises(MediaServiceError):
             verify_media(media.pk, self.actor.pk)
@@ -119,8 +102,7 @@ class MediaServiceTests(TestCase):
         verify_media(media.pk, self.actor.pk)
         self._like(media, 3)
         media.refresh_from_db()
-        self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_LIKES, media.pk), 3)
-        self.assertAlmostEqual(cache.cache.zscore(cache.MEDIA_RANK_HOT, media.pk), media.hot_value)
+        self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_USER_LIKES, self.user.pk), 3)
         self.assertAlmostEqual(cache.cache.zscore(cache.MEDIA_RANK_USER_HOT, self.user.pk), media.hot_value)
 
     def test_reject_refunds_and_clears_everything(self):
@@ -160,8 +142,9 @@ class MediaServiceTests(TestCase):
         media = self._create_media()
         self._like(media, 5)
         verify_media(media.pk, self.actor.pk)
-        self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_LIKES, media.pk), 5)
+        self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_USER_LIKES, self.user.pk), 5)
         self.assertTrue(hard_delete_media(media.pk, self.actor.pk))
+        sync_user_scores(self.user.pk)
         self.assertFalse(Media.objects.filter(pk=media.pk).exists())
         self.assertEqual(UserMedia.objects.get(pk=self.user.pk).likes_sent, 0)
         for key in cache.MEDIA_RANK_KEYS:
@@ -174,14 +157,6 @@ class MediaServiceTests(TestCase):
         self.assertEqual(caught.exception.status_code, 409)
         self.assertTrue(Media.objects.filter(pk=media.pk).exists())
 
-    def test_late_sync_after_hard_delete_does_not_resurrect(self):
-        media = self._create_media()
-        verify_media(media.pk, self.actor.pk)
-        hard_delete_media(media.pk, self.actor.pk)
-        sync_media_scores(media.pk, self.user.pk)
-        for key in cache.MEDIA_RANK_KEYS:
-            self.assertEqual(cache.cache.zcard(key), 0)
-
     def test_create_media_uses_db_reference_without_lock(self):
         media = self._create_media()
         self.assertEqual(media.hot_value_updated_at, cache.read_db_hot_reference())
@@ -191,33 +166,22 @@ class MediaServiceTests(TestCase):
         media = self._create_media()
         self._like(media, 2)
         verify_media(media.pk, self.actor.pk)
-        self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_LIKES, media.pk), 2)
+        self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_USER_LIKES, self.user.pk), 2)
         self.assertFalse(DBTaskResult.objects.filter(task_path__startswith='media.').exists())
         self.assertFalse(cache.cache.exists('media:cache:lock'))
         self.assertFalse(any('media' in item['task_path'] for item in TASK_CLEANUP_CONFIGS))
 
-    def test_sync_media_scores_swallows_redis_errors(self):
+    def test_sync_user_scores_swallows_redis_errors(self):
         media = self._create_media()
         verify_media(media.pk, self.actor.pk)
-        with patch.object(cache, 'set_media_scores', side_effect=RedisConnectionError('redis down')):
+        with patch.object(cache, 'set_user_scores', side_effect=RedisConnectionError('redis down')):
             with self.assertLogs('media', level='ERROR') as logs:
                 result = like_media(self.user, media.pk)
         self.assertEqual(result['likes'], 1)
         media.refresh_from_db()
         self.assertEqual(media.likes, 1)
-        self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_LIKES, media.pk), 0)
+        self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_USER_LIKES, self.user.pk), 0)
         self.assertIn('ranking cache sync failed', logs.output[0])
-
-    def test_reference_factor_scales_zset_scores(self):
-        cache.set_hot_reference(TARGET)
-        media = self._create_media()
-        self._like(media, 2)
-        verify_media(media.pk, self.actor.pk)
-        media.refresh_from_db()
-        factor = decay(REFERENCE, TARGET)
-        self.assertAlmostEqual(cache.cache.zscore(cache.MEDIA_RANK_HOT, media.pk), media.hot_value * factor)
-        self.assertAlmostEqual(cache.cache.zscore(cache.MEDIA_RANK_USER_HOT, self.user.pk), media.hot_value * factor)
-        self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_LIKES, media.pk), 2)
 
     def test_check_reports_consistent_cache(self):
         media = self._create_media()
@@ -241,7 +205,7 @@ class MediaServiceTests(TestCase):
         media = self._create_media()
         self._like(media, 2)
         verify_media(media.pk, self.actor.pk)
-        cache.cache.zincrby(cache.MEDIA_RANK_LIKES, 1, media.pk)
+        cache.cache.zincrby(cache.MEDIA_RANK_USER_LIKES, 1, self.user.pk)
         with self.assertRaises(CommandError) as caught:
             call_command('refresh_media_rankings', '--check', stdout=StringIO())
         self.assertIn('drift detected', str(caught.exception))
@@ -257,12 +221,12 @@ class MediaServiceTests(TestCase):
         media = self._create_media()
         self._like(media, 2)
         verify_media(media.pk, self.actor.pk)
-        cache.cache.zincrby(cache.MEDIA_RANK_LIKES, 1, media.pk)
+        cache.cache.zincrby(cache.MEDIA_RANK_USER_LIKES, 1, self.user.pk)
         call_command('refresh_media_rankings', '--rebuild-only', stdout=StringIO())
         media.refresh_from_db()
         self.assertEqual(media.hot_value_updated_at, REFERENCE)
         self.assertEqual(cache.get_hot_reference(), REFERENCE)
-        self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_LIKES, media.pk), 2)
+        self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_USER_LIKES, self.user.pk), 2)
         call_command('refresh_media_rankings', '--check', stdout=StringIO())
 
     def test_reference_advances_db_and_redis_bases(self):
@@ -277,8 +241,8 @@ class MediaServiceTests(TestCase):
         self.assertAlmostEqual(media.hot_value, old_hot * decay(REFERENCE, TARGET))
         self.assertEqual(cache.read_db_hot_reference(), TARGET)
         self.assertEqual(cache.get_hot_reference(), TARGET)
-        self.assertAlmostEqual(cache.cache.zscore(cache.MEDIA_RANK_HOT, media.pk), media.hot_value)
-        self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_LIKES, media.pk), 2)
+        self.assertAlmostEqual(cache.cache.zscore(cache.MEDIA_RANK_USER_HOT, self.user.pk), media.hot_value)
+        self.assertEqual(cache.cache.zscore(cache.MEDIA_RANK_USER_LIKES, self.user.pk), 2)
         call_command('refresh_media_rankings', '--check', stdout=StringIO())
 
     def test_reference_is_idempotent(self):

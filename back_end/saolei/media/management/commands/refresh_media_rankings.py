@@ -1,4 +1,4 @@
-"""低频管理命令：推进 T_db / T_r 并从 DB 全量重建四个 zset；含只读巡检。
+"""低频管理命令：推进 T_db / T_r 并从 DB 全量重建作者两个 zset；含只读巡检。
 
 见 media/README.md。不加入部署流程，不阻塞请求写；执行期间正式 key 上的
 增量可能被 rename 覆盖，接受短暂漂移，DB 始终正确，重跑即可收敛。
@@ -21,18 +21,14 @@ SCORE_ABS_TOLERANCE = 1e-6
 
 
 def _expected_scores(factor):
-    """按 T_r 基准算四个 zset 的期望分数；T_db != T_r 时必须乘 decay(T_db, T_r)。"""
-    media_hot, media_likes, user_hot, user_likes = {}, {}, {}, {}
-    rows = Media.objects.filter(status=MediaStatus.VERIFIED).values_list('pk', 'user_id', 'hot_value', 'likes')
-    for pk, user_id, hot_value, likes in rows.iterator(chunk_size=1000):
+    """按 T_r 基准算作者两个 zset 的期望分数；T_db != T_r 时必须乘 decay(T_db, T_r)。"""
+    user_hot, user_likes = {}, {}
+    rows = Media.objects.filter(status=MediaStatus.VERIFIED).values_list('user_id', 'hot_value', 'likes')
+    for user_id, hot_value, likes in rows.iterator(chunk_size=1000):
         hot = hot_value * factor
-        media_hot[pk] = hot
-        media_likes[pk] = likes
         user_hot[user_id] = user_hot.get(user_id, 0.0) + hot
         user_likes[user_id] = user_likes.get(user_id, 0) + likes
     return {
-        cache.MEDIA_RANK_HOT: media_hot,
-        cache.MEDIA_RANK_LIKES: media_likes,
         cache.MEDIA_RANK_USER_HOT: user_hot,
         cache.MEDIA_RANK_USER_LIKES: user_likes,
     }
@@ -58,10 +54,10 @@ def _diff(key, expected, actual, limit):
 
 
 class Command(BaseCommand):
-    help = 'Advance the media hot reference and rebuild the four ranking zsets from the database.'
+    help = 'Advance the media hot reference and rebuild the two author ranking zsets from the database.'
 
     def add_arguments(self, parser):
-        parser.add_argument('--check', action='store_true', help='只读巡检四个 zset，不写 DB 与 Redis')
+        parser.add_argument('--check', action='store_true', help='只读巡检作者两个 zset，不写 DB 与 Redis')
         parser.add_argument('--rebuild-only', action='store_true', help='不推进 T，只按当前 T_r 全量重建')
         parser.add_argument('--reference', type=datetime.fromisoformat, default=None,
                             help='目标基准 ISO 8601 UTC，默认当前时刻；不得早于 T_db')

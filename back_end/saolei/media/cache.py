@@ -1,4 +1,4 @@
-"""作品页 Redis 排行：四个 zset 与双基准（DB T_db / Redis T_r）；见 README.md。"""
+"""作品作者 Redis 排行：两个 zset 与双基准（DB T_db / Redis T_r）；见 README.md。"""
 
 from datetime import datetime, timezone as datetime_timezone
 import logging
@@ -27,13 +27,11 @@ cache = (
     else get_redis_connection('saolei_website')
 )
 
-MEDIA_RANK_HOT = 'media:rank:hot'
-MEDIA_RANK_LIKES = 'media:rank:likes'
 MEDIA_RANK_USER_HOT = 'media:rank:user:hot'
 MEDIA_RANK_USER_LIKES = 'media:rank:user:likes'
 MEDIA_HOT_ANCHOR = 'media:hot:anchor'
 MEDIA_REBUILD_PREFIX = 'media:rebuild:'
-MEDIA_RANK_KEYS = (MEDIA_RANK_HOT, MEDIA_RANK_LIKES, MEDIA_RANK_USER_HOT, MEDIA_RANK_USER_LIKES)
+MEDIA_RANK_KEYS = (MEDIA_RANK_USER_HOT, MEDIA_RANK_USER_LIKES)
 MEDIA_CACHE_KEYS = (*MEDIA_RANK_KEYS, MEDIA_HOT_ANCHOR)
 
 
@@ -77,33 +75,20 @@ def reference_factor(target=None):
     return decay(read_db_hot_reference(), target or get_hot_reference())
 
 
-def set_media_scores(media_id, author_id, media_hot, media_likes, user_hot, user_likes, has_works):
-    """一个显式 MULTI/EXEC 写四个 zset 的绝对分数；调用方负责吞掉 Redis 异常。
+def set_user_scores(author_id, user_hot, user_likes, has_works):
+    """一个显式 MULTI/EXEC 写作者两个 zset 的绝对分数；调用方负责吞掉 Redis 异常。
 
     一律写绝对值，不用 ZINCRBY：EXEC 已执行但响应丢失、或只生效一部分时都不会重复累加，
     下一次写入或管理命令全量重建即可覆盖收敛。MULTI/EXEC 没有回滚，所以绝不把抛异常
     当作「未写入」，也不重试、不补偿。
     """
     with cache.pipeline(transaction=True) as pipe:
-        if media_hot is None:
-            pipe.zrem(MEDIA_RANK_HOT, media_id)
-            pipe.zrem(MEDIA_RANK_LIKES, media_id)
-        else:
-            pipe.zadd(MEDIA_RANK_HOT, {media_id: media_hot})
-            pipe.zadd(MEDIA_RANK_LIKES, {media_id: media_likes})
         for key, score in ((MEDIA_RANK_USER_HOT, user_hot), (MEDIA_RANK_USER_LIKES, user_likes)):
             if has_works:
                 pipe.zadd(key, {author_id: score})
             else:
                 pipe.zrem(key, author_id)
         pipe.execute()
-
-
-def get_ranking(key, start=0, count=50):
-    """zset 分页：返回 (member id 列表, 总数)；同分按 Redis member 字典序，不二次排序。"""
-    total = cache.zcard(key)
-    raw = cache.zrevrange(key, start, start + count - 1)
-    return [int(maybe_bytes_to_str(member)) for member in raw], total
 
 
 def get_user_ranking(sort_key, start=0, count=50):
@@ -124,7 +109,7 @@ def get_user_ranking(sort_key, start=0, count=50):
 
 
 def rebuild_rankings(batch_size=1000, reference=None):
-    """从 DB 全量重算四个 zset 到临时 key，再与 T_r 一起原子发布；不持锁、不阻塞请求写。
+    """从 DB 全量重算作者两个 zset 到临时 key，再与 T_r 一起原子发布；不持锁、不阻塞请求写。
 
     reference 是发布后的 T_r（低频管理命令推进 T 时传新基准）；不传则沿用当前 T_r，
     只做纠偏。分数统一乘 decay(T_db, T_r)：推进后两者相等，因子为 1。likes 榜不缩放。
@@ -141,8 +126,6 @@ def rebuild_rankings(batch_size=1000, reference=None):
             queryset = Media.objects.filter(status=MediaStatus.VERIFIED).only('id', 'user_id', 'likes', 'hot_value')
             for media in queryset.iterator(chunk_size=batch_size):
                 hot = media.hot_value * factor
-                pipe.zadd(temporary[MEDIA_RANK_HOT], {media.pk: hot})
-                pipe.zadd(temporary[MEDIA_RANK_LIKES], {media.pk: media.likes})
                 pipe.zincrby(temporary[MEDIA_RANK_USER_HOT], hot, media.user_id)
                 pipe.zincrby(temporary[MEDIA_RANK_USER_LIKES], media.likes, media.user_id)
                 count += 1

@@ -39,7 +39,7 @@ import MediaSourceLink from './MediaSourceLink.vue';
 
 import PlayerName from '@/components/PlayerName.vue';
 import type { MediaItem, MediaLikeResult } from '@/services/mediaService';
-import { mediaEmbedUrl } from '@/utils/media';
+import { mediaEmbedUrl, mediaLanguageLabel } from '@/utils/media';
 
 import '@/components/media/media.css';
 
@@ -63,24 +63,12 @@ watch(() => props.media, (media) => {
     currentHot.value = media.hot_now;
 });
 
-const LANGUAGE_LABELS: Record<string, string> = {
-    'zh-cn': '简体中文',
-    'zh-tw': '繁體中文',
-    en: 'English',
-    ja: '日本語',
-    ko: '한국어',
-    ru: 'Русский',
-    de: 'Deutsch',
-    fr: 'Français',
-    es: 'Español',
-};
-
 const statusLabel = computed(() => t({
     pending: 'media.pendingStatus',
     verified: 'media.verifiedStatus',
     rejected: 'media.rejectedStatus',
 }[props.media.status]));
-const languageLabel = computed(() => LANGUAGE_LABELS[props.media.language.trim().toLowerCase()] ?? t('media.unknownLanguage'));
+const languageLabel = computed(() => mediaLanguageLabel(props.media.language) || t('media.unknownLanguage'));
 
 function formatDate(value: string): string {
     const parsed = new Date(value);

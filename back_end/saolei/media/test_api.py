@@ -65,50 +65,49 @@ class MediaApiTests(TestCase):
             content_type='application/json',
         )
 
-    def test_ranking_and_user_ranking(self):
+    def test_works_and_user_ranking(self):
         media = self._create_media()
         for _ in range(3):
             services.like_media(self.user, media.pk)
         services.verify_media(media.pk, self.staff.pk)
-        response = self.client.get('/api/media/ranking?sort=hot')
+        response = self.client.get('/api/media/works?sort=hot')
         self.assertEqual(response.status_code, 200, response.content)
         body = response.json()
-        self.assertEqual(body['total'], 1)
+        self.assertFalse(body['has_more'])
         self.assertEqual(body['items'][0]['id'], media.pk)
         self.assertEqual(body['items'][0]['suffix'], media.suffix)
         self.assertNotIn('url', body['items'][0])
         self.assertNotIn('embed_url', body['items'][0])
         self.assertIn('hot_now', body['items'][0])
-        self.assertIn('anchor', body)
         self.assertNotIn('external_author_id', body['items'][0])
         user_rank = self.client.get('/api/media/user-ranking?sort=likes')
         self.assertEqual(user_rank.status_code, 200, user_rank.content)
         self.assertEqual(user_rank.json()['items'][0]['user_id'], self.user.pk)
         self.assertEqual(user_rank.json()['items'][0]['likes'], 3)
 
-    def test_ranking_and_user_ranking_expose_their_own_reference(self):
-        """作品分页 anchor 是 T_db，作者榜 anchor 是 T_r；两者不要求相等。"""
+    def test_submission_languages_default_by_platform_and_accept_overrides(self):
+        self._bind()
+        self._bind(platform='c')
+        for index, (media_format, language, expected) in enumerate((
+            ('B_v', None, 'zh-cn'), ('B_a', '', 'zh-cn'), ('c_p', '  ', 'zh-cn'),
+            ('B_v', 'en', 'en'), ('B_v', 'es', 'es'), ('B_v', '日本語', '日本語'),
+        )):
+            payload = {'format': media_format, 'suffix': f'BV1xx411c7m{index}' if media_format == 'B_v' else str(index + 1)}
+            if language is not None:
+                payload['language'] = language
+            with self.subTest(media_format=media_format, language=language):
+                with patch('media.clients.fetch_media_metadata_optional', return_value=self._metadata()):
+                    response = self.client.post('/api/media/submit', payload, content_type='application/json')
+                self.assertEqual(response.status_code, 200, response.content)
+                self.assertEqual(response.json()['language'], expected)
+
+    def test_user_ranking_exposes_redis_reference(self):
         media = self._create_media()
         services.verify_media(media.pk, self.staff.pk)
         cache.set_hot_reference(TARGET)
-        ranking = self.client.get('/api/media/ranking?sort=hot')
         user_rank = self.client.get('/api/media/user-ranking?sort=hot')
-        self.assertEqual(ranking.status_code, 200, ranking.content)
         self.assertEqual(user_rank.status_code, 200, user_rank.content)
-        self.assertEqual(datetime.fromisoformat(ranking.json()['anchor']), REFERENCE)
         self.assertEqual(datetime.fromisoformat(user_rank.json()['anchor']), TARGET)
-
-    def test_verified_zero_score_work_is_ranked_in_hot_and_likes(self):
-        """审核通过但未投喂的 0 分作品必须同时进入热门与精品，避免只在《最新》可见。"""
-        media = self._create_media()
-        services.verify_media(media.pk, self.staff.pk)
-        for sort in ('hot', 'likes'):
-            with self.subTest(sort=sort):
-                response = self.client.get(f'/api/media/ranking?sort={sort}')
-                self.assertEqual(response.status_code, 200, response.content)
-                body = response.json()
-                self.assertEqual(body['total'], 1)
-                self.assertEqual([item['id'] for item in body['items']], [media.pk])
 
     def test_latest_pending_and_detailbatch(self):
         verified = self._create_media('BV1verified001')
@@ -194,6 +193,7 @@ class MediaApiTests(TestCase):
             duplicate = self._submit('renamed/project', MediaFormat.G_R)
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(response.json()['suffix'], '1296269')
+        self.assertEqual(response.json()['language'], 'en')
         self.assertEqual(response.json()['status'], MediaStatus.PENDING)
         self.assertFalse(response.json()['metadata_pending'])
         self.assertNotIn('url', response.json())
@@ -286,7 +286,7 @@ class MediaApiTests(TestCase):
         UserMedia.objects.create(user=self.user, banned=True)
         with patch('media.clients.fetch_media_metadata_optional', return_value=None):
             self.assertEqual(self._submit().status_code, 403)
-        self.assertEqual(self.client.get('/api/media/ranking').status_code, 200)
+        self.assertEqual(self.client.get('/api/media/works').status_code, 200)
         media = self._create_media('BV1banned00001')
         self.assertEqual(self.client.post('/api/media/like', {'media_id': media.pk}, content_type='application/json').status_code, 200)
         UserProfile.objects.filter(pk=self.user.pk).update(is_banned=True)

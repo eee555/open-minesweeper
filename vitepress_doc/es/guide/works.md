@@ -7,7 +7,9 @@ description: "Cómo publicar vídeos, artículos, entradas de Saolei.wang o repo
 
 [Abrir la página de obras](https://openms.top/#/works)
 
-La página **Obras** reúne vídeos y artículos de Bilibili, publicaciones de Saolei.wang y repositorios de GitHub sobre Buscaminas. **Solo aparecen las obras aprobadas**. Por defecto se ordenan por **Popularidad actual**. Haz clic en el encabezado de **Fecha de publicación**, **Popularidad actual** o **Total de Me gusta** para cambiar el orden y volver a la primera página. Se muestran 20 obras por página. El icono junto al título indica la plataforma. Al pulsar el título de un vídeo de Bilibili se abre una vista previa aquí. Los demás títulos abren el enlace original.
+La página **Obras** reúne vídeos y artículos de Bilibili, publicaciones de Saolei.wang y repositorios de GitHub sobre Buscaminas. **Solo aparecen las obras aprobadas**. Por defecto se ordenan por **Popularidad actual**. Haz clic en el encabezado de **Fecha de publicación**, **Popularidad actual** o **Total de Me gusta** para cambiar el orden. Puedes filtrar por tipo e idioma y desplazarte hacia abajo para cargar más. Cambiar el orden o los filtros reinicia la lista; no hay navegación por número de página. El icono junto al título indica la plataforma. Al pulsar el título de un vídeo de Bilibili se abre una vista previa aquí. Los demás títulos abren el enlace original.
+
+El filtro de idioma ofrece chino, inglés, español y otros. «Otros» incluye los idiomas escritos por los usuarios y las obras sin idioma indicado; limpia el filtro para ver todos los idiomas.
 
 Antes de enviar una obra:
 
@@ -18,7 +20,7 @@ Antes de enviar una obra:
 
 ## Enviar una obra
 
-Pulsa **Enviar** en la esquina superior derecha, elige plataforma y tipo e introduce el **ID de la obra**. El idioma es opcional. Puedes pegar el enlace completo o solo el ID. Los vídeos de Bilibili usan un ID que empieza por BV. Los artículos de Bilibili y las publicaciones de Saolei.wang usan un número: los ceros iniciales no cuentan, así que `cv01646742` y `cv1646742` identifican el mismo artículo. El sitio obtiene el título y la fecha de publicación de la plataforma de origen.
+Pulsa **Enviar** en la esquina superior derecha, elige plataforma y tipo e introduce el **ID de la obra**. Puedes elegir chino, inglés o español, o escribir otro idioma. GitHub usa inglés por defecto; Bilibili y Saolei.wang usan chino. Tu elección explícita tiene prioridad. Puedes pegar el enlace completo o solo el ID. Los vídeos de Bilibili usan un ID que empieza por BV. Los artículos de Bilibili y las publicaciones de Saolei.wang usan un número: los ceros iniciales no cuentan, así que `cv01646742` y `cv1646742` identifican el mismo artículo. El sitio obtiene el título y la fecha de publicación de la plataforma de origen.
 
 ::: tip Si el sitio de origen no responde
 Los envíos de Bilibili y Saolei.wang se conservan con **Título pendiente**. Un moderador completa el título y verifica la cuenta externa durante la revisión. Si falla la consulta a GitHub, el envío no se guarda y puedes volver a intentarlo. Un enlace no válido, un tipo incorrecto o un ID mal formado se rechazan sin dejar registro.

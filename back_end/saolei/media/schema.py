@@ -58,6 +58,12 @@ class MediaQueryOut(Schema):
     total: int
 
 
+class MediaCursorPageOut(Schema):
+    items: list[MediaOut]
+    has_more: bool
+    next_cursor: str | None
+
+
 class MediaQueryError(Schema):
     code: str
     detail: str

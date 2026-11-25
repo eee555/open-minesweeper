@@ -35,7 +35,7 @@ function openSubmitDialog() {
 
 function fillAndSubmit() {
     cy.get('.el-dialog:visible form.media-submit-form [data-cy=submit-suffix]').type(BVID);
-    cy.get('.el-dialog:visible form.media-submit-form [data-cy=submit-language]').type('zh-cn');
+    cy.get('.el-dialog:visible form.media-submit-form [data-cy=submit-language]').should('contain.text', '简体中文');
     cy.get('.el-dialog:visible form.media-submit-form button[type=submit]').click();
 }
 

@@ -57,6 +57,11 @@ describe('<MediaCard />', () => {
         cy.get('[data-cy=media-card-7] .media-card-status--pending').should('have.length', 2);
     });
 
+    it('preserves the displayed text of a custom language', () => {
+        mountCard({ language: 'Klingon' });
+        cy.get('[data-cy=media-card-7]').should('contain.text', 'Klingon').and('not.contain.text', 'Unknown language');
+    });
+
     it('shows reject reason and rejecting moderator when requested', () => {
         mountCard({ status: 'rejected', reject_reason: 'Not minesweeper related', rejected_by: 99 }, { showRejectInfo: true });
         cy.get('[data-cy=media-card-7] .media-card-reject').should('contain.text', 'Not minesweeper related');
