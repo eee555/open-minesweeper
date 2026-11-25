@@ -96,17 +96,15 @@ redis-cli -n 0 DEL io_s_old io_r_old io_s_spds io_r_spds cpus
 
 ## 作品排行
 
-GitHub 仓库使用 `Media.format='g_r'`，`suffix` 保存仓库数字 ID 字符串，继续复用原有四个 ZSET、审核与投喂逻辑，不新增缓存、任务或调度。`MediaOut` 返回 `format` / `suffix`，不再返回 `url` / `embed_url`：普通链接和 B 站嵌入地址由前端生成，GitHub 主页由浏览器按需直接查询，不入本站持久化缓存。
+作品页 `/api/media/works` 直接查询 MySQL，支持类型和语言筛选，按热度、累计投喂或发表时间倒序，以原始排序值和 ID 进行游标分页。没有 COUNT / OFFSET，不缓存单件作品排行。三个排序索引不包含 `status`；类型复用 `(format, suffix)` 唯一索引前缀，语言新增单列索引，允许 MySQL 选择过滤和额外排序。旧 `/ranking` 已移除，管理员仍使用 `/latest`。
 
-作品页实时热度 / 累计投喂排序与排行榜页《作品》tab 使用五个固定 Redis key（DB `saolei_website`）：`media:rank:hot`、`media:rank:likes` 是作品维度 zset，`media:rank:user:hot`、`media:rank:user:likes` 是作者维度求和 zset，`media:hot:anchor` 保存 Redis 侧热度基准 `T_r`（ISO 8601 UTC）。四个 zset 没有 TTL，只有 `verified` 作品入榜；`pending` 作品可以投喂但只写数据库，审核通过时按 DB 当前值补齐。作品页按发表时间排序（原《最新》tab）直接查库；待审核作品不再有作品页入口，仅在个人主页与管理端可见。五个固定 key 已纳入服务器监控快照的固定内存统计清单，**没有临时锁 key**。
+Redis 只保留三个固定键：作者汇总榜 `media:rank:user:hot`、`media:rank:user:likes`，以及存储 Redis 热度基准 `T_r` 的 `media:hot:anchor`，没有 TTL。两个 ZSET 只汇总 `verified` 作品；全表统一的 `T_db = Media.hot_value_updated_at` 是数据库基准，作者缓存热度按 `decay(T_db, T_r)` 折算。作品游标接口不再读取或返回 anchor，作者榜响应 anchor 仍为 `T_r`。三个键均纳入监控固定内存清单。
 
-热度采用双基准（维护说明见 `back_end/saolei/media/README.md`）：`T_db` 是 `Media.hot_value_updated_at` 的全表统一值，数据库的 `hot_value` 全部以它为基准；`T_r` 存 `media:hot:anchor`，四个 zset 的 hot 分数以它为基准。两者各自内部自洽、不要求相等，相差一个共同因子 `decay(T_db, T_r)`，排序一致。`T_r` 缺失时首次读写按 `T_db` 用 `SET NX` 初始化；`likes` 不衰减。作品分页响应返回 `T_db`，作品字段与实时热度以 DB 为准；作者榜响应返回 `T_r` 与 zset 原值，由前端按 `0.99 ** ((now - T_r) / 1 天)` 折算，两处 anchor 不可混用。
+投喂已审核作品、审核通过和站长硬删除后，通过 `services.sync_user_scores()` 在数据库聚合作者已审核作品总分，使用 `cache.set_user_scores()` 在一个 `pipeline(transaction=True)` 中覆盖作者两个绝对分数，无剩余作品则移除该作者。请求路径保留 1 秒 Redis 超时；失败只记日志，不回滚业务、不排任务或重试。待审核投稿不改变作者榜，不触发同步。
 
-**写入在请求路径完成**：投喂（仅 `verified`）、审核通过、投稿与站长硬删除在数据库事务提交后调用 `services.sync_media_scores()`，重查 DB 得到该作者所有 `verified` 作品的绝对分数，由 `cache.set_media_scores()` 用一个显式 `pipeline(transaction=True)` 覆盖四个 zset（作品不存在则 `ZREM`）。请求路径使用 1 秒短超时的 Redis 客户端（`MEDIA_SOCKET_TIMEOUT`，现网缓存连接是 5 秒），不吃掉普通 API 的 2 秒网关预算。Redis 异常只记 `media` error 日志：不回滚已提交的数据库事务、不入队后台任务、不重试补偿，残留漂移由低频管理命令纠正。`MULTI/EXEC` 没有回滚，因此绝不把抛异常当作「未写入」；一律写绝对 `ZADD` 而不是 `ZINCRBY`，迟到、乱序或响应丢失都不会重复累加。没有 `media:cache:lock`、`WATCH`、`ZUNIONSTORE`、模型信号或 `on_commit` 回调。
+低频人工 [refresh_media_rankings](./management-commands.md#refresh-media-rankings) 继续支持 `--reference` 推进全表 `T_db`，并重建作者两榜和 `T_r`；`--rebuild-only` 只纠偏，`--check` 只读比较作者榜与数据库。重建先写 `media:rebuild:*` 临时键，再原子发布；并发增量被重建覆盖的短暂漂移沿用原有约定。推进 `T_db` 是罕见维护事件，不兼容此时查询竞态，不额外检测或使游标失效。
 
-`T` 仍需低频推进以防 `1 / decay(T, now)` 长期指数增长到浮点上溢，但不需要月度作业：APScheduler 的 `refresh_media_hot_reference` 作业、media 的后台同步任务、任务清理配置与任务重启服务均已删除。低频人工执行 [refresh_media_rankings](./management-commands.md#refresh-media-rankings)：`--reference` 在数据库事务内用 `F()` 把全表 `hot_value` 乘 `decay(T_db_old, T_new)` 并写入新 `T_db`，再全量重算四个 zset、与 `T_r` 一起原子发布；`--rebuild-only` 只纠偏；`--check` 只读巡检，按 `decay(T_db, T_r)` 从 DB 派生期望分数，漂移或 `T_r` 缺失以非零退出码告警，可接入外部定时巡检。命令不进部署流程、不持锁、不阻塞请求写；执行期间正式 key 上的增量可能被 `rename` 覆盖而短暂漂移，数据库始终正确，重跑即可收敛。
-
-驳回只发生在 `pending`，从未入榜，不需要回退。全量重建只读取 `verified` 行，写入 `media:rebuild:*` 临时 key 后在一次 `MULTI/EXEC` 里 `rename` 四个正式 zset 并发布 `T_r`；失败时旧榜保留并抛 `CommandError`，提示 `T_db` 已是权威值、重跑命令。缓存滞后时人工执行 `--rebuild-only` 恢复。
+新版本上线且旧进程全部退出后，定向删除废弃键 `media:rank:hot`、`media:rank:likes`。不要连带删除作者两榜或 anchor。GitHub 来源仍使用 `g_r` 与仓库数字 ID，不增加外站缓存或同步任务。
 
 ## 服务器监控快照
 
@@ -129,7 +127,7 @@ Redis 分类只读取业务代码直接确定的 DB 0 key，不执行 `SCAN`、`
 | 分类 | key 来源 |
 | --- | --- |
 | PB 榜 | `PBRankingCache.counts_key`；固定 hash 的 `HKEYS` 经校验后构造小榜 key；从 `UserProfile` 主键顺序每批最多 1,000 个 ID 构造用户 hash key。PB 衍生榜另由 `PBDerivedCache().keys()` 枚举 3 个成绩 hash 与 132 个小榜 key，均计入 `pb_rankings` 分类。元数据缺失不发现 key、不触发重建。 |
-| 其他排行榜 | 扫雷网与强无猜各自的 `SpeedRankingCache(name, stats=RANK_STATS).keys`（各两个大榜，共 36 个 key）、`TopRankingCache().keys`、`ThrpRankingCache().keys`、`NFIOERankingCache().keys`、`TPERankingCache().keys`、`PathRankingCache().keys`、`MiniGameRankingCache().keys`、`MEDIA_CACHE_KEYS`（5 个媒体统计键）、四种自定义 pluck 配置的 rank/detail key、比赛用户榜 key 和积分时间 key；当前共 210 个 key。 |
+| 其他排行榜 | 扫雷网与强无猜各自的 `SpeedRankingCache(name, stats=RANK_STATS).keys`（各两个大榜，共 36 个 key）、`TopRankingCache().keys`、`ThrpRankingCache().keys`、`NFIOERankingCache().keys`、`TPERankingCache().keys`、`PathRankingCache().keys`、`MiniGameRankingCache().keys`、`MEDIA_CACHE_KEYS`（3 个作者统计键）、四种自定义 pluck 配置的 rank/detail key、比赛用户榜 key 和积分时间 key；当前共 208 个 key。 |
 | 最新录像 | `newest_cache.key`（`newest_queue`）。 |
 | 其他 | `INFO memory.used_memory` 减去前三类；包含其他业务、会话、同实例 DB 1 通用缓存、孤立/历史/临时 key 和 Redis 开销，不枚举 DB 1。 |
 

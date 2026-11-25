@@ -1,17 +1,17 @@
 """作品投稿、投喂、审核、驳回、恢复与硬删除；缓存约定见 README.md。"""
 
-from functools import partial
 import logging
 from math import floor
 
 from django.db import IntegrityError, transaction
-from django.db.models import F, Value
+from django.db.models import F, Q, Sum, Value
 from django.db.models.functions import Greatest
 from django.utils import timezone
 
 from . import cache
+from .cursors import decode_cursor, encode_cursor, SORT_FIELDS
 from .models import Media, MediaLikes, UserMedia
-from .utils import decay, MEDIA_DAILY_LIKE_LIMIT, MediaStatus
+from .utils import decay, MEDIA_DAILY_LIKE_LIMIT, MediaFormat, MediaStatus, normalize_language
 
 logger = logging.getLogger('media')
 
@@ -50,35 +50,56 @@ def get_me_state(user):
     }
 
 
-def sync_media_scores(media_id, author_id):
-    """请求路径：DB 事务提交后按 DB 绝对值覆盖四个 zset；失败只记日志。
+def list_works(videos, *, sort='hot', limit=20, cursor=None, media_format='', language='', language_empty=False):
+    if sort not in SORT_FIELDS or not 1 <= limit <= 50:
+        raise MediaServiceError('invalid_sort_or_limit')
+    if media_format and media_format not in MediaFormat.values:
+        raise MediaServiceError('invalid_format')
+    try:
+        language = normalize_language(language)
+    except ValueError as exc:
+        raise MediaServiceError('invalid_language') from exc
+    if language_empty and language:
+        raise MediaServiceError('invalid_language_filter')
+    filters = {'format': media_format, 'language': language, 'language_empty': language_empty}
+    if media_format:
+        videos = videos.filter(format=media_format)
+    if language or language_empty:
+        videos = videos.filter(language=language)
+    field = SORT_FIELDS[sort]
+    if cursor is not None:
+        try:
+            value, media_id = decode_cursor(cursor, sort, filters)
+        except ValueError as exc:
+            raise MediaServiceError(str(exc)) from exc
+        videos = videos.filter(Q(**{f'{field}__lt': value}) | Q(**{field: value, 'id__lt': media_id}))
+    rows = list(videos.order_by(f'-{field}', '-id')[:limit + 1])
+    has_more = len(rows) > limit
+    items = rows[:limit]
+    observed_at = timezone.now()
+    for media in items:
+        media._hot_now_at = observed_at
+    next_cursor = encode_cursor(sort, filters, getattr(items[-1], field), items[-1].pk) if has_more else None
+    return {'items': items, 'has_more': has_more, 'next_cursor': next_cursor}
+
+
+def sync_user_scores(author_id):
+    """请求路径：DB 事务提交后按 DB 绝对值覆盖作者两个 zset；失败只记日志。
 
     DB 用 T_db、zset 用 T_r，折算因子是 decay(T_db, T_r)。业务已提交，任何同步失败
     都不能让请求失败：不回滚、不入队后台任务、不补偿，残留漂移由低频管理命令纠正。
     """
     try:
         factor = cache.reference_factor()
-        user_hot = 0.0
-        user_likes = 0
-        has_works = False
-        media_hot = None
-        media_likes = 0
-        rows = Media.objects.filter(user_id=author_id, status=MediaStatus.VERIFIED).values_list(
-            'pk', 'hot_value', 'likes',
+        totals = Media.objects.filter(user_id=author_id, status=MediaStatus.VERIFIED).aggregate(
+            hot=Sum('hot_value'), likes=Sum('likes'),
         )
-        for pk, hot_value, likes in rows:
-            has_works = True
-            score = hot_value * factor
-            user_hot += score
-            user_likes += likes
-            if pk == media_id:
-                media_hot, media_likes = score, likes
-        cache.set_media_scores(media_id, author_id, media_hot, media_likes, user_hot, user_likes, has_works)
+        cache.set_user_scores(author_id, (totals['hot'] or 0) * factor, totals['likes'] or 0, totals['hot'] is not None)
     except Exception:
         logger.exception(
-            'media ranking cache sync failed: media_id=%s author_id=%s; DB is authoritative, '
+            'media ranking cache sync failed: author_id=%s; DB is authoritative, '
             'run refresh_media_rankings to reconcile',
-            media_id, author_id,
+            author_id,
         )
 
 
@@ -96,8 +117,6 @@ def create_media(user, *, media_format, suffix, language, title='', created_at=N
                 status=MediaStatus.PENDING, likes=0, hot_value=0,
                 hot_value_updated_at=cache.read_db_hot_reference(),
             )
-            # API 可持有外层用户行锁；缓存同步必须等最外层事务提交，回滚时丢弃。
-            transaction.on_commit(partial(sync_media_scores, media.pk, user.pk))
     except IntegrityError:
         raise MediaServiceError('该作品已投稿过，不可重复投稿', 409) from None
     return media
@@ -143,12 +162,12 @@ def like_media(user, media_id):
             'daily_likes_used': daily_likes + 1,
         }
     if status == MediaStatus.VERIFIED:
-        sync_media_scores(media_id, author_id)
+        sync_user_scores(author_id)
     return result
 
 
 def verify_media(media_id, actor_id, *, title=None, created_at=None):
-    """管理员审核通过：pending → verified，按当前累计值一次性补齐四个 zset。
+    """管理员审核通过：pending → verified，按当前累计值更新作者榜。
 
     降级投稿必须补录标题；外站作者 id 由 API 层通过 AccountLinkQueue 一次性核验，
     不传进 service、不落库，service 层不处理权限。
@@ -174,7 +193,7 @@ def verify_media(media_id, actor_id, *, title=None, created_at=None):
         media.save(update_fields=fields)
         hot, likes, author_id = media.hot_value, media.likes, media.user_id
     logger.info('Staff #%s verified media #%s: likes=%s hot_value=%s', actor_id, media_id, likes, hot)
-    sync_media_scores(media_id, author_id)
+    sync_user_scores(author_id)
     return media
 
 
@@ -230,7 +249,7 @@ def reopen_media(media_id, actor_id):
 
 
 def hard_delete_media(media_id, actor_id):
-    """站长硬删除：仅 verified，退还红宝石、写快照日志并按剩余作品绝对值覆盖四个 zset。"""
+    """站长硬删除：仅 verified，退还红宝石、写快照日志并按剩余作品绝对值覆盖作者榜。"""
     with transaction.atomic():
         media = Media.objects.select_for_update().filter(pk=media_id).first()
         if media is None:
@@ -245,7 +264,7 @@ def hard_delete_media(media_id, actor_id):
             actor_id, media_id, media.format, media.suffix, media.title, author_id, likes, hot, refunded,
         )
         media.delete()
-    sync_media_scores(media_id, author_id)
+    sync_user_scores(author_id)
     return True
 
 

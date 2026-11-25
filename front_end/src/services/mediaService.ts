@@ -11,6 +11,7 @@ export type MediaFormatValue = 'B_v' | 'B_a' | 'c_p' | 'g_r';
 export type MediaStatusValue = 'pending' | 'verified' | 'rejected';
 export type MediaSortKey = 'hot' | 'likes' | 'created_at';
 export type MediaRankSort = 'hot' | 'likes';
+export type MediaWorksSort = MediaRankSort | 'latest';
 export type MediaQueryField = 'title' | 'suffix';
 export type MediaQueryMode = 'exact' | 'iexact' | 'contains' | 'icontains' | 'startswith' | 'istartswith' | 'endswith' | 'iendswith' | 'regex';
 
@@ -48,6 +49,21 @@ export interface MediaUserRankRow {
     user_id: number;
     hot: number;
     likes: number;
+}
+
+export interface MediaWorksQuery {
+    sort: MediaWorksSort;
+    limit?: number;
+    cursor?: string;
+    format?: MediaFormatValue;
+    language?: string;
+    language_empty?: boolean;
+}
+
+export interface MediaCursorPage {
+    items: MediaItem[];
+    has_more: boolean;
+    next_cursor: string | null;
 }
 
 export interface MediaUserRankPage {
@@ -103,8 +119,9 @@ async function getPage(path: string, params: Record<string, string | number>): P
     return data;
 }
 
-export function fetchMediaRanking(sort: MediaRankSort, start: number, count: number): Promise<MediaPage> {
-    return getPage('/ranking', { sort, start, count });
+export async function fetchMediaWorks(query: MediaWorksQuery, signal?: AbortSignal): Promise<MediaCursorPage> {
+    const { data } = await $axios.get<MediaCursorPage>(`${ROOT}/works`, { params: query, signal });
+    return data;
 }
 
 export function fetchLatestMedia(start: number, count: number): Promise<MediaPage> {

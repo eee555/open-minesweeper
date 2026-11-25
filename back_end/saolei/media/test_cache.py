@@ -31,8 +31,8 @@ class MediaCacheTests(TestCase):
             hot_value_updated_at=base,
         )
 
-    def _sync(self, pk):
-        services.sync_media_scores(pk, self.user.pk)
+    def _sync(self):
+        services.sync_user_scores(self.user.pk)
 
     def _zscore(self, key, member):
         return cache.cache.zscore(key, member)
@@ -62,32 +62,17 @@ class MediaCacheTests(TestCase):
 
     def test_sync_and_clear_scores(self):
         media = self._media(1, hot=2.5, likes=3)
-        self._sync(media.pk)
-        self.assertEqual(self._zscore(cache.MEDIA_RANK_HOT, 1), 2.5)
-        self.assertEqual(self._zscore(cache.MEDIA_RANK_LIKES, 1), 3)
+        self._sync()
         self.assertEqual(self._zscore(cache.MEDIA_RANK_USER_HOT, self.user.pk), 2.5)
         media.delete()
-        self._sync(1)
+        self._sync()
         for key in cache.MEDIA_RANK_KEYS:
-            member = 1 if key in (cache.MEDIA_RANK_HOT, cache.MEDIA_RANK_LIKES) else self.user.pk
-            self.assertIsNone(self._zscore(key, member))
-
-    def test_sync_keeps_remaining_user_total(self):
-        first = self._media(1, hot=2.0, likes=5)
-        self._media(2, hot=1.0, likes=7)
-        self._sync(first.pk)
-        self._sync(2)
-        first.delete()
-        self._sync(1)
-        self.assertEqual(self._zscore(cache.MEDIA_RANK_USER_LIKES, self.user.pk), 7)
-        self.assertEqual(self._zscore(cache.MEDIA_RANK_USER_HOT, self.user.pk), 1.0)
+            self.assertIsNone(self._zscore(key, self.user.pk))
 
     def test_sync_scores_are_absolute_and_idempotent(self):
         self._media(1, hot=2.5, likes=3)
-        self._sync(1)
-        self._sync(1)
-        self.assertEqual(self._zscore(cache.MEDIA_RANK_HOT, 1), 2.5)
-        self.assertEqual(self._zscore(cache.MEDIA_RANK_LIKES, 1), 3)
+        self._sync()
+        self._sync()
         self.assertEqual(self._zscore(cache.MEDIA_RANK_USER_HOT, self.user.pk), 2.5)
         self.assertEqual(self._zscore(cache.MEDIA_RANK_USER_LIKES, self.user.pk), 3)
 
@@ -95,76 +80,55 @@ class MediaCacheTests(TestCase):
         media = self._media(1, hot=2.0, likes=3)
         cache.set_hot_reference(TARGET)
         factor = decay(REFERENCE, TARGET)
-        self._sync(media.pk)
+        self._sync()
         media.refresh_from_db()
         self.assertEqual(media.hot_value_updated_at, REFERENCE)
-        self.assertAlmostEqual(self._zscore(cache.MEDIA_RANK_HOT, 1), 2.0 * factor)
         self.assertAlmostEqual(self._zscore(cache.MEDIA_RANK_USER_HOT, self.user.pk), 2.0 * factor)
-        self.assertEqual(self._zscore(cache.MEDIA_RANK_LIKES, 1), 3)
 
     def test_sync_ignores_pending_and_rejected_rows(self):
         self._media(1, hot=5.0, likes=9, status=MediaStatus.PENDING)
-        self._sync(1)
+        self._sync()
         for key in cache.MEDIA_RANK_KEYS:
             self.assertEqual(cache.cache.zcard(key), 0)
 
-    def test_late_sync_after_hard_delete_does_not_resurrect(self):
-        media = self._media(1, hot=2.0, likes=3)
-        self._sync(media.pk)
-        media.delete()
-        self._sync(1)
-        self.assertIsNone(self._zscore(cache.MEDIA_RANK_HOT, 1))
-        self.assertIsNone(self._zscore(cache.MEDIA_RANK_LIKES, 1))
-        self.assertIsNone(self._zscore(cache.MEDIA_RANK_USER_HOT, self.user.pk))
-        self.assertIsNone(self._zscore(cache.MEDIA_RANK_USER_LIKES, self.user.pk))
-
-    def test_author_score_survives_out_of_order_delete_and_like(self):
+    def test_author_score_refreshes_remaining_works_after_delete_and_like(self):
         first = self._media(1, hot=2.0, likes=5)
         second = self._media(2, hot=1.0, likes=7)
-        self._sync(first.pk)
-        self._sync(second.pk)
+        self._sync()
         first.delete()
+        self._sync()
+        self.assertEqual(self._zscore(cache.MEDIA_RANK_USER_LIKES, self.user.pk), 7)
         second.likes = 8
         second.save(update_fields=['likes'])
-        self._sync(second.pk)
-        self._sync(1)
+        self._sync()
         self.assertEqual(self._zscore(cache.MEDIA_RANK_USER_LIKES, self.user.pk), 8)
         self.assertEqual(self._zscore(cache.MEDIA_RANK_USER_HOT, self.user.pk), 1.0)
 
-    def test_ranking_pagination_and_user_aggregates(self):
-        cache.set_media_scores(1, self.user.pk, 5.0, 3, 5.0, 3, True)
-        cache.set_media_scores(2, self.user.pk, 9.0, 1, 14.0, 4, True)
-        ids, total = cache.get_ranking(cache.MEDIA_RANK_HOT, 0, 1)
-        self.assertEqual(ids, [2])
+    def test_user_ranking_pagination_and_aggregates(self):
+        cache.set_user_scores(self.user.pk, 14.0, 4, True)
+        cache.set_user_scores(self.user.pk + 1, 2.0, 1, True)
+        rows, total = cache.get_user_ranking('likes', 0, 1)
         self.assertEqual(total, 2)
-        ids, total = cache.get_ranking(cache.MEDIA_RANK_HOT, 1, 1)
-        self.assertEqual(ids, [1])
-        rows, total = cache.get_user_ranking('likes')
-        self.assertEqual(total, 1)
-        self.assertEqual(rows[0][0], self.user.pk)
-        self.assertAlmostEqual(rows[0][1], 14.0)
-        self.assertAlmostEqual(rows[0][2], 4.0)
+        self.assertEqual(rows, [(self.user.pk, 14.0, 4.0)])
+        rows, total = cache.get_user_ranking('likes', 1, 1)
+        self.assertEqual(rows, [(self.user.pk + 1, 2.0, 1.0)])
         with self.assertRaises(ValueError):
             cache.get_user_ranking('unknown')
 
     def test_rebuild_rankings_only_verified(self):
-        verified = self._media(1, hot=2.0, likes=3)
+        self._media(1, hot=2.0, likes=3)
         self._media(2, hot=5.0, likes=9, status=MediaStatus.PENDING)
         self._media(3, hot=5.0, likes=9, status=MediaStatus.REJECTED)
         cache.clear_rankings()
         cache.set_hot_reference(REFERENCE)
         self.assertEqual(cache.rebuild_rankings(), 1)
-        self.assertEqual(cache.cache.zcard(cache.MEDIA_RANK_LIKES), 1)
-        self.assertEqual(self._zscore(cache.MEDIA_RANK_LIKES, verified.pk), 3)
-        self.assertEqual(self._zscore(cache.MEDIA_RANK_HOT, verified.pk), 2.0)
         self.assertEqual(self._zscore(cache.MEDIA_RANK_USER_LIKES, self.user.pk), 3)
         self.assertEqual(cache.get_hot_reference(), REFERENCE)
 
     def test_rebuild_rankings_scales_by_reference_factor(self):
         self._media(1, hot=2.0, likes=3)
         self.assertEqual(cache.rebuild_rankings(reference=TARGET), 1)
-        self.assertAlmostEqual(self._zscore(cache.MEDIA_RANK_HOT, 1), 2.0 * decay(REFERENCE, TARGET))
-        self.assertEqual(self._zscore(cache.MEDIA_RANK_LIKES, 1), 3)
+        self.assertAlmostEqual(self._zscore(cache.MEDIA_RANK_USER_HOT, self.user.pk), 2.0 * decay(REFERENCE, TARGET))
         self.assertEqual(cache.get_hot_reference(), TARGET)
 
     def test_rebuild_rankings_takes_no_cache_lock(self):
@@ -177,8 +141,8 @@ class MediaCacheTests(TestCase):
         with self.assertRaises(ValueError):
             cache.rebuild_rankings(batch_size=0)
 
-    def test_clear_rankings_deletes_five_fixed_keys(self):
-        cache.set_media_scores(1, self.user.pk, 2.0, 3, 2.0, 3, True)
+    def test_clear_rankings_deletes_three_fixed_keys(self):
+        cache.set_user_scores(self.user.pk, 2.0, 3, True)
         cache.clear_rankings()
         for key in cache.MEDIA_CACHE_KEYS:
             self.assertFalse(cache.cache.exists(key))

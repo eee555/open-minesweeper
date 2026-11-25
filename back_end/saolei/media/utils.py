@@ -59,7 +59,11 @@ def normalize_language(value):
     normalized = (value or '').strip()
     if len(normalized) > MEDIA_LANGUAGE_MAX_LENGTH:
         raise ValueError('Language is too long')
-    return normalized
+    return normalized.lower() if normalized.lower() in ('zh-cn', 'en', 'es') else normalized
+
+
+def default_media_language(media_format):
+    return 'en' if format_to_platform(media_format) == 'g' else 'zh-cn'
 
 
 def normalize_external_author_id(value):
