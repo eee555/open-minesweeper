@@ -326,7 +326,7 @@ describe('<NewsQueue />', () => {
             category: 'eff',
             payload: {
                 field: `path:${stat}`,
-                old: { value: 12.34567, video_id: index === 0 ? 801 : null, rank: 2, count: null, timems: null },
+                old: { value: 197.53072, video_id: index === 0 ? 801 : null, rank: 2, count: null, timems: null },
                 new: { value: 0, video_id: index === 0 ? 802 : null, rank: 1, count: null, timems: null },
             },
         }));

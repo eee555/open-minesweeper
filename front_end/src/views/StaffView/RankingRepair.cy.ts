@@ -63,15 +63,15 @@ describe('<RankingRepair /> efficiency rankings', () => {
     it('repairs a Path record through its own endpoint', () => {
         const record = {
             player_id: 42,
-            b_path: { value: 1.25, video_id: 8001 },
+            b_path: { value: 20, video_id: 8001 },
             i_path: null,
             e_path: null,
-            b_cpath: { value: 0.5, video_id: 8002 },
-            i_cpath: { value: 0.25, video_id: 8003 },
-            e_cpath: { value: 0.125, video_id: 8004 },
-            b_epath: { value: 0.5, video_id: 8005 },
-            i_epath: { value: 0.25, video_id: 8006 },
-            e_epath: { value: 0.125, video_id: 8007 },
+            b_cpath: { value: 8, video_id: 8002 },
+            i_cpath: { value: 4, video_id: 8003 },
+            e_cpath: { value: 2, video_id: 8004 },
+            b_epath: { value: 8, video_id: 8005 },
+            i_epath: { value: 4, video_id: 8006 },
+            e_epath: { value: 2, video_id: 8007 },
         };
         cy.intercept('POST', '/api/effranking/path/admin/rebuild_record', record).as('pathRepair');
         cy.mount(RankingRepair, { global: { plugins: [i18n], config: { globalProperties: { $axios } } } });

@@ -8,7 +8,7 @@
 - 个人同分保留原录像；重建按 `id ASC` 稳定选优；用户同分按 Redis member 顺序，不编码用时或上传时间。
 - 每个指标的 sum 必须三级别齐备，不补缺省值；三个级别的最佳录像可以不同。
 
-`effranking:path:records` hash 以用户 id 为 field，保存九项 `{b/i/e}_{path/cpath/epath}`，各为 `null` 或 `{value, video_id}`。录像 id 指 `VideoModel.id`。三个 sum 从单项计算，不重复保存。十二个 `effranking:path:{stat}` zset 使用用户 id 作 member、原始未舍入数值作 score，升序读取；展示和个人比较不从 score 恢复数据。
+`effranking:path:records` hash 以用户 id 为 field，保存九项 `{b/i/e}_{path/cpath/epath}`，各为 `null` 或 `{value, video_id}`。`value` 保留按每格 16px 归一化的原始距离，录像 id 指 `VideoModel.id`。三个 sum 从单项计算，不重复保存。十二个 `effranking:path:{stat}` zset 使用用户 id 作 member、原始未舍入数值作 score，升序读取；展示和个人比较不从 score 恢复数据。
 
 接口位于 `/api/effranking/path`，复用效率榜的查询、管理员修复和事务约定。排行返回完整九项；个人另返回十二项名次。管理员修复单项回源并重算同指标 sum；修复 sum 仅使用 hash。API 参数与响应见 Ninja 文档。
 
@@ -22,7 +22,7 @@
 
 保存、删除与批量操作均复用效率榜提交后总入口，共用 Redis 读写 pipeline，不新增锁或重试。事务、异常日志、临时榜发布机制及部署暂停范围见[效率榜 README](../README.md)和[管理命令文档](../../../../vitepress_doc/zh/guide/development/management-commands.md#rebuild-eff-ranks)。首次部署执行 `rebuild_eff_ranks --ranking-name path`，仅替换 Path 的十三个 key；本地快照初始化也会重建本榜。
 
-排行与个人页按初级、中级、高级、合计四组显示 Path/CPath/EPath，三位小数、原值 title，无色阶；单项各自链接最佳录像，sum 不生成链接。新闻覆盖十二项首次取得及原始值严格降低，sum 的 `video_id=null`，`count/timems=null`。移除、管理员修复及全量重建不发新闻。前端路由与组件职责见[排行榜 README](../../../../front_end/src/views/RankingView/README.md)和[个人主页 README](../../../../front_end/src/views/UserView/README.md#path-纪录)。
+排行与个人页按初级、中级、高级、合计四组显示 Path/CPath/EPath，前端将原值除以 16，以格为单位显示三位小数，title 保留换算后的完整精度，无色阶；单项各自链接最佳录像，sum 不生成链接。管理修复结果及新闻也按格显示，不改 API 或 Redis 的原始值。新闻覆盖十二项首次取得及原始值严格降低，sum 的 `video_id=null`，`count/timems=null`。移除、管理员修复及全量重建不发新闻。前端路由与组件职责见[排行榜 README](../../../../front_end/src/views/RankingView/README.md)和[个人主页 README](../../../../front_end/src/views/UserView/README.md#path-纪录)。
 
 ## 索引决策
 

@@ -8,6 +8,7 @@ export const pathColumns = pathGroups.flatMap((level) => pathMetrics.map((metric
 export const pathStats = pathColumns.map((column) => column.stat);
 export type PathStat = typeof pathStats[number];
 export interface PathVideoRecord {
+    /** Raw distance normalized to 16 pixels per cell, as returned by the API. */
     value: number;
     video_id: number;
 }
@@ -23,9 +24,10 @@ export function pathValue(record: PathRecord | undefined, stat: PathStat): numbe
     if (isSum(stat)) {
         const metric = stat.slice(4) as typeof pathMetrics[number];
         const values = pathLevels.map((level) => record[`${level}_${metric}`]?.value ?? null);
-        return values.every((value) => value !== null) ? values.reduce((sum, value) => sum + value, 0) : null;
+        return values.every((value) => value !== null) ? values.reduce((sum, value) => sum + value, 0) / 16 : null;
     }
-    return record[stat]?.value ?? null;
+    const value = record[stat]?.value;
+    return value == null ? null : value / 16;
 }
 
 export function pathVideoId(record: PathRecord | undefined, stat: PathStat): number | undefined {

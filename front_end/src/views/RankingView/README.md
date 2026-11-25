@@ -46,6 +46,6 @@
 
 比赛排行榜通过 select 切换总榜、GSC、竞速打卡赛和效率打卡赛。旧 `/ranking/tournament` 入口跳转总榜并保留 query，再按该页可用列校验。各 total 降序、best 升序；best 与对应届号分列，不单独按届号排序。GSC 和竞速 best 沿用前端整数解码，效率 best 直接显示原始浮点成绩及独立年/周字段，三位小数只用于展示。当前积分仍按 `globalNow` 衰减，Redis 顺序使用年度统一锚点。默认值不入对应榜，切换排序可能改变总人数；`weekly_classic_total` 仍在后端维护，但不重复展示。
 
-效率分类使用 select 切换 Thrp、NF IOE、TPE 和 Path，默认 Thrp；共用刷新、配色开关与随选择切换的帮助提示。NF IOE 满分时括号显示比较用时（秒），sum 满分只显示高级用时，sum 按值除以 3 使用 IOE 色阶。TPE 按中级、高级、合计分组。Path 按初级、中级、高级、合计四组，各含 Path/CPath/EPath，完全不上色。成绩均显示三位小数，单项可预览录像，sum 不生成链接，不设置 NF 开关。
+效率分类使用 select 切换 Thrp、NF IOE、TPE 和 Path，默认 Thrp；共用刷新、配色开关与随选择切换的帮助提示。NF IOE 满分时括号显示比较用时（秒），sum 满分只显示高级用时，sum 按值除以 3 使用 IOE 色阶。TPE 按中级、高级、合计分组。Path 按初级、中级、高级、合计四组，各含 Path/CPath/EPath，API 原值除以 16 换算为格，title 保留换算后完整精度，完全不上色。成绩均显示三位小数，单项可预览录像，sum 不生成链接，不设置 NF 开关。
 
 小游戏从 `/api/minigame/rankings` 获取固定列顺序；每页一次请求返回整组全部列。反应训练每级两列，`density` 为 `'25'`／`'50'` 并显示百分比；左键和多指每级三列并显示密度分数，Time／CES 切换仅适用于这两个游戏。无成绩显示 `--`，点击表头选择排序列。成绩链接前往 `/minigame/{game}?player={player_id}&key={mode_key}`，`key` 去掉游戏前缀，如 `b-50-v1`，播放对应玩家该榜当前最佳录像；日期 title 沿用项目格式。仅左键训练成绩按 CES 着色，复用 CES 色阶（与 Bvs 色阶共用）；多指训练及其他小游戏不着色。配色开关与竞速、效率榜共用全局“成绩上色”设置，不写入 URL。

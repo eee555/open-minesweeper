@@ -55,7 +55,7 @@ top 和 PB 的业务规则、缓存与接口统一见 [竞速排行榜 README](.
 
 ## Path 纪录
 
-`UserRecordView/PathCard.vue` 复用个人页缓存失效机制，读取 `/api/effranking/path/player/{id}`，按初级、中级、高级、合计四组展示十二列 `成绩(排名)`。三个指标独立选优，0 有效、缺项为 `--`，每个合计要求对应三级别齐备。单项分别链接录像，合计没有录像链接。三位小数、原值 title，不上色。组件测试为 `UserRecordView/PathCard.cy.ts`。
+`UserRecordView/PathCard.vue` 复用个人页缓存失效机制，读取 `/api/effranking/path/player/{id}`，按初级、中级、高级、合计四组展示十二列 `成绩(排名)`。三个指标独立选优，0 有效、缺项为 `--`，每个合计要求对应三级别齐备。单项分别链接录像，合计没有录像链接。API 原值除以 16 换算为格，显示三位小数，title 保留换算后完整精度，不上色。组件测试为 `UserRecordView/PathCard.cy.ts`。
 
 ## 强无猜纪录
 

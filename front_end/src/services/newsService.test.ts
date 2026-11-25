@@ -11,6 +11,9 @@ describe('formatEffValue', () => {
     it('formats ordinary efficiency values to three decimals', () => {
         expect(formatEffValue(record({ value: 0.9 }), 'thrp:b')).toBe('0.900');
         expect(formatEffValue(record({ value: 1.5 }), 'nf_ioe:sum')).toBe('1.500');
+        expect(formatEffValue(record({ value: 32 }), 'path:e_cpath')).toBe('2.000');
+        expect(formatEffValue(record({ value: 197.53072 }), 'path:sum_epath')).toBe('12.346');
+        expect(formatEffValue(record({ value: 0 }), 'path:b_path')).toBe('0.000');
     });
 
     it('uses 1 x N when expert NF has more than one perfect game', () => {

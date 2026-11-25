@@ -34,7 +34,7 @@
             </div>
         </div>
         <RouterView v-slot="{ Component }">
-            <component :is="Component" ref="ranking" :colored="local.colored" />
+            <component :is="Component" ref="ranking" v-bind="selectedRankingName === 'path' ? {} : { colored: local.colored }" />
         </RouterView>
     </section>
 </template>

@@ -61,7 +61,6 @@ import VideoPreviewLink from '@/components/VideoPreviewLink.vue';
 import { fetchPathRanking, formatPathValue, pathColumns, pathGroups, pathStats, pathValue, pathVideoId } from '@/services/pathRankingService';
 import type { PathRecord, PathStat } from '@/services/pathRankingService';
 
-defineProps({ colored: { type: Boolean, default: false } });
 const { fields: { sort, start: currentStart, page_size: queryPageSize }, update } = useRankingQuery<{ sort: PathStat; start: number; page_size: number }>(
     { sort: 'sum_epath', start: 1, page_size: 20 },
     (query, defaults) => ({ sort: queryChoice(query.sort, pathStats, defaults.sort), start: queryInteger(query.start, defaults.start), page_size: queryChoice(query.page_size, [20, 50, 100], defaults.page_size) }),
