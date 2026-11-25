@@ -83,8 +83,7 @@ describe('<RankingRepair /> efficiency rankings', () => {
         cy.wait('@pathRepair').its('request.body').should((body: string) => {
             expect(Object.fromEntries(new URLSearchParams(body))).to.deep.equal({ player_id: '42', stat: 'sum_epath' });
         });
-        // TODO: sum_epath is labeled "Sum EPath", not "Expert EPath"; align this expectation.
-        cy.get('output').should('contain.text', 'Expert EPath 0.875').and('not.contain.text', 'video ID');
+        cy.get('output').should('contain.text', 'Sum EPath 0.875').and('not.contain.text', 'video ID');
         cy.closeElNotifications();
         cy.get('select[aria-label="Statistic"]').select('b_cpath');
         cy.get('output').should('not.exist');
