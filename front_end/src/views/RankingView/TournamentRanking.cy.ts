@@ -16,6 +16,12 @@ function rankingRow(userId: number, init: Partial<TournamentUserRankingRow> = {}
         weekly_total: 40,
         weekly_classic_total: 30,
         weekly_classic_best: 34567802612,
+        weekly_nf_total: 5,
+        weekly_nf_best: 45678902613,
+        weekly_qwc_total: 3,
+        weekly_qwc_best: 12345602614,
+        weekly_qwc_nf_total: 2,
+        weekly_qwc_nf_best: 23456702615,
         weekly_eff_total: 50,
         weekly_eff_best: 456.123456,
         weekly_eff_best_year: 2026,
@@ -24,9 +30,10 @@ function rankingRow(userId: number, init: Partial<TournamentUserRankingRow> = {}
     };
 }
 
-function mountTournamentRanking(initialPath = '/ranking/tournament') {
+function mountTournamentRanking(initialPath = '/ranking/tournament', kind: 'overall' | 'weekly' = 'overall') {
     const router = hashRouter({ initialPath });
     cy.wrap(router.isReady()).then(() => cy.mount(TournamentRanking, {
+        props: { kind },
         global: {
             plugins: [i18n, router],
             config: {
@@ -133,5 +140,21 @@ describe('<TournamentRanking />', () => {
         mountTournamentRanking();
         cy.wait('@ranking');
         cy.contains('.base-table-empty', 'No tournament ranking data').should('have.attr', 'colspan', '7');
+    });
+
+    it('renders all nine weekly metrics and sorts each format without a format selector', () => {
+        cy.mockPlayerNameFallback();
+        cy.intercept('GET', '**/api/tournament/user-ranking*', { body: { total: 1, data: [rankingRow(101)] } }).as('ranking');
+        mountTournamentRanking('/ranking/tournament/weekly', 'weekly');
+        cy.wait('@ranking').its('request.query.sort_by').should('equal', 'weekly_total');
+        cy.wait('@playerNameFallbackUserInfoBulk');
+        cy.get('.ranking-table table').extractTableData().should('deep.equal', [
+            ['', 'Real Name', 'Total', 'Classic Total', 'Classic Best', 'NF Total', 'NF Best', 'Hardcore NG Total', 'Hardcore NG Best', 'Hardcore NG NF Total', 'Hardcore NG NF Best'],
+            ['1', 'User#101', '40', '30', '345.678 (2026-W12)', '5', '456.789 (2026-W13)', '3', '123.456 (2026-W14)', '2', '234.567 (2026-W15)'],
+        ]);
+        for (const field of ['weekly_nf_total', 'weekly_nf_best', 'weekly_qwc_total', 'weekly_qwc_best', 'weekly_qwc_nf_total', 'weekly_qwc_nf_best']) {
+            cy.get(`[data-sort-field="${field}"]`).click();
+            cy.wait('@ranking').its('request.query.sort_by').should('equal', field);
+        }
     });
 });

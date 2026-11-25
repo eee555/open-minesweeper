@@ -18,22 +18,26 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import type { PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import VideoCell from '@/components/visualization/VideoCell.vue';
 import { colorThemes } from '@/store/color';
 import { ms_to_s } from '@/utils';
-import { MS_Mode, MS_State } from '@/utils/ms_const';
+import { MS_State } from '@/utils/ms_const';
 import type { VideoAbstract } from '@/utils/videoabstract';
+import { matchesWeeklyFormat, WeeklyTournamentFormat } from '@/utils/weeklyFormat';
 
 const props = defineProps({
     videos: { type: Array<VideoAbstract>, default: () => [] },
+    tournamentFormat: { type: String as PropType<WeeklyTournamentFormat>, default: WeeklyTournamentFormat.Classic },
 });
 
 const { t } = useI18n();
 
 function bestVideos(videos: VideoAbstract[], level: 'i' | 'e') {
-    const filtered = videos.filter((video) => video.state === MS_State.Official && video.level === level && video.mode === MS_Mode.Standard);
+    const limit = level === 'i' ? 60000 : 240000;
+    const filtered = videos.filter((video) => video.state === MS_State.Official && video.level === level && video.timems < limit && matchesWeeklyFormat(video, props.tournamentFormat));
     const sorted = filtered.sort((v1, v2) => v1.timems - v2.timems);
     if (level === 'i') return sorted.slice(0, 5);
     return sorted.slice(0, 2);

@@ -6,7 +6,7 @@ from .base import (
     _task_weekly_refresh_best_impl,
     MS_TextChoices,
     refresh_tournament_ranks,
-    refresh_weekly_classic_scores,
+    refresh_weekly_scores,
     timedelta,
     timezone,
     Tournament_TextChoices,
@@ -142,7 +142,7 @@ class TestWeekly(TournamentTestCaseBase):
         self.assertTrue(video.ongoing_tournament)
         self.assertTrue(tournament.videos.filter(pk=video.pk).exists())
 
-    def test_refresh_weekly_classic_scores_only_counts_standard_videos_including_nf(self):
+    def test_refresh_weekly_scores_only_counts_standard_videos_including_nf(self):
         tournament = self.create_weekly_tournament()
         participant = WeeklyParticipant.objects.create(
             user=self.user,
@@ -167,7 +167,7 @@ class TestWeekly(TournamentTestCaseBase):
                     VideoModel.objects.filter(pk=video.pk).update(state=state)
                     tournament.videos.add(video)
 
-        refresh_weekly_classic_scores(tournament)
+        refresh_weekly_scores(tournament)
 
         participant.refresh_from_db()
         used_video_ids = {video_id for video_id, _ in participant.classic_et + participant.classic_it}
@@ -178,7 +178,7 @@ class TestWeekly(TournamentTestCaseBase):
         self.assertNotIn(ignored_intermediate.id, used_video_ids)
 
         VideoModel.objects.filter(pk=nf_expert.pk).update(state=MS_TextChoices.State.FROZEN)
-        refresh_weekly_classic_scores(tournament)
+        refresh_weekly_scores(tournament)
         participant.refresh_from_db()
         self.assertEqual(participant.classic_et, [[std_expert.id, 120000], [0, 240000]])
         self.assertEqual(participant.classic_score, 120000 + 240000 + sum(intermediate_times))
@@ -206,7 +206,7 @@ class TestWeekly(TournamentTestCaseBase):
         for timems in intermediate_times:
             tournament.videos.add(self.create_video(tournament_identifier=[], level=MS_TextChoices.Level.INTERMEDIATE, timems=timems))
 
-        score_count = refresh_weekly_classic_scores(tournament)
+        score_count = refresh_weekly_scores(tournament)
         rank_count = refresh_tournament_ranks(tournament)
 
         participant.refresh_from_db()

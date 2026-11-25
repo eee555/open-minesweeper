@@ -99,4 +99,7 @@ class Tournament_TextChoices:
         AWARDED = 'a', ('已颁奖')
 
     class WeeklyFormat(TextChoices):
-        CLASSIC = 'c', ('2高5中')
+        CLASSIC = 'c', ('经典')
+        NF = 'n', ('NF')
+        QWC = 'q', ('强无猜')
+        QWC_NF = 'f', ('强无猜NF')

@@ -46,7 +46,7 @@ from ..services import (
     reveal_videos_for_tournament,
 )
 from ..tasks import _task_award_tournament_impl
-from ..weekly.services import refresh_weekly_best_scores, refresh_weekly_classic_scores
+from ..weekly.services import refresh_weekly_best_scores, refresh_weekly_scores
 from ..weekly.tasks import _task_weekly_finish_impl, _task_weekly_refresh_best_impl
 
 
@@ -215,7 +215,7 @@ __all__ = (
     'reveal_videos_for_tournament',
     '_task_award_tournament_impl',
     'refresh_weekly_best_scores',
-    'refresh_weekly_classic_scores',
+    'refresh_weekly_scores',
     '_task_weekly_finish_impl',
     '_task_weekly_refresh_best_impl',
 )

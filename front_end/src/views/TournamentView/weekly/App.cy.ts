@@ -13,19 +13,20 @@ import { LoginStatus } from '@/utils/common/structInterface';
 import { MS_Mode, TournamentState, TournamentSubclass } from '@/utils/ms_const';
 import { Tournament } from '@/utils/tournaments';
 import { VideoAbstract } from '@/utils/videoabstract';
+import { WeeklyTournamentFormat } from '@/utils/weekly';
 import { hashRouter, installHashHistoryCleanup } from '@cy/support/hashHistory';
 
 const tournamentId = 8;
 const participantTable = '[data-cy=tournament-data-tabs] #pane-participants [data-cy=weekly-registered-table] table';
 
-function weeklyTournament() {
+function weeklyTournament(format: WeeklyTournamentFormat = WeeklyTournamentFormat.Classic) {
     return new Tournament({
         id: tournamentId,
         subclass: TournamentSubclass.Weekly,
         data: {
             year: 2099,
             week: 8,
-            tournament_format: 'c',
+            tournament_format: format,
         },
         start_time: '2000-01-01T00:00:00+08:00',
         end_time: '2099-01-01T00:00:00+08:00',
@@ -154,7 +155,13 @@ describe('<Weekly App />', () => {
     });
 
     it('uses the registration response without fetching participants again', () => {
-        const requestCounts = mountWeekly({ loginStatus: LoginStatus.IsLogin, registered: false });
+        const requestCounts = mountWeekly({ loginStatus: LoginStatus.IsLogin, registered: false, tournament: weeklyTournament(WeeklyTournamentFormat.QWCNF) });
+        cy.intercept('GET', '**/api/tournament/get_videos/participant*', {
+            body: [
+                { id: 901, level: 'i', mode: MS_Mode.Standard, right_ce: 0, timems: 1000, state: 'c', software: 'e' },
+                { id: 902, level: 'i', mode: MS_Mode.HardcoreNG, right_ce: 0, timems: 20000, state: 'c', software: 'e' },
+            ],
+        }).as('registeredVideos');
         cy.intercept('POST', '**/api/tournament/weekly/participant', {
             body: weeklyParticipant({
                 id: 802,
@@ -172,11 +179,37 @@ describe('<Weekly App />', () => {
         cy.get(participantTable).should('contain', 'NEW-WEEKLY-TOKEN');
         cy.get('[data-cy=weekly-participant-window]').should('contain', '2026-01-01 08:00:00').and('contain', '2026-01-01 10:00:00');
         cy.contains('Real-Time Score').should('be.visible');
-        cy.wait('@participantVideos').its('response.statusCode').should('eq', 200);
+        cy.wait('@registeredVideos').its('response.statusCode').should('eq', 200);
+        cy.get('[data-cy=tournament-data-tabs] #tab-personal').click();
+        cy.get('[data-cy=tournament-data-tabs] #pane-personal').should('contain.text', 'Sum: 740.000');
         cy.then(() => {
             expect(requestCounts.participantList).to.equal(1);
         });
     });
+
+    for (const format of [WeeklyTournamentFormat.NF, WeeklyTournamentFormat.QWC, WeeklyTournamentFormat.QWCNF]) {
+        it(`applies ${format} eligibility to the inline uploader filter`, () => {
+            mountWeekly({ loginStatus: LoginStatus.IsLogin, registered: true, tournament: weeklyTournament(format) });
+            cy.wait('@participantVideos');
+            cy.get<ComponentWrapper<typeof App>>('@vue').then((wrapper) => {
+                const filter: (video: AutoUploadVideo) => boolean = wrapper.findComponent<typeof AutoUploader>('.auto-uploader').props('filter');
+                const mode = format === WeeklyTournamentFormat.NF ? MS_Mode.Standard : MS_Mode.HardcoreNG;
+                const replay: AutoUploadVideo = { filename: 'test.evf', identifier: '', tokens: ['WEEKLY-TOKEN'], stat: new VideoAbstract({ level: 'i', mode, right_ce: 0, timems: 20000, bv: 80, software: 'e' }) };
+                expect(filter(replay)).to.equal(true);
+                replay.stat.right_ce = 1;
+                expect(filter(replay)).to.equal(format === WeeklyTournamentFormat.QWC);
+                replay.stat.right_ce = NaN;
+                expect(filter(replay)).to.equal(format === WeeklyTournamentFormat.QWC);
+                replay.stat.right_ce = 0;
+                replay.stat.mode = mode === MS_Mode.Standard ? MS_Mode.HardcoreNG : MS_Mode.Standard;
+                expect(filter(replay)).to.equal(false);
+                cy.get('.auto-uploader select[aria-label="Filter"]').select('tournament');
+                cy.then(() => {
+                    expect(filter(replay)).to.equal(true);
+                });
+            });
+        });
+    }
 
     it('disables registration for logged-in users without real name', () => {
         const requestCounts = mountWeekly({ loginStatus: LoginStatus.IsLogin, registered: false, realname: '' });

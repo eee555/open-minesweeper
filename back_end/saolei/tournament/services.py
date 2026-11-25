@@ -9,6 +9,7 @@ from customranking.services import add_videos_to_custom_pluck_ranks
 from effranking.services import add_videos_to_eff_ranks
 from speedranking.services import add_videos_to_speed_ranks
 from tournament.cache import TournamentCache
+from tournament.weekly.utils import WEEKLY_SCORE_CATEGORIES, WEEKLY_TOTAL_FIELDS
 from utils.exceptions import ExceptionToResponse
 from utils.ranking_lock import ranking_access
 from videomanager.cache import add_videos_to_state_queues_bulk
@@ -123,6 +124,10 @@ def refresh_tournament_user_total_fields(*, batch_size=1000):
     score_total_by_user = _get_score_total_by_user(TournamentParticipant.objects)
     gsc_total_by_user = _get_score_total_by_user(GSCParticipant.objects)
     weekly_total_by_user = _get_score_total_by_user(WeeklyParticipant.objects)
+    weekly_totals_by_format = {
+        tournament_format: _get_score_total_by_user(WeeklyParticipant.objects.filter(tournament__weeklytournament__tournament_format=tournament_format))
+        for tournament_format in WEEKLY_SCORE_CATEGORIES
+    }
     weekly_eff_total_by_user = _get_score_total_by_user(WeeklyEffParticipant.objects)
 
     user_ids = (
@@ -143,18 +148,19 @@ def refresh_tournament_user_total_fields(*, batch_size=1000):
         tournament_user.score_total = score_total_by_user.get(user_id, 0)
         tournament_user.gsc_total = gsc_total_by_user.get(user_id, 0)
         tournament_user.weekly_total = weekly_total_by_user.get(user_id, 0)
-        tournament_user.weekly_classic_total = tournament_user.weekly_total
+        for tournament_format, category in WEEKLY_SCORE_CATEGORIES.items():
+            setattr(tournament_user, f'{category}_total', weekly_totals_by_format[tournament_format].get(user_id, 0))
         tournament_user.weekly_eff_total = weekly_eff_total_by_user.get(user_id, 0)
 
     if tournament_users:
         TournamentUser.objects.bulk_update(
             tournament_users,
-            ['score_total', 'gsc_total', 'weekly_total', 'weekly_classic_total', 'weekly_eff_total'],
+            ['score_total', 'gsc_total', 'weekly_total', *WEEKLY_TOTAL_FIELDS, 'weekly_eff_total'],
             batch_size=batch_size,
         )
         cache.update_tournament_users(
             tournament_users,
-            fields=['score_total', 'gsc_total', 'weekly_total', 'weekly_classic_total', 'weekly_eff_total'],
+            fields=['score_total', 'gsc_total', 'weekly_total', *WEEKLY_TOTAL_FIELDS, 'weekly_eff_total'],
         )
 
     return len(tournament_users)
@@ -206,10 +212,8 @@ def award_tournament_rank_scores(tournament: Tournament, *, batch_size=1000):
         changed_tournament_user_fields.append('weekly_eff_total')
     elif tournament.subclass == Tournament_TextChoices.Subclass.WEEKLY:
         tournament: WeeklyTournament = tournament.select_subclass()
-        changed_tournament_user_fields.append('weekly_total')
-        if tournament.tournament_format == Tournament_TextChoices.WeeklyFormat.CLASSIC:
-            add_score_category = 'weekly_classic'
-            changed_tournament_user_fields.append('weekly_classic_total')
+        add_score_category = WEEKLY_SCORE_CATEGORIES[tournament.tournament_format]
+        changed_tournament_user_fields.extend(['weekly_total', f'{add_score_category}_total'])
 
     for participant in participants:
         target_rank_score = round(tournament.weight / participant.rank)

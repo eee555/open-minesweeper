@@ -5,7 +5,7 @@ from config.text_choices import Tournament_TextChoices
 from tournament.gsc.services import refresh_gsc_best_scores, refresh_gsc_scores
 from tournament.models import GSCTournament, Tournament, WeeklyEffTournament, WeeklyTournament
 from tournament.services import award_tournament_rank_scores, ensure_tournament_users, refresh_tournament_ranks
-from tournament.weekly.services import refresh_weekly_best_scores, refresh_weekly_classic_scores
+from tournament.weekly.services import refresh_weekly_best_scores, refresh_weekly_scores
 from tournament.weekly_eff.services import refresh_weekly_eff_best_scores, refresh_weekly_eff_scores
 
 
@@ -35,11 +35,11 @@ class Command(BaseCommand):
             refresh_best_scores = refresh_weekly_eff_best_scores
             name = f'效率打卡赛（{tournament.year}W{tournament.week}）'
         elif isinstance(tournament, WeeklyTournament):
-            if tournament.tournament_format != Tournament_TextChoices.WeeklyFormat.CLASSIC:
-                raise CommandError('当前只支持经典周赛')
-            refresh_scores = refresh_weekly_classic_scores
+            if tournament.tournament_format not in Tournament_TextChoices.WeeklyFormat.values:
+                raise CommandError('不支持的竞速打卡赛赛制')
+            refresh_scores = refresh_weekly_scores
             refresh_best_scores = refresh_weekly_best_scores
-            name = f'周赛（{tournament.year}W{tournament.week}）'
+            name = tournament.name['zh']
         else:
             raise CommandError('当前只支持 GSC、竞速及效率打卡赛')
 

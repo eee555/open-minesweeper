@@ -1,5 +1,5 @@
 <template>
-    <ClassicSummary v-if="tournamentFormat === WeeklyTournamentFormat.Classic" :videos="videos" />
+    <ClassicSummary :videos="videos" :tournament-format="tournamentFormat" />
 </template>
 
 <script setup lang="ts">
@@ -11,6 +11,6 @@ import { WeeklyTournamentFormat } from '@/utils/weekly';
 
 defineProps({
     videos: { type: Array<VideoAbstract>, default: () => [] },
-    tournamentFormat: { type: String as PropType<WeeklyTournamentFormat>, default: '' },
+    tournamentFormat: { type: String as PropType<WeeklyTournamentFormat>, default: WeeklyTournamentFormat.Classic },
 });
 </script>

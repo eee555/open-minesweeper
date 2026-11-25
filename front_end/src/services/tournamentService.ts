@@ -5,7 +5,7 @@ import { GSCParticipant } from '@/utils/gsc';
 import { TournamentParticipant } from '@/utils/tournaments';
 import type { TournamentInfo } from '@/utils/tournaments';
 import type { VideoAbstractData } from '@/utils/videoabstract';
-import { WeeklyParticipant } from '@/utils/weekly';
+import { WeeklyParticipant, WeeklyTournamentFormat } from '@/utils/weekly';
 import { WeeklyEffParticipant } from '@/utils/weeklyEff';
 
 export interface GSCParticipantResponse {
@@ -68,6 +68,7 @@ export const TournamentUserRankFields = [
     'score_current', 'score_total',
     'gsc_total', 'gsc_best',
     'weekly_total', 'weekly_classic_total', 'weekly_classic_best',
+    'weekly_nf_total', 'weekly_nf_best', 'weekly_qwc_total', 'weekly_qwc_best', 'weekly_qwc_nf_total', 'weekly_qwc_nf_best',
     'weekly_eff_total', 'weekly_eff_best',
 ] as const;
 export type TournamentUserRankField = typeof TournamentUserRankFields[number];
@@ -82,6 +83,12 @@ export interface TournamentUserRankingRow {
     weekly_total: number;
     weekly_classic_total: number;
     weekly_classic_best: number;
+    weekly_nf_total: number;
+    weekly_nf_best: number;
+    weekly_qwc_total: number;
+    weekly_qwc_best: number;
+    weekly_qwc_nf_total: number;
+    weekly_qwc_nf_best: number;
     weekly_eff_total: number;
     weekly_eff_best: number | null;
     weekly_eff_best_year: number | null;
@@ -140,11 +147,11 @@ export async function fetchDisqualificationTask(taskId: string): Promise<Partici
     return data;
 }
 
-export async function createWeeklyParticipant(tournamentId: number): Promise<WeeklyParticipant> {
+export async function createWeeklyParticipant(tournamentId: number, tournamentFormat: WeeklyTournamentFormat): Promise<WeeklyParticipant> {
     const { data } = await $axios.post<TournamentParticipantResponse>('/api/tournament/weekly/participant', {
         id: tournamentId,
     });
-    return weeklyParticipantFromParticipantResponse(data);
+    return new WeeklyParticipant(Object.assign({}, tournamentParticipantFromResponse(data), { tournament_format: tournamentFormat }));
 }
 
 export async function createWeeklyEffParticipant(tournamentId: number): Promise<WeeklyEffParticipant> {
@@ -186,11 +193,11 @@ export async function fetchGSCResults(tournamentId: number): Promise<GSCParticip
     return data.map((participant) => gscParticipantFromResponse(participant, tournamentId));
 }
 
-export async function fetchWeeklyResults(tournamentId: number): Promise<WeeklyParticipant[]> {
+export async function fetchWeeklyResults(tournamentId: number, tournamentFormat: WeeklyTournamentFormat = WeeklyTournamentFormat.Classic): Promise<WeeklyParticipant[]> {
     const { data } = await $axios.get<WeeklyScoreResponse[]>('/api/tournament/weekly/results', {
         params: { tournament_id: tournamentId },
     });
-    return data.map((participant) => weeklyParticipantFromResponse(participant, tournamentId));
+    return data.map((participant) => weeklyParticipantFromResponse(participant, tournamentId, tournamentFormat));
 }
 
 export async function fetchParticipantVideos(params: ParticipantVideosParams): Promise<VideoAbstractData[]> {
@@ -225,10 +232,6 @@ function tournamentParticipantFromResponse(data: TournamentParticipantResponse):
     });
 }
 
-function weeklyParticipantFromParticipantResponse(data: TournamentParticipantResponse): WeeklyParticipant {
-    return new WeeklyParticipant(tournamentParticipantFromResponse(data));
-}
-
 export function gscParticipantFromResponse(data: GSCParticipantResponse, tournamentId: number): GSCParticipant {
     return new GSCParticipant({
         id: data.id,
@@ -251,8 +254,9 @@ export function gscParticipantFromResponse(data: GSCParticipantResponse, tournam
     });
 }
 
-function weeklyParticipantFromResponse(data: WeeklyScoreResponse, tournamentId: number): WeeklyParticipant {
+function weeklyParticipantFromResponse(data: WeeklyScoreResponse, tournamentId: number, tournamentFormat: WeeklyTournamentFormat): WeeklyParticipant {
     return new WeeklyParticipant({
+        tournament_format: tournamentFormat,
         id: data.id,
         user_id: data.user_id,
         tournament_id: tournamentId,
