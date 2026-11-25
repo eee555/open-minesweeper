@@ -258,6 +258,7 @@ class PreviewTextTests(SimpleTestCase):
         self.assertEqual(preview_text(video, preview_board('b', None), ()), ('STD 8x8/10 1.250/12 by username', '2026-11-24 16:30:45'))
 
 
+@override_settings(RATELIMIT_ENABLE=False)
 class PreviewApiTests(TestCase):
     def setUp(self):
         directory = TemporaryDirectory()
