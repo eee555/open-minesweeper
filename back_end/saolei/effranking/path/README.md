@@ -22,7 +22,7 @@
 
 保存、删除与批量操作均复用效率榜提交后总入口，共用 Redis 读写 pipeline，不新增锁或重试。事务、异常日志、临时榜发布机制及部署暂停范围见[效率榜 README](../README.md)和[管理命令文档](../../../../vitepress_doc/zh/guide/development/management-commands.md#rebuild-eff-ranks)。首次部署执行 `rebuild_eff_ranks --ranking-name path`，仅替换 Path 的十三个 key；本地快照初始化也会重建本榜。
 
-排行与个人页按初级、中级、高级、合计四组显示 Path/CPath/EPath，前端将原值除以 16，以格为单位显示三位小数，title 保留换算后的完整精度，无色阶；单项各自链接最佳录像，sum 不生成链接。管理修复结果及新闻也按格显示，不改 API 或 Redis 的原始值。新闻覆盖十二项首次取得及原始值严格降低，sum 的 `video_id=null`，`count/timems=null`。移除、管理员修复及全量重建不发新闻。前端路由与组件职责见[排行榜 README](../../../../front_end/src/views/RankingView/README.md)和[个人主页 README](../../../../front_end/src/views/UserView/README.md#path-纪录)。
+排行按初级、中级、高级、合计四组显示 Path/CPath/EPath；个人页在效率表中与 Thrp、TPE 合并，以指标为行、四个级别分组为列。前端将原值除以 16，以格为单位显示三位小数，title 保留换算后的完整精度，无色阶；单项各自链接最佳录像，sum 不生成链接。管理修复结果及新闻也按格显示，不改 API 或 Redis 的原始值。新闻覆盖十二项首次取得及原始值严格降低，sum 的 `video_id=null`，`count/timems=null`。移除、管理员修复及全量重建不发新闻。前端路由与组件职责见[排行榜 README](../../../../front_end/src/views/RankingView/README.md)和[个人主页 README](../../../../front_end/src/views/UserView/README.md#效率纪录)。
 
 ## 索引决策
 

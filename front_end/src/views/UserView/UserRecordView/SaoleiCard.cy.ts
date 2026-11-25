@@ -4,7 +4,9 @@ import $axios from '@/http';
 import i18n from '@/i18n';
 import { invalidateProfileData } from '@/services/profileDataService';
 import type { SaoleiPlayerRecord } from '@/services/saoleiRankingService';
+import { colorTheme } from '@/store';
 import { pinia } from '@/store/create';
+import { local } from '@/store/local';
 
 const mountOptions = {
     props: { userId: 42 },
@@ -19,7 +21,14 @@ const mountOptions = {
 };
 
 describe('<SaoleiCard />', () => {
+    const originalColored = local.value.colored;
+    const originalBtime = colorTheme.value.btime;
+    const originalBvs = colorTheme.value.bvs;
+
     beforeEach(() => {
+        local.value.colored = true;
+        colorTheme.value.btime = { thresholds: [2], colors: ['#224466', '#ffee00'] };
+        colorTheme.value.bvs = { thresholds: [1], colors: ['#405060', '#abcdef'] };
         const record: SaoleiPlayerRecord = {
             player_id: 42,
             bt: 1234,
@@ -50,13 +59,19 @@ describe('<SaoleiCard />', () => {
         });
     });
 
+    afterEach(() => {
+        local.value.colored = originalColored;
+        colorTheme.value.btime = originalBtime;
+        colorTheme.value.bvs = originalBvs;
+    });
+
     it('loads both speed rankings once and renders scores with ranks', () => {
         cy.mount(SaoleiCard, mountOptions);
 
         cy.wait('@saoleiRecords').its('request.query').should('deep.equal', {});
 
         cy.get('.saolei-record-table').extractTableData().should('deep.equal', [
-            ['Saolei.wang Rule', 'Beginner', 'Intermediate', 'Expert', 'Sum'],
+            ['Legacy Saolei.wang Rule', 'Beginner', 'Intermediate', 'Expert', 'Sum'],
             ['Time', '1.234(2)', '--(--)', '--(--)', '2001.232(4)'],
             ['Bvs', '4.567(3)', '--(--)', '--(--)', '4.567(5)'],
             ['Time (NF)', '2.345(6)', '--(--)', '--(--)', '2002.343(7)'],
@@ -66,6 +81,20 @@ describe('<SaoleiCard />', () => {
             expect([...$links].map((link) => link.getAttribute('href'))).to.deep.eq(['#/video/8001', '#/video/8002', '#/video/8001', '#/video/8002']);
         });
         cy.get('@saoleiRecords.all').should('have.length', 1);
+        cy.get('.saolei-record-table tbody tr td:first-of-type').should(($cells) => {
+            expect([...$cells].map((cell) => getComputedStyle(cell).backgroundColor)).to.deep.equal([
+                'rgb(34, 68, 102)', 'rgb(171, 205, 239)', 'rgb(255, 238, 0)', 'rgb(64, 80, 96)',
+            ]);
+        });
+        cy.get('.saolei-record-table tbody tr td:not(:first-of-type)').should(($cells) => {
+            expect([...$cells].every((cell) => cell.style.backgroundColor === '')).to.equal(true);
+        });
+        cy.then(() => {
+            local.value.colored = false;
+        });
+        cy.get('.saolei-record-table tbody td').should(($cells) => {
+            expect([...$cells].every((cell) => cell.style.backgroundColor === '')).to.equal(true);
+        });
     });
 
     it('reloads for another user and keeps all four rows without records', () => {

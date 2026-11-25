@@ -11,8 +11,9 @@ const LayoutFixture = defineComponent({
     props: {
         width: { type: Number, required: true },
         heights: { type: Array as PropType<number[]>, required: true },
+        minimumColumnWidth: { type: Number, default: 304 },
     },
-    setup: (props) => () => h(MasonryLayout, { style: { width: `${props.width}px` } }, {
+    setup: (props) => () => h(MasonryLayout, { minimumColumnWidth: props.minimumColumnWidth, style: { width: `${props.width}px` } }, {
         default: () => props.heights.map((height, index) => h('div', { 'data-item': index, style: { height: `${height}px` } }, `Card ${index}`)),
     }),
 });
@@ -60,7 +61,7 @@ describe('<MasonryLayout />', () => {
         });
     });
 
-    it('uses one column in a narrow container and restores columns after expanding', () => {
+    it('reflows for container width and the configured minimum column width', () => {
         mountLayout();
         cy.get<ComponentWrapper<typeof LayoutFixture>>('@vue').then((wrapper) => wrapper.setProps({ width: 260 }));
         cy.get('[data-item]').should(($items) => {
@@ -79,6 +80,13 @@ describe('<MasonryLayout />', () => {
             expect(third.top).to.be.closeTo(first.top, 0.5);
             expect(fourth.left).to.be.closeTo(second.left, 0.5);
             expect(fourth.top - second.bottom).to.be.closeTo(16, 0.5);
+        });
+        cy.get<ComponentWrapper<typeof LayoutFixture>>('@vue').then((wrapper) => wrapper.setProps({ minimumColumnWidth: 400 }));
+        cy.get('[data-item]').should(($items) => {
+            const [first, second, third] = $items.toArray().map((element) => element.getBoundingClientRect());
+            expect(first.width).to.be.closeTo((960 - 16) / 2, 0.5);
+            expect(second.top).to.be.closeTo(first.top, 0.5);
+            expect(third.top - second.bottom).to.be.closeTo(16, 0.5);
         });
     });
 

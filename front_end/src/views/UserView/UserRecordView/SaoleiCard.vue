@@ -16,7 +16,7 @@
                     <th scope="row" class="table-col-center text-secondary">
                         {{ t(`prop.${label}`) }}{{ rankingName === 'saolei_nf' ? ' (NF)' : '' }}
                     </th>
-                    <td v-for="level in levels" :key="level" class="table-col-center">
+                    <td v-for="level in levels" :key="level" class="table-col-center" :style="cellStyle(records[rankingName], level, stat)">
                         <VideoPreviewLink
                             v-if="saoleiVideoId(records[rankingName], `${level}${stat}`)"
                             :id="saoleiVideoId(records[rankingName], `${level}${stat}`)"
@@ -41,6 +41,8 @@ import VideoPreviewLink from '@/components/VideoPreviewLink.vue';
 import { fetchProfileSaoleiRecords, profileDataRevision } from '@/services/profileDataService';
 import { formatSaoleiValue, SaoleiLevels, SaoleiStat, saoleiVideoId } from '@/services/saoleiRankingService';
 import type { SaoleiField, SaoleiPlayerRecord, SaoleiRankingName } from '@/services/saoleiRankingService';
+import { colorThemes } from '@/store/color';
+import { local } from '@/store/local';
 
 const props = defineProps({
     userId: { type: Number, required: true },
@@ -85,27 +87,18 @@ watch([() => props.userId, () => profileDataRevision(props.userId)], async ([use
 function formatScore(record: SaoleiPlayerRecord | undefined, stat: SaoleiField): string {
     return `${formatSaoleiValue(record, stat)}(${record?.ranks[stat] ?? '--'})`;
 }
+
+function cellStyle(record: SaoleiPlayerRecord | undefined, level: typeof levels[number], stat: SaoleiStat) {
+    if (!local.value.colored || level === 'sum') return undefined;
+    const value = record?.[`${level}${stat}`];
+    if (value == null) return undefined;
+    return stat === 't' ? colorThemes[`${level}time`].value.getStyle(value / 1000) : colorThemes.bvs.value.getStyle(value);
+}
 </script>
 
 <style scoped>
 .saolei-record-scroll {
-    overflow-x: auto;
-}
-
-:deep(.saolei-record-table) {
-    color: var(--ui-text-color-regular);
-    background: var(--ui-fill-color-blank);
-    font-size: var(--ui-font-size-base);
-}
-
-:deep(.saolei-record-table th),
-:deep(.saolei-record-table td) {
-    border: 1px solid var(--ui-border-color-lighter);
-    padding: 8px 12px;
-}
-
-:deep(.saolei-record-table th) {
-    background: var(--ui-fill-color-light);
+    min-width: 0;
 }
 
 :deep(.saolei-record-table td) {

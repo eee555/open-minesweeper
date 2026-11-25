@@ -86,6 +86,7 @@ describe('<SpeedRanking /> child routes', () => {
         cy.wait('@saolei');
         cy.wrap(router).its('currentRoute.value.path').should('eq', '/ranking/speed/saolei');
         cy.get('.ranking-selector').should('have.value', 'saolei');
+        cy.get('.ranking-selector option:checked').should('contain.text', 'Legacy Saolei.wang Rule');
         cy.get('.el-tabs__item.is-active').should('have.text', 'Speed');
         cy.get('.saolei-ranking-table').should('exist');
         cy.get('.pb-ranking-table').should('not.exist');

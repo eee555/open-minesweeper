@@ -3,8 +3,8 @@ import $axios from '@/http';
 export const pathLevels = ['b', 'i', 'e'] as const;
 export const pathGroups = [...pathLevels, 'sum'] as const;
 export const pathMetrics = ['path', 'cpath', 'epath'] as const;
-const labels = { path: 'Path', cpath: 'CPath', epath: 'EPath' } as const;
-export const pathColumns = pathGroups.flatMap((level) => pathMetrics.map((metric) => ({ stat: `${level}_${metric}` as const, level, metric, label: labels[metric] })));
+export const pathMetricLabels = { path: 'Path', cpath: 'CPath', epath: 'EPath' } as const;
+export const pathColumns = pathGroups.flatMap((level) => pathMetrics.map((metric) => ({ stat: `${level}_${metric}` as const, level, metric, label: pathMetricLabels[metric] })));
 export const pathStats = pathColumns.map((column) => column.stat);
 export type PathStat = typeof pathStats[number];
 export interface PathVideoRecord {

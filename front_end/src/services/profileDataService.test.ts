@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { fetchProfileSaoleiRecords, fetchProfileThrpRecord, fetchProfileTPERecord, invalidateProfileData, profileDataRevision } from './profileDataService';
+import { fetchNFIOERecord } from './nfIOERankingService';
+import { fetchProfileNFIOERecord, fetchProfileSaoleiRecords, fetchProfileThrpRecord, fetchProfileTPERecord, invalidateProfileData, profileDataRevision } from './profileDataService';
 import { fetchSaoleiRecords } from './saoleiRankingService';
 import type { SaoleiPlayerRecord, SaoleiRankingName } from './saoleiRankingService';
 import { fetchThrpRecord } from './thrpRankingService';
@@ -9,6 +10,7 @@ import { fetchTPERecord } from './tpeRankingService';
 vi.mock('./saoleiRankingService', () => ({ fetchSaoleiRecords: vi.fn() }));
 vi.mock('./thrpRankingService', () => ({ fetchThrpRecord: vi.fn() }));
 vi.mock('./tpeRankingService', () => ({ fetchTPERecord: vi.fn() }));
+vi.mock('./nfIOERankingService', () => ({ fetchNFIOERecord: vi.fn() }));
 
 describe('profile record cache', () => {
     beforeEach(() => {
@@ -23,18 +25,25 @@ describe('profile record cache', () => {
         vi.mocked(fetchThrpRecord).mockResolvedValue(thrp);
         const tpe = { player_id: 42, i: null, i2: null, i3: null, e: null, e2: null, e3: null, ranks: { i: null, i2: null, i3: null, e: null, e2: null, e3: null, sum: null, sum2: null, sum3: null } };
         vi.mocked(fetchTPERecord).mockResolvedValue(tpe);
+        const nfIOE = { player_id: 42, b: null, i: null, e: null, ranks: { b: null, i: null, e: null, sum: null } };
+        vi.mocked(fetchNFIOERecord).mockResolvedValue(nfIOE);
         const first = fetchProfileSaoleiRecords(42);
         const firstThrp = fetchProfileThrpRecord(42);
         const firstTPE = fetchProfileTPERecord(42);
+        const firstNFIOE = fetchProfileNFIOERecord(42);
         expect(fetchProfileSaoleiRecords(42)).toBe(first);
         expect(fetchProfileThrpRecord(42)).toBe(firstThrp);
         expect(fetchProfileTPERecord(42)).toBe(firstTPE);
+        expect(fetchProfileNFIOERecord(42)).toBe(firstNFIOE);
         await first;
         await firstThrp;
         expect(await fetchProfileSaoleiRecords(42)).toBe(data);
         expect(await fetchProfileThrpRecord(42)).toBe(thrp);
         expect(await firstTPE).toBe(tpe);
         expect(await fetchProfileTPERecord(42)).toBe(tpe);
+        expect(await firstNFIOE).toBe(nfIOE);
+        expect(await fetchProfileNFIOERecord(42)).toBe(nfIOE);
+        expect(fetchNFIOERecord).toHaveBeenCalledTimes(1);
         expect(fetchTPERecord).toHaveBeenCalledTimes(1);
         expect(fetchSaoleiRecords).toHaveBeenCalledTimes(1);
         expect(fetchThrpRecord).toHaveBeenCalledTimes(1);
@@ -46,9 +55,11 @@ describe('profile record cache', () => {
         await fetchProfileSaoleiRecords(42);
         await fetchProfileThrpRecord(42);
         await fetchProfileTPERecord(42);
+        await fetchProfileNFIOERecord(42);
         expect(fetchSaoleiRecords).toHaveBeenCalledTimes(2);
         expect(fetchThrpRecord).toHaveBeenCalledTimes(2);
         expect(fetchTPERecord).toHaveBeenCalledTimes(2);
+        expect(fetchNFIOERecord).toHaveBeenCalledTimes(2);
     });
 
     it('allows retrying failures without deleting a newer request during invalidation', async () => {

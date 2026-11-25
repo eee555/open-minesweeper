@@ -476,10 +476,10 @@ export default {
             },
         },
         saolei: {
-            title: '@:website.saolei Rule',
+            title: 'Legacy @:website.saolei Rule',
         },
         strict_ng: {
-            title: '@:mode.sng Rule',
+            title: '@:mode.sng',
         },
         empty: 'No records',
         loadFailed: 'Unable to load ranking',

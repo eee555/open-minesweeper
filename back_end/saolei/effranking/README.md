@@ -208,7 +208,7 @@ python manage.py rebuild_eff_ranks --ranking-name path
 
 `EfficiencyRanking.vue` 提供四榜共用工具栏。`ThrpRanking.vue` 与个人纪录共用 `ThrpRecordValue.vue`，`NFIOERanking.vue` 展示四项 NF IOE，`TPERanking.vue` 按中级、高级、总计三组展示九项 TPE 系列成绩，`PathRanking.vue` 按初级、中级、高级、总计四组展示十二项 Path。管理员修复支持四榜全部小榜。
 
-URL 约定见[排行榜 README](../../../front_end/src/views/RankingView/README.md)，Thrp 个人页职责见[个人主页 README](../../../front_end/src/views/UserView/README.md#thrp-纪录)。NF IOE 暂不增加个人页表格。
+URL 约定见[排行榜 README](../../../front_end/src/views/RankingView/README.md)，Thrp 与 NF IOE 在个人页的效率表中展示，见[个人主页 README](../../../front_end/src/views/UserView/README.md#效率纪录)。
 
 ## NF IOE
 
@@ -226,7 +226,7 @@ URL 约定见[排行榜 README](../../../front_end/src/views/RankingView/README.
 
 单录像同时比较三个公式，只重建该录像实际持有的失效纪录；批量加入用一次数据库查询中的三个独立窗口函数按 `(player_id, level)` 选优，避免重复读取相同候选。新增公式上线时暂停相关写入并执行 `rebuild_eff_ranks --ranking-name tpe`，重建完整 hash 和九个 zset；无需数据库迁移。
 
-接口为 `/api/effranking/tpe/rank`、`/player/{id}` 和管理员 `POST /admin/rebuild_record`，均支持九个小榜，个人及排行查询始终返回六项完整纪录。个人页 `TPECard.vue` 同样按中级、高级、总计三组展示九列成绩与排名，复用个人页缓存失效机制。前端统一显示三位小数，title 保留原始值；单项按对应 Time 色阶上色，三个合计不上色。
+接口为 `/api/effranking/tpe/rank`、`/player/{id}` 和管理员 `POST /admin/rebuild_record`，均支持九个小榜，个人及排行查询始终返回六项完整纪录。个人页在 `PathCard.vue` 的效率表中展示 TPE、TPE2、TPE3，初级列留空，复用个人页缓存失效机制。前端统一显示三位小数，title 保留原始值；单项按对应 Time 色阶上色，三个合计不上色。
 
 ### 索引决策
 

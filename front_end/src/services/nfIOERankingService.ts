@@ -10,6 +10,7 @@ export interface NFIOEVideoRecord {
     timems: number;
 }
 export type NFIOERecord = { player_id: number } & Record<typeof nfIOELevels[number], NFIOEVideoRecord | null>;
+export type NFIOEPlayerRecord = NFIOERecord & { ranks: Record<NFIOEStat, number | null> };
 
 export function nfIOEValue(record: NFIOERecord, stat: NFIOEStat): number | null {
     return stat === 'sum' ? nfIOELevels.reduce((sum, level) => sum + (record[level]?.value ?? 0), 0) : record[stat]?.value ?? null;
@@ -28,6 +29,11 @@ export function formatNFIOEValue(record: NFIOERecord, stat: NFIOEStat): string {
 
 export async function fetchNFIOERanking(stat: NFIOEStat, start: number, end: number, signal?: AbortSignal): Promise<{ count: number; players: NFIOERecord[] }> {
     const { data } = await $axios.get<{ count: number; players: NFIOERecord[] }>('/api/effranking/nf_ioe/rank', { params: { stat, start, end }, signal });
+    return data;
+}
+
+export async function fetchNFIOERecord(playerId: number): Promise<NFIOEPlayerRecord> {
+    const { data } = await $axios.get<NFIOEPlayerRecord>(`/api/effranking/nf_ioe/player/${playerId}`);
     return data;
 }
 
