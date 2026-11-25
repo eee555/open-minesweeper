@@ -5,6 +5,7 @@ import { videoplayerstore } from '@/store';
 import { MS_Mode, MS_State } from '@/utils/ms_const';
 import type { MS_Mode as MSMode } from '@/utils/ms_const';
 import { VideoAbstract } from '@/utils/videoabstract';
+import { WeeklyTournamentFormat } from '@/utils/weekly';
 
 function video(level: 'i' | 'e', mode: MSMode, timems: number, right_ce = 1): VideoAbstract {
     return new VideoAbstract({
@@ -20,10 +21,11 @@ function video(level: 'i' | 'e', mode: MSMode, timems: number, right_ce = 1): Vi
     });
 }
 
-function mountClassicSummary(videos: VideoAbstract[]) {
+function mountClassicSummary(videos: VideoAbstract[], tournamentFormat: WeeklyTournamentFormat = WeeklyTournamentFormat.Classic) {
     cy.mount(ClassicSummary, {
         props: {
             videos,
+            tournamentFormat,
         },
         global: {
             plugins: [i18n],
@@ -95,5 +97,16 @@ describe('<WeeklyPersonalSummary Classic />', () => {
         cy.get('body').should('contain.text', 'Intermediate: 260.000');
         cellTexts(0).should('deep.equal', ['110.000', '240']);
         cellTexts(1).should('deep.equal', ['20.000', '60', '60', '60', '60']);
+    });
+
+    it('uses the selected hardcore NG NF format rather than standard or flagged games', () => {
+        mountClassicSummary([
+            video('i', MS_Mode.Standard, 10000, 0),
+            video('i', MS_Mode.HardcoreNG, 20000, 1),
+            video('i', MS_Mode.HardcoreNG, 40000, 0),
+            video('i', MS_Mode.HardcoreNG, 60000, 0),
+        ], WeeklyTournamentFormat.QWCNF);
+        cy.get('body').should('contain.text', 'Sum: 760.000');
+        cellTexts(1).should('deep.equal', ['40.000', '60', '60', '60', '60']);
     });
 });

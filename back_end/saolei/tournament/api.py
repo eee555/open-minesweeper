@@ -18,6 +18,7 @@ from tournament.models import GSCTournament, Tournament, TournamentParticipant, 
 from tournament.schema import ParticipantOutBase
 from tournament.services import reset_participant_registration, with_participant_video_status
 from tournament.tasks import task_disqualify_participant
+from tournament.weekly.utils import WEEKLY_BEST_FIELDS, WEEKLY_TOTAL_FIELDS
 from userprofile.decorators import admin_csrf_required, login_required_error, staff_required
 from userprofile.models import UserProfile
 from utils.response import HttpResponseConflict
@@ -78,7 +79,7 @@ TournamentUserOut = create_schema(
     fields=[
         'score_current', 'last_updated', 'score_total',
         'gsc_total', 'gsc_best',
-        'weekly_total', 'weekly_classic_total', 'weekly_classic_best',
+        'weekly_total', *WEEKLY_TOTAL_FIELDS, *WEEKLY_BEST_FIELDS,
         'weekly_eff_total', 'weekly_eff_best', 'weekly_eff_best_year', 'weekly_eff_best_week',
     ],
     custom_fields=[('user_id', int, 0)],

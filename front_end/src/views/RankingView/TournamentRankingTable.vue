@@ -59,7 +59,13 @@ const columnSets: Record<RankingKind, Column[]> = {
         { field: 'gsc_total', label: 'gsc' }, { field: 'weekly_total', label: 'weekly' }, { field: 'weekly_eff_total', label: 'weeklyEff' },
     ],
     gsc: [{ field: 'gsc_total', label: 'total' }, { field: 'gsc_best', label: 'best' }, { field: 'edition', label: 'edition' }],
-    weekly: [{ field: 'weekly_total', label: 'total' }, { field: 'weekly_classic_best', label: 'best' }, { field: 'edition', label: 'edition' }],
+    weekly: [
+        { field: 'weekly_total', label: 'total' },
+        { field: 'weekly_classic_total', label: 'classicTotal' }, { field: 'weekly_classic_best', label: 'classicBest' },
+        { field: 'weekly_nf_total', label: 'nfTotal' }, { field: 'weekly_nf_best', label: 'nfBest' },
+        { field: 'weekly_qwc_total', label: 'qwcTotal' }, { field: 'weekly_qwc_best', label: 'qwcBest' },
+        { field: 'weekly_qwc_nf_total', label: 'qwcNfTotal' }, { field: 'weekly_qwc_nf_best', label: 'qwcNfBest' },
+    ],
     weekly_eff: [{ field: 'weekly_eff_total', label: 'total' }, { field: 'weekly_eff_best', label: 'best' }, { field: 'edition', label: 'edition' }],
 };
 const columns = computed(() => columnSets[props.kind]);
@@ -100,19 +106,15 @@ function displayValue(row: TournamentUserRankingRow, field: Column['field']): st
         const best = decodeGSCBest(row.gsc_best);
         return best ? ms_to_s(best.score) : '-';
     }
-    if (field === 'weekly_classic_best') {
-        const best = decodeWeeklyClassicBest(row.weekly_classic_best);
-        return best ? ms_to_s(best.score) : '-';
+    if (field === 'weekly_classic_best' || field === 'weekly_nf_best' || field === 'weekly_qwc_best' || field === 'weekly_qwc_nf_best') {
+        const best = decodeWeeklyClassicBest(row[field]);
+        return best ? `${ms_to_s(best.score)} (${weekEdition(best.year, best.week)})` : '-';
     }
     if (field === 'weekly_eff_best') return row.weekly_eff_best === null ? '-' : row.weekly_eff_best.toFixed(3);
     if (field === 'edition') {
         if (props.kind === 'gsc') {
             const best = decodeGSCBest(row.gsc_best);
             return best ? `GSC#${best.order}` : '-';
-        }
-        if (props.kind === 'weekly') {
-            const best = decodeWeeklyClassicBest(row.weekly_classic_best);
-            return best ? weekEdition(best.year, best.week) : '-';
         }
         return weekEdition(row.weekly_eff_best_year, row.weekly_eff_best_week);
     }
@@ -135,6 +137,14 @@ const i18nMessages = {
         weekly: '竞速打卡赛总积分',
         weeklyEff: '效率打卡赛总积分',
         total: '总积分',
+        classicTotal: '经典总积分',
+        classicBest: '经典最好成绩',
+        nfTotal: 'NF总积分',
+        nfBest: 'NF最好成绩',
+        qwcTotal: '强无猜总积分',
+        qwcBest: '强无猜最好成绩',
+        qwcNfTotal: '强无猜NF总积分',
+        qwcNfBest: '强无猜NF最好成绩',
         best: '历史最好成绩',
         edition: '取得最好成绩的届号',
     } },
@@ -146,6 +156,14 @@ const i18nMessages = {
         weekly: 'Speed Weekly Total',
         weeklyEff: 'Efficiency Weekly Total',
         total: 'Total',
+        classicTotal: 'Classic Total',
+        classicBest: 'Classic Best',
+        nfTotal: 'NF Total',
+        nfBest: 'NF Best',
+        qwcTotal: 'Hardcore NG Total',
+        qwcBest: 'Hardcore NG Best',
+        qwcNfTotal: 'Hardcore NG NF Total',
+        qwcNfBest: 'Hardcore NG NF Best',
         best: 'Best',
         edition: 'Best Edition',
     } },
@@ -157,6 +175,14 @@ const i18nMessages = {
         weekly: 'Velocidad Semanal Total',
         weeklyEff: 'Eficiencia Semanal Total',
         total: 'Total',
+        classicTotal: 'Total clásico',
+        classicBest: 'Mejor clásico',
+        nfTotal: 'Total NF',
+        nfBest: 'Mejor NF',
+        qwcTotal: 'Total sin adivinar estricto',
+        qwcBest: 'Mejor sin adivinar estricto',
+        qwcNfTotal: 'Total sin adivinar estricto NF',
+        qwcNfBest: 'Mejor sin adivinar estricto NF',
         best: 'Mejor',
         edition: 'Edición Mejor',
     } },

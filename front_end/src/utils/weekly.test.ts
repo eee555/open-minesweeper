@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { MS_Mode, MS_State } from './ms_const';
 import { TournamentParticipant } from './tournaments';
 import { VideoAbstract } from './videoabstract';
-import { WeeklyParticipant } from './weekly';
+import { WeeklyParticipant, WeeklyTournamentFormat } from './weekly';
+import { matchesWeeklyFormat } from './weeklyFormat';
 
 function video(level: 'i' | 'e', mode: MS_Mode, timems: number, right_ce = 1): VideoAbstract {
     return new VideoAbstract({
@@ -66,7 +67,31 @@ describe('WeeklyParticipant', () => {
         });
     });
 
-    describe('classic score cache', () => {
+    describe('score cache', () => {
+        it.each([
+            [WeeklyTournamentFormat.Classic, [0, 1, 4]],
+            [WeeklyTournamentFormat.NF, [1]],
+            [WeeklyTournamentFormat.QWC, [2, 3]],
+            [WeeklyTournamentFormat.QWCNF, [3]],
+        ] as const)('uses only eligible %s videos for initial and appended scores', (format, indices) => {
+            const videos = [video('i', MS_Mode.Standard, 10000), video('i', MS_Mode.Standard, 20000, 0), video('i', MS_Mode.HardcoreNG, 30000), video('i', MS_Mode.HardcoreNG, 40000, 0), video('i', MS_Mode.Standard, 50000, NaN)];
+            const assigned = new WeeklyParticipant({ videos, tournament_format: format });
+            const appended = new WeeklyParticipant({ tournament_format: format });
+            videos.forEach((replay) => {
+                appended.addVideo(replay);
+            });
+            const expected = indices.map((index) => [videos[index].id, videos[index].timems]).concat(Array.from({ length: 5 - indices.length }, () => [0, 60000]));
+            expect(assigned.classic_it).toEqual(expected);
+            expect(appended.classic_it).toEqual(expected);
+            expect(assigned.classic_score).toBe(480000 + expected.reduce((sum, [, time]) => sum + time, 0));
+            expect(appended.classic_score).toBe(assigned.classic_score);
+            expect(assigned.videos).toHaveLength(videos.length);
+            expect(appended.videos).toHaveLength(videos.length);
+            expect(matchesWeeklyFormat(video('i', MS_Mode.SpeedNG, 1, 0), format)).toBe(false);
+            assigned.addVideo(video('i', format === 'q' || format === 'f' ? MS_Mode.HardcoreNG : MS_Mode.Standard, 60000, 0));
+            expect(assigned.classic_it).toEqual(expected);
+        });
+
         it('excludes non-official videos from assigned and appended scores', () => {
             const participant = new WeeklyParticipant();
             const rejected = Object.values(MS_State).filter((state) => state !== MS_State.Official).flatMap((state) => {
@@ -112,17 +137,6 @@ describe('WeeklyParticipant', () => {
                 [0, 60000],
             ]);
             expect(participant.classic_score).toBe(610000);
-        });
-
-        it('appends a video and updates classic score fields using milliseconds', () => {
-            const participant = new WeeklyParticipant();
-
-            participant.addVideo(video('i', MS_Mode.Standard, 20000));
-
-            expect(participant.videos).toHaveLength(1);
-            expect(participant.classic_it[0]).toEqual([20000, 20000]);
-            expect(participant.classic_i_sum).toBe(260000);
-            expect(participant.classic_score).toBe(740000);
         });
     });
 });

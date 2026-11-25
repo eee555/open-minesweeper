@@ -17,13 +17,26 @@ The tournament starts at 00:00 UTC on Monday and ends at 24:00 UTC on Sunday. Yo
 
 After confirmation, your two-hour session starts immediately and cannot be cancelled or chosen again by yourself. If you registered by mistake and have no tournament replays, contact the host or an administrator after your personal window expires to reset it. The overall tournament must still be running.
 
-Both tournaments count only official Standard replays, including NF. The software must support tournament tokens.
+Only official replays count. The software must support tournament tokens.
 
 ### Speed Weekly
 
-The classic 2E+5I format adds the fastest 2 Expert and 5 Intermediate times. Intermediate times must be below 60 seconds and Expert times below 240 seconds. Missing games count as these respective limits.
+There is one Speed Weekly tournament per week. An administrator chooses its format when creating it; the tournament name shows the format prefix:
+
+| Format | Eligible replays |
+| --- | --- |
+| Classic | Standard, including NF |
+| NF | Standard with zero effective right clicks |
+| Hardcore NG | Hardcore no-guessing, including NF |
+| Hardcore NG NF | Hardcore no-guessing with zero effective right clicks |
+
+All four formats add the fastest 2 Expert and 5 Intermediate times. Intermediate times must be below 60 seconds and Expert times below 240 seconds. Missing games count as these respective limits. Hardcore NG is distinct from Speed NG.
+
+Points and personal bests count only toward the tournament's selected format; an NF replay does not also earn credit in another format. The overall tournament ranking shows combined Speed Weekly points, while the Speed Weekly ranking shows each format's points and best alongside the combined total.
 
 ### Efficiency Weekly
+
+Only Standard replays, including NF, count.
 
 Each game is scored by `Time / IOE²` (time divided by the square of IOE); lower is better. Add the lowest scores from 2 Expert and 5 Intermediate games. Intermediate scores must be below 60, Expert below 240, with no additional IOE cap. Missing games count as 60 and 240 respectively.
 

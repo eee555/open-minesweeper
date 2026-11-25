@@ -1,5 +1,6 @@
 import type { TournamentParticipantResponse } from '@/services/tournamentService';
 import { MS_State } from '@/utils/ms_const';
+import type { WeeklyTournamentFormat } from '@/utils/weekly';
 
 const HOST = {
     id: 48,
@@ -83,6 +84,7 @@ function createWeeklyTournament(options: {
     week: number;
     startTime: Date;
     endTime: Date;
+    format?: WeeklyTournamentFormat;
 }) {
     return cy.dangerzonePost<DangerzoneWeeklyTournament>('create_weekly_tournament', {
         year: options.year,
@@ -90,6 +92,7 @@ function createWeeklyTournament(options: {
         start_time: options.startTime.toISOString(),
         end_time: options.endTime.toISOString(),
         host_id: STAFF.id,
+        tournament_format: options.format ?? 'c',
     }).then((response) => response.body);
 }
 
@@ -657,14 +660,17 @@ describe('Weekly tournament', () => {
         cy.get('[data-navigation-id=staff]').should('exist');
         cy.contains('比赛类型');
         cy.get('select[aria-label="比赛类型"]').should('be.visible').and('have.value', 'c');
+        cy.get('[data-cy=weekly-format]').select('n');
         cy.contains('button', '创建下周打卡赛').click();
-        cy.wait('@createWeeklyTournament').should(({ request, response }) => {
+        cy.wait<string, { data: { tournament_format: WeeklyTournamentFormat } }>('@createWeeklyTournament').should(({ request, response }) => {
             expect(request.headers['x-csrftoken'], 'administrator CSRF header').to.be.a('string').and.not.equal('');
             expect(response?.statusCode, `weekly tournament response: ${JSON.stringify(response?.body)}`).to.eq(200);
+            expect(response?.body.data.tournament_format).to.equal('n');
         });
         cy.contains('操作成功');
         cy.closeElNotifications();
         cy.contains('创建结果');
+        readDescriptionValue('比赛类型').should('equal', 'NF');
 
         readDescriptionValue('开始时间').then((value) => {
             startText = value;
@@ -678,6 +684,38 @@ describe('Weekly tournament', () => {
             const end = parseDisplayDateTime(endText);
             expect(start.getDay()).to.equal(1);
             expect(end.getTime() - start.getTime()).to.equal(7 * 24 * 60 * 60 * 1000);
+        });
+    });
+
+    it('keeps hardcore NG NF live and awarded scores consistent', () => {
+        let tournamentId = 0;
+        let token = '';
+        const now = new Date();
+        createWeeklyTournament({ year: 2099, week: 4, startTime: new Date(now.getTime() - 3600000), endTime: new Date(now.getTime() + 86400000), format: 'f' }).then((tournament) => {
+            tournamentId = tournament.id;
+        });
+        cy.then(() => {
+            registerOnWeeklyTournamentPage(tournamentId);
+        });
+        cy.contains('强无猜NF竞速打卡赛').should('be.visible');
+        getVisibleToken().then((value) => {
+            token = value;
+        });
+        for (const [mode, right_ce, timems, state] of [['00', 0, 1000, 'c'], ['06', 1, 2000, 'c'], ['06', 0, 3000, 'b'], ['06', 0, 20000, 'c']] as const) {
+            cy.then(() => cy.createVideo({ user_id: USER.id, identifier: 'weekly-mode', tournament_identifier: [token], level: 'i', mode, right_ce, timems, state, bv: 80 }));
+        }
+        cy.intercept('GET', '**/api/tournament/get_videos/participant*').as('modeVideos');
+        cy.get('[data-cy=personal-score-refresh]').click();
+        cy.wait('@modeVideos');
+        cy.get('[data-cy=tournament-data-tabs] #tab-personal').click();
+        cy.get('[data-cy=tournament-data-tabs] #pane-personal').should('contain.text', '740.000');
+        cy.then(() => cy.dangerzonePost('finish_weekly_tournament', { id: tournamentId }));
+        cy.intercept('GET', '**/api/tournament/weekly/results*').as('modeResults');
+        cy.reload();
+        cy.wait('@modeResults');
+        cy.get('.el-table__body-wrapper tbody').first().extractTableData().should((rows) => {
+            expect(rows).to.have.length(1);
+            expect(rows[0]).to.include('740.000');
         });
     });
 });

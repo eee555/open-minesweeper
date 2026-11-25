@@ -1,6 +1,7 @@
 import { toDate, toISODateTimeString } from './datetime';
 import { TournamentState, TournamentSubclass } from './ms_const';
 import type { VideoAbstract } from './videoabstract';
+import { weeklyFormatNames, WeeklyTournamentFormat } from './weeklyFormat';
 
 export class TournamentParticipant {
     public id = 0;
@@ -45,7 +46,7 @@ interface GSCTournamentData {
 interface WeeklyTournamentData {
     year: number;
     week: number;
-    tournament_format: 'c';
+    tournament_format: WeeklyTournamentFormat;
 }
 
 interface WeeklyEffTournamentData {
@@ -194,12 +195,14 @@ export class Tournament {
                     en: `GSC#${this.gscData?.order ?? ''}`,
                     es: `Copa de la Oveja de Oro n.º ${this.gscData?.order ?? ''}`,
                 };
-            case TournamentSubclass.Weekly:
+            case TournamentSubclass.Weekly: {
+                const prefix = weeklyFormatNames[this.weeklyData?.tournament_format ?? WeeklyTournamentFormat.Classic];
                 return {
-                    zh: `${this.weeklyData?.year ?? ''}年第${this.weeklyData?.week ?? ''}周竞速打卡赛`,
-                    en: `Speed Weekly ${this.weeklyData?.year ?? ''}#${this.weeklyData?.week ?? ''}`,
-                    es: `Semanal de velocidad ${this.weeklyData?.year ?? ''}#${this.weeklyData?.week ?? ''}`,
+                    zh: `${prefix.zh}竞速打卡赛 ${this.weeklyData?.year ?? ''}年第${this.weeklyData?.week ?? ''}周`,
+                    en: `${prefix.en} Speed Weekly ${this.weeklyData?.year ?? ''}#${this.weeklyData?.week ?? ''}`,
+                    es: `${prefix.es} Velocidad Semanal ${this.weeklyData?.year ?? ''}#${this.weeklyData?.week ?? ''}`,
                 };
+            }
             case TournamentSubclass.WeeklyEff:
                 return {
                     zh: `${this.weeklyEffData?.year ?? ''}年第${this.weeklyEffData?.week ?? ''}周效率打卡赛`,

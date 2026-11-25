@@ -98,7 +98,7 @@ class CreateWeeklyTournamentSchema(Schema):
     state: str = Tournament_TextChoices.State.NORMAL
     start_time: datetime
     end_time: datetime
-    tournament_format: str = Tournament_TextChoices.WeeklyFormat.CLASSIC
+    tournament_format: Tournament_TextChoices.WeeklyFormat = Tournament_TextChoices.WeeklyFormat.CLASSIC
     host_id: int | None = None
     year: int | None = None
     week: int | None = None

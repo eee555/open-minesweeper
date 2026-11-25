@@ -11,6 +11,7 @@ from utils.cache import maybe_bytes_to_str
 from videomanager.models import VideoModel
 from .models import GSCTournament, Tournament, TournamentParticipant, TournamentUser, WeeklyEffTournament
 from .utils import MAX_TOURNAMENT_BEST, tournament_score_decay_factor, tournament_score_reference_time
+from .weekly.utils import WEEKLY_BEST_FIELDS, WEEKLY_TOTAL_FIELDS
 
 cache = get_redis_connection('saolei_website')
 
@@ -26,24 +27,30 @@ TOURNAMENT_USER_CACHE_KEYS = {
     'weekly_total': 'tournament:user:weekly_total',
     'weekly_classic_total': 'tournament:user:weekly_classic_total',
     'weekly_classic_best': 'tournament:user:weekly_classic_best',
+    'weekly_nf_total': 'tournament:user:weekly_nf_total',
+    'weekly_nf_best': 'tournament:user:weekly_nf_best',
+    'weekly_qwc_total': 'tournament:user:weekly_qwc_total',
+    'weekly_qwc_best': 'tournament:user:weekly_qwc_best',
+    'weekly_qwc_nf_total': 'tournament:user:weekly_qwc_nf_total',
+    'weekly_qwc_nf_best': 'tournament:user:weekly_qwc_nf_best',
     'weekly_eff_total': 'tournament:user:weekly_eff_total',
     'weekly_eff_best': 'tournament:user:weekly_eff_best',
 }
 TOURNAMENT_USER_RANK_FIELDS = (
     'score_current', 'score_total',
     'gsc_total', 'gsc_best',
-    'weekly_total', 'weekly_classic_total', 'weekly_classic_best',
+    'weekly_total', *WEEKLY_TOTAL_FIELDS, *WEEKLY_BEST_FIELDS,
     'weekly_eff_total', 'weekly_eff_best',
 )
-TOURNAMENT_USER_ASC_FIELDS = ('gsc_best', 'weekly_classic_best', 'weekly_eff_best')
+TOURNAMENT_USER_ASC_FIELDS = ('gsc_best', *WEEKLY_BEST_FIELDS, 'weekly_eff_best')
 TOURNAMENT_USER_DEFAULT_VALUES = {
     'score_current': 0,
     'score_total': 0,
     'gsc_total': 0,
     'gsc_best': MAX_TOURNAMENT_BEST,
     'weekly_total': 0,
-    'weekly_classic_total': 0,
-    'weekly_classic_best': MAX_TOURNAMENT_BEST,
+    **dict.fromkeys(WEEKLY_TOTAL_FIELDS, 0),
+    **dict.fromkeys(WEEKLY_BEST_FIELDS, MAX_TOURNAMENT_BEST),
     'weekly_eff_total': 0,
     'weekly_eff_best': None,
 }

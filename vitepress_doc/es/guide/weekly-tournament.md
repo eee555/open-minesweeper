@@ -17,13 +17,26 @@ El torneo comienza a las 00:00 UTC el lunes y termina a las 24:00 UTC el domingo
 
 Tras la confirmación, tu sesión de dos horas comienza inmediatamente y no puede cancelarse ni elegirse nuevamente. Si te registraste por error y no tienes repeticiones del torneo, contacta al organizador o a un administrador tras finalizar tu ventana personal para reiniciarla. El torneo general debe seguir en curso.
 
-Ambos torneos consideran únicamente las repeticiones oficiales en formato estándar, incluyendo NF. El software debe soportar tokens de torneo.
+Solo cuentan las repeticiones oficiales. El software debe admitir tokens de torneo.
 
 ### Velocidad Semanal
 
-El formato clásico 2E+5I suma los tiempos más rápidos de 2 jugadores Expertos y 5 jugadores Intermedios. Los tiempos intermedios deben ser inferiores a 60 segundos y los de expertos inferiores a 240 segundos. Los juegos ausentes se cuentan como estos límites respectivos.
+Hay un solo torneo de Velocidad Semanal por semana. Un administrador elige el formato al crearlo; el nombre del torneo muestra su prefijo:
+
+| Formato | Repeticiones válidas |
+| --- | --- |
+| Clásico | Modo estándar, incluido NF |
+| NF | Modo estándar sin clics derechos efectivos |
+| Sin adivinar estricto | Modo sin adivinar estricto, incluido NF |
+| Sin adivinar estricto NF | Modo sin adivinar estricto sin clics derechos efectivos |
+
+Los cuatro formatos suman los mejores tiempos de 2 partidas de nivel experto y 5 de nivel intermedio. Los tiempos intermedios deben ser inferiores a 60 segundos y los expertos inferiores a 240 segundos. Las partidas ausentes se cuentan como estos límites respectivos. El modo sin adivinar estricto es distinto del modo sin adivinar de velocidad.
+
+Los puntos y récords personales se acumulan solo para el formato seleccionado. Una repetición NF no suma también en otro formato. La clasificación general muestra el total combinado de Velocidad Semanal; su clasificación específica muestra los puntos y récords de cada formato junto con el total combinado.
 
 ### Eficiencia Semanal
+
+Solo cuentan las repeticiones estándar, incluido NF.
 
 Cada partida se califica por `Time / IOE²` (tiempo dividido por el cuadrado de IOE); menor es mejor. Suma las puntuaciones más bajas de 2 partidas Expert y 5 partidas Intermedia. Las puntuaciones Intermedia deben ser inferiores a 60, Expert inferiores a 240, sin límite adicional de IOE. Las partidas ausentes se cuentan como 60 y 240 respectivamente.
 

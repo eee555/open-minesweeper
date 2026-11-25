@@ -112,7 +112,7 @@ class ProcessMemoryTests(SimpleTestCase):
 
 
 class RedisMemoryTests(SimpleTestCase):
-    NON_MINIGAME_RANKING_KEYS = 121  # Includes 2 WeeklyEff zsets, 3 MEDIA_CACHE_KEYS, 10 TPE and 13 Path keys.
+    NON_MINIGAME_RANKING_KEYS = 127  # Includes 15 tournament zsets, 3 MEDIA_CACHE_KEYS, 10 TPE and 13 Path keys.
 
     def redis_client(self, fields=None, sizes=None, total=1000):
         client = MagicMock()
@@ -164,6 +164,9 @@ class RedisMemoryTests(SimpleTestCase):
         self.assertEqual(len([key for key in measured if key.startswith('speedranking:pb_derived:')]), len(list(PBDerivedCache().keys())))
         self.assertEqual(result['groups']['pb_rankings'], 100)
         self.assertEqual(result['groups']['other_rankings'], 760)
+        for category in ('weekly_nf', 'weekly_qwc', 'weekly_qwc_nf'):
+            for field in ('total', 'best'):
+                self.assertIn(f'tournament:user:{category}_{field}', measured)
         self.assertEqual(len([key for key in measured if key.startswith('speedranking:strict_ng')]), 18)
         self.assertEqual(len([key for key in measured if key.startswith('minigame:')]), 3 * len(RANKINGS))
         self.assertEqual(result['groups']['latest_videos'], 80)
