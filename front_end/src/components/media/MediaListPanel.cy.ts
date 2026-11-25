@@ -104,7 +104,10 @@ describe('<MediaListPanel />', () => {
         cy.get('[data-sort=latest]').click();
         cy.wait('@filtered').its('request.query').should('include', { format: 'B_a', language: 'es', sort: 'latest' }).and('not.have.property', 'cursor');
         cy.get('[data-cy=works-clear-filters]').click();
-        cy.wait('@filtered').its('request.query').should('not.have.property', 'format').and('not.have.property', 'language');
+        cy.wait('@filtered').then(({ request }) => {
+            expect(request.query).not.to.have.property('format');
+            expect(request.query).not.to.have.property('language');
+        });
     });
 
     it('renders the five columns and keeps feeding enabled when only submissions are banned', () => {
@@ -165,7 +168,7 @@ describe('<MediaListPanel />', () => {
         mountPanel();
         cy.wait('@ranking').its('request.query.sort').should('eq', 'hot');
         cy.get('[data-sort=latest]').click();
-        cy.wait('@latest');
+        cy.wait('@ranking').its('request.query.sort').should('eq', 'latest');
         cy.get('[data-sort=latest]').should('have.attr', 'aria-pressed', 'true');
         cy.get('[data-sort=likes]').click();
         cy.wait('@ranking').its('request.query.sort').should('eq', 'likes');
