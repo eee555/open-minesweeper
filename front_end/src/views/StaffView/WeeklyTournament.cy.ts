@@ -16,6 +16,7 @@ describe('<WeeklyTournament />', () => {
         cy.contains('button', 'Create next week').click();
         cy.wait('@create').its('request.body').should('equal', 'tournament_format=f');
         cy.get('[data-cy=weekly-result]').should('contain.text', 'Hardcore NG NF');
+        cy.closeElNotifications();
         cy.get('[data-cy=weekly-kind]').select('weekly-eff');
         cy.get('[data-cy=weekly-format]').should('not.exist');
     });
