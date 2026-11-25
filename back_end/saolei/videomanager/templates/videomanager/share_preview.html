@@ -1,9 +1,12 @@
 <!doctype html>
-<html lang="zh-CN" prefix="og: https://ogp.me/ns#">
+<html lang="en" prefix="og: https://ogp.me/ns#">
 <head>
     <meta charset="utf-8">
     <title>{{ title }}</title>
+    <meta name="description" content="{{ description }}">
     <meta property="og:type" content="website">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:site_name" content="Open Minesweeper">
     <meta property="og:url" content="{{ share_url }}">
     <meta property="og:title" content="{{ title }}">
     <meta property="og:description" content="{{ description }}">
@@ -11,11 +14,11 @@
     <meta property="og:image:type" content="image/png">
     <meta property="og:image:width" content="{{ image_width }}">
     <meta property="og:image:height" content="{{ image_height }}">
-    <meta property="og:image:alt" content="录像完成棋盘">
+    <meta property="og:image:alt" content="{{ image_alt }}">
     <meta name="twitter:card" content="summary_large_image">
     <meta http-equiv="refresh" content="0;url={{ video_url }}">
 </head>
 <body>
-    <a href="{{ video_url }}">打开录像</a>
+    <a href="{{ video_url }}">Watch replay</a>
 </body>
 </html>
