@@ -13,9 +13,11 @@
             </label>
             <label>
                 {{ t('media.language') }}
-                <MediaLanguageInput v-model="draftLanguage" :disabled="draftLanguageEmpty" :placeholder="t('local.allLanguages')" data-cy="works-language" />
+                <ElSelect v-model="draftLanguage" clearable value-on-clear="" :placeholder="t('local.allLanguages')" data-cy="works-language">
+                    <ElOption v-for="language in mediaLanguages" :key="language.lang" :value="language.lang" :label="language.text" />
+                    <ElOption value="other" :label="t('local.otherLanguage')" />
+                </ElSelect>
             </label>
-            <label><input v-model="draftLanguageEmpty" type="checkbox" data-cy="works-language-empty">{{ t('local.languageEmpty') }}</label>
             <BaseButton size="small" native-type="submit" data-cy="works-apply-filters">
                 {{ t('local.apply') }}
             </BaseButton>
@@ -130,12 +132,11 @@
 
 <script setup lang="ts">
 import { useInfiniteScroll } from '@vueuse/core';
-import { ElDialog } from 'element-plus';
+import { ElDialog, ElOption, ElSelect } from 'element-plus';
 import { computed, onMounted, onScopeDispose, ref, useTemplateRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import MediaFeedButton from './MediaFeedButton.vue';
-import MediaLanguageInput from './MediaLanguageInput.vue';
 import MediaSourceLink from './MediaSourceLink.vue';
 
 import BaseButton from '@/components/common/BaseButton.vue';
@@ -146,7 +147,7 @@ import type { MediaFormatValue, MediaItem, MediaLikeResult, MediaMe, MediaWorksQ
 import { fetchMediaMe, fetchMediaWorks } from '@/services/mediaService';
 import { store } from '@/store';
 import { AccountLinkPlatform } from '@/utils/accountlinks';
-import { mediaEmbedUrl, mediaExternalUrl, normalizeMediaLanguage } from '@/utils/media';
+import { mediaEmbedUrl, mediaExternalUrl, mediaLanguages } from '@/utils/media';
 import { platforms } from '@/views/UserView/AccountLinks/platforms';
 
 import '@/components/media/media.css';
@@ -185,9 +186,8 @@ const nextCursor = ref<string | null>(null);
 const hasMore = ref(true);
 const loadError = ref(false);
 const draftFormat = ref<MediaFormatValue | ''>('');
-const draftLanguage = ref('');
-const draftLanguageEmpty = ref(false);
-const filters = ref<Pick<MediaWorksQuery, 'format' | 'language' | 'language_empty'>>({});
+const draftLanguage = ref<NonNullable<MediaWorksQuery['language']> | ''>('');
+const filters = ref<Pick<MediaWorksQuery, 'format' | 'language'>>({});
 const panel = useTemplateRef<HTMLElement>('panel');
 const scrollContainer = ref<HTMLElement | Window | null>(null);
 const loading = ref(false);
@@ -224,15 +224,13 @@ function selectSort(value: MediaWorksSort): void {
 function applyFilters(): void {
     filters.value = {
         format: draftFormat.value || undefined,
-        language: draftLanguageEmpty.value ? undefined : normalizeMediaLanguage(draftLanguage.value) || undefined,
-        language_empty: draftLanguageEmpty.value || undefined,
+        language: draftLanguage.value || undefined,
     };
 }
 
 function clearFilters(): void {
     draftFormat.value = '';
     draftLanguage.value = '';
-    draftLanguageEmpty.value = false;
     filters.value = {};
 }
 
@@ -332,8 +330,8 @@ const i18nMessages = {
         bilibiliArticle: 'B 站专栏',
         saoleiPost: '扫雷网帖子',
         githubRepository: 'GitHub 仓库',
-        allLanguages: '全部语言，可选择或自填',
-        languageEmpty: '未填写语言',
+        allLanguages: '全部语言',
+        otherLanguage: '其他',
         apply: '筛选',
         clear: '清空',
         loadFailed: '加载失败，已加载内容保留。',
@@ -349,8 +347,8 @@ const i18nMessages = {
         bilibiliArticle: 'Bilibili article',
         saoleiPost: 'Saolei post',
         githubRepository: 'GitHub repository',
-        allLanguages: 'All languages; choose or type',
-        languageEmpty: 'Language not specified',
+        allLanguages: 'All languages',
+        otherLanguage: 'Other',
         apply: 'Filter',
         clear: 'Clear',
         loadFailed: 'Could not load works. Loaded items are kept.',
@@ -366,8 +364,8 @@ const i18nMessages = {
         bilibiliArticle: 'Artículo de Bilibili',
         saoleiPost: 'Publicación de Saolei',
         githubRepository: 'Repositorio de GitHub',
-        allLanguages: 'Todos los idiomas; elige o escribe',
-        languageEmpty: 'Idioma no indicado',
+        allLanguages: 'Todos los idiomas',
+        otherLanguage: 'Otros',
         apply: 'Filtrar',
         clear: 'Limpiar',
         loadFailed: 'No se pudieron cargar las obras. Se conservan las ya cargadas.',

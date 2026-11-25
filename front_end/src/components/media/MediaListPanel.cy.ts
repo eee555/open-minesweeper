@@ -98,11 +98,16 @@ describe('<MediaListPanel />', () => {
         cy.wait('@filtered');
         cy.get('[data-cy=works-format]').select('B_a');
         cy.get('[data-cy=works-language]').click();
+        cy.get('.el-select-dropdown:visible .el-select-dropdown__item').should('have.length', 4);
         cy.get('.el-select-dropdown:visible').contains('.el-select-dropdown__item', 'Español').click();
         cy.get('[data-cy=works-apply-filters]').click();
         cy.wait('@filtered').its('request.query').should('include', { format: 'B_a', language: 'es', sort: 'hot' }).and('not.have.property', 'cursor');
         cy.get('[data-sort=latest]').click();
         cy.wait('@filtered').its('request.query').should('include', { format: 'B_a', language: 'es', sort: 'latest' }).and('not.have.property', 'cursor');
+        cy.get('[data-cy=works-language]').click();
+        cy.get('.el-select-dropdown:visible').contains('.el-select-dropdown__item', 'Other').click();
+        cy.get('[data-cy=works-apply-filters]').click();
+        cy.wait('@filtered').its('request.query').should('include', { format: 'B_a', language: 'other', sort: 'latest' }).and('not.have.property', 'cursor');
         cy.get('[data-cy=works-clear-filters]').click();
         cy.wait('@filtered').then(({ request }) => {
             expect(request.query).not.to.have.property('format');

@@ -71,17 +71,17 @@ def _page_queryset(queryset, start, count):
 @router.get('/works', response=MediaCursorPageOut)
 @decorate_view(ratelimit(key='ip', rate='5/s', group='media-works', block=True))
 def get_works(request, sort: str = 'hot', limit: int = 20, cursor: str | None = None,
-              media_format: str = Query('', alias='format'), language: str = '', language_empty: bool = False):  # noqa: B008
+              media_format: str = Query('', alias='format'), language: str = ''):  # noqa: B008
     """
     - ratelimit(key='ip', rate='5/s', group='media-works', block=True)
 
     公开已审核作品，MySQL 数值游标分页；不查询总数，不支持位置分页。
     """
-    if request.GET.keys() - {'sort', 'limit', 'cursor', 'format', 'language', 'language_empty'}:
+    if request.GET.keys() - {'sort', 'limit', 'cursor', 'format', 'language'}:
         raise HttpError(400, 'unsupported_query_parameter')
     return _service(
         services.list_works, Media.objects.filter(status=MediaStatus.VERIFIED), sort=sort, limit=limit,
-        cursor=cursor, media_format=media_format, language=language, language_empty=language_empty,
+        cursor=cursor, media_format=media_format, language=language,
     )
 
 

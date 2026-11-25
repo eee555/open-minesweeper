@@ -9,6 +9,8 @@ description: Submission, review, rubies and heat rules for promoting Bilibili vi
 
 Works lists the minesweeper content collected on this site: Bilibili videos, Bilibili articles, Saolei.wang posts and GitHub repositories. **Only approved works appear here.** The table is sorted by **Current heat** by default; click a column heading to switch between **Published at**, **Current heat** and **Total likes**. Filter by type and language, then scroll down to load more. Changing the sort or filters starts the list again; there is no page-number navigation. Clicking a Bilibili video title opens an in-site preview; other titles open the original link. The icon before each title shows the source platform.
 
+The language filter offers Chinese, English, Spanish and Other. Other includes custom and unspecified languages; clear the filter to see all languages.
+
 If you create content and want to promote it here, these are the rules most likely to catch you out:
 
 - You must [link and verify](./account-links.md) your account on the source platform before submitting.

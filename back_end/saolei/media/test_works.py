@@ -56,14 +56,23 @@ class WorksTests(TestCase):
                     cursor = page['next_cursor']
                 self.assertEqual(ids, [102, 101, 100, 10, 9])
 
-    def test_filters_are_applied_before_limit_and_accept_custom_language(self):
+    def test_language_categories_and_type_are_applied_before_cursor_limit(self):
         self._media(1, language='日本語')
         self._media(2, language='en', format='g_r')
         self._media(3, language='')
         self._media(4, language='es')
-        self.assertEqual([row['id'] for row in self._get(format='B_a', language='日本語', limit=1)['items']], [1])
-        self.assertEqual([row['id'] for row in self._get(language_empty=True)['items']], [3])
+        self._media(5, language='zh-cn')
+        self._media(6, language='Klingon', format='g_r')
+        self.assertEqual([row['id'] for row in self._get(language='zh-cn')['items']], [5])
         self.assertEqual([row['id'] for row in self._get(language=' EN ')['items']], [2])
+        self.assertEqual([row['id'] for row in self._get(language='es')['items']], [4])
+        self.assertEqual([row['id'] for row in self._get(language='other')['items']], [6, 3, 1])
+        page = self._get(format='B_a', language='other', limit=1)
+        self.assertEqual([row['id'] for row in page['items']], [3])
+        following = self._get(format='B_a', language='other', limit=1, cursor=page['next_cursor'])
+        self.assertEqual([row['id'] for row in following['items']], [1])
+        self.assertFalse(following['has_more'])
+        self.assertEqual(len(self._get()['items']), 6)
         self.assertEqual(self._get(format='B_v')['items'], [])
 
     def test_deleted_boundary_does_not_require_loading_that_work(self):
@@ -75,7 +84,7 @@ class WorksTests(TestCase):
         self.assertEqual([row['id'] for row in self._get(limit=2, cursor=page['next_cursor'])['items']], [1])
 
     def test_datetime_microseconds_and_large_likes_round_trip(self):
-        filters = {'format': '', 'language': '', 'language_empty': False}
+        filters = {'format': '', 'language': ''}
         for sort, value in (('latest', REFERENCE + timedelta(microseconds=123456)), ('likes', 2**53 + 1), ('hot', 1.0000000000000002)):
             with self.subTest(sort=sort):
                 token = encode_cursor(sort, filters, value, 2**53 + 1)
@@ -89,12 +98,14 @@ class WorksTests(TestCase):
             ({'cursor': cursor + 'tamper'}, 'invalid_cursor'),
             ({'cursor': cursor, 'sort': 'likes'}, 'cursor_query_mismatch'),
             ({'cursor': cursor, 'language': 'en'}, 'cursor_query_mismatch'),
+            ({'cursor': cursor, 'language': 'other'}, 'cursor_query_mismatch'),
             ({'cursor': ''}, 'invalid_cursor'),
             ({'limit': 51}, 'invalid_sort_or_limit'),
             ({'limit': 0}, 'invalid_sort_or_limit'),
             ({'format': 'invalid'}, 'invalid_format'),
             ({'language': 'x' * 33}, 'invalid_language'),
-            ({'language': 'en', 'language_empty': True}, 'invalid_language_filter'),
+            ({'language': 'Klingon'}, 'invalid_language'),
+            ({'language_empty': True}, 'unsupported_query_parameter'),
             ({'start': 100000}, 'unsupported_query_parameter'),
             ({'user_id': self.user.pk}, 'unsupported_query_parameter'),
         ):
@@ -102,7 +113,7 @@ class WorksTests(TestCase):
                 response = self.client.get('/api/media/works', params)
                 self.assertEqual(response.status_code, 400, response.content)
                 self.assertEqual(response.json()['detail'], code)
-        filters = {'format': '', 'language': '', 'language_empty': False}
+        filters = {'format': '', 'language': ''}
         for value in ('nan', 'inf', '-1'):
             cursor = signing.dumps({'v': 1, 'sort': 'hot', 'filters': filters, 'value': value, 'id': '1'}, salt=CURSOR_SALT)
             self.assertEqual(self.client.get('/api/media/works', {'cursor': cursor}).status_code, 400)

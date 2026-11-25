@@ -11,7 +11,7 @@ from django.utils import timezone
 from . import cache
 from .cursors import decode_cursor, encode_cursor, SORT_FIELDS
 from .models import Media, MediaLikes, UserMedia
-from .utils import decay, MEDIA_DAILY_LIKE_LIMIT, MediaFormat, MediaStatus, normalize_language
+from .utils import decay, MEDIA_DAILY_LIKE_LIMIT, MEDIA_LANGUAGE_PRESETS, MediaFormat, MediaStatus, normalize_language
 
 logger = logging.getLogger('media')
 
@@ -50,7 +50,7 @@ def get_me_state(user):
     }
 
 
-def list_works(videos, *, sort='hot', limit=20, cursor=None, media_format='', language='', language_empty=False):
+def list_works(videos, *, sort='hot', limit=20, cursor=None, media_format='', language=''):
     if sort not in SORT_FIELDS or not 1 <= limit <= 50:
         raise MediaServiceError('invalid_sort_or_limit')
     if media_format and media_format not in MediaFormat.values:
@@ -59,12 +59,14 @@ def list_works(videos, *, sort='hot', limit=20, cursor=None, media_format='', la
         language = normalize_language(language)
     except ValueError as exc:
         raise MediaServiceError('invalid_language') from exc
-    if language_empty and language:
-        raise MediaServiceError('invalid_language_filter')
-    filters = {'format': media_format, 'language': language, 'language_empty': language_empty}
+    if language and language not in (*MEDIA_LANGUAGE_PRESETS, 'other'):
+        raise MediaServiceError('invalid_language')
+    filters = {'format': media_format, 'language': language}
     if media_format:
         videos = videos.filter(format=media_format)
-    if language or language_empty:
+    if language == 'other':
+        videos = videos.exclude(language__in=MEDIA_LANGUAGE_PRESETS)
+    elif language:
         videos = videos.filter(language=language)
     field = SORT_FIELDS[sort]
     if cursor is not None:

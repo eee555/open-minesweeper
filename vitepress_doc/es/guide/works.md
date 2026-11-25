@@ -9,6 +9,8 @@ description: "Cómo publicar vídeos, artículos, entradas de Saolei.wang o repo
 
 La página **Obras** reúne vídeos y artículos de Bilibili, publicaciones de Saolei.wang y repositorios de GitHub sobre Buscaminas. **Solo aparecen las obras aprobadas**. Por defecto se ordenan por **Popularidad actual**. Haz clic en el encabezado de **Fecha de publicación**, **Popularidad actual** o **Total de Me gusta** para cambiar el orden. Puedes filtrar por tipo e idioma y desplazarte hacia abajo para cargar más. Cambiar el orden o los filtros reinicia la lista; no hay navegación por número de página. El icono junto al título indica la plataforma. Al pulsar el título de un vídeo de Bilibili se abre una vista previa aquí. Los demás títulos abren el enlace original.
 
+El filtro de idioma ofrece chino, inglés, español y otros. «Otros» incluye los idiomas escritos por los usuarios y las obras sin idioma indicado; limpia el filtro para ver todos los idiomas.
+
 Antes de enviar una obra:
 
 - [Vincula y verifica](./account-links.md) tu cuenta en la plataforma de origen.

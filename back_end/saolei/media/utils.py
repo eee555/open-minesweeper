@@ -8,6 +8,7 @@ from django.db import models
 MEDIA_HOT_DAILY_RETENTION = 0.99
 SECONDS_PER_DAY = 86400.0
 MEDIA_LANGUAGE_MAX_LENGTH = 32
+MEDIA_LANGUAGE_PRESETS = ('zh-cn', 'en', 'es')
 MEDIA_AUTHOR_ID_MAX_LENGTH = 128
 MEDIA_DAILY_LIKE_LIMIT = 10
 
@@ -59,7 +60,7 @@ def normalize_language(value):
     normalized = (value or '').strip()
     if len(normalized) > MEDIA_LANGUAGE_MAX_LENGTH:
         raise ValueError('Language is too long')
-    return normalized.lower() if normalized.lower() in ('zh-cn', 'en', 'es') else normalized
+    return normalized.lower() if normalized.lower() in MEDIA_LANGUAGE_PRESETS else normalized
 
 
 def default_media_language(media_format):

@@ -56,8 +56,7 @@ export interface MediaWorksQuery {
     limit?: number;
     cursor?: string;
     format?: MediaFormatValue;
-    language?: string;
-    language_empty?: boolean;
+    language?: 'zh-cn' | 'en' | 'es' | 'other';
 }
 
 export interface MediaCursorPage {
