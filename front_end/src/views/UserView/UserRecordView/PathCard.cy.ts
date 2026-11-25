@@ -35,6 +35,8 @@ describe('<PathCard />', () => {
             invalidateProfileData(42);
         });
         cy.wait('@updated');
-        cy.get('[data-field=b_cpath]').should('have.text', '0.000(1)');
+        cy.get('.path-record-table tbody').extractTableData().should((rows) => {
+            expect(rows[0]?.[1]).to.equal('0.000(1)');
+        });
     });
 });
