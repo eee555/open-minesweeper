@@ -1,5 +1,6 @@
 import { reactive } from 'vue';
 
+import { fetchNFIOERecord } from './nfIOERankingService';
 import { fetchPathRecord } from './pathRankingService';
 import { fetchSaoleiRecords } from './saoleiRankingService';
 import { fetchStrictNgRecords } from './strictNgRankingService';
@@ -13,6 +14,7 @@ const strictNgRecords = new Map<number, ReturnType<typeof fetchStrictNgRecords>>
 const thrpRecords = new Map<number, ReturnType<typeof fetchThrpRecord>>();
 const tpeRecords = new Map<number, ReturnType<typeof fetchTPERecord>>();
 const pathRecords = new Map<number, ReturnType<typeof fetchPathRecord>>();
+const nfIOERecords = new Map<number, ReturnType<typeof fetchNFIOERecord>>();
 
 export function profileDataRevision(playerId: number): number {
     return revisions.get(playerId) ?? 0;
@@ -24,6 +26,7 @@ export function invalidateProfileData(playerId: number): void {
     thrpRecords.delete(playerId);
     tpeRecords.delete(playerId);
     pathRecords.delete(playerId);
+    nfIOERecords.delete(playerId);
     revisions.set(playerId, profileDataRevision(playerId) + 1);
 }
 
@@ -79,5 +82,16 @@ export function fetchProfilePathRecord(playerId: number): ReturnType<typeof fetc
         throw error;
     });
     pathRecords.set(playerId, request);
+    return request;
+}
+
+export function fetchProfileNFIOERecord(playerId: number): ReturnType<typeof fetchNFIOERecord> {
+    const existing = nfIOERecords.get(playerId);
+    if (existing) return existing;
+    const request = fetchNFIOERecord(playerId).catch((error: unknown) => {
+        if (nfIOERecords.get(playerId) === request) nfIOERecords.delete(playerId);
+        throw error;
+    });
+    nfIOERecords.set(playerId, request);
     return request;
 }

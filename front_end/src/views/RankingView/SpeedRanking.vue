@@ -88,8 +88,8 @@ const i18nMessages = {
             pb: 'PB 榜',
             collection: '收集榜',
             skill_tt: '战力 / 典型时榜',
-            saolei: '旧@:{\'website.saolei\'}规则',
-            strict_ng: '强无猜',
+            saolei: '@:ranking.saolei.title',
+            strict_ng: '@:ranking.strict_ng.title',
         },
         tooltip: {
             lsf: '根据 Top 五条成绩与锚点计算三级别、综合软实力及 LSF。',
@@ -121,8 +121,8 @@ const i18nMessages = {
             pb: 'PB',
             collection: 'Collection',
             skill_tt: 'Skill / Typical Time',
-            saolei: 'Legacy @:website.saolei Rule',
-            strict_ng: 'Strict NG',
+            saolei: '@:ranking.saolei.title',
+            strict_ng: '@:ranking.strict_ng.title',
         },
         tooltip: {
             lsf: 'Level strength, overall strength and LSF calculated from the top five records and anchors.',
@@ -154,8 +154,8 @@ const i18nMessages = {
             pb: 'PB',
             collection: 'Colección',
             skill_tt: 'Habilidad / Tiempo típico',
-            saolei: 'Reglas históricas de @:website.saolei',
-            strict_ng: 'Sin azar estricto',
+            saolei: '@:ranking.saolei.title',
+            strict_ng: '@:ranking.strict_ng.title',
         },
         tooltip: {
             lsf: 'La fuerza de nivel, la fuerza general y el LSF se calculan a partir de los cinco mejores récords y los puntos de referencia.',

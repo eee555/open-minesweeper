@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | top | `UserTopView.vue` | `TopSummary.vue` 请求完整 top 纪录、读取 Pinia 锚点；`TopRadar.vue`、`TopRecordTable.vue` 只渲染 props |
 | PB | `UserPBView.vue` | 一次获取原 PB 与三个衍生大榜的全部成绩/排名，`PBSummaryStackBars.vue` 绘制五条堆叠条，`PBRecordGrid.vue` 按等级展示网格与分段侧列 |
-| 纪录 | `UserRecordView/App.vue` | 扫雷网、强无猜、Thrp、TPE、Path 及自定义 pluck 纪录 |
+| 纪录 | `UserRecordView/App.vue` | 旧扫雷网规则、强无猜、效率及自定义 pluck 纪录 |
 | 账号关联 | `UserAccountLinkView.vue` → `AccountLinks/App.vue` | 全平台图标网格、单个平台详情及内联关联入口；验证和人工导入流程按平台独立维护 |
 | 录像 | `UserVideoView.vue` | 全部可见录像、日历/BV 选择、表格/散点图 |
 | 上传、设置 | `UserUploadView.vue`、`UserSettingsView.vue` | 仅本人可见；设置包含资料编辑和标识管理 |
@@ -43,19 +43,22 @@ top 和 PB 的业务规则、缓存与接口统一见 [竞速排行榜 README](.
 - 级别标题右侧追加该级别的 BV 数量、BV 概率、ASB、战力与典型时 `数值(排名)`；ASB/战力/典型时的原生 `title` 保留未舍入的原始值。格式化与静态分段边界集中在 `services/pbDerivedService.ts`，页面不各自复制一份；该前端副本需与后端 `SEGMENTS` 同步维护，侧列不依赖响应元数据。
 - 网格右侧按当前指标追加侧列：Time 显示分段典型时，Bvs 显示分段战力，Rank 显示两种分段排名，Stnb 不追加。侧列用独立 CSS Grid 与主网格同排高对齐，长分段只渲染一个跨行 cell，跨度按区间与实际显示行的交集计算；显示范围外或完全没有 PB 的分段按 0 战力、`999.999` 秒典型时及相应排名渲染。
 
-## Thrp 纪录
+## 纪录页布局
 
-纪录 tab 的 `ThrpCard.vue` 接收用户 id，单次请求 `/api/effranking/thrp/player/{id}` 获取完整纪录与排名。按初、中、高级、sum、高级 NF 的顺序始终展示五列，格式为三位小数成绩加括号排名，缺项或缺失排名显示 `--`。高级 NF 多局时以 `details` 的 `1 x N` summary 收起显示，展开后才创建逐局预览链接；只有一局时直接展示该局链接。高级 NF 独立于 sum，sum 仅按普通三项缺项 0 求和，不生成录像链接。成绩与展开逻辑由 `components/visualization/ThrpRecordValue.vue` 统一处理，与 Thrp 排行榜共用。
+`UserRecordView/App.vue` 复用服务器页的 `MasonryLayout`，按可用宽度自动分列；个人页最小列宽为 400px，窄容器退回单列。旧扫雷网规则、强无猜、效率、自定义密度各占一个稳定布局项，内容加载后自动重排。单元格使用紧凑间距，过宽表格只在自身容器内滚动。
 
-请求复用 `profileDataService` 的个人页缓存与失效通知，用户切换或失活后不接受旧响应。全局上色启用时使用 IOE 共用色阶，sum 固定按总值除以 3 上色。组件测试位于 `UserRecordView/ThrpCard.cy.ts`。
+个人纪录表、竞速榜选择器和管理修复页统一引用全局 `ranking.saolei.title`（“旧扫雷网规则”）与 `ranking.strict_ng.title`（“强无猜”），不各自维护名称。两个竞速表的普通/NF 单项 Time 使用对应级别的 Time 色阶，Bvs 使用 Bvs 色阶，sum 不上色；均遵循全局上色开关。效率标题放在表格左上角；自定义密度左上角留空，加载状态保留在自己的布局项内，不另占一列。
 
-## TPE 纪录
+## 效率纪录
 
-纪录 tab 的 `TPECard.vue` 接收用户 id，读取 `/api/effranking/tpe/player/{id}`，共用 `profileDataService` 的缓存、失效与过期响应隔离。按中级、高级、合计分三组，每组依次展示 TPE、TPE2、TPE3，格式为 `成绩(排名)`；缺项为 `--`，零值保留。每个公式独立选优，合计要求对应公式的两个级别齐备，无单一录像链接。成绩显示三位小数秒，title 保留原值；单项沿用对应 Time 色阶，合计不上色。组件测试为 `UserRecordView/TPECard.cy.ts`。
+`UserRecordView/PathCard.vue` 接收用户 id，依次展示 Thrp、NF IOE、TPE、TPE2、TPE3、Path、CPath、EPath 八行，以初级、中级、高级、合计为列，左上角为“效率”。首列只在空格处换行，不断词；数据列不换行。TPE 的初级单元格留空，暂不展示高级 NF Thrp。其余单元格显示三位小数 `成绩(排名)`，缺项或缺失排名显示 `--`，0 有效；单项链接对应最佳录像，合计无链接。
 
-## Path 纪录
+并行请求 `/api/effranking/{thrp/nf_ioe/tpe/path}/player/{id}`，复用 `profileDataService` 的独立缓存和失效通知，用户切换或失活后不接受旧响应。部分请求失败时仍展示成功的纪录，重试只重新请求未缓存的失败项。组件测试统一位于 `UserRecordView/PathCard.cy.ts`。
 
-`UserRecordView/PathCard.vue` 复用个人页缓存失效机制，读取 `/api/effranking/path/player/{id}`，按初级、中级、高级、合计四组展示十二列 `成绩(排名)`。三个指标独立选优，0 有效、缺项为 `--`，每个合计要求对应三级别齐备。单项分别链接录像，合计没有录像链接。API 原值除以 16 换算为格，显示三位小数，title 保留换算后完整精度，不上色。组件测试为 `UserRecordView/PathCard.cy.ts`。
+- Thrp 使用 IOE 共用色阶，sum 按普通三级别缺项 0 求和，再除以 3 上色。成绩渲染复用 `ThrpRecordValue.vue`。
+- NF IOE 同样使用 IOE 色阶，sum 除以 3 上色；只显示成绩和排名，满值时不追加比较用时。
+- 三项 Path 独立选优，各自的 sum 要求三级别齐备；原值除以 16 换算为格，title 保留换算后完整精度，不上色。
+- 三项 TPE 独立选优，各自的 sum 要求中高级齐备；成绩单位为秒，title 保留原值，单项使用对应 Time 色阶，sum 不上色。
 
 ## 强无猜纪录
 
