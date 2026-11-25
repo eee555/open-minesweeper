@@ -41,9 +41,12 @@ class TestWeeklyModes(TournamentTestCaseBase):
         for mode in ('00', '06'):
             for level, limit in [('i', 60000), ('e', 240000)]:
                 rejected.append(self.create_video(tournament_identifier=[], level=level, mode=mode, timems=limit, right_ce=0))
-                frozen = self.create_video(tournament_identifier=[], level=level, mode=mode, timems=1, right_ce=0)
-                VideoModel.objects.filter(pk=frozen.pk).update(state=MS_TextChoices.State.FROZEN)
-                rejected.append(frozen)
+                for state in MS_TextChoices.State.values:
+                    if state == MS_TextChoices.State.OFFICIAL:
+                        continue
+                    video = self.create_video(tournament_identifier=[], level=level, mode=mode, timems=1, right_ce=0)
+                    VideoModel.objects.filter(pk=video.pk).update(state=state)
+                    rejected.append(video)
             rejected.append(self.create_video(tournament_identifier=[], level='b', mode=mode, timems=1, right_ce=0))
 
         for tournament_format, indices in [('c', [0, 1, 4]), ('n', [1]), ('q', [2, 3]), ('f', [3])]:
@@ -64,7 +67,11 @@ class TestWeeklyModes(TournamentTestCaseBase):
                 VideoModel.objects.filter(pk__in=[video_id for video_id, _ in expected_i + expected_e]).update(state=MS_TextChoices.State.FROZEN)
                 refresh_weekly_scores(tournament)
                 participant.refresh_from_db()
-                self.assertGreaterEqual(participant.classic_score, sum(value for _, value in expected_i + expected_e))
+                remaining_e = [[candidates[index + 5].id, candidates[index + 5].timems] for index in indices[2:]]
+                remaining_e += [[0, 240000]] * (2 - len(remaining_e))
+                self.assertEqual(participant.classic_it, [[0, 60000]] * 5)
+                self.assertEqual(participant.classic_et, remaining_e)
+                self.assertEqual(participant.classic_score, 300000 + sum(value for _, value in remaining_e))
                 VideoModel.objects.filter(pk__in=[video.pk for video in candidates]).update(state=MS_TextChoices.State.OFFICIAL)
 
     def test_finish_recompute_delete_and_rebuild_keep_format_totals_and_bests_separate(self):

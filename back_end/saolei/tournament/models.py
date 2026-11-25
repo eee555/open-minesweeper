@@ -197,7 +197,6 @@ class WeeklyTournament(Tournament):
 
     @property
     def order_by(self):
-        Tournament_TextChoices.WeeklyFormat(self.tournament_format)
         return 'classic_score'
 
 

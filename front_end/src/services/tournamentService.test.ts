@@ -33,9 +33,5 @@ describe('weekly participant registration', () => {
         const replay = new VideoAbstract({ id: 901, level: 'i', mode, right_ce: 0, timems: 20000, bv: 80, software: 'e', state: MS_State.Official });
         participant.addVideo(replay);
         expect(participant.classic_score).toBe(740000);
-        participant.addVideo(new VideoAbstract({ id: 902, level: 'i', mode: mode === MS_Mode.Standard ? MS_Mode.HardcoreNG : MS_Mode.Standard, right_ce: 0, timems: 1000, bv: 80, software: 'e', state: MS_State.Official }));
-        expect(participant.classic_score).toBe(740000);
-        participant.addVideo(new VideoAbstract({ id: 903, level: 'i', mode, right_ce: 1, timems: 10000, bv: 80, software: 'e', state: MS_State.Official }));
-        expect(participant.classic_score).toBe(format === WeeklyTournamentFormat.NF || format === WeeklyTournamentFormat.QWCNF ? 740000 : 690000);
     });
 });

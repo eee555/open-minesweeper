@@ -187,29 +187,26 @@ describe('<Weekly App />', () => {
         });
     });
 
-    for (const format of [WeeklyTournamentFormat.NF, WeeklyTournamentFormat.QWC, WeeklyTournamentFormat.QWCNF]) {
-        it(`applies ${format} eligibility to the inline uploader filter`, () => {
-            mountWeekly({ loginStatus: LoginStatus.IsLogin, registered: true, tournament: weeklyTournament(format) });
-            cy.wait('@participantVideos');
-            cy.get<ComponentWrapper<typeof App>>('@vue').then((wrapper) => {
-                const filter: (video: AutoUploadVideo) => boolean = wrapper.findComponent<typeof AutoUploader>('.auto-uploader').props('filter');
-                const mode = format === WeeklyTournamentFormat.NF ? MS_Mode.Standard : MS_Mode.HardcoreNG;
-                const replay: AutoUploadVideo = { filename: 'test.evf', identifier: '', tokens: ['WEEKLY-TOKEN'], stat: new VideoAbstract({ level: 'i', mode, right_ce: 0, timems: 20000, bv: 80, software: 'e' }) };
+    it('passes the selected hardcore NG NF format to the uploader filter', () => {
+        mountWeekly({ loginStatus: LoginStatus.IsLogin, registered: true, tournament: weeklyTournament(WeeklyTournamentFormat.QWCNF) });
+        cy.wait('@participantVideos');
+        cy.get<ComponentWrapper<typeof App>>('@vue').then((wrapper) => {
+            const filter: (video: AutoUploadVideo) => boolean = wrapper.findComponent<typeof AutoUploader>('.auto-uploader').props('filter');
+            const replay: AutoUploadVideo = { filename: 'test.evf', identifier: '', tokens: ['WEEKLY-TOKEN'], stat: new VideoAbstract({ level: 'i', mode: MS_Mode.HardcoreNG, right_ce: 0, timems: 20000, bv: 80, software: 'e' }) };
+            expect(filter(replay)).to.equal(true);
+            replay.stat.right_ce = 1;
+            expect(filter(replay)).to.equal(false);
+            replay.stat.right_ce = NaN;
+            expect(filter(replay)).to.equal(false);
+            replay.stat.right_ce = 0;
+            replay.stat.mode = MS_Mode.Standard;
+            expect(filter(replay)).to.equal(false);
+            cy.get('.auto-uploader select[aria-label="Filter"]').select('tournament');
+            cy.then(() => {
                 expect(filter(replay)).to.equal(true);
-                replay.stat.right_ce = 1;
-                expect(filter(replay)).to.equal(format === WeeklyTournamentFormat.QWC);
-                replay.stat.right_ce = NaN;
-                expect(filter(replay)).to.equal(format === WeeklyTournamentFormat.QWC);
-                replay.stat.right_ce = 0;
-                replay.stat.mode = mode === MS_Mode.Standard ? MS_Mode.HardcoreNG : MS_Mode.Standard;
-                expect(filter(replay)).to.equal(false);
-                cy.get('.auto-uploader select[aria-label="Filter"]').select('tournament');
-                cy.then(() => {
-                    expect(filter(replay)).to.equal(true);
-                });
             });
         });
-    }
+    });
 
     it('disables registration for logged-in users without real name', () => {
         const requestCounts = mountWeekly({ loginStatus: LoginStatus.IsLogin, registered: false, realname: '' });

@@ -519,6 +519,20 @@ python manage.py refresh_tournament_scores 123
 python manage.py refresh_tournament_user_stats
 ```
 
+#### 竞速赛制首次上线 {#weekly-formats-deployment}
+
+暂停比赛相关写入及 worker，在 `back_end/saolei` 执行：
+
+```bash
+python manage.py makemigrations tournament
+python manage.py migrate
+python manage.py refresh_tournament_user_stats
+python manage.py rebuild_tournament_cache
+python manage.py rebuild_tournament_user_cache
+```
+
+迁移仍由 Django 自动生成。核对旧经典积分和 best 不变、新赛制默认值不入榜后再恢复 worker。历史经典赛中的 NF 录像不另记为 NF 赛制积分或 best，无需重跑全部历史比赛结算。赛制规则见[打卡赛指南](../weekly-tournament.md)，缓存字段及默认值见[缓存结构](./cache.md)。
+
 ## 数据清理
 
 ### `cleanup_orphan_userms` {#cleanup-orphan-userms}

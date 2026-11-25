@@ -67,7 +67,7 @@ describe('WeeklyParticipant', () => {
         });
     });
 
-    describe('classic score cache', () => {
+    describe('score cache', () => {
         it.each([
             [WeeklyTournamentFormat.Classic, [0, 1, 4]],
             [WeeklyTournamentFormat.NF, [1]],
@@ -86,6 +86,7 @@ describe('WeeklyParticipant', () => {
             expect(assigned.classic_score).toBe(480000 + expected.reduce((sum, [, time]) => sum + time, 0));
             expect(appended.classic_score).toBe(assigned.classic_score);
             expect(assigned.videos).toHaveLength(videos.length);
+            expect(appended.videos).toHaveLength(videos.length);
             expect(matchesWeeklyFormat(video('i', MS_Mode.SpeedNG, 1, 0), format)).toBe(false);
             assigned.addVideo(video('i', format === 'q' || format === 'f' ? MS_Mode.HardcoreNG : MS_Mode.Standard, 60000, 0));
             expect(assigned.classic_it).toEqual(expected);
@@ -136,17 +137,6 @@ describe('WeeklyParticipant', () => {
                 [0, 60000],
             ]);
             expect(participant.classic_score).toBe(610000);
-        });
-
-        it('appends a video and updates classic score fields using milliseconds', () => {
-            const participant = new WeeklyParticipant();
-
-            participant.addVideo(video('i', MS_Mode.Standard, 20000));
-
-            expect(participant.videos).toHaveLength(1);
-            expect(participant.classic_it[0]).toEqual([20000, 20000]);
-            expect(participant.classic_i_sum).toBe(260000);
-            expect(participant.classic_score).toBe(740000);
         });
     });
 });

@@ -123,7 +123,6 @@ def _get_score_total_by_user(queryset):
 def refresh_tournament_user_total_fields(*, batch_size=1000):
     score_total_by_user = _get_score_total_by_user(TournamentParticipant.objects)
     gsc_total_by_user = _get_score_total_by_user(GSCParticipant.objects)
-    weekly_total_by_user = _get_score_total_by_user(WeeklyParticipant.objects)
     weekly_totals_by_format = {
         tournament_format: _get_score_total_by_user(WeeklyParticipant.objects.filter(tournament__weeklytournament__tournament_format=tournament_format))
         for tournament_format in WEEKLY_SCORE_CATEGORIES
@@ -147,9 +146,9 @@ def refresh_tournament_user_total_fields(*, batch_size=1000):
         user_id = tournament_user.user_id
         tournament_user.score_total = score_total_by_user.get(user_id, 0)
         tournament_user.gsc_total = gsc_total_by_user.get(user_id, 0)
-        tournament_user.weekly_total = weekly_total_by_user.get(user_id, 0)
         for tournament_format, category in WEEKLY_SCORE_CATEGORIES.items():
             setattr(tournament_user, f'{category}_total', weekly_totals_by_format[tournament_format].get(user_id, 0))
+        tournament_user.weekly_total = sum(getattr(tournament_user, field) for field in WEEKLY_TOTAL_FIELDS)
         tournament_user.weekly_eff_total = weekly_eff_total_by_user.get(user_id, 0)
 
     if tournament_users:

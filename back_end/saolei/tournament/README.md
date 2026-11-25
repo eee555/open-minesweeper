@@ -2,7 +2,7 @@
 
 ## 竞速打卡赛模式扩展
 
-TODO：按 [竞速打卡赛模式扩展计划](./WEEKLY_MODES_PLAN.md#兼容上线与文档) 完成生产迁移、用户汇总刷新及缓存重建，并由用户运行相关 Cypress 组件/E2E 测试。赛制、计分、分项积分/best 和九列竞速榜的代码已实现。
+TODO：按[竞速赛制首次上线步骤](../../../vitepress_doc/zh/guide/development/management-commands.md#weekly-formats-deployment)完成生产迁移、用户汇总刷新及缓存重建，并由用户运行相关 Cypress 组件/E2E 测试。
 
 ## 效率打卡赛与排行榜拆分
 
