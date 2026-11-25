@@ -7,9 +7,9 @@ description: 开源扫雷网Redis/Django缓存结构详解，包括录像队列�
 
 ## 录像分享预览
 
-首版只上线后端，不展示分享 UI。维护者通过 `/video/<id>` 手动验证 QQ 卡片；图片接口为 `/api/video/share/v1/<id>.png`。两个端点都只允许 `state` 为 `c/d` 且 `ongoing_tournament=False` 的录像，本人及管理员也不能通过分享端点取得未公开比赛录像。
+首版只上线后端，不展示分享 UI。维护者通过 `/video/<id>` 手动验证 QQ 卡片；当前图片接口为 `/api/video/share/v2/<id>.png`。两个端点都只允许 `state` 为 `c/d` 且 `ongoing_tournament=False` 的录像，本人及管理员也不能通过分享端点取得未公开比赛录像。
 
-`VideoModel.board` 位图与 `level` 生成完成棋盘，最多 24×30、24px/格；OG 宽高与绘图共用尺寸计算。缺少 board 时使用固定的 192×192 占位图。PNG 缓存在 `MEDIA_ROOT/thumbnail/<video_id>-v1-<board和level摘要>.png`，样式版本同时进入对外图片 URL。重新解析后的新摘要不会读取旧缓存，旧版本及旧摘要文件按冷数据回收。删除录像在提交后尽力删除当前已知缓存，不枚举目录。
+`VideoModel.board` 位图与 `level` 生成完成棋盘，最多 24×30、16px/格，直接取用随代码发布的 WinmineXP 原生像素图块；OG 宽高与绘图共用尺寸计算。缺少 board 时使用固定的 192×192 占位图。PNG 缓存在 `MEDIA_ROOT/thumbnail/<video_id>-v2-<board和level摘要>.png`，样式版本同时进入对外图片 URL。重新解析后的新摘要不会读取旧缓存，旧版本及旧摘要文件按冷数据回收。删除录像在提交后尽力删除当前已知缓存，不枚举目录。
 
 图片始终通过 `X-Accel-Redirect` 交给现有 Nginx `/internal-media/` location；Django 响应体为空，包括 DEBUG 和占位图。目录不可写、生成失败或转发后文件被清理时允许请求失败，不提供 PNG 直返或 Nginx 错误回跳。图片响应使用 `Cache-Control: no-cache`；站外平台已有卡片的更新时机由平台决定。本地图片验证也需要 Nginx。
 

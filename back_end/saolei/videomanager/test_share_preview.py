@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from io import BytesIO, StringIO
 import os
 from pathlib import Path
+from random import Random
 from tempfile import TemporaryDirectory
 from threading import Barrier
 from types import SimpleNamespace
@@ -21,7 +22,7 @@ from msuser.models import UserMS
 from userprofile.models import UserProfile
 from utils.parser import pack_board_bitmap
 from .cache import reserve_share_preview_cleanup, SHARE_PREVIEW_COUNT_KEY, SHARE_PREVIEW_PENDING_KEY
-from .config import SHARE_PREVIEW_MAX_COLUMNS, SHARE_PREVIEW_MAX_ROWS
+from .config import SHARE_PREVIEW_CELL_SIZE, SHARE_PREVIEW_MAX_COLUMNS, SHARE_PREVIEW_MAX_ROWS, SHARE_PREVIEW_VERSION
 from .models import ExpandVideoModel, VideoModel
 from .share_preview import completed_cells, ensure_preview, PLACEHOLDER_FILENAME, preview_board, preview_directory, prune_previews, render_preview, write_preview
 from .share_preview_text import preview_number, preview_text
@@ -49,12 +50,12 @@ class PreviewFilesTests(SimpleTestCase):
         png = render_preview(board)
         self.assertTrue(png.startswith(b'\x89PNG\r\n\x1a\n'))
         with Image.open(BytesIO(png)) as image:
-            self.assertEqual(image.size, (120, 48))
+            self.assertEqual(image.size, (80, 32))
             self.assertEqual(image.mode, 'P')
             self.assertLessEqual(len(image.getcolors()), 16)
             rgb = image.convert('RGB')
-            self.assertEqual(rgb.getpixel((13, 13)), (0, 0, 0))
-            self.assertEqual(rgb.getpixel((109, 37)), (0, 0, 0))
+            self.assertEqual(rgb.getpixel((8, 8)), (0, 0, 0))
+            self.assertEqual(rgb.getpixel((72, 24)), (0, 0, 0))
 
     def test_size_limits_bitmap_length_padding_and_mine_count(self):
         supported = [preview_board(level, None) for level in MS_TextChoices.Level.values]
@@ -62,7 +63,7 @@ class PreviewFilesTests(SimpleTestCase):
         self.assertEqual(max(board.columns for board in supported), SHARE_PREVIEW_MAX_COLUMNS)
         board = preview_board('c24_30_200', bitmap_for(24, 30, 200))
         with Image.open(BytesIO(render_preview(board))) as image:
-            self.assertEqual(image.size, (720, 576))
+            self.assertEqual(image.size, (480, 384))
         for level, bitmap in (
             ('c25_30_200', bitmap_for(25, 30, 200)), ('c24_31_200', bitmap_for(24, 31, 200)),
             ('c0_3_1', None), ('c1_1_1', None), ('c2_3_0', None), ('c2_3_6', None), ('c999999_1_1', None),
@@ -70,6 +71,29 @@ class PreviewFilesTests(SimpleTestCase):
         ):
             with self.subTest(level=level, bitmap=bitmap), self.assertRaises(ValueError):
                 preview_board(level, bitmap)
+
+    def test_encoded_board_preserves_tile_pixels_and_dark_red_five(self):
+        mines = set(Random(20261125).sample(range(16 * 30), 99))
+        bitmap = pack_board_bitmap([[-1 if row * 30 + column in mines else 0 for column in range(30)] for row in range(16)])
+        board = preview_board('e', bitmap)
+        cells = completed_cells(board)
+        five_row, five_column = next((row, column) for row, values in enumerate(cells) for column, value in enumerate(values) if value == 5)
+        size = SHARE_PREVIEW_CELL_SIZE
+        coordinates = ((0, 2), (0, 0), (1, 0), (2, 0), (3, 0), (0, 1), (1, 1), (2, 1), (3, 1), (2, 3), (1, 2))
+        with Image.open(BytesIO(render_preview(board))) as encoded, Image.open(Path(__file__).with_name('share_preview_assets') / 'WinmineXP.png') as atlas:
+            image = encoded.convert('RGB')
+            source = atlas.convert('RGB')
+            self.assertLessEqual(len(source.getcolors()), 16)
+            self.assertEqual(source.getpixel((size // 2, size + size // 4)), (128, 0, 0))
+            self.assertEqual(image.getpixel((five_column * size + size // 2, five_row * size + size // 4)), (128, 0, 0))
+            for row, values in enumerate(cells):
+                for column, value in enumerate(values):
+                    index = 9 if value == -1 else value
+                    source_column, source_row = coordinates[index]
+                    expected = source.crop((source_column * size, source_row * size, (source_column + 1) * size, (source_row + 1) * size))
+                    actual = image.crop((column * size, row * size, (column + 1) * size, (row + 1) * size))
+                    with self.subTest(row=row, column=column, value=value):
+                        self.assertEqual(actual.tobytes(), expected.tobytes())
 
     def test_cache_hit_touches_mtime_and_content_identity_changes(self):
         board = preview_board('b', bitmap_for(8, 8, 10))
@@ -282,7 +306,7 @@ class PreviewApiTests(TestCase):
             state='c', software='e', level='b', mode='00', bv=12, timems=1234, board=bitmap_for(8, 8, 10),
         )
         self.page_url = f'/video/{self.video.pk}'
-        self.image_url = f'/api/video/share/v1/{self.video.pk}.png'
+        self.image_url = f'/api/video/share/{SHARE_PREVIEW_VERSION}/{self.video.pk}.png'
 
     def test_head_probe_generates_missing_image_and_reuses_cached_file(self):
         filename = preview_board(self.video.level, self.video.board).filename(self.video.pk)
@@ -321,7 +345,9 @@ class PreviewApiTests(TestCase):
                     self.assertEqual(response['X-Accel-Redirect'], f'/internal-media/thumbnail/{filename}')
         self.assertTrue((preview_directory() / filename).exists())
         self.assertFalse((preview_directory() / '.locks').exists())
-        self.assertEqual(self.client.get(f'/api/video/share/v2/{self.video.pk}.png').status_code, 404)
+        for version in ('v1', 'v999'):
+            with self.subTest(version=version):
+                self.assertEqual(self.client.get(f'/api/video/share/{version}/{self.video.pk}.png').status_code, 404)
 
     @override_settings(TIME_ZONE='Asia/Shanghai')
     def test_page_uses_compact_title_and_utc_upload_time(self):
@@ -441,8 +467,8 @@ class PreviewApiTests(TestCase):
             with self.subTest(level=level):
                 VideoModel.objects.filter(pk=self.video.pk).update(level=level, board=bitmap_for(rows, columns, mines))
                 response = self.client.get(self.page_url)
-                self.assertContains(response, f'property="og:image:width" content="{columns * 24}"')
-                self.assertContains(response, f'property="og:image:height" content="{rows * 24}"')
+                self.assertContains(response, f'property="og:image:width" content="{columns * SHARE_PREVIEW_CELL_SIZE}"')
+                self.assertContains(response, f'property="og:image:height" content="{rows * SHARE_PREVIEW_CELL_SIZE}"')
                 self.assertContains(response, f'STD {rows}x{columns}/{mines} 1.234/12 by A&quot;')
         UserProfile.objects.filter(pk=self.user.pk).update(_realname='Hidden legal name', verified=True, hide_realname=True)
         for lang in ('zh-cn', 'en', 'es'):
@@ -473,7 +499,7 @@ class PreviewApiTests(TestCase):
 
     def test_missing_invalid_and_oversized_boards_are_not_rendered(self):
         self.assertEqual(self.client.get('/video/0').status_code, 404)
-        self.assertEqual(self.client.get('/api/video/share/v1/99999999999999999999999999999.png').status_code, 404)
+        self.assertEqual(self.client.get(f'/api/video/share/{SHARE_PREVIEW_VERSION}/99999999999999999999999999999.png').status_code, 404)
         for level, board in (('b', b'bad'), ('c25_30_200', bitmap_for(25, 30, 200)), ('c24_31_200', bitmap_for(24, 31, 200))):
             VideoModel.objects.filter(pk=self.video.pk).update(level=level, board=board)
             for url in (self.page_url, self.image_url):

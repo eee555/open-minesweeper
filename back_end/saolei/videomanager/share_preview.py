@@ -80,9 +80,10 @@ def completed_cells(board: PreviewBoard) -> list[list[int]]:
 
 @lru_cache(maxsize=1)
 def _tiles():
-    with Image.open(Path(__file__).with_name('share_preview_assets') / 'cells.png') as source:
+    coordinates = ((0, 2), (0, 0), (1, 0), (2, 0), (3, 0), (0, 1), (1, 1), (2, 1), (3, 1), (2, 3), (1, 2))
+    with Image.open(Path(__file__).with_name('share_preview_assets') / 'WinmineXP.png') as source:
         source = source.convert('RGB')
-        return tuple(source.crop((index * SHARE_PREVIEW_CELL_SIZE, 0, (index + 1) * SHARE_PREVIEW_CELL_SIZE, SHARE_PREVIEW_CELL_SIZE)) for index in range(11))
+        return tuple(source.crop((column * SHARE_PREVIEW_CELL_SIZE, row * SHARE_PREVIEW_CELL_SIZE, (column + 1) * SHARE_PREVIEW_CELL_SIZE, (row + 1) * SHARE_PREVIEW_CELL_SIZE)) for column, row in coordinates)
 
 
 def _encode_png(image: Image.Image) -> bytes:

@@ -1,8 +1,8 @@
 # 录像分享链接预览计划
 
-更新：2026-11-24。
+更新：2026-11-25。
 
-状态：首版后端已秘密上线，分享 UI 不开放。Discord 图文预览已实测通过；QQ 图文预览未通过，已根据日志补充 HEAD 支持，待发布后复测。统一文案及 stat 可选指标已完成本地实现与回归，待发布后验收；服务器容量仍需验收。
+状态：首版后端已秘密上线，分享 UI 不开放。Discord 图文预览已实测通过；QQ 图文预览未通过，已根据日志补充 HEAD 支持，待发布后复测。统一文案及 stat 可选指标已完成本地实现与回归；16px WinmineXP 原图及颜色修复为 v2，已完成本地验证，均待发布后验收。
 
 ## 1. 目标与范围
 
@@ -41,7 +41,7 @@
 2. 返回一段最小 HTML，包含：
 
    - `og:type=website`、`og:url=<含有效 stat 参数的绝对 URL>`、`og:title`、`og:description`、`og:locale`、`og:site_name`
-   - `og:image=<图片 API 的绝对 URL>`、`og:image:width`/`height`（服务端按 `level` 推导的行列数与 24px/格动态填写，例如 16×30 棋盘为 720×384；与绘图共用尺寸计算，缺少 board 时填写共用占位图的实际 192×192 尺寸）
+   - `og:image=<图片 API 的绝对 URL>`、`og:image:width`/`height`（服务端按 `level` 推导的行列数与 16px/格动态填写，例如 16×30 棋盘为 480×256；与绘图共用尺寸计算，缺少 board 时填写共用占位图的实际 192×192 尺寸）
    - `twitter:card=summary_large_image`
 3. 用 `<meta http-equiv="refresh" content="0;url=/#/video/<id>">` 跳转回站内页面；页面同时放一个普通链接作为兜底。
 4. 分享文案不区分语言；可选指标由 `stat` 查询参数决定，例如 `/video/1?stat=ioe,thrp`。不按请求头、登录状态或用户语言偏好切换文案，不再生成不同语言的分享链接。旧链接中的 `lang` 参数不影响文案，规范地址不保留它。
@@ -50,7 +50,7 @@
 
 - 新路径注册在 `saolei/urls.py` 的 catch-all 之前，使用不带尾斜杠的 `path('video/<int:id>', ...)`。
 - `og:image` 必须是绝对 URL 且爬虫可匿名访问。规范地址统一使用 `videomanager/config.py` 中的 `SHARE_PREVIEW_SITE_URL`（当前 `https://openms.top`），不从请求的 Host 或代理协议推断，避免错误域名及 HTTP 地址；替换公开站点域名时同步修改该配置。`og:url` 保留规范化后非空的 `stat` 参数及其展示顺序，例如 `/video/1?stat=ioe,thrp`；没有可选指标时为 `/video/1`，不保留 `lang` 或无关参数，避免不同指标卡片被归到同一规范地址。
-- `og:image` 指向包含绘图版本的图片 API 路径（如 `/api/video/share/v1/<id>.png`），由后端检查缓存或按需生成文件，再通过 `X-Accel-Redirect` 交给 Nginx，无需提前预热录像缩略图；爬虫拿到的是不带 `#` 的普通 URL。绘图版本必须同时进入对外 URL 与内部缓存文件名，不能只修改内部文件名。
+- `og:image` 指向包含绘图版本的图片 API 路径（当前 `/api/video/share/v2/<id>.png`），由后端检查缓存或按需生成文件，再通过 `X-Accel-Redirect` 交给 Nginx，无需提前预热录像缩略图；爬虫拿到的是不带 `#` 的普通 URL。绘图版本必须同时进入对外 URL 与内部缓存文件名，不能只修改内部文件名。
 - HTML 使用 Django 模板自动转义 username 等文本；分享页不读取或使用 realname、真实姓名隐藏设置或录像标识。秘密上线时核对 QQ 是否读取 OG 标签，以及零秒 `meta refresh` 是否影响抓取。实测通过前不开放分享 UI。
 - 所有级别统一显示 `{h}x{w}/{m}`，初级为 `8x8/10`，中级为 `16x16/40`，高级为 `16x30/99`，自定义同样按棋盘规格生成；不显示需要翻译的级别名称。`og:title` 与普通 HTML title 均使用第 3.3 节的统一格式，不追加站名；站点名称 `Open Minesweeper` 单独放在 `og:site_name`。
 - 模板固定 `html lang=en`、`og:locale=en_US`、`Content-Language: en`；普通 description 与 OG description 使用相同的正文。图片说明与打开录像链接使用固定英文，缺少 board 时显示 `Board preview unavailable`。正文用纯文本换行，不插入 `<br>`；平台是否保留两行布局须实测。
@@ -58,7 +58,7 @@
 
 ### 3.2 图片 API
 
-新增 Ninja 端点，例如 `GET/HEAD /api/video/share/v1/<int:id>.png`；只接受明确支持的版本，未知或已停用的版本返回 404：
+新增 Ninja 端点，当前为 `GET/HEAD /api/video/share/v2/<int:id>.png`；只接受明确支持的版本，未知或已停用的版本返回 404：
 
 - 显式使用 Ninja 的 `api_operation(['GET', 'HEAD'], ...)` 注册两种方法，不能假设只注册 GET 时会自动接受 HEAD。QQShareProxy 会用 HEAD 探测图片；HEAD 与 GET 共用公开性校验、缓存生成及 IP 限流配额。冷缓存的 HEAD 也需生成文件并返回 `X-Accel-Redirect`，由 Nginx 给出实际文件的响应头且不发送图片响应体，不能对不存在或不可分享的图片直接返回 200。
 
@@ -76,9 +76,9 @@
 - **位图解码**：按 `VIDEO_BOARD_PLAN.md:29-39` 的编码反向解包——行主序、LSB-first，位索引 `r * columns + c`，1 表示雷。`board` 为 `null` 时返回占位图；与 `level` 尺寸不符时返回 404。
 - **尺寸推导**：`b` 8×8、`i` 16×16、`e` 16×30；`c{rows}_{columns}_{mines}` 直接解析 `rows`/`columns`。与 `board` 字节数 `(rows * columns + 7) // 8` 校验一致。
 - **位图有效性**：校验末字节高位补零，实际雷数与等级雷数一致；不一致返回 404。
-- **尺寸限制**：在位图展开、命中图片缓存或创建画布前校验 `1 <= rows <= 24`、`1 <= columns <= 30`，最多 720 格；自定义等级还需校验雷数范围。按 24px/格绘制时，画布最多 720×576 像素，不因库中存在更大的历史棋盘而自动放宽。限制与项目当前支持的最大棋盘同步维护，将来支持更大尺寸时须同步更新本限制、边界测试、内存/CPU 与容量估算；超限返回 404。
-- **画面生成**：遍历格子，非雷格统计周围 8 邻域雷数得 0–8，雷格标记为雷。直接复用 `putianyi889/minesweeper-board` 0.7.0 的 `cellup`/`celldown`/`num*`/`mine` SVG，由 resvg 一次性栅格化为随代码发布的小图集 `share_preview_assets/cells.png`，保留 MIT 授权。运行时用 Pillow 拼接，不加载 SVG 转换器或字体绘制数字。不使用 `flag`（完成画面不保留插旗）。
-- **绘制**：图片先以 RGB 绘制，再 `convert('P', palette=ADAPTIVE, colors=16)` 并 `optimize=True` 输出调色板 PNG（实测 16×30 棋盘约 8.8 KB，见 4.4）。
+- **尺寸限制**：在位图展开、命中图片缓存或创建画布前校验 `1 <= rows <= 24`、`1 <= columns <= 30`，最多 720 格；自定义等级还需校验雷数范围。按 16px/格绘制时，画布最多 480×384 像素，不因库中存在更大的历史棋盘而自动放宽。限制与项目当前支持的最大棋盘同步维护，将来支持更大尺寸时须同步更新本限制、边界测试、内存/CPU 与容量估算；超限返回 404。
+- **画面生成**：遍历格子，非雷格统计周围 8 邻域雷数得 0–8，雷格标记为雷。直接使用用户指定的 [MS-Texture/WinmineXP.png](https://github.com/Minesweeper-World/MS-Texture/blob/main/png/cells/WinmineXP.png)，保留原文件字节并随代码发布为 `share_preview_assets/WinmineXP.png`。原图 64×64，按原始 16×16 图块取数字、空格、普通雷格及未翻开格；运行时只做 Pillow 裁剪和拼接，不缩放、不经 SVG 栅格化或字体绘制数字。不使用 flag（完成画面不保留插旗）。
+- **绘制**：图片先以 RGB 绘制，再 `convert('P', palette=ADAPTIVE, colors=16)` 并 `optimize=True` 输出调色板 PNG。WinmineXP 原图仅 10 种颜色，16 色容量足以保留原始颜色；数字 5 保持 `#800000`，有逐像素回归验证。当前体积见 4.6，4.4–4.5 保留 v1 历史测量。
 - **响应方式**：任何情况下均不由 Django 直接返回 PNG 字节，包括缓存命中、现场生成、占位图、文件系统错误及 `DEBUG` 本地调试。正常结果统一返回 `X-Accel-Redirect`；生成或写入失败返回错误，允许文件在转发后被清理导致的偶发失败，不增加 Nginx `error_page` 回跳或其他补偿端点。
 - **限流**：这是匿名公开端点，用 Django ratelimit 做 IP 限流；所有 API 都需要限流的规则同样适用。
 - **失败处理**：满足公开条件且尺寸有效、`board` 为 `null` 时，通过 `X-Accel-Redirect` 返回共用占位图，不按录像 ID 持久化占位图；`board` 与 `level` 尺寸不符、尺寸超限、非公开 state、比赛尚未公开、录像不存在返回 404。Django 阶段发现生成、缓存访问或落盘失败时记录日志，返回不含内部细节的错误（例如 503）；Nginx 阶段文件消失或不可访问时允许直接返回其错误。命中旧缓存也不能跳过可见性及尺寸校验。
@@ -167,11 +167,11 @@ IOE 0.000, ThrP 0.000
 
 图片字节缓存在本地文件，Redis 只保存参考计数与清理任务入队标记，两个固定键不随录像数量增长，没有容量问题。图片 API 检查或生成文件后，始终通过 `X-Accel-Redirect` 交给 Nginx 发送图片，Django 响应体为空。接受转发与文件清理之间的偶发竞态失败，不实现图片字节直返、Nginx 错误回跳或其他补偿。目录扫描、排序与批量删除全部交给现有唯一的 `db_worker_robust` 执行，请求不扫描目录，也不等待清理完成。本功能只影响分享端点，故障不阻塞网站正常服务，可接受线上测试。
 
-- **存放路径与内容身份**：`MEDIA_ROOT/thumbnail/`，与现有 `videos/`、`avatar/` 并列。文件名为 `<video_id>-v1-<content_digest>.png`，摘要由 `board` 与 `level` 生成，绘图版本单独保留。这样旧请求晚于重新解析完成写入时，只会留下旧摘要的冷缓存，不会覆盖新棋盘的缓存。生产目录为 `/root/saolei/media/thumbnail/`；本地开发为 `BASE_DIR/assets/thumbnail/`（`DEBUG` 下 `MEDIA_ROOT = BASE_DIR/'assets'`，见 `settings.py:203`）。无需新增环境变量。
+- **存放路径与内容身份**：`MEDIA_ROOT/thumbnail/`，与现有 `videos/`、`avatar/` 并列。文件名为 `<video_id>-v2-<content_digest>.png`，摘要由 `board` 与 `level` 生成，绘图版本单独保留。这样旧请求晚于重新解析完成写入时，只会留下旧摘要的冷缓存，不会覆盖新棋盘的缓存。生产目录为 `/root/saolei/media/thumbnail/`；本地开发为 `BASE_DIR/assets/thumbnail/`（`DEBUG` 下 `MEDIA_ROOT = BASE_DIR/'assets'`，见 `settings.py:203`）。无需新增环境变量。
 - **无锁并发**：本功能不使用文件锁、分段锁或 Redis 执行锁。接受同一图片重复生成、缓存被并发删除、mtime 或参考计数偶发失真。每个请求以本次校验通过的录像数据定位或生成对应图片；不为消除转发后的文件竞态增加互斥或回退。
 - **写入方式**：先编码完整 PNG，写入同目录下由标准库生成的唯一临时文件，最后 `os.replace` 原子替换，避免并发请求共用临时文件或读到半截 PNG。文件权限设为 0644，父目录允许 Nginx worker 遍历。目录创建、编码、写入或替换失败时记录日志并返回错误，即使内存中已有 PNG 也不直接返回图片；临时文件使用不同扩展名，在 `finally` 中尽力清理。
-- **读取方式**：`og:image` 始终打图片 API。Django 检查文件是否存在，缺失则生成并落盘；成功后仅返回 `X-Accel-Redirect: /internal-media/thumbnail/<video_id>-v1-<content_digest>.png`，复用现有 `internal` location，由 Nginx 读取、发送文件。Django 不全量读取缓存 PNG，也不为 Nginx 之后的文件打开失败补偿。本地调试同样需要通过配置了该内部路径的 Nginx 入口验证，直连 Django 不提供 PNG 响应体。
-- **占位图**：首版部署时运行 `python manage.py prepare_share_preview`，在 `MEDIA_ROOT/thumbnail/placeholder-v1.png` 准备一个 192×192 的共用 PNG，经同一 `X-Accel-Redirect` 路径发送。该文件不进入录像缓存计数或清理名单；缺失或不可访问时允许失败，不在请求中直接返回占位 PNG 字节。
+- **读取方式**：`og:image` 始终打图片 API。Django 检查文件是否存在，缺失则生成并落盘；成功后仅返回 `X-Accel-Redirect: /internal-media/thumbnail/<video_id>-v2-<content_digest>.png`，复用现有 `internal` location，由 Nginx 读取、发送文件。Django 不全量读取缓存 PNG，也不为 Nginx 之后的文件打开失败补偿。本地调试同样需要通过配置了该内部路径的 Nginx 入口验证，直连 Django 不提供 PNG 响应体。
+- **占位图**：首次部署及绘图版本变更后运行 `python manage.py prepare_share_preview`，在 `MEDIA_ROOT/thumbnail/placeholder-v2.png` 准备一个 192×192 的共用 PNG，经同一 `X-Accel-Redirect` 路径发送。该文件不进入录像缓存计数或清理名单；缺失或不可访问时允许失败，不在请求中直接返回占位 PNG 字节。
 - **失效**：录像删除后，在事务提交后尽力删除已知路径的缓存并扣减参考计数，不在请求内枚举目录；删除失败或并发生成留下的文件交由后台冷数据清理。`board`/`level` 重新解析变更后按新摘要定位或生成，旧摘要缓存由后台回收。绘图样式变更时同时更新 `og:image` 的对外版本路径与内部文件名。图片响应采用 `Cache-Control: no-cache`，占位图也不设置长期缓存。站外平台已经生成的旧卡片何时重新抓取仍由平台决定，不承诺即时刷新。
 - **访问时间**：每次命中或生成后，尽力用 `os.utime` 把文件 mtime 更新为当前时间；失败记录日志，继续按正常方式转发，不为修复访问时间读取或返回图片字节。mtime 只作为冷数据排序参考，允许在并发删除、替换或访问中失真。不用 atime，因为部分文件系统用 `relatime`/`noatime`，不可靠。
 - **Redis 参考计数**：在 `videomanager/cache.py` 中维护固定键 `video:share-preview:count`。成功写入且写入前观察为新增 PNG 时递增，成功删除后尽力递减，未落盘不递增；接受并发重复生成导致多计或覆盖导致少计。计数包括所有绘图版本与内容摘要的 PNG，不包括共用占位图和临时文件。计数仅用于廉价触发任务，不增加严格同步或事务协议；更新失败不影响图片响应。
@@ -191,7 +191,7 @@ IOE 0.000, ThrP 0.000
 
 ## 4. Pillow 的内存与 CPU 开销分析
 
-4.2–4.4 保留最初的资源与格式估算；当前实现的本地基准见 4.5，不能据此认定 Linux 生产环境具有相同性能。生成路径只读模型字段，无录像解析、无子进程。
+4.2–4.4 保留最初的资源与格式估算，4.5 为 v1（24px/格）的历史基准；当前 v2（16px/格）的测量见 4.6，不能据此认定 Linux 生产环境具有相同性能。生成路径只读模型字段，无录像解析、无子进程。
 
 ### 4.1 依赖本身
 
@@ -236,11 +236,11 @@ IOE 0.000, ThrP 0.000
 | WebP 无损 | 9,112 B |
 | WebP 有损 q90 / q80 | 43,822 B / 34,118 B |
 
-结论：选调色板 PNG。WebP 无损体积没有优势，有损反而因色块边缘噪声显著变大；SVG 单素材仅 111–567 B，但 `og:image` 对 SVG 兼容性差，不直接用。emoji 文本也无法满足卡片行数与对齐要求。
+初版据此选择调色板 PNG。该 SVG 栅格化样本包含抗锯齿过渡色，后续发现压到 16 色会损失数字 5 等颜色；当前已改用 4.6 的原生像素素材，以上体积与色彩结果不再代表当前输出。
 
 容量：按 16×30 样本的 8.8 KB/张，1 万条约 88 MB，2 万张约 176 MB；这不是 24×30 棋盘的单图上限或严格磁盘上限，实施时补测最大支持棋盘。图片字节不进入 Redis，参考计数达到 2 万张后由后台扫描实际目录并清理至约 80%，允许竞态及删除失败造成临时超限。恶意遍历 ID 会放大生成次数，需要共同依靠限流、文件缓存、公开性与尺寸校验及后台清理约束成本。
 
-### 4.5 当前实现的本地基准
+### 4.5 v1（24px/格、SVG 图块）的历史基准
 
 2026-11-24，Windows、Python 3.12.10、Pillow 13.0.0；每种尺寸生成 100 次，记录第 2–100 次的中位数。高级使用本地库中公开录像 #403332 的真实 board，其他尺寸因没有对应非空 board，使用固定种子 `20261124` 的合成棋盘。
 
@@ -254,6 +254,19 @@ IOE 0.000, ThrP 0.000
 最大尺寸本轮观测到单次最高约 50.3 ms，100 次生成期间的 RSS 采样增长约 4.8 MiB；采样间隔为 1ms，不是精确的单次请求内存峰值。初始 5–20ms 估算不适用于全部支持尺寸。按本次最大样本估算，2 万张约 271 MB，未计文件系统开销，也不是容量上界。
 
 测量只覆盖绘图与编码，不含数据库、限流、Redis、入队及 Nginx 传输。脚本、完整数据及样图位于 `.tmp/checks/share-preview-implementation-20261124/`。
+
+### 4.6 v2（16px/格、WinmineXP 原图）的本地测量
+
+2026-11-25，Windows、Python 3.12.10、Pillow 13.0.0。全部棋盘为固定种子 `20261125` 的合成数据，每种尺寸生成 20 次。下表耗时受本地主机及并行回归负载影响，只作为本轮记录，不与 4.5 做严格性能对比，也不代表生产耗时。
+
+| 棋盘 | 图片尺寸 | PNG 体积 | 生成中位数 |
+| --- | --- | ---: | ---: |
+| 8×8 / 10 雷 | 128×128 | 879 B | 1.4 ms |
+| 16×16 / 40 雷 | 256×256 | 2,367 B | 5.7 ms |
+| 16×30 / 99 雷 | 480×256 | 3,991 B | 13.7 ms |
+| 24×30 / 200 雷 | 480×384 | 6,555 B | 23.5 ms |
+
+WinmineXP 原图只有 10 种 RGB 颜色；上述样图编码前后逐像素一致，数字 5 的实色为 `(128, 0, 0)`。最大画布的 RGB 数据为 552,960 B；按最大尺寸样本粗估 2 万张约 131 MB，不含文件系统开销，也不是磁盘容量上界。样图、数据与脚本在 `.tmp/checks/share-preview-colors-20261125/`。
 
 ## 5. 安全与稳定性
 
@@ -313,3 +326,11 @@ IOE 0.000, ThrP 0.000
 - 发布需更新后端文件与模板并重启 Web；无新增依赖、数据库字段或迁移，不改图片版本、文件缓存及 Redis 计数逻辑。尚未部署，以上本地检查不代表 QQ 卡片已验收。
 - 分享 UI 继续不开放。QQ 验收通过后再提供复制 `/video/<id>` 绝对链接的按钮；不写入 lang 参数，stat 为可手动附加的可选参数，本次计划不新增指标选择 UI。
 - 发布后用带 stat 的新链接检查实际 HTML 及卡片，并复测 HEAD、纯文本换行、字段精度与平台截断行为。[Open Graph](https://ogp.me/) 定义规范地址与元数据；[Discord 官方文档](https://docs.discord.com/developers/link-previews/overview#caching-and-testing)说明卡片会被缓存。不同 stat 内容保留不同规范 URL，是本功能为避免缓存混用采用的策略，不代表所有平台的缓存与布局行为相同。
+
+## 11. 原生 16px 图块与数字颜色修复（v2）
+
+- v1 的 SVG 栅格化图集包含 92 种实际 RGB 颜色，其中包括抗锯齿过渡色；按每张棋盘自适应压成 16 色时，会把较少出现的数字 5 暗红合并到其他颜色。本轮已复现原色 `(128, 0, 0)` 被编码为 `(240, 0, 0)`，问题不在经典基础配色本身需要超过 16 色。
+- 按用户指定直接使用 `MS-Texture/png/cells/WinmineXP.png` 原文件，64×64、每格 16×16、10 种颜色。删除旧 SVG 栅格化图集，保留 16 色 PNG；逐像素回归覆盖生成棋盘与原始图块一致，数字 5 为 `#800000`。
+- `SHARE_PREVIEW_VERSION` 从 v1 递增至 v2，同时影响公开图片 URL、缓存文件名和占位图文件名，避免继续读取旧的偏色图片。旧版本文件继续由原有后台任务按冷数据清理；v1 及未知图片版本返回 404。
+- 本轮检查：录像模块 119 项测试中 118 项通过、1 项 Windows 符号链接权限跳过；三个 Python 修改文件的 flake8 通过。检查记录与样图位于 `.tmp/checks/share-preview-colors-20261125/`。无前端修改，分享 UI 继续隐藏。
+- 发布新代码与原始 PNG 后，先运行 `python manage.py prepare_share_preview` 生成 `placeholder-v2.png`，再重启 Web 和现有 worker。通过 `/api/video/share/v2/<id>.png` 与新的分享请求验收颜色、128/256/480 像素宽度和 HEAD；本地检查不代表平台缓存卡片已经刷新。
