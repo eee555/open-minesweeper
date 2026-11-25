@@ -52,7 +52,7 @@ import { BaseIconInfo, BaseIconRefresh } from '@/components/common/icon';
 import { local } from '@/store/local';
 
 const ranking = useTemplateRef<{ refresh: () => void | Promise<void>; loading: boolean }>('ranking');
-const rankingNames = ['thrp', 'nf_ioe', 'tpe'] as const;
+const rankingNames = ['thrp', 'nf_ioe', 'tpe', 'path'] as const;
 const route = useRoute();
 const router = useRouter();
 const selectedRankingName = computed<typeof rankingNames[number]>({
@@ -64,14 +64,16 @@ const selectedRankingName = computed<typeof rankingNames[number]>({
 const i18nMessages = {
     'zh-cn': { local: {
         rankingName: '大榜',
-        label: { thrp: '@:prop.thrp', nf_ioe: 'NF IOE', tpe: 'TPE' },
+        label: { thrp: '@:prop.thrp', nf_ioe: 'NF IOE', tpe: 'TPE', path: 'Path' },
         howToImprove: '如何提高成绩',
         rules: {
+            path: '标准模式、已审核且非隐藏比赛录像，不区分 NF，不设 3BV 门槛。Path、CPath、EPath 各自取最低值，合计需要对应指标的三级别均有纪录。零值有效，缺失值不入榜。',
             thrp: '标准模式、已审核且非隐藏比赛录像，每个级别取最高 Thrp（3BV / 有效点击数），不设最低 3BV。总分为三级别之和，缺项计 0；普通四项同分优先更早上传或达成。高级 NF 独立排序：未满分按 Thrp，满分按达成局数，同 BV 的多局分别计数，不参与总分。',
             nf_ioe: '标准模式、已审核且非隐藏比赛的 NF 录像，不设最低 3BV。每级别取最高 IOE（3BV / 实际点击数），满分 1 时比较用时；总分为三级别之和，缺项计 0，满分 3 时只比较高级用时。括号内为参与比较的秒数。',
             tpe: 'TPE、TPE2、TPE3 分别为用时除以 IOE 的一次、二次、三次方，越小越好。标准模式、已审核且非隐藏比赛的中高级录像，不设 3BV 门槛，不区分 NF。每个公式独立取各级别的最低值，对应中高级均有纪录时才参与合计。',
         },
         improve: {
+            path: '上传自己的标准模式通关录像，绑定标识并通过审核。缩短鼠标路径、有效路径或预期路径可提升对应成绩；同一指标的三级别均有纪录后进入合计榜。隐藏比赛录像公开后计入。',
             thrp: '上传自己的标准模式通关录像，绑定录像内标识并通过审核。以更少的有效点击完成相同 3BV，或上传 Thrp 更高的录像，可提升对应级别及总分。高级 NF 达到 Thrp=1 后，上传更多满分 NF 录像可提升排名。比赛隐藏录像公开后计入。',
             nf_ioe: '上传自己的标准模式 NF 通关录像，绑定标识并通过审核。减少完成相同 3BV 的实际点击数以提高 IOE；达到 1 后上传用时更短的满分录像。三级别全部满分后，改善高级用时可提升总分榜排名。隐藏比赛录像公开后计入。',
             tpe: '上传自己的标准模式中高级通关录像，绑定标识并通过审核。缩短用时或减少实际点击，可降低 TPE 系列成绩；TPE2、TPE3 对 IOE 的权重更高。中高级均有纪录后可进入对应合计榜。普通和 NF 均可，隐藏比赛录像公开后计入。',
@@ -79,14 +81,16 @@ const i18nMessages = {
     } },
     en: { local: {
         rankingName: 'Ranking',
-        label: { thrp: '@:prop.thrp', nf_ioe: 'NF IOE', tpe: 'TPE' },
+        label: { thrp: '@:prop.thrp', nf_ioe: 'NF IOE', tpe: 'TPE', path: 'Path' },
         howToImprove: 'How to improve',
         rules: {
+            path: 'Official, public Standard replays, including NF, with no 3BV threshold. Path, CPath and EPath each select the lowest value. Each Sum requires records in all three levels for that metric. Zero is valid; missing values are excluded.',
             thrp: 'Best Thrp (3BV / effective clicks) per level from official, public Standard replays, with no minimum 3BV. Sum adds the three levels, with missing results counting as zero. The original four rankings favor earlier uploads or completion. Expert NF is independent: rank by Thrp below 1, then by the number of perfect games at 1. Games with the same 3BV count separately; this result is excluded from Sum.',
             nf_ioe: 'Official, public Standard NF replays, with no minimum 3BV. Best IOE (3BV / actual clicks) per level; at 1, lower time wins. Sum adds all three levels, with missing results counting as zero. At 3, only Expert time breaks ties. Parentheses show the comparison time in seconds.',
             tpe: 'TPE, TPE2 and TPE3 divide time by IOE to the first, second and third power. Lower is better. Official, public Standard Intermediate and Expert replays, with no 3BV threshold or NF distinction. Each formula selects its own best replay per level; both corresponding levels are required for Sum.',
         },
         improve: {
+            path: 'Upload your own completed Standard replays, bind their identifiers and have them approved. Reduce mouse, effective or expected path to improve each metric. All three levels are needed for its Sum. Hidden tournament replays count after being revealed.',
             thrp: 'Upload your own completed Standard replays, bind their identifiers and have them approved. Use fewer effective clicks for the same 3BV, or upload a higher Thrp. After reaching Expert NF Thrp=1, upload more perfect NF games to improve that ranking. Hidden tournament replays count after they are revealed.',
             nf_ioe: 'Upload your own completed Standard NF replays, bind their identifiers and have them approved. Use fewer actual clicks for the same 3BV to improve IOE. After reaching 1, upload a faster perfect replay. Once all three levels are perfect, a faster Expert improves the Sum ranking. Hidden tournament replays count after being revealed.',
             tpe: 'Upload your own completed Standard Intermediate and Expert replays, bind their identifiers and have them approved. Reduce time or actual clicks; TPE2 and TPE3 give IOE more weight. Both levels are needed for each Sum. NF replays also count; hidden tournament replays count after being revealed.',
@@ -94,14 +98,16 @@ const i18nMessages = {
     } },
     es: { local: {
         rankingName: 'Clasificación',
-        label: { thrp: '@:prop.thrp', nf_ioe: 'NF IOE', tpe: 'TPE' },
+        label: { thrp: '@:prop.thrp', nf_ioe: 'NF IOE', tpe: 'TPE', path: 'Path' },
         howToImprove: 'Cómo mejorar',
         rules: {
+            path: 'Repeticiones estándar, oficiales y públicas, incluidas las NF, sin mínimo de 3BV. Path, CPath y EPath seleccionan su valor mínimo por separado. Cada suma requiere los tres niveles de su métrica. El cero es válido; se excluyen los valores ausentes.',
             thrp: 'Se toma el mejor Thrp (3BV / clics efectivos) de cada nivel entre las repeticiones estándar, oficiales y públicas, sin mínimo de 3BV. La suma incluye los tres niveles y cuenta los que faltan como cero. En las cuatro clasificaciones originales tienen prioridad las subidas o partidas terminadas antes. Experto NF tiene su propia tabla: por debajo de 1 se ordena por Thrp y, al llegar a 1, por número de partidas perfectas. Cada partida cuenta, incluso con el mismo 3BV. Este resultado no entra en la suma.',
             nf_ioe: 'Se admiten repeticiones NF estándar, oficiales y públicas, sin mínimo de 3BV. En cada nivel se toma el mejor IOE (3BV / clics realizados). Al llegar a 1, gana el menor tiempo. La suma incluye los tres niveles y cuenta los que faltan como cero. Si la suma es 3, solo el tiempo en experto desempata. Entre paréntesis se muestra el tiempo de comparación en segundos.',
             tpe: 'TPE, TPE2 y TPE3 se calculan dividiendo el tiempo por IOE, IOE² e IOE³, respectivamente. Cuanto menor sea el resultado, mejor. Cuentan las repeticiones oficiales y públicas de los niveles intermedio y experto en modo estándar, con o sin banderas y sin mínimo de 3BV. Cada fórmula selecciona su mejor repetición por nivel. Para la suma se necesita una marca en ambos niveles.',
         },
         improve: {
+            path: 'Sube tus repeticiones estándar completadas, vincula sus identificadores y espera su aprobación. Reduce la distancia del ratón, la efectiva o la esperada. Cada suma necesita los tres niveles. Las partidas ocultas cuentan cuando se hacen públicas.',
             thrp: 'Sube tus propias repeticiones completas de Estándar, vincula sus identificadores y espera su aprobación. Usa menos clics efectivos para el mismo 3BV, o sube un Thrp más alto. Una vez que alcances el NF Thrp=1, sube juegos perfectos de NF para mejorar esa clasificación. Las repeticiones de torneos ocultos se cuentan una vez reveladas.',
             nf_ioe: 'Sube tus propias repeticiones completas de Estándar de NF, vincula sus identificadores y espera su aprobación. Usa menos clics reales para el mismo 3BV para mejorar el IOE. Una vez que alcances el 1, sube una repetición perfecta más rápida. Una vez que todos los tres niveles sean perfectos, una repetición más rápida en Expert mejora la clasificación Sum. Las repeticiones de torneos ocultos se cuentan una vez reveladas.',
             tpe: 'Sube tus repeticiones completadas de nivel intermedio y experto en modo estándar, vincula sus identificadores y espera a que se aprueben. Puedes mejorar reduciendo el tiempo o el número de clics. El IOE pesa más en TPE2 y TPE3. Cada suma requiere resultados en ambos niveles. Las partidas NF también cuentan. Las de torneos ocultos cuentan cuando se hacen públicas.',

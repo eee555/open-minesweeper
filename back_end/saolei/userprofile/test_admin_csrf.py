@@ -68,6 +68,7 @@ class AdminCsrfTests(TestCase):
             ('post', '/api/customranking/pluck/refresh'), ('post', '/api/speedranking/top/admin/rebuild_record'),
             ('post', '/api/speedranking/pb/admin/rebuild_record'), ('post', '/api/speedranking/admin/rebuild_record'),
             ('post', '/api/effranking/thrp/admin/rebuild_record'), ('post', '/api/effranking/nf_ioe/admin/rebuild_record'),
+            ('post', '/api/effranking/path/admin/rebuild_record'),
             ('post', '/api/tournament/validate'), ('post', '/api/tournament/allow'), ('post', '/api/tournament/set_staff'),
             ('post', '/api/tournament/weekly/new'), ('post', '/api/tournament/weekly/set'),
             ('post', '/api/tournament/weekly-eff/new'),

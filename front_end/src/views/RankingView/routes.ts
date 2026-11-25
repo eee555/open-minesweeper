@@ -27,6 +27,7 @@ export const rankingRoutes: RouteRecordRaw[] = [
             { path: 'thrp', name: 'ranking_efficiency_thrp', component: () => import('./ThrpRanking.vue') },
             { path: 'nf-ioe', name: 'ranking_efficiency_nf_ioe', component: () => import('./NFIOERanking.vue') },
             { path: 'tpe', name: 'ranking_efficiency_tpe', component: () => import('./TPERanking.vue') },
+            { path: 'path', name: 'ranking_efficiency_path', component: () => import('./PathRanking.vue') },
         ],
     },
     {

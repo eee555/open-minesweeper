@@ -234,7 +234,7 @@ python -m dangerzone.init_local_test --no-weekly
 
 默认快照目录为 `tmp/public-data`。下载使用 `--output-dir`，导入使用 `--snapshot-dir` 指定其他目录。下载仅请求公开 API，每次响应完成后至少等待 1.25 秒；`--interval` 可增加间隔。已完成的快照不会刷新已有数据，获取新数据需换目录；旧版快照可通过重新运行下载入口补齐用户标识。
 
-导入保留用户/录像 ID、公开属性及用户标识归属，并自动重建录像计数、上传额度、竞速榜（含强无猜普通/NF）、效率 Thrp 榜、pluck 纪录缓存和录像状态队列。`--no-weekly` 仅跳过创建周赛，不影响重建。
+导入保留用户/录像 ID、公开属性及用户标识归属，并自动重建录像计数、上传额度、竞速榜（含强无猜普通/NF）、效率榜（Thrp、NF IOE、TPE、Path）、pluck 纪录缓存和录像状态队列。`--no-weekly` 仅跳过创建周赛，不影响重建。
 
 - 管理员：ID `2`，密码 `admin123456`；普通账号：ID `48`，密码 `user123456`。用户名保留生产数据；可通过 `--admin-password` / `--user-password` 指定其他密码。
 - 其他用户禁用密码登录；仅 ID `2` 获得本地管理员权限，邮箱统一为 `user-{id}@example.invalid`。
@@ -250,15 +250,18 @@ python -m dangerzone.init_local_test --no-weekly
 
 位置：`effranking/management/commands/rebuild_eff_ranks.py`
 
-从录像数据库重建效率榜。`--ranking-name` 支持 `thrp`（默认，包含高级 NF 满分列表）、`nf_ioe` 和 `tpe`；`--batch-size` 默认 1000，必须为正数。新增大榜后需显式执行，将历史录像纳入缓存，不需要个人纪录数据迁移。
+从录像数据库重建效率榜。`--ranking-name` 支持 `thrp`（默认，包含高级 NF 满分列表）、`nf_ioe`、`tpe` 和 `path`；`--batch-size` 默认 1000，必须为正数。新增大榜后需显式执行，将历史录像纳入缓存，不需要个人纪录数据迁移。
 
 ```bash
 python manage.py rebuild_eff_ranks
 python manage.py rebuild_eff_ranks --ranking-name nf_ioe
 python manage.py rebuild_eff_ranks --ranking-name tpe
+python manage.py rebuild_eff_ranks --ranking-name path
 ```
 
 `tpe` 会同时重建 TPE、TPE2、TPE3 的六项个人纪录和九个排序 zset。新增公式上线后需执行一次，补齐历史纪录；无需数据库迁移。
+
+`path` 重建九项独立个人纪录及十二个排序 zset，仅替换 Path 的十三个 key。首版沿用现有索引，规则与测量依据见 `back_end/saolei/effranking/path/README.md`。
 
 首次建榜或缓存丢失后执行，API 不回源数据库。执行前暂停录像上传、审核、修改、删除、标识绑定/解绑和比赛公开等写入。命令先构建临时榜，成功后原子替换，失败保留旧榜。规则见 `back_end/saolei/effranking/README.md`。
 

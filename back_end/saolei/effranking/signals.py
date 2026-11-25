@@ -9,6 +9,7 @@ RANKING_FIELDS = {
     'thrp': {'player_id', 'level', 'mode', 'state', 'ongoing_tournament', 'bv', 'left_ce', 'right_ce', 'double_ce', 'upload_time'},
     'nf_ioe': {'player_id', 'level', 'mode', 'state', 'ongoing_tournament', 'right_ce', 'bv', 'left', 'right', 'double', 'timems'},
     'tpe': {'player_id', 'level', 'mode', 'state', 'ongoing_tournament', 'bv', 'left', 'right', 'double', 'timems'},
+    'path': {'player_id', 'level', 'mode', 'state', 'ongoing_tournament', 'path', 'cpath', 'epath'},
 }
 NF_CATEGORY_FIELDS = ('player_id', 'level', 'mode', 'state', 'ongoing_tournament', 'right_ce')
 

@@ -9,6 +9,9 @@ from .news import prepare_news, publish_news, queue_news_ranks, read_news_ranks
 from .nf_ioe import services as nf_ioe
 from .nf_ioe.cache import NFIOERankingCache
 from .nf_ioe.utils import is_eligible
+from .path import services as path_ranking
+from .path.cache import PathRankingCache
+from .path.utils import is_eligible as is_path_eligible
 from .thrp.cache import ThrpRankingCache
 from .thrp.nf_services import refresh_expert_nf_records
 from .thrp.services import prepare_add_videos, prepare_remove_videos, prepare_video_update, VIDEO_FIELDS, write_records
@@ -29,7 +32,7 @@ def _read_records(rankings, players):
 
 
 def _write_with_news(entries, publish=True):
-    """共用一次写入 pipeline；写入前后各取一次名次，仅成绩变优的单项发布新闻。"""
+    """共用一次写入 pipeline；写入前后各取一次名次，仅成绩变优时发布新闻。"""
     candidates = prepare_news(entries) if publish else []
     old_ranks = read_news_ranks(candidates)
     with pipeline() as pipe:
@@ -38,8 +41,10 @@ def _write_with_news(entries, publish=True):
                 write_records(ranking, previous, records, pipe=pipe)
             elif ranking.ranking_name == 'tpe':
                 tpe.write_records(ranking, previous, records, pipe=pipe)
-            else:
+            elif ranking.ranking_name == 'nf_ioe':
                 nf_ioe.write_records(ranking, previous, records, pipe=pipe)
+            elif ranking.ranking_name == 'path':
+                path_ranking.write_records(ranking, previous, records, pipe=pipe)
         queue_news_ranks(pipe, candidates)
         results = pipe.execute()
     if candidates:
@@ -48,7 +53,7 @@ def _write_with_news(entries, publish=True):
 
 def _sync_video(video_id: int, previous_video: dict, ranking_names: set[str]):
     with log_update_errors('sync_video', video_id=video_id, previous_player_id=previous_video['player_id']):
-        video = VideoModel.objects.filter(pk=video_id).values(*set(VIDEO_FIELDS + nf_ioe.VIDEO_FIELDS + tpe.VIDEO_FIELDS)).first()
+        video = VideoModel.objects.filter(pk=video_id).values(*set(VIDEO_FIELDS + nf_ioe.VIDEO_FIELDS + tpe.VIDEO_FIELDS + path_ranking.VIDEO_FIELDS)).first()
         players = {previous_video['player_id']}
         if video:
             players.add(video['player_id'])
@@ -59,6 +64,8 @@ def _sync_video(video_id: int, previous_video: dict, ranking_names: set[str]):
             rankings.append(NFIOERankingCache())
         if 'tpe' in ranking_names and (is_tpe_eligible(previous_video) or is_tpe_eligible(video)):
             rankings.append(TPERankingCache())
+        if 'path' in ranking_names and (is_path_eligible(previous_video) or is_path_eligible(video)):
+            rankings.append(PathRankingCache())
         if not rankings:
             return
         previous = _read_records(rankings, players)
@@ -74,6 +81,9 @@ def _sync_video(video_id: int, previous_video: dict, ranking_names: set[str]):
         if 'tpe' in previous:
             tpe_records = tpe.prepare_video_update(video, video_id, previous['tpe'])
             entries.append((TPERankingCache(), previous['tpe'], tpe_records))
+        if 'path' in previous:
+            path_records = path_ranking.prepare_video_update(video, video_id, previous['path'])
+            entries.append((PathRankingCache(), previous['path'], path_records))
         _write_with_news(entries)
 
 
@@ -87,14 +97,16 @@ def _update_videos(videos, remove: bool):
         ranking = ThrpRankingCache()
         ioe_ranking = NFIOERankingCache()
         tpe_ranking = TPERankingCache()
+        path_cache = PathRankingCache()
         for players in player_batches(videos, 100):
             subset = videos.filter(player_id__in=players)
-            previous = _read_records([ranking, ioe_ranking, tpe_ranking], players)
+            previous = _read_records([ranking, ioe_ranking, tpe_ranking, path_cache], players)
             records = prepare_remove_videos(subset, previous['thrp']) if remove else prepare_add_videos(subset, previous['thrp'])
             refresh_expert_nf_records(records, players)
             ioe_records = nf_ioe.prepare_remove_videos(subset, previous['nf_ioe']) if remove else nf_ioe.prepare_add_videos(subset, previous['nf_ioe'])
             tpe_records = tpe.prepare_remove_videos(subset, previous['tpe']) if remove else tpe.prepare_add_videos(subset, previous['tpe'])
-            _write_with_news([(ranking, previous['thrp'], records), (ioe_ranking, previous['nf_ioe'], ioe_records), (tpe_ranking, previous['tpe'], tpe_records)], publish=not remove)
+            path_records = path_ranking.prepare_remove_videos(subset, previous['path']) if remove else path_ranking.prepare_add_videos(subset, previous['path'])
+            _write_with_news([(ranking, previous['thrp'], records), (ioe_ranking, previous['nf_ioe'], ioe_records), (tpe_ranking, previous['tpe'], tpe_records), (path_cache, previous['path'], path_records)], publish=not remove)
 
 
 def add_videos_to_eff_ranks(videos):

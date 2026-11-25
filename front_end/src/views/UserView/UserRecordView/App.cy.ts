@@ -1,4 +1,5 @@
 import App from './App.vue';
+import PathCard from './PathCard.vue';
 import SaoleiCard from './SaoleiCard.vue';
 import ThrpCard from './ThrpCard.vue';
 import TPECard from './TPECard.vue';
@@ -23,12 +24,13 @@ describe('<UserRecordViewApp />', () => {
             global: {
                 plugins: [i18n, pinia],
                 config: { globalProperties: { $axios } },
-                stubs: { SaoleiCard: true, ThrpCard: true, TPECard: true },
+                stubs: { SaoleiCard: true, ThrpCard: true, TPECard: true, PathCard: true },
             },
         }).then(({ wrapper }) => {
             expect(wrapper.findComponent(SaoleiCard).props('userId')).to.equal(42);
             expect(wrapper.findComponent(ThrpCard).props('userId')).to.equal(42);
             expect(wrapper.findComponent(TPECard).props('userId')).to.equal(42);
+            expect(wrapper.findComponent(PathCard).props('userId')).to.equal(42);
         });
 
         cy.wait('@pluckRecords').its('request.query').should('deep.equal', { player_id: '42' });
