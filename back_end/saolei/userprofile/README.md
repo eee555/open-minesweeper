@@ -143,6 +143,8 @@ QQ 昵称和头像仅保存用于本人欢迎页、QQ 登录管理区，不写�
 }
 ```
 
+旧部署使用的 `qq_app_id` / `qq_app_key` 同样兼容：上面两项为空时依次回退读取，无需同时配置。
+
 固定登记的回调地址为 **`https://openms.top/api/userprofile/qq/callback`**。代码中的默认值不是 secret。部署环境可用 `QQ_OAUTH_REDIRECT_URI` 覆盖用于测试，但生产必须 HTTPS、固定 callback 路径且与腾讯登记值一致；`QQ_OAUTH_FRONTEND_URL` 指定可信 SPA 地址，不接受用户提供 return URL。`QQ_OAUTH_LOGIN_ENABLED=false` 可先仅开放已登录用户绑定，默认 true 提供完整登录／注册链路。
 
 部署顺序：自动生成并检查迁移 → `python manage.py migrate` → 重启后端并发布配套前端 → `nginx -t` 后 reload。本轮 Django 自动生成 `userprofile/migrations/0013_qqconnectidentity.py`，仅新增身份表；仓库忽略迁移文件，提交时须显式纳入该生成文件。后续不更换 appid；身份以 `(appid, openid)` 唯一，换 appid 不是透明升级。预留可空 unionid，但未申请权限时不主动请求或用它跨应用合并。
