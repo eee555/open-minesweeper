@@ -30,6 +30,7 @@ describe('<VideoView />', () => {
         cy.get('[data-cy=sort-tag]').should('have.length', 2);
         cy.get('[data-cy=video-columns-editor]').should('not.exist');
         cy.get('[data-cy=video-list-table]').should('exist');
+        cy.get('[data-cy=run-query]').click();
         cy.wait('@videos').its('request.query').should((query: Record<string, string>) => {
             expect(JSON.parse(query.filters)).to.deep.equal([
                 { field: 'state', in: ['c', 'a'] },
@@ -42,13 +43,13 @@ describe('<VideoView />', () => {
         });
     });
 
-    it('adds and removes filter tags', () => {
+    it('adds and removes filter tags without automatic requests', () => {
         mountView();
-        cy.wait('@videos');
-        cy.get('.video-query__table .el-loading-mask').should('not.exist');
         cy.get('[data-cy=add-filter]').click();
-        cy.get('.video-query__table .el-loading-mask').should('exist');
         cy.get('[data-cy=filter-tag]').should('have.length', 3);
+        cy.get('@videos.all').should('have.length', 0);
+        cy.get('[data-cy=run-query]').click();
+        cy.wait('@videos');
         cy.get('[data-cy=filter-tag]').last().find('[data-cy=remove-tag]').click();
         cy.get('[data-cy=filter-tag]').should('have.length', 2);
         cy.get('[data-cy=add-sort]').click();
@@ -115,6 +116,7 @@ describe('<VideoView />', () => {
 
     it('pages with a full range button group', () => {
         mountView();
+        cy.get('[data-cy=run-query]').click();
         cy.wait('@videos');
         cy.get('[data-cy=page-buttons] [data-cy=page-button]').should('have.length', 1);
         cy.get('[data-cy=page-buttons] [data-cy=page-button]').first().should('contain.text', '0-0');

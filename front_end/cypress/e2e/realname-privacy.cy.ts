@@ -142,6 +142,7 @@ describe('Real name privacy against the backend', () => {
         publicNames(user.id, 'hidden');
         cy.intercept('GET', '**/api/video/query*').as('videoQuery');
         cy.visit('/#/database/videos');
+        cy.get('[data-cy=run-query]').click();
         cy.wait('@videoQuery').then(({ request, response }) => {
             expect(request.query).to.have.all.keys('filters', 'sorts');
             const body = response?.body as { videos: VideoQueryRow[]; count?: number } | undefined;
@@ -192,6 +193,7 @@ describe('Real name privacy against the backend', () => {
                 win.localStorage.setItem('service-config', JSON.stringify({ ...config, userInfoUpdateInterval: 86400000, userInfoLastUpdate: Date.now() }));
             },
         });
+        cy.get('[data-cy=run-query]').click();
         cy.wait('@cachedUserVideos').its('response.body.videos').should((rows: VideoQueryRow[]) => {
             expect(rows.some((row) => row.player_id === user.id), 'the cached user has a visible video').to.eq(true);
         }).then((rows: VideoQueryRow[]) => {
@@ -202,7 +204,7 @@ describe('Real name privacy against the backend', () => {
         navigate(`#/player/${user.id}/settings`);
         cy.intercept('POST', '**/api/userprofile/name-privacy').as('savePrivacy');
         cy.intercept('GET', '**/api/userprofile/infobulk*').as('publicBatch');
-        // 后端查询限流 1/5s：重新挂载与 reload 回放首次结果，避免 429 清空表格。
+        // 后端查询限流 1/5s：手动查询时回放首次结果，避免 429 清空表格。
         cy.intercept('GET', '**/api/video/query*', (req) => {
             req.reply({ body: { videos } });
         });
@@ -210,10 +212,12 @@ describe('Real name privacy against the backend', () => {
         cy.wait('@savePrivacy').its('response.body.hide_realname').should('eq', true);
         cy.get('[data-cy=privacy-save-status]').should('contain.text', '隐藏设置已保存');
         navigate('#/database/videos');
+        cy.get('[data-cy=run-query]').click();
         cy.wait('@publicBatch').its('response.statusCode').should('eq', 200);
         cy.get(`.player-name a[href="#/player/${user.id}"]`).should('have.text', user.username);
         cachedName(user.id).should('eq', 'hidden');
         cy.reload();
+        cy.get('[data-cy=run-query]').click();
         cy.get(`.player-name a[href="#/player/${user.id}"]`).should('have.text', user.username);
         cachedName(user.id).should('eq', 'hidden');
     });

@@ -21,6 +21,7 @@ describe('Main navigation', () => {
         cy.intercept('GET', '**/api/video/query*').as('videoQuery');
         cy.visit('/#/video');
         cy.location('hash').should('eq', '#/database/videos');
+        cy.get('[data-cy=run-query]').click();
         cy.wait('@videoQuery');
         cy.get('[data-cy=video-list-table]').should('exist');
         cy.get('[data-cy=video-columns-editor]').should('not.exist');
