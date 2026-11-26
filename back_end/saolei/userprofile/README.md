@@ -138,12 +138,10 @@ QQ 昵称和头像仅保存用于本人欢迎页、QQ 登录管理区，不写�
 
 ```json
 {
-  "qq_oauth_client_id": "申请得到的 App ID",
-  "qq_oauth_client_secret": "申请得到的 App Key / App Secret"
+  "qq_app_id": "申请得到的 App ID",
+  "qq_app_key": "申请得到的 App Key / App Secret"
 }
 ```
-
-旧部署使用的 `qq_app_id` / `qq_app_key` 同样兼容：上面两项为空时依次回退读取，无需同时配置。
 
 固定登记的回调地址为 **`https://openms.top/api/userprofile/qq/callback`**。代码中的默认值不是 secret。部署环境可用 `QQ_OAUTH_REDIRECT_URI` 覆盖用于测试，但生产必须 HTTPS、固定 callback 路径且与腾讯登记值一致；`QQ_OAUTH_FRONTEND_URL` 指定可信 SPA 地址，不接受用户提供 return URL。`QQ_OAUTH_LOGIN_ENABLED=false` 可先仅开放已登录用户绑定，默认 true 提供完整登录／注册链路。
 

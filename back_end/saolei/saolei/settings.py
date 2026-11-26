@@ -315,8 +315,8 @@ GITHUB_OAUTH_CLIENT_SECRET = _read_project_secret('github_oauth_client_secret')
 GITHUB_OAUTH_REDIRECT_URI = 'https://openms.top/api/accountlink/github/callback'
 GITHUB_OAUTH_FRONTEND_URL = os.environ.get('GITHUB_OAUTH_FRONTEND_URL', 'http://localhost:8080' if DEBUG else 'https://openms.top')
 
-QQ_OAUTH_CLIENT_ID = _read_project_secret('qq_oauth_client_id') or _read_project_secret('qq_app_id')
-QQ_OAUTH_CLIENT_SECRET = _read_project_secret('qq_oauth_client_secret') or _read_project_secret('qq_app_key')
+QQ_OAUTH_CLIENT_ID = _read_project_secret('qq_app_id')
+QQ_OAUTH_CLIENT_SECRET = _read_project_secret('qq_app_key')
 QQ_OAUTH_REDIRECT_URI = os.environ.get('QQ_OAUTH_REDIRECT_URI', 'https://openms.top/api/userprofile/qq/callback')
 QQ_OAUTH_FRONTEND_URL = os.environ.get('QQ_OAUTH_FRONTEND_URL', 'http://localhost:8080' if DEBUG else 'https://openms.top')
 QQ_OAUTH_LOGIN_ENABLED = os.environ.get('QQ_OAUTH_LOGIN_ENABLED', 'true').lower() in {'1', 'true', 'yes'}
