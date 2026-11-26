@@ -167,7 +167,7 @@ class RefreshTournamentScoresTests(TournamentTestCaseBase):
         with self.assertRaisesMessage(CommandError, '当前只支持 GSC、竞速及效率打卡赛'):
             call_command('refresh_tournament_scores', tournament.id, stdout=StringIO())
         weekly = self.create_weekly_tournament(state=Tournament_TextChoices.State.AWARDED, tournament_format='?')
-        with self.assertRaisesMessage(CommandError, '当前只支持经典周赛'):
+        with self.assertRaisesMessage(CommandError, '不支持的竞速打卡赛赛制'):
             call_command('refresh_tournament_scores', weekly.id, stdout=StringIO())
 
     def test_failure_rolls_back_database_changes(self):

@@ -1,5 +1,30 @@
 <template>
-    <section class="media-panel">
+    <section ref="panel" class="media-panel">
+        <form class="media-filters" @submit.prevent="applyFilters">
+            <label>
+                {{ t('local.type') }}
+                <select v-model="draftFormat" data-cy="works-format">
+                    <option value="">{{ t('local.allTypes') }}</option>
+                    <option value="B_v">{{ t('local.bilibiliVideo') }}</option>
+                    <option value="B_a">{{ t('local.bilibiliArticle') }}</option>
+                    <option value="c_p">{{ t('local.saoleiPost') }}</option>
+                    <option value="g_r">{{ t('local.githubRepository') }}</option>
+                </select>
+            </label>
+            <label>
+                {{ t('media.language') }}
+                <ElSelect v-model="draftLanguage" clearable value-on-clear="" :placeholder="t('local.allLanguages')" data-cy="works-language">
+                    <ElOption v-for="language in mediaLanguages" :key="language.lang" :value="language.lang" :label="language.text" />
+                    <ElOption value="other" :label="t('local.otherLanguage')" />
+                </ElSelect>
+            </label>
+            <BaseButton size="small" native-type="submit" data-cy="works-apply-filters">
+                {{ t('local.apply') }}
+            </BaseButton>
+            <BaseTextButton data-cy="works-clear-filters" @click="clearFilters">
+                {{ t('local.clear') }}
+            </BaseTextButton>
+        </form>
         <BaseTable
             table-class="media-works-table" :empty="items.length === 0" :column-count="5"
             :empty-text="loading ? t('local.loading') : t('media.empty')"
@@ -80,10 +105,19 @@
                 </td>
             </tr>
         </BaseTable>
-        <ElPagination
-            v-model:current-page="page" v-model:page-size="pageSize"
-            layout="total, prev, pager, next" :total="total"
-        />
+        <div class="media-load-more" role="status" aria-live="polite">
+            <span v-if="loading" class="text-secondary">{{ t('local.loading') }}</span>
+            <template v-else-if="loadError">
+                <span>{{ t('local.loadFailed') }}</span>
+                <BaseTextButton data-cy="works-retry" @click="load">
+                    {{ t('local.retry') }}
+                </BaseTextButton>
+            </template>
+            <BaseTextButton v-else-if="hasMore" data-cy="works-load-more" @click="load">
+                {{ t('local.loadMore') }}
+            </BaseTextButton>
+            <span v-else-if="items.length" class="text-secondary" data-cy="works-end">{{ t('local.end') }}</span>
+        </div>
         <ElDialog v-if="preview" model-value :title="preview?.title || t('media.titleMissing')" width="min(720px, 95vw)" @close="preview = null">
             <iframe
                 class="media-embed-frame media-preview-frame" :src="preview?.embedUrl"
@@ -97,27 +131,27 @@
 </template>
 
 <script setup lang="ts">
-import { ElDialog, ElPagination } from 'element-plus';
-import { computed, onScopeDispose, ref, watch } from 'vue';
+import { useInfiniteScroll } from '@vueuse/core';
+import { ElDialog, ElOption, ElSelect } from 'element-plus';
+import { computed, onMounted, onScopeDispose, ref, useTemplateRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import MediaFeedButton from './MediaFeedButton.vue';
 import MediaSourceLink from './MediaSourceLink.vue';
 
+import BaseButton from '@/components/common/BaseButton.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
 import BaseTextButton from '@/components/common/BaseTextButton.vue';
-import { httpErrorNotification } from '@/components/Notifications';
 import PlayerName from '@/components/PlayerName.vue';
-import type { MediaItem, MediaLikeResult, MediaMe, MediaPage } from '@/services/mediaService';
-import { fetchLatestMedia, fetchMediaMe, fetchMediaRanking } from '@/services/mediaService';
+import type { MediaFormatValue, MediaItem, MediaLikeResult, MediaMe, MediaWorksQuery, MediaWorksSort } from '@/services/mediaService';
+import { fetchMediaMe, fetchMediaWorks } from '@/services/mediaService';
 import { store } from '@/store';
 import { AccountLinkPlatform } from '@/utils/accountlinks';
-import { mediaEmbedUrl, mediaExternalUrl } from '@/utils/media';
+import { mediaEmbedUrl, mediaExternalUrl, mediaLanguages } from '@/utils/media';
 import { platforms } from '@/views/UserView/AccountLinks/platforms';
 
 import '@/components/media/media.css';
 
-type WorksSort = 'latest' | 'hot' | 'likes';
 interface PreviewTarget { title: string; url: string; embedUrl: string }
 
 const emit = defineEmits<{ loading: [value: boolean]; me: [value: MediaMe | null] }>();
@@ -146,16 +180,31 @@ function platformName(format: string): string {
     return t(`platform.${FORMAT_PLATFORM[format]}`);
 }
 
-const sort = ref<WorksSort>('hot');
+const sort = ref<MediaWorksSort>('hot');
 const items = ref<MediaItem[]>([]);
-const total = ref(0);
-const page = ref(1);
-const pageSize = ref(20);
+const nextCursor = ref<string | null>(null);
+const hasMore = ref(true);
+const loadError = ref(false);
+const draftFormat = ref<MediaFormatValue | ''>('');
+const draftLanguage = ref<NonNullable<MediaWorksQuery['language']> | ''>('');
+const filters = ref<Pick<MediaWorksQuery, 'format' | 'language'>>({});
+const panel = useTemplateRef<HTMLElement>('panel');
+const scrollContainer = ref<HTMLElement | Window | null>(null);
 const loading = ref(false);
 const me = ref<MediaMe | null>(null);
 const preview = ref<PreviewTarget | null>(null);
-let requestId = 0;
 let meRequestId = 0;
+let controller: AbortController | undefined;
+const seenIds = new Set<number>();
+
+useInfiniteScroll(scrollContainer, load, {
+    distance: 160,
+    canLoadMore: () => hasMore.value && !loading.value && !loadError.value,
+});
+
+onMounted(() => {
+    scrollContainer.value = panel.value?.closest<HTMLElement>('main.common-layout') ?? window;
+});
 
 // /me 成功表示当前是登录态；UserMedia.banned 只禁止投稿，不应禁用投喂。
 const feedDisabled = computed(() => me.value === null);
@@ -167,10 +216,34 @@ function openPreview(item: MediaItem): void {
     preview.value = { title: item.title, url, embedUrl };
 }
 
-function selectSort(value: WorksSort): void {
+function selectSort(value: MediaWorksSort): void {
     if (sort.value === value) return;
     sort.value = value;
-    page.value = 1;
+}
+
+function applyFilters(): void {
+    filters.value = {
+        format: draftFormat.value || undefined,
+        language: draftLanguage.value || undefined,
+    };
+}
+
+function clearFilters(): void {
+    draftFormat.value = '';
+    draftLanguage.value = '';
+    filters.value = {};
+}
+
+function refresh(): void {
+    controller?.abort();
+    loading.value = false;
+    items.value = [];
+    seenIds.clear();
+    nextCursor.value = null;
+    hasMore.value = true;
+    loadError.value = false;
+    scrollContainer.value?.scrollTo({ top: 0 });
+    void load();
 }
 
 function formatDate(value: string): string {
@@ -197,25 +270,29 @@ async function loadMe(): Promise<void> {
 }
 
 async function load(): Promise<void> {
-    const request = ++requestId;
+    if (loading.value || !hasMore.value) return;
+    const request = new AbortController();
+    const cursor = nextCursor.value;
+    controller = request;
     loading.value = true;
+    loadError.value = false;
     emit('loading', true);
-    const start = (page.value - 1) * pageSize.value;
-    const rankSort = sort.value === 'hot' ? 'hot' : 'likes';
     try {
-        const result: MediaPage = sort.value === 'latest'
-            ? await fetchLatestMedia(start, pageSize.value)
-            : await fetchMediaRanking(rankSort, start, pageSize.value);
-        if (request !== requestId) return;
-        items.value = result.items;
-        total.value = result.total;
-    } catch (error) {
-        if (request !== requestId) return;
-        items.value = [];
-        total.value = 0;
-        httpErrorNotification(error);
+        const result = await fetchMediaWorks({ sort: sort.value, limit: 20, ...filters.value, cursor: cursor ?? undefined }, request.signal);
+        if (request.signal.aborted) return;
+        if (result.has_more && (result.next_cursor === null || result.next_cursor === '' || result.next_cursor === cursor || result.items.length === 0)) throw new Error('media_cursor_not_advancing');
+        for (const item of result.items) {
+            if (seenIds.has(item.id)) continue;
+            seenIds.add(item.id);
+            items.value.push(item);
+        }
+        nextCursor.value = result.next_cursor;
+        hasMore.value = result.has_more;
+    } catch {
+        if (request.signal.aborted) return;
+        loadError.value = true;
     } finally {
-        if (request === requestId) {
+        if (!request.signal.aborted) {
             loading.value = false;
             emit('loading', false);
         }
@@ -236,26 +313,101 @@ function onFeed(result: MediaLikeResult, item: MediaItem): void {
 watch(() => store.sessionRevision, () => {
     void loadMe();
 }, { immediate: true });
-watch([sort, page, pageSize], () => {
-    void load();
-}, { immediate: true });
+watch([sort, filters], refresh, { immediate: true });
 onScopeDispose(() => {
-    requestId++;
+    controller?.abort();
     meRequestId++;
 });
 
-defineExpose({ refresh: load });
+defineExpose({ refresh });
 
 const i18nMessages = {
     'zh-cn': { local: {
         loading: '加载中',
+        type: '类型',
+        allTypes: '全部类型',
+        bilibiliVideo: 'B 站视频',
+        bilibiliArticle: 'B 站专栏',
+        saoleiPost: '扫雷网帖子',
+        githubRepository: 'GitHub 仓库',
+        allLanguages: '全部语言',
+        otherLanguage: '其他',
+        apply: '筛选',
+        clear: '清空',
+        loadFailed: '加载失败，已加载内容保留。',
+        retry: '重试',
+        loadMore: '加载更多',
+        end: '已加载完毕',
     } },
     en: { local: {
         loading: 'Loading',
+        type: 'Type',
+        allTypes: 'All types',
+        bilibiliVideo: 'Bilibili video',
+        bilibiliArticle: 'Bilibili article',
+        saoleiPost: 'Saolei post',
+        githubRepository: 'GitHub repository',
+        allLanguages: 'All languages',
+        otherLanguage: 'Other',
+        apply: 'Filter',
+        clear: 'Clear',
+        loadFailed: 'Could not load works. Loaded items are kept.',
+        retry: 'Retry',
+        loadMore: 'Load more',
+        end: 'All works loaded',
     } },
     es: { local: {
         loading: 'Cargando',
+        type: 'Tipo',
+        allTypes: 'Todos los tipos',
+        bilibiliVideo: 'Vídeo de Bilibili',
+        bilibiliArticle: 'Artículo de Bilibili',
+        saoleiPost: 'Publicación de Saolei',
+        githubRepository: 'Repositorio de GitHub',
+        allLanguages: 'Todos los idiomas',
+        otherLanguage: 'Otros',
+        apply: 'Filtrar',
+        clear: 'Limpiar',
+        loadFailed: 'No se pudieron cargar las obras. Se conservan las ya cargadas.',
+        retry: 'Reintentar',
+        loadMore: 'Cargar más',
+        end: 'Todas las obras cargadas',
     } },
 };
 const { t, locale } = useI18n({ messages: i18nMessages });
 </script>
+
+<style scoped>
+.media-filters,
+.media-filters label,
+.media-load-more {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+}
+
+.media-filters {
+    margin-bottom: 4px;
+    gap: 4px 8px;
+}
+
+.media-filters :is(select, input[type="text"]) {
+    min-width: 0;
+    padding: 3px 4px;
+    border: 1px solid var(--ui-border-color);
+    border-radius: 0;
+    background: var(--ui-bg-color);
+    color: var(--ui-text-color-regular);
+    font: inherit;
+}
+
+.media-load-more {
+    justify-content: center;
+    padding: 4px;
+}
+
+.media-filters :deep(.el-select) {
+    width: 230px;
+}
+</style>

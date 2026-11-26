@@ -10,13 +10,13 @@ python manage.py <command> --help
 
 ### `prepare_share_preview`
 
-位置：`videomanager/management/commands/prepare_share_preview.py`。使用随代码发布的棋盘图块生成固定的 `MEDIA_ROOT/thumbnail/placeholder-v1.png`，不读取录像、不扫描历史目录。
+位置：`videomanager/management/commands/prepare_share_preview.py`。使用随代码发布的棋盘图块生成固定的 `MEDIA_ROOT/thumbnail/placeholder-v2.png`，不读取录像、不扫描历史目录。
 
 ```bash
 python manage.py prepare_share_preview
 ```
 
-首次部署先安装 `requirements.txt` 中的 Pillow，再运行本命令，重启 Web 和现有单个 `db_worker_robust`。Nginx 复用现有 `/internal-media/` alias；需确保 worker 能遍历父目录、读取图片。DEBUG 也只返回 `X-Accel-Redirect`，图片验收通过 Nginx 入口进行。首版不暴露分享 UI，由维护者用 `/video/<id>` 手动验证 QQ 卡片后，再开放 UI。
+首次部署先安装 `requirements.txt` 中的 Pillow，再运行本命令；每次 `SHARE_PREVIEW_VERSION` 变更后也须重新运行，为新版本准备占位图。完成后重启 Web 和现有单个 `db_worker_robust`。Nginx 复用现有 `/internal-media/` alias；需确保 worker 能遍历父目录、读取图片。DEBUG 也只返回 `X-Accel-Redirect`，图片验收通过 Nginx 入口进行。首版不暴露分享 UI，由维护者用 `/video/<id>` 手动验证 QQ 卡片后，再开放 UI。
 
 ### `cleanup_share_previews`
 
@@ -115,7 +115,7 @@ python manage.py sync_saolei_api --all-linked --phase videos --limit 100
 
 ### `refresh_media_rankings`
 
-位置：`media/management/commands/refresh_media_rankings.py`。低频人工命令，用于推进热度基准、从数据库全量重建四个作品排行 zset，以及只读巡检；**不加入部署流程，也不加入 `start.sh` / `stop.sh`**。原 `rebuild_media_rankings` 与 `check_media_rankings` 已合并进此命令，APScheduler 的月度 `refresh_media_hot_reference` 作业与 media 后台同步任务均已删除。
+位置：`media/management/commands/refresh_media_rankings.py`。低频人工维护数据库热度基准和作者聚合榜，不加入部署流程或调度器。作品列表已经直接使用 MySQL，此命令不再维护单件作品排行。
 
 ```bash
 python manage.py refresh_media_rankings --check
@@ -125,19 +125,17 @@ python manage.py refresh_media_rankings --reference 2026-12-01T00:00:00+00:00
 python manage.py refresh_media_rankings --batch-size 500
 ```
 
-`--check` 只读：按 `decay(T_db, T_r)` 把每个 `verified` 作品的 `hot_value` 折算成期望分数并累加出作者维度分数，与四个 zset 逐一比较（相对/绝对容差 `1e-6`）。一致时输出 `matches the database` 并正常退出；发现多余成员、缺失成员、分数不符或 `T_r` 缺失时抛 `CommandError`，以非零退出码报出漂移样例和修复建议，便于外部巡检按退出码告警。数据库始终是权威值；巡检不再输出 FAILED / 积压同步任务数（media 没有后台任务），也不需要避开月度刷新窗口。
+`--check` 按 `decay(T_db, T_r)` 汇总数据库的已审核作品，比较 `media:rank:user:hot`、`media:rank:user:likes` 与 Redis 基准，容差 `1e-6`。缺失或漂移时非零退出，并给出修复提示。`--max-examples` 默认 10，必须为正。
 
-`--rebuild-only` 不推进 `T`，只按当前 `T_r` 从数据库全量重建四个 zset，用于修复竞态或 Redis 故障造成的漂移；空库时删除旧的四个 zset。不带 `--check` 且不带 `--rebuild-only` 时，`--reference`（默认当前时刻，ISO 8601 UTC，不得早于当前 `T_db`）先在数据库事务内用 `F()` 把全表 `hot_value` 乘 `decay(T_db_old, T_new)` 并写入新 `T_db`，再全量重建并发布 `T_r`。对同一 `--reference` 重跑不会重复缩放数据库。`--batch-size`（默认 1000，必须为正）与 `--max-examples`（默认 10，必须为正）分别控制重建批量与巡检样例数。
+`--rebuild-only` 保持当前基准，只重建作者两榜。其他写入模式先把全表 `hot_value` 乘 `decay(T_db_old, T_new)` 并推进 `hot_value_updated_at`，再发布作者榜和新 `T_r`。`--reference` 默认当前时刻，不得早于 `T_db`；相同 reference 重跑不重复缩放。`--batch-size` 默认 1000，必须为正。
 
-全量重建只取 `status='verified'`，写入 `media:rebuild:<uuid>:*` 临时 key，最后在**一个 `MULTI/EXEC`** 里 `rename` 四个正式 zset 并 `SET media:hot:anchor`；失败时删除临时 key、旧榜保留。命令**不持锁、不阻塞请求写**：执行期间正式 key 上的增量可能被 `rename` 覆盖而短暂漂移，已确认接受；数据库始终正确，重跑或下一次请求路径写入即可收敛。Redis 发布失败时命令抛 `CommandError`，提示 `T_db` 已是权威值、重跑命令即可，不阻断服务。
-
-热度基准 `T` 仍需推进，理由是防止 `1 / decay(T, now)` 长期指数增长到浮点上溢；double 下至少以年为单位即可，因此按年人工执行一次 `--reference` 即可。`T_r` 在首次调用 `get_hot_reference()`（作者榜读取或请求路径缓存同步）时以 `T_db` 用 `SET NX` 初始化，空库时四个 zset 为空即正确，部署流程不需要全量重建。
+重建写入 `media:rebuild:<uuid>:*`，最后用一次 `MULTI/EXEC` 替换作者两榜和 anchor；空库时删除作者两榜。并发增量可能被覆盖，接受短暂漂移，失败时报 `CommandError`，数据库始终是事实来源，可重跑纠偏。推进基准是罕见事件，不为此兼容列表查询竞态；用户刷新即可开始新查询。
 
 ### 失败检测
 
-数据库是事实来源，Redis 是排序索引。请求路径的缓存同步异常只在 `logs/media.log` 留 `media` error 日志，不回滚数据库、不产生 FAILED 任务，也没有任务重启或积压统计。检测手段是 `refresh_media_rankings --check`：以非零退出码暴露四个 zset 与数据库的漂移（含 `T_r` 缺失），建议接入外部定时巡检告警；修复手段是 `--rebuild-only`（只纠偏）或带 `--reference` 的低频基准推进。
+作者榜同步失败会写入 `logs/media.log`，可使用 `--check` 检测，`--rebuild-only` 修复。单件作品的排序、筛选和滚动加载直接查 MySQL，不再使用 Redis 排行；排查应检查查询、索引、筛选条件和当前游标。
 
-审核通过的作品出现在发表时间排序却没出现在实时热度 / 累计投喂时，先运行 `--check`；报 `missing member` 说明四个 zset 尚未同步，执行 `--rebuild-only` 即可。表格的实时热度 / 累计投喂排序读 Redis zset，发表时间排序直接查数据库；`likes` / `hot_value` 为 0 的作品仍会入榜但排在末尾，作品数超过一页时需要翻页。点击表头会重新拉列表，也可用表格上方的刷新按钮手动重拉。
+全部旧进程退出后，只删除废弃的 `media:rank:hot`、`media:rank:likes`，不能清空作者两榜及 `media:hot:anchor`。
 
 ## 勋章补发
 
@@ -490,11 +488,11 @@ python manage.py refresh_video_counts
 
 位置：`tournament/management/commands/refresh_tournament_scores.py`
 
-同步重算指定比赛的成绩、排名、积分和参赛用户的历史最佳成绩，无需后台 worker。只接受已颁奖且有结束时间的 GSC、经典竞速打卡赛或效率打卡赛。
+同步重算指定比赛的成绩、排名、积分和参赛用户的历史最佳成绩，无需后台 worker。只接受已颁奖且有结束时间的 GSC、竞速打卡赛或效率打卡赛。竞速支持经典、NF、强无猜、强无猜NF 四种赛制，分别筛选录像并更新所属赛制的积分和 best。
 
 命令按有效录像重算成绩，按新旧积分差额修正累计积分，并同步 Redis；不会重复累计积分或回退最后计分时间。执行期间避免修改该届录像、参赛者，并暂停相关用户的积分结算。数据库写入在一个事务内，失败会回滚；Redis 不随数据库回滚，排除故障后需重跑以恢复一致性。
 
-重算规则按比赛类型及成绩来源区分。经典打卡赛及 GSC 的录像来源成绩只统计现存且符合计分条件的录像，已删除录像的成绩贡献作废，由剩余录像或赛制默认值补位。GSC 的 `manual_scores=true` 按参赛者设置，保留其 9 项手工成绩，不从部分/空录像重算，但仍参与全场排名及积分更新；录像来源只统计符合模式、级别与 3BV 条件的 OFFICIAL 录像。匿名选手共同排名但不获得积分。
+重算规则按比赛类型及成绩来源区分。竞速打卡赛及 GSC 的录像来源成绩只统计现存且符合计分条件的录像，已删除录像的成绩贡献作废，由剩余录像或赛制默认值补位。竞速保留 2 高 5 中及 60/240 秒上限，NF 按 `right_ce=0` 筛选，强无猜按 `mode='06'` 筛选；普通经典/强无猜均包含各自 NF。GSC 的 `manual_scores=true` 按参赛者设置，保留其 9 项手工成绩，不从部分/空录像重算，但仍参与全场排名及积分更新；录像来源只统计符合模式、级别与 3BV 条件的 OFFICIAL 录像。匿名选手共同排名但不获得积分。
 
 普通删除录像不立即重算或撤分；显式执行本命令时才按上述规则更新成绩、名次和积分。删除参赛记录的信号则会撤回本人积分，本命令用于修正剩余名次和积分。历史补录后的操作顺序见 [GSC 历史录像补录](./gsc-history-import.md#重试与人工重算)。新增赛种或赛制时须提供自己的删除及重算实现，再接入命令，不能默认复用另一赛种的成绩来源规则。
 
@@ -511,7 +509,7 @@ python manage.py refresh_tournament_scores 123
 
 位置：`tournament/management/commands/refresh_tournament_user_stats.py`
 
-补齐已颁奖比赛参赛者缺失的 `TournamentUser`，刷新历史总分、GSC/竞速/效率分项积分与历史 best，并同步 Redis；效率 best 的年/周分字段重建，不做浮点编码。不修改实时 `score_current`。运行时避免与结算或取消资格任务重叠。
+补齐已颁奖比赛参赛者缺失的 `TournamentUser`，刷新历史总分、GSC/竞速/效率分项积分与历史 best，并同步 Redis。竞速的经典/NF/强无猜/强无猜NF 总积分和 best 分别重建，`weekly_total` 汇总四个赛制；不会把经典赛里的 NF 成绩另记为 NF 赛制纪录。效率 best 的年/周分字段重建，不做浮点编码。不修改实时 `score_current`。运行时避免与结算或取消资格任务重叠。
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |
@@ -520,6 +518,20 @@ python manage.py refresh_tournament_scores 123
 ```bash
 python manage.py refresh_tournament_user_stats
 ```
+
+#### 竞速赛制首次上线 {#weekly-formats-deployment}
+
+暂停比赛相关写入及 worker，在 `back_end/saolei` 执行：
+
+```bash
+python manage.py makemigrations tournament
+python manage.py migrate
+python manage.py refresh_tournament_user_stats
+python manage.py rebuild_tournament_cache
+python manage.py rebuild_tournament_user_cache
+```
+
+迁移仍由 Django 自动生成。核对旧经典积分和 best 不变、新赛制默认值不入榜后再恢复 worker。历史经典赛中的 NF 录像不另记为 NF 赛制积分或 best，无需重跑全部历史比赛结算。赛制规则见[打卡赛指南](../weekly-tournament.md)，缓存字段及默认值见[缓存结构](./cache.md)。
 
 ## 数据清理
 

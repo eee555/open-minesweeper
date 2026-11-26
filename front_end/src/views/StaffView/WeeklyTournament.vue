@@ -11,9 +11,9 @@
             </select>
         </ElFormItem>
         <ElFormItem v-if="kind === 'weekly'" :label="t('local.format')">
-            <select v-model="tournamentFormat" class="base-select" style="width: 220px" :aria-label="t('local.format')">
+            <select v-model="tournamentFormat" class="base-select" style="width: 220px" :aria-label="t('local.format')" data-cy="weekly-format">
                 <option v-for="option in tournamentFormatOptions" :key="option.value" :value="option.value">
-                    {{ t(option.label) }}
+                    {{ option.label }}
                 </option>
             </select>
         </ElFormItem>
@@ -36,6 +36,10 @@
                 <dt>{{ t('local.weekly') }}</dt>
                 <dd>{{ createdWeekly.data.year }}W{{ createdWeekly.data.week }}</dd>
             </div>
+            <div v-if="createdWeekly.data.tournament_format" class="description-item">
+                <dt>{{ t('local.format') }}</dt>
+                <dd>{{ Tournament.getLocalString(weeklyFormatNames[createdWeekly.data.tournament_format], locale) }}</dd>
+            </div>
             <div class="description-item">
                 <dt>{{ t('prop.start_time') }}</dt>
                 <dd>{{ formatDateTime(createdWeekly.data.start_time) }}</dd>
@@ -51,21 +55,21 @@
 <script setup lang="ts">
 import '@/styles/descriptions.css';
 import { ElForm, ElFormItem } from 'element-plus';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import BaseButton from '@/components/common/BaseButton.vue';
 import { httpErrorNotification, successNotification } from '@/components/Notifications';
 import useCurrentInstance from '@/utils/common/useCurrentInstance';
 import { toDate, toISODateTimeString } from '@/utils/datetime';
+import { Tournament } from '@/utils/tournaments';
+import { weeklyFormatNames, WeeklyTournamentFormat } from '@/utils/weeklyFormat';
 
 const { proxy } = useCurrentInstance();
 
-const tournamentFormatOptions = [
-    { label: 'local.classicFormat', value: 'c' },
-] as const;
+const tournamentFormatOptions = computed(() => Object.values(WeeklyTournamentFormat).map((value) => ({ value, label: Tournament.getLocalString(weeklyFormatNames[value], locale.value) })));
 
-const tournamentFormat = ref(tournamentFormatOptions[0].value);
+const tournamentFormat = ref<WeeklyTournamentFormat>(WeeklyTournamentFormat.Classic);
 const kind = ref<'weekly' | 'weekly-eff'>('weekly');
 const creating = ref(false);
 const createdWeekly = ref<WeeklyCreateResponse | null>(null);
@@ -78,7 +82,7 @@ interface WeeklyCreateResponse {
         start_time: string;
         end_time: string;
         state: string;
-        tournament_format?: string;
+        tournament_format?: WeeklyTournamentFormat;
     };
 }
 
@@ -104,7 +108,6 @@ const i18nMessages = {
         speed: '竞速打卡赛',
         efficiency: '效率打卡赛',
         format: '比赛类型',
-        classicFormat: '2高5中',
         create: '创建下周打卡赛',
         result: '创建结果',
         weekly: '打卡赛',
@@ -114,7 +117,6 @@ const i18nMessages = {
         speed: 'Speed Weekly',
         efficiency: 'Efficiency Weekly',
         format: 'Tournament format',
-        classicFormat: '2 Expert + 5 Intermediate',
         create: 'Create next week’s tournament',
         result: 'Creation result',
         weekly: 'Weekly tournament',
@@ -124,12 +126,11 @@ const i18nMessages = {
         speed: 'Velocidad Semanal',
         efficiency: 'Eficiencia Semanal',
         format: 'Formato de torneo',
-        classicFormat: '2 Expertos + 5 Intermedios',
         create: 'Crear el próximo torneo de la semana',
         result: 'Resultado de creación',
         weekly: 'Torneo semanal',
     } },
 };
 
-const { t } = useI18n({ messages: i18nMessages });
+const { t, locale } = useI18n({ messages: i18nMessages });
 </script>

@@ -478,10 +478,10 @@ export default {
             },
         },
         saolei: {
-            title: 'Reglas de @:website.saolei',
+            title: 'Reglas históricas de @:website.saolei',
         },
         strict_ng: {
-            title: 'Reglas de @:mode.sng',
+            title: '@:mode.sng',
         },
         empty: 'Sin registros',
         loadFailed: 'Imposible cargar la clasificación',

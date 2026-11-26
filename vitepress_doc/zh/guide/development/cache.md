@@ -7,9 +7,9 @@ description: 开源扫雷网Redis/Django缓存结构详解，包括录像队列�
 
 ## 录像分享预览
 
-首版只上线后端，不展示分享 UI。维护者通过 `/video/<id>` 手动验证 QQ 卡片；图片接口为 `/api/video/share/v1/<id>.png`。两个端点都只允许 `state` 为 `c/d` 且 `ongoing_tournament=False` 的录像，本人及管理员也不能通过分享端点取得未公开比赛录像。
+首版只上线后端，不展示分享 UI。维护者通过 `/video/<id>` 手动验证 QQ 卡片；当前图片接口为 `/api/video/share/v2/<id>.png`。两个端点都只允许 `state` 为 `c/d` 且 `ongoing_tournament=False` 的录像，本人及管理员也不能通过分享端点取得未公开比赛录像。
 
-`VideoModel.board` 位图与 `level` 生成完成棋盘，最多 24×30、24px/格；OG 宽高与绘图共用尺寸计算。缺少 board 时使用固定的 192×192 占位图。PNG 缓存在 `MEDIA_ROOT/thumbnail/<video_id>-v1-<board和level摘要>.png`，样式版本同时进入对外图片 URL。重新解析后的新摘要不会读取旧缓存，旧版本及旧摘要文件按冷数据回收。删除录像在提交后尽力删除当前已知缓存，不枚举目录。
+`VideoModel.board` 位图与 `level` 生成完成棋盘，最多 24×30、16px/格，直接取用随代码发布的 WinmineXP 原生像素图块；OG 宽高与绘图共用尺寸计算。缺少 board 时使用固定的 192×192 占位图。PNG 缓存在 `MEDIA_ROOT/thumbnail/<video_id>-v2-<board和level摘要>.png`，样式版本同时进入对外图片 URL。重新解析后的新摘要不会读取旧缓存，旧版本及旧摘要文件按冷数据回收。删除录像在提交后尽力删除当前已知缓存，不枚举目录。
 
 图片始终通过 `X-Accel-Redirect` 交给现有 Nginx `/internal-media/` location；Django 响应体为空，包括 DEBUG 和占位图。目录不可写、生成失败或转发后文件被清理时允许请求失败，不提供 PNG 直返或 Nginx 错误回跳。图片响应使用 `Cache-Control: no-cache`；站外平台已有卡片的更新时机由平台决定。本地图片验证也需要 Nginx。
 
@@ -96,17 +96,15 @@ redis-cli -n 0 DEL io_s_old io_r_old io_s_spds io_r_spds cpus
 
 ## 作品排行
 
-GitHub 仓库使用 `Media.format='g_r'`，`suffix` 保存仓库数字 ID 字符串，继续复用原有四个 ZSET、审核与投喂逻辑，不新增缓存、任务或调度。`MediaOut` 返回 `format` / `suffix`，不再返回 `url` / `embed_url`：普通链接和 B 站嵌入地址由前端生成，GitHub 主页由浏览器按需直接查询，不入本站持久化缓存。
+作品页 `/api/media/works` 直接查询 MySQL，支持类型和语言筛选，按热度、累计投喂或发表时间倒序，以原始排序值和 ID 进行游标分页。没有 COUNT / OFFSET，不缓存单件作品排行。三个排序索引不包含 `status`；类型复用 `(format, suffix)` 唯一索引前缀，语言新增单列索引，允许 MySQL 选择过滤和额外排序。旧 `/ranking` 已移除，管理员仍使用 `/latest`。
 
-作品页实时热度 / 累计投喂排序与排行榜页《作品》tab 使用五个固定 Redis key（DB `saolei_website`）：`media:rank:hot`、`media:rank:likes` 是作品维度 zset，`media:rank:user:hot`、`media:rank:user:likes` 是作者维度求和 zset，`media:hot:anchor` 保存 Redis 侧热度基准 `T_r`（ISO 8601 UTC）。四个 zset 没有 TTL，只有 `verified` 作品入榜；`pending` 作品可以投喂但只写数据库，审核通过时按 DB 当前值补齐。作品页按发表时间排序（原《最新》tab）直接查库；待审核作品不再有作品页入口，仅在个人主页与管理端可见。五个固定 key 已纳入服务器监控快照的固定内存统计清单，**没有临时锁 key**。
+Redis 只保留三个固定键：作者汇总榜 `media:rank:user:hot`、`media:rank:user:likes`，以及存储 Redis 热度基准 `T_r` 的 `media:hot:anchor`，没有 TTL。两个 ZSET 只汇总 `verified` 作品；全表统一的 `T_db = Media.hot_value_updated_at` 是数据库基准，作者缓存热度按 `decay(T_db, T_r)` 折算。作品游标接口不再读取或返回 anchor，作者榜响应 anchor 仍为 `T_r`。三个键均纳入监控固定内存清单。
 
-热度采用双基准（维护说明见 `back_end/saolei/media/README.md`）：`T_db` 是 `Media.hot_value_updated_at` 的全表统一值，数据库的 `hot_value` 全部以它为基准；`T_r` 存 `media:hot:anchor`，四个 zset 的 hot 分数以它为基准。两者各自内部自洽、不要求相等，相差一个共同因子 `decay(T_db, T_r)`，排序一致。`T_r` 缺失时首次读写按 `T_db` 用 `SET NX` 初始化；`likes` 不衰减。作品分页响应返回 `T_db`，作品字段与实时热度以 DB 为准；作者榜响应返回 `T_r` 与 zset 原值，由前端按 `0.99 ** ((now - T_r) / 1 天)` 折算，两处 anchor 不可混用。
+投喂已审核作品、审核通过和站长硬删除后，通过 `services.sync_user_scores()` 在数据库聚合作者已审核作品总分，使用 `cache.set_user_scores()` 在一个 `pipeline(transaction=True)` 中覆盖作者两个绝对分数，无剩余作品则移除该作者。请求路径保留 1 秒 Redis 超时；失败只记日志，不回滚业务、不排任务或重试。待审核投稿不改变作者榜，不触发同步。
 
-**写入在请求路径完成**：投喂（仅 `verified`）、审核通过、投稿与站长硬删除在数据库事务提交后调用 `services.sync_media_scores()`，重查 DB 得到该作者所有 `verified` 作品的绝对分数，由 `cache.set_media_scores()` 用一个显式 `pipeline(transaction=True)` 覆盖四个 zset（作品不存在则 `ZREM`）。请求路径使用 1 秒短超时的 Redis 客户端（`MEDIA_SOCKET_TIMEOUT`，现网缓存连接是 5 秒），不吃掉普通 API 的 2 秒网关预算。Redis 异常只记 `media` error 日志：不回滚已提交的数据库事务、不入队后台任务、不重试补偿，残留漂移由低频管理命令纠正。`MULTI/EXEC` 没有回滚，因此绝不把抛异常当作「未写入」；一律写绝对 `ZADD` 而不是 `ZINCRBY`，迟到、乱序或响应丢失都不会重复累加。没有 `media:cache:lock`、`WATCH`、`ZUNIONSTORE`、模型信号或 `on_commit` 回调。
+低频人工 [refresh_media_rankings](./management-commands.md#refresh-media-rankings) 继续支持 `--reference` 推进全表 `T_db`，并重建作者两榜和 `T_r`；`--rebuild-only` 只纠偏，`--check` 只读比较作者榜与数据库。重建先写 `media:rebuild:*` 临时键，再原子发布；并发增量被重建覆盖的短暂漂移沿用原有约定。推进 `T_db` 是罕见维护事件，不兼容此时查询竞态，不额外检测或使游标失效。
 
-`T` 仍需低频推进以防 `1 / decay(T, now)` 长期指数增长到浮点上溢，但不需要月度作业：APScheduler 的 `refresh_media_hot_reference` 作业、media 的后台同步任务、任务清理配置与任务重启服务均已删除。低频人工执行 [refresh_media_rankings](./management-commands.md#refresh-media-rankings)：`--reference` 在数据库事务内用 `F()` 把全表 `hot_value` 乘 `decay(T_db_old, T_new)` 并写入新 `T_db`，再全量重算四个 zset、与 `T_r` 一起原子发布；`--rebuild-only` 只纠偏；`--check` 只读巡检，按 `decay(T_db, T_r)` 从 DB 派生期望分数，漂移或 `T_r` 缺失以非零退出码告警，可接入外部定时巡检。命令不进部署流程、不持锁、不阻塞请求写；执行期间正式 key 上的增量可能被 `rename` 覆盖而短暂漂移，数据库始终正确，重跑即可收敛。
-
-驳回只发生在 `pending`，从未入榜，不需要回退。全量重建只读取 `verified` 行，写入 `media:rebuild:*` 临时 key 后在一次 `MULTI/EXEC` 里 `rename` 四个正式 zset 并发布 `T_r`；失败时旧榜保留并抛 `CommandError`，提示 `T_db` 已是权威值、重跑命令。缓存滞后时人工执行 `--rebuild-only` 恢复。
+新版本上线且旧进程全部退出后，定向删除废弃键 `media:rank:hot`、`media:rank:likes`。不要连带删除作者两榜或 anchor。GitHub 来源仍使用 `g_r` 与仓库数字 ID，不增加外站缓存或同步任务。
 
 ## 服务器监控快照
 
@@ -129,7 +127,7 @@ Redis 分类只读取业务代码直接确定的 DB 0 key，不执行 `SCAN`、`
 | 分类 | key 来源 |
 | --- | --- |
 | PB 榜 | `PBRankingCache.counts_key`；固定 hash 的 `HKEYS` 经校验后构造小榜 key；从 `UserProfile` 主键顺序每批最多 1,000 个 ID 构造用户 hash key。PB 衍生榜另由 `PBDerivedCache().keys()` 枚举 3 个成绩 hash 与 132 个小榜 key，均计入 `pb_rankings` 分类。元数据缺失不发现 key、不触发重建。 |
-| 其他排行榜 | 扫雷网与强无猜各自的 `SpeedRankingCache(name, stats=RANK_STATS).keys`（各两个大榜，共 36 个 key）、`TopRankingCache().keys`、`ThrpRankingCache().keys`、`NFIOERankingCache().keys`、`TPERankingCache().keys`、`PathRankingCache().keys`、`MiniGameRankingCache().keys`、`MEDIA_CACHE_KEYS`（5 个媒体统计键）、四种自定义 pluck 配置的 rank/detail key、比赛用户榜 key 和积分时间 key；当前共 210 个 key。 |
+| 其他排行榜 | 扫雷网与强无猜各自的 `SpeedRankingCache(name, stats=RANK_STATS).keys`（各两个大榜，共 36 个 key）、`TopRankingCache().keys`、`ThrpRankingCache().keys`、`NFIOERankingCache().keys`、`TPERankingCache().keys`、`PathRankingCache().keys`、`MiniGameRankingCache().keys`、`MEDIA_CACHE_KEYS`（3 个作者统计键）、四种自定义 pluck 配置的 rank/detail key、比赛用户榜 key 和积分时间 key；当前共 214 个 key。 |
 | 最新录像 | `newest_cache.key`（`newest_queue`）。 |
 | 其他 | `INFO memory.used_memory` 减去前三类；包含其他业务、会话、同实例 DB 1 通用缓存、孤立/历史/临时 key 和 Redis 开销，不枚举 DB 1。 |
 
@@ -343,6 +341,7 @@ digraph cache {
         update_best_score_on_weekly_participant_save [label="update_best_score_on_weekly_participant_save", width=3.7, height=0.8];
         update_best_score_on_gsc_participant_delete [label="update_best_score_on_gsc_participant_delete", width=3.5, height=0.8];
         update_best_score_on_weekly_participant_delete [label="update_best_score_on_weekly_participant_delete", width=3.8, height=0.8];
+        select_weekly_tournament_before_participant_delete [label="select_weekly_tournament_before_participant_delete", width=4.2, height=0.8];
         update_best_score_on_weekly_eff_participant_save [label="update_best_score_on_weekly_eff_participant_save", width=3.9, height=0.8];
         update_best_score_on_weekly_eff_participant_delete [label="update_best_score_on_weekly_eff_participant_delete", width=4.0, height=0.8];
         remove_participant_cache_on_delete [label="remove_participant_cache_on_delete"];
@@ -702,8 +701,11 @@ digraph cache {
 
     participant_db -> update_best_score_on_weekly_participant_delete [label="post_delete"];
     participant_db -> update_best_score_on_weekly_participant_delete [label="query best"];
-    tournament_db -> update_best_score_on_weekly_participant_delete [label="FK/subclass read"];
-    tournament_user_db -> update_best_score_on_weekly_participant_delete [label="read"];
+    participant_db -> select_weekly_tournament_before_participant_delete [label="pre_delete"];
+    tournament_db -> select_weekly_tournament_before_participant_delete [label="FK/subclass read"];
+    select_weekly_tournament_before_participant_delete -> update_best_score_on_weekly_participant_delete [label="instance.tournament / format"];
+    select_weekly_tournament_before_participant_delete -> revoke_rank_score_on_participant_delete [label="instance.tournament / format"];
+    tournament_user_db -> update_best_score_on_weekly_participant_delete [label="read/create"];
     update_best_score_on_weekly_participant_delete -> tournament_user_db [label="write best"];
 
     participant_db -> update_best_score_on_weekly_eff_participant_save [label="post_save"];
@@ -775,7 +777,7 @@ digraph cache {
 | `tournament` | `tournament:normal:participants` | hash | `field = user_id`；`value = list[CachedNormalParticipant] JSON`，每项包含 `id`、`token`、`arbiter_identifier`、`tournament`、`start_time`、`end_time`。 |
 | `tournament` | `tournament:user:score_current` | zset | `member = user_id`；`score = score_current × tournament_score_decay_factor(last_updated, 缓存时间基准)`；所有成员使用同一时间基准。数据库 `score_current = 0` 时不写入。 |
 | `tournament` | `tournament:user:score_current:last_updated` | string | 带时区的 ISO datetime；当前积分 zset 的年度统一锚点，正常为当年 1 月 1 日 00:00 UTC。由年度 APScheduler 任务更新；普通积分发放不推进。调度任务延迟时继续统一使用旧锚点。 |
-| `tournament` | `tournament:user:score_total` / `gsc_total` / `gsc_best` / `weekly_total` / `weekly_classic_total` / `weekly_classic_best` / `weekly_eff_total` / `weekly_eff_best` | zset | `member = user_id`；score 为对应字段值，total 默认 0 不入榜，GSC/竞速 best 默认整数哨兵、效率 best 默认 NULL 不入榜。效率 best 直接存原始浮点成绩，不编码年/周。 |
+| `tournament` | `tournament:user:score_total` / `gsc_total` / `gsc_best` / `weekly_total` / `weekly_{classic,nf,qwc,qwc_nf}_{total,best}` / `weekly_eff_total` / `weekly_eff_best` | zset | `member = user_id`；score 为对应字段值，total 默认 0 不入榜，GSC/竞速 best 默认整数哨兵、效率 best 默认 NULL 不入榜。竞速四套 best 分别编码成绩及年/周；效率 best 直接存原始浮点成绩，不编码年/周。 |
 | `article` | `articles` | list | 文章目录项字符串，来自 `assets/article` 或静态目录下的文章文件。 |
 | `news` | `news:events:v1` | hash | `field = 事件 id`；value 为事件 JSON，含 `id`、`category`、`occurred_at`（毫秒）、`player_id` 与 `payload`。hash 的 field 没有 TTL，过期和超量条目由写入方按索引显式回收。 |
 | `news` | `news:idx:all:v1` | zset | `member = 事件 id`，score 为毫秒时间戳；「全部」分类倒序读取。 |
@@ -785,13 +787,13 @@ digraph cache {
 
 `effranking` 的单录像与批量加入路径发布 `eff` 分区，覆盖 Thrp、NF IOE 和 Path，TPE 系列不发布新闻。按写入前后的 score 判断是否进步，旧名次在写入前读取，新名次由写入 pipeline 中的 ZRANK 取得。补位变差、批量移除、管理员修复与全量重建不发布。各榜 payload、合计资格及展示规则统一见 `back_end/saolei/effranking/README.md` 的「首页新闻」，不在缓存文档重复维护。
 
-`TournamentUser` 是比赛积分持久化汇总表，Redis 用 9 个 zset 排序；total 降序，三类 best 升序。站内用户创建任意已支持赛种的 participant 时，信号在当前数据库事务内补建 `TournamentUser`，删除报名不删除该用户汇总。匿名用户数据库为 NULL，API 输出 user_id=0，不进入积分排行。原 `weekly_classic_total` 和 `weekly_classic_best` 保留，前端只精简重复展示。
+`TournamentUser` 是比赛积分持久化汇总表，Redis 用 15 个 zset 排序；total 降序，GSC、四种竞速赛制和效率 best 均升序。站内用户创建任意已支持赛种的 participant 时，信号在当前数据库事务内补建 `TournamentUser`，删除报名不删除该用户汇总。匿名用户数据库为 NULL，API 输出 user_id=0，不进入积分排行。竞速每周仅一场，format 为经典 `c`、NF `n`、强无猜 `q` 或强无猜NF `f`，各自维护 total/best；`weekly_total` 是四个分项总积分之和。仅更新比赛所属赛制，不按录像是否同时满足其他赛制重复发分或刷新 best。
 
 GSC、竞速及效率 finish 任务先补齐用户汇总，再清理无录像参赛者、刷新成绩和名次、设为 AWARDED、批量公开录像，并排队独立的积分和 best 任务。结束任务不早于原 end_time 后一小时，个人时间窗口和积分衰减仍使用原结束时间。worker 单进程串行，后续两项任务没有顺序依赖；人工重算、缓存重建避免与其重叠。积分按新旧 rank_score 差额修正，批量写库，提交后批量刷新相关 zset。
 
 效率赛只统计 OFFICIAL、标准模式的中高级录像，用原始 `timems * cl² / (1000 * bv²)` 浮点值选取 2 高 5 中，分别以 240、60 为严格上限及缺项值。效率 best 及其独立年/周字段一起写库，无成绩时为 NULL；GSC 和竞速 best 保留原整数编码及 MAX_TOURNAMENT_BEST 哨兵。各类型保存信号只比较当前成绩；删除信号从现存已颁奖 participant 重建 best。数据库 best 更新在当前事务完成，效率赛的 Redis 发布延至提交后；批量结算不触发保存信号，使用独立 best 任务。日志沿用 tournament logger。
 
-`refresh_tournament_user_stats` 重建三类 total 与 best（包括效率 best 年/周），不修改 score_current；`rebuild_tournament_user_cache` 重建全部积分 zset。`refresh_tournament_scores` 支持三类已颁奖比赛，从现存录像按各赛种规则重算，并修正积分差额和 best；不会恢复已删除报名。
+`refresh_tournament_user_stats` 重建各类 total 与 best（含四套竞速分项和效率 best 年/周），不修改 score_current；`rebuild_tournament_user_cache` 重建全部积分 zset。`refresh_tournament_scores` 支持三类已颁奖比赛及全部四种竞速赛制，从现存录像按各赛种规则重算，并修正积分差额和所属赛制 best；不会恢复已删除报名。
 
 GSC 历史补录不新增缓存，管理接口不画入公共 API 图。创建参赛者仍执行默认 TournamentUser 创建及 best 更新；匿名选手不写用户积分 zset。标识绑定、录像创建或提前上传时间仍通过原信号维护队列和排行，HTTP 准入锁覆盖准备、单标识绑定与上传请求的事务及提交回调。列表的 `has_videos` 使用相关 EXISTS 子查询，GSC 结果标识使用 `select_related('arbiter_identifier')`，不逐人读取用户表。完整流程见 [GSC 历史录像补录](./gsc-history-import.md)。
 
@@ -803,11 +805,11 @@ participant 删除时，`revoke_rank_score_on_participant_delete` 在删除事�
 
 `common.apscheduler.refresh_tournament_score_reference` 在每年 1 月 1 日 00:00 UTC 调用 `TournamentCache.refresh_tournament_score_reference`，使用 `ZUNIONSTORE` 权重将当前积分 zset 整体折算到新锚点，并在同一 Redis 事务中设置锚点；其他排行和数据库不变。同一年重复执行无副作用。调度器启动时也执行一次，补齐跨年停机；尚未补齐时，结算仍沿用旧锚点，不会混用年份。读取旧锚点、整体折算及设置新锚点采用 `WATCH` / `MULTI` / `EXEC`，与结算写入并发时保持一致。
 
-`rebuild_tournament_current_score_cache` 从数据库按当年年初锚点重算并原子替换当前积分 zset 和锚点，不改其他 8 个排行或数据库；并发缓存写入触发重试，提交前仍可读旧榜。重算期间暂停积分结算和历史修正；`rebuild_tournament_user_cache` 清理并分批重建全部 9 个 zset 和锚点，期间暂停其他排行写入。非空当前积分 zset 缺少锚点时报错，显式重建，不做数据库 fallback。
+`rebuild_tournament_current_score_cache` 从数据库按当年年初锚点重算并原子替换当前积分 zset 和锚点，不改其他 14 个排行或数据库；并发缓存写入触发重试，提交前仍可读旧榜。重算期间暂停积分结算和历史修正；`rebuild_tournament_user_cache` 清理并分批重建全部 15 个 zset 和锚点，期间暂停其他排行写入。非空当前积分 zset 缺少锚点时报错，显式重建，不做数据库 fallback。
 
 每批排行缓存更新按字段汇总：每个 zset 最多执行一次多成员 `ZADD` 和一次多成员 `ZREM`，分别写入非默认分数与移除默认分数成员，不再为每个用户单独排入命令。缓存重建按 `batch_size` 分批读取。
 
-`ensure_tournament_users` 按本场 participant 的非空 `user_id` 去重并执行 `get_or_create`，不覆盖已有记录；默认积分为 0，GSC/竞速 best 为 `MAX_TOURNAMENT_BEST`、效率 best 为 NULL，因此补建本身不写入排行 zset。此步骤兼容早期只有 participant、尚无 `TournamentUser` 且未发放积分的历史数据，不负责恢复已丢失的历史积分。新 participant 仍由创建信号保证关联完整。效率赛 best 保存信号先检查 AWARDED，再读取汇总与定向子类，普通报名不重复查询或补建汇总；删除信号在汇总缺失时补建默认行，再重算剩余历史 best。GSC/竞速删除路径仍依赖任务入口补齐。每次任务会记录补建数量，无需额外管理命令。
+`ensure_tournament_users` 按本场 participant 的非空 `user_id` 去重并执行 `get_or_create`，不覆盖已有记录；默认积分为 0，GSC/竞速 best 为 `MAX_TOURNAMENT_BEST`、效率 best 为 NULL，因此补建本身不写入排行 zset。此步骤兼容早期只有 participant、尚无 `TournamentUser` 且未发放积分的历史数据，不负责恢复已丢失的历史积分。新 participant 仍由创建信号保证关联完整。竞速和效率赛 best 保存信号先检查 AWARDED，再读取汇总与定向子类，普通报名不重复查询或补建汇总；best 删除信号在汇总缺失时补建默认行，再重算剩余历史 best。GSC 删除路径仍依赖任务入口补齐。每次任务会记录补建数量，无需额外管理命令。
 
 `GSCParticipant.t37` 是数据库持久化 generated field，并建立 `gsc_t37_idx` 索引，服务于 GSC 排名和历史最好成绩查询。保存信号使用当前 participant 实例上的临时 `t37` 值进行 best 增量比较，因此不会为了读取 generated field 再查询一次 participant。
 
@@ -867,7 +869,7 @@ Redis 连接和读写异常记录日志，计算及数据库摘要不回滚，�
 | 自定义 pluck 排行 | `customranking.services.sync_video` 提交后增量更新或按需补位；批量状态变更显式调用 add/remove service | `manage.py rebuild_custom_pluck_cache` 从 `VideoModel` 直接选优重建；正常部署保留原有 Redis 数据，无需重建。 |
 | NORMAL 比赛 | `TournamentCache.update_tournament` | `manage.py rebuild_tournament_cache` 显式查询 `NORMAL` GSC、竞速及效率打卡赛并重建。 |
 | NORMAL 参赛关系 | `TournamentCache.update_participant` / `remove_participant` | `manage.py rebuild_tournament_cache` 按 `user_id` 分组重建。 |
-| 比赛积分排行 | `TournamentCache.update_tournament_user` / `update_tournament_users`；APScheduler 年度锚点更新 | `manage.py rebuild_tournament_user_cache` 重建全部 9 个 zset；`manage.py rebuild_tournament_current_score_cache` 原子重算当前积分 zset 和年度锚点。 |
+| 比赛积分排行 | `TournamentCache.update_tournament_user` / `update_tournament_users`；APScheduler 年度锚点更新 | `manage.py rebuild_tournament_user_cache` 重建全部 15 个 zset；`manage.py rebuild_tournament_current_score_cache` 原子重算当前积分 zset 和年度锚点。 |
 | common 摘要 | 对应 API 内部 `cache.set` | TTL 到期自动失效。 |
 | 勋章图鉴 | 静态代码规则 | 无目录缓存、数据库定义表或初始化写入；规则随代码发布。 |
 | 勋章状态 | 佩戴列表、佩戴中的公开授予或扫描状态改变后，提交时读取最新摘要写 `medal:display:v4:{user_id}` | 缺键按需批量回填展示，不扫描录像；摘要删除提交后删键。`manage.py enqueue_medal_backfill` 默认给未扫描玩家入队，使用 `--all` 时也包括已扫描玩家。 |

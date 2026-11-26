@@ -1,10 +1,10 @@
 <template>
     <PublicTournament :tournament="tournament" :participants="participants" :index="index" :loading="loading" :refresh-participants="refresh" :auto-uploader-enabled="store.canSubmitReplays" :auto-uploader-filter="matchesFilter">
         <template #description>
-            <Description />
+            <Description :tournament-format="format" />
         </template>
         <template #participationGuide>
-            <TokenGuide :token="participant?.token ?? ''" :participant="participant" :registration-open="state === TournamentState.Ongoing" :tournament-id="tournament.id" @registered="registered(new WeeklyParticipant($event))" />
+            <TokenGuide :token="participant?.token ?? ''" :participant="participant" :registration-open="state === TournamentState.Ongoing" :tournament-id="tournament.id" :register="registerParticipant" @registered="registered" />
         </template>
         <template #autoUploaderFilter>
             <select v-model="filterLevel" class="base-select base-select--small" style="width: 250px" :aria-label="t('filter')">
@@ -43,27 +43,32 @@ import PersonalSummary from './PersonalSummary.vue';
 import Registered from './Registered.vue';
 import TokenGuide from './TokenGuide.vue';
 
-import { fetchWeeklyResults } from '@/services/tournamentService';
+import { createWeeklyParticipant, fetchWeeklyResults } from '@/services/tournamentService';
 import { store } from '@/store';
 import { LoginStatus } from '@/utils/common/structInterface';
-import { MS_Mode, TournamentState } from '@/utils/ms_const';
+import { TournamentState } from '@/utils/ms_const';
 import { Tournament } from '@/utils/tournaments';
 import { WeeklyParticipant, WeeklyTournamentFormat } from '@/utils/weekly';
+import { matchesWeeklyFormat } from '@/utils/weeklyFormat';
 
 const props = defineProps({ tournament: { type: Tournament, required: true } });
-const { participants, index, participant, loading, state, refresh, registered, deleted } = useParticipants(() => props.tournament, (item) => new WeeklyParticipant(item), fetchWeeklyResults);
 const format = computed(() => props.tournament.weeklyData?.tournament_format ?? WeeklyTournamentFormat.Classic);
+const { participants, index, participant, loading, state, refresh, registered, deleted } = useParticipants(() => props.tournament, (item) => new WeeklyParticipant(Object.assign({}, item, { tournament_format: format.value })), (id) => fetchWeeklyResults(id, format.value));
 const canManage = computed(() => state.value === TournamentState.Ongoing && store.login_status === LoginStatus.IsLogin && (store.user.is_staff || store.user.id === props.tournament.hostId));
 const canDisqualify = computed(() => store.login_status === LoginStatus.IsLogin && store.user.id === props.tournament.hostId);
 
 const filterLevel = ref('supported');
+
+function registerParticipant(id: number) {
+    return createWeeklyParticipant(id, format.value);
+}
 
 function matchesFilter(video: AutoUploadVideo): boolean {
     if (participant.value === null) return false;
     if (video.stat.software === 'a' || !participant.value.token) return false;
     if (!video.tokens.includes(participant.value.token)) return false;
     if (filterLevel.value === 'tournament') return true;
-    if (format.value !== WeeklyTournamentFormat.Classic || video.stat.mode !== MS_Mode.Standard) return false;
+    if (!matchesWeeklyFormat(video.stat, format.value)) return false;
     if (video.stat.level !== 'i' && video.stat.level !== 'e') return false;
     if (filterLevel.value === 'supported') return true;
     return video.stat.timems < (video.stat.level === 'i' ? participant.value.classic_it[4][1] : participant.value.classic_et[1][1]);

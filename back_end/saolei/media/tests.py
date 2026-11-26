@@ -142,7 +142,7 @@ class MediaModelDefinitionTests(SimpleTestCase):
         self.assertEqual(indexes['media_user_likes_idx'], ['user', '-likes'])
         self.assertEqual(indexes['media_user_created_idx'], ['user', '-created_at'])
         self.assertEqual(indexes['media_title_idx'], ['title'])
-        self.assertEqual(indexes['media_latest_idx'], ['status', '-created_at', '-id'])
+        self.assertEqual(indexes['media_latest_idx'], ['-created_at', '-id'])
         media_constraints = {constraint.name: list(constraint.fields) for constraint in Media._meta.constraints}
         self.assertEqual(media_constraints['media_format_suffix_unique'], ['format', 'suffix'])
         likes_constraints = {constraint.name: list(constraint.fields) for constraint in MediaLikes._meta.constraints}

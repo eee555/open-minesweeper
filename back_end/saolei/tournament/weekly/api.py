@@ -24,7 +24,7 @@ router = Router()
 
 
 class NewWeeklyTournamentIn(Schema):
-    tournament_format: str = Tournament_TextChoices.WeeklyFormat.CLASSIC
+    tournament_format: Tournament_TextChoices.WeeklyFormat = Tournament_TextChoices.WeeklyFormat.CLASSIC
 
 
 class WeeklySetIn(IdIn):

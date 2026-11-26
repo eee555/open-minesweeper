@@ -2,7 +2,7 @@ import $axios from '@/http';
 
 export const tpeLevels = ['i', 'e'] as const;
 export const tpeGroups = [...tpeLevels, 'sum'] as const;
-const tpeSuffixes = ['', '2', '3'] as const;
+export const tpeSuffixes = ['', '2', '3'] as const;
 export const tpeColumns = tpeGroups.flatMap((level) => tpeSuffixes.map((suffix) => ({ stat: `${level}${suffix}` as const, level, metric: `TPE${suffix}` })));
 export const tpeStats = tpeColumns.map((column) => column.stat);
 export type TPEStat = typeof tpeStats[number];

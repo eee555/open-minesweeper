@@ -3,7 +3,7 @@
 from django.db import DatabaseError, transaction
 from django.http import HttpRequest
 from django_ratelimit.decorators import ratelimit
-from ninja import Router
+from ninja import Query, Router
 from ninja.decorators import decorate_view
 from ninja.errors import HttpError
 from ninja.security import django_auth_superuser
@@ -15,11 +15,11 @@ from . import cache, clients, services
 from .decorators import media_banned_blocked
 from .models import Media
 from .schema import (
-    BanIn, DeletedOut, EditIn, IdIn, LikeIn, LikeOut, MEDIA_QUERY_LIMIT, MediaOut, MediaPageOut,
+    BanIn, DeletedOut, EditIn, IdIn, LikeIn, LikeOut, MEDIA_QUERY_LIMIT, MediaCursorPageOut, MediaOut, MediaPageOut,
     MediaQueryError, MediaQueryOut, MeOut, RejectIn, SubmitIn, UserRankingPageOut, VerifyIn,
 )
 from .utils import (
-    format_to_platform, MediaFormat, MediaStatus, normalize_external_author_id, normalize_language, parse_media_url,
+    default_media_language, format_to_platform, MediaFormat, MediaStatus, normalize_external_author_id, normalize_language, parse_media_url,
 )
 
 router = Router()
@@ -45,13 +45,8 @@ def _page_bounds(start, count, maximum=MEDIA_PAGE_MAX_COUNT):
 
 
 def _media_page(items, total, start):
-    """作品页的 anchor 是 DB 的 T_db：作品 zset 只提供排序索引，字段一律以 DB 为准。"""
+    """数据库作品分页，anchor 是 DB 的 T_db。"""
     return {'items': list(items), 'total': total, 'start': start, 'anchor': cache.read_db_hot_reference()}
-
-
-def _ranked_media(media_ids):
-    rows = Media.objects.filter(pk__in=media_ids, status=MediaStatus.VERIFIED).in_bulk()
-    return [rows[media_id] for media_id in media_ids if media_id in rows]
 
 
 def _parse_media_ids(value):
@@ -73,20 +68,21 @@ def _page_queryset(queryset, start, count):
     return list(queryset[start:start + count]), total
 
 
-@router.get('/ranking', response=MediaPageOut)
-@decorate_view(ratelimit(key='ip', rate='5/s', group='media-ranking'))
-def get_ranking(request, sort: str = 'hot', start: int = 0, count: int = 20):
+@router.get('/works', response=MediaCursorPageOut)
+@decorate_view(ratelimit(key='ip', rate='5/s', group='media-works', block=True))
+def get_works(request, sort: str = 'hot', limit: int = 20, cursor: str | None = None,
+              media_format: str = Query('', alias='format'), language: str = ''):  # noqa: B008
     """
-    - ratelimit(key='ip', rate='5/s', group='media-ranking')
+    - ratelimit(key='ip', rate='5/s', group='media-works', block=True)
 
-    热门 / 精品 tab：两个作品 zset 分页，只返回 status='verified' 的作品。
+    公开已审核作品，MySQL 数值游标分页；不查询总数，不支持位置分页。
     """
-    if sort not in ('hot', 'likes'):
-        raise HttpError(400, 'Unknown media ranking sort.')
-    start, count = _page_bounds(start, count)
-    key = cache.MEDIA_RANK_HOT if sort == 'hot' else cache.MEDIA_RANK_LIKES
-    media_ids, total = cache.get_ranking(key, start, count)
-    return _media_page(_ranked_media(media_ids), total, start)
+    if request.GET.keys() - {'sort', 'limit', 'cursor', 'format', 'language'}:
+        raise HttpError(400, 'unsupported_query_parameter')
+    return _service(
+        services.list_works, Media.objects.filter(status=MediaStatus.VERIFIED), sort=sort, limit=limit,
+        cursor=cursor, media_format=media_format, language=language,
+    )
 
 
 @router.get('/user-ranking', response=UserRankingPageOut)
@@ -221,7 +217,7 @@ def submit_media(request, data: SubmitIn):
         parsed_format, suffix = parse_media_url(data.suffix, media_format)
         if parsed_format != media_format:
             raise ValueError('Media format does not match the suffix')
-        language = normalize_language(data.language)
+        language = normalize_language(data.language) or default_media_language(media_format)
     except ValueError as exc:
         raise HttpError(400, str(exc)) from exc
     identifiers = {
@@ -398,6 +394,6 @@ def delete_media_admin(request: HttpRequest, data: IdIn):
     """
     - auth=django_auth_superuser (Django session, superuser only, CSRF required)
 
-    站长硬删除已通过作品：退还红宝石、写快照日志并回退四个 zset。
+    站长硬删除已通过作品：退还红宝石、写快照日志并更新作者榜。
     """
     return {'deleted': _service(services.hard_delete_media, data.id, request.auth.pk)}

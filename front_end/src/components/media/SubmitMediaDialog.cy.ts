@@ -25,6 +25,25 @@ const submitted = {
 };
 
 describe('<SubmitMediaDialog />', () => {
+    it('changes platform defaults and preserves an explicit language choice', () => {
+        cy.mount(SubmitMediaDialog, { global: { plugins: [i18n], config: { globalProperties: { $axios } } } });
+        cy.get('[data-cy=submit-language]').should('contain.text', '简体中文');
+        cy.get('[data-cy=submit-format]').select('g_r');
+        cy.get('[data-cy=submit-language]').should('contain.text', 'English').click();
+        cy.get('.el-select-dropdown:visible').contains('.el-select-dropdown__item', 'Español').click();
+        cy.get('[data-cy=submit-format]').select('c_p');
+        cy.get('[data-cy=submit-language]').should('contain.text', 'Español');
+    });
+
+    it('submits a custom language', () => {
+        cy.intercept('POST', '/api/media/submit', { body: { ...submitted, language: 'Klingon' } }).as('customSubmit');
+        cy.mount(SubmitMediaDialog, { global: { plugins: [i18n], config: { globalProperties: { $axios } } } });
+        cy.get('[data-cy=submit-suffix]').type('BV1xx411c7mD');
+        cy.get('[data-cy=submit-language] input').type('Klingon{enter}');
+        cy.get('form button[type=submit]').click();
+        cy.wait('@customSubmit').its('request.body.language').should('equal', 'Klingon');
+    });
+
     it('offers GitHub repositories with a locator and no degraded-submission promise', () => {
         cy.intercept('POST', '/api/media/submit', { body: { ...submitted, format: 'g_r', suffix: '1296269', metadata_pending: false } }).as('githubSubmit');
         cy.mount(SubmitMediaDialog, { global: { plugins: [i18n], config: { globalProperties: { $axios } } } });
@@ -32,7 +51,7 @@ describe('<SubmitMediaDialog />', () => {
         cy.get('[data-cy=submit-suffix]').should('have.attr', 'placeholder', 'OWNER/REPO').type('owner/project');
         cy.contains('Only your public, non-fork personal repositories are accepted').should('exist');
         cy.get('form button[type=submit]').click();
-        cy.wait('@githubSubmit').its('request.body').should('deep.equal', { format: 'g_r', suffix: 'owner/project', language: '' });
+        cy.wait('@githubSubmit').its('request.body').should('deep.equal', { format: 'g_r', suffix: 'owner/project', language: 'en' });
     });
 
     it('posts the selected format, suffix and free-text language', () => {
@@ -46,7 +65,7 @@ describe('<SubmitMediaDialog />', () => {
         });
         cy.get('form [data-cy=submit-format]').should('have.value', 'B_v');
         cy.get('form [data-cy=submit-suffix]').type('BV1xx411c7mD');
-        cy.get('form [data-cy=submit-language]').type('zh-cn');
+        cy.get('form [data-cy=submit-language]').should('contain.text', '简体中文');
         cy.get('form button[type=submit]').click();
         cy.wait('@submit').its('request.body').should('deep.equal', {
             format: 'B_v',

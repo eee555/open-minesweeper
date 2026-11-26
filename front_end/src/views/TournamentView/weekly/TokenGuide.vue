@@ -43,7 +43,7 @@
     </span>
 </template>
 
-<script setup lang="ts">
+<script setup lang="ts" generic="TParticipant extends TournamentParticipant">
 import '@/styles/link.css';
 import { ElDialog } from 'element-plus';
 import { ref } from 'vue';
@@ -54,7 +54,6 @@ import BaseButton from '@/components/common/BaseButton.vue';
 import BaseButtonConfirm from '@/components/common/BaseButtonConfirm.vue';
 import { actionSuccessNotification, httpErrorNotification } from '@/components/Notifications';
 import IconCopy from '@/components/widgets/IconCopy.vue';
-import { createWeeklyParticipant } from '@/services/tournamentService';
 import { store } from '@/store';
 import { toDate, toISODateTimeString } from '@/utils/datetime';
 import { getDocsUrl } from '@/utils/docs';
@@ -63,14 +62,14 @@ import type { TournamentParticipant } from '@/utils/tournaments';
 const props = defineProps({
     tournamentId: { type: Number, required: true },
     registrationOpen: { type: Boolean },
-    register: { type: Function as PropType<(id: number) => Promise<TournamentParticipant>>, default: createWeeklyParticipant },
+    register: { type: Function as PropType<(id: number) => Promise<TParticipant>>, required: true },
     participant: {
-        type: Object as () => TournamentParticipant | null,
+        type: Object as PropType<TParticipant | null>,
         default: null,
     },
 });
 const emit = defineEmits<{
-    registered: [participant: TournamentParticipant];
+    registered: [participant: TParticipant];
 }>();
 
 const token = defineModel('token', { type: String, default: '' });

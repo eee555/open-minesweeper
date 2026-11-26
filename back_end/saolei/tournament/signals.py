@@ -4,6 +4,7 @@ from django.dispatch import receiver
 from django.utils import timezone
 
 from config.text_choices import MS_TextChoices, Tournament_TextChoices
+from tournament.weekly.utils import WEEKLY_SCORE_CATEGORIES
 from videomanager.models import VideoModel
 from .cache import TournamentCache
 from .models import GSCParticipant, GSCTournament, Tournament, TournamentParticipant, TournamentUser, WeeklyEffParticipant, WeeklyEffTournament, WeeklyParticipant, WeeklyTournament
@@ -114,8 +115,8 @@ def revoke_rank_score_on_participant_delete(sender, instance: TournamentParticip
         category = 'weekly_eff'
         fields.append('weekly_eff_total')
     else:
-        category = 'weekly_classic'
-        fields.extend(['weekly_total', 'weekly_classic_total'])
+        category = WEEKLY_SCORE_CATEGORIES[tournament.select_subclass().tournament_format]
+        fields.extend(['weekly_total', f'{category}_total'])
 
     tournament_user = TournamentUser.objects.select_for_update().get(user_id=instance.user_id)
     # 以原比赛结束时间撤回积分，由 add_score 将负差额衰减到用户现有时间基准。

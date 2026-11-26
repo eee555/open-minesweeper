@@ -19,7 +19,7 @@
             </label>
             <label class="media-form-row">
                 <span>{{ t('local.language') }}</span>
-                <input v-model="language" class="media-input" type="text" maxlength="32" data-cy="submit-language">
+                <MediaLanguageInput v-model="language" class="media-language" data-cy="submit-language" @change="onLanguageChanged" />
             </label>
             <p class="text-secondary text-small">
                 {{ t(format === 'g_r' ? 'local.githubHint' : 'local.hint') }}
@@ -33,13 +33,15 @@
 
 <script setup lang="ts">
 import { ElDialog } from 'element-plus';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import BaseButton from '@/components/common/BaseButton.vue';
+import MediaLanguageInput from '@/components/media/MediaLanguageInput.vue';
 import { httpErrorNotification } from '@/components/Notifications';
 import { submitMedia } from '@/services/mediaService';
 import type { MediaFormatValue, MediaItem } from '@/services/mediaService';
+import { defaultMediaLanguage, normalizeMediaLanguage } from '@/utils/media';
 
 const emit = defineEmits<{ close: []; submitted: [media: MediaItem] }>();
 
@@ -52,15 +54,25 @@ const FORMAT_PLACEHOLDERS: Record<MediaFormatValue, string> = {
 
 const format = ref<MediaFormatValue>('B_v');
 const suffix = ref('');
-const language = ref('');
+const language = ref<string>(defaultMediaLanguage(format.value));
+const languageEdited = ref(false);
 const submitting = ref(false);
 const suffixPlaceholder = computed(() => FORMAT_PLACEHOLDERS[format.value]);
+
+watch(format, (value) => {
+    if (!languageEdited.value) language.value = defaultMediaLanguage(value);
+});
+
+function onLanguageChanged(): void {
+    languageEdited.value = language.value.trim() !== '';
+    if (!languageEdited.value) language.value = defaultMediaLanguage(format.value);
+}
 
 async function onSubmit(): Promise<void> {
     if (submitting.value) return;
     submitting.value = true;
     try {
-        const media = await submitMedia(format.value, suffix.value.trim(), language.value);
+        const media = await submitMedia(format.value, suffix.value.trim(), normalizeMediaLanguage(language.value));
         emit('submitted', media);
     } catch (error) {
         httpErrorNotification(error);
@@ -79,7 +91,7 @@ const i18nMessages = {
         formatGr: 'GitHub 仓库',
         githubHint: '须先关联本人 GitHub 账号；只接受个人公开非 fork 仓库。获取失败时请稍后重试。',
         suffix: '作品标识',
-        language: '语言（自由填写）',
+        language: '语言（可选择或自填）',
         hint: '标题与发表时间由来源网站自动获取，无法获取时由管理员在审核时补全。',
         submitAction: '提交',
     } },
@@ -92,7 +104,7 @@ const i18nMessages = {
         formatGr: 'GitHub repository',
         githubHint: 'Link your GitHub account first. Only your public, non-fork personal repositories are accepted. Retry later if fetching fails.',
         suffix: 'Work ID',
-        language: 'Language (free text)',
+        language: 'Language (choose or type)',
         hint: 'Title and publish time are fetched from the source site; a moderator fills them in if unavailable.',
         submitAction: 'Submit',
     } },
@@ -105,7 +117,7 @@ const i18nMessages = {
         formatGr: 'Repositorio de GitHub',
         githubHint: 'Vincula primero tu cuenta de GitHub. Solo se admiten tus repositorios personales públicos que no sean bifurcaciones. Si no se pueden recuperar, inténtalo más tarde.',
         suffix: 'ID de la obra',
-        language: 'Idioma (texto libre)',
+        language: 'Idioma (elige o escribe)',
         hint: 'El título y la fecha de publicación se obtienen del sitio de origen. Si no están disponibles, un moderador los completará.',
         submitAction: 'Enviar',
     } },
@@ -140,6 +152,11 @@ const { t } = useI18n({ messages: i18nMessages });
     background: var(--ui-bg-color);
     color: var(--ui-text-color-regular);
     font: inherit;
+}
+
+.media-language {
+    flex: 1 1 240px;
+    min-width: 0;
 }
 
 .media-input:focus-visible {

@@ -1,3 +1,5 @@
+import { defineComponent, h } from 'vue';
+
 import MediaListPanel from './MediaListPanel.vue';
 
 import $axios from '@/http';
@@ -29,9 +31,8 @@ const mediaItem = {
 
 const pageBody = {
     items: [mediaItem],
-    total: 1,
-    start: 0,
-    anchor: new Date().toISOString(),
+    has_more: false,
+    next_cursor: null,
 };
 
 describe('<MediaListPanel />', () => {
@@ -40,8 +41,7 @@ describe('<MediaListPanel />', () => {
     beforeEach(() => {
         resetGitHubRepositoryCache();
         cy.mockPlayerNameFallback();
-        cy.intercept({ method: 'GET', pathname: '/api/media/ranking' }, { body: pageBody }).as('ranking');
-        cy.intercept({ method: 'GET', pathname: '/api/media/latest' }, { body: pageBody }).as('latest');
+        cy.intercept({ method: 'GET', pathname: '/api/media/works' }, { body: pageBody }).as('ranking');
         cy.intercept({ method: 'GET', pathname: '/api/media/me' }, {
             body: { balance: 5, likes_sent: 0, banned: true, daily_likes_used: 3 },
         }).as('me');
@@ -50,11 +50,70 @@ describe('<MediaListPanel />', () => {
     function mountPanel() {
         const router = hashRouter({ initialPath: '/works' });
         cy.wrap(router.isReady()).then(() => {
-            cy.mount(MediaListPanel, {
+            const ScrollPanel = defineComponent({ expose: [], render: () => h('main', { class: 'common-layout', style: { height: '220px', overflow: 'auto' } }, [h(MediaListPanel)]) });
+            cy.mount(ScrollPanel, {
                 global: { plugins: [i18n, router], config: { globalProperties: { $axios } } },
             });
         });
     }
+
+    const firstBatch = Array.from({ length: 12 }, (_, index) => ({ ...mediaItem, id: index + 7 }));
+
+    it('loads the next cursor at the bottom and deduplicates dynamic results', () => {
+        cy.intercept({ method: 'GET', pathname: '/api/media/works' }, (request) => {
+            request.reply({ body: request.query.cursor !== undefined
+                ? { ...pageBody, items: [firstBatch[11], { ...mediaItem, id: 99 }] }
+                : { ...pageBody, items: firstBatch, has_more: true, next_cursor: 'next-batch' } });
+        }).as('pages');
+        mountPanel();
+        cy.wait('@pages');
+        cy.get('.base-table tbody tr').should('have.length', 12);
+        cy.get('main.common-layout').scrollTo('bottom');
+        cy.wait('@pages').its('request.query').should('include', { cursor: 'next-batch' }).and('not.have.property', 'start');
+        cy.get('.base-table tbody tr').should('have.length', 13);
+        cy.get('[data-cy=works-end]').should('exist');
+        cy.get('.el-pagination').should('not.exist');
+    });
+
+    it('keeps loaded rows and retries the same cursor after a failed append', () => {
+        let attempts = 0;
+        cy.intercept({ method: 'GET', pathname: '/api/media/works' }, (request) => {
+            if (request.query.cursor === undefined) request.reply({ body: { ...pageBody, items: firstBatch, has_more: true, next_cursor: 'retry-cursor' } });
+            else if (++attempts === 1) request.reply({ statusCode: 500 });
+            else request.reply({ body: { ...pageBody, items: [{ ...mediaItem, id: 99 }] } });
+        }).as('pages');
+        mountPanel();
+        cy.wait('@pages');
+        cy.get('main.common-layout').scrollTo('bottom');
+        cy.wait('@pages');
+        cy.get('.base-table tbody tr').should('have.length', 12);
+        cy.get('[data-cy=works-retry]').click();
+        cy.wait('@pages').its('request.query.cursor').should('equal', 'retry-cursor');
+        cy.get('.base-table tbody tr').should('have.length', 13);
+    });
+
+    it('applies type and language together and restarts the cursor when sorting', () => {
+        cy.intercept({ method: 'GET', pathname: '/api/media/works' }, { body: pageBody }).as('filtered');
+        mountPanel();
+        cy.wait('@filtered');
+        cy.get('[data-cy=works-format]').select('B_a');
+        cy.get('[data-cy=works-language]').click();
+        cy.get('.el-select-dropdown:visible .el-select-dropdown__item').should('have.length', 4);
+        cy.get('.el-select-dropdown:visible').contains('.el-select-dropdown__item', 'Español').click();
+        cy.get('[data-cy=works-apply-filters]').click();
+        cy.wait('@filtered').its('request.query').should('include', { format: 'B_a', language: 'es', sort: 'hot' }).and('not.have.property', 'cursor');
+        cy.get('[data-sort=latest]').click();
+        cy.wait('@filtered').its('request.query').should('include', { format: 'B_a', language: 'es', sort: 'latest' }).and('not.have.property', 'cursor');
+        cy.get('[data-cy=works-language]').click();
+        cy.get('.el-select-dropdown:visible').contains('.el-select-dropdown__item', 'Other').click();
+        cy.get('[data-cy=works-apply-filters]').click();
+        cy.wait('@filtered').its('request.query').should('include', { format: 'B_a', language: 'other', sort: 'latest' }).and('not.have.property', 'cursor');
+        cy.get('[data-cy=works-clear-filters]').click();
+        cy.wait('@filtered').then(({ request }) => {
+            expect(request.query).not.to.have.property('format');
+            expect(request.query).not.to.have.property('language');
+        });
+    });
 
     it('renders the five columns and keeps feeding enabled when only submissions are banned', () => {
         mountPanel();
@@ -72,8 +131,8 @@ describe('<MediaListPanel />', () => {
 
     it('shows the platform icon matching the media format', () => {
         const saoleiWork = { ...mediaItem, id: 9, format: 'c_p', title: 'Saolei post', suffix: '9786' };
-        cy.intercept({ method: 'GET', pathname: '/api/media/ranking' }, {
-            body: { ...pageBody, items: [mediaItem, saoleiWork], total: 2 },
+        cy.intercept({ method: 'GET', pathname: '/api/media/works' }, {
+            body: { ...pageBody, items: [mediaItem, saoleiWork] },
         });
         mountPanel();
         cy.get('[data-cy=media-row-7] [data-cy=media-platform-icon]').should('have.attr', 'src', 'https://www.bilibili.com/favicon.ico');
@@ -83,8 +142,8 @@ describe('<MediaListPanel />', () => {
 
     it('renders the GitHub icon as a theme-following mask', () => {
         const githubWork = { ...mediaItem, id: 10, format: 'g_r', title: 'GitHub repo', suffix: 'owner/repo' };
-        cy.intercept({ method: 'GET', pathname: '/api/media/ranking' }, {
-            body: { ...pageBody, items: [githubWork], total: 1 },
+        cy.intercept({ method: 'GET', pathname: '/api/media/works' }, {
+            body: { ...pageBody, items: [githubWork] },
         });
         mountPanel();
         cy.get('[data-cy=media-row-10] [data-cy=media-platform-icon]').
@@ -99,8 +158,8 @@ describe('<MediaListPanel />', () => {
         cy.intercept('GET', 'https://api.github.com/repositories/42', {
             body: { id: 42, full_name: 'owner/project', description: 'Minesweeper client', html_url: 'https://github.com/owner/project' },
         }).as('repository');
-        cy.intercept({ method: 'GET', pathname: '/api/media/ranking' }, {
-            body: { ...pageBody, items: [githubWork], total: 1 },
+        cy.intercept({ method: 'GET', pathname: '/api/media/works' }, {
+            body: { ...pageBody, items: [githubWork] },
         });
         mountPanel();
         cy.wait('@repository');
@@ -114,7 +173,7 @@ describe('<MediaListPanel />', () => {
         mountPanel();
         cy.wait('@ranking').its('request.query.sort').should('eq', 'hot');
         cy.get('[data-sort=latest]').click();
-        cy.wait('@latest');
+        cy.wait('@ranking').its('request.query.sort').should('eq', 'latest');
         cy.get('[data-sort=latest]').should('have.attr', 'aria-pressed', 'true');
         cy.get('[data-sort=likes]').click();
         cy.wait('@ranking').its('request.query.sort').should('eq', 'likes');
@@ -130,8 +189,8 @@ describe('<MediaListPanel />', () => {
             format: 'B_v',
             suffix: 'BV1xx411c7mD',
         };
-        cy.intercept({ method: 'GET', pathname: '/api/media/ranking' }, {
-            body: { ...pageBody, items: [mediaItem, embeddable], total: 2 },
+        cy.intercept({ method: 'GET', pathname: '/api/media/works' }, {
+            body: { ...pageBody, items: [mediaItem, embeddable] },
         });
         mountPanel();
         cy.get('[data-cy=media-row-7] [data-cy=media-title-link]').should('have.attr', 'href', 'https://www.bilibili.com/read/cv1646742');

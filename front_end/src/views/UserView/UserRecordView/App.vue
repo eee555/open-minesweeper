@@ -1,17 +1,22 @@
 <template>
-    <div class="user-record-view">
-        <SaoleiCard :user-id="store.player.id" />
-        <StrictNgCard :user-id="store.player.id" />
-        <ThrpCard :user-id="store.player.id" />
-        <TPECard :user-id="store.player.id" />
-        <PathCard :user-id="store.player.id" />
-        <ElSkeleton v-show="loading" animated style="margin-top: 0px;" :rows="8" />
-        <PLuckCard :records="pluckRecords" />
-    </div>
+    <MasonryLayout class="user-record-view" :minimum-column-width="400">
+        <div data-record-item="saolei">
+            <SaoleiCard :user-id="store.player.id" />
+        </div>
+        <div data-record-item="strict-ng">
+            <StrictNgCard :user-id="store.player.id" />
+        </div>
+        <div data-record-item="path">
+            <PathCard :user-id="store.player.id" />
+        </div>
+        <div v-loading="loading" data-record-item="pluck">
+            <PLuckCard :records="pluckRecords" />
+        </div>
+    </MasonryLayout>
 </template>
 
 <script lang="ts" setup>
-import { ElMessage, ElSkeleton } from 'element-plus';
+import { ElMessage, vLoading } from 'element-plus';
 import { nextTick, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -19,9 +24,8 @@ import PathCard from './PathCard.vue';
 import PLuckCard from './PLuckCard.vue';
 import SaoleiCard from './SaoleiCard.vue';
 import StrictNgCard from './StrictNgCard.vue';
-import ThrpCard from './ThrpCard.vue';
-import TPECard from './TPECard.vue';
 
+import MasonryLayout from '@/components/common/MasonryLayout.vue';
 import type { CustomPluckRecord } from '@/services/msuserService';
 import { fetchCustomPluckPlayerRecords } from '@/services/msuserService';
 import { store } from '@/store';
@@ -57,8 +61,7 @@ void nextTick(() => {
 
 <style scoped>
 .user-record-view {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+    --ui-table-cell-padding-block: 4px;
+    --ui-table-cell-padding-inline: 6px;
 }
 </style>

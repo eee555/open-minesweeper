@@ -6,7 +6,7 @@
             </p>
         </template>
         <template #participationGuide>
-            <TokenGuide :token="participant?.token ?? ''" :participant="participant" :registration-open="state === TournamentState.Ongoing" :tournament-id="tournament.id" :register="createWeeklyEffParticipant" @registered="registered(new WeeklyEffParticipant($event))" />
+            <TokenGuide :token="participant?.token ?? ''" :participant="participant" :registration-open="state === TournamentState.Ongoing" :tournament-id="tournament.id" :register="createWeeklyEffParticipant" @registered="registered" />
         </template>
         <template #autoUploaderFilter>
             <select v-model="filterLevel" class="base-select base-select--small" :aria-label="t('filter')">

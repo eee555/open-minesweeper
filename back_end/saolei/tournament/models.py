@@ -19,6 +19,7 @@ from tournament.utils import (
     MAX_TOURNAMENT_BEST,
     tournament_score_decay_factor,
 )
+from tournament.weekly.utils import WEEKLY_FORMAT_NAMES, WEEKLY_SCORE_CATEGORIES
 from tournament.weekly_eff.utils import default_weekly_eff_et, default_weekly_eff_it, WEEKLY_EFF_DEFAULT_SCORE
 from userprofile.models import UserProfile
 from videomanager.models import VideoModel
@@ -175,9 +176,11 @@ class WeeklyTournament(Tournament):
 
     @property
     def name(self):
+        prefix = WEEKLY_FORMAT_NAMES[self.tournament_format]
         return {
-            'zh': f'{self.year}年第{self.week}周竞速打卡赛',
-            'en': f'Speed Weekly {self.year}#{self.week}',
+            'zh': f'{prefix["zh"]}竞速打卡赛 {self.year}年第{self.week}周',
+            'en': f'{prefix["en"]} Speed Weekly {self.year}#{self.week}',
+            'es': f'{prefix["es"]} Velocidad Semanal {self.year}#{self.week}',
         }
 
     @property
@@ -194,8 +197,7 @@ class WeeklyTournament(Tournament):
 
     @property
     def order_by(self):
-        if self.tournament_format == Tournament_TextChoices.WeeklyFormat.CLASSIC:
-            return 'classic_score'
+        return 'classic_score'
 
 
 class WeeklyEffTournament(Tournament):
@@ -342,12 +344,18 @@ class TournamentUser(models.Model):
     weekly_total = models.PositiveIntegerField(default=0)  # 历史周赛总积分
     weekly_classic_total = models.PositiveIntegerField(default=0)  # 历史周赛经典模式总积分
     weekly_classic_best = models.PositiveBigIntegerField(default=MAX_TOURNAMENT_BEST)  # 历史周赛经典模式最好成绩及届数（后五位）
+    weekly_nf_total = models.PositiveIntegerField(default=0)
+    weekly_nf_best = models.PositiveBigIntegerField(default=MAX_TOURNAMENT_BEST)
+    weekly_qwc_total = models.PositiveIntegerField(default=0)
+    weekly_qwc_best = models.PositiveBigIntegerField(default=MAX_TOURNAMENT_BEST)
+    weekly_qwc_nf_total = models.PositiveIntegerField(default=0)
+    weekly_qwc_nf_best = models.PositiveBigIntegerField(default=MAX_TOURNAMENT_BEST)
     weekly_eff_total = models.PositiveIntegerField(default=0)
     weekly_eff_best = models.FloatField(null=True, default=None)
     weekly_eff_best_year = models.PositiveSmallIntegerField(null=True, default=None)
     weekly_eff_best_week = models.PositiveSmallIntegerField(null=True, default=None)
 
-    def add_score(self, score: float | int, updated=None, *, category: Literal['gsc', 'weekly_classic', 'weekly_eff']):
+    def add_score(self, score: float | int, updated=None, *, category: Literal['gsc', 'weekly_classic', 'weekly_nf', 'weekly_qwc', 'weekly_qwc_nf', 'weekly_eff']):
         # score 是本场新旧积分的差额，历史成绩变差时也可能为负数。
         updated = updated or timezone.now()
         if self.score_current == 0 and self.score_total == 0:
@@ -365,8 +373,9 @@ class TournamentUser(models.Model):
         self.score_total += score
         if category == 'gsc':
             self.gsc_total += score
-        elif category == 'weekly_classic':
-            self.weekly_classic_total += score
+        elif category in WEEKLY_SCORE_CATEGORIES.values():
+            field = f'{category}_total'
+            setattr(self, field, getattr(self, field) + score)
             self.weekly_total += score
         elif category == 'weekly_eff':
             self.weekly_eff_total += score

@@ -1,11 +1,9 @@
 <template>
-    <BaseCardNormal>
+    <section class="pluck-record">
         <BaseTable table-class="pluck-record-table record-table">
             <template #head>
                 <tr>
-                    <th class="text text-large" scope="col">
-                        {{ t('local.pluckRecord') }}
-                    </th>
+                    <th scope="col" />
                     <th class="text text-info" scope="col">
                         {{ t('prop.pluck') }}
                     </th>
@@ -22,7 +20,7 @@
                 </td>
             </tr>
         </BaseTable>
-    </BaseCardNormal>
+    </section>
 </template>
 
 <script lang="ts" setup>
@@ -30,7 +28,6 @@ import type { PropType } from 'vue';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 
-import BaseCardNormal from '@/components/common/BaseCardNormal.vue';
 import BaseTable from '@/components/common/BaseTable.vue';
 import VideoPreviewLink from '@/components/VideoPreviewLink.vue';
 import { DensityCustomLevelConfigs } from '@/utils/customlevel';
@@ -49,17 +46,7 @@ const props = defineProps({
     },
 });
 
-const { t } = useI18n({ messages: {
-    'zh-cn': { local: {
-        pluckRecord: '自定义密度',
-    } },
-    en: { local: {
-        pluckRecord: 'Density',
-    } },
-    es: { local: {
-        pluckRecord: 'Densidad',
-    } },
-} });
+const { t } = useI18n();
 
 const recordByLevel = computed(() => new Map(
     props.records.map((record) => [record.level, record]),
@@ -75,17 +62,12 @@ function customLevelLabel(customLevel: CustomLevel): string {
 </script>
 
 <style scoped>
-:deep(.record-table) {
-    width: 100%;
-    table-layout: auto;
+.pluck-record {
+    min-width: 0;
 }
 
 :deep(.record-table th),
 :deep(.record-table td) {
-    box-sizing: border-box;
-    border: 0;
-    border-bottom: 1px solid var(--ui-table-border-color, var(--ui-border-color-lighter));
-    padding: 8px 12px;
     text-align: center;
 }
 

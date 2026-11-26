@@ -23,7 +23,7 @@
 | `/ranking/density` | `level`：四种密度配置的 code | `c8_8_40` |
 | `/ranking/tournament/overall` | `sort`：`score_current/score_total/gsc_total/weekly_total/weekly_eff_total` | `score_current` |
 | `/ranking/tournament/gsc` | `sort`：`gsc_total/gsc_best` | `gsc_total` |
-| `/ranking/tournament/weekly` | `sort`：`weekly_total/weekly_classic_best` | `weekly_total` |
+| `/ranking/tournament/weekly` | `sort`：`weekly_total` 或 `weekly_{classic,nf,qwc,qwc_nf}_{total,best}`，共 9 种 | `weekly_total` |
 | `/ranking/tournament/weekly-eff` | `sort`：`weekly_eff_total/weekly_eff_best` | `weekly_eff_total` |
 
 除 Path 使用 BasePagination 的 `start` 起始索引外，其他页面支持 `page`（从 1 开始，默认 1）；均支持 `page_size`（20、50、100，默认 20）。Path 将 `start-1` 转为 API 的零基偏移，支持任意起始位置。`nf=1` 或 `nf=true` 选择 NF，控件写回使用 `1/0`。无效、重复或越界参数回退到相应默认值；PB 的 BV 范围沿用选择器限制。
@@ -37,14 +37,16 @@
 /#/ranking/speed/top?sort=eb&detail=es&nf=1
 /#/ranking/speed/lsf?sort=nf:sum
 /#/ranking/density?level=c24_30_200
-/#/ranking/tournament/weekly?sort=weekly_classic_best
+/#/ranking/tournament/weekly?sort=weekly_qwc_nf_best
 ```
 
 `useRankingQuery.ts` 统一解析和同步 query，不改变后端 API。控件操作使用 `router.push`，支持复制链接、重载和浏览器前进/后退。筛选、排序或每页条数变化时重置到第一页；恢复历史 URL 时保留其页码。top 单独切换 `detail` 不重置页码、不请求榜单，切换排序时同步明细。`collection` 与 `skill_tt` 的排序键在解析期用静态 field 列表校验；`skill_tt` 的排序键还必须属于当前子页，否则回退到该子页默认排序，不把非法字符串交给后端。
 
 缓存但未激活的页面不响应其他大榜的 query。配色仍是全局 localStorage 设置，不放进 URL。
 
-比赛排行榜通过 select 切换总榜、GSC、竞速打卡赛和效率打卡赛。旧 `/ranking/tournament` 入口跳转总榜并保留 query，再按该页可用列校验。各 total 降序、best 升序；best 与对应届号分列，不单独按届号排序。GSC 和竞速 best 沿用前端整数解码，效率 best 直接显示原始浮点成绩及独立年/周字段，三位小数只用于展示。当前积分仍按 `globalNow` 衰减，Redis 顺序使用年度统一锚点。默认值不入对应榜，切换排序可能改变总人数；`weekly_classic_total` 仍在后端维护，但不重复展示。
+比赛排行榜通过 select 切换总榜、GSC、竞速打卡赛和效率打卡赛。旧 `/ranking/tournament` 入口跳转总榜并保留 query，再按该页可用列校验。各 total 降序、best 升序；GSC 和效率榜的 best 与对应届号分列，不单独按届号排序。GSC 和竞速 best 沿用前端整数解码，效率 best 直接显示原始浮点成绩及独立年/周字段，三位小数只用于展示。当前积分仍按 `globalNow` 衰减，Redis 顺序使用年度统一锚点。默认值不入对应榜，切换排序可能改变总人数。
+
+竞速打卡赛榜同时展示合并总积分 `weekly_total`，以及经典、NF、强无猜、强无猜NF 四个赛制各自的总积分和 best，共九个指标列，另保留名次与玩家列。九个指标均支持表头排序；每个 best 单元格内显示 `成绩 (YYYY-Www)`，不另设届号列，也不增加赛制选择器。比赛总榜的竞速部分只显示合并后的 `weekly_total`，不展开四个赛制分项。
 
 效率分类使用 select 切换 Thrp、NF IOE、TPE 和 Path，默认 Thrp；共用刷新、配色开关与随选择切换的帮助提示。NF IOE 满分时括号显示比较用时（秒），sum 满分只显示高级用时，sum 按值除以 3 使用 IOE 色阶。TPE 按中级、高级、合计分组。Path 按初级、中级、高级、合计四组，各含 Path/CPath/EPath，API 原值除以 16 换算为格，title 保留换算后完整精度，完全不上色。成绩均显示三位小数，单项可预览录像，sum 不生成链接，不设置 NF 开关。
 

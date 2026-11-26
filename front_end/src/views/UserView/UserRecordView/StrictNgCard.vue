@@ -16,7 +16,7 @@
                     <th scope="row" class="table-col-center text-secondary">
                         {{ t(`prop.${label}`) }}{{ rankingName === 'strict_ng_nf' ? ' (NF)' : '' }}
                     </th>
-                    <td v-for="level in levels" :key="level" class="table-col-center">
+                    <td v-for="level in levels" :key="level" class="table-col-center" :style="cellStyle(records[rankingName], level, stat)">
                         <VideoPreviewLink
                             v-if="strictNgVideoId(records[rankingName], `${level}${stat}`)"
                             :id="strictNgVideoId(records[rankingName], `${level}${stat}`)"
@@ -41,6 +41,8 @@ import VideoPreviewLink from '@/components/VideoPreviewLink.vue';
 import { fetchProfileStrictNgRecords, profileDataRevision } from '@/services/profileDataService';
 import { formatStrictNgValue, StrictNgLevels, StrictNgStat, strictNgVideoId } from '@/services/strictNgRankingService';
 import type { StrictNgField, StrictNgPlayerRecord, StrictNgRankingName } from '@/services/strictNgRankingService';
+import { colorThemes } from '@/store/color';
+import { local } from '@/store/local';
 
 const props = defineProps({
     userId: { type: Number, required: true },
@@ -85,27 +87,18 @@ watch([() => props.userId, () => profileDataRevision(props.userId)], async ([use
 function formatScore(record: StrictNgPlayerRecord | undefined, stat: StrictNgField): string {
     return `${formatStrictNgValue(record, stat)}(${record?.ranks[stat] ?? '--'})`;
 }
+
+function cellStyle(record: StrictNgPlayerRecord | undefined, level: typeof levels[number], stat: StrictNgStat) {
+    if (!local.value.colored || level === 'sum') return undefined;
+    const value = record?.[`${level}${stat}`];
+    if (value == null) return undefined;
+    return stat === 't' ? colorThemes[`${level}time`].value.getStyle(value / 1000) : colorThemes.bvs.value.getStyle(value);
+}
 </script>
 
 <style scoped>
 .strict-ng-record-scroll {
-    overflow-x: auto;
-}
-
-:deep(.strict-ng-record-table) {
-    color: var(--ui-text-color-regular);
-    background: var(--ui-fill-color-blank);
-    font-size: var(--ui-font-size-base);
-}
-
-:deep(.strict-ng-record-table th),
-:deep(.strict-ng-record-table td) {
-    border: 1px solid var(--ui-border-color-lighter);
-    padding: 8px 12px;
-}
-
-:deep(.strict-ng-record-table th) {
-    background: var(--ui-fill-color-light);
+    min-width: 0;
 }
 
 :deep(.strict-ng-record-table td) {

@@ -4,7 +4,7 @@ import $axios from '@/http';
 import i18n from '@/i18n';
 import { hashRouter, installHashHistoryCleanup } from '@cy/support/hashHistory';
 
-const rankingBody = { items: [], total: 0, start: 0, anchor: new Date().toISOString() };
+const rankingBody = { items: [], has_more: false, next_cursor: null };
 const meBody = { balance: 5, likes_sent: 0, banned: false, daily_likes_used: 3 };
 
 describe('<WorksView />', () => {
@@ -12,7 +12,7 @@ describe('<WorksView />', () => {
 
     it('keeps submit and refresh above the table without any tab bar', () => {
         cy.mockPlayerNameFallback();
-        cy.intercept({ method: 'GET', pathname: '/api/media/ranking' }, { body: rankingBody }).as('ranking');
+        cy.intercept({ method: 'GET', pathname: '/api/media/works' }, { body: rankingBody }).as('ranking');
         cy.intercept({ method: 'GET', pathname: '/api/media/me' }, { body: meBody }).as('me');
         const router = hashRouter({ initialPath: '/works' });
         cy.wrap(router.isReady()).then(() => {
