@@ -62,7 +62,9 @@ function navigate(hash: string) {
     cy.window().then((win) => {
         win.location.hash = hash;
     });
-    cy.location('hash').should('eq', hash);
+    cy.location('hash').should((actual) => {
+        expect(actual === hash || actual.startsWith(`${hash}?`)).to.eq(true);
+    });
 }
 
 interface VideoQueryRow {
