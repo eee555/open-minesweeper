@@ -50,7 +50,7 @@ def get_me_state(user):
     }
 
 
-def list_works(videos, *, sort='hot', limit=20, cursor=None, media_format='', language=''):
+def list_works(videos, *, sort='submitted', limit=20, cursor=None, media_format='', language=''):
     if sort not in SORT_FIELDS or not 1 <= limit <= 50:
         raise MediaServiceError('invalid_sort_or_limit')
     if media_format and media_format not in MediaFormat.values:

@@ -13,7 +13,7 @@ const mediaItem = {
     title: 'Work',
     language: 'en',
     created_at: '2026-01-01T00:00:00Z',
-    submitted_at: '2026-01-01T00:00:00Z',
+    submitted_at: '2026-01-02T00:00:00Z',
     format: 'B_a',
     status: 'verified',
     rejected_at: null,
@@ -66,13 +66,16 @@ describe('<MediaListPanel />', () => {
                 : { ...pageBody, items: firstBatch, has_more: true, next_cursor: 'next-batch' } });
         }).as('pages');
         mountPanel();
-        cy.wait('@pages');
+        cy.wait('@pages').its('request.query.sort').should('equal', 'submitted');
         cy.get('.base-table tbody tr').should('have.length', 12);
         cy.get('main.common-layout').scrollTo('bottom');
         cy.wait('@pages').its('request.query').should('include', { cursor: 'next-batch' }).and('not.have.property', 'start');
         cy.get('.base-table tbody tr').should('have.length', 13);
         cy.get('[data-cy=works-end]').should('exist');
         cy.get('.el-pagination').should('not.exist');
+        cy.get('[data-cy=works-time-sort-toggle]').click();
+        cy.wait('@pages').its('request.query').should('include', { sort: 'latest' }).and('not.have.property', 'cursor');
+        cy.get('.base-table tbody tr').should('have.length', 12);
     });
 
     it('keeps loaded rows and retries the same cursor after a failed append', () => {
@@ -101,8 +104,8 @@ describe('<MediaListPanel />', () => {
         cy.get('.el-select-dropdown:visible .el-select-dropdown__item').should('have.length', 4);
         cy.get('.el-select-dropdown:visible').contains('.el-select-dropdown__item', 'Español').click();
         cy.get('[data-cy=works-apply-filters]').click();
-        cy.wait('@filtered').its('request.query').should('include', { format: 'B_a', language: 'es', sort: 'hot' }).and('not.have.property', 'cursor');
-        cy.get('[data-sort=latest]').click();
+        cy.wait('@filtered').its('request.query').should('include', { format: 'B_a', language: 'es', sort: 'submitted' }).and('not.have.property', 'cursor');
+        cy.get('[data-cy=works-time-sort-toggle]').click();
         cy.wait('@filtered').its('request.query').should('include', { format: 'B_a', language: 'es', sort: 'latest' }).and('not.have.property', 'cursor');
         cy.get('[data-cy=works-language]').click();
         cy.get('.el-select-dropdown:visible').contains('.el-select-dropdown__item', 'Other').click();
@@ -120,7 +123,7 @@ describe('<MediaListPanel />', () => {
         cy.wait('@me');
         cy.wait('@ranking');
         cy.get('.base-table thead th').should('have.length', 5);
-        cy.get('[data-sort=hot]').should('have.attr', 'aria-pressed', 'true');
+        cy.get('[data-sort=submitted]').should('have.attr', 'aria-pressed', 'true');
         cy.get('[data-cy=media-row-7] [data-cy=media-title-link]').should('have.attr', 'href', 'https://www.bilibili.com/read/cv1646742');
         cy.get('[data-cy=media-row-7] [data-cy=media-platform-icon]').should('have.attr', 'src', 'https://www.bilibili.com/favicon.ico').
             and('have.attr', 'alt', 'Bilibili');
@@ -171,14 +174,26 @@ describe('<MediaListPanel />', () => {
 
     it('switches the backend sort through the table headers', () => {
         mountPanel();
-        cy.wait('@ranking').its('request.query.sort').should('eq', 'hot');
-        cy.get('[data-sort=latest]').click();
+        cy.wait('@ranking').its('request.query.sort').should('eq', 'submitted');
+        cy.get('[data-sort=submitted]').should('have.attr', 'aria-pressed', 'true');
+        cy.get('.base-table tbody').extractTableData().should((rows) => {
+            expect(rows[0]?.[2]).to.equal(new Date(mediaItem.submitted_at).toLocaleString('en'));
+        });
+        cy.get('[data-cy=works-time-sort-toggle]').should('have.attr', 'aria-label', 'Sort by publication time').click();
         cy.wait('@ranking').its('request.query.sort').should('eq', 'latest');
         cy.get('[data-sort=latest]').should('have.attr', 'aria-pressed', 'true');
+        cy.get('.base-table tbody').extractTableData().should((rows) => {
+            expect(rows[0]?.[2]).to.equal(new Date(mediaItem.created_at).toLocaleString('en'));
+        });
         cy.get('[data-sort=likes]').click();
         cy.wait('@ranking').its('request.query.sort').should('eq', 'likes');
+        cy.get('[data-sort=latest]').click();
+        cy.wait('@ranking').its('request.query.sort').should('eq', 'latest');
         cy.get('[data-sort=hot]').click();
         cy.wait('@ranking').its('request.query.sort').should('eq', 'hot');
+        cy.get('[data-cy=works-time-sort-toggle]').should('have.attr', 'aria-label', 'Sort by submission time').click();
+        cy.wait('@ranking').its('request.query.sort').should('eq', 'submitted');
+        cy.get('[data-sort=submitted]').should('have.attr', 'aria-pressed', 'true');
     });
 
     it('opens a preview dialog for embeddable works instead of following the external link', () => {

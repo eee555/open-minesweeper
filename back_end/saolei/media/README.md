@@ -51,11 +51,11 @@ GitHub 使用现有 requests，无新增 scope、PAT 或 SDK。单次连接上�
 
 ## 作品查询与语言
 
-公开作品列表使用 `/api/media/works`，只返回已审核作品，支持类型和语言组合筛选。热度、累计投喂、发表时间均倒序，同值按数值 `id DESC` 排序。默认每批 20 条，最多 50 条，每批只查询一次作品数据，没有总数查询或 OFFSET。输入输出字段以 Ninja 自动文档为准。
+公开作品列表使用 `/api/media/works`，只返回已审核作品，支持类型和语言组合筛选。默认 `sort=submitted` 按投稿时间 `submitted_at` 倒序；`latest` 按发表时间 `created_at` 倒序，`hot` 和 `likes` 分别按热度和累计投喂倒序，同值均按数值 `id DESC` 排序。页面时间列右侧的三横线按钮切换投稿时间和发表时间，列标题与日期同步切换。默认每批 20 条，最多 50 条，每批只查询一次作品数据，没有总数查询或 OFFSET。输入输出字段以 Ninja 自动文档为准。
 
 游标由 Django signing 签名，绑定原始排序值、作品 ID、排序与筛选条件。客户端原样传回，同值通过 ID 继续，删除边界作品不影响查询。投喂数、ID 和整数微秒以字符串保存在 token 中，热度保持 DOUBLE 往返精度。前端按 ID 去重，刷新时重排；切换查询或卸载时取消旧请求，并根据其 signal 忽略迟到响应。
 
-三个基础排序索引为 `(hot_value DESC, id DESC)`、`(likes DESC, id DESC)`、`(created_at DESC, id DESC)`。类型筛选复用 `(format, suffix)` 唯一索引的首列，语言增加单列索引，避免重复添加类型索引。`status` 不进入新增索引，SQL 仍保留已审核条件。允许 MySQL 根据选择性过滤或使用 `filesort`；游标消除深分页增加的跳过扫描，不保证整条查询恒定成本。旧 `/ranking` 已移除；`/latest` 仍服务管理员已审核列表，其他个人、数据库、作者榜分页保留原契约。
+四个基础排序索引为 `(hot_value DESC, id DESC)`、`(likes DESC, id DESC)`、`(created_at DESC, id DESC)`、`(submitted_at DESC, id DESC)`。类型筛选复用 `(format, suffix)` 唯一索引的首列，语言增加单列索引，避免重复添加类型索引。`status` 不进入新增索引，SQL 仍保留已审核条件。允许 MySQL 根据选择性过滤或使用 `filesort`；游标消除深分页增加的跳过扫描，不保证整条查询恒定成本。旧 `/ranking` 已移除；`/latest` 仍服务管理员已审核列表，其他个人、数据库、作者榜分页保留原契约。
 
 作品列表的语言筛选只有 `zh-cn`（中文）、`en`（英文）、`es`（西班牙语）和 `other`（其他），清空表示全部语言。`other` 匹配这三个预设以外的所有值，包括历史空值；它是查询类别，不改写作品保存的语言。旧的 `language_empty` 参数已移除。
 

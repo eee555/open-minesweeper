@@ -96,7 +96,7 @@ redis-cli -n 0 DEL io_s_old io_r_old io_s_spds io_r_spds cpus
 
 ## 作品排行
 
-作品页 `/api/media/works` 直接查询 MySQL，支持类型和语言筛选，按热度、累计投喂或发表时间倒序，以原始排序值和 ID 进行游标分页。没有 COUNT / OFFSET，不缓存单件作品排行。三个排序索引不包含 `status`；类型复用 `(format, suffix)` 唯一索引前缀，语言新增单列索引，允许 MySQL 选择过滤和额外排序。旧 `/ranking` 已移除，管理员仍使用 `/latest`。
+作品页 `/api/media/works` 直接查询 MySQL，支持类型和语言筛选，默认 `sort=submitted` 按投稿时间 `submitted_at` 倒序，也支持按热度、累计投喂或发表时间 `created_at` 倒序，以原始排序值和 ID 进行游标分页。没有 COUNT / OFFSET，不缓存单件作品排行。四个排序索引为 `(hot_value DESC, id DESC)`、`(likes DESC, id DESC)`、`(created_at DESC, id DESC)`、`(submitted_at DESC, id DESC)`，均不包含 `status`；类型复用 `(format, suffix)` 唯一索引前缀，语言新增单列索引，允许 MySQL 选择过滤和额外排序。旧 `/ranking` 已移除，管理员仍使用 `/latest`。
 
 Redis 只保留三个固定键：作者汇总榜 `media:rank:user:hot`、`media:rank:user:likes`，以及存储 Redis 热度基准 `T_r` 的 `media:hot:anchor`，没有 TTL。两个 ZSET 只汇总 `verified` 作品；全表统一的 `T_db = Media.hot_value_updated_at` 是数据库基准，作者缓存热度按 `decay(T_db, T_r)` 折算。作品游标接口不再读取或返回 anchor，作者榜响应 anchor 仍为 `T_r`。三个键均纳入监控固定内存清单。
 
