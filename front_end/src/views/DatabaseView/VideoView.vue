@@ -106,6 +106,11 @@
                     </select>
                 </label>
                 <span class="video-query__limit">{{ t('local.limit', { count: RESULT_LIMIT }) }}</span>
+                <BaseButton type="primary" size="small" data-cy="run-query" :loading="loading" @click="search">
+                    <template #icon>
+                        <i class="pi pi-search" aria-hidden="true" />
+                    </template>{{ t('button.query') }}
+                </BaseButton>
                 <span v-if="loading" class="text-secondary text-small" data-cy="query-loading">{{ t('local.loading') }}</span>
                 <span v-if="queryFailed" class="text-secondary text-small" data-cy="query-error">{{ t('local.queryFailed') }}</span>
             </div>
@@ -472,8 +477,6 @@ function restoreUrl(): void {
     }
 }
 
-const QUERY_DEBOUNCE_MS = 5000;
-let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 let controller: AbortController | undefined;
 let revision = 0;
 let hasQueryState = false;
@@ -509,20 +512,12 @@ async function runQuery(): Promise<void> {
     }
 }
 
-function scheduleQuery(): void {
-    loading.value = true;
-    queryFailed.value = false;
-    if (debounceTimer !== undefined) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-        void runQuery();
-    }, QUERY_DEBOUNCE_MS);
+function search(): void {
+    hasQueryState = true;
+    void runQuery();
 }
 
 restoreUrl();
-watch([filterTags, sortRules], () => {
-    hasQueryState = true;
-    scheduleQuery();
-}, { deep: true });
 watch([pageSize, currentPage], () => {
     hasQueryState = true;
     syncUrl();
@@ -531,10 +526,8 @@ onActivated(() => {
     syncUrl();
 });
 onUnmounted(() => {
-    if (debounceTimer !== undefined) clearTimeout(debounceTimer);
     controller?.abort();
 });
-void runQuery();
 
 const i18nMessages = {
     'zh-cn': { local: {

@@ -11,7 +11,7 @@ export type MediaFormatValue = 'B_v' | 'B_a' | 'c_p' | 'g_r';
 export type MediaStatusValue = 'pending' | 'verified' | 'rejected';
 export type MediaSortKey = 'hot' | 'likes' | 'created_at';
 export type MediaRankSort = 'hot' | 'likes';
-export type MediaWorksSort = MediaRankSort | 'latest';
+export type MediaWorksSort = MediaRankSort | 'latest' | 'submitted';
 export type MediaQueryField = 'title' | 'suffix';
 export type MediaQueryMode = 'exact' | 'iexact' | 'contains' | 'icontains' | 'startswith' | 'istartswith' | 'endswith' | 'iendswith' | 'regex';
 

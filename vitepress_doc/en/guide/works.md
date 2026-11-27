@@ -7,7 +7,7 @@ description: Submission, review, rubies and heat rules for promoting Bilibili vi
 
 [Open the Works page](https://openms.top/#/works)
 
-Works lists the minesweeper content collected on this site: Bilibili videos, Bilibili articles, Saolei.wang posts and GitHub repositories. **Only approved works appear here.** The table is sorted by **Current heat** by default; click a column heading to switch between **Published at**, **Current heat** and **Total likes**. Filter by type and language, then scroll down to load more. Changing the sort or filters starts the list again; there is no page-number navigation. Clicking a Bilibili video title opens an in-site preview; other titles open the original link. The icon before each title shows the source platform.
+Works lists the minesweeper content collected on this site: Bilibili videos, Bilibili articles, Saolei.wang posts and GitHub repositories. **Only approved works appear here.** The table defaults to **Submitted at**, newest first. The three-line button beside the time heading switches between **Submitted at** and **Published at**, including the dates shown in the column. Click the other headings to sort by **Current heat** or **Total likes**. Filter by type and language, then scroll down to load more. Changing the sort or filters starts the list again; there is no page-number navigation. Clicking a Bilibili video title opens an in-site preview; other titles open the original link. The icon before each title shows the source platform.
 
 The language filter offers Chinese, English, Spanish and Other. Other includes custom and unspecified languages; clear the filter to see all languages.
 

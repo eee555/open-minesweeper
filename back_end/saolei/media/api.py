@@ -70,7 +70,7 @@ def _page_queryset(queryset, start, count):
 
 @router.get('/works', response=MediaCursorPageOut)
 @decorate_view(ratelimit(key='ip', rate='5/s', group='media-works', block=True))
-def get_works(request, sort: str = 'hot', limit: int = 20, cursor: str | None = None,
+def get_works(request, sort: str = 'submitted', limit: int = 20, cursor: str | None = None,
               media_format: str = Query('', alias='format'), language: str = ''):  # noqa: B008
     """
     - ratelimit(key='ip', rate='5/s', group='media-works', block=True)

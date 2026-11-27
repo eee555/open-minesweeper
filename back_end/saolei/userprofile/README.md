@@ -138,8 +138,8 @@ QQ 昵称和头像仅保存用于本人欢迎页、QQ 登录管理区，不写�
 
 ```json
 {
-  "qq_oauth_client_id": "申请得到的 App ID",
-  "qq_oauth_client_secret": "申请得到的 App Key / App Secret"
+  "qq_app_id": "申请得到的 App ID",
+  "qq_app_key": "申请得到的 App Key / App Secret"
 }
 ```
 

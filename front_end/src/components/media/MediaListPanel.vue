@@ -37,13 +37,21 @@
                     <th scope="col" class="table-col-player">
                         {{ t('media.author') }}
                     </th>
-                    <th scope="col" class="table-col-datetime" :aria-sort="sort === 'latest' ? 'descending' : 'none'">
-                        <BaseTextButton
-                            :type="sort === 'latest' ? 'primary' : 'default'" :aria-pressed="sort === 'latest'"
-                            data-sort="latest" @click="selectSort('latest')"
-                        >
-                            {{ t('media.publishedAt') }}
-                        </BaseTextButton>
+                    <th scope="col" class="table-col-datetime" :aria-sort="sort === timeSort ? 'descending' : 'none'">
+                        <span class="media-time-header">
+                            <BaseTextButton
+                                :type="sort === timeSort ? 'primary' : 'default'" :aria-pressed="sort === timeSort"
+                                :data-sort="timeSort" @click="selectSort(timeSort)"
+                            >
+                                {{ timeSort === 'submitted' ? t('media.submittedAt') : t('media.publishedAt') }}
+                            </BaseTextButton>
+                            <BaseTextButton
+                                size="small" class="media-time-toggle" :title="timeSortToggleLabel" :aria-label="timeSortToggleLabel"
+                                data-cy="works-time-sort-toggle" @click="toggleTimeSort"
+                            >
+                                <i class="pi pi-bars" aria-hidden="true" />
+                            </BaseTextButton>
+                        </span>
                     </th>
                     <th scope="col" class="table-col-number" :aria-sort="sort === 'hot' ? 'descending' : 'none'">
                         <BaseTextButton
@@ -89,7 +97,7 @@
                     <PlayerName :user-id="item.user_id" />
                 </td>
                 <td class="table-col-datetime">
-                    {{ formatDate(item.created_at) }}
+                    {{ formatDate(timeSort === 'submitted' ? item.submitted_at : item.created_at) }}
                 </td>
                 <td class="table-col-number">
                     {{ formatHeat(item.hot_now) }}
@@ -180,7 +188,9 @@ function platformName(format: string): string {
     return t(`platform.${FORMAT_PLATFORM[format]}`);
 }
 
-const sort = ref<MediaWorksSort>('hot');
+const sort = ref<MediaWorksSort>('submitted');
+const timeSort = ref<'submitted' | 'latest'>('submitted');
+const timeSortToggleLabel = computed(() => t(timeSort.value === 'submitted' ? 'local.sortByPublished' : 'local.sortBySubmitted'));
 const items = ref<MediaItem[]>([]);
 const nextCursor = ref<string | null>(null);
 const hasMore = ref(true);
@@ -219,6 +229,11 @@ function openPreview(item: MediaItem): void {
 function selectSort(value: MediaWorksSort): void {
     if (sort.value === value) return;
     sort.value = value;
+}
+
+function toggleTimeSort(): void {
+    timeSort.value = timeSort.value === 'submitted' ? 'latest' : 'submitted';
+    selectSort(timeSort.value);
 }
 
 function applyFilters(): void {
@@ -324,6 +339,8 @@ defineExpose({ refresh });
 const i18nMessages = {
     'zh-cn': { local: {
         loading: '加载中',
+        sortByPublished: '改按发表时间排序',
+        sortBySubmitted: '改按投稿时间排序',
         type: '类型',
         allTypes: '全部类型',
         bilibiliVideo: 'B 站视频',
@@ -341,6 +358,8 @@ const i18nMessages = {
     } },
     en: { local: {
         loading: 'Loading',
+        sortByPublished: 'Sort by publication time',
+        sortBySubmitted: 'Sort by submission time',
         type: 'Type',
         allTypes: 'All types',
         bilibiliVideo: 'Bilibili video',
@@ -358,6 +377,8 @@ const i18nMessages = {
     } },
     es: { local: {
         loading: 'Cargando',
+        sortByPublished: 'Ordenar por fecha de publicación',
+        sortBySubmitted: 'Ordenar por fecha de envío',
         type: 'Tipo',
         allTypes: 'Todos los tipos',
         bilibiliVideo: 'Vídeo de Bilibili',
@@ -378,6 +399,20 @@ const { t, locale } = useI18n({ messages: i18nMessages });
 </script>
 
 <style scoped>
+.media-time-header {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.media-time-toggle {
+    padding: 2px;
+}
+
+.media-time-toggle .pi {
+    font-size: 10px;
+}
+
 .media-filters,
 .media-filters label,
 .media-load-more {
