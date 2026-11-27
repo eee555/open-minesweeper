@@ -86,7 +86,7 @@
     "cypress-if": "1.17.1",
     "cypress-intercept-formdata": "1.0.0",
     "cypress-real-events": "1.15.1",
-    "cypress-split": "1.25.0",
+    "cypress-split": "1.25.4",
     "cypress-table": "1.0.2",
     "cypress-vite": "1.10.2",
     "esbuild": "0.28.2",
