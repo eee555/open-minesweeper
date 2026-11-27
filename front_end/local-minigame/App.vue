@@ -77,7 +77,7 @@ import LeftClickTraining from '@/views/MiniGameView/LeftClickTraining/App.vue';
 import MissingCellTraining from '@/views/MiniGameView/MissingCellTraining/App.vue';
 import ReactionTraining from '@/views/MiniGameView/ReactionTraining/App.vue';
 
-const colorMode = useColorMode({ storageKey: 'offline-minigame-color-mode', emitAuto: true });
+const { store: colorMode } = useColorMode({ storageKey: 'offline-minigame-color-mode' });
 const game = ref<TrainingGame>('left-click');
 const selectedRankingKey = ref('');
 const currentRankingKey = computed(() => (selectedRankingKey.value.startsWith(`${game.value}-`) ? selectedRankingKey.value : null));

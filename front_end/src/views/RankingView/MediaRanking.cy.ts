@@ -14,6 +14,7 @@ describe('<MediaRanking />', () => {
                 items: [{ user_id: 42, hot: 9.87, likes: 12 }],
                 total: 1,
                 start: 0,
+                // eslint-disable-next-line @typescript-eslint/no-deprecated -- Cypress body 上下文含 string，anchor 键误命中 String.prototype.anchor
                 anchor: new Date().toISOString(),
             },
         }).as('ranking');
@@ -47,6 +48,7 @@ describe('<MediaRanking />', () => {
                 items: [{ user_id: 42, hot: 10, likes: 3 }],
                 total: 1,
                 start: 0,
+                // eslint-disable-next-line @typescript-eslint/no-deprecated -- Cypress body 上下文含 string，anchor 键误命中 String.prototype.anchor
                 anchor: new Date(Date.now() - 10 * 86400000).toISOString(),
             },
         }).as('ranking');
@@ -64,6 +66,7 @@ describe('<MediaRanking />', () => {
 
     it('renders the empty state', () => {
         cy.intercept({ method: 'GET', pathname: '/api/media/user-ranking' }, {
+            // eslint-disable-next-line @typescript-eslint/no-deprecated -- Cypress body 上下文含 string，anchor 键误命中 String.prototype.anchor
             body: { items: [], total: 0, start: 0, anchor: '2026-01-01T00:00:00Z' },
         }).as('ranking');
         const router = hashRouter({ initialPath: '/ranking/media' });

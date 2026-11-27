@@ -35,9 +35,11 @@ describe('<StaffMediaReview />', () => {
         store.user.is_superuser = true;
         cy.mockPlayerNameFallback();
         cy.intercept({ method: 'GET', pathname: '/api/media/pending' }, {
+            // eslint-disable-next-line @typescript-eslint/no-deprecated -- Cypress body 上下文含 string，anchor 键误命中 String.prototype.anchor
             body: { items: [], total: 0, start: 0, anchor },
         }).as('pending');
         cy.intercept({ method: 'GET', pathname: '/api/media/latest' }, {
+            // eslint-disable-next-line @typescript-eslint/no-deprecated -- Cypress body 上下文含 string，anchor 键误命中 String.prototype.anchor
             body: { items: [verifiedWork], total: 1, start: 0, anchor },
         }).as('latest');
     });
@@ -63,6 +65,7 @@ describe('<StaffMediaReview />', () => {
     it('stays on the pending list after approving a pending work', () => {
         const pendingWork = { ...verifiedWork, id: 8, status: 'pending', title: 'Pending work' };
         cy.intercept({ method: 'GET', pathname: '/api/media/pending' }, {
+            // eslint-disable-next-line @typescript-eslint/no-deprecated -- Cypress body 上下文含 string，anchor 键误命中 String.prototype.anchor
             body: { items: [pendingWork], total: 1, start: 0, anchor },
         }).as('pending');
         cy.intercept('POST', '/api/media/admin/verify', { body: verifiedWork }).as('verify');
@@ -89,6 +92,7 @@ describe('<StaffMediaReview />', () => {
     it('still requires the external author id for a degraded submission', () => {
         const degradedWork = { ...verifiedWork, id: 9, status: 'pending', title: '', metadata_pending: true };
         cy.intercept({ method: 'GET', pathname: '/api/media/pending' }, {
+            // eslint-disable-next-line @typescript-eslint/no-deprecated -- Cypress body 上下文含 string，anchor 键误命中 String.prototype.anchor
             body: { items: [degradedWork], total: 1, start: 0, anchor },
         }).as('pending');
         cy.intercept('POST', '/api/media/admin/verify', { body: { ...degradedWork, status: 'verified' } }).as('verify');

@@ -34,6 +34,7 @@ describe('<UserMediaView />', () => {
 
     it('shows the repository owner/name and description on the works tab', () => {
         cy.intercept({ method: 'GET', pathname: '/api/media/user/99' }, {
+            // eslint-disable-next-line @typescript-eslint/no-deprecated -- Cypress body 上下文含 string，anchor 键误命中 String.prototype.anchor
             body: { items: [mediaItem], total: 1, start: 0, anchor: new Date().toISOString() },
         }).as('userMedia');
         cy.intercept('GET', 'https://api.github.com/repositories/42', {
