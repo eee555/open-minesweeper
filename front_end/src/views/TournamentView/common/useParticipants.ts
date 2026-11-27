@@ -45,6 +45,7 @@ export function useParticipants<T extends TournamentParticipant>(tournament: () 
             const previous = new Map(participants.value.map((item) => [item.id, item]));
             participants.value = incoming.map((item) => {
                 const existing = awarded ? undefined : previous.get(item.id);
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-class-instance-assignment -- reactive() 保留原型链，代理仍是 T 的实例
                 if (!existing) return reactive(item) as T;
                 const { videos } = existing;
                 Object.assign(existing, item);
@@ -61,6 +62,7 @@ export function useParticipants<T extends TournamentParticipant>(tournament: () 
     function registered(item: T) {
         request += 1;
         loading.value = false;
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-class-instance-assignment -- reactive() 保留原型链，代理仍是 T 的实例
         participants.value = [...participants.value.filter((entry) => entry.id !== item.id), reactive(item) as T];
     }
     function deleted(id: number) {
