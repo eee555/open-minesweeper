@@ -36,6 +36,7 @@ class Media(models.Model):
             models.Index(fields=['user', '-created_at'], name='media_user_created_idx'),
             models.Index(fields=['title'], name='media_title_idx'),
             models.Index(fields=['-created_at', '-id'], name='media_latest_idx'),
+            models.Index(fields=['-submitted_at', '-id'], name='media_submitted_idx'),
             models.Index(fields=['-hot_value', '-id'], name='media_hot_idx'),
             models.Index(fields=['-likes', '-id'], name='media_likes_idx'),
             models.Index(fields=['language'], name='media_language_idx'),

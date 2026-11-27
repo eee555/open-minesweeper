@@ -24,12 +24,16 @@ class WorksTests(TestCase):
         cls.user = UserProfile.objects.create_user(username='works-cursor', password='test-password')
 
     def _media(self, pk, **overrides):
+        submitted_at = overrides.pop('submitted_at', REFERENCE)
         fields = {
             'id': pk, 'user': self.user, 'title': f'Work {pk}', 'format': 'B_a', 'suffix': str(pk),
             'language': 'en', 'created_at': REFERENCE, 'hot_value_updated_at': REFERENCE,
             'hot_value': 0.0, 'likes': 0, 'status': MediaStatus.VERIFIED,
         }
-        return Media.objects.create(**(fields | overrides))
+        media = Media.objects.create(**(fields | overrides))
+        Media.objects.filter(pk=media.pk).update(submitted_at=submitted_at)
+        media.submitted_at = submitted_at
+        return media
 
     def _get(self, **params):
         response = self.client.get('/api/media/works', params)
@@ -41,7 +45,7 @@ class WorksTests(TestCase):
             self._media(pk)
         self._media(103, status=MediaStatus.PENDING)
         self._media(104, status=MediaStatus.REJECTED)
-        for sort in ('hot', 'likes', 'latest'):
+        for sort in ('hot', 'likes', 'latest', 'submitted'):
             with self.subTest(sort=sort):
                 ids, cursor = [], None
                 while True:
@@ -55,6 +59,15 @@ class WorksTests(TestCase):
                     self.assertNotEqual(page['next_cursor'], cursor)
                     cursor = page['next_cursor']
                 self.assertEqual(ids, [102, 101, 100, 10, 9])
+
+    def test_default_submission_order_differs_from_publication_order(self):
+        self._media(1, submitted_at=REFERENCE + timedelta(microseconds=2), created_at=REFERENCE + timedelta(days=1))
+        self._media(2, submitted_at=REFERENCE + timedelta(microseconds=1), created_at=REFERENCE + timedelta(days=2))
+        self._media(3, submitted_at=REFERENCE + timedelta(microseconds=2), created_at=REFERENCE)
+        first = self._get(limit=2)
+        self.assertEqual([row['id'] for row in first['items']], [3, 1])
+        self.assertEqual([row['id'] for row in self._get(limit=2, cursor=first['next_cursor'])['items']], [2])
+        self.assertEqual([row['id'] for row in self._get(sort='latest')['items']], [2, 1, 3])
 
     def test_language_categories_and_type_are_applied_before_cursor_limit(self):
         self._media(1, language='日本語')
@@ -79,13 +92,13 @@ class WorksTests(TestCase):
         self._media(1, hot_value=1.0000000000000002)
         boundary = self._media(2, hot_value=1.0000000000000004)
         self._media(3, hot_value=2.0)
-        page = self._get(limit=2)
+        page = self._get(sort='hot', limit=2)
         boundary.delete()
-        self.assertEqual([row['id'] for row in self._get(limit=2, cursor=page['next_cursor'])['items']], [1])
+        self.assertEqual([row['id'] for row in self._get(sort='hot', limit=2, cursor=page['next_cursor'])['items']], [1])
 
     def test_datetime_microseconds_and_large_likes_round_trip(self):
         filters = {'format': '', 'language': ''}
-        for sort, value in (('latest', REFERENCE + timedelta(microseconds=123456)), ('likes', 2**53 + 1), ('hot', 1.0000000000000002)):
+        for sort, value in (('latest', REFERENCE + timedelta(microseconds=123456)), ('submitted', REFERENCE + timedelta(microseconds=123456)), ('likes', 2**53 + 1), ('hot', 1.0000000000000002)):
             with self.subTest(sort=sort):
                 token = encode_cursor(sort, filters, value, 2**53 + 1)
                 self.assertEqual(decode_cursor(token, sort, filters), (value, 2**53 + 1))
@@ -97,6 +110,7 @@ class WorksTests(TestCase):
         for params, code in (
             ({'cursor': cursor + 'tamper'}, 'invalid_cursor'),
             ({'cursor': cursor, 'sort': 'likes'}, 'cursor_query_mismatch'),
+            ({'cursor': cursor, 'sort': 'latest'}, 'cursor_query_mismatch'),
             ({'cursor': cursor, 'language': 'en'}, 'cursor_query_mismatch'),
             ({'cursor': cursor, 'language': 'other'}, 'cursor_query_mismatch'),
             ({'cursor': ''}, 'invalid_cursor'),
@@ -116,7 +130,7 @@ class WorksTests(TestCase):
         filters = {'format': '', 'language': ''}
         for value in ('nan', 'inf', '-1'):
             cursor = signing.dumps({'v': 1, 'sort': 'hot', 'filters': filters, 'value': value, 'id': '1'}, salt=CURSOR_SALT)
-            self.assertEqual(self.client.get('/api/media/works', {'cursor': cursor}).status_code, 400)
+            self.assertEqual(self.client.get('/api/media/works', {'sort': 'hot', 'cursor': cursor}).status_code, 400)
 
     def test_one_database_query_without_count_offset_or_redis(self):
         for pk in range(1, 6):
